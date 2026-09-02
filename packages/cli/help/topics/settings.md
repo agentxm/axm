@@ -145,7 +145,28 @@ Workspace publication defaults live under `publish`. An extension manifest's
 }
 ```
 
-`lint` configures workspace-only severity overrides for `axm lint`.
+`lint.rules` maps an exact rule ID to a local severity for `axm lint`:
+
+```jsonc
+{
+  "lint": {
+    "rules": {
+      "skill/frontmatter-standard-valid": "off",
+      "workspace/instructions-target-current": "warn",
+    },
+  },
+}
+```
+
+Use `off` to suppress the rule locally, `info` for informational findings,
+`warn` for warnings, or `error` for errors. Omit a rule to use its catalog
+default. The spelling in settings is `warn`; emitted findings use `warning`.
+Warnings succeed normally and fail with `axm lint --strict` without becoming
+errors. Informational findings succeed and keep the `clean` exit category,
+which means the result has no errors or warnings.
+
+The active project or user workspace supplies its own settings. These local
+overrides do not change the Registry's fixed publication requirements.
 
 Each extension type has an optional authored-root setting such as
 `skillsConfig.dir`, `rulesConfig.dir`, or `packsConfig.dir`. The value must be a

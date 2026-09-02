@@ -2,8 +2,8 @@
  * Pure evaluator for the lint engine.
  *
  * `evaluateContexts(rules, contexts, config)` pairs each rule with each context,
- * invokes `rule.check`, applies permitted severity overrides from
- * `config.rules`, and drops warning findings configured `"off"`.
+ * invokes `rule.check`, applies severity overrides from `config.rules`, and
+ * drops findings from rules configured `"off"`.
  *
  * Both functions are plain `Effect` values; neither requires a Layer or an
  * ambient service. See the `lint-engine` design doc §3 for the rationale
@@ -59,19 +59,10 @@ const translateConfigValue = (value: LintRuleSeverity): Severity | "off" => {
   }
 };
 
-const applyOverride = (
+const resolveEffectiveSeverity = (
   defaultSeverity: Severity,
   override: LintRuleSeverity | undefined,
-): Severity | "off" => {
-  if (defaultSeverity === "error") {
-    return "error";
-  }
-  if (override === undefined) {
-    return defaultSeverity;
-  }
-  const translated = translateConfigValue(override);
-  return defaultSeverity === "warning" && translated === "info" ? "warning" : translated;
-};
+): Severity | "off" => (override === undefined ? defaultSeverity : translateConfigValue(override));
 
 const withSeverity = (finding: LintFinding, severity: Severity): LintFinding => ({
   ...finding,
@@ -124,7 +115,7 @@ const applySeverityConfig = <C>(
   config: LintConfig,
 ): ReadonlyArray<LintFinding> => {
   const override = config.rules?.[rule.id];
-  const effective = applyOverride(rule.severity, override);
+  const effective = resolveEffectiveSeverity(rule.severity, override);
   if (effective === "off") {
     return [];
   }

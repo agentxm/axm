@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
@@ -11,7 +12,13 @@ import { LintResultDocumentSchema, handleInstall, handleLint } from "axm.sh/spec
 
 import { defineSpecification } from "../../support/contract.js";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";
-import { installBundledAxmSkill, makeLintSpecWorkspace } from "../../support/lint-harness.js";
+import {
+  installBundledAxmSkill,
+  installSkillWithMissingProjection,
+  makeIsolatedLintRules,
+  makeLintSpecWorkspace,
+  runProjectLint,
+} from "../../support/lint-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/findings-name-the-violated-invariant",
@@ -138,6 +145,36 @@ describe("Lint finding identity", () => {
         }
       }
       expect(workspace.rendererState.suggestions.length).toBe(suggestionsBefore);
+    }),
+  );
+
+  it.effect("machine findings and summary carry the effective configured severity", () =>
+    Effect.gen(function* () {
+      const targetRuleId = "workspace/skills-artifacts-correct";
+      const workspace = makeLintSpecWorkspace({
+        machine: true,
+        flags: { json: true },
+        settings: { lint: { rules: makeIsolatedLintRules(targetRuleId, "warn") } },
+      });
+      cleanups.push(workspace.cleanup);
+      yield* installSkillWithMissingProjection(workspace);
+
+      const result = yield* runProjectLint(workspace, false);
+
+      expect(result.result.findings).toHaveLength(1);
+      expect(result.result.findings[0]).toMatchObject({
+        ruleId: targetRuleId,
+        severity: "warning",
+      });
+      expect(result.result.summary).toEqual({
+        total: 1,
+        errors: 0,
+        warnings: 1,
+        infos: 0,
+        exitCategory: "warnings",
+      });
+      expect(result.ok).toBe(true);
+      expect(Exit.isSuccess(result.exit)).toBe(true);
     }),
   );
 });

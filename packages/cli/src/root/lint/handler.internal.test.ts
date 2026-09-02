@@ -41,7 +41,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint } from "./handler.js";
-import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-lint";
+import { allCatalogRuleIds, remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-lint";
 import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
 
 describe("axm lint handler", () => {
@@ -271,45 +271,53 @@ describe("axm lint handler", () => {
     );
   });
 
-  it.effect("--strict turns a warning-only run into a non-zero exit", () => {
-    const { provide } = makeLayers();
-    // WorkspaceMutations fixture: `axm.json` exists with unrecognized
-    // agent -> `workspace/agents-recognized` advisory error. We write
-    // `agents: []` and rely on warnings from other rules to trigger
-    // `--strict`. Actually to construct a warning scenario reliably, set
-    // the lockfile-valid rule to warn so its error becomes warning.
+  it.effect("uses the configured warning in findings, summary, and strict exit policy", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const targetRuleId = "workspace/lockfile-valid";
+    const rules = Object.fromEntries(
+      allCatalogRuleIds.map((ruleId) => [ruleId, ruleId === targetRuleId ? "warn" : "off"]),
+    );
     writeSettings({
       agents: ["claude-code"],
-      lint: {
-        rules: {
-          // The workspace will have no lockfile; lockfile-valid is normally
-          // `error` severity. Override to "warn" to produce a
-          // warning-severity finding.
-          "workspace/lockfile-valid": "warn",
-        },
-      },
+      skills: { demo: "@acme/skills/demo" },
+      lint: { rules },
     });
-    // Give the rule something to complain about: add a configured skill
-    // with no lockfile.
-    const settingsPath = path.join(tempDir, "axm.json");
-    const current = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as Record<string, unknown>;
-    fs.writeFileSync(
-      settingsPath,
-      JSON.stringify(
-        {
-          ...current,
-          skills: { demo: "@acme/skills/demo" },
-        },
-        null,
-        2,
-      ),
-    );
 
     return provide(
       Effect.gen(function* () {
-        const outcome = yield* lint({ strict: true }).pipe(Effect.exit);
-        // A non-zero exit surfaces as Effect.Die through effectCliExit.
-        expect(outcome._tag).toBe("Failure");
+        const normal = yield* lint({ strict: false }).pipe(Effect.exit);
+        const normalResult = rendererState.results.at(-1);
+        expect(Exit.isSuccess(normal)).toBe(true);
+        expect(normalResult?.ok).toBe(true);
+        expect(normalResult?.data).toMatchObject({
+          result: {
+            findings: [{ ruleId: targetRuleId, severity: "warning" }],
+            summary: {
+              total: 1,
+              errors: 0,
+              warnings: 1,
+              infos: 0,
+              exitCategory: "warnings",
+            },
+          },
+        });
+
+        const strict = yield* lint({ strict: true }).pipe(Effect.exit);
+        const strictResult = rendererState.results.at(-1);
+        expect(Exit.isFailure(strict)).toBe(true);
+        expect(strictResult?.ok).toBe(false);
+        expect(strictResult?.data).toMatchObject({
+          result: {
+            findings: [{ ruleId: targetRuleId, severity: "warning" }],
+            summary: {
+              total: 1,
+              errors: 0,
+              warnings: 1,
+              infos: 0,
+              exitCategory: "warnings",
+            },
+          },
+        });
       }),
     );
   });

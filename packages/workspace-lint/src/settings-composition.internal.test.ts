@@ -17,6 +17,25 @@ const SAMPLE_RULE_ID = "skill/manifest-keys-recognized";
 registerLintRuleIds([SAMPLE_RULE_ID]);
 
 describe("SettingsSchema lint section", () => {
+  it.each(["off", "info", "warn", "error"])(
+    "accepts the '%s' severity for an exact registered rule id",
+    (severity) => {
+      const decoded = Schema.decodeUnknownSync(SettingsSchema)({
+        lint: { rules: { [SAMPLE_RULE_ID]: severity } },
+      });
+
+      expect(decoded.lint?.rules?.[SAMPLE_RULE_ID]).toBe(severity);
+    },
+  );
+
+  it("rejects the finding spelling 'warning' as a configured severity", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(SettingsSchema)({
+        lint: { rules: { [SAMPLE_RULE_ID]: "warning" } },
+      }),
+    ).toThrow();
+  });
+
   it("accepts settings with a valid lint.rules map", () => {
     const decoded = Schema.decodeUnknownSync(SettingsSchema)({
       lint: { rules: { [SAMPLE_RULE_ID]: "error" } },

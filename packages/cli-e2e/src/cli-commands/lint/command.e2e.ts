@@ -74,6 +74,15 @@ const writeUnmanagedSkill = (root: string, name: string, description = "E2E skil
   );
 };
 
+const isolatedMissingLockfileRules = (severity: "info" | "warn") => ({
+  "skill/skill-md-present": "off",
+  "skill/manifest-present": "off",
+  "workspace/desired-state-reconcilable": "off",
+  "workspace/configured-but-not-installed": "off",
+  "workspace/skills-artifacts-correct": "off",
+  "workspace/lockfile-valid": severity,
+});
+
 const sharedMcpPairs = [
   {
     label: "Claude Code and GitHub Copilot CLI",
@@ -319,6 +328,118 @@ describe("axm lint (e2e, Phase 7)", () => {
       } finally {
         userHome.cleanup();
         emptyHome.cleanup();
+      }
+    });
+  });
+
+  describe("configured local severity", () => {
+    it("lowers a project error to warning and lets --strict own warning failure", async () => {
+      const temp = createTempDir("axm-lint-severity-e2e-");
+      try {
+        const env = { HOME: temp.path, AXM_USER_HOME: temp.path, DO_NOT_TRACK: "1" };
+        const setup = await runCli(
+          ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
+          { cwd: temp.path, env },
+        );
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+
+        const settingsPath = path.join(temp.path, "axm.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        settings.skills = { ...settings.skills, demo: "@acme/skills/demo" };
+        settings.lint = { rules: isolatedMissingLockfileRules("warn") };
+        writeJson(settingsPath, settings);
+        fs.rmSync(path.join(temp.path, "axm-lock.yaml"));
+
+        const normal = await runCli(["lint", "--json"], { cwd: temp.path, env });
+        expect(normal.exitCode, `${normal.stderr}\n${normal.stdout}`).toBe(0);
+        const normalDocument = JSON.parse(normal.stdout);
+        expect(normalDocument.ok).toBe(true);
+        expect(normalDocument.result.findings).toEqual([
+          expect.objectContaining({
+            ruleId: "workspace/lockfile-valid",
+            severity: "warning",
+          }),
+        ]);
+        expect(normalDocument.result.summary).toEqual({
+          total: 1,
+          errors: 0,
+          warnings: 1,
+          infos: 0,
+          exitCategory: "warnings",
+        });
+
+        const human = await runCli(["lint", "--details"], { cwd: temp.path, env });
+        expect(human.exitCode, `${human.stderr}\n${human.stdout}`).toBe(0);
+        const humanOutput = `${human.stderr}\n${human.stdout}`;
+        expect(humanOutput).toContain("Found 1 warning in 1 location.");
+        expect(humanOutput).toContain("workspace/lockfile-valid");
+        expect(humanOutput).not.toContain("Found 1 error");
+
+        const strict = await runCli(["lint", "--strict", "--json"], {
+          cwd: temp.path,
+          env,
+        });
+        expect(strict.exitCode, `${strict.stderr}\n${strict.stdout}`).toBe(1);
+        const strictDocument = JSON.parse(strict.stdout);
+        expect(strictDocument.ok).toBe(false);
+        expect(strictDocument.result.findings).toEqual([
+          expect.objectContaining({
+            ruleId: "workspace/lockfile-valid",
+            severity: "warning",
+          }),
+        ]);
+        expect(strictDocument.result.summary).toEqual(normalDocument.result.summary);
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("uses the user workspace's local severity policy for user-scope lint", async () => {
+      const userHome = createTempDir("axm-lint-user-severity-e2e-");
+      const processHome = createTempDir("axm-lint-user-process-home-");
+      try {
+        const env = {
+          HOME: processHome.path,
+          AXM_USER_HOME: userHome.path,
+          DO_NOT_TRACK: "1",
+        };
+        const setup = await runCli(
+          ["setup", "--scope", "user", "--agent", "claude-code", "--yes", "--non-interactive"],
+          { cwd: userHome.path, env },
+        );
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+
+        const workspaceRoot = path.join(userHome.path, ".axm", "workspace");
+        const settingsPath = path.join(workspaceRoot, "axm.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        settings.skills = { ...settings.skills, demo: "@acme/skills/demo" };
+        settings.lint = { rules: isolatedMissingLockfileRules("info") };
+        writeJson(settingsPath, settings);
+        fs.rmSync(path.join(workspaceRoot, "axm-lock.yaml"));
+
+        const result = await runCli(["lint", "--scope", "user", "--strict", "--json"], {
+          cwd: userHome.path,
+          env,
+        });
+        expect(result.exitCode, `${result.stderr}\n${result.stdout}`).toBe(0);
+        const document = JSON.parse(result.stdout);
+        expect(document.ok).toBe(true);
+        expect(document.result.findings).toEqual([
+          expect.objectContaining({
+            ruleId: "workspace/lockfile-valid",
+            severity: "info",
+          }),
+        ]);
+        expect(document.result.summary).toEqual({
+          total: 1,
+          errors: 0,
+          warnings: 0,
+          infos: 1,
+          exitCategory: "clean",
+        });
+      } finally {
+        userHome.cleanup();
+        processHome.cleanup();
       }
     });
   });

@@ -45,6 +45,9 @@ const settingsExamples = (): ReadonlyArray<unknown> => {
   return decodeJsonArray(child(child(document, "definitions"), "AxmSettings")["examples"]);
 };
 
+const severityValues = ["off", "info", "warn", "error"];
+const registeredRuleId = "skill/manifest-keys-recognized";
+
 describe("Published settings schema", () => {
   it.effect("the settings document is rooted at the workspace settings shape", () =>
     Effect.sync(() => {
@@ -79,6 +82,35 @@ describe("Published settings schema", () => {
         for (const ruleId of Object.keys(rules)) {
           expect(allCatalogRuleIds).toContain(ruleId);
         }
+      }
+    }),
+  );
+
+  it.effect(
+    "the published and runtime contracts accept the complete lint severity vocabulary",
+    () =>
+      Effect.gen(function* () {
+        const document = readPublishedSchema("settings.schema.json");
+        const severity = child(child(document, "definitions"), "LintRuleSeverity");
+        expect(severity["enum"]).toEqual(severityValues);
+
+        for (const value of severityValues) {
+          const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)({
+            lint: { rules: { [registeredRuleId]: value } },
+          });
+          expect(decoded.lint?.rules?.[registeredRuleId]).toBe(value);
+        }
+      }),
+  );
+
+  it.effect("runtime settings reject finding spelling, wildcards, and unknown rule ids", () =>
+    Effect.gen(function* () {
+      for (const rules of [
+        { [registeredRuleId]: "warning" },
+        { "skill/*": "warn" },
+        { "skill/not-registered": "warn" },
+      ]) {
+        yield* Schema.decodeUnknownEffect(SettingsSchema)({ lint: { rules } }).pipe(Effect.flip);
       }
     }),
   );

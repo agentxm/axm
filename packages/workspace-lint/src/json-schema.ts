@@ -63,7 +63,8 @@ const LintJsonSummarySchema = Schema.Struct({
   exitCategory: Schema.Literals(["clean", "warnings", "errors"] as const).annotate({
     identifier: "LintExitCategory",
     title: "Lint Exit Category",
-    description: "Whether the run was clean, produced warnings, or produced errors.",
+    description:
+      "Whether the run has errors, has warnings without errors, or is clean of both; informational findings remain clean.",
   }),
 }).annotate({
   identifier: "LintJsonSummary",

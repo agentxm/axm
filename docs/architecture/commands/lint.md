@@ -101,20 +101,73 @@ root-cause rule reports the primary violation; rules that depend on that failed
 precondition skip instead of emitting cascade symptoms. Independent rules
 continue so one broken area does not hide another.
 
-Platform invariant errors cannot be disabled or lowered. Warnings may be
-disabled, retained, or promoted. `--strict` makes warnings affect the exit code
-without relabeling them as errors.
+Every catalog severity is a default for local lint. An exact `lint.rules`
+entry in the active scope selects that rule's effective local severity:
+`off` suppresses its findings, `info` emits informational findings, `warn`
+emits warning findings, and `error` emits errors. An absent entry preserves the
+catalog default. One effective severity applies to every finding produced by a
+rule evaluation.
 
-Local lint configuration affects local linting. The registry publish gate owns
-its fixed distribution requirements and remains authoritative for publishing.
+Counts, the exit category, human output, JSON output, and command success are
+derived from those effective findings. `--strict` makes warnings affect the
+exit code without relabeling them as errors. A `clean` exit category means no
+errors or warnings; informational findings can therefore remain in a clean,
+successful result.
+
+Local policy and publication policy have separate authority:
+
+```text
+active-scope axm.json                      registry publication
+---------------------                     --------------------
+lint.rules                                platform canonical defaults
+    |                                                |
+    v                                                v
+effective local findings                   fixed admission findings
+    |                                                |
+local output and exit                      publication eligibility
+```
+
+No local setting crosses into the publication path. The registry publish gate
+owns its fixed distribution requirements and remains authoritative for
+publishing.
 
 ## Specifications
 
 The lint specifications under `specifications/cli/lint/` own lint's binding
-obligations — reporting facts without mutation and naming the violated
-invariant with complete diagnostic identity; the
-[specification catalog](../../../specifications/catalog.md) indexes them.
-Exhaustive recovery coverage is internal verification described in the shared
-[workspace invariant design](../workspace/invariants.md), and the rule catalog,
-views, and exact findings remain executable contracts owned by code and its
-internal tests.
+obligations: honoring configured local severities, reporting facts without
+mutation, and naming the violated invariant with complete diagnostic identity.
+The [specification catalog](../../../specifications/catalog.md) indexes them.
+
+Verification separates actor-visible capability from individual predicates:
+
+```text
+functional handler decision table
+              |
+      +-------+--------+
+      |                |
+      v                v
+evaluator matrix   output and exit integration
+      |                |
+      +-------+--------+
+              |
+              v
+       catalog composition
+              |
+              v
+ per-rule conformance cases and completeness
+              |
+              v
+ focused branch, prerequisite, and interaction tests
+```
+
+The generic evaluator owns the Cartesian product of catalog defaults and local
+override values. Rule conformance does not repeat that matrix: it proves that
+every catalog member has a satisfied case, at least one violation case, its
+own identity/default severity/message/location, and prerequisite behavior when
+another failed invariant makes the rule inapplicable. Exact catalog-to-case
+equality makes a newly added rule fail until its conformance evidence lands.
+Full-catalog fixtures and focused tests retain interaction, multiplicity,
+ordering, and root-cause suppression evidence. Individual rules receive their
+own normative product specification only when the predicate is itself an
+independent product obligation, security boundary, or adopted external
+contract.

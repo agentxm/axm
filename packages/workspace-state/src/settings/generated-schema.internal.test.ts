@@ -356,9 +356,12 @@ describe("generated schemas", () => {
     const settingsSchema = readGeneratedSettingsSchema();
     const lintConfig = getDefinition(settingsSchema, "LintConfig");
     const rules = getProperty(lintConfig, "rules");
+    const severity = getDefinition(settingsSchema, "LintRuleSeverity");
 
     expect(rules["title"]).toBe("Lint Rules Map");
     expect(rules["description"]).toContain("exact <namespace>/<name> rule ids");
+    expect(severity["enum"]).toEqual(["off", "info", "warn", "error"]);
+    expect(severity["description"]).toContain("raise or lower severity");
   });
 
   it("omits null arms from settings optional fields", () => {

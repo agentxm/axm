@@ -488,6 +488,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly sources?: ReadonlyArray<unknown> | undefined;
   readonly minimumReleaseAge?: string | undefined;
   readonly minimumReleaseAgeExclude?: ReadonlyArray<string> | undefined;
+  readonly lint?: Record<string, unknown> | undefined;
   readonly lockfileSkills?: Record<string, unknown> | undefined;
   readonly lockfileRules?: Record<string, unknown> | undefined;
   readonly lockfileHooks?: Record<string, unknown> | undefined;
@@ -553,6 +554,7 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
     ...(hasEntries(opts.mcps) && { mcpServers: opts.mcps }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
     ...(sources && { sources }),
+    ...(opts.lint && { lint: opts.lint }),
     ...(opts.minimumReleaseAge && { minimumReleaseAge: opts.minimumReleaseAge }),
     ...(opts.minimumReleaseAgeExclude && {
       minimumReleaseAgeExclude: opts.minimumReleaseAgeExclude,

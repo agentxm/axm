@@ -55,7 +55,6 @@ import {
 } from "@agentxm/workspace-lint";
 import { buildPackRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/pack-accessor/contexts";
 import { buildSkillRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/skill-accessor/contexts";
-import type { LintConfig } from "@agentxm/registry-protocol/unstable/lint/config";
 import {
   WorkspaceMutations,
   resolveUserHome,
@@ -79,7 +78,6 @@ export interface HandleLintArgs {
   readonly fix: boolean;
   readonly input: LintInput;
   readonly displayWorkspaceRoot?: string;
-  readonly ruleOverrides?: LintConfig["rules"];
 }
 
 /**
@@ -300,13 +298,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     );
   }
 
-  const loadedConfig = lintConfigFromSettings(settings);
-  const config =
-    args.ruleOverrides === undefined
-      ? loadedConfig
-      : ({
-          rules: { ...loadedConfig.rules, ...args.ruleOverrides },
-        } satisfies LintConfig);
+  const config = lintConfigFromSettings(settings);
 
   // -- Build WorkspaceReadModel-backed rule contexts --
   const userHome = args.scope === "user" ? workspaceRoot : yield* Effect.sync(() => os.homedir());

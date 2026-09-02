@@ -175,6 +175,17 @@ product behavior, programmatic interfaces, and supporting system behavior.
 
 #### Lint
 
+##### Local lint honors configured rule severities
+
+- Requirement: `cli/lint/honors-configured-rule-severities`
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
+- Source: [`specifications/cli/lint/honors-configured-rule-severities.spec.ts`](../specifications/cli/lint/honors-configured-rule-severities.spec.ts)
+
 ##### Lint reports invariant violations without changing any workspace state
 
 - Requirement: `cli/lint/reports-facts-without-mutation`

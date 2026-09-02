@@ -83,4 +83,52 @@ describe("Knowledge diagnostic lint rules", () => {
       ]);
     }),
   );
+
+  it.effect.each(knowledgeDiagnosticRuleDefinitions)(
+    "knowledge/$code has satisfied and violated predicate evidence",
+    ({ code, severity }) =>
+      Effect.gen(function* () {
+        const rule = knowledgeDiagnosticRules.find(({ id }) => id === `knowledge/${code}`);
+        expect(rule).toBeDefined();
+        if (rule === undefined) return;
+
+        const context = (includeDiagnostic: boolean) => ({
+          subject: {
+            knowledgeJson: {},
+            inspection: {
+              concepts: [],
+              diagnostics: includeDiagnostic
+                ? [
+                    {
+                      code,
+                      severity,
+                      relativePath: "concept.md",
+                      message: `Observed ${code}`,
+                    },
+                  ]
+                : [],
+              okfVersion: "0.2" as const,
+            },
+          },
+          files: {
+            exists: () => Effect.succeed(false),
+            readBytes: () => Effect.die("not used"),
+          },
+          displayRoot: "agent_extensions/@acme/knowledge/platform",
+        });
+
+        expect(yield* rule.check(context(false))).toEqual([]);
+        expect(yield* rule.check(context(true))).toEqual([
+          {
+            kind: "advisory",
+            ruleId: `knowledge/${code}`,
+            severity,
+            message: `Observed ${code}`,
+            location: {
+              file: code === "missing-manifest-description" ? "knowledge.json" : "src/concept.md",
+            },
+          },
+        ]);
+      }),
+  );
 });

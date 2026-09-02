@@ -9,6 +9,7 @@ export const executionBinding = {
   requirements: [
     "cli/lint/reports-facts-without-mutation",
     "cli/lint/findings-name-the-violated-invariant",
+    "cli/lint/honors-configured-rule-severities",
   ],
   boundary: "process",
   rationale:

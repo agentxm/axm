@@ -7,6 +7,9 @@
  * this test pins both.
  */
 
+import * as nodeFs from "node:fs";
+import * as nodePath from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { workspaceRules } from "./workspace.js";
 import type { Severity } from "@agentxm/registry-protocol/unstable/lint/rule";
@@ -55,6 +58,172 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/packs-dependencies-resolved", severity: "error" },
 ];
 
+interface EvidencePointer {
+  readonly path: string;
+  readonly needle: string;
+}
+
+interface WorkspaceRuleConformanceEvidence {
+  readonly ruleId: string;
+  readonly satisfied: EvidencePointer;
+  readonly violated: EvidencePointer;
+  readonly prerequisite?: EvidencePointer;
+}
+
+const cleanWorkspaceEvidence: EvidencePointer = {
+  path: "packages/cli/src/root/lint/handler.internal.test.ts",
+  needle: "clean workspace exits zero",
+};
+
+const evidence = (ruleId: string, path: string): WorkspaceRuleConformanceEvidence => ({
+  ruleId,
+  satisfied: cleanWorkspaceEvidence,
+  violated: { path, needle: ruleId },
+});
+
+/**
+ * Traceability from every workspace predicate to executable satisfied and
+ * violated scenarios. Focused suites keep their branch detail; this registry
+ * owns exact catalog completeness so a new rule cannot rely on a snapshot
+ * alone.
+ */
+const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence> = [
+  evidence(
+    "workspace/initialized",
+    "packages/workspace-lint/src/catalog/workspace/foundation-conformance.internal.test.ts",
+  ),
+  evidence(
+    "workspace/settings-schema-valid",
+    "packages/workspace-lint/src/catalog/workspace/foundation-conformance.internal.test.ts",
+  ),
+  evidence(
+    "workspace/settings-keys-recognized",
+    "packages/workspace-lint/src/catalog/workspace/settings-keys-recognized.internal.test.ts",
+  ),
+  evidence(
+    "workspace/lockfile-valid",
+    "packages/workspace-lint/src/catalog/workspace/foundation-conformance.internal.test.ts",
+  ),
+  evidence(
+    "workspace/source-endpoints-aligned",
+    "packages/workspace-lint/src/catalog/workspace/source-endpoints-aligned.internal.test.ts",
+  ),
+  evidence(
+    "workspace/desired-state-reconcilable",
+    "packages/workspace-lint/src/catalog/workspace/desired-state-reconcilable.internal.test.ts",
+  ),
+  evidence(
+    "workspace/axm-skill-compatible",
+    "packages/workspace-lint/src/catalog/workspace/axm-skill-compatible.internal.test.ts",
+  ),
+  evidence(
+    "workspace/agents-recognized",
+    "packages/workspace-lint/src/catalog/workspace/foundation-conformance.internal.test.ts",
+  ),
+  evidence(
+    "workspace/agents-detected-declared",
+    "packages/workspace-lint/src/catalog/workspace/agents-detected-declared.internal.test.ts",
+  ),
+  evidence(
+    "workspace/instructions-source-present",
+    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+  ),
+  evidence(
+    "workspace/instructions-target-current",
+    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+  ),
+  evidence(
+    "workspace/instructions-target-unowned",
+    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+  ),
+  evidence(
+    "workspace/instructions-target-stale",
+    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+  ),
+  evidence(
+    "workspace/instructions-agent-supported",
+    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+  ),
+  evidence(
+    "workspace/instructions-gitignore-current",
+    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+  ),
+  evidence("workspace/projections-current", "packages/cli/src/root/lint/handler.internal.test.ts"),
+  evidence(
+    "workspace/hook-ownership-ambiguous",
+    "packages/workspace-lint/src/catalog/workspace/ownership-rules.internal.test.ts",
+  ),
+  evidence(
+    "workspace/managed-file-unowned",
+    "packages/workspace-lint/src/catalog/workspace/ownership-rules.internal.test.ts",
+  ),
+  evidence(
+    "workspace/skills-declarations-valid",
+    "packages/workspace-lint/src/catalog/workspace/foundation-conformance.internal.test.ts",
+  ),
+  evidence(
+    "workspace/packs-declarations-valid",
+    "packages/workspace-lint/src/catalog/workspace/foundation-conformance.internal.test.ts",
+  ),
+  evidence(
+    "workspace/configured-but-not-installed",
+    "packages/workspace-lint/src/catalog/workspace/configured-but-not-installed.internal.test.ts",
+  ),
+  evidence(
+    "workspace/knowledge-state-valid",
+    "packages/workspace-lint/src/catalog/workspace/knowledge-state-valid.internal.test.ts",
+  ),
+  evidence(
+    "workspace/mcps-transport-exclusivity",
+    "packages/workspace-lint/src/catalog/workspace/foundation-conformance.internal.test.ts",
+  ),
+  evidence(
+    "workspace/mcps-no-secret-literal",
+    "packages/workspace-lint/src/catalog/workspace/foundation-conformance.internal.test.ts",
+  ),
+  evidence(
+    "workspace/mcps-shared-target-compatible",
+    "packages/cli-e2e/src/cli-commands/lint/command.e2e.ts",
+  ),
+  evidence(
+    "workspace/mcps-agent-drift",
+    "packages/workspace-lint/src/catalog/workspace/mcps-agent-drift.internal.test.ts",
+  ),
+  evidence(
+    "workspace/mcps-agent-orphaned",
+    "packages/workspace-lint/src/catalog/workspace/mcps-agent-orphaned.internal.test.ts",
+  ),
+  evidence(
+    "workspace/skills-lockfile-aligned",
+    "packages/workspace-lint/src/catalog/workspace/skills-lockfile-aligned.internal.test.ts",
+  ),
+  evidence(
+    "workspace/skills-integrity-valid",
+    "packages/workspace-lint/src/catalog/workspace/skills-integrity-valid.internal.test.ts",
+  ),
+  evidence(
+    "workspace/skills-artifacts-correct",
+    "specifications/cli/lint/honors-configured-rule-severities.spec.ts",
+  ),
+  evidence(
+    "workspace/packs-dependencies-resolved",
+    "packages/cli-e2e/src/cli-commands/packs/packs.e2e.ts",
+  ),
+];
+
+const missingConformanceEvidence = (
+  ruleIds: ReadonlyArray<string>,
+  conformance: ReadonlyArray<WorkspaceRuleConformanceEvidence>,
+): ReadonlyArray<string> => {
+  const registered = new Set(conformance.map(({ ruleId }) => ruleId));
+  return ruleIds.filter((ruleId) => !registered.has(ruleId));
+};
+
+const repositoryRoot = nodePath.resolve(
+  nodePath.dirname(fileURLToPath(import.meta.url)),
+  "../../../..",
+);
+
 describe("workspaceRules", () => {
   it("exports exactly the workspace rule set", () => {
     expect(workspaceRules.map((r) => r.id)).toEqual(EXPECTED.map((r) => r.id));
@@ -89,6 +258,35 @@ describe("workspaceRules", () => {
       expect(rule.description.length, `rule ${rule.id} description too long`).toBeLessThanOrEqual(
         100,
       );
+    }
+  });
+
+  it("binds every workspace rule exactly once to satisfied and violated evidence", () => {
+    const ruleIds = workspaceRules.map(({ id }) => id);
+    const evidenceIds = WORKSPACE_RULE_CONFORMANCE.map(({ ruleId }) => ruleId);
+    expect(evidenceIds).toEqual(ruleIds);
+    expect(new Set(evidenceIds).size).toBe(evidenceIds.length);
+    expect(missingConformanceEvidence(ruleIds, WORKSPACE_RULE_CONFORMANCE)).toEqual([]);
+  });
+
+  it("fails conformance completeness for a test-only unregistered rule", () => {
+    expect(
+      missingConformanceEvidence(
+        [...workspaceRules.map(({ id }) => id), "workspace/test-only-unregistered"],
+        WORKSPACE_RULE_CONFORMANCE,
+      ),
+    ).toEqual(["workspace/test-only-unregistered"]);
+  });
+
+  it("keeps every conformance pointer bound to executable source evidence", () => {
+    for (const entry of WORKSPACE_RULE_CONFORMANCE) {
+      for (const pointer of [entry.satisfied, entry.violated, entry.prerequisite].filter(
+        (value): value is EvidencePointer => value !== undefined,
+      )) {
+        const absolutePath = nodePath.join(repositoryRoot, pointer.path);
+        expect(nodeFs.existsSync(absolutePath), pointer.path).toBe(true);
+        expect(nodeFs.readFileSync(absolutePath, "utf8"), pointer.path).toContain(pointer.needle);
+      }
     }
   });
 });

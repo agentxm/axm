@@ -55,6 +55,7 @@ describe("Application-only composition of concrete implementations", () => {
         `ignores: [
       "packages/cli/src/runtime.ts",
       "packages/cli/src/test-helpers.ts",
+      "packages/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
       "**/*.test.ts",
       "**/*.spec.ts",
     ],`,

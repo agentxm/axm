@@ -335,7 +335,11 @@ export default [
     // Effect production invariants are global. A justified defect conversion
     // or module-lifetime singleton must carry its rationale at the exact site.
     files: ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
-    ignores: ["**/*.test.ts", "**/*.spec.ts", "**/test-helpers.ts"],
+    ignores: [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "packages/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
+    ],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -395,7 +399,13 @@ export default [
     files: ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
     // The composition root plus explicitly named test-support modules are the
     // bounded non-test exceptions.
-    ignores: ["packages/cli/src/runtime.ts", "**/test-helpers.ts", "**/*.test.ts", "**/*.spec.ts"],
+    ignores: [
+      "packages/cli/src/runtime.ts",
+      "packages/cli/src/test-helpers.ts",
+      "packages/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
+      "**/*.test.ts",
+      "**/*.spec.ts",
+    ],
     rules: {
       "no-restricted-imports": [
         "error",

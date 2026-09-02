@@ -25,6 +25,7 @@ import { resolve } from "node:path";
 
 import { run, tryCapture } from "./release-command.js";
 import {
+  RELEASE_PACKAGES,
   RELEASE_PACKAGE_JSON_PATHS,
   fail,
   git,
@@ -32,26 +33,6 @@ import {
   runNx,
   validateReleaseVersion,
 } from "./release-shared.js";
-
-type ReleasePackage = {
-  readonly name: string;
-  readonly tarballPrefix: string;
-  readonly project: string;
-};
-
-const RELEASE_PACKAGES: readonly ReleasePackage[] = [
-  {
-    name: "@agentxm/extension-model",
-    tarballPrefix: "agentxm-extension-model-",
-    project: "extension-model",
-  },
-  {
-    name: "@agentxm/registry-protocol",
-    tarballPrefix: "agentxm-registry-protocol-",
-    project: "registry-protocol",
-  },
-  { name: "axm.sh", tarballPrefix: "axm.sh-", project: "cli" },
-] as const;
 
 const PACK_DESTINATION = "release-packages-local";
 
@@ -62,7 +43,7 @@ const showHelp = () => {
     [
       "Usage: pnpm release:publish:local [-- --dry-run] [--tag=<dist-tag>] [--no-build]",
       "",
-      "Builds, packs, and `npm publish`es the three release-group packages",
+      "Builds, packs, and `npm publish`es the fixed release-group packages",
       "under a dist-tag (default: preview). The default `latest` tag is never",
       "touched, so stable consumers are unaffected.",
       "",
@@ -161,7 +142,7 @@ const buildReleasePackages = () => {
     console.log("==> Skipping build (--no-build)");
     return;
   }
-  console.log("==> Building utils, core, cli");
+  console.log("==> Building the CLI release group");
   runNx("run-many", "-t", "build", "--projects", "tag:release:cli");
 };
 

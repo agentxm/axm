@@ -80,24 +80,46 @@ jobs:
       - name: Build npm packages
         run: pnpm exec nx run-many -t build --projects tag:release:cli --outputStyle=static
 
-      - name: Pack npm packages
-        run: |
-          rm -rf release-packages
-          mkdir -p release-packages
-          pnpm --filter @agentxm/extension-model pack --pack-destination release-packages
-          pnpm --filter @agentxm/registry-protocol pack --pack-destination release-packages
-          pnpm --filter axm.sh pack --pack-destination release-packages
-
-      - name: Publish npm packages
+      - name: Pack and publish npm packages
         env:
           VERSION: ${{ steps.release_meta.outputs.version }}
         run: |
+          rm -rf release-packages
+          mkdir -p release-packages
+          release_packages=(
+            "@agentxm/extension-model"
+            "@agentxm/agent-integration"
+            "@agentxm/registry-protocol"
+            "@agentxm/knowledge-query"
+            "@agentxm/registry-client"
+            "@agentxm/workspace-state"
+            "@agentxm/extension-sources"
+            "@agentxm/registry-auth"
+            "@agentxm/workspace-operations"
+            "@agentxm/extension-workspace"
+            "@agentxm/extension-authoring"
+            "@agentxm/extension-discovery"
+            "@agentxm/extension-lifecycle"
+            "@agentxm/extension-publish"
+            "@agentxm/workspace-configuration"
+            "@agentxm/workspace-inspection"
+            "@agentxm/workspace-lint"
+            "@agentxm/workspace-sync"
+            "axm.sh"
+          )
+
+          for package_name in "${release_packages[@]}"; do
+            pnpm --filter "$package_name" pack --pack-destination release-packages
+          done
+
           unset NODE_AUTH_TOKEN
           unset NPM_CONFIG_USERCONFIG
 
           publish_if_missing() {
             local package_name="$1"
-            local tarball_path="$2"
+            local tarball_prefix="${package_name#@}"
+            tarball_prefix="${tarball_prefix//\//-}"
+            local tarball_path="./release-packages/${tarball_prefix}-${VERSION}.tgz"
 
             if npm view "${package_name}@${VERSION}" version >/dev/null 2>&1; then
               echo "Skipping ${package_name}@${VERSION}; already published."
@@ -107,9 +129,9 @@ jobs:
             npm publish "$tarball_path" --provenance --access public
           }
 
-          publish_if_missing "@agentxm/extension-model" "./release-packages/agentxm-extension-model-${VERSION}.tgz"
-          publish_if_missing "@agentxm/registry-protocol" "./release-packages/agentxm-registry-protocol-${VERSION}.tgz"
-          publish_if_missing "axm.sh" "./release-packages/axm.sh-${VERSION}.tgz"
+          for package_name in "${release_packages[@]}"; do
+            publish_if_missing "$package_name"
+          done
 
       - name: Update Homebrew formula
         env:

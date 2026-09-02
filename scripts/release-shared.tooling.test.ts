@@ -1,10 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  RELEASE_PACKAGES,
   releaseTagFromVersion,
   releaseVersionFromTag,
   readGeneratedSkillCompatibilityFromContent,
@@ -17,6 +18,15 @@ import {
   writeSkillVersion,
 } from "./release-shared.js";
 
+const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
+  value != null && typeof value === "object";
+
+const readJsonRecord = (path: string): Record<PropertyKey, unknown> => {
+  const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+  if (!isRecord(parsed)) throw new Error(`Expected ${path} to contain a JSON object.`);
+  return parsed;
+};
+
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
@@ -26,6 +36,58 @@ afterEach(() => {
 });
 
 describe("release tag helpers", () => {
+  it("publishes every release:cli project in dependency order", () => {
+    const releaseNames = RELEASE_PACKAGES.map(({ name }) => name);
+    const releaseOrder = new Map(releaseNames.map((name, index) => [name, index]));
+    const taggedReleaseNames = readdirSync("packages", { withFileTypes: true }).flatMap((entry) => {
+      if (!entry.isDirectory()) return [];
+
+      const projectPath = join("packages", entry.name, "project.json");
+      const packagePath = join("packages", entry.name, "package.json");
+      if (!existsSync(projectPath) || !existsSync(packagePath)) return [];
+
+      const projectJson = readJsonRecord(projectPath);
+      const tags = Reflect.get(projectJson, "tags");
+      if (!Array.isArray(tags) || !tags.includes("release:cli")) return [];
+
+      const packageJson = readJsonRecord(packagePath);
+      const name = Reflect.get(packageJson, "name");
+      if (typeof name !== "string") throw new Error(`Missing package name in ${packagePath}.`);
+      return [name];
+    });
+
+    expect([...releaseNames].sort()).toEqual([...taggedReleaseNames].sort());
+
+    for (const releasePackage of RELEASE_PACKAGES) {
+      const packageJson = readJsonRecord(releasePackage.path);
+      const dependencies = Reflect.get(packageJson, "dependencies");
+      if (!isRecord(dependencies)) continue;
+
+      const packageIndex = releaseOrder.get(releasePackage.name);
+      if (packageIndex === undefined)
+        throw new Error(`Missing ${releasePackage.name} in release order.`);
+
+      for (const dependencyName of Object.keys(dependencies)) {
+        const dependencyIndex = releaseOrder.get(dependencyName);
+        if (dependencyIndex !== undefined) expect(dependencyIndex).toBeLessThan(packageIndex);
+      }
+    }
+  });
+
+  it("keeps the canonical publish workflow aligned with the release package order", () => {
+    const workflow = readFileSync(".github/workflows/publish.yml", "utf8");
+    const packageBlock = /release_packages=\(\n(?<packages>[\s\S]*?)\n\s+\)/u.exec(workflow)
+      ?.groups?.["packages"];
+    if (packageBlock === undefined)
+      throw new Error("Missing release_packages block in publish.yml.");
+
+    const workflowPackages = [...packageBlock.matchAll(/"(?<name>[^"]+)"/gu)].flatMap(
+      (match) => match.groups?.["name"] ?? [],
+    );
+
+    expect(workflowPackages).toEqual(RELEASE_PACKAGES.map(({ name }) => name));
+  });
+
   it("matches prepared and GitHub squash-merged release subjects", () => {
     const pattern = new RegExp(releaseCommitSubjectPattern("cli-v0.27.3"));
 

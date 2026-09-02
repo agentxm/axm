@@ -26,8 +26,8 @@ The binding obligation is the executable specification
   GitHub Releases manually.
 - `pnpm release:prepare` is the only supported local entry point for cutting a
   release commit and opening its pull request.
-- `packages/extension-model`, `packages/registry-protocol`, and `packages/cli`
-  are a fixed release group. Their versions must match.
+- Every project tagged `release:cli` is part of one fixed release group. Their
+  versions must match, and publication follows package dependency order.
 - Pending version plans in `.nx/version-plans/*.md` and those package
   manifests are the release version source of truth.
 - Release tags use the `cli-v{SEMVER}` format, for example `cli-v0.1.0`.
@@ -57,7 +57,7 @@ The binding obligation is the executable specification
 
    Dry-run previews the version and artifact changes. The real run validates the
    repo state, runs `pnpm run ci` via Nx `preVersionCommand`, consumes the
-   pending version plan, updates `utils`/`core`/`cli`, refreshes
+   pending version plan, updates the fixed CLI release group, refreshes
    `CHANGELOG.md`, creates and pushes `release/cli-v{VERSION}`, and opens the
    release pull request.
 
@@ -91,9 +91,11 @@ The binding obligation is the executable specification
 6. Let GitHub Actions finish the publish.
 
    The GitHub Release triggers `publish.yml`, which validates the tag, downloads
-   the matching CI artifacts, uploads release binaries, packs npm tarballs with
-   `pnpm`, publishes them with `npm publish --provenance`, and updates Homebrew when
-   `HOMEBREW_TAP_TOKEN` is configured.
+   the matching CI artifacts, uploads release binaries, packs every
+   `release:cli` npm package with `pnpm`, publishes them in dependency order
+   with `npm publish --provenance`, and updates Homebrew when
+   `HOMEBREW_TAP_TOKEN` is configured. Existing package versions are skipped so
+   recovery runs are idempotent.
 
    If a release needs recovery after the GitHub Release already exists, run
    `publish.yml` manually with `workflow_dispatch` and the existing release tag.
@@ -150,12 +152,11 @@ script:
 
 ## Local Preview Publish
 
-`pnpm release:publish:local` publishes the release-group npm packages
-(`@agentxm/extension-model`, `@agentxm/registry-protocol`, `axm.sh`) directly
-from the working tree under a non-default dist-tag (default: `preview`). It is for fast
-iteration only. It is not a substitute for the canonical CI release: it skips
-cross-platform binaries, npm provenance, Homebrew, installer verification, and
-the version-plan changelog flow.
+`pnpm release:publish:local` publishes every `release:cli` npm package directly
+from the working tree under a non-default dist-tag (default: `preview`). It is
+for fast iteration only. It is not a substitute for the canonical CI release:
+it skips cross-platform binaries, npm provenance, Homebrew, installer
+verification, and the version-plan changelog flow.
 
 ```bash
 pnpm release:publish:local -- --dry-run
@@ -163,9 +164,10 @@ pnpm release:publish:local
 ```
 
 The script derives a unique preview version from the working tree
-(`{patch+1}-preview.{unix}.{short-sha}[.dirty]`), builds the release-group
-packages, stamps the version into the three manifests, packs each with `pnpm pack`, then `npm publish`es each tarball under the chosen dist-tag. Manifests
-are restored in a `finally` block.
+(`{patch+1}-preview.{unix}.{short-sha}[.dirty]`), builds the release group,
+stamps the version into every release manifest, packs each package with
+`pnpm pack`, then publishes each tarball in dependency order under the chosen
+dist-tag. Manifests are restored in a `finally` block.
 
 Install the published preview globally:
 

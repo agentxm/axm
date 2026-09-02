@@ -87,6 +87,15 @@ describe("repository task interface", () => {
     }
   });
 
+  it("keeps pre-install host tasks reachable through their published names", () => {
+    expect(read(".github/workflows/ci.yml")).toContain(
+      "pnpm --config.verify-deps-before-run=warn run classify:ci",
+    );
+    expect(read(".github/workflows/ci-image.yml")).toContain(
+      "pnpm --config.verify-deps-before-run=warn run check:ci-image",
+    );
+  });
+
   it("gives every cached resolved target a non-empty input contract", () => {
     const missing: string[] = [];
     for (const project of projects) {

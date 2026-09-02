@@ -134,27 +134,33 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/instructions-source-present",
-    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/instructions/test-helpers.ts",
+    "instructionsSourcePresentConformance",
   ),
   evidence(
     "workspace/instructions-target-current",
-    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/instructions/test-helpers.ts",
+    "instructionsTargetCurrentConformance",
   ),
   evidence(
     "workspace/instructions-target-unowned",
-    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/instructions/test-helpers.ts",
+    "instructionsTargetUnownedConformance",
   ),
   evidence(
     "workspace/instructions-target-stale",
-    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/instructions/test-helpers.ts",
+    "instructionsTargetStaleConformance",
   ),
   evidence(
     "workspace/instructions-agent-supported",
-    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/instructions/test-helpers.ts",
+    "instructionsAgentSupportedConformance",
   ),
   evidence(
     "workspace/instructions-gitignore-current",
-    "packages/workspace-lint/src/catalog/workspace/instructions-rules.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/instructions/test-helpers.ts",
+    "instructionsGitignoreCurrentConformance",
   ),
   evidence("workspace/projections-current", "packages/cli/src/root/lint/handler.internal.test.ts"),
   evidence(

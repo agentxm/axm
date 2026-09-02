@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
@@ -12,13 +11,7 @@ import { LintResultDocumentSchema, handleInstall, handleLint } from "axm.sh/spec
 
 import { defineSpecification } from "../../support/contract.js";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";
-import {
-  installBundledAxmSkill,
-  installSkillWithMissingProjection,
-  makeIsolatedLintRules,
-  makeLintSpecWorkspace,
-  runProjectLint,
-} from "../../support/lint-harness.js";
+import { installBundledAxmSkill, makeLintSpecWorkspace } from "../../support/lint-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/findings-name-the-violated-invariant",
@@ -68,7 +61,7 @@ describe("Lint finding identity", () => {
     }
   });
 
-  it.effect("every machine finding carries the invariant, subject, and evidence facts", () =>
+  it.effect("every machine finding carries only invariant, subject, and evidence facts", () =>
     Effect.gen(function* () {
       const workspace = makeLintSpecWorkspace({ machine: true, flags: { json: true } });
       cleanups.push(workspace.cleanup);
@@ -84,6 +77,7 @@ describe("Lint finding identity", () => {
         recursive: true,
       });
 
+      const suggestionsBefore = workspace.rendererState.suggestions.length;
       yield* handleLint({
         pathArg: Option.some(workspace.root),
         scope: "project",
@@ -96,6 +90,7 @@ describe("Lint finding identity", () => {
       const entry = workspace.rendererState.results.at(-1);
       const document = yield* decodeDocument(entry?.data);
       expect(document.result.findings.length).toBeGreaterThanOrEqual(1);
+      const findings = rawFindings(entry?.data);
 
       for (const finding of document.result.findings) {
         expect(finding.ruleId, "stable rule identity").toMatch(/^[a-z0-9-]+(\/[a-z0-9-]+)+$/);
@@ -107,37 +102,6 @@ describe("Lint finding identity", () => {
         );
         expect(finding.path.length, `location of ${finding.ruleId}`).toBeGreaterThan(0);
       }
-    }),
-  );
-
-  it.effect("findings state facts only and attach no suggested recovery commands", () =>
-    Effect.gen(function* () {
-      const workspace = makeLintSpecWorkspace({ machine: true, flags: { json: true } });
-      cleanups.push(workspace.cleanup);
-      yield* installBundledAxmSkill.pipe(Effect.provide(workspace.layer));
-      const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
-      yield* handleInstall({
-        source: Option.some(skillPackage),
-        yes: true,
-        force: false,
-        preview: false,
-      }).pipe(Effect.provide(workspace.layer));
-      fs.rmSync(path.join(workspace.root, ".claude", "skills", "code-review"), {
-        recursive: true,
-      });
-      const suggestionsBefore = workspace.rendererState.suggestions.length;
-
-      yield* handleLint({
-        pathArg: Option.some(workspace.root),
-        scope: "project",
-        strict: false,
-        details: false,
-        fix: false,
-        input: { view: "workspace" },
-      }).pipe(Effect.provide(workspace.layer), Effect.exit);
-
-      const entry = workspace.rendererState.results.at(-1);
-      const findings = rawFindings(entry?.data);
       expect(findings.length).toBeGreaterThanOrEqual(1);
       for (const finding of findings) {
         for (const key of Object.keys(finding)) {
@@ -145,36 +109,6 @@ describe("Lint finding identity", () => {
         }
       }
       expect(workspace.rendererState.suggestions.length).toBe(suggestionsBefore);
-    }),
-  );
-
-  it.effect("machine findings and summary carry the effective configured severity", () =>
-    Effect.gen(function* () {
-      const targetRuleId = "workspace/skills-artifacts-correct";
-      const workspace = makeLintSpecWorkspace({
-        machine: true,
-        flags: { json: true },
-        settings: { lint: { rules: makeIsolatedLintRules(targetRuleId, "warn") } },
-      });
-      cleanups.push(workspace.cleanup);
-      yield* installSkillWithMissingProjection(workspace);
-
-      const result = yield* runProjectLint(workspace, false);
-
-      expect(result.result.findings).toHaveLength(1);
-      expect(result.result.findings[0]).toMatchObject({
-        ruleId: targetRuleId,
-        severity: "warning",
-      });
-      expect(result.result.summary).toEqual({
-        total: 1,
-        errors: 0,
-        warnings: 1,
-        infos: 0,
-        exitCategory: "warnings",
-      });
-      expect(result.ok).toBe(true);
-      expect(Exit.isSuccess(result.exit)).toBe(true);
     }),
   );
 });

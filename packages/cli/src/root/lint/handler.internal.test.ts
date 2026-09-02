@@ -1,11 +1,8 @@
 /**
  * Integration tests for the `axm lint` handler.
  *
- * Exercise the full runner end-to-end against a temp workspace:
- *
- * - Drift banner appears only when a publish-gate rule is weakened.
- * - WorkspaceMutations-only overrides do not surface the banner.
- * - Exit-code contract: `--strict` turns warnings into non-zero exit.
+ * Exercises handler composition, human rendering, fail-closed boundaries,
+ * and rule interactions that do not belong to accepted capability specs.
  */
 
 import * as fs from "node:fs";
@@ -41,7 +38,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint } from "./handler.js";
-import { allCatalogRuleIds, remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-lint";
+import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-lint";
 import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
 
 describe("axm lint handler", () => {
@@ -239,89 +236,6 @@ describe("axm lint handler", () => {
     expect(summary.findings[0]?.finding.location?.file).toBe(`${displayRoot}/axm.json`);
   });
 
-  it.effect("does not retain the retired publish-gate drift banner", () => {
-    const { provide, rendererState } = makeLayers();
-    writeSettings({
-      agents: ["claude-code"],
-      lint: { rules: { "skill/manifest-schema-valid": "off" } },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* lint({}).pipe(Effect.exit);
-        const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(allMessages).not.toMatch(/The registry will still block publish/);
-      }),
-    );
-  });
-
-  it.effect("no drift banner when only workspace-only rules are weakened", () => {
-    const { provide, rendererState } = makeLayers();
-    writeSettings({
-      agents: ["claude-code"],
-      lint: { rules: { "workspace/agents-detected-declared": "off" } },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* lint({}).pipe(Effect.exit);
-        const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(allMessages).not.toMatch(/DRIFT/);
-      }),
-    );
-  });
-
-  it.effect("uses the configured warning in findings, summary, and strict exit policy", () => {
-    const { provide, rendererState } = makeLayers({ machine: true });
-    const targetRuleId = "workspace/lockfile-valid";
-    const rules = Object.fromEntries(
-      allCatalogRuleIds.map((ruleId) => [ruleId, ruleId === targetRuleId ? "warn" : "off"]),
-    );
-    writeSettings({
-      agents: ["claude-code"],
-      skills: { demo: "@acme/skills/demo" },
-      lint: { rules },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        const normal = yield* lint({ strict: false }).pipe(Effect.exit);
-        const normalResult = rendererState.results.at(-1);
-        expect(Exit.isSuccess(normal)).toBe(true);
-        expect(normalResult?.ok).toBe(true);
-        expect(normalResult?.data).toMatchObject({
-          result: {
-            findings: [{ ruleId: targetRuleId, severity: "warning" }],
-            summary: {
-              total: 1,
-              errors: 0,
-              warnings: 1,
-              infos: 0,
-              exitCategory: "warnings",
-            },
-          },
-        });
-
-        const strict = yield* lint({ strict: true }).pipe(Effect.exit);
-        const strictResult = rendererState.results.at(-1);
-        expect(Exit.isFailure(strict)).toBe(true);
-        expect(strictResult?.ok).toBe(false);
-        expect(strictResult?.data).toMatchObject({
-          result: {
-            findings: [{ ruleId: targetRuleId, severity: "warning" }],
-            summary: {
-              total: 1,
-              errors: 0,
-              warnings: 1,
-              infos: 0,
-              exitCategory: "warnings",
-            },
-          },
-        });
-      }),
-    );
-  });
-
   it.effect("clean workspace exits zero and logs 'No findings.'", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({ agents: ["claude-code"] });
@@ -508,67 +422,6 @@ describe("axm lint handler", () => {
         expect(report).toContain("workspace/projections-current");
         expect(report).toContain("subagent:researcher");
         expect(fs.readFileSync(projectionPath, "utf8")).toBe(drifted);
-      }),
-    );
-  });
-
-  it.effect("refuses to replace an unowned instruction target on --fix", () => {
-    const { provide, rendererState } = makeLayers();
-    writeSettings({
-      agents: ["claude-code"],
-      instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
-    });
-    writeEmptyLockfile();
-    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-    const privateNotes = "# Private Claude notes\n\nNOT IN GIT. Irreplaceable.\n";
-    fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), privateNotes);
-
-    return provide(
-      Effect.gen(function* () {
-        yield* lint({ details: true }).pipe(Effect.exit);
-        const report = rendererState.logs.map(({ message }) => message).join("\n");
-        expect(report).toContain("workspace/instructions-target-unowned");
-        expect(report).not.toContain("workspace/instructions-target-current");
-        expect(report).not.toContain("axm lint --fix");
-
-        const exit = yield* lint({ fix: true }).pipe(Effect.exit);
-
-        expect(Exit.isFailure(exit)).toBe(true);
-        expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(false);
-        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toBe(privateNotes);
-      }),
-    );
-  });
-
-  it.effect("removes stale AXM-owned instruction aliases on --fix", () => {
-    const { provide, rendererState } = makeLayers();
-    writeSettings({
-      agents: ["claude-code"],
-      instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
-    });
-    writeEmptyLockfile();
-    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-    fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
-    // Left behind by an agent that is no longer configured.
-    fs.symlinkSync("AGENTS.md", path.join(tempDir, "GEMINI.md"));
-
-    return provide(
-      Effect.gen(function* () {
-        yield* lint({ details: true }).pipe(Effect.exit);
-        const before = rendererState.logs.map(({ message }) => message).join("\n");
-        expect(before).toContain("workspace/instructions-target-stale");
-        expect(before).toContain("axm lint --fix");
-
-        const exit = yield* lint({ fix: true }).pipe(Effect.exit);
-
-        expect(Exit.isSuccess(exit)).toBe(true);
-        expect(fs.existsSync(path.join(tempDir, "GEMINI.md"))).toBe(false);
-        expect(fs.readlinkSync(path.join(tempDir, "CLAUDE.md"))).toBe("AGENTS.md");
-        const after = rendererState.logs
-          .slice(before.split("\n").length)
-          .map(({ message }) => message)
-          .join("\n");
-        expect(after).not.toContain("workspace/instructions-target-stale");
       }),
     );
   });

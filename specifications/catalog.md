@@ -175,6 +175,16 @@ product behavior, programmatic interfaces, and supporting system behavior.
 
 #### Lint
 
+##### Lint fix repairs only state determined by local authority
+
+- Requirement: `cli/lint/fix-repairs-only-determined-state`
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/lint/fix-repairs-only-determined-state.spec.ts`](../specifications/cli/lint/fix-repairs-only-determined-state.spec.ts)
+
 ##### Local lint honors configured rule severities
 
 - Requirement: `cli/lint/honors-configured-rule-severities`

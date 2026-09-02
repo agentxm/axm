@@ -5,12 +5,14 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import type {
   ActualSkill,
   DesiredExtensionNode,
+  InstalledSkill,
   InstalledSubagent,
 } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { configuredButNotInstalledRule } from "../../configured-but-not-installed.js";
 import { skillsLockfileAlignedRule } from "../../skills-lockfile-aligned.js";
 import { skillsIntegrityValidRule } from "../../skills-integrity-valid.js";
+import { skillsArtifactsCorrectRule } from "../../skills-artifacts-correct.js";
 import {
   contextFor,
   validLockfile,
@@ -192,8 +194,73 @@ export const skillsIntegrityValidConformance: WorkspaceRuleConformanceCase = {
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
 };
 
+const installedReviewer = (projected: boolean): InstalledSkill => ({
+  key: { scope: "project", type: "skill", name: decodeExtensionNameSync("reviewer") },
+  installationOrigin: {
+    _tag: "direct",
+    declared: {
+      name: decodeExtensionNameSync("reviewer"),
+      entry: { source: "@acme/skills/reviewer@^1.0.0", enabled: true },
+    },
+  },
+  activation: "enabled",
+  resolved: Option.none(),
+  actual: projected
+    ? [
+        {
+          key: { scope: "project", type: "skill", name: decodeExtensionNameSync("reviewer") },
+          origin: { _tag: "agent-skill-dir", agentId: "claude-code" },
+          contentRoot: "/workspace/.claude/skills/reviewer",
+          sourcePath: "/workspace/.claude/skills/reviewer/SKILL.md",
+          packageRoot: null,
+          hasSkillMd: true,
+          hasSkillJson: false,
+        },
+      ]
+    : [],
+  providingPacks: [],
+});
+
+const skillArtifactsContext = (projected: boolean) =>
+  contextFor({
+    settings: validSettings({
+      agents: ["claude-code"],
+      skills: { reviewer: "@acme/skills/reviewer@^1.0.0" },
+    }),
+    lockfile: validLockfile,
+  }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          workspace: {
+            ...context.workspace,
+            skills: {
+              ...context.workspace.skills,
+              installed: Effect.succeed([installedReviewer(projected)]),
+            },
+          },
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const skillsArtifactsCorrectConformance: WorkspaceRuleConformanceCase = {
+  rule: skillsArtifactsCorrectRule,
+  satisfied: () => skillArtifactsContext(true),
+  violated: () => skillArtifactsContext(false),
+  expectedFindings: [
+    {
+      message: "Skill 'reviewer' is enabled, but it is missing from declared agents: claude-code.",
+      location: { file: "axm.json" },
+    },
+  ],
+  inapplicable: () =>
+    contextFor({ settings: validSettings({ agents: [] }), lockfile: validLockfile }),
+};
+
 export const extensionConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   configuredButNotInstalledConformance,
   skillsLockfileAlignedConformance,
   skillsIntegrityValidConformance,
+  skillsArtifactsCorrectConformance,
 ];

@@ -234,7 +234,8 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/skills-artifacts-correct",
-    "specifications/cli/lint/honors-configured-rule-severities.spec.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/extensions/test-helpers.ts",
+    "skillsArtifactsCorrectConformance",
   ),
   evidence(
     "workspace/packs-dependencies-resolved",

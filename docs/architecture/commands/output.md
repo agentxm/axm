@@ -42,7 +42,11 @@ them, and this document owns the remaining channel-semantics detail.
 - Diagnostics, progress, warnings, and logs use stderr and never corrupt the
   primary stdout result.
 - Unexpected failure still produces a stable machine error envelope while
-  retaining diagnostics on stderr.
+  retaining diagnostics on stderr. Recognized errors may add a schema-backed
+  `problem` discriminant whose fields expose structured facts beyond the stable
+  category, title, and detail. Unsupported workspace lockfile versions use
+  this field to report the lockfile path, observed version, supported version,
+  and `older` or `newer` direction.
 
 Handlers produce structured results before rendering. They do not write
 directly to process streams or derive machine data by parsing terminal text.
@@ -60,9 +64,11 @@ classifies every command path and tests compare it with the real command tree,
 so a command cannot silently acquire or lose a machine contract.
 
 Machine contracts evolve additively unless an explicit breaking decision says
-otherwise. Human wording and layout may improve without changing the machine
-schema. Exact fields, envelopes, and scenarios remain executable authority, not
-prose maintained here.
+otherwise. Optional structured problems extend the stable error envelope; they
+do not replace its required fields or create a new exit category. Human wording
+and layout may improve without changing the machine schema. Exact fields,
+envelopes, and scenarios remain executable authority, not prose maintained
+here.
 
 ## Interaction
 

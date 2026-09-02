@@ -2,6 +2,7 @@ export {
   AppError,
   AppErrorCodeSchema,
   AppErrorCodes,
+  AppErrorProblemSchema,
   ExitCode,
   ExitCodeDefinitions,
   defaultSuggestionsFor,
@@ -15,6 +16,8 @@ export {
   type AppErrorAction,
   type AppErrorMetadata,
   type AppErrorCode,
+  type AppErrorProblem,
+  type AppErrorSuggestedAction,
 } from "./app-error.js";
 export {
   BC,

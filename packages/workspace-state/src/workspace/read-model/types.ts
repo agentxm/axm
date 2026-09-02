@@ -89,7 +89,7 @@ export interface InstalledPackRef {
  *
  * The failure channels are intentionally narrow: `declared` only fails with
  * `SettingsReadError` (3 tags), `resolved` only fails with
- * `LockfileReadError` (3 tags), and `actual` never fails — workspace-root
+ * `LockfileReadError` (4 tags), and `actual` never fails — workspace-root
  * path-escape is validated once at provider construction (Layer-level), not
  * per cell.
  */

@@ -398,6 +398,14 @@ const adversarialContracts = [
     "invalid-lock-authority-is-not-reconstructed",
     "packages/workspace-state/src/lockfile/authority-schema.internal.test.ts",
   ],
+  [
+    "older-lockfile-gate-names-reacceptance",
+    "specifications/cli/workspace-lockfile-rejections-name-state-and-recovery.spec.ts",
+  ],
+  [
+    "newer-lockfile-gate-names-upgrade",
+    "specifications/cli/workspace-lockfile-rejections-name-state-and-recovery.spec.ts",
+  ],
   ["mutable-source-identity-is-stable", "packages/cli/src/root/update/handler.internal.test.ts"],
   [
     "unsupported-state-is-rejected",

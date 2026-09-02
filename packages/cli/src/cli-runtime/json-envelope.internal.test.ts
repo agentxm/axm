@@ -109,6 +109,50 @@ describe("JsonEnvelopeSchema", () => {
     });
   });
 
+  it("emits a schema-backed lockfile version problem without CLI-only suggestion metadata", () => {
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({
+        code: "validation",
+        title: "Unsupported workspace lockfile version",
+        detail: "The workspace requires a newer AXM.",
+        problem: {
+          code: "workspace-lockfile-version-unsupported",
+          path: "/workspace/axm-lock.yaml",
+          observedVersion: 7,
+          supportedVersion: 6,
+          direction: "newer",
+        },
+        suggestions: [
+          {
+            description: "Upgrade AXM before accessing this workspace.",
+            cmd: "axm upgrade",
+            commandScope: "global",
+          },
+        ],
+      }),
+    );
+
+    expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual({
+      ok: false,
+      code: "validation",
+      title: "Unsupported workspace lockfile version",
+      detail: "The workspace requires a newer AXM.",
+      problem: {
+        code: "workspace-lockfile-version-unsupported",
+        path: "/workspace/axm-lock.yaml",
+        observedVersion: 7,
+        supportedVersion: 6,
+        direction: "newer",
+      },
+      suggestions: [
+        {
+          description: "Upgrade AXM before accessing this workspace.",
+          cmd: "axm upgrade",
+        },
+      ],
+    });
+  });
+
   it("emits a structured human authentication handoff", () => {
     const envelope = makeJsonErrorEnvelopeFromAppError(
       makeAppError({

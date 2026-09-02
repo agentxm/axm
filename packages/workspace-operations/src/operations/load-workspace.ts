@@ -82,8 +82,8 @@ export const makeWorkspaceTransactionCapabilities: MakeWorkspaceTransactionCapab
  *
  * Loads an existing workspace from disk.
  *
- * The workspace must already be initialized. Missing or invalid settings fail
- * fast with an `AppError`.
+ * The workspace must already be initialized. Missing or invalid settings and
+ * invalid or unsupported lockfiles fail fast with a typed workspace error.
  *
  * @param options - WorkspaceMutations layer options
  * @returns Effect yielding WorkspaceMutationsService

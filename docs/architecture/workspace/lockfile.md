@@ -101,6 +101,26 @@ resolution from other metadata, installed content, or Pack-member maps.
 AXM accepts only the current strict lockfile version. There are no dual readers,
 automatic migration or cleanup, aliases, or downgrade mode.
 
+Every ordinary workspace-loading command validates a present lockfile during
+workspace construction, before command-specific reads, planning, Registry
+access, or mutation. `--force` does not bypass this authority gate. IO, YAML
+parse, schema decode, and unsupported-version failures remain distinct so the
+diagnosis names the path and a recovery appropriate to the observed state.
+
+An unsupported positive-integer `lockfileVersion` reports the observed and
+supported versions and whether the lockfile is older or newer than the running
+AXM. Machine output carries those same facts in a structured problem. If the
+lockfile is newer, the only safe route is to upgrade AXM; the CLI does not
+suggest setup, restoration, removal, or downgrade. This diagnosis also wins
+when a known current-scope lockfile is newer but current settings are absent.
+
+An older lockfile requires explicit re-acceptance rather than migration:
+preserve the incompatible bytes outside the authoritative path, review desired
+intent, remove the incompatible file, preview fresh resolution, and apply only
+after reviewing the preview. External resolutions may change because the old
+accepted format is not read. A workspace containing only workspace-authored
+content may correctly finish with no lockfile.
+
 ## Persistence and failure
 
 An external materialization and its lock-row change belong to the same semantic
@@ -116,9 +136,11 @@ lockfile publishes through atomic replacement, preserving unrelated rows.
 ## Specifications
 
 The whole-surface workspace specifications at the root of `specifications/cli/`
-own the lockfile's boundary obligations — lock state never creates reachability — and
-the sync and update specifications under `specifications/cli/sync/` and
-`specifications/cli/update/` own stable resolution and update-only advancement;
-the [specification catalog](../../../specifications/catalog.md) indexes them.
-Exact fields, the strict lockfile version, and source-class fixtures remain
-executable contracts owned by schemas and the implementation's internal tests.
+own the lockfile's boundary obligations: lock state never creates reachability,
+lockfile rejections name state and recovery, and version errors expose a
+structured machine problem. The sync and update specifications under
+`specifications/cli/sync/` and `specifications/cli/update/` own stable resolution
+and update-only advancement; the
+[specification catalog](../../../specifications/catalog.md) indexes them. Exact
+fields, the strict lockfile version, and source-class fixtures remain executable
+contracts owned by schemas and the implementation's internal tests.

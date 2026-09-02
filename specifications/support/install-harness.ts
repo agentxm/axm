@@ -38,6 +38,8 @@ import {
 } from "axm.sh/specification-harness";
 
 export interface SpecWorkspaceOptions {
+  /** Workspace scope composed for command handlers. Defaults to project. */
+  readonly scope?: "project" | "user";
   /** Render through the machine (JSON) renderer instead of the human one. */
   readonly machine?: boolean;
   readonly prompt?: TestPromptConfig;
@@ -59,7 +61,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     ...(options.machine !== undefined ? { machine: options.machine } : {}),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
     flags: { nonInteractive: true, ...options.flags },
-    wsOptions: { projectRoot: root },
+    wsOptions: { projectRoot: root, scope: options.scope ?? "project" },
   });
 
   const workspaceServiceLayer = Layer.provideMerge(

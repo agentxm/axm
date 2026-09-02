@@ -34,4 +34,33 @@ describe("scoped command suggestions", () => {
       { description: "Review the error" },
     ]);
   });
+
+  it("scopes workspace commands but leaves global recovery commands unchanged", () => {
+    expect(
+      suggestionsForScope(
+        [
+          {
+            description: "Preview workspace resolution",
+            cmd: "axm sync --preview",
+            commandScope: "workspace",
+          },
+          {
+            description: "Upgrade AXM",
+            cmd: "axm upgrade",
+            commandScope: "global",
+          },
+        ],
+        "user",
+      ),
+    ).toEqual([
+      {
+        description: "Preview workspace resolution",
+        cmd: "axm sync --preview --scope user",
+      },
+      {
+        description: "Upgrade AXM",
+        cmd: "axm upgrade",
+      },
+    ]);
+  });
 });

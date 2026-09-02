@@ -309,23 +309,23 @@ describe("agents add.handler", () => {
     writeWorkspaceFiles(axmDir, { agents: [] });
     fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: []\n");
 
-    return provide(
-      Effect.gen(function* () {
-        const error = yield* handleAgentsAdd({
+    return Effect.gen(function* () {
+      const error = yield* provide(
+        handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
           yes: true,
           force: false,
           preview: false,
-        }).pipe(Effect.flip);
+        }),
+      ).pipe(Effect.flip);
 
-        expect(toAppError(error).code).toBe("validation");
-        expect(rendererState.results).toEqual([]);
-        expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
-          "lockfileVersion: 4\nskills: []\n",
-        );
-      }),
-    );
+      expect(toAppError(error).code).toBe("validation");
+      expect(rendererState.results).toEqual([]);
+      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
+        "lockfileVersion: 4\nskills: []\n",
+      );
+    });
   });
 
   it.effect("does not surface permission suggestions for previewed plans", () => {

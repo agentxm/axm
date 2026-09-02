@@ -26,6 +26,7 @@ import {
   LockfileDecodeError,
   LockfileIoError,
   LockfileParseError,
+  LockfileVersionUnsupported,
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,
@@ -435,6 +436,60 @@ describe("makeScopedStateApi.lockfile", () => {
         expect(err.path).toBe(LOCKFILE_PATH);
         expect(err.issues.length).toBeGreaterThan(0);
       }
+    }),
+  );
+
+  it.effect.each([
+    { observedVersion: 5, direction: "older" },
+    { observedVersion: 7, direction: "newer" },
+  ])(
+    "fails with LockfileVersionUnsupported for an $direction positive integer version",
+    ({ observedVersion }) =>
+      Effect.gen(function* () {
+        const counters = yield* makeCounters;
+        const raw = `lockfileVersion: ${observedVersion}\nskills: {}\n`;
+        const fs = buildFs(
+          {
+            readers: { [LOCKFILE_PATH]: () => Effect.succeed(raw) },
+            missing: new Set(),
+            existsFails: new Set(),
+          },
+          counters,
+        );
+        const api = yield* makeApi("project", fs);
+
+        const err = yield* Effect.flip(api.lockfile);
+        expect(err).toBeInstanceOf(LockfileVersionUnsupported);
+        if (err._tag === "LockfileVersionUnsupported") {
+          expect(err).toMatchObject({
+            path: LOCKFILE_PATH,
+            observedVersion,
+            supportedVersion: 6,
+          });
+        }
+      }),
+  );
+
+  it.effect.each([
+    { label: "missing", source: "skills: {}\n" },
+    { label: "string", source: 'lockfileVersion: "5"\nskills: {}\n' },
+    { label: "fractional", source: "lockfileVersion: 5.5\nskills: {}\n" },
+    { label: "negative", source: "lockfileVersion: -1\nskills: {}\n" },
+  ])("keeps a $label version in LockfileDecodeError", ({ source }) =>
+    Effect.gen(function* () {
+      const counters = yield* makeCounters;
+      const fs = buildFs(
+        {
+          readers: { [LOCKFILE_PATH]: () => Effect.succeed(source) },
+          missing: new Set(),
+          existsFails: new Set(),
+        },
+        counters,
+      );
+      const api = yield* makeApi("project", fs);
+
+      const err = yield* Effect.flip(api.lockfile);
+      expect(err).toBeInstanceOf(LockfileDecodeError);
     }),
   );
 

@@ -910,7 +910,7 @@ describe("root sync handler", () => {
 
       const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
 
-      expect(error.code).toBe("validation");
+      expect(toAppError(error).code).toBe("validation");
       expect(rendererState.results).toEqual([]);
       expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
         "lockfileVersion: 4\nskills: []\n",
@@ -930,7 +930,7 @@ describe("root sync handler", () => {
         Effect.flip,
       );
 
-      expect(error.code).toBe("validation");
+      expect(toAppError(error).code).toBe("validation");
       expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(corrupt);
     }),
   );

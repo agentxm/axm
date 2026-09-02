@@ -334,12 +334,10 @@ describe("axm lint handler", () => {
     fs.mkdirSync(installedDir, { recursive: true });
     fs.writeFileSync(path.join(installedDir, "SKILL.md"), "---\nname: demo\n\n# demo\n");
 
-    return provide(
-      Effect.gen(function* () {
-        const exit = yield* lint({ details: true }).pipe(Effect.exit);
-        expect(Exit.isFailure(exit)).toBe(true);
-      }),
-    );
+    return Effect.gen(function* () {
+      const exit = yield* provide(lint({ details: true })).pipe(Effect.exit);
+      expect(Exit.isFailure(exit)).toBe(true);
+    });
   });
 
   it.effect("reports MCP projection drift without reconciling it", () => {

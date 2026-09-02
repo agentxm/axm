@@ -65,6 +65,7 @@ import {
   LockfileDecodeError,
   LockfileIoError,
   LockfileParseError,
+  LockfileVersionUnsupported,
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,
@@ -568,13 +569,96 @@ export const settingsReadErrorToAppError = (error: SettingsReadError): AppError 
   }
 };
 
-/** An unreadable or corrupt lockfile is actionable workspace state. */
-export const lockfileReadErrorToAppError = (error: LockfileReadError): AppError =>
-  makeAppError({
-    code: "validation",
-    detail: `Failed to read the workspace lockfile. Fix the file's permissions or restore it from version control, then rerun.`,
-    cause: error,
-  });
+/** An unreadable, invalid, or unsupported lockfile is actionable workspace state. */
+export const lockfileReadErrorToAppError = (error: LockfileReadError): AppError => {
+  switch (error._tag) {
+    case "LockfileIoError":
+      return makeAppError({
+        code: "validation",
+        detail: `Workspace lockfile at ${error.path} could not be read`,
+        suggestions: [
+          {
+            description:
+              "Repair the lockfile permissions or restore a known-good copy, then re-run.",
+          },
+        ],
+        cause: error,
+      });
+    case "LockfileParseError":
+      return makeAppError({
+        code: "validation",
+        detail: `Workspace lockfile at ${error.path} is not valid YAML`,
+        suggestions: [
+          {
+            description: "Fix the YAML syntax or restore a known-good lockfile, then re-run.",
+          },
+        ],
+        cause: error,
+      });
+    case "LockfileDecodeError":
+      return makeAppError({
+        code: "validation",
+        detail: `Invalid workspace lockfile at ${error.path}: ${error.issues.join("; ")}`,
+        suggestions: [
+          {
+            description:
+              "Correct the invalid values or restore a lockfile written in the supported format, then re-run.",
+          },
+        ],
+        cause: error,
+      });
+    case "LockfileVersionUnsupported": {
+      const direction: "older" | "newer" =
+        error.observedVersion < error.supportedVersion ? "older" : "newer";
+      const detail =
+        direction === "older"
+          ? `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. Re-accept the workspace intent into the current format before continuing.`
+          : `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. This workspace requires a newer AXM.`;
+      return makeAppError({
+        code: "validation",
+        title: "Unsupported workspace lockfile version",
+        detail,
+        problem: {
+          code: "workspace-lockfile-version-unsupported",
+          path: error.path,
+          observedVersion: error.observedVersion,
+          supportedVersion: error.supportedVersion,
+          direction,
+        },
+        suggestions:
+          direction === "older"
+            ? [
+                {
+                  description:
+                    "Preserve the incompatible lockfile outside its authoritative path, review the desired workspace intent, then remove the incompatible file.",
+                },
+                {
+                  description: "Preview fresh resolution in the supported lockfile format.",
+                  cmd: "axm sync --preview",
+                  commandScope: "workspace",
+                },
+                {
+                  description: "Apply the reviewed resolution.",
+                  cmd: "axm sync",
+                  commandScope: "workspace",
+                },
+                {
+                  description:
+                    "A workspace containing only workspace-authored content may correctly finish without a lockfile.",
+                },
+              ]
+            : [
+                {
+                  description: "Upgrade AXM before accessing this workspace.",
+                  cmd: "axm upgrade",
+                  commandScope: "global",
+                },
+              ],
+        cause: error,
+      });
+    }
+  }
+};
 
 /** The workspace root escaped the allowed root while building the read model. */
 export const workspaceRootEscapeToAppError = (error: WorkspaceRootEscape): AppError =>
@@ -940,6 +1024,7 @@ export type KnownFailure =
   | LockfileIoError
   | LockfileParseError
   | LockfileDecodeError
+  | LockfileVersionUnsupported
   | WorkspaceRootEscape
   | SettingsWriteError
   | LockfileWriteError
@@ -1071,6 +1156,7 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof LockfileIoError ||
   error instanceof LockfileParseError ||
   error instanceof LockfileDecodeError ||
+  error instanceof LockfileVersionUnsupported ||
   error instanceof WorkspaceRootEscape ||
   error instanceof SettingsWriteError ||
   error instanceof LockfileWriteError ||
@@ -1218,6 +1304,7 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
     case "LockfileIoError":
     case "LockfileParseError":
     case "LockfileDecodeError":
+    case "LockfileVersionUnsupported":
       return lockfileReadErrorToAppError(error);
     case "WorkspaceRootEscape":
       return workspaceRootEscapeToAppError(error);
@@ -1458,6 +1545,7 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
         title: inner.title,
         detail: `${inner.detail}\nOriginal file backup retained at: ${error.backupPath}`,
         ...(inner.metadata === undefined ? {} : { metadata: inner.metadata }),
+        ...(inner.problem === undefined ? {} : { problem: inner.problem }),
         ...(inner.suggestions === undefined ? {} : { suggestions: inner.suggestions }),
         cause: inner.cause,
       });

@@ -2,6 +2,7 @@ import * as Schema from "effect/Schema";
 
 import {
   AppErrorCodeSchema,
+  AppErrorProblemSchema,
   type AppError,
   type AppErrorCode,
   type AppErrorMetadata,
@@ -23,6 +24,7 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
   code: AppErrorCodeSchema,
   title: Schema.String,
   detail: Schema.String,
+  problem: Schema.optional(AppErrorProblemSchema),
   cause: Schema.optional(
     Schema.Array(
       Schema.Struct({
@@ -158,6 +160,7 @@ export const makeJsonErrorEnvelope = (args: {
   readonly retryable?: boolean;
   readonly blockedOn?: "human";
   readonly action?: AppError["action"];
+  readonly problem?: AppError["problem"];
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }): JsonErrorEnvelope => {
   const secrets = collectSensitiveStrings(args.metadata);
@@ -166,6 +169,7 @@ export const makeJsonErrorEnvelope = (args: {
     code: args.code,
     title: redactSensitiveText(args.title, { secrets }),
     detail: redactSensitiveText(args.detail, { secrets }),
+    ...(args.problem !== undefined ? { problem: args.problem } : {}),
     ...(args.cause !== undefined && args.cause.length > 0
       ? {
           cause: args.cause.map((cause) => ({
@@ -213,6 +217,7 @@ export const makeJsonErrorEnvelopeFromAppError = (
       ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),
       ...(error.blockedOn !== undefined ? { blockedOn: error.blockedOn } : {}),
       ...(error.action !== undefined ? { action: error.action } : {}),
+      ...(error.problem !== undefined ? { problem: error.problem } : {}),
       suggestions: effectiveSuggestionsFor(error),
     });
   })();

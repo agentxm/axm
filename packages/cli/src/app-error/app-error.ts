@@ -251,6 +251,43 @@ export type AppErrorAction = {
   readonly resume?: string;
 };
 
+const LockfileVersionNumberSchema = Schema.Int.pipe(
+  Schema.check(
+    Schema.makeFilter((value) =>
+      Number.isSafeInteger(value) && value > 0
+        ? undefined
+        : "lockfile versions must be positive safe integers",
+    ),
+  ),
+);
+
+export const WorkspaceLockfileVersionUnsupportedProblemSchema = Schema.Struct({
+  code: Schema.Literal("workspace-lockfile-version-unsupported"),
+  path: Schema.String,
+  observedVersion: LockfileVersionNumberSchema,
+  supportedVersion: LockfileVersionNumberSchema,
+  direction: Schema.Literals(["older", "newer"] as const),
+}).annotate({
+  identifier: "WorkspaceLockfileVersionUnsupportedProblem",
+  title: "Unsupported Workspace Lockfile Version",
+  description: "Identifies an unsupported workspace lockfile version and its direction.",
+});
+
+export const AppErrorProblemSchema = Schema.Union([
+  WorkspaceLockfileVersionUnsupportedProblemSchema,
+]).annotate({
+  identifier: "AppErrorProblem",
+  title: "App Error Problem",
+  description: "Structured details for a recognized CLI problem.",
+});
+
+export type AppErrorProblem = typeof AppErrorProblemSchema.Type;
+
+/** CLI-only suggestion metadata is removed before public rendering or serialization. */
+export type AppErrorSuggestedAction = SuggestedAction & {
+  readonly commandScope?: "workspace" | "global";
+};
+
 const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
   auth: "Unauthorized",
   forbidden: "Forbidden",
@@ -371,7 +408,8 @@ export class AppError extends Data.TaggedError("AppError")<{
   readonly retryable?: boolean;
   readonly blockedOn?: "human";
   readonly action?: AppErrorAction;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly problem?: AppErrorProblem;
+  readonly suggestions?: ReadonlyArray<AppErrorSuggestedAction>;
   readonly cause: unknown;
 }> {}
 
@@ -384,9 +422,10 @@ export const makeAppError = (args: {
   readonly retryable?: boolean;
   readonly blockedOn?: "human";
   readonly action?: AppErrorAction;
+  readonly problem?: AppErrorProblem;
   readonly recover?: string;
   readonly cmd?: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: ReadonlyArray<AppErrorSuggestedAction>;
   readonly cause?: unknown;
 }): AppError => {
   const recover =
@@ -409,6 +448,7 @@ export const makeAppError = (args: {
     ...(args.retryable !== undefined ? { retryable: args.retryable } : {}),
     ...(args.blockedOn !== undefined ? { blockedOn: args.blockedOn } : {}),
     ...(args.action !== undefined ? { action: args.action } : {}),
+    ...(args.problem !== undefined ? { problem: args.problem } : {}),
     ...(suggestions.length > 0 ? { suggestions } : {}),
     cause: args.cause,
   });

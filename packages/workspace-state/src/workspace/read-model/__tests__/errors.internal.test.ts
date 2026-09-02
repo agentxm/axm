@@ -12,6 +12,7 @@ import {
   LockfileDecodeError,
   LockfileIoError,
   LockfileParseError,
+  LockfileVersionUnsupported,
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,
@@ -116,6 +117,22 @@ describe("workspace read-model per-source error families", () => {
     });
   });
 
+  describe("LockfileVersionUnsupported", () => {
+    it("instantiates with the observed and supported versions", () => {
+      const err = new LockfileVersionUnsupported({
+        path: "/ws/axm-lock.yaml",
+        observedVersion: 7,
+        supportedVersion: 6,
+      });
+      expect(err).toMatchObject({
+        _tag: "LockfileVersionUnsupported",
+        path: "/ws/axm-lock.yaml",
+        observedVersion: 7,
+        supportedVersion: 6,
+      });
+    });
+  });
+
   describe("WorkspaceRootEscape", () => {
     it("instantiates with workspaceRoot and allowedRoot and exposes the WorkspaceRootEscape tag", () => {
       const err = new WorkspaceRootEscape({
@@ -161,6 +178,11 @@ describe("workspace read-model per-source error families", () => {
         new LockfileIoError({ path: "/p", cause: new Error("io") }),
         new LockfileParseError({ path: "/p", raw: "x:", cause: new Error("y") }),
         new LockfileDecodeError({ path: "/p", issues: ["bad"], raw: {} }),
+        new LockfileVersionUnsupported({
+          path: "/p",
+          observedVersion: 7,
+          supportedVersion: 6,
+        }),
       ];
 
       for (const err of errs) {
@@ -176,6 +198,10 @@ describe("workspace read-model per-source error families", () => {
           }
           case "LockfileDecodeError": {
             expect(Array.isArray(err.issues)).toBe(true);
+            break;
+          }
+          case "LockfileVersionUnsupported": {
+            expect(err.observedVersion).toBeGreaterThan(err.supportedVersion);
             break;
           }
         }

@@ -6,13 +6,14 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { LockfileSchema, type Lockfile } from "../../lockfile/schema.js";
+import { LOCKFILE_VERSION, LockfileSchema, type Lockfile } from "../../lockfile/schema.js";
 import { formatSchemaIssuesToLines } from "@agentxm/extension-model/unstable/schema-issues";
 import { SettingsSchema, type Settings } from "../../settings/schema.js";
 import {
   LockfileDecodeError,
   LockfileIoError,
   LockfileParseError,
+  LockfileVersionUnsupported,
   type LockfileReadError,
   SettingsDecodeError,
   SettingsIoError,
@@ -135,6 +136,28 @@ const loadLockfile = (
       try: (): unknown => YAML.parse(bytes),
       catch: (cause): LockfileParseError => new LockfileParseError({ path, raw: bytes, cause }),
     });
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      Object.hasOwn(parsed, "lockfileVersion")
+    ) {
+      const observedVersion: unknown = Reflect.get(parsed, "lockfileVersion");
+      if (
+        typeof observedVersion === "number" &&
+        Number.isSafeInteger(observedVersion) &&
+        observedVersion > 0 &&
+        observedVersion !== LOCKFILE_VERSION
+      ) {
+        return yield* Effect.fail(
+          new LockfileVersionUnsupported({
+            path,
+            observedVersion,
+            supportedVersion: LOCKFILE_VERSION,
+          }),
+        );
+      }
+    }
     const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed).pipe(
       Effect.mapError(
         (error) =>

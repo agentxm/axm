@@ -51,6 +51,7 @@ import {
   SettingsEntryMissing,
   WorkspaceNotInitialized,
 } from "./errors.js";
+import { LockfileVersionUnsupported } from "./read-model/errors.js";
 import { LockfileValidationError } from "../lockfile/errors.js";
 import {
   createDefaultSettings,
@@ -114,6 +115,7 @@ import {
   type ExtensionTarget,
   type LockfileState,
   type MakeWorkspaceTransactionCapabilities,
+  type WorkspaceLockfileReadFailure,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
 } from "./service-interface.js";
@@ -170,11 +172,27 @@ export type WorkspaceLayerOptions = WorkspaceMutationsOptions;
 const requireInitializedWorkspace = (
   settingsPath: string,
   settings: Effect.Effect<Option.Option<Settings>, WorkspaceSettingsReadFailure>,
+  lockfile: Effect.Effect<Lockfile, WorkspaceLockfileReadFailure>,
 ) =>
   settings.pipe(
     Effect.flatMap(
       Option.match({
-        onNone: () => Effect.fail(new WorkspaceNotInitialized({ settingsPath })),
+        onNone: () =>
+          lockfile.pipe(
+            Effect.matchEffect({
+              onFailure: (
+                error,
+              ): Effect.Effect<never, LockfileVersionUnsupported | WorkspaceNotInitialized> =>
+                error instanceof LockfileVersionUnsupported &&
+                error.observedVersion > error.supportedVersion
+                  ? Effect.fail(error)
+                  : Effect.fail(new WorkspaceNotInitialized({ settingsPath })),
+              onSuccess: (): Effect.Effect<
+                never,
+                LockfileVersionUnsupported | WorkspaceNotInitialized
+              > => Effect.fail(new WorkspaceNotInitialized({ settingsPath })),
+            }),
+          ),
         onSome: () => Effect.void,
       }),
     ),
@@ -183,8 +201,9 @@ const requireInitializedWorkspace = (
 /**
  * Create the workspace mutations service from an existing workspace on disk.
  *
- * The workspace must already be initialized. Missing or invalid settings fail
- * fast with a typed `WorkspaceMutationsError`. The two operations-side
+ * The workspace must already be initialized. Missing or invalid settings and
+ * invalid or unsupported lockfiles fail fast with a typed
+ * `WorkspaceMutationsError`. The two operations-side
  * capabilities — the transaction runner and transition acquirer — are
  * injected through `makeCapabilities`; the composition seam in
  * `./operations/load-workspace.ts` supplies the live implementation.
@@ -249,7 +268,12 @@ export const makeWorkspaceMutations = (
       );
 
     if (options.allowUninitialized !== true) {
-      yield* requireInitializedWorkspace(settingsPath, readSettingsCell(workspaceDir));
+      yield* requireInitializedWorkspace(
+        settingsPath,
+        readSettingsCell(workspaceDir),
+        readLockfileCell(workspaceDir),
+      );
+      yield* readLockfileCell(workspaceDir);
     }
 
     const projectSettings = yield* readSettingsCell(localRuntimeDir, "project").pipe(
@@ -337,8 +361,14 @@ export const makeWorkspaceMutations = (
         // not a violated invariant.
         return yield* readLockfileSafe(workspaceDir).pipe(
           Effect.as("ok" as const),
-          Effect.catchTag(["LockfileIoError", "LockfileParseError", "LockfileDecodeError"], () =>
-            Effect.succeed("invalid" as const),
+          Effect.catchTag(
+            [
+              "LockfileIoError",
+              "LockfileParseError",
+              "LockfileDecodeError",
+              "LockfileVersionUnsupported",
+            ],
+            () => Effect.succeed("invalid" as const),
           ),
         );
       }).pipe(Effect.withSpan("WorkspaceMutations.getLockfileState"));

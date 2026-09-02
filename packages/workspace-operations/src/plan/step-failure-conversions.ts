@@ -56,13 +56,63 @@ export const workspaceStateReadFailureToStepFailure = (
         cause: error,
       });
     case "LockfileIoError":
+      return new StepFailure({
+        category: "validation",
+        detail: `Workspace lockfile at ${error.path} could not be read`,
+        suggestions: [
+          {
+            description:
+              "Repair the lockfile permissions or restore a known-good copy, then re-run.",
+          },
+        ],
+        cause: error,
+      });
     case "LockfileParseError":
+      return new StepFailure({
+        category: "validation",
+        detail: `Workspace lockfile at ${error.path} is not valid YAML`,
+        suggestions: [
+          {
+            description: "Fix the YAML syntax or restore a known-good lockfile, then re-run.",
+          },
+        ],
+        cause: error,
+      });
     case "LockfileDecodeError":
       return new StepFailure({
         category: "validation",
-        detail: `Failed to read the workspace lockfile. Fix the file's permissions or restore it from version control, then rerun.`,
+        detail: `Invalid workspace lockfile at ${error.path}: ${error.issues.join("; ")}`,
+        suggestions: [
+          {
+            description:
+              "Correct the invalid values or restore a lockfile written in the supported format, then re-run.",
+          },
+        ],
         cause: error,
       });
+    case "LockfileVersionUnsupported": {
+      const older = error.observedVersion < error.supportedVersion;
+      return new StepFailure({
+        category: "validation",
+        detail: older
+          ? `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. Re-accept the workspace intent into the current format before continuing.`
+          : `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. This workspace requires a newer AXM.`,
+        suggestions: older
+          ? [
+              {
+                description:
+                  "Preserve the incompatible lockfile outside its authoritative path, review the desired workspace intent, then remove the incompatible file.",
+              },
+              {
+                description: "Preview fresh resolution in the supported lockfile format.",
+                cmd: "axm sync --preview",
+              },
+              { description: "Apply the reviewed resolution.", cmd: "axm sync" },
+            ]
+          : [{ description: "Upgrade AXM before accessing this workspace." }],
+        cause: error,
+      });
+    }
     case "WorkspaceRootEscape":
       return new StepFailure({
         category: "internal",

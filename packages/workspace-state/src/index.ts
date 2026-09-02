@@ -347,6 +347,7 @@ export {
   LockfileDecodeError,
   LockfileIoError,
   LockfileParseError,
+  LockfileVersionUnsupported,
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,

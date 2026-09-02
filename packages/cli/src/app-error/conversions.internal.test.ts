@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import * as Cause from "effect/Cause";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { StepFailure } from "@agentxm/workspace-operations";
 import { WorkspaceRestorationIncomplete } from "@agentxm/workspace-state";
-import { AppError, makeAppError, type AppErrorCode } from "./app-error.js";
+import {
+  AppError,
+  makeAppError,
+  type AppErrorCode,
+  type AppErrorProblem,
+  type AppErrorSuggestedAction,
+} from "./app-error.js";
 import {
   isKnownFailure,
   restorationIncompleteToAppError,
@@ -27,6 +32,7 @@ import {
   LockfileDecodeError,
   LockfileIoError,
   LockfileParseError,
+  LockfileVersionUnsupported,
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,
@@ -48,13 +54,12 @@ interface ConversionCase {
   readonly failure: KnownFailure;
   readonly code: AppErrorCode;
   readonly detail: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly title?: string;
+  readonly problem?: AppErrorProblem;
+  readonly suggestions?: ReadonlyArray<AppErrorSuggestedAction>;
   /** Expected `cause`; "self" pins the typed failure itself as the cause. */
   readonly cause?: unknown | "self";
 }
-
-const LOCKFILE_READ_DETAIL =
-  "Failed to read the workspace lockfile. Fix the file's permissions or restore it from version control, then rerun.";
 
 const lockfileWriteSuffix =
   ". Fix the path's permissions or remove whatever occupies it, then rerun.";
@@ -98,21 +103,102 @@ const cases: ReadonlyArray<ConversionCase> = [
     name: "LockfileIoError",
     failure: new LockfileIoError({ path: "/w/axm-lock.yaml", cause: ioCause }),
     code: "validation",
-    detail: LOCKFILE_READ_DETAIL,
+    detail: "Workspace lockfile at /w/axm-lock.yaml could not be read",
+    suggestions: [
+      {
+        description: "Repair the lockfile permissions or restore a known-good copy, then re-run.",
+      },
+    ],
     cause: "self",
   },
   {
     name: "LockfileParseError",
     failure: new LockfileParseError({ path: "/w/axm-lock.yaml", raw: ":", cause: ioCause }),
     code: "validation",
-    detail: LOCKFILE_READ_DETAIL,
+    detail: "Workspace lockfile at /w/axm-lock.yaml is not valid YAML",
+    suggestions: [
+      { description: "Fix the YAML syntax or restore a known-good lockfile, then re-run." },
+    ],
     cause: "self",
   },
   {
     name: "LockfileDecodeError",
     failure: new LockfileDecodeError({ path: "/w/axm-lock.yaml", issues: ["bad"], raw: {} }),
     code: "validation",
-    detail: LOCKFILE_READ_DETAIL,
+    detail: "Invalid workspace lockfile at /w/axm-lock.yaml: bad",
+    suggestions: [
+      {
+        description:
+          "Correct the invalid values or restore a lockfile written in the supported format, then re-run.",
+      },
+    ],
+    cause: "self",
+  },
+  {
+    name: "LockfileVersionUnsupported older",
+    failure: new LockfileVersionUnsupported({
+      path: "/w/axm-lock.yaml",
+      observedVersion: 5,
+      supportedVersion: 6,
+    }),
+    code: "validation",
+    title: "Unsupported workspace lockfile version",
+    detail:
+      "Workspace lockfile at /w/axm-lock.yaml declares version 5, but this AXM supports version 6. Re-accept the workspace intent into the current format before continuing.",
+    problem: {
+      code: "workspace-lockfile-version-unsupported",
+      path: "/w/axm-lock.yaml",
+      observedVersion: 5,
+      supportedVersion: 6,
+      direction: "older",
+    },
+    suggestions: [
+      {
+        description:
+          "Preserve the incompatible lockfile outside its authoritative path, review the desired workspace intent, then remove the incompatible file.",
+      },
+      {
+        description: "Preview fresh resolution in the supported lockfile format.",
+        cmd: "axm sync --preview",
+        commandScope: "workspace",
+      },
+      {
+        description: "Apply the reviewed resolution.",
+        cmd: "axm sync",
+        commandScope: "workspace",
+      },
+      {
+        description:
+          "A workspace containing only workspace-authored content may correctly finish without a lockfile.",
+      },
+    ],
+    cause: "self",
+  },
+  {
+    name: "LockfileVersionUnsupported newer",
+    failure: new LockfileVersionUnsupported({
+      path: "/w/axm-lock.yaml",
+      observedVersion: 7,
+      supportedVersion: 6,
+    }),
+    code: "validation",
+    title: "Unsupported workspace lockfile version",
+    detail:
+      "Workspace lockfile at /w/axm-lock.yaml declares version 7, but this AXM supports version 6. This workspace requires a newer AXM.",
+    problem: {
+      code: "workspace-lockfile-version-unsupported",
+      path: "/w/axm-lock.yaml",
+      observedVersion: 7,
+      supportedVersion: 6,
+      direction: "newer",
+    },
+    suggestions: [
+      {
+        description: "Upgrade AXM before accessing this workspace.",
+        cmd: "axm upgrade",
+        commandScope: "global",
+      },
+    ],
     cause: "self",
   },
   {
@@ -582,6 +668,10 @@ describe("workspace-state conversions", () => {
       expect(converted).toBeInstanceOf(AppError);
       expect(converted.code).toBe(entry.code);
       expect(converted.detail).toBe(entry.detail);
+      if (entry.title !== undefined) {
+        expect(converted.title).toBe(entry.title);
+      }
+      expect(converted.problem).toEqual(entry.problem);
       if (entry.suggestions === undefined) {
         expect(converted.suggestions).toBeUndefined();
       } else {

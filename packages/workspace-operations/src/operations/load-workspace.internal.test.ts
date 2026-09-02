@@ -272,6 +272,39 @@ describe("WorkspaceMutationsService", () => {
         expect(error).toMatchObject({ _tag: "LockfileDecodeError" });
       }),
     );
+
+    it.effect("reports a newer lockfile before missing settings as uninitialized", () =>
+      Effect.gen(function* () {
+        fs.rmSync(path.join(projectDir, "axm.json"), { force: true });
+        fs.writeFileSync(
+          path.join(projectDir, "axm-lock.yaml"),
+          "lockfileVersion: 7\nskills: {}\n",
+        );
+
+        const error = yield* getService(defaultOptions).pipe(Effect.flip);
+
+        expect(error).toMatchObject({
+          _tag: "LockfileVersionUnsupported",
+          path: path.join(projectDir, "axm-lock.yaml"),
+          observedVersion: 7,
+          supportedVersion: 6,
+        });
+      }),
+    );
+
+    it.effect("keeps an older orphan lockfile behind the uninitialized diagnosis", () =>
+      Effect.gen(function* () {
+        fs.rmSync(path.join(projectDir, "axm.json"), { force: true });
+        fs.writeFileSync(
+          path.join(projectDir, "axm-lock.yaml"),
+          "lockfileVersion: 5\nskills: {}\n",
+        );
+
+        const error = yield* getService(defaultOptions).pipe(Effect.flip);
+
+        expect(error).toMatchObject({ _tag: "WorkspaceNotInitialized" });
+      }),
+    );
   });
 
   // nonInteractive resolution is tested in cli-flags/service.test.ts
@@ -1012,7 +1045,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         fs.rmSync(path.join(projectDir, "axm-lock.yaml"), { force: true });
 
-        const ws = yield* getService(defaultOptions);
+        const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
         const state = yield* ws.getLockfileState();
 
         expect(state).toBe("missing");
@@ -1023,7 +1056,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         fs.writeFileSync(path.join(projectDir, "axm-lock.yaml"), "lockfileVersion: [");
 
-        const ws = yield* getService(defaultOptions);
+        const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
         const state = yield* ws.getLockfileState();
 
         expect(state).toBe("invalid");
@@ -1037,7 +1070,21 @@ describe("WorkspaceMutationsService", () => {
           "lockfileVersion: 3\nskills: []\n",
         );
 
-        const ws = yield* getService(defaultOptions);
+        const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
+        const state = yield* ws.getLockfileState();
+
+        expect(state).toBe("invalid");
+      }),
+    );
+
+    it.effect("returns invalid when lockfile version is unsupported", () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(
+          path.join(projectDir, "axm-lock.yaml"),
+          "lockfileVersion: 7\nskills: {}\n",
+        );
+
+        const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
         const state = yield* ws.getLockfileState();
 
         expect(state).toBe("invalid");
@@ -1067,7 +1114,11 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
         const error = yield* ws.getLockedSkills().pipe(Effect.flip);
 
-        expect(error).toMatchObject({ _tag: "LockfileDecodeError" });
+        expect(error).toMatchObject({
+          _tag: "LockfileVersionUnsupported",
+          observedVersion: 3,
+          supportedVersion: 6,
+        });
       }),
     );
   });

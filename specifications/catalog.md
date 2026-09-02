@@ -375,6 +375,19 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs the real skills update command against a changed local source, proving the accepted content identity advances while configuration stays byte-identical, disabled entries are skipped, and preview applies nothing — local-source advancement the in-memory root update surface does not expose.
 - Source: [`specifications/cli/update/advances-resolution-within-intent.spec.ts`](../specifications/cli/update/advances-resolution-within-intent.spec.ts)
 
+#### Workspace Lockfile Rejections Name State And Recovery
+
+##### Workspace lockfile rejections name the observed state and a safe recovery route
+
+- Requirement: `cli/workspace-lockfile-rejections-name-state-and-recovery`
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example, invariant
+- Additional evidence: process via [`packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
+- Source: [`specifications/cli/workspace-lockfile-rejections-name-state-and-recovery.spec.ts`](../specifications/cli/workspace-lockfile-rejections-name-state-and-recovery.spec.ts)
+
 ### System
 
 #### Installability
@@ -463,6 +476,19 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/findings-name-the-violated-invariant.spec.ts`](../specifications/cli/lint/findings-name-the-violated-invariant.spec.ts)
+
+#### Lockfile Version Errors Expose Structured Problem
+
+##### Lockfile version errors expose a structured machine problem
+
+- Requirement: `cli/lockfile-version-errors-expose-structured-problem`
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: contract, decision-table
+- Additional evidence: process via [`packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
+- Source: [`specifications/cli/lockfile-version-errors-expose-structured-problem.spec.ts`](../specifications/cli/lockfile-version-errors-expose-structured-problem.spec.ts)
 
 #### Machine Errors Use The Stable Envelope
 

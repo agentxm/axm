@@ -45,6 +45,7 @@ const LOCKFILE_TAGS: ReadonlySet<string> = new Set([
   "LockfileIoError",
   "LockfileParseError",
   "LockfileDecodeError",
+  "LockfileVersionUnsupported",
 ]);
 
 describe("source-backed cells", () => {

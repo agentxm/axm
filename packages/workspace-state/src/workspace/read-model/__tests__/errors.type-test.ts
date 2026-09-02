@@ -29,11 +29,11 @@ type _SettingsComplete = [
   : false;
 const _settingsComplete = true as const satisfies _SettingsComplete;
 
-// LockfileReadError SHALL contain only the three Lockfile* tags.
+// LockfileReadError SHALL contain only the four Lockfile* tags.
 type _LockfileExact = [
   Exclude<
     LockfileReadError["_tag"],
-    "LockfileIoError" | "LockfileParseError" | "LockfileDecodeError"
+    "LockfileIoError" | "LockfileParseError" | "LockfileDecodeError" | "LockfileVersionUnsupported"
   >,
 ] extends [never]
   ? true
@@ -42,7 +42,7 @@ const _lockfileExact = true as const satisfies _LockfileExact;
 
 type _LockfileComplete = [
   Exclude<
-    "LockfileIoError" | "LockfileParseError" | "LockfileDecodeError",
+    "LockfileIoError" | "LockfileParseError" | "LockfileDecodeError" | "LockfileVersionUnsupported",
     LockfileReadError["_tag"]
   >,
 ] extends [never]

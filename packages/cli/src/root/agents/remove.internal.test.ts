@@ -327,7 +327,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["claude-code"],
-      lockfile: "lockfileVersion: 4\nskills: []\n",
+      lockfile: "lockfileVersion: 6\nskills: {}\n",
     });
 
     return provide(

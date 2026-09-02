@@ -45,8 +45,16 @@ export class LockfileDecodeError extends Data.TaggedError("LockfileDecodeError")
   readonly raw: unknown;
 }> {}
 
-/** Lockfile-read failure union (IO, parse, decode). */
-export type LockfileReadError = LockfileIoError | LockfileParseError | LockfileDecodeError;
+/** A syntactically valid lockfile declares a version this CLI cannot read. */
+export class LockfileVersionUnsupported extends Data.TaggedError("LockfileVersionUnsupported")<{
+  readonly path: string;
+  readonly observedVersion: number;
+  readonly supportedVersion: number;
+}> {}
+
+/** Lockfile-read failure union (IO, parse, decode, unsupported version). */
+export type LockfileReadError =
+  LockfileIoError | LockfileParseError | LockfileDecodeError | LockfileVersionUnsupported;
 
 /** Provider-construction error: workspace root escapes the configured allowed root. */
 export class WorkspaceRootEscape extends Data.TaggedError("WorkspaceRootEscape")<{

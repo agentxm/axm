@@ -769,10 +769,13 @@ export interface WorkspaceMutationsOptions {
 }
 
 /**
- * Error loading workspace mutations: scoped settings reads, layout
- * resolution, and the initialization gate.
+ * Error loading workspace mutations: scoped settings and lockfile reads,
+ * layout resolution, and the initialization gate.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export type WorkspaceMutationsError =
-  WorkspaceSettingsReadFailure | WorkspaceLayoutError | WorkspaceNotInitialized;
+  | WorkspaceSettingsReadFailure
+  | WorkspaceLockfileReadFailure
+  | WorkspaceLayoutError
+  | WorkspaceNotInitialized;

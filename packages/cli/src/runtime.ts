@@ -380,6 +380,7 @@ export const withWorkspace =
             ...(error.retryable === undefined ? {} : { retryable: error.retryable }),
             ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
             ...(error.action === undefined ? {} : { action: error.action }),
+            ...(error.problem === undefined ? {} : { problem: error.problem }),
             suggestions: suggestionsForScope(error.suggestions, resolved.scope),
             cause: error.cause,
           });

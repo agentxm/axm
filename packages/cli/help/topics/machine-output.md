@@ -106,6 +106,32 @@ Expected errors and defects return the fixed stdout envelope:
 }
 ```
 
+Recognized failures may also include an optional schema-backed `problem`
+object. For example, an unsupported lockfile version reports facts without
+requiring message parsing:
+
+```json
+{
+  "ok": false,
+  "code": "validation",
+  "title": "Unsupported workspace lockfile version",
+  "detail": "Workspace lockfile at /workspace/axm-lock.yaml declares version 7, but this AXM supports version 6. This workspace requires a newer AXM.",
+  "problem": {
+    "code": "workspace-lockfile-version-unsupported",
+    "path": "/workspace/axm-lock.yaml",
+    "observedVersion": 7,
+    "supportedVersion": 6,
+    "direction": "newer"
+  },
+  "suggestions": [
+    {
+      "description": "Upgrade AXM before accessing this workspace.",
+      "cmd": "axm upgrade"
+    }
+  ]
+}
+```
+
 The matching stderr stream ends with an event such as:
 
 ```json
@@ -121,6 +147,8 @@ optional error-envelope fields are:
 
 - `cause[]`: redacted cause-chain entries with `_tag`, `message`, and optional
   `code` and `stack`;
+- `problem`: schema-backed details for a recognized problem, discriminated by
+  its `code`;
 - `metadata.request`: Registry `service`, `url`, and optional `method`;
 - `metadata.response`: numeric `status` and optional `requestId`,
   `problemCode`, and redacted `body`;

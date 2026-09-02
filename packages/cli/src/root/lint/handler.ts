@@ -326,38 +326,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
         }),
       ),
     ),
-    Effect.catchTags({
-      SettingsIoError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Unable to read workspace settings at '${error.path}'`,
-        }),
-      SettingsParseError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Workspace settings at '${error.path}' are not valid JSON`,
-        }),
-      SettingsDecodeError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Workspace settings at '${error.path}' are invalid: ${error.issues.join("; ")}`,
-        }),
-      LockfileIoError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Unable to read workspace lockfile at '${error.path}'`,
-        }),
-      LockfileParseError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Workspace lockfile at '${error.path}' is not valid YAML`,
-        }),
-      LockfileDecodeError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Workspace lockfile at '${error.path}' is invalid: ${error.issues.join("; ")}`,
-        }),
-    }),
+    Effect.mapError(toAppError),
   );
   const skillContexts = buildSkillRuleContexts(view);
   const packContexts = buildPackRuleContexts(view);

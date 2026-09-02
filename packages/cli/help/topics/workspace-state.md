@@ -102,6 +102,37 @@ After acceptance, reinstall and sync use that exact identity; only update may
 advance it. If the source can no longer reproduce the locked identity, AXM
 blocks that affected work instead of substituting current bytes.
 
+## Unsupported lockfile versions
+
+AXM reads only lockfile v6. Every ordinary workspace-loading command checks a
+present lockfile before command-specific work, and `--force` does not bypass
+that check. The error names the lockfile path plus its observed and supported
+versions.
+
+For an older lockfile, explicitly re-accept desired intent into the current
+format:
+
+1. Preserve the incompatible lockfile outside its authoritative path.
+2. Review `axm.json`, authored manifests, and the preserved lockfile to confirm
+   the desired intent and prior external resolutions.
+3. Remove the incompatible lockfile from the authoritative path.
+4. Run `axm sync --preview` and review every proposed resolution. Use `--scope
+user` for a user workspace.
+5. Run `axm sync` only after accepting the preview.
+
+This is new resolution, not migration. External versions may differ from the
+preserved lockfile. If the workspace contains only workspace-authored content,
+successful recovery may leave the lockfile absent.
+
+For a newer lockfile, run `axm upgrade` before accessing the workspace again.
+Do not run setup, delete or replace the lockfile, restore an older copy, or try
+to downgrade its version. The newer state may contain meaning the installed
+AXM does not understand.
+
+An unreadable lockfile instead receives permission or known-good restoration
+guidance. Invalid YAML names its syntax failure, and other schema failures name
+the invalid fields. Those diagnoses do not claim an unsupported version.
+
 ## Safe reconciliation
 
 AXM stops an affected semantic closure when its desired graph is incomplete,

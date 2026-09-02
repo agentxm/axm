@@ -113,12 +113,14 @@ and reachable can still be absent from, or stale in, its projection.
 
 ## Evaluation and isolation
 
-Settings-source load and schema validity are shared project-workspace
-construction prerequisites. They are evaluated before invariant facts,
-desired-state graph construction, semantic closure identification, or selected
-command evaluation. Failure of either project or user settings blocks
-construction and suppresses every dependent project-workspace check; it is not
-a closure-local blocker and cannot be isolated to one extension.
+Settings-source load and schema validity and current-scope lockfile validity are
+shared workspace-construction prerequisites. They are evaluated before
+invariant facts, desired-state graph construction, semantic closure
+identification, or selected command evaluation. Failure of either project or
+user settings blocks construction and suppresses every dependent
+project-workspace check; a present invalid or unsupported current-scope
+lockfile blocks the selected scope. These are not closure-local blockers and
+cannot be isolated to one extension.
 
 After construction succeeds, a failed prerequisite suppresses checks whose
 conclusions would be unreliable without it. Those rules do not emit cascade
@@ -169,6 +171,7 @@ aggregate unit registers the incomplete case using the shared multi-route
 contributor fixture described by the
 [extension testing strategy](../extensions/overview.md#testing-strategy), and
 cross-cutting adversarial fixtures cover settings failure, partial closures,
-preservation of authored and unowned content, drift, interruption, and lock
-authority. Minimized fixtures derived from real incidents are authoritative;
-live repositories remain a thin end-to-end confirmation layer.
+preservation of authored and unowned content, drift, interruption, lock
+authority, and direction-specific recovery for older and newer lockfile gates.
+Minimized fixtures derived from real incidents are authoritative; live
+repositories remain a thin end-to-end confirmation layer.

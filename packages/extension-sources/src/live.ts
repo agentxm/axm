@@ -38,6 +38,9 @@ import {
 } from "./service.js";
 import type { SourceHostProvidersService } from "./service.js";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
+import { GitDirectoryComparison } from "./git/directory-comparison.js";
+import { compareDirectoryToHead } from "./git/operations.js";
+import { findGitRoot } from "./git/detect.js";
 
 // -----------------------------------------------------------------------------
 // Layer
@@ -189,5 +192,37 @@ export const SourceHostProvidersLive: Layer.Layer<
     };
 
     return service;
+  }),
+);
+
+/** Live local-Git comparison service. */
+export const GitDirectoryComparisonLive: Layer.Layer<
+  GitDirectoryComparison,
+  never,
+  FileSystem.FileSystem | Path.Path
+> = Layer.effect(
+  GitDirectoryComparison,
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const platform = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
+    return {
+      compare: ({ directory, currentPaths }) =>
+        findGitRoot(directory).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.succeed(Option.none()),
+              onSome: (repositoryRoot) =>
+                compareDirectoryToHead(repositoryRoot, directory, currentPaths).pipe(
+                  Effect.map(Option.some),
+                ),
+            }),
+          ),
+          Effect.provide(platform),
+        ),
+    };
   }),
 );

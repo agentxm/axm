@@ -65,6 +65,12 @@ export interface PlannedZipArchive {
   readonly plan: ArchivePlan;
 }
 
+/** Whether one archive-relative path survives the declared publish boundary. */
+export const isArchivePathIncluded = (
+  archivePath: string,
+  ignore: ReadonlyArray<string> = [],
+): boolean => ignore.every((pattern) => expandGlob(pattern, [archivePath]).length === 0);
+
 /**
  * Build a zip archive of a directory.
  * Files are stored at the root of the zip (no enclosing directory).

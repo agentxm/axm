@@ -124,11 +124,16 @@ export { loadVersion } from "./version.js";
 // integration roots directly, so the harness re-exports the needed surface.
 export { AgentExecutableResolver } from "@agentxm/agent-integration";
 export { RegistryUrl } from "@agentxm/registry-client";
-// Extension-sources surface the locator-grammar specification and the install
-// harness consume; specs may not import the integration root or its /live
-// module directly, so the harness re-exports it (the Live through the
+// Extension-sources surface the locator-grammar and publish specifications and
+// the install harness consume; specs may not import the integration root or its
+// /live module directly, so the harness re-exports it (the Live through the
 // sanctioned test-support module).
-export { resolveSource } from "@agentxm/extension-sources";
+export {
+  GitDirectoryComparison,
+  resolveSource,
+  type GitDirectoryComparisonService,
+  type GitDirectoryDifference,
+} from "@agentxm/extension-sources";
 export { SourceHostProvidersLive } from "./test-helpers.js";
 // Application-boundary vocabulary the specifications assert against: exit
 // codes, the machine error envelope, telemetry mode and client, and the

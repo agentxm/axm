@@ -15,9 +15,14 @@ import { pathToFileURL } from "node:url";
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Effect from "effect/Effect";
 
 import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-auth/testing";
-import type { handleRootPublish } from "axm.sh/specification-harness";
+import {
+  GitDirectoryComparison,
+  type GitDirectoryComparisonService,
+  type handleRootPublish,
+} from "axm.sh/specification-harness";
 
 import type { makeSpecWorkspace } from "./install-harness.js";
 
@@ -29,6 +34,7 @@ export interface AuthoredSkillFixture {
   readonly description?: string;
   /** Omit `src/SKILL.md` so the fixed publication gate rejects the skill. */
   readonly withSkillMd?: boolean;
+  readonly publishIgnore?: ReadonlyArray<string>;
 }
 
 /**
@@ -46,6 +52,9 @@ export const writeAuthoredSkill = (workspaceRoot: string, fixture: AuthoredSkill
       type: "skill",
       name: fixture.name,
       version: fixture.version ?? "1.0.0",
+      ...(fixture.publishIgnore === undefined
+        ? {}
+        : { publish: { ignore: fixture.publishIgnore } }),
     }),
   );
   if (fixture.withSkillMd !== false) {
@@ -90,8 +99,16 @@ export const makeFileRegistry = (workspaceRoot: string): FileRegistry => {
  * interaction even for a local registry target; provide inert test layers on
  * top of the spec workspace layer.
  */
-export const makePublishLayer = (workspace: Pick<ReturnType<typeof makeSpecWorkspace>, "layer">) =>
-  Layer.mergeAll(workspace.layer, AuthClientTest(), DeviceLoginInteractionTest().layer);
+export const makePublishLayer = (
+  workspace: Pick<ReturnType<typeof makeSpecWorkspace>, "layer">,
+  compare: GitDirectoryComparisonService["compare"] = () => Effect.succeed(Option.none()),
+) =>
+  Layer.mergeAll(
+    workspace.layer,
+    AuthClientTest(),
+    DeviceLoginInteractionTest().layer,
+    Layer.succeed(GitDirectoryComparison, { compare }),
+  );
 
 /** Root publish handler args with non-interactive defaults for specifications. */
 export const publishArgs = (
@@ -106,6 +123,7 @@ export const publishArgs = (
   registryUrl: Option.some(registryUrl),
   onExisting: Option.none(),
   backfill: false,
+  acceptWarnings: false,
   yes: true,
   preview: true,
   scope: "project",

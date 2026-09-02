@@ -15,7 +15,10 @@ import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
 } from "./cli-runtime/index.js";
-import { OperationPreconditionSchema } from "@agentxm/workspace-operations";
+import {
+  OperationPreconditionSchema,
+  PlanRiskConditionSchema,
+} from "@agentxm/workspace-operations";
 import { AppErrorCodeSchema } from "./app-error/index.js";
 import {
   PublishVisibilitySchema,
@@ -82,6 +85,7 @@ const PublishReasonSchema = Schema.Literals([
   "integrity_drift",
   "verify_failed",
   "blocked_by_preflight",
+  "source_state_not_accepted",
 ] as const).annotate({
   identifier: "PublishReason",
   title: "Publish Reason",
@@ -150,6 +154,22 @@ const PublishResultItemSchema = Schema.Struct({
   cause: Schema.optional(PublishCauseSchema),
   blockedBy: Schema.optional(Schema.Array(Schema.String)),
   findings: Schema.optional(Schema.Array(PublishAdvisoryFindingSchema)),
+  sourceState: Schema.optional(
+    Schema.Struct({
+      basis: Schema.Literal("git-head"),
+      status: Schema.Literals(["matches-head", "differs-from-head", "no-head"] as const),
+      revision: Schema.optional(Schema.String),
+      directory: Schema.String,
+      differences: Schema.Array(
+        Schema.Struct({
+          path: Schema.String,
+          change: Schema.Literals(["added", "modified", "deleted"] as const),
+        }),
+      ),
+      differenceCount: Schema.Number,
+      truncated: Schema.Boolean,
+    }),
+  ),
   archive: Schema.optional(
     Schema.Struct({
       included: Schema.Array(
@@ -268,6 +288,7 @@ const PublishPublicationSetSchema = Schema.Struct({
 const PublishExecutionSchema = Schema.Struct({
   status: Schema.Literals(["not-run", "completed", "partial", "failed"] as const),
   preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
+  riskConditions: Schema.optional(Schema.Array(PlanRiskConditionSchema)),
   outcomes: Schema.Array(PublishResultItemSchema),
   failure: Schema.optional(PublishCauseSchema),
 });
@@ -313,6 +334,7 @@ export type PublishPublicationSet = typeof PublishPublicationSetSchema.Type;
 interface PublishResultInput {
   readonly mode: PublishResult["mode"];
   readonly preconditions?: ReadonlyArray<Schema.Schema.Type<typeof OperationPreconditionSchema>>;
+  readonly riskConditions?: ReadonlyArray<Schema.Schema.Type<typeof PlanRiskConditionSchema>>;
   readonly selection?: Omit<PublishResult["selection"], "counts" | "dependencyInclusion"> & {
     readonly counts?: PublishResult["selection"]["counts"];
     readonly dependencyInclusion?: "explicit";
@@ -405,6 +427,7 @@ const normalizePublishResult = (result: PublishResultInput): PublishResult => {
     execution: {
       status: executionStatus(result.mode, result.results, result.failure),
       ...(result.preconditions === undefined ? {} : { preconditions: result.preconditions }),
+      ...(result.riskConditions === undefined ? {} : { riskConditions: result.riskConditions }),
       outcomes: result.results,
       ...(result.failure === undefined ? {} : { failure: result.failure }),
     },
@@ -505,6 +528,22 @@ const renderHumanPublishResult = (
           ? `Required pack compatibility review: ${finding.message}`
           : finding.message,
       );
+    }
+    for (const item of result.execution.outcomes) {
+      const source = item.sourceState;
+      if (source === undefined) continue;
+      const revision = source.revision === undefined ? "no HEAD" : source.revision.slice(0, 12);
+      const message =
+        source.status === "matches-head"
+          ? `Source ${publishIdentity(item)} matches Git HEAD ${revision} at ${source.directory}`
+          : `Source ${publishIdentity(item)} is not represented by Git HEAD (${revision}); ${source.differenceCount} archive ${source.differenceCount === 1 ? "path differs" : "paths differ"}`;
+      if (source.status === "matches-head") yield* renderer.info(message);
+      else yield* renderer.warn(message);
+      if (verbosity.level === "verbose" && source.differences.length > 0) {
+        yield* renderer.info(
+          source.differences.map(({ path, change }) => `${change} ${path}`).join("\n"),
+        );
+      }
     }
     for (const item of result.execution.outcomes) {
       if (item.archive === undefined) continue;

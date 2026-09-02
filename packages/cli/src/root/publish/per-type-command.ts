@@ -3,7 +3,7 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
@@ -52,6 +52,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     ),
     onExisting: onExistingFlag,
     backfill: backfillFlag,
+    acceptWarnings: acceptWarningsFlag,
     visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
       Flag.withDescription("Initial visibility for every new extension in the selection"),
       Flag.optional,
@@ -96,6 +97,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           registryUrl: parsed.registryUrl,
           onExisting: parsed.onExisting,
           backfill: parsed.backfill,
+          acceptWarnings: parsed.acceptWarnings,
           yes: parsed.yes,
           preview: parsed.preview,
           scope: "project",
@@ -131,6 +133,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         registryUrl: parsed.registryUrl,
         onExisting: parsed.onExisting,
         backfill: parsed.backfill,
+        acceptWarnings: parsed.acceptWarnings,
         yes: parsed.yes,
         preview: parsed.preview,
         scope: "project",

@@ -81,7 +81,8 @@ export class SourceNetworkFailure extends Data.TaggedError("SourceNetworkFailure
 }> {}
 
 /** The git subprocess operations this package performs. */
-export type GitOperation = "clone" | "get-commit-sha" | "get-tree-sha";
+export type GitOperation =
+  "clone" | "get-commit-sha" | "get-tree-sha" | "compare-directory-to-head";
 
 /**
  * A git subprocess operation failed. Clones are network failures; SHA reads

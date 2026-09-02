@@ -70,6 +70,26 @@ paths. Unmatched patterns warn without changing archive bytes. Likely
 development roots without an explicit decision prompt a review but are never
 automatically excluded.
 
+## Git source review
+
+For a new upload inside a Git worktree, AXM compares the exact filtered
+Registry archive with the package subtree at local Git `HEAD`. Added, modified,
+or deleted archive paths mean the release would contain source state that the
+current commit does not represent. `axm publish --preview --json` reports the
+commit, package directory, difference count, and a bounded list of paths.
+
+Differences excluded by `publish.ignore` do not count. AXM does not inspect a
+remote or upstream branch, does not require a clean repository outside the
+archive boundary, and does not apply this check to an existing version verified
+by `--on-existing verify`. Outside a Git worktree, publication continues without
+Git source evidence. A worktree with no `HEAD` commit requires the same explicit
+acceptance as a differing archive.
+
+Apply stops before upload unless `--accept-warnings` explicitly accepts this
+condition. `--yes` only answers the ordinary confirmation prompt and is not a
+substitute. AXM checks the source evidence again immediately before upload and
+stops if it changed after planning.
+
 AXM validates the filtered result as a complete type-specific package before
 upload, and Registry ingestion repeats that validation. Ignoring the manifest,
 `src/SKILL.md`, `src/<subagent-name>.md`, `src/RULE.md`, a Hook entrypoint, or a

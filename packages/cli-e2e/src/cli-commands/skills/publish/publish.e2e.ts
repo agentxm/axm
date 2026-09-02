@@ -9,6 +9,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../../e2e/utils.js";
 
@@ -128,6 +129,102 @@ describe("axm skills publish", () => {
         expect(quietResult.exitCode).toBe(0);
         expect(quietResult.stdout).toBe("");
         expect(quietResult.stderr).toBe("");
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+
+    it("requires explicit acceptance when the archive differs from Git HEAD", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          { cwd: temp.path },
+        );
+        const settingsPath = path.join(temp.path, "axm.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.sources = [
+          { name: "agentxm", type: "registry", location: `file://${registryDir.path}` },
+        ];
+        settings.owner = "@test";
+        settings.skills = { ...settings.skills, "git-source-review": "workspace" };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+        const extensionDir = path.join(temp.path, "skills", "git-source-review");
+        fs.mkdirSync(path.join(extensionDir, "src"), { recursive: true });
+        fs.writeFileSync(
+          path.join(extensionDir, "skill.json"),
+          `${JSON.stringify({
+            owner: "@test",
+            type: "skill",
+            name: "git-source-review",
+            version: "1.0.0",
+          })}\n`,
+        );
+        const skillPath = path.join(extensionDir, "src", "SKILL.md");
+        fs.writeFileSync(
+          skillPath,
+          '---\nname: "git-source-review"\ndescription: "Review Git source"\n---\n\n# Git source review\n',
+        );
+
+        execFileSync("git", ["init"], { cwd: temp.path });
+        execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: temp.path });
+        execFileSync("git", ["config", "user.name", "Test"], { cwd: temp.path });
+        execFileSync("git", ["add", "."], { cwd: temp.path });
+        execFileSync("git", ["commit", "-m", "Initial source"], { cwd: temp.path });
+        fs.appendFileSync(skillPath, "\nChanged after commit.\n");
+
+        const blocked = await runCli(
+          ["skills", "publish", "@test/skills/git-source-review", "--yes", "--json"],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+        );
+        expect(blocked.exitCode).not.toBe(0);
+        expect(JSON.parse(blocked.stdout).result).toMatchObject({
+          execution: {
+            riskConditions: [
+              {
+                level: "override-required",
+                requiredFlag: "--accept-warnings",
+              },
+            ],
+            outcomes: [
+              {
+                status: "blocked",
+                reason: "source_state_not_accepted",
+                sourceState: {
+                  status: "differs-from-head",
+                  differences: [{ path: "src/SKILL.md", change: "modified" }],
+                },
+              },
+            ],
+          },
+        });
+
+        const registryIndexPath = path.join(
+          registryDir.path,
+          "extensions",
+          "@test",
+          "skills",
+          "git-source-review",
+          "index.json",
+        );
+        expect(fs.existsSync(registryIndexPath)).toBe(false);
+
+        const accepted = await runCli(
+          [
+            "skills",
+            "publish",
+            "@test/skills/git-source-review",
+            "--yes",
+            "--accept-warnings",
+            "--json",
+          ],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+        );
+        expect(accepted.exitCode, `${accepted.stderr}\n${accepted.stdout}`).toBe(0);
+        expect(fs.existsSync(registryIndexPath)).toBe(true);
       } finally {
         temp.cleanup();
         registryDir.cleanup();

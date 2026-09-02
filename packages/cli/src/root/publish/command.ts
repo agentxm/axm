@@ -34,7 +34,7 @@ import {
 import { authFailureToAppError, publishFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { CliRenderer } from "../../cli-renderer/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import {
   effectCliExit,
   recordCommandCompletion,
@@ -103,6 +103,7 @@ import {
 } from "@agentxm/registry-protocol/unstable/publish";
 import {
   alreadyPublishedVersionConflict,
+  assessPublishSourceState,
   buildPublishJobs,
   exactPublishUploadBinding,
   findPackPublishDivergenceFindings,
@@ -114,15 +115,18 @@ import {
   publishArchiveOptions,
   publishAuthenticationPreconditions,
   publishRecoverySelection,
+  publishSourceRiskCondition,
   runPublishLintGate,
   settlePublish,
   validatePublishOwners,
   type ArchivePlan,
   type PublishableType,
   type PublishSettlement,
+  type PublishSourceAssessment,
   type ResolvedPublishPreview,
   type SettledPublish,
 } from "@agentxm/extension-publish";
+import { GitDirectoryComparison } from "@agentxm/extension-sources";
 import { buildLintWorkspace } from "@agentxm/workspace-lint";
 import {
   PUBLICATION_SET_CONTRACT,
@@ -250,6 +254,7 @@ interface PublishCandidate extends SelectedEntry {
   readonly packages?: ReadonlyArray<Schema.Schema.Type<typeof CompanionPackageSchema>>;
   readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
   readonly publishVisibility?: ExtensionVisibility;
+  readonly publishIgnore?: ReadonlyArray<string>;
   readonly archive: Uint8Array;
   readonly archivePlan: ArchivePlan;
   readonly integrity: string;
@@ -257,6 +262,7 @@ interface PublishCandidate extends SelectedEntry {
   readonly backfill: boolean;
   readonly extensionExists: boolean;
   readonly publishPreview?: ResolvedPublishPreview;
+  readonly sourceAssessment?: PublishSourceAssessment;
 }
 
 interface PublishPreparationFailure {
@@ -359,7 +365,11 @@ type PublishPlanOutput =
     };
 
 type PublishPlanRequirements =
-  HttpClient.HttpClient | PublishAuthorization | FileSystem.FileSystem | Path.Path;
+  | HttpClient.HttpClient
+  | PublishAuthorization
+  | FileSystem.FileSystem
+  | Path.Path
+  | GitDirectoryComparison;
 
 interface TargetRegistry {
   readonly name: string;
@@ -375,6 +385,7 @@ export interface RootPublishHandlerArgs {
   readonly registryUrl: Option.Option<string>;
   readonly onExisting: Option.Option<ExistingVersionPolicy>;
   readonly backfill: boolean;
+  readonly acceptWarnings: boolean;
   readonly yes: boolean;
   readonly preview: boolean;
   readonly scope: WorkspaceScope;
@@ -386,7 +397,10 @@ export interface RootPublishHandlerArgs {
 }
 
 export const makeExactPublishRecovery = (
-  args: Pick<RootPublishHandlerArgs, "registry" | "registryUrl" | "backfill" | "visibility">,
+  args: Pick<
+    RootPublishHandlerArgs,
+    "registry" | "registryUrl" | "backfill" | "visibility" | "acceptWarnings"
+  >,
   candidateFqns: ReadonlyArray<string>,
 ) =>
   makeConfirmationRecovery(
@@ -404,6 +418,7 @@ export const makeExactPublishRecovery = (
       }),
       recoveryOption("--on-existing", publicRecoveryValue("verify")),
       recoverySwitch("--backfill", args.backfill),
+      recoverySwitch("--accept-warnings", args.acceptWarnings),
       ...Option.match(args.visibility, {
         onNone: () => [],
         onSome: (visibility) => [recoveryOption("--visibility", publicRecoveryValue(visibility))],
@@ -1211,6 +1226,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     ...(manifest.publish?.visibility === undefined
       ? {}
       : { publishVisibility: manifest.publish.visibility }),
+    ...(manifest.publish?.ignore === undefined ? {} : { publishIgnore: manifest.publish.ignore }),
     archive,
     archivePlan,
     integrity,
@@ -1544,6 +1560,9 @@ const selectedResult = (
         zipBytes: candidate.archive.length,
         integrity: candidate.integrity,
       },
+      ...(candidate.sourceAssessment?.state === undefined
+        ? {}
+        : { sourceState: candidate.sourceAssessment.state }),
       ...(candidate.publishPreview === undefined
         ? {}
         : { visibility: candidate.publishPreview.visibility }),
@@ -1566,6 +1585,9 @@ const selectedResult = (
       zipBytes: candidate.archive.length,
       integrity: candidate.integrity,
     },
+    ...(candidate.sourceAssessment?.state === undefined
+      ? {}
+      : { sourceState: candidate.sourceAssessment.state }),
     ...(candidate.publishPreview === undefined
       ? {}
       : { visibility: candidate.publishPreview.visibility }),
@@ -1617,6 +1639,9 @@ const failedCandidateResult = (
     zipBytes: candidate.archive.length,
     integrity: candidate.integrity,
   },
+  ...(candidate.sourceAssessment?.state === undefined
+    ? {}
+    : { sourceState: candidate.sourceAssessment.state }),
 });
 
 const publicationSetResult = (options: {
@@ -1748,7 +1773,31 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const decodedPreflightErrors = decoded.flatMap((result) =>
     Result.isFailure(result) ? [preparationError(result.failure)] : [],
   );
-  const shouldCheckLocalPackConstraints = decodedCandidates.some(
+  const sourceAssessments = yield* Effect.forEach(decodedCandidates, (candidate) =>
+    Effect.result(
+      Effect.gen(function* () {
+        if (candidate.action === "skip") return candidate;
+        const sourceAssessment = yield* assessPublishSourceState({
+          directory: candidate.extensionDir,
+          archivePlan: candidate.archivePlan,
+          ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
+        }).pipe(Effect.mapError(publishFailureToAppError));
+        return { ...candidate, sourceAssessment } satisfies PublishCandidate;
+      }),
+    ),
+  );
+  const sourceErrorsByMember = new Map<string, AppError>(
+    sourceAssessments.flatMap((result, index) => {
+      const candidate = decodedCandidates[index];
+      return candidate === undefined || Result.isSuccess(result)
+        ? []
+        : [[candidate.fqn, result.failure] as const];
+    }),
+  );
+  const sourceAssessedCandidates = sourceAssessments.flatMap((result) =>
+    Result.isSuccess(result) ? [result.success] : [],
+  );
+  const shouldCheckLocalPackConstraints = sourceAssessedCandidates.some(
     (candidate) => candidate.authored && candidate.type !== "pack",
   );
   const packDependencyReachability = shouldCheckLocalPackConstraints
@@ -1771,13 +1820,17 @@ const runPublish = Effect.fn("Publish.run")(function* (
       })
     : [];
   const localConstraintFacts = makeProspectiveExtensionConstraintFacts({
-    candidates: decodedCandidates.filter(
+    candidates: sourceAssessedCandidates.filter(
       (candidate) => candidate.type === "pack" || candidate.authored,
     ),
     reachability: packDependencyReachability,
   });
   const localErrorsByMember = localPackConstraintErrors(localConstraintFacts);
-  const preflightErrors = [...decodedPreflightErrors, ...localErrorsByMember.values()];
+  const preflightErrors = [
+    ...decodedPreflightErrors,
+    ...sourceErrorsByMember.values(),
+    ...localErrorsByMember.values(),
+  ];
   const selectionOutput = {
     mode: selection.mode,
     scope: args.scope,
@@ -1803,7 +1856,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const workspaceDefaultVisibility = yield* workspaceMutations.getPublishDefaultVisibility();
   const shouldPreviewAuthoritatively =
     preflightErrors.length === 0 &&
-    decodedCandidates.length > 0 &&
+    sourceAssessedCandidates.length > 0 &&
     (!isRemoteRegistry || Option.isSome(storedToken));
   const authoritativePreview: Result.Result<
     {
@@ -1817,7 +1870,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
         Effect.gen(function* () {
           const client = yield* createRegistryClient(registry.url);
           return yield* previewPublishCandidates(
-            decodedCandidates,
+            sourceAssessedCandidates,
             client,
             args.visibility,
             workspaceDefaultVisibility,
@@ -1827,9 +1880,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
     : yield* Effect.result(
         Effect.gen(function* () {
           return {
-            candidates: decodedCandidates,
+            candidates: sourceAssessedCandidates,
             publicationSet: yield* publicationSetForCandidates(
-              decodedCandidates,
+              sourceAssessedCandidates,
               args.visibility,
               workspaceDefaultVisibility,
             ),
@@ -1849,7 +1902,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
         );
   const candidates: ReadonlyArray<PublishCandidate> = Result.isSuccess(authoritativePreview)
     ? authoritativePreview.success.candidates
-    : decodedCandidates;
+    : sourceAssessedCandidates;
   const publicationSet = Result.isSuccess(authoritativePreview)
     ? authoritativePreview.success.publicationSet
     : undefined;
@@ -1882,6 +1935,8 @@ const runPublish = Effect.fn("Publish.run")(function* (
     if (Result.isFailure(decodedResult)) return failedSelectedResult(entry, decodedResult.failure);
     const candidate = decodedResult.success;
     if (candidate !== undefined) {
+      const sourceError = sourceErrorsByMember.get(candidate.fqn);
+      if (sourceError !== undefined) return failedCandidateResult(candidate, sourceError);
       const localError = localErrorsByMember.get(candidate.fqn);
       if (localError !== undefined) return failedCandidateResult(candidate, localError);
     }
@@ -1955,6 +2010,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
   });
 
   const uploadCandidates = candidates.filter((candidate) => candidate.action === "publish");
+  const sourceRiskConditions = uploadCandidates.flatMap((candidate) => {
+    const condition = publishSourceRiskCondition(candidate.fqn, candidate.sourceAssessment?.state);
+    return condition === undefined ? [] : [condition];
+  });
   const expectedPublicationSetDigest =
     publicationSet === undefined ? undefined : publicationSetDigest(publicationSet.candidates);
   const descriptorDigestsByTarget = new Map(
@@ -2154,13 +2213,43 @@ const runPublish = Effect.fn("Publish.run")(function* (
       : { preconditions: authenticationPreconditions }),
     materialPaths: uploadCandidates.map((candidate) => candidate.extensionDir),
     executionCapabilities: { rollback: "non-rollbackable" },
+    ...(sourceRiskConditions.length === 0 ? {} : { riskConditions: sourceRiskConditions }),
     jobs,
   };
   const exactRecovery = makeExactPublishRecovery(
     args,
     candidates.map((candidate) => candidate.fqn),
   );
-  const execution = yield* makePlanExecution(args, exactRecovery);
+  const execution = yield* makePlanExecution(
+    args,
+    exactRecovery,
+    args.acceptWarnings ? ["accept-warnings"] : [],
+  );
+  const revalidatePublishSources = Effect.forEach(
+    uploadCandidates,
+    (candidate) =>
+      Effect.gen(function* () {
+        const planned = candidate.sourceAssessment;
+        if (planned === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Missing source-state evidence for ${candidate.fqn}.`,
+          });
+        }
+        const current = yield* assessPublishSourceState({
+          directory: candidate.extensionDir,
+          archivePlan: candidate.archivePlan,
+          ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
+        }).pipe(Effect.mapError(publishFailureToAppError));
+        if (current.fingerprint !== planned.fingerprint) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Publish source state changed after planning for ${candidate.fqn}; no upload was attempted.`,
+          });
+        }
+      }),
+    { discard: true },
+  );
   // The journal records per-unit started and resolved facts through the plan
   // apply; with the dispatch evidence it lets an external termination
   // request resolve into a publish document of evidenced states — success
@@ -2197,7 +2286,11 @@ const runPublish = Effect.fn("Publish.run")(function* (
       };
       return yield* previewOrApplyPlan(plan, {
         execution,
-        beforeApply: () => authorization.authorize.pipe(Effect.mapError(publishStepFailure)),
+        beforeApply: () =>
+          authorization.authorize.pipe(
+            Effect.andThen(revalidatePublishSources),
+            Effect.mapError(publishStepFailure),
+          ),
       }).pipe(Effect.provideService(PublishAuthorization, authorization));
     }),
   ).pipe(Effect.provideService(OperationJournal, operationJournal));
@@ -2255,6 +2348,8 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const planBlocking = resolution.blocking;
   const planFailed = planBlocking !== undefined || resolution.failure !== undefined;
   const staleCandidate = planBlocking?.class === "stale-candidate";
+  const sourceStateChanged =
+    resolution.failure?.detail.startsWith("Publish source state changed after planning") === true;
   const planFailureCode: AppErrorCode =
     resolution.failure?.category ??
     (planBlocking === undefined
@@ -2335,6 +2430,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           ...(result.sourceType === undefined ? {} : { sourceType: result.sourceType }),
           ...(result.authored === undefined ? {} : { authored: result.authored }),
           ...(result.archive === undefined ? {} : { archive: result.archive }),
+          ...(result.sourceState === undefined ? {} : { sourceState: result.sourceState }),
           action: "error",
           phase: "upload_execution",
           reason:
@@ -2375,9 +2471,44 @@ const runPublish = Effect.fn("Publish.run")(function* (
       };
     });
   } else {
-    results = baseResults.map((result) =>
-      result.action === "publish" ? { ...result, status: "pending" } : result,
+    const unacceptedSourceIds = new Set(
+      uploadCandidates.flatMap((candidate) =>
+        candidate.sourceAssessment?.state?.status === "matches-head" ||
+        candidate.sourceAssessment?.state === undefined
+          ? []
+          : [candidate.fqn],
+      ),
     );
+    results = baseResults.map((result) => {
+      if (result.action !== "publish") return result;
+      if (planBlocking?.class === "override-required" && unacceptedSourceIds.size > 0) {
+        return unacceptedSourceIds.has(result.id)
+          ? {
+              ...result,
+              status: "blocked",
+              reason: "source_state_not_accepted",
+              message:
+                "The Registry archive is not fully represented by Git HEAD; pass --accept-warnings to publish it explicitly.",
+            }
+          : {
+              ...result,
+              status: "blocked",
+              reason: "blocked_by_preflight",
+              message:
+                "Not attempted because another selected archive requires explicit acceptance",
+              blockedBy: [...unacceptedSourceIds],
+            };
+      }
+      if (staleCandidate || sourceStateChanged) {
+        return {
+          ...result,
+          status: "blocked",
+          reason: "stale_material",
+          message: "Workspace material changed after planning; no upload was attempted.",
+        };
+      }
+      return { ...result, status: "pending" };
+    });
   }
   const recoverySelection = publishRecoverySelection(results);
   const recoveryExecution =
@@ -2417,6 +2548,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
       ...(authenticationPreconditions.length === 0
         ? {}
         : { preconditions: authenticationPreconditions }),
+      ...(resolution.riskConditions === undefined
+        ? {}
+        : { riskConditions: resolution.riskConditions }),
       selection: selectionOutput,
       publicationSet: finalPublicationSetOutput,
       results,
@@ -2439,7 +2573,8 @@ const runPublish = Effect.fn("Publish.run")(function* (
                       code: planFailureCode,
                       detail: staleCandidate
                         ? "Workspace material changed after authorization; no upload was attempted."
-                        : `Publish execution did not start: ${planFailureReason}.`,
+                        : (planBlocking?.detail ??
+                          `Publish execution did not start: ${planFailureReason}.`),
                     }),
                   )
                 : publicPublishCause(publishStepAppError(resolution.failure)),
@@ -2454,7 +2589,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
       code: planFailureCode,
       detail: staleCandidate
         ? "Workspace material changed after authorization; no upload was attempted."
-        : (resolution.failure?.detail ?? `Publish execution did not start: ${planFailureReason}.`),
+        : (resolution.failure?.detail ??
+          planBlocking?.detail ??
+          `Publish execution did not start: ${planFailureReason}.`),
       suggestions: resolution.suggestions ?? [],
     });
     return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
@@ -2504,6 +2641,7 @@ const publishConfig = {
   ),
   onExisting: onExistingFlag,
   backfill: backfillFlag,
+  acceptWarnings: acceptWarningsFlag,
   visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
     Flag.withDescription("Initial visibility for every new extension in the selection"),
     Flag.optional,
@@ -2526,6 +2664,7 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     registryUrl: parsed.registryUrl,
     onExisting: parsed.onExisting,
     backfill: parsed.backfill,
+    acceptWarnings: parsed.acceptWarnings,
     yes: parsed.yes,
     preview: parsed.preview,
     scope: "project",

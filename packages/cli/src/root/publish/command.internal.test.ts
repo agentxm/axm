@@ -41,6 +41,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { makeAppError } from "../../app-error/index.js";
 import { RegistryAuthFailed } from "@agentxm/registry-auth";
+import { GitDirectoryComparisonLive } from "@agentxm/extension-sources/live";
 
 import {
   at,
@@ -205,6 +206,7 @@ const args = (
   registryUrl: Option.some(registryUrl),
   onExisting: Option.none(),
   backfill: false,
+  acceptWarnings: false,
   yes: true,
   preview: true,
   scope: "project",
@@ -237,10 +239,19 @@ describe("root publish", () => {
       wsOptions: { projectRoot: tempDir },
     });
     const interaction = DeviceLoginInteractionTest();
+    const gitDirectoryComparisonLayer = Layer.provide(
+      GitDirectoryComparisonLive,
+      context.fullLayer,
+    );
     return {
       ...context,
       provide: makeEffectProvide(
-        Layer.mergeAll(context.fullLayer, AuthClientTest(), interaction.layer),
+        Layer.mergeAll(
+          context.fullLayer,
+          AuthClientTest(),
+          interaction.layer,
+          gitDirectoryComparisonLayer,
+        ),
       ),
     };
   };
@@ -745,6 +756,7 @@ describe("root publish", () => {
         authClient,
         interaction.layer,
         Layer.succeed(HttpClient.HttpClient, httpClient),
+        Layer.provide(GitDirectoryComparisonLive, context.fullLayer),
       ),
     );
 
@@ -922,6 +934,7 @@ describe("root publish", () => {
             authClient,
             interaction.layer,
             Layer.succeed(HttpClient.HttpClient, httpClient),
+            Layer.provide(GitDirectoryComparisonLive, context.fullLayer),
           ),
         );
         const fiber = yield* Effect.forkChild(
@@ -1033,6 +1046,7 @@ describe("root publish", () => {
           authClient,
           interaction.layer,
           Layer.succeed(HttpClient.HttpClient, httpClient),
+          Layer.provide(GitDirectoryComparisonLive, context.fullLayer),
         ),
       );
       const fiber = yield* Effect.forkChild(
@@ -1114,6 +1128,7 @@ describe("root publish", () => {
         authClient,
         DeviceLoginInteractionTest().layer,
         Layer.succeed(HttpClient.HttpClient, httpClient),
+        Layer.provide(GitDirectoryComparisonLive, context.fullLayer),
       ),
     );
 
@@ -1282,6 +1297,7 @@ describe("root publish", () => {
         authClient,
         interaction.layer,
         Layer.succeed(HttpClient.HttpClient, httpClient),
+        Layer.provide(GitDirectoryComparisonLive, context.fullLayer),
       ),
     );
 
@@ -1305,7 +1321,10 @@ describe("root publish", () => {
         });
         const outcomes = property(execution, "outcomes");
         if (!Array.isArray(outcomes)) throw new Error("Expected publish outcomes");
-        expect(property(expectRecord(at(outcomes, 0)), "status")).toBe("pending");
+        expect(expectRecord(at(outcomes, 0))).toMatchObject({
+          status: "blocked",
+          reason: "stale_material",
+        });
       }),
     );
   });
@@ -2593,6 +2612,7 @@ describe("publish recovery", () => {
         registry: Option.some("private"),
         registryUrl: Option.none(),
         backfill: false,
+        acceptWarnings: false,
         visibility: Option.some("private"),
       },
       ["@acme/skills/review", "@acme/packs/toolkit"],
@@ -2653,6 +2673,7 @@ describe("publish recovery", () => {
             registry: Option.some("private"),
             registryUrl: Option.none(),
             backfill: false,
+            acceptWarnings: false,
             visibility: Option.none(),
           },
           selection.remainingItems,

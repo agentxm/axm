@@ -7,9 +7,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { getTreeSha } from "./operations.js";
+import { compareDirectoryToHead, getTreeSha } from "./operations.js";
 import { GitOperationFailed } from "../errors.js";
 
 describe("git", () => {
@@ -140,6 +141,77 @@ describe("git", () => {
 
         expect(error._tag).toBe("GitOperationFailed");
         expect(error.operation).toBe("get-tree-sha");
+      }),
+    );
+  });
+
+  describe("compareDirectoryToHead", () => {
+    it.effect("reports added, modified, and deleted package files relative to HEAD", () =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        yield* Effect.promise(() => createLocalRepo(repoPath));
+        const packagePath = path.join(repoPath, "packages", "review");
+        fs.mkdirSync(path.join(packagePath, "src"), { recursive: true });
+        fs.writeFileSync(path.join(packagePath, "skill.json"), "committed manifest\n");
+        fs.writeFileSync(path.join(packagePath, "src", "SKILL.md"), "committed body\n");
+        fs.writeFileSync(path.join(packagePath, "old.md"), "removed later\n");
+        const { execSync } = yield* Effect.promise(() => import("node:child_process"));
+        const gitOptions = { cwd: repoPath, env: isolatedGitEnv(), stdio: "pipe" } as const;
+        execSync("git add .", gitOptions);
+        execSync("git commit -m 'Add package'", gitOptions);
+
+        fs.writeFileSync(path.join(packagePath, "src", "SKILL.md"), "changed body\n");
+        fs.writeFileSync(path.join(packagePath, "notes.md"), "untracked notes\n");
+        fs.rmSync(path.join(packagePath, "old.md"));
+
+        const comparison = yield* compareDirectoryToHead(repoPath, packagePath, [
+          "notes.md",
+          "skill.json",
+          "src/SKILL.md",
+        ]).pipe(Effect.provide(NodeServices.layer));
+
+        expect(comparison.repositoryDirectory).toBe("packages/review");
+        expect(comparison.headRevision).toMatch(/^[a-f0-9]{40}$/);
+        expect(comparison.differences.map(({ path, change }) => ({ path, change }))).toEqual([
+          { path: "notes.md", change: "added" },
+          { path: "old.md", change: "deleted" },
+          { path: "src/SKILL.md", change: "modified" },
+        ]);
+      }),
+    );
+
+    it.effect("reports no differences for an exact committed package", () =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        yield* Effect.promise(() => createLocalRepo(repoPath));
+
+        const comparison = yield* compareDirectoryToHead(repoPath, repoPath, ["README.md"]).pipe(
+          Effect.provide(NodeServices.layer),
+        );
+
+        expect(comparison.repositoryDirectory).toBe(".");
+        expect(comparison.differences).toEqual([]);
+      }),
+    );
+
+    it.effect("treats every current file as added when the worktree has no HEAD", () =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        fs.mkdirSync(repoPath, { recursive: true });
+        const { execSync } = yield* Effect.promise(() => import("node:child_process"));
+        execSync("git init", {
+          cwd: repoPath,
+          env: isolatedGitEnv(),
+          stdio: "pipe",
+        });
+        fs.writeFileSync(path.join(repoPath, "skill.json"), "uncommitted\n");
+
+        const comparison = yield* compareDirectoryToHead(repoPath, repoPath, ["skill.json"]).pipe(
+          Effect.provide(NodeServices.layer),
+        );
+
+        expect(comparison.headRevision).toBeUndefined();
+        expect(comparison.differences).toEqual([{ path: "skill.json", change: "added" }]);
       }),
     );
   });

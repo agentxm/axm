@@ -573,6 +573,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
+      '@agentxm/extension-sources':
+        specifier: workspace:^
+        version: link:../extension-sources
       '@agentxm/extension-workspace':
         specifier: workspace:^
         version: link:../extension-workspace

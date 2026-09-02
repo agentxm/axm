@@ -100,4 +100,16 @@ export { fileUrlToPath } from "./file-url.js";
 
 // Git acquisition
 export { findGitRoot, isGitManaged } from "./git/detect.js";
-export { getCommitSha, getTreeSha, shallowClone } from "./git/operations.js";
+export {
+  compareDirectoryToHead,
+  getCommitSha,
+  getTreeSha,
+  shallowClone,
+  type GitDirectoryComparisonResult,
+  type GitDirectoryDifference,
+} from "./git/operations.js";
+export {
+  GitDirectoryComparison,
+  type GitDirectoryComparisonInput,
+  type GitDirectoryComparisonService,
+} from "./git/directory-comparison.js";

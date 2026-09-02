@@ -23,6 +23,7 @@ export {
 
 export {
   buildZipArchive,
+  isArchivePathIncluded,
   planZipArchive,
   type ArchivePlan,
   type ArchivePlanFile,
@@ -30,6 +31,14 @@ export {
   type BuildZipArchiveOptions,
   type PlannedZipArchive,
 } from "./archive.js";
+
+export {
+  assessPublishSourceState,
+  publishSourceRiskCondition,
+  type PublishSourceAssessment,
+  type PublishSourceDifference,
+  type PublishSourceState,
+} from "./source-state.js";
 
 export {
   settlePublish,

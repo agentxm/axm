@@ -66,7 +66,10 @@ import {
 } from "./feature-errors.js";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import { LifecycleResolutionProgressLive } from "./lifecycle-interaction.js";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import {
+  GitDirectoryComparisonLive,
+  SourceHostProvidersLive,
+} from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   AuthClientLive,
@@ -294,10 +297,12 @@ const makeWorkspaceProgramLayer = (
     SourceHostProvidersLive,
     Layer.merge(workspaceCatalogLayer, AxmSkillCandidateGateLive),
   );
+  const gitDirectoryComparisonLayer = Layer.provide(GitDirectoryComparisonLive, PlatformLayer);
   const workspaceServiceLayer = Layer.mergeAll(
     wsLayer,
     workspaceCatalogLayer,
     sourceProvidersLayer,
+    gitDirectoryComparisonLayer,
     CodingAgentRepositoryLive,
     AuthoringFailureAdapterLive,
     InspectionFailureAdapterLive,

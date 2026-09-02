@@ -17,8 +17,11 @@ import "./cli-commands/skills/update/command.e2e.js";
  * cli-e2e deliberately has no code dependency on the specifications package.
  */
 export const executionBinding = {
-  requirements: ["cli/update/advances-resolution-within-intent"],
+  requirements: [
+    "cli/update/advances-resolution-within-intent",
+    "cli/publish/requires-explicit-acceptance-for-non-head-source",
+  ],
   boundary: "process",
   rationale:
-    "Runs the real skills update command against a changed local source, proving the accepted content identity advances while configuration stays byte-identical, disabled entries are skipped, and preview applies nothing — local-source advancement the in-memory root update surface does not expose.",
+    "Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.",
 } as const;

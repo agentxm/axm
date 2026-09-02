@@ -133,6 +133,7 @@ const makeWorkspaceMock = (
           getDesiredStateGraph: () =>
             Effect.succeed({
               complete: true,
+              mcpSourceClosures: [],
               problems: [],
               nodes: [
                 {

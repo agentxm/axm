@@ -67,7 +67,7 @@ under `agent_extensions/<source-name>/<source-full-name>`. For example, an
 AgentXM Registry package uses
 `agent_extensions/agentxm/<@owner>/<type>/<name>`, while a GitHub subpath uses
 `agent_extensions/github/<owner>/<repo>/<subpath>`. `axm.json` and authored pack
-manifests declare intent; the v6 `axm-lock.yaml` records accepted immutable
+manifests declare intent; the v7 `axm-lock.yaml` records accepted immutable
 resolutions and the exact materialized-tree integrity of desired external
 extensions. Project-authored packages live directly under type roots such as
 `skills/<name>`, `rules/<name>`, and `packs/<name>`; each root can be changed by

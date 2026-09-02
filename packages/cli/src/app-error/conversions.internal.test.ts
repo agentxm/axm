@@ -139,17 +139,17 @@ const cases: ReadonlyArray<ConversionCase> = [
     failure: new LockfileVersionUnsupported({
       path: "/w/axm-lock.yaml",
       observedVersion: 5,
-      supportedVersion: 6,
+      supportedVersion: 7,
     }),
     code: "validation",
     title: "Unsupported workspace lockfile version",
     detail:
-      "Workspace lockfile at /w/axm-lock.yaml declares version 5, but this AXM supports version 6. Re-accept the workspace intent into the current format before continuing.",
+      "Workspace lockfile at /w/axm-lock.yaml declares version 5, but this AXM supports version 7. Re-accept the workspace intent into the current format before continuing.",
     problem: {
       code: "workspace-lockfile-version-unsupported",
       path: "/w/axm-lock.yaml",
       observedVersion: 5,
-      supportedVersion: 6,
+      supportedVersion: 7,
       direction: "older",
     },
     suggestions: [
@@ -178,18 +178,18 @@ const cases: ReadonlyArray<ConversionCase> = [
     name: "LockfileVersionUnsupported newer",
     failure: new LockfileVersionUnsupported({
       path: "/w/axm-lock.yaml",
-      observedVersion: 7,
-      supportedVersion: 6,
+      observedVersion: 8,
+      supportedVersion: 7,
     }),
     code: "validation",
     title: "Unsupported workspace lockfile version",
     detail:
-      "Workspace lockfile at /w/axm-lock.yaml declares version 7, but this AXM supports version 6. This workspace requires a newer AXM.",
+      "Workspace lockfile at /w/axm-lock.yaml declares version 8, but this AXM supports version 7. This workspace requires a newer AXM.",
     problem: {
       code: "workspace-lockfile-version-unsupported",
       path: "/w/axm-lock.yaml",
-      observedVersion: 7,
-      supportedVersion: 6,
+      observedVersion: 8,
+      supportedVersion: 7,
       direction: "newer",
     },
     suggestions: [

@@ -70,7 +70,7 @@ const settings = {
 };
 
 const lockfile = {
-  lockfileVersion: 6,
+  lockfileVersion: 7,
   skills: {
     "bad-skill": {
       type: "registry",

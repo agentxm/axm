@@ -9,13 +9,26 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import { failureToStepFailure } from "../../../app-error/conversions.js";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import type { AppError } from "../../../app-error/index.js";
-import { WorkspaceMutations, type McpServerExtensionTarget } from "@agentxm/workspace-state";
+import {
+  acceptedLockedCanonicalPath,
+  WorkspaceMutations,
+  type McpServerExtensionTarget,
+} from "@agentxm/workspace-state";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import { mcpServerArtifact, mcpSourceTarget } from "@agentxm/extension-lifecycle";
+import {
+  collectSecretInputNames,
+  deleteMcpSecrets,
+  mcpServerArtifact,
+  mcpSourceTarget,
+  readMcpServerManifest,
+} from "@agentxm/extension-lifecycle";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import { buildUninstallOperation } from "@agentxm/extension-workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
@@ -52,6 +65,8 @@ type UninstallMcpServerActions = UninstallExtensionCommandWorkflowActions<
 export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const mcpServerMgr = yield* McpServerManager;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
 
   const parseArgs = (
     args: UninstallMcpServerHandlerArgs,
@@ -90,20 +105,69 @@ export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () 
       return {
         ...step,
         run: Effect.gen(function* () {
+          const graph = yield* ws
+            .getDesiredStateGraph()
+            .pipe(Effect.catch(() => Effect.succeed(undefined)));
+          const desiredNode = graph?.nodes.find(
+            (node) => node.type === "mcp-server" && node.name === target.name,
+          );
           const lockEntry = Option.getOrUndefined(
             yield* ws
-              .getLockedMcpServer(target.name)
+              .getLockedMcpServerForConnection(target.name)
               .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
           );
+          const canonicalPath = yield* acceptedLockedCanonicalPath({
+            workspace: ws,
+            type: "mcp-server",
+            name: target.name,
+          }).pipe(
+            Effect.provideService(Path.Path, path),
+            Effect.catch(() => Effect.succeed(Option.none())),
+          );
+          const manifest = yield* Option.match(canonicalPath, {
+            onNone: () => Effect.succeed(Option.none()),
+            onSome: (root) =>
+              readMcpServerManifest(root).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              ),
+          });
           const result = yield* step.run;
           if (result.result !== "success") return result;
           const unchanged = result.disposition === "unchanged";
+          const secretNames = Option.match(manifest, {
+            onNone: () => new Set<string>(),
+            onSome: collectSecretInputNames,
+          });
+          const secretDeletionWarnings =
+            unchanged || desiredNode === undefined || desiredNode.authority === "inline"
+              ? []
+              : (yield* deleteMcpSecrets(
+                  {
+                    scopeRoot: path.resolve(ws.baseDir),
+                    localName: target.name,
+                    sourceIdentity: desiredNode.identity,
+                  },
+                  secretNames,
+                )).flatMap((outcome) =>
+                  outcome._tag === "failed"
+                    ? [
+                        `${outcome.inputName} could not be deleted from the system keychain; AXM state was applied and credential cleanup is required`,
+                      ]
+                    : [],
+                );
           const sourceTarget =
             lockEntry?.type === "registry"
               ? mcpSourceTarget(ws.scope, lockEntry, "removed")
               : undefined;
           return {
             ...result,
+            message: appendWarningsToMessage(result.message, secretDeletionWarnings),
+            ...(secretDeletionWarnings.length === 0
+              ? {}
+              : {
+                  warnings: [...(result.warnings ?? []), ...secretDeletionWarnings],
+                }),
             artifact: mcpServerArtifact({
               lockEntry,
               scope: ws.scope,

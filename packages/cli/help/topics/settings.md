@@ -189,7 +189,10 @@ defaults are `skills`, `mcps`, `subagents`, `rules`, `hooks`, `knowledge`, and
 
 ## MCP servers
 
-Registry MCP servers use the same source-string form as other extensions. Inline
+Registry MCP servers use the same source-string form as other extensions. The
+map key is the local connection name, so multiple keys may reference one source
+while keeping separate inputs, activation, agent targeting, and projections.
+They share one accepted source resolution. Inline
 MCP servers can be declared directly with either `command`/`args` for stdio or
 `url`/`headers` for a remote server. Use `axm mcps add` for both forms, `axm
 mcps import` to adopt unmanaged entries from existing agent config files, and
@@ -198,7 +201,8 @@ mcps import` to adopt unmanaged entries from existing agent config files, and
 ```jsonc
 {
   "mcpServers": {
-    "github": "@acme/mcps/github@^1.0.0",
+    "work-github": "@acme/mcps/github@^1.0.0",
+    "personal-github": "@acme/mcps/github@^1.0.0",
     "linear": {
       "command": "npx",
       "args": ["-y", "linear-mcp-server"],

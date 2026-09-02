@@ -179,6 +179,7 @@ describe("KnowledgeManager", () => {
               getDesiredStateGraph: () =>
                 Effect.succeed({
                   complete: true,
+                  mcpSourceClosures: [],
                   nodes: [
                     {
                       type: "knowledge",
@@ -337,6 +338,7 @@ describe("KnowledgeManager", () => {
                   Effect.succeed({
                     complete: false,
                     nodes: [],
+                    mcpSourceClosures: [],
                     problems: [
                       {
                         type: "pack-resolution-unavailable",
@@ -389,6 +391,7 @@ describe("KnowledgeManager", () => {
                 getDesiredStateGraph: () =>
                   Effect.succeed({
                     complete: true,
+                    mcpSourceClosures: [],
                     nodes: [
                       {
                         type: "knowledge",

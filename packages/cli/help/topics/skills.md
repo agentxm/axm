@@ -106,7 +106,7 @@ AXM records accepted immutable resolution for externally sourced skills:
 - **Local-source identity** — relative locator and content identity for an accepted local source.
 
 After install, remote-source canonical files under `agent_extensions/` are
-observed materialization. Lockfile v6 records the source type, exact source
+observed materialization. Lockfile v7 records the source type, exact source
 name and endpoint or coordinate, requested intent, immutable resolution,
 package format, and strict integrity of their complete package tree. If any
 path or byte changes locally, AXM preserves the

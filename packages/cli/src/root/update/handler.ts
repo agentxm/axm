@@ -30,13 +30,17 @@ import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/extension-workspace";
 import {
   WorkspaceMutations,
   acceptedResolutionRef,
+  type DesiredStateGraph,
   usableAcceptedCanonical,
 } from "@agentxm/workspace-state";
 import {
   decodeVersionRangeSync,
   versionSatisfiesRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
+import {
+  parseSourceQualifiedRegistrySourcePatternParts,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
@@ -100,7 +104,13 @@ const runUpdateIntent = (
         );
       }
       case "mcp-server": {
-        const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
+        const workspace = yield* WorkspaceMutations;
+        const graph = yield* workspace.getDesiredStateGraph();
+        const desired = desiredNodeForIntent(graph, intent);
+        const mcpArgs: InstallMcpServerHandlerArgs = {
+          source: intent.source,
+          ...(desired === undefined ? {} : { localName: desired.name }),
+        };
         return yield* runInstallCommandWorkflow(mcpArgs, actions.mcpServer, {
           execution,
           ...(transformPlan === undefined ? {} : { transformPlan }),
@@ -217,24 +227,31 @@ const withReleaseAge = (
 const normalizedPackIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
 
+const desiredNodeForIntent = (graph: DesiredStateGraph, intent: RootUpdateIntent) =>
+  graph.nodes.find((node) => {
+    if (node.type !== intent.type) return false;
+    if (normalizedPackIdentity(node.identity) === intent.target) return true;
+    if (node.type !== "mcp-server" || node.source === undefined) return false;
+    const parsed = parseSourceQualifiedRegistrySourcePatternParts(node.source);
+    return (
+      parsed?.name !== undefined &&
+      `${parsed.owner}/${parsed.type}/${parsed.name}` === intent.target
+    );
+  });
+
 const preservableRegistryVersion = (intent: RootUpdateIntent) =>
   Effect.gen(function* () {
     const workspace = yield* WorkspaceMutations;
     const graph = yield* workspace.getDesiredStateGraph();
     if (!graph.complete) return Option.none<string>();
 
-    const desired = graph.nodes.find(
-      (node) =>
-        node.type === intent.type &&
-        node.name === intent.name &&
-        normalizedPackIdentity(node.identity) === intent.target,
-    );
+    const desired = desiredNodeForIntent(graph, intent);
     if (desired === undefined) return Option.none<string>();
 
     const canonical = yield* usableAcceptedCanonical({
       workspace,
       type: intent.type,
-      name: intent.name,
+      name: desired.name,
     });
     if (Option.isNone(canonical)) return Option.none<string>();
     const ref = canonical.value.ref;
@@ -271,10 +288,13 @@ const preservableRegistryVersion = (intent: RootUpdateIntent) =>
 const acceptedRegistryFloor = (intent: RootUpdateIntent) =>
   Effect.gen(function* () {
     const workspace = yield* WorkspaceMutations;
+    const graph = yield* workspace.getDesiredStateGraph();
+    const desired = desiredNodeForIntent(graph, intent);
+    if (desired === undefined) return Option.none();
     const accepted = yield* acceptedResolutionRef({
       workspace,
       type: intent.type,
-      name: intent.name,
+      name: desired.name,
     });
     return Option.flatMap(accepted, (ref) =>
       ref.refType === "registry" && ref.owner === intent.owner && ref.name === intent.name

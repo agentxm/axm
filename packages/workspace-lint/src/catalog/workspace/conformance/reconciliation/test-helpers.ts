@@ -20,7 +20,7 @@ const sourceEndpointContext = (configuredEndpoint: string) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 6,
+        lockfileVersion: 7,
         skills: {
           "react-router": {
             type: "github",
@@ -79,6 +79,7 @@ const desiredStateContext = (observation: CanonicalObservation) =>
             desiredState: Effect.succeed({
               complete: true,
               nodes: [desiredSkill],
+              mcpSourceClosures: [],
               problems: [],
             }),
             canonicalObservations: Effect.succeed([{ desired: desiredSkill, observation }]),

@@ -3,6 +3,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import { enabledConfiguredEntries } from "@agentxm/extension-workspace";
 import type { IdentifierResourceType } from "@agentxm/extension-sources";
 import type { ContainerType, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
 import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
 import { expandGlobs } from "../../utils/index.js";
@@ -47,6 +48,7 @@ export interface ResolveUpdateTargetsArgs<TEntry extends UpdateTargetEntry = Upd
   readonly resourceLabelPlural: string;
   readonly noSourceMatchSuggestions?: ReadonlyArray<SuggestedAction>;
   readonly noNameMatchSuggestions?: ReadonlyArray<SuggestedAction>;
+  readonly sourceMayMatchName?: boolean;
 }
 
 export type ResolveUpdateTargetsResult<TEntry extends UpdateTargetEntry = UpdateTargetEntry> =
@@ -77,6 +79,18 @@ export const allUpdateTargetResolutionsFailed = (args: AllUpdateTargetResolution
 const sourceMatchesEntrySource = (sourceValue: string, entrySource: string | undefined) =>
   Effect.gen(function* () {
     if (entrySource === undefined) return false;
+    const requestedRegistry = parseSourceQualifiedRegistrySourcePatternParts(sourceValue);
+    const configuredRegistry = parseSourceQualifiedRegistrySourcePatternParts(entrySource);
+    if (requestedRegistry !== undefined || configuredRegistry !== undefined) {
+      return (
+        requestedRegistry !== undefined &&
+        configuredRegistry !== undefined &&
+        requestedRegistry.sourceName === configuredRegistry.sourceName &&
+        requestedRegistry.owner === configuredRegistry.owner &&
+        requestedRegistry.type === configuredRegistry.type &&
+        requestedRegistry.name === configuredRegistry.name
+      );
+    }
     const sources = yield* SourceHostProviders;
     const sourceArgResult = yield* Effect.result(resolveSource(sourceValue));
     if (sourceArgResult._tag === "Failure") {
@@ -94,9 +108,12 @@ const sourceMatchesEntrySource = (sourceValue: string, entrySource: string | und
 const filterBySource = <TEntry extends UpdateTargetEntry>(
   entries: ReadonlyArray<TEntry>,
   sourceValue: string,
+  sourceMayMatchName: boolean,
 ) =>
   Effect.gen(function* () {
-    const nameMatchedEntries = entries.filter(([name]) => name === sourceValue);
+    const nameMatchedEntries = sourceMayMatchName
+      ? entries.filter(([name]) => name === sourceValue)
+      : [];
     if (nameMatchedEntries.length > 0) {
       return nameMatchedEntries;
     }
@@ -143,13 +160,15 @@ export const resolveUpdateTargets = <TEntry extends UpdateTargetEntry>(
   Effect.gen(function* () {
     const sourceValue = Option.getOrUndefined(args.source);
     const sourceFilteredEntries =
-      sourceValue === undefined ? args.entries : yield* filterBySource(args.entries, sourceValue);
+      sourceValue === undefined
+        ? args.entries
+        : yield* filterBySource(args.entries, sourceValue, args.sourceMayMatchName ?? true);
 
     if (sourceValue !== undefined && sourceFilteredEntries.length === 0) {
       yield* emitNoOpOutcome(args.command, {
         planName: args.planName,
         planDescription: args.planDescription,
-        message: `No installed ${args.resourceLabel} matched "${sourceValue}" as a name or source.`,
+        message: `No installed ${args.resourceLabel} matched "${sourceValue}"${args.sourceMayMatchName === false ? " as a source" : " as a name or source"}.`,
         ...(args.noSourceMatchSuggestions === undefined
           ? {}
           : { suggestions: args.noSourceMatchSuggestions }),
@@ -198,6 +217,7 @@ export interface ResolveWorkspaceUpdateSelectionArgs {
   readonly resourceLabelPlural: string;
   readonly source: Option.Option<string>;
   readonly nameFilters: ReadonlyArray<string>;
+  readonly sourceMayMatchName?: boolean;
 }
 
 /**
@@ -233,6 +253,9 @@ export const resolveWorkspaceUpdateSelection = (args: ResolveWorkspaceUpdateSele
       resourceType: args.resourceType,
       resourceLabel: args.resourceLabel,
       resourceLabelPlural: args.resourceLabelPlural,
+      ...(args.sourceMayMatchName === undefined
+        ? {}
+        : { sourceMayMatchName: args.sourceMayMatchName }),
     });
 
     if (resolution.type === "no-op") {

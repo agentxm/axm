@@ -35,7 +35,12 @@ const contextFor = (
       workspace,
       axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
       health: {
-        desiredState: Effect.succeed({ complete: true, nodes, problems: [] }),
+        desiredState: Effect.succeed({
+          complete: true,
+          nodes,
+          mcpSourceClosures: [],
+          problems: [],
+        }),
       },
       displayRoot: "",
     } satisfies WorkspaceRuleContext;
@@ -79,7 +84,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: {} };
       state.lockfile = {
-        lockfileVersion: 6,
+        lockfileVersion: 7,
         skills: {
           review: {
             type: "github",
@@ -119,7 +124,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
       state.lockfile = {
-        lockfileVersion: 6,
+        lockfileVersion: 7,
         skills: { reviewer: registryResolution("1.0.0") },
       };
 

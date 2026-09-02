@@ -9,6 +9,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 
 import {
+  LOCKFILE_VERSION,
   allCatalogRuleIds,
   computeMaterializedTreeIntegritySync,
   handleInstall,
@@ -194,7 +195,7 @@ describe("Official AXM skill lint findings", () => {
             fs.writeFileSync(
               path.join(workspace.root, "axm-lock.yaml"),
               YAML.stringify({
-                lockfileVersion: 6,
+                lockfileVersion: LOCKFILE_VERSION,
                 skills: {
                   axm: {
                     type: "registry",

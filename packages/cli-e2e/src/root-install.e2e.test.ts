@@ -346,6 +346,22 @@ const readSettings = (workspacePath: string) =>
 const readLockfile = (workspacePath: string) =>
   YAML.parse(fs.readFileSync(path.join(workspacePath, "axm-lock.yaml"), "utf-8"));
 
+const lockEntryForSurface = (
+  lockfile: Record<string, Record<string, unknown> | undefined>,
+  surface: InstallSurface,
+  name: string,
+): unknown => {
+  const section = lockfile[settingsKeyForSurface(surface)] ?? {};
+  if (surface !== "mcps") return section[name];
+  return Object.values(section).find(
+    (entry) =>
+      typeof entry === "object" &&
+      entry !== null &&
+      "workspaceName" in entry &&
+      entry.workspaceName === name,
+  );
+};
+
 const normalizeLockEntry = (value: unknown) => {
   const copy = JSON.parse(JSON.stringify(value));
 
@@ -436,11 +452,10 @@ const expectConfiguredEntriesInstalled = (
   const settings = readSettings(workspacePath);
   const lockfile = readLockfile(workspacePath);
   const settingsSection = settings[settingsKey] ?? {};
-  const lockfileSection = lockfile[settingsKey] ?? {};
 
   for (const name of names) {
     expect(settingsSection[name]).toBeDefined();
-    expect(lockfileSection[name]).toBeDefined();
+    expect(lockEntryForSurface(lockfile, surface, name)).toBeDefined();
     expect(fs.existsSync(extensionDirForSurface(workspacePath, surface, name))).toBe(true);
   }
 };
@@ -703,8 +718,8 @@ describe("axm install", () => {
 
         const rootLockfile = readLockfile(rootWorkspace.path);
         const surfaceLockfile = readLockfile(surfaceWorkspace.path);
-        expect(normalizeLockEntry(rootLockfile[settingsKey][name])).toEqual(
-          normalizeLockEntry(surfaceLockfile[settingsKey][name]),
+        expect(normalizeLockEntry(lockEntryForSurface(rootLockfile, surface, name))).toEqual(
+          normalizeLockEntry(lockEntryForSurface(surfaceLockfile, surface, name)),
         );
 
         expect(snapshotDir(extensionDirForSurface(rootWorkspace.path, surface, name))).toEqual(
@@ -839,7 +854,9 @@ describe("axm install", () => {
       const settings = readSettings(workspace.path);
       const lockfile = readLockfile(workspace.path);
       expect(settings.mcpServers?.["pack-mcp"]).toBeUndefined();
-      expect(lockfile.mcpServers?.["pack-mcp"]).toBeDefined();
+      expect(Object.values(lockfile.mcpServers ?? {})).toContainEqual(
+        expect.objectContaining({ workspaceName: "pack-mcp" }),
+      );
       expect(fs.existsSync(extensionDirForSurface(workspace.path, "mcps", "pack-mcp"))).toBe(true);
     } finally {
       registryDir.cleanup();

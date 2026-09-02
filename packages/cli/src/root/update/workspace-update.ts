@@ -18,7 +18,11 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
+import {
+  WorkspaceMutations,
+  configuredRowsByName,
+  isSourcedDesiredExtension,
+} from "@agentxm/workspace-state";
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
@@ -45,6 +49,7 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
 import type { JobStepResult } from "@agentxm/workspace-operations";
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
 import type { InstallKnowledgeCommandIntent } from "../knowledge/install/intent.js";
@@ -521,7 +526,12 @@ const resolveMcpServerIntent = (
     ),
     makeIntent: (ref, versionRange) =>
       ref.type === "mcp-server"
-        ? ({ ref, versionRange, force: false } satisfies InstallMcpServerCommandIntent)
+        ? ({
+            ref,
+            localName: decodeExtensionNameSync(name),
+            versionRange,
+            force: false,
+          } satisfies InstallMcpServerCommandIntent)
         : undefined,
   });
 
@@ -770,7 +780,28 @@ const collectMcpServerPlans = (
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const configured = yield* ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName));
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
+    const graph = yield* ws.getDesiredStateGraph();
+    const seenSourceClosures = new Set<string>();
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection).flatMap(
+      (entry): ReadonlyArray<typeof entry> => {
+        const [name, configuredEntry] = entry;
+        const desired = graph.nodes.find(
+          (node) => node.type === "mcp-server" && node.name === name,
+        );
+        if (
+          configuredEntry.source === undefined ||
+          isWorkspaceSourceLocator(configuredEntry.source) ||
+          desired === undefined ||
+          !isSourcedDesiredExtension(desired)
+        ) {
+          return [entry];
+        }
+        if (seenSourceClosures.has(desired.identity)) return [];
+        seenSourceClosures.add(desired.identity);
+        const representative: typeof entry = [name, { ...configuredEntry, source: desired.source }];
+        return [representative];
+      },
+    );
 
     const resolved = yield* Effect.forEach(
       entries,

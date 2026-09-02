@@ -314,7 +314,7 @@ describe("makeScopedStateApi.settings", () => {
 // Lockfile cell
 // ---------------------------------------------------------------------------
 
-const validLockfileYaml = ["lockfileVersion: 6", "skills: {}", ""].join("\n");
+const validLockfileYaml = ["lockfileVersion: 7", "skills: {}", ""].join("\n");
 
 describe("makeScopedStateApi.lockfile", () => {
   it.effect("returns Option.none() when lockfile is absent in project scope", () =>
@@ -346,7 +346,7 @@ describe("makeScopedStateApi.lockfile", () => {
 
       const result = yield* api.lockfile;
       expect(Option.isSome(result)).toBe(true);
-      expect(Option.getOrThrow(result).lockfileVersion).toBe(6);
+      expect(Option.getOrThrow(result).lockfileVersion).toBe(7);
     }),
   );
 
@@ -441,7 +441,7 @@ describe("makeScopedStateApi.lockfile", () => {
 
   it.effect.each([
     { observedVersion: 5, direction: "older" },
-    { observedVersion: 7, direction: "newer" },
+    { observedVersion: 8, direction: "newer" },
   ])(
     "fails with LockfileVersionUnsupported for an $direction positive integer version",
     ({ observedVersion }) =>
@@ -464,7 +464,7 @@ describe("makeScopedStateApi.lockfile", () => {
           expect(err).toMatchObject({
             path: LOCKFILE_PATH,
             observedVersion,
-            supportedVersion: 6,
+            supportedVersion: 7,
           });
         }
       }),

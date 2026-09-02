@@ -76,7 +76,11 @@ export { disableSkill, type DisableSkillOperation } from "./skills/operations/di
 
 // MCP server lifecycle operations
 export {
+  collectSecretInputNames,
+  deleteMcpSecrets,
   installMcpServer,
+  mcpSecretAccount,
+  readMcpServerManifest,
   type InstallMcpServerOperation,
   type InstallMcpServerOperationArgs,
 } from "./mcps/operations/install.js";

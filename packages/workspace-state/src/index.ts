@@ -239,6 +239,7 @@ export {
 
 // Source metadata
 export { deriveSourceMetaFromLockType, type SourceMeta } from "./workspace/source-metadata.js";
+export { mcpRegistryResolutionKey, mcpResolutionKey } from "./workspace/mcp-source-identity.js";
 
 // Workspace read model
 export {

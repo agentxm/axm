@@ -80,10 +80,12 @@ export { handleAgentsList } from "./root/agents/list.js";
 export { handleEnable as handleSkillsEnable } from "./root/skills/enable.js";
 export { handleDisable as handleSkillsDisable } from "./root/skills/disable.js";
 export { handleMcpsAdd } from "./root/mcps/add.js";
+export { handleInstallMcpServer } from "./root/mcps/install/handler.js";
 export { handleUninstallMcpServer } from "./root/mcps/uninstall/handler.js";
 export { handleEnableMcpServer } from "./root/mcps/enable.js";
 export { handleDisableMcpServer } from "./root/mcps/disable.js";
 export { handleListMcpServers } from "./root/mcps/list.js";
+export { handleWorkspaceUpdate } from "./root/update/workspace-update-handler.js";
 export { handlePacksAdd } from "./root/packs/add.js";
 export { handlePacksRemove } from "./root/packs/remove.js";
 export { handlePacksNew } from "./root/packs/new.js";
@@ -135,6 +137,7 @@ export {
   type GitDirectoryComparisonService,
   type GitDirectoryDifference,
 } from "@agentxm/extension-sources";
+export { mcpSecretAccount } from "@agentxm/extension-lifecycle";
 export { SourceHostProvidersLive } from "./test-helpers.js";
 // Application-boundary vocabulary the specifications assert against: exit
 // codes, the machine error envelope, telemetry mode and client, and the

@@ -29,6 +29,7 @@ import {
 import { agentConfigTarget, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";
+import { collectSecretInputNames, deleteMcpSecrets, readMcpServerManifest } from "./install.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -222,8 +223,8 @@ export const uninstallMcpServer: (
   | LifecycleFailureAdapter
 > = (op) =>
   Effect.gen(function* () {
-    const adapter = yield* LifecycleFailureAdapter;
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
 
@@ -238,6 +239,14 @@ export const uninstallMcpServer: (
     const desiredNode = desired.nodes.find(
       (node) => node.type === "mcp-server" && node.name === op.args.serverName,
     );
+    const sourceClosure =
+      desiredNode === undefined || desiredNode.authority === "inline"
+        ? undefined
+        : desired.mcpSourceClosures.find((closure) => closure.identity === desiredNode.identity);
+    const keepSharedResolution =
+      sourceClosure !== undefined &&
+      (sourceClosure.localNames.some((name) => name !== op.args.serverName) ||
+        sourceClosure.origins.some((origin) => origin.type === "pack"));
     const acceptedCanonical = yield* acceptedCanonicalObservation({
       workspace: ws,
       type: "mcp-server",
@@ -261,25 +270,18 @@ export const uninstallMcpServer: (
     if (desiredNode === undefined && !installedOnDisk) {
       return { result: "success", message: "not installed" } satisfies JobStepResult;
     }
-    if (desiredNode?.origins.some((origin) => origin.type === "pack") === true) {
-      yield* ws.removeMcpServerSettings(op.args.serverName);
-      return {
-        result: "success",
-        message: "Kept on disk because dependency is still required by an installed pack",
-      } satisfies JobStepResult;
+    const manifest = yield* Option.match(removableCanonical, {
+      onNone: () => Effect.succeed(Option.none()),
+      onSome: readMcpServerManifest,
+    });
+
+    if (!keepSharedResolution && Option.isSome(removableCanonical)) {
+      yield* removeIfExists(fs, removableCanonical.value);
     }
 
-    if (Option.isSome(removableCanonical)) yield* removeIfExists(fs, removableCanonical.value);
-
-    // Remove from settings + lockfile (best-effort; preserve warning in result).
-    const removeWarning = yield* ws.removeMcpServer(op.args.serverName).pipe(
-      Effect.as(Option.none<string>()),
-      Effect.catch((e) =>
-        Effect.succeed(
-          Option.some(`MCP server removal from settings failed: ${adapter.describeFailure(e)}`),
-        ),
-      ),
-    );
+    // Workspace files and projections are transaction-owned. Keychain cleanup
+    // intentionally runs afterward and reports recoverable credential residue.
+    yield* ws.removeMcpServer(op.args.serverName);
 
     const agentSync = yield* syncConfiguredAgentsOnUninstall({
       wsBaseDir: ws.baseDir,
@@ -288,15 +290,34 @@ export const uninstallMcpServer: (
       serverName: op.args.serverName,
     });
 
-    const warnings = Option.match(removeWarning, {
-      onNone: () => agentSync.warnings,
-      onSome: (warning) => [warning, ...agentSync.warnings],
+    const secretNames = Option.match(manifest, {
+      onNone: () => new Set<string>(),
+      onSome: collectSecretInputNames,
     });
+    const secretDeletion =
+      desiredNode === undefined || desiredNode.authority === "inline"
+        ? []
+        : yield* deleteMcpSecrets(
+            {
+              scopeRoot: path.resolve(ws.baseDir),
+              localName: op.args.serverName,
+              sourceIdentity: desiredNode.identity,
+            },
+            secretNames,
+          );
+    const secretWarnings = secretDeletion.flatMap((outcome) =>
+      outcome._tag === "failed"
+        ? [
+            `${outcome.inputName} could not be deleted from the system keychain; AXM state was applied and credential cleanup is required`,
+          ]
+        : [],
+    );
+    const warnings = [...secretWarnings, ...agentSync.warnings];
     const agentTarget = agentConfigTarget("removed", agentSync.agentIds);
     return {
       result: "success",
       message: appendWarningsToMessage(
-        `Uninstalled ${op.args.serverName} (canonical=success, agent-sync=${agentSync.status})`,
+        `Uninstalled ${op.args.serverName} (canonical=${keepSharedResolution ? "retained-shared" : "success"}, agent-sync=${agentSync.status})`,
         warnings,
       ),
       artifact: mcpServerArtifact({

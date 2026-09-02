@@ -74,6 +74,13 @@ routes, activation, and Pack dependency routes from settings and authored
 manifests. Lock rows, Pack-member maps, canonical content, and native output
 never create reachability or cleanup authority.
 
+For sourced MCP servers, the graph distinguishes each local connection node
+from its source-resolution closure. Connection nodes own local names and
+per-connection realization choices. A closure groups every node and Pack route
+that resolves the same source identity, intersects all of their constraints,
+and supplies the shared accepted resolution. A conflict in that intersection
+blocks the closure before acquisition or mutation.
+
 This authority binds writers as well as evaluators. Any operation that creates,
 restores, or removes an owned output enumerates the contributors it renders
 from the fully derived desired-state graph — settings plus Pack expansion —

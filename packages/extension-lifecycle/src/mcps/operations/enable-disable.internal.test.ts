@@ -26,6 +26,7 @@ import {
   makeBaseWorkspaceMock,
   makeRegistryMcpServerLockEntry,
 } from "@agentxm/workspace-state/testing";
+import { mcpResolutionKey } from "@agentxm/workspace-state";
 import { disableMcpServer } from "./disable.js";
 import { enableMcpServer } from "./enable.js";
 
@@ -145,6 +146,43 @@ describe("enableMcpServer and disableMcpServer", () => {
           getConfiguredMcpServerEntries: () => Effect.succeed({ [serverName]: entry }),
           getLockedMcpServers: () => Effect.succeed({ [serverName]: makeLockEntry(projectDir) }),
           getLockedMcpServer: () => Effect.succeed(Option.some(makeLockEntry(projectDir))),
+          getLockedMcpServerForConnection: () =>
+            Effect.succeed(Option.some(makeLockEntry(projectDir))),
+          getDesiredStateGraph: () => {
+            const lockEntry = makeLockEntry(projectDir);
+            const identity = mcpResolutionKey(lockEntry);
+            return Effect.succeed({
+              complete: true,
+              nodes: [
+                {
+                  type: "mcp-server",
+                  name: serverName,
+                  identity,
+                  authority: "sourced",
+                  source: "@community/mcps/my-server",
+                  enabled: false,
+                  constraints: [],
+                  origins: [
+                    {
+                      type: "settings",
+                      localName: serverName,
+                      source: "@community/mcps/my-server",
+                      enabled: false,
+                    },
+                  ],
+                },
+              ],
+              mcpSourceClosures: [
+                {
+                  identity,
+                  localNames: [serverName],
+                  constraints: [],
+                  origins: [],
+                },
+              ],
+              problems: [],
+            });
+          },
           updateMcpServerEntry: () => Effect.void,
         },
         makeAgentRepo(agent),

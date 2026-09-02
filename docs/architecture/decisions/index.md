@@ -25,3 +25,6 @@ specifications, never in these records.
 - [CLI output view model and terminal ownership](cli-output-view-model-and-terminal-ownership.md) —
   human output crosses the application boundary as a typed document painted by
   one terminal owner while machine output remains schema-backed
+- [MCP local names are connection identity, not source identity](mcp-local-connection-identity.md) —
+  MCP local names identify connections and native projections, while source
+  authority and published package identity define shared resolution.

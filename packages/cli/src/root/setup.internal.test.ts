@@ -541,7 +541,7 @@ describe("setup.handler", () => {
               owner: normalizeHandle("@myorg"),
             }),
           );
-          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
+          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
 
           yield* handleSetup({ scope: "project" });
 
@@ -1559,7 +1559,7 @@ describe("setup.handler", () => {
       return provide(
         Effect.gen(function* () {
           fs.writeFileSync(path.join(tempDir, "axm.json"), "not valid json {{{");
-          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
+          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
 
           const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");

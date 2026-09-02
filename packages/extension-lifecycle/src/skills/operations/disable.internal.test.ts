@@ -440,6 +440,7 @@ describe("disableSkill", () => {
           getDesiredStateGraph: () =>
             Effect.succeed({
               complete: true,
+              mcpSourceClosures: [],
               nodes: [
                 {
                   type: "skill",

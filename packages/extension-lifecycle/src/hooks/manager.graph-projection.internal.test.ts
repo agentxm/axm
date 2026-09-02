@@ -89,6 +89,7 @@ const packHookNode = (name: string, pack: string): DesiredExtensionNode => ({
 const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
   complete: true,
   nodes,
+  mcpSourceClosures: [],
   problems: [],
 });
 
@@ -294,6 +295,7 @@ describe("HookManager graph-derived unit projection", () => {
       graph: {
         complete: false,
         nodes: [packHookNode("pack-a-hook", "pack-a")],
+        mcpSourceClosures: [],
         problems: [
           {
             type: "pack-manifest-unavailable",

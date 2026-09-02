@@ -39,6 +39,7 @@ import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
 } from "./extension-paths.js";
+import { mcpResolutionKey } from "./mcp-source-identity.js";
 
 export type CanonicalObservationStatus =
   | "not-applicable"
@@ -215,11 +216,13 @@ export const observeCanonicalExtension = ({
       };
     }
     const acceptedIdentity =
-      accepted?.type === "registry"
-        ? `${accepted.owner}/${toExtensionTypePlural(desired.type)}/${accepted.name}`
-        : accepted === undefined
-          ? undefined
-          : printSourceParams(lockEntryToSourceParams(accepted));
+      accepted?.extensionType === "mcp-server"
+        ? mcpResolutionKey(accepted)
+        : accepted?.type === "registry"
+          ? `${accepted.owner}/${toExtensionTypePlural(desired.type)}/${accepted.name}`
+          : accepted === undefined
+            ? undefined
+            : printSourceParams(lockEntryToSourceParams(accepted));
     if (
       !workspaceAuthored &&
       !bundled &&

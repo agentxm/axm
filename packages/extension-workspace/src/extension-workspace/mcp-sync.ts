@@ -1170,6 +1170,7 @@ export const addMcpServerFromManifest = (
     );
     const resolution = resolveMcpServer({
       manifest,
+      localName: args.serverName,
       capability,
       values: args.configValues ?? {},
       enabled: args.enabled ?? true,

@@ -45,12 +45,13 @@ const externalPackGraph = {
       origins: [{ type: "settings", source: "@acme/packs/toolkit", enabled: true }],
     },
   ],
+  mcpSourceClosures: [],
   problems: [],
 } satisfies DesiredStateGraph;
 
 const lockfile = (manifestContentIdentity = computePackManifestContentIdentity(manifest)) =>
   ({
-    lockfileVersion: 6,
+    lockfileVersion: 7,
     skills: {},
     packs: {
       toolkit: {
@@ -103,7 +104,7 @@ describe("validateDesiredPackLock", () => {
       const validated = yield* validateDesiredPackLock({
         layout,
         graph: externalPackGraph,
-        lockfile: { lockfileVersion: 6, skills: {} },
+        lockfile: { lockfileVersion: 7, skills: {} },
       });
 
       expect(validated.complete).toBe(false);
@@ -180,7 +181,7 @@ describe("validateDesiredPackLock", () => {
       const validated = yield* validateDesiredPackLock({
         layout,
         graph,
-        lockfile: { lockfileVersion: 6, skills: {} },
+        lockfile: { lockfileVersion: 7, skills: {} },
       });
       expect(validated.complete).toBe(true);
     }).pipe(Effect.provide(NodeServices.layer)),

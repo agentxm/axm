@@ -96,7 +96,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           agents: [],
           skills: {},
         });
-        fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
+        fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
 
         const machine = await runCli(["lint", "--json"], { cwd: temp.path, env });
         expect(machine.exitCode, `${machine.stderr}\n${machine.stdout}`).toBe(0);

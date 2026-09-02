@@ -253,7 +253,7 @@ describe("uninstallMcpServer", () => {
   });
 
   describe("settings removal failure", () => {
-    it.effect("returns removeMcpServer failure in result without raw warning", () =>
+    it.effect("fails when removeMcpServer cannot commit state", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileMcpServers } = setupWorkspace();
         const removeMcpServerFn = vi.fn(() =>
@@ -267,11 +267,11 @@ describe("uninstallMcpServer", () => {
         );
         const services = makeServices(axmDir, lockfileMcpServers, { removeMcpServerFn });
 
-        const result = yield* uninstallMcpServer(makeOp()).pipe(Effect.provide(services.layer));
+        const error = yield* Effect.flip(
+          uninstallMcpServer(makeOp()).pipe(Effect.provide(services.layer)),
+        );
 
-        expect(result.result).toBe("success");
-        expect(result.message).toContain("MCP server removal from settings failed");
-        expect(result.message).toContain("write failed");
+        expect(error.detail).toContain("write failed");
       }),
     );
   });

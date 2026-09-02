@@ -28,6 +28,7 @@ const makeContext = (
         desiredState: Effect.succeed({
           complete: true,
           nodes: [desired],
+          mcpSourceClosures: [],
           problems: [],
         }),
         canonicalObservations: Effect.succeed([

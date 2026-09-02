@@ -9,6 +9,7 @@ import { writeWorkspaceFiles } from "../test-stubs.js";
 import { expectNoPlanEnvelope, makeWorkspaceHandlerTestContext } from "../test-helpers.js";
 import { handleListHook } from "./hooks/list.js";
 import { handleListMcpServers } from "./mcps/list.js";
+import { mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 
 describe("list command empty output", () => {
   let tempDir: string;
@@ -48,7 +49,11 @@ describe("list command empty output", () => {
       agents: ["codex"],
       mcps: { context: "@acme/mcps/context" },
       lockfileMcpServers: {
-        context: {
+        [mcpRegistryResolutionKey({
+          authority: "file:///tmp/test-registry",
+          owner: "@acme",
+          name: "context",
+        })]: {
           type: "registry",
           owner: "@acme",
           name: "context",
@@ -125,7 +130,11 @@ describe("list command empty output", () => {
         context: "@acme/mcps/context",
       },
       lockfileMcpServers: {
-        context: {
+        [mcpRegistryResolutionKey({
+          authority: "file:///tmp/test-registry",
+          owner: "@acme",
+          name: "context",
+        })]: {
           type: "registry",
           owner: "@acme",
           name: "context",

@@ -225,6 +225,7 @@ export const makeBaseWorkspaceMock = (
       Effect.succeed({
         complete: true,
         nodes: [],
+        mcpSourceClosures: [],
         problems: [],
       }),
     getConfiguredSources: () => Effect.succeed([]),
@@ -305,6 +306,7 @@ export const makeBaseWorkspaceMock = (
     removeSubagentLock: () => Effect.void,
     getLockedMcpServers: () => Effect.succeed({}),
     getLockedMcpServer: () => Effect.succeed(Option.none()),
+    getLockedMcpServerForConnection: () => Effect.succeed(Option.none()),
     getConfiguredMcpServerEntries: () => Effect.succeed({}),
     setMcpServer: () => Effect.void,
     setMcpServerLock: () => Effect.void,
@@ -342,7 +344,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Accept concise fixture shapes useful to command tests, but publish only
- * valid v6 accepted resolutions to the workspace under test.
+ * valid v7 accepted resolutions to the workspace under test.
  * Authored workspace packages deliberately have no lock row.
  */
 const normalizeTestLockMap = (
@@ -368,7 +370,10 @@ const normalizeTestLockMap = (
                 sourceEndpoints.get(sourceName) ??
                 "https://registry.agentxm.ai",
               extensionType,
-              workspaceName: value["workspaceName"] ?? name,
+              workspaceName:
+                value["workspaceName"] ??
+                (extensionType === "mcp-server" ? value["name"] : undefined) ??
+                name,
               packageFormat: "agentxm",
               owner: value["owner"],
               name: value["name"],
@@ -564,7 +569,7 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 6,
+    lockfileVersion: 7,
     skills: normalizeTestLockMap(opts.lockfileSkills, "skill", sourceEndpoints),
     ...(hasEntries(opts.lockfileRules) && {
       rules: normalizeTestLockMap(opts.lockfileRules, "rule", sourceEndpoints),
@@ -623,7 +628,7 @@ export const computePackageContentHashSync = (packageDir: string): string => {
   return computeSourceHash(hash.digest("hex"));
 };
 
-/** Compute the strict v6 lock identity for a materialized test package tree. */
+/** Compute the strict v7 lock identity for a materialized test package tree. */
 export const computeMaterializedTreeIntegritySync = (root: string): string => {
   const files: Array<{ readonly relativePath: string; readonly absolutePath: string }> = [];
   const walk = (directory: string, relativeDirectory: string): void => {

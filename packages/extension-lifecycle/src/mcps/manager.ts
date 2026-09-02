@@ -30,7 +30,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import type { ExtensionTarget, McpServerExtensionTarget } from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { mcpRegistryResolutionKey, WorkspaceMutations } from "@agentxm/workspace-state";
 import { canReuseInstalledPackage } from "@agentxm/extension-workspace";
 import { materializeRegistryPackageWithTreeIntegrity } from "../registry-materialization.js";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
@@ -92,6 +92,10 @@ export const McpServerManagerLive = Layer.effect(
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.provide(effect, fsPathLayer);
     const lastTreeIntegrities = new Map<string, TreeIntegrity>();
+    const pendingRemoval = new Map<
+      string,
+      { readonly resolutionKey?: string; readonly retainShared: boolean }
+    >();
 
     const materializeInstall: ExtensionManager<McpServerExtensionRef>["materializeInstall"] =
       Effect.fn("McpServerManager.materializeInstall")(function* ({ ref, force }) {
@@ -111,7 +115,13 @@ export const McpServerManagerLive = Layer.effect(
           registryRef.name,
         ).canonicalPath;
 
-        const lockedEntry = yield* ws.getLockedMcpServer(registryRef.server.name);
+        const lockedEntry = yield* ws.getLockedMcpServer(
+          mcpRegistryResolutionKey({
+            authority: registryRef.source.location,
+            owner: registryRef.owner,
+            name: registryRef.server.name,
+          }),
+        );
         const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, registryRef);
         const useExisting = yield* provide(
           canReuseInstalledPackage({
@@ -153,6 +163,24 @@ export const McpServerManagerLive = Layer.effect(
       retainCanonical: boolean,
     ): ExtensionManager<McpServerExtensionRef>["materializeUninstall"] =>
       Effect.fn("McpServerManager.materializeRemoval")(function* ({ target }) {
+        const graph = yield* ws.getDesiredStateGraph();
+        const desiredNode = graph.nodes.find(
+          (node) => node.type === "mcp-server" && node.name === target.name,
+        );
+        const closure =
+          desiredNode === undefined || desiredNode.authority === "inline"
+            ? undefined
+            : graph.mcpSourceClosures.find(
+                (candidate) => candidate.identity === desiredNode.identity,
+              );
+        const retainShared =
+          closure !== undefined && closure.localNames.some((name) => name !== target.name);
+        pendingRemoval.set(target.name, {
+          ...(desiredNode === undefined || desiredNode.authority === "inline"
+            ? {}
+            : { resolutionKey: desiredNode.identity }),
+          retainShared,
+        });
         const configuredAgents = yield* ws.getConfiguredAgents();
 
         yield* applyProjectionPlans(
@@ -185,7 +213,7 @@ export const McpServerManagerLive = Layer.effect(
           ),
         );
 
-        if (retainCanonical) return;
+        if (retainCanonical || retainShared) return;
         const canonical = yield* provide(
           acceptedCanonicalObservation({
             workspace: ws,
@@ -276,6 +304,11 @@ export const McpServerManagerLive = Layer.effect(
             const lockEntry = buildMcpServerLockEntry(registryRef, treeIntegrity);
             return ws.setMcpServer({
               name: ref.server.name,
+              resolutionKey: mcpRegistryResolutionKey({
+                authority: registryRef.source.location,
+                owner: registryRef.owner,
+                name: registryRef.server.name,
+              }),
               lockEntry,
               versionRange,
             });
@@ -308,6 +341,11 @@ export const McpServerManagerLive = Layer.effect(
             const lockEntry = buildMcpServerLockEntry(registryRef, treeIntegrity);
             return ws.setMcpServerLock({
               name: ref.server.name,
+              resolutionKey: mcpRegistryResolutionKey({
+                authority: registryRef.source.location,
+                owner: registryRef.owner,
+                name: registryRef.server.name,
+              }),
               lockEntry,
               versionRange: Option.none(),
             });
@@ -316,11 +354,16 @@ export const McpServerManagerLive = Layer.effect(
         );
       },
 
-      removeLockfileEntry: ({ target }: { readonly target: McpServerExtensionTarget }) =>
-        ws
-          .removeMcpServerLock(target.name)
-
-          .pipe(Effect.withSpan("McpServerManager.removeLockfileEntry")),
+      removeLockfileEntry: ({ target }: { readonly target: McpServerExtensionTarget }) => {
+        const removal = pendingRemoval.get(target.name);
+        pendingRemoval.delete(target.name);
+        if (removal?.retainShared === true || removal?.resolutionKey === undefined) {
+          return Effect.void.pipe(Effect.withSpan("McpServerManager.removeLockfileEntry"));
+        }
+        return ws
+          .removeMcpServerLock(removal.resolutionKey)
+          .pipe(Effect.withSpan("McpServerManager.removeLockfileEntry"));
+      },
     } satisfies ExtensionManager<McpServerExtensionRef>;
   }),
 );

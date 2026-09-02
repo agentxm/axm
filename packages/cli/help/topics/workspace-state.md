@@ -52,7 +52,7 @@ relationships are otherwise the same. Its runtime state is the inner
 
 ## Accepted external resolution
 
-Lockfile v6 contains only external resolutions. Every row records the source
+Lockfile v7 contains only external resolutions. Every row records the source
 type and exact source name, accepted endpoint or local coordinate, original
 intent, immutable resolution, package format, workspace name, extension type,
 and strict integrity of the complete materialized package tree. Registry rows
@@ -104,7 +104,7 @@ blocks that affected work instead of substituting current bytes.
 
 ## Unsupported lockfile versions
 
-AXM reads only lockfile v6. Every ordinary workspace-loading command checks a
+AXM reads only lockfile v7. Every ordinary workspace-loading command checks a
 present lockfile before command-specific work, and `--force` does not bypass
 that check. The error names the lockfile path plus its observed and supported
 versions.

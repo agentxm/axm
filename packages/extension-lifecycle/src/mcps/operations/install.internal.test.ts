@@ -98,7 +98,7 @@ const makeWorkspaceMock = (
             try: () => {
               const lf = readLf();
               if (!lf.mcpServers) lf.mcpServers = {};
-              lf.mcpServers[args.name] = {
+              lf.mcpServers[args.resolutionKey] = {
                 ...expectRecord(args.lockEntry),
                 updatedAt: new Date().toISOString(),
               };
@@ -128,7 +128,7 @@ const makeWorkspaceMock = (
             try: () => {
               const lf = readLf();
               if (!lf.mcpServers) lf.mcpServers = {};
-              lf.mcpServers[args.name] = {
+              lf.mcpServers[args.resolutionKey] = {
                 ...expectRecord(args.lockEntry),
                 updatedAt: new Date().toISOString(),
               };
@@ -617,7 +617,7 @@ describe("installMcpServer", () => {
       }),
     );
 
-    it.effect("returns WorkspaceMutations.setMcpServer failure in result without raw warning", () =>
+    it.effect("fails when WorkspaceMutations.setMcpServer cannot commit state", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -632,13 +632,13 @@ describe("installMcpServer", () => {
         );
         const services = makeServices(axmDir, { setMcpServerFn });
 
-        const result = yield* installMcpServer(
-          makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
-        ).pipe(Effect.provide(services.layer));
+        const error = yield* Effect.flip(
+          installMcpServer(makeOp({ ref: makeRegistryRef({ integrity: "" }) })).pipe(
+            Effect.provide(services.layer),
+          ),
+        );
 
-        expect(result.result).toBe("success");
-        expect(result.message).toContain("MCP server update failed");
-        expect(result.message).toContain("write failed");
+        expect(error.detail).toContain("write failed");
       }),
     );
 

@@ -83,6 +83,11 @@ and `problemCode` are included when the Registry supplied them. Opaque response
 bodies are not included. Automation should use these fields rather than matching
 error messages.
 
+`axm mcps list --json` keeps connection, source, and resolution identities
+separate. Each item includes `localName`, a discriminated `source` object, and
+either a Registry `resolution` with exact version and integrity or `null`.
+Automation should not infer the published source from the local name.
+
 Built-in formatter documents are the two success-envelope exceptions:
 
 ```json
@@ -115,12 +120,12 @@ requiring message parsing:
   "ok": false,
   "code": "validation",
   "title": "Unsupported workspace lockfile version",
-  "detail": "Workspace lockfile at /workspace/axm-lock.yaml declares version 7, but this AXM supports version 6. This workspace requires a newer AXM.",
+  "detail": "Workspace lockfile at /workspace/axm-lock.yaml declares version 8, but this AXM supports version 7. This workspace requires a newer AXM.",
   "problem": {
     "code": "workspace-lockfile-version-unsupported",
     "path": "/workspace/axm-lock.yaml",
-    "observedVersion": 7,
-    "supportedVersion": 6,
+    "observedVersion": 8,
+    "supportedVersion": 7,
     "direction": "newer"
   },
   "suggestions": [

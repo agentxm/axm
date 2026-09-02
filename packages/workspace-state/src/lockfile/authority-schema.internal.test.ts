@@ -12,10 +12,10 @@ const decodeLockfile = Schema.decodeUnknownSync(LockfileSchema);
 
 describe("authoritative external-resolution lockfile", () => {
   it("uses a clean-cut schema version", () => {
-    expect(LOCKFILE_VERSION).toBe(6);
+    expect(LOCKFILE_VERSION).toBe(7);
     expect(
-      decodeLockfile({ lockfileVersion: 6, skills: {} }, { onExcessProperty: "error" }),
-    ).toEqual({ lockfileVersion: 6, skills: {} });
+      decodeLockfile({ lockfileVersion: 7, skills: {} }, { onExcessProperty: "error" }),
+    ).toEqual({ lockfileVersion: 7, skills: {} });
   });
 
   it("rejects workspace-authored and inline entries", () => {
@@ -177,7 +177,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
     expect(() =>
       decodeLockfile(
-        { lockfileVersion: 6, skills: {}, receiptHistory: {} },
+        { lockfileVersion: 7, skills: {}, receiptHistory: {} },
         { onExcessProperty: "error" },
       ),
     ).toThrow();

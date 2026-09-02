@@ -70,7 +70,9 @@ which holds the actual transports:
 All commands live under `axm mcps` and accept `--scope project` (default) or
 `--scope user`.
 
-- `axm mcps install @owner/mcps/<name>` — install a registry MCP server. Pass
+- `axm mcps install @owner/mcps/<name>` — install a registry MCP server. Add
+  `--as <local-name>` to install another locally named connection from the same
+  package. Pass
   `--env KEY=VALUE` to supply declared inputs, or `--non-interactive` to use
   defaults and placeholders instead of prompting. Repeat `--agent <id>` to
   restrict the server to a reviewed agent subset.
@@ -80,12 +82,17 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
 - `axm mcps import` — adopt MCP servers already present in your agent configs as
   inline AXM entries. Import records the native agents where each server was
   discovered; it does not silently widen the server to every configured agent.
-- `axm mcps update [@owner/mcps/<name>]` — update registry servers to their
-  latest resolved version.
-- `axm mcps list` — show installed servers and their state.
+- `axm mcps update` — update configured Registry servers to their latest
+  eligible resolution. Use `--name <local-name-or-glob>` to select connections,
+  or `--source @owner/mcps/<name>` to select an exact source. Every selected
+  connection that shares a source advances together.
+- `axm mcps list` — show local connection names, sources, accepted resolutions,
+  and state.
 - `axm mcps enable <name>` / `axm mcps disable <name>` — keep a server installed
   while toggling whether AXM materializes it.
-- `axm mcps uninstall <name>` — remove a server and its AXM-owned agent entries.
+- `axm mcps uninstall <local-name>` — remove one connection and its AXM-owned
+  agent entries. Shared package content and resolution remain until their last
+  connection or Pack route is removed.
 
 Authoring commands mirror the other extension types:
 
@@ -154,6 +161,13 @@ declares exactly one transport — `source`, `command`, or `url`:
 }
 ```
 
+The settings key is the local connection name. For example, both
+`"work-github": "@acme/mcps/github"` and
+`"personal-github": "@acme/mcps/github"` are valid. They project as two native
+keys and keep separate inputs, targeting, activation, and keychain accounts,
+while the lockfile records one source resolution for the Registry authority and
+`@acme/mcps/github` package.
+
 - **`enabled: false`** keeps a server installed but deactivates its applicable
   AXM-owned agent entries.
 - **`agents`** is a non-empty inclusion list. Omit it to target every configured
@@ -165,7 +179,8 @@ declares exactly one transport — `source`, `command`, or `url`:
   never deleted by reconciliation.
 - AXM-owned JSON and YAML entries carry versioned `x-axm` metadata. Its `ext`
   field is the installed extension FQN or `@workspace/mcps/<name>` for an
-  inline server; source and reference fields retain provenance.
+  inline server; source and reference fields retain provenance. The native map
+  key carries the local connection name.
 
 Prefer the CLI over hand-editing — it normalizes the shape and reconciles agent
 configs through `axm sync`.
@@ -181,6 +196,10 @@ applicable agent cannot represent the reference, projection blocks instead of
 writing a literal or omitting authentication. `axm lint` flags secret-looking literals through
 `workspace/mcps-no-secret-literal`, and `mcp.json` marks sensitive
 inputs with `isSecret` so installers prompt for them instead of hardcoding.
+Keychain accounts are isolated by workspace, local connection name, source
+identity, and input name. Uninstall removes only the selected connection's
+accounts. If keychain deletion fails after workspace state commits, AXM reports
+the remaining credential for manual cleanup.
 
 ## Recommended packs
 

@@ -11,7 +11,17 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli } from "../../../e2e/utils.js";
+import { createTempDir, runCli, withoutLocalGitEnvironment } from "../../../e2e/utils.js";
+
+const git = (root: string, args: ReadonlyArray<string>): void => {
+  execFileSync("git", args, {
+    cwd: root,
+    env: {
+      ...withoutLocalGitEnvironment(process.env),
+      GIT_TERMINAL_PROMPT: "0",
+    },
+  });
+};
 
 describe("axm skills publish", () => {
   describe("publish to local registry", () => {
@@ -168,11 +178,11 @@ describe("axm skills publish", () => {
           '---\nname: "git-source-review"\ndescription: "Review Git source"\n---\n\n# Git source review\n',
         );
 
-        execFileSync("git", ["init"], { cwd: temp.path });
-        execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: temp.path });
-        execFileSync("git", ["config", "user.name", "Test"], { cwd: temp.path });
-        execFileSync("git", ["add", "."], { cwd: temp.path });
-        execFileSync("git", ["commit", "-m", "Initial source"], { cwd: temp.path });
+        git(temp.path, ["init"]);
+        git(temp.path, ["config", "user.email", "test@example.com"]);
+        git(temp.path, ["config", "user.name", "Test"]);
+        git(temp.path, ["add", "."]);
+        git(temp.path, ["commit", "-m", "Initial source"]);
         fs.appendFileSync(skillPath, "\nChanged after commit.\n");
 
         const blocked = await runCli(

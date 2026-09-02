@@ -30,7 +30,7 @@ describe("example files", () => {
     const example = readYamlFile(path.join(SRC, "lockfile/axm-lock.example.yaml"));
     const result = Schema.decodeUnknownSync(LockfileSchema)(example);
     expect(result).toBeDefined();
-    expect(result.lockfileVersion).toBe(6);
+    expect(result.lockfileVersion).toBe(7);
     expect(result.skills["code-review"]).toBeDefined();
   });
 

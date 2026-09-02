@@ -105,6 +105,12 @@ const normalizedIdentity = (identity: string): string => {
   return identity;
 };
 
+const registryFqnFromSource = (source: string | undefined): string | undefined => {
+  if (source === undefined) return undefined;
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
+  return parsed?.name === undefined ? undefined : `${parsed.owner}/${parsed.type}/${parsed.name}`;
+};
+
 const sourceAuthority = (source: string): "registry" | "workspace" =>
   isWorkspaceSourceLocator(source) ? "workspace" : "registry";
 
@@ -154,8 +160,9 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
   const node = args.graph.nodes.find(
     (candidate) =>
       candidate.type === args.target.type &&
-      candidate.name === args.target.name &&
-      normalizedIdentity(candidate.identity) === args.target.fqn,
+      (normalizedIdentity(candidate.identity) === args.target.fqn ||
+        (candidate.type === "mcp-server" &&
+          registryFqnFromSource(candidate.source) === args.target.fqn)),
   );
   const targetProblems = args.graph.problems.filter(
     (problem) =>

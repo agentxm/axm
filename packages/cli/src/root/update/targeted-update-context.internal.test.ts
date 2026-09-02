@@ -26,7 +26,12 @@ const configuredPack = (name: string, source: string): ConfiguredRecordRow => ({
 const graph = (
   nodes: ReadonlyArray<DesiredExtensionNode>,
   problems: DesiredStateGraph["problems"] = [],
-): DesiredStateGraph => ({ complete: problems.length === 0, nodes, problems });
+): DesiredStateGraph => ({
+  complete: problems.length === 0,
+  nodes,
+  mcpSourceClosures: [],
+  problems,
+});
 
 type DesiredOrigin = DesiredExtensionNode["origins"][number];
 type TestOrigin =

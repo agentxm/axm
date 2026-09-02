@@ -234,8 +234,8 @@ describe("generated schemas", () => {
     const lockfileVersion = getProperty(getDefinition(lockSchema, "Lockfile"), "lockfileVersion");
 
     expect(lockfileVersion["type"]).toBe("number");
-    expect(lockfileVersion["enum"]).toEqual([6]);
-    expect(lockfileVersion["default"]).toBe(6);
+    expect(lockfileVersion["enum"]).toEqual([7]);
+    expect(lockfileVersion["default"]).toBe(7);
   });
 
   it("publishes common manifest field annotations", () => {

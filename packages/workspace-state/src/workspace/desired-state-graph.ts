@@ -25,10 +25,12 @@ import { configuredAuthoredDirectory, type WorkspaceLayout } from "./layout.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { ACQUIRED_EXTENSIONS_DIR } from "./constants.js";
 import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
+import { mcpRegistryResolutionKey } from "./mcp-source-identity.js";
 
 export type DesiredExtensionOrigin =
   | {
       readonly type: "settings";
+      readonly localName?: string;
       readonly authority?: "sourced";
       readonly source: string;
       readonly enabled: boolean;
@@ -36,6 +38,7 @@ export type DesiredExtensionOrigin =
     }
   | {
       readonly type: "settings";
+      readonly localName?: string;
       readonly authority: "inline";
       readonly source?: undefined;
       readonly constraint?: undefined;
@@ -82,6 +85,7 @@ export interface DesiredConstraintContributor {
   readonly range: string;
   readonly location: string;
   readonly dependingPack?: string;
+  readonly localName?: string;
 }
 
 export type DesiredStateProblem =
@@ -138,7 +142,15 @@ export type DesiredStateProblem =
 export interface DesiredStateGraph {
   readonly complete: boolean;
   readonly nodes: ReadonlyArray<DesiredExtensionNode>;
+  readonly mcpSourceClosures: ReadonlyArray<DesiredMcpSourceClosure>;
   readonly problems: ReadonlyArray<DesiredStateProblem>;
+}
+
+export interface DesiredMcpSourceClosure {
+  readonly identity: string;
+  readonly localNames: ReadonlyArray<string>;
+  readonly constraints: ReadonlyArray<string>;
+  readonly origins: ReadonlyArray<DesiredExtensionOrigin>;
 }
 
 export type ProspectivePackRef = Pick<PackRef, "owner" | "pack" | "version">;
@@ -149,6 +161,8 @@ interface DesiredStateGraphArgs {
   readonly layout?: WorkspaceLayout;
   /** Resolved Pack roots whose manifests supersede the currently materialized copy. */
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
+  /** Registry source aliases mapped to their stable authority endpoints. */
+  readonly registryAuthorities?: Readonly<Record<string, URL | string>>;
 }
 
 interface CandidateCommon {
@@ -192,11 +206,21 @@ const registryLocator = (
   return ref.startsWith("@") ? { sourceName: source.slice(0, separator), ref } : undefined;
 };
 
+const withVersionConstraint = (source: string, constraint: string): string => {
+  const locator = registryLocator(source);
+  if (locator === undefined) return source;
+  const parsed = parseRegistrySourceRef(locator.ref);
+  if (parsed === undefined) return source;
+  const prefix = source.startsWith("@") ? "" : `${locator.sourceName}:`;
+  return `${prefix}${parsed.owner}/${parsed.type}/${parsed.name}@${constraint}`;
+};
+
 const sourceIdentity = (
   type: ExtensionType,
   name: string,
   source: string,
   settings: Settings,
+  registryAuthorities: Readonly<Record<string, URL | string>>,
 ): { readonly identity: string; readonly constraint?: string } => {
   if (isWorkspaceSourceLocator(source)) {
     return settings.owner === undefined
@@ -207,8 +231,17 @@ const sourceIdentity = (
   const locator = registryLocator(source);
   const parsed = locator === undefined ? undefined : parseRegistrySourceRef(locator.ref);
   if (parsed !== undefined && parsed.type === toExtensionTypePlural(type)) {
+    const registryAuthority =
+      locator === undefined ? undefined : registryAuthorities[locator.sourceName];
     return {
-      identity: `${parsed.owner}/${parsed.type}/${parsed.name}`,
+      identity:
+        type === "mcp-server" && registryAuthority !== undefined
+          ? mcpRegistryResolutionKey({
+              authority: registryAuthority,
+              owner: parsed.owner,
+              name: parsed.name,
+            })
+          : `${parsed.owner}/${parsed.type}/${parsed.name}`,
       ...(parsed.versionRange === undefined ? {} : { constraint: parsed.versionRange }),
     };
   }
@@ -266,6 +299,7 @@ export const collectDesiredConstraintContributors = (
             source: "settings",
             range: origin.constraint,
             location: SETTINGS_FILENAME,
+            ...(origin.localName === undefined ? {} : { localName: origin.localName }),
           },
         ];
       }
@@ -301,6 +335,7 @@ export const buildDesiredStateGraph = ({
   settings,
   layout,
   prospectivePacks = [],
+  registryAuthorities = {},
 }: DesiredStateGraphArgs): Effect.Effect<
   DesiredStateGraph,
   never,
@@ -334,7 +369,7 @@ export const buildDesiredStateGraph = ({
         const bundled = type === "skill" && entry.origin === "bundled";
         const identity = bundled
           ? { identity: `bundled:@agentxm/skills/${name}` }
-          : sourceIdentity(type, name, entry.source, settings);
+          : sourceIdentity(type, name, entry.source, settings, registryAuthorities);
         if (!bundled && isWorkspaceSourceLocator(entry.source) && settings.owner === undefined) {
           problems.push({ type: "workspace-owner-missing", extensionType: type, name });
         }
@@ -348,6 +383,7 @@ export const buildDesiredStateGraph = ({
           ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
           origin: {
             type: "settings",
+            localName: name,
             authority: "sourced",
             source: entry.source,
             enabled: entry.enabled,
@@ -366,11 +402,22 @@ export const buildDesiredStateGraph = ({
           identity: `@workspace/mcps/${name}`,
           authority: "inline",
           enabled: entry.enabled,
-          origin: { type: "settings", authority: "inline", enabled: entry.enabled },
+          origin: {
+            type: "settings",
+            localName: name,
+            authority: "inline",
+            enabled: entry.enabled,
+          },
         });
         continue;
       }
-      const identity = sourceIdentity("mcp-server", name, entry.source, settings);
+      const identity = sourceIdentity(
+        "mcp-server",
+        name,
+        entry.source,
+        settings,
+        registryAuthorities,
+      );
       if (isWorkspaceSourceLocator(entry.source) && settings.owner === undefined) {
         problems.push({ type: "workspace-owner-missing", extensionType: "mcp-server", name });
       }
@@ -384,6 +431,7 @@ export const buildDesiredStateGraph = ({
         ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
         origin: {
           type: "settings",
+          localName: name,
           authority: "sourced",
           source: entry.source,
           enabled: entry.enabled,
@@ -420,6 +468,7 @@ export const buildDesiredStateGraph = ({
         ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
         origin: {
           type: "settings",
+          localName: identity.name,
           authority: "sourced",
           source: entry.source,
           enabled: entry.enabled !== false,
@@ -501,10 +550,19 @@ export const buildDesiredStateGraph = ({
       for (const [fqn, constraint] of Object.entries(manifest.dependencies)) {
         const parsed = parseExtensionFqnParts(fqn);
         if (parsed === undefined || parsed.type === "pack") continue;
+        const dependencyIdentity =
+          parsed.type === "mcp-server" &&
+          registryAuthorities[configuredRegistrySource] !== undefined
+            ? mcpRegistryResolutionKey({
+                authority: registryAuthorities[configuredRegistrySource],
+                owner: parsed.owner,
+                name: parsed.name,
+              })
+            : `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
         candidates.push({
           type: parsed.type,
           name: parsed.name,
-          identity: `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`,
+          identity: dependencyIdentity,
           authority: "sourced",
           source: `${fqn}@${constraint}`,
           enabled: entry.enabled !== false,
@@ -587,7 +645,23 @@ export const buildDesiredStateGraph = ({
       });
     }
 
+    const mcpClosuresByIdentity = new Map<string, DesiredMcpSourceClosure>();
     for (const node of nodes.values()) {
+      if (node.type === "mcp-server" && isSourcedDesiredExtension(node)) {
+        const existing = mcpClosuresByIdentity.get(node.identity);
+        mcpClosuresByIdentity.set(node.identity, {
+          identity: node.identity,
+          localNames: [...(existing?.localNames ?? []), node.name].sort(),
+          constraints: [
+            ...(existing?.constraints ?? []),
+            ...node.constraints.filter(
+              (constraint) => !(existing?.constraints ?? []).includes(constraint),
+            ),
+          ],
+          origins: [...(existing?.origins ?? []), ...node.origins],
+        });
+        continue;
+      }
       if (intersectVersionConstraints(node.constraints) === undefined) {
         problems.push({
           type: "constraint-conflict",
@@ -599,16 +673,40 @@ export const buildDesiredStateGraph = ({
       }
     }
 
+    const mcpSourceClosures = [...mcpClosuresByIdentity.values()].sort((left, right) =>
+      left.identity.localeCompare(right.identity),
+    );
+    for (const closure of mcpSourceClosures) {
+      if (intersectVersionConstraints(closure.constraints) === undefined) {
+        problems.push({
+          type: "constraint-conflict",
+          extensionType: "mcp-server",
+          name: closure.localNames.join(", "),
+          constraints: closure.constraints,
+          contributors: collectDesiredConstraintContributors(path, closure.origins),
+        });
+      }
+    }
+
     const typeOrder = new Map(extensionTypes.map((type, index) => [type, index]));
     const orderedNodes = [...nodes.values()]
       .map((node) => {
         if (isInlineDesiredExtension(node)) return node;
-        const constraint = intersectVersionConstraints(node.constraints);
+        const constraints =
+          node.type === "mcp-server"
+            ? (mcpClosuresByIdentity.get(node.identity)?.constraints ?? node.constraints)
+            : node.constraints;
+        const constraint = intersectVersionConstraints(constraints);
         return {
           ...node,
+          constraints,
           source:
-            node.identity.startsWith("@") && node.constraints.length > 0 && constraint !== undefined
-              ? `${node.identity}@${constraint}`
+            constraints.length > 0 && constraint !== undefined
+              ? node.type === "mcp-server"
+                ? withVersionConstraint(node.source, constraint)
+                : node.identity.startsWith("@")
+                  ? `${node.identity}@${constraint}`
+                  : node.source
               : node.source,
         };
       })
@@ -623,6 +721,7 @@ export const buildDesiredStateGraph = ({
     return {
       complete: problems.length === 0,
       nodes: orderedNodes,
+      mcpSourceClosures,
       problems,
     };
   });

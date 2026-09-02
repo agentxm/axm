@@ -7,10 +7,16 @@ import {
   planSingletonProjection,
 } from "./planning.js";
 
-const completeGraph: DesiredStateGraph = { complete: true, nodes: [], problems: [] };
+const completeGraph: DesiredStateGraph = {
+  complete: true,
+  nodes: [],
+  mcpSourceClosures: [],
+  problems: [],
+};
 const incompleteGraph: DesiredStateGraph = {
   complete: false,
   nodes: [],
+  mcpSourceClosures: [],
   problems: [
     {
       type: "pack-manifest-unavailable",

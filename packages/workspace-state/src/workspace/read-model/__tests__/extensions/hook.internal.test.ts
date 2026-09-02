@@ -28,7 +28,7 @@ const settingsWithHooks = (
 
 const lockfileWithHooks = (names: ReadonlyArray<string>): Effect.Effect<Lockfile, never> =>
   decodedLockfile({
-    lockfileVersion: 6,
+    lockfileVersion: 7,
     skills: {},
     hooks: Object.fromEntries(
       names.map((name) => [

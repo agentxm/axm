@@ -19,8 +19,8 @@ const lockedEntries = (lockfile: Lockfile) => [
     extension: `skill:${name}`,
     entry,
   })),
-  ...Object.entries(lockfile.mcpServers ?? {}).map(([name, entry]) => ({
-    extension: `mcp-server:${name}`,
+  ...Object.values(lockfile.mcpServers ?? {}).map((entry) => ({
+    extension: `mcp-server:${entry.workspaceName}`,
     entry,
   })),
   ...Object.entries(lockfile.subagents ?? {}).map(([name, entry]) => ({

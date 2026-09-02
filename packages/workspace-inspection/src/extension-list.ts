@@ -32,8 +32,8 @@ import { VersionSchema } from "@agentxm/extension-model/unstable/version-constra
 import type { ReadModelRecordRow } from "@agentxm/workspace-state";
 import {
   WorkspaceMutations,
-  type WorkspaceLockfileReadFailure,
   type WorkspaceMutationsService,
+  type WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
 import { checkCurrency } from "./version-currency/index.js";
 import { WorkspaceInspectionFailed } from "./errors.js";
@@ -89,12 +89,12 @@ const getAcceptedEntry = (
   ws: WorkspaceMutationsService,
   type: InstallableExtensionType,
   name: string,
-): Effect.Effect<Option.Option<AcceptedEntry>, WorkspaceLockfileReadFailure> => {
+): Effect.Effect<Option.Option<AcceptedEntry>, WorkspaceStateReadFailure> => {
   switch (type) {
     case "skill":
       return ws.getLockedSkill(name);
     case "mcp-server":
-      return ws.getLockedMcpServer(name);
+      return ws.getLockedMcpServerForConnection(name);
     case "subagent":
       return ws.getLockedSubagent(name);
     case "rule":

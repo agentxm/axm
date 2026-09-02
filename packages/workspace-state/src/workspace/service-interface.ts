@@ -339,6 +339,8 @@ export interface SetSubagentArgs {
  */
 export interface SetMcpServerArgs {
   readonly name: string;
+  /** Canonical source-resolution key. Unlike name, this is not connection-scoped. */
+  readonly resolutionKey: string;
   readonly lockEntry: McpServerLockEntry;
   readonly versionRange: Option.Option<string>;
   readonly env?: Readonly<Record<string, string>>;
@@ -676,10 +678,14 @@ export interface WorkspaceMutationsService {
     McpServersLockMap,
     WorkspaceLockfileReadFailure
   >;
-  /** Read lockfile and return the entry for a specific MCP server, or Option.none(). */
+  /** Read lockfile and return an MCP accepted resolution by source-resolution identity. */
   readonly getLockedMcpServer: (
-    name: string,
+    resolutionKey: string,
   ) => Effect.Effect<Option.Option<McpServerLockEntry>, WorkspaceLockfileReadFailure>;
+  /** Resolve a local MCP connection name to its shared accepted resolution. */
+  readonly getLockedMcpServerForConnection: (
+    localName: string,
+  ) => Effect.Effect<Option.Option<McpServerLockEntry>, WorkspaceStateReadFailure>;
   /** Update desired MCP settings and any external accepted resolution atomically. */
   readonly setMcpServer: (
     args: SetMcpServerArgs,

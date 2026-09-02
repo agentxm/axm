@@ -61,6 +61,7 @@ const packKnowledgeNode = (name: string, pack: string): DesiredExtensionNode => 
 const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
   complete: true,
   nodes,
+  mcpSourceClosures: [],
   problems: [],
 });
 

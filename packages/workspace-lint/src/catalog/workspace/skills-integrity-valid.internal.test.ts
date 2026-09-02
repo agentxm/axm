@@ -21,7 +21,14 @@ const contextFor = (
       subject: { root: "/tmp/ws", scope: "project" },
       workspace,
       axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
-      health: { desiredState: Effect.succeed({ complete: true, nodes, problems: [] }) },
+      health: {
+        desiredState: Effect.succeed({
+          complete: true,
+          nodes,
+          mcpSourceClosures: [],
+          problems: [],
+        }),
+      },
       displayRoot: "",
     } satisfies WorkspaceRuleContext;
   }).pipe(
@@ -60,7 +67,7 @@ const stateWithDesiredSkill = () => {
     agents: ["claude-code"],
     skills: { "my-skill": { source: "@examples/skills/my-skill@1.0.0" } },
   };
-  state.lockfile = { lockfileVersion: 6, skills: { "my-skill": resolution } };
+  state.lockfile = { lockfileVersion: 7, skills: { "my-skill": resolution } };
   return state;
 };
 

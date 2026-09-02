@@ -33,6 +33,7 @@ import {
   toInstallableExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import {
   LifecycleFailureAdapter,
   makeConfiguredReleaseAgeEvaluation,
@@ -333,7 +334,12 @@ const resolveMcpServerIntent = (
       const { ref, versionRange } = resolved;
       const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
       return {
-        intent: { ref, versionRange, force: false } satisfies InstallMcpServerCommandIntent,
+        intent: {
+          ref,
+          localName: decodeExtensionNameSync(name),
+          versionRange,
+          force: false,
+        } satisfies InstallMcpServerCommandIntent,
         releaseAge,
       };
     }),

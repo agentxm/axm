@@ -60,6 +60,8 @@ export type McpResolution =
 
 export interface ResolveMcpServerArgs {
   readonly manifest: McpServerManifest;
+  /** Exact local connection name projected as the native MCP key. */
+  readonly localName?: string;
   readonly capability: McpExtensionCapability;
   readonly values: Readonly<Record<string, string>>;
   readonly enabled: boolean;
@@ -302,6 +304,7 @@ const resolvePackage = (
   capability: ConfiguredMcpCapability,
   values: Readonly<Record<string, string>>,
   enabled: boolean,
+  localName: string,
 ): McpResolution => {
   const config = capability.axm.writer.config;
   if (config.stdio === null) {
@@ -338,7 +341,7 @@ const resolvePackage = (
   const [command, ...commandArgs] = invocation;
   const projected = projectRegistryEntry({
     capability,
-    serverName: manifest.name,
+    serverName: localName,
     entry: {
       kind: "sourced",
       source: "registry",
@@ -373,6 +376,7 @@ const resolveRemote = (
   values: Readonly<Record<string, string>>,
   enabled: boolean,
   shimmed: boolean,
+  localName: string,
 ): McpResolution => {
   const config = capability.axm.writer.config;
   const headers = materializeHeaders(remote.headers, values);
@@ -395,7 +399,7 @@ const resolveRemote = (
     const [executable, ...commandArgs] = command;
     const projected = projectRegistryEntry({
       capability,
-      serverName: manifest.name,
+      serverName: localName,
       entry: {
         kind: "sourced",
         source: "registry",
@@ -440,7 +444,7 @@ const resolveRemote = (
   }
   const projected = projectRegistryEntry({
     capability,
-    serverName: manifest.name,
+    serverName: localName,
     entry: {
       kind: "sourced",
       source: "registry",
@@ -473,6 +477,7 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
     return { _tag: "no-distribution", reason: "agent does not have MCP config support" };
   }
   const capability = args.capability;
+  const localName = args.localName ?? args.manifest.name;
 
   const hasPackages = (args.manifest.server.packages ?? []).length > 0;
   const hasRemotes = (args.manifest.server.remotes ?? []).length > 0;
@@ -492,7 +497,14 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
   }
 
   if (candidate.kind === "package") {
-    return resolvePackage(args.manifest, candidate.pkg, capability, args.values, args.enabled);
+    return resolvePackage(
+      args.manifest,
+      candidate.pkg,
+      capability,
+      args.values,
+      args.enabled,
+      localName,
+    );
   }
 
   if (!isRemoteTransport(candidate.remote.type)) {
@@ -508,5 +520,6 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
     args.values,
     args.enabled,
     candidate.shimmed,
+    localName,
   );
 };

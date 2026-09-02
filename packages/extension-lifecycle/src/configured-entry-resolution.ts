@@ -206,7 +206,11 @@ export const resolveConfiguredRegistryEntry = (
         detail: `Configured ${expectedType} "${name}" uses a ${pluralType} Registry source`,
       });
     }
-    if (parsedPattern?.name !== undefined && parsedPattern.name !== name) {
+    if (
+      expectedType !== "mcp-server" &&
+      parsedPattern?.name !== undefined &&
+      parsedPattern.name !== name
+    ) {
       return yield* new ExtensionLifecycleFailed({
         category: "validation",
         detail: `Configured ${expectedType} "${name}" points to Registry extension "${parsedPattern.name}"`,
@@ -220,6 +224,7 @@ export const resolveConfiguredRegistryEntry = (
       });
     }
     const versionRange = Option.fromUndefinedOr(parsedPattern?.versionRange);
+    const registryName = expectedType === "mcp-server" ? (parsedPattern?.name ?? name) : name;
     const workspace = yield* WorkspaceMutations;
     const acceptedRef = yield* acceptedResolutionRef({
       workspace,
@@ -227,7 +232,7 @@ export const resolveConfiguredRegistryEntry = (
       name,
     });
     const accepted = Option.flatMap(acceptedRef, (ref) =>
-      ref.refType === "registry" && ref.owner === owner && ref.name === name
+      ref.refType === "registry" && ref.owner === owner && ref.name === registryName
         ? Option.some({
             version: ref.version,
             publisherBindingId: ref.publisherBindingId,
@@ -236,7 +241,7 @@ export const resolveConfiguredRegistryEntry = (
     );
     const providers = yield* SourceHostProviders;
     const resolution = yield* providers.resolveNamedRegistry(resolvedSource, {
-      name,
+      name: registryName,
       type: expectedType,
       owner,
       versionRange,

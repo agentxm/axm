@@ -515,7 +515,7 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 6,
+  lockfileVersion: 7,
   skills: {
     "managed-tool": {
       type: "github",

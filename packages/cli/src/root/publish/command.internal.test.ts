@@ -226,7 +226,7 @@ describe("root publish", () => {
       path.join(tempDir, "axm.json"),
       JSON.stringify({ owner: "@acme", agents: [] }),
     );
-    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
+    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
   });
 
   afterEach(() => {
@@ -317,7 +317,7 @@ describe("root publish", () => {
     fs.writeFileSync(
       path.join(tempDir, "axm-lock.yaml"),
       YAML.stringify({
-        lockfileVersion: 6,
+        lockfileVersion: 7,
         skills: {},
       }),
     );

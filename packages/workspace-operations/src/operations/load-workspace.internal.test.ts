@@ -36,6 +36,7 @@ import {
 import { computeSourceHash } from "@agentxm/workspace-state";
 import { TreeIntegritySchema } from "@agentxm/workspace-state";
 import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
+import { mcpResolutionKey, mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { layer as workspaceLayer } from "./load-workspace.js";
 import {
@@ -85,7 +86,7 @@ describe("WorkspaceMutationsService", () => {
     const axmDir = projectDir;
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.writeFileSync(path.join(axmDir, "axm.json"), JSON.stringify({ agents: ["claude-code"] }));
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
   });
 
   afterEach(() => {
@@ -201,7 +202,7 @@ describe("WorkspaceMutationsService", () => {
           path.join(homeDir, "axm.json"),
           JSON.stringify({ agents: ["claude-code"], owner: "@project" }),
         );
-        fs.writeFileSync(path.join(homeDir, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
+        fs.writeFileSync(path.join(homeDir, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
 
         const ws = yield* getService({
           scope: "project",
@@ -278,7 +279,7 @@ describe("WorkspaceMutationsService", () => {
         fs.rmSync(path.join(projectDir, "axm.json"), { force: true });
         fs.writeFileSync(
           path.join(projectDir, "axm-lock.yaml"),
-          "lockfileVersion: 7\nskills: {}\n",
+          "lockfileVersion: 8\nskills: {}\n",
         );
 
         const error = yield* getService(defaultOptions).pipe(Effect.flip);
@@ -286,8 +287,8 @@ describe("WorkspaceMutationsService", () => {
         expect(error).toMatchObject({
           _tag: "LockfileVersionUnsupported",
           path: path.join(projectDir, "axm-lock.yaml"),
-          observedVersion: 7,
-          supportedVersion: 6,
+          observedVersion: 8,
+          supportedVersion: 7,
         });
       }),
     );
@@ -429,7 +430,7 @@ describe("WorkspaceMutationsService", () => {
     fs.writeFileSync(
       path.join(dir, "axm-lock.yaml"),
       YAML.stringify({
-        lockfileVersion: 6,
+        lockfileVersion: 7,
         skills: {},
         packs: {
           [name]: {
@@ -925,7 +926,7 @@ describe("WorkspaceMutationsService", () => {
         ]),
       );
     const lockfileData: Record<string, unknown> = {
-      lockfileVersion: 6,
+      lockfileVersion: 7,
       skills: normalizeEntries(skills, "skill"),
     };
     if (packs !== undefined) {
@@ -1081,7 +1082,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         fs.writeFileSync(
           path.join(projectDir, "axm-lock.yaml"),
-          "lockfileVersion: 7\nskills: {}\n",
+          "lockfileVersion: 8\nskills: {}\n",
         );
 
         const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
@@ -1117,7 +1118,7 @@ describe("WorkspaceMutationsService", () => {
         expect(error).toMatchObject({
           _tag: "LockfileVersionUnsupported",
           observedVersion: 3,
-          supportedVersion: 6,
+          supportedVersion: 7,
         });
       }),
     );
@@ -1693,6 +1694,11 @@ describe("WorkspaceMutationsService", () => {
         });
         yield* ws.setMcpServer({
           name: "browser",
+          resolutionKey: mcpRegistryResolutionKey({
+            authority: "https://registry.agentxm.ai",
+            owner: "@acme",
+            name: "browser",
+          }),
           versionRange: Option.some(versionRange("3.x")),
           lockEntry: {
             type: "registry",
@@ -2490,7 +2496,7 @@ describe("WorkspaceMutationsService", () => {
             treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
           });
           const lock = (suffix = "", owner = "@acme") => ({
-            lockfileVersion: 6,
+            lockfileVersion: 7,
             skills: { [`unrelated${suffix}`]: resolutionEntry(`unrelated${suffix}`, owner) },
           });
           const lockfilePath = path.join(projectDir, "axm-lock.yaml");
@@ -2502,7 +2508,7 @@ describe("WorkspaceMutationsService", () => {
             {
               name: "empty",
               write: () =>
-                fs.writeFileSync(lockfilePath, YAML.stringify({ lockfileVersion: 6, skills: {} })),
+                fs.writeFileSync(lockfilePath, YAML.stringify({ lockfileVersion: 7, skills: {} })),
             },
             {
               name: "unrelated",
@@ -3167,11 +3173,9 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.setMcpServer({
           name: "my-mcp",
+          resolutionKey: mcpResolutionKey(makeSampleMcpServerLockEntry()),
           versionRange: Option.none(),
-          lockEntry: {
-            ...makeSampleMcpServerLockEntry(),
-            repo: "my-mcp",
-          },
+          lockEntry: makeSampleMcpServerLockEntry(),
         });
 
         const settingsPath = path.join(projectDir, "axm.json");
@@ -3259,27 +3263,22 @@ describe("WorkspaceMutationsService", () => {
 
   const makeSampleMcpServerLockEntry = (): Extract<
     McpServerLockEntry,
-    { readonly type: "github" }
+    { readonly type: "registry" }
   > => ({
-    type: "github",
-    sourceType: "github",
-    sourceName: "github",
-    endpoint: new URL("https://github.com"),
-    extensionType: "mcp-server",
-    workspaceName: extensionName("my-mcp-server"),
-    packageFormat: "agentxm",
-    packageOwner: handle("@acme"),
-    packageName: extensionName("my-mcp-server"),
-    owner: "acme",
-    repo: "my-mcp-server",
-    resolvedCommit: "test-commit",
-    resolvedTree: "test-tree",
-    contentIdentity: computeSourceHash("test-content"),
+    type: "registry",
+    ...registryLockFields("mcp-server", "my-mcp-server"),
+    owner: handle("@acme"),
+    name: extensionName("my-mcp-server"),
+    resolvedVersion: exactVersion("1.0.0"),
+    integrity: "sha512-CCCC==",
+    sourceName: "agentxm",
+    publisherBindingId: "hbnd_test",
     treeIntegrity,
   });
 
   const makeSampleSetMcpServerArgs = (overrides?: Partial<SetMcpServerArgs>): SetMcpServerArgs => ({
     name: "my-mcp-server",
+    resolutionKey: mcpResolutionKey(makeSampleMcpServerLockEntry()),
     lockEntry: makeSampleMcpServerLockEntry(),
     versionRange: Option.none(),
     ...overrides,
@@ -3362,14 +3361,15 @@ describe("WorkspaceMutationsService", () => {
         const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings["mcpServers"]).toBeDefined();
-        expect(settings["mcpServers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server");
+        expect(settings["mcpServers"]["my-mcp-server"]).toBe("agentxm:@acme/mcps/my-mcp-server");
 
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
-        expect(lockfile.mcpServers).toHaveProperty("my-mcp-server");
+        const resolutionKey = mcpResolutionKey(makeSampleMcpServerLockEntry());
+        expect(lockfile.mcpServers).toHaveProperty(resolutionKey);
         expect(
-          property(recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server"), "type"),
-        ).toBe("github");
+          property(recordEntry(expectDefined(lockfile.mcpServers), resolutionKey), "type"),
+        ).toBe("registry");
       }),
     );
 
@@ -3382,7 +3382,10 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setMcpServer(makeSampleSetMcpServerArgs());
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const entry = recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server");
+        const entry = recordEntry(
+          expectDefined(lockfile.mcpServers),
+          mcpResolutionKey(makeSampleMcpServerLockEntry()),
+        );
         expect(entry).not.toHaveProperty("installedAt");
         expect(entry).not.toHaveProperty("updatedAt");
       }),
@@ -3392,23 +3395,20 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          mcpServers: { "my-mcp-server": "github:acme/my-mcp-server" },
+          mcpServers: { "my-mcp-server": "agentxm:@acme/mcps/my-mcp-server" },
         });
-        writeLockfileTo(projectDir, {}, undefined, {
-          "my-mcp-server": {
-            type: "github",
-            owner: "acme",
-            repo: "my-mcp-server",
-          },
-        });
+        const currentEntry = makeSampleMcpServerLockEntry();
+        const resolutionKey = mcpResolutionKey(currentEntry);
+        writeLockfileTo(projectDir, {}, undefined, { [resolutionKey]: currentEntry });
 
         const ws = yield* getService(defaultOptions);
         const updatedEntry: McpServerLockEntry = {
-          ...makeSampleMcpServerLockEntry(),
-          repo: "my-mcp-server-v2",
+          ...currentEntry,
+          resolvedVersion: exactVersion("1.1.0"),
         };
         yield* ws.setMcpServer({
           name: "my-mcp-server",
+          resolutionKey,
           lockEntry: updatedEntry,
           versionRange: Option.none(),
         });
@@ -3416,13 +3416,16 @@ describe("WorkspaceMutationsService", () => {
         // Verify settings updated
         const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings["mcpServers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server-v2");
+        expect(settings["mcpServers"]["my-mcp-server"]).toBe("agentxm:@acme/mcps/my-mcp-server");
 
         // Verify lockfile updated
         const lockfile = readLockfileFromDisk(projectDir);
         expect(
-          property(recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server"), "repo"),
-        ).toBe("my-mcp-server-v2");
+          property(
+            recordEntry(expectDefined(lockfile.mcpServers), resolutionKey),
+            "resolvedVersion",
+          ),
+        ).toBe("1.1.0");
       }),
     );
   });
@@ -3443,10 +3446,11 @@ describe("WorkspaceMutationsService", () => {
 
         // Lockfile should have the mcp server
         const lockfile = readLockfileFromDisk(projectDir);
-        expect(lockfile.mcpServers).toHaveProperty("my-mcp-server");
+        const resolutionKey = mcpResolutionKey(makeSampleMcpServerLockEntry());
+        expect(lockfile.mcpServers).toHaveProperty(resolutionKey);
         expect(
-          property(recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server"), "type"),
-        ).toBe("github");
+          property(recordEntry(expectDefined(lockfile.mcpServers), resolutionKey), "type"),
+        ).toBe("registry");
       }),
     );
   });
@@ -3456,17 +3460,22 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
+          sources: [
+            {
+              name: "agentxm",
+              type: "registry",
+              location: new URL("https://registry.agentxm.ai"),
+            },
+          ],
           mcpServers: {
-            "my-mcp-server": "github:acme/my-mcp-server",
+            "my-mcp-server": "agentxm:@acme/mcps/my-mcp-server",
             "other-server": "local:/tmp/other",
           },
         });
+        const myMcpEntry = makeSampleMcpServerLockEntry();
+        const myMcpResolutionKey = mcpResolutionKey(myMcpEntry);
         writeLockfileTo(projectDir, {}, undefined, {
-          "my-mcp-server": {
-            type: "github",
-            owner: "acme",
-            repo: "my-mcp-server",
-          },
+          [myMcpResolutionKey]: myMcpEntry,
           "other-server": {
             type: "local",
             path: "other",
@@ -3484,7 +3493,7 @@ describe("WorkspaceMutationsService", () => {
 
         // Verify lockfile: my-mcp-server removed, other-server remains
         const lockfile = readLockfileFromDisk(projectDir);
-        expect(lockfile.mcpServers).not.toHaveProperty("my-mcp-server");
+        expect(lockfile.mcpServers).not.toHaveProperty(myMcpResolutionKey);
         expect(lockfile.mcpServers).toHaveProperty("other-server");
       }),
     );
@@ -3517,15 +3526,19 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("removes lockfile-only mcp server when not in settings", () =>
+    it.effect("does not infer a local connection from a source-only lock row", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
         });
+        const resolutionKey = "local:implicit-mcp:%40acme/mcps/implicit";
         writeLockfileTo(projectDir, {}, undefined, {
-          implicit: {
+          [resolutionKey]: {
             type: "local",
             path: "implicit-mcp",
+            packageOwner: "@acme",
+            packageName: "implicit",
+            workspaceName: "implicit",
           },
         });
 
@@ -3537,7 +3550,7 @@ describe("WorkspaceMutationsService", () => {
         expect(settings.mcpServers).toBeUndefined();
 
         const lockfile = readLockfileFromDisk(projectDir);
-        expect(lockfile.mcpServers).toBeUndefined();
+        expect(lockfile.mcpServers).toHaveProperty(resolutionKey);
       }),
     );
   });

@@ -32,6 +32,7 @@ export interface InstallMcpServerFlags {
 
 export interface McpServerInstallHandlerArgs {
   readonly source: Option.Option<string>;
+  readonly localName?: Option.Option<string>;
   readonly env: ReadonlyArray<string>;
   readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
@@ -54,7 +55,14 @@ const handleInstallMcpServerBody = (
   flags: InstallMcpServerFlags,
 ) =>
   Effect.gen(function* () {
+    const localName = args.localName ?? Option.none<string>();
     if (Option.isNone(args.source)) {
+      if (Option.isSome(localName)) {
+        return yield* makeAppError({
+          code: "usage",
+          detail: "--as requires an MCP server source",
+        });
+      }
       if (args.agents !== undefined) {
         return yield* makeAppError({
           code: "usage",
@@ -73,7 +81,9 @@ const handleInstallMcpServerBody = (
     const actions = yield* InstallMcpServerCommandWorkflowActions;
     const sourceArgs: InstallMcpServerHandlerArgs = {
       source: args.source.value,
+      ...(Option.isSome(localName) ? { localName: localName.value } : {}),
       env: args.env,
+      force: flags.force,
       ...(args.agents === undefined ? {} : { agents: args.agents }),
     };
     const execution = yield* makeInstallPlanExecution(
@@ -81,6 +91,10 @@ const handleInstallMcpServerBody = (
       ["mcps", "install"],
       [args.source.value],
       [
+        ...Option.match(localName, {
+          onNone: () => [],
+          onSome: (name) => [recoveryOption("--as", publicRecoveryValue(name))],
+        }),
         ...args.env.map(() => recoveryOption("--env", protectedRecoveryValue())),
         ...(args.agents ?? []).map((agent) =>
           recoveryOption("--agent", publicRecoveryValue(agent)),

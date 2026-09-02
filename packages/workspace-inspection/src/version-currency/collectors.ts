@@ -38,8 +38,8 @@ import type {
 } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import type {
-  WorkspaceLockfileReadFailure,
   WorkspaceMutationsService,
+  WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
 import { isSourcedDesiredExtension } from "@agentxm/workspace-state";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
@@ -119,12 +119,12 @@ const getAcceptedResolution = (
   ws: WorkspaceMutationsService,
   type: ExtensionType,
   name: string,
-): Effect.Effect<Option.Option<AcceptedResolution>, WorkspaceLockfileReadFailure> => {
+): Effect.Effect<Option.Option<AcceptedResolution>, WorkspaceStateReadFailure> => {
   switch (type) {
     case "skill":
       return ws.getLockedSkill(name);
     case "mcp-server":
-      return ws.getLockedMcpServer(name);
+      return ws.getLockedMcpServerForConnection(name);
     case "subagent":
       return ws.getLockedSubagent(name);
     case "rule":

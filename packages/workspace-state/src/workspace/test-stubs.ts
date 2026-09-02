@@ -281,7 +281,7 @@ export const makeBaseWorkspaceMock = (
           };
         }),
       );
-      return { complete: true, nodes, problems: [] };
+      return { complete: true, nodes, mcpSourceClosures: [], problems: [] };
     });
   const runTransaction: WorkspaceTransactionRunner = (args) =>
     Effect.gen(function* () {
@@ -405,6 +405,7 @@ export const makeBaseWorkspaceMock = (
     removeSubagentLock: () => Effect.void,
     getLockedMcpServers: lockedMcpServers,
     getLockedMcpServer: entryFrom(lockedMcpServers),
+    getLockedMcpServerForConnection: entryFrom(lockedMcpServers),
     setMcpServer: () => Effect.void,
     setMcpServerLock: () => Effect.void,
     updateMcpServerEntry: () => Effect.void,
@@ -462,7 +463,7 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 6,
+    lockfileVersion: 7,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),

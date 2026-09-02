@@ -21,6 +21,12 @@ export interface RegistrySkillVersion {
   readonly body: string;
 }
 
+export interface RegistryMcpVersion {
+  readonly version: string;
+  /** Optional environment input used by credential-lifecycle specifications. */
+  readonly secretInput?: string;
+}
+
 export interface SpecRegistry {
   /** Absolute Registry root directory. */
   readonly root: string;
@@ -35,6 +41,7 @@ export interface SpecRegistry {
    * index for it. Call again with more versions to model a later publication.
    */
   readonly writeSkill: (name: string, versions: ReadonlyArray<RegistrySkillVersion>) => void;
+  readonly writeMcp: (name: string, versions: ReadonlyArray<RegistryMcpVersion>) => void;
   readonly cleanup: () => void;
 }
 
@@ -88,10 +95,76 @@ export const makeSpecRegistry = (): SpecRegistry => {
     );
   };
 
+  const writeMcp = (name: string, versions: ReadonlyArray<RegistryMcpVersion>): void => {
+    const mcpDir = path.join(root, "extensions", OWNER, "mcps", name);
+    const entries = versions.map(({ version, secretInput }) => {
+      const stagingDir = path.join(mcpDir, `staging-${version}`);
+      fs.mkdirSync(stagingDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(stagingDir, "mcp.json"),
+        `${JSON.stringify(
+          {
+            owner: OWNER,
+            type: "mcp-server",
+            name,
+            version,
+            server: {
+              name: `ai.agentxm.spec/${name}`,
+              description: `The ${name} MCP server.`,
+              version,
+              packages: [
+                {
+                  registryType: "npm",
+                  identifier: `@acme/${name}`,
+                  version,
+                  transport: { type: "stdio" },
+                  ...(secretInput === undefined
+                    ? {}
+                    : {
+                        environmentVariables: [
+                          { name: secretInput, isRequired: true, isSecret: true },
+                        ],
+                      }),
+                },
+              ],
+            },
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      const archivePath = path.join(mcpDir, `${version}.zip`);
+      execFileSync("zip", ["-qr", archivePath, "mcp.json"], { cwd: stagingDir });
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+      const archive = fs.readFileSync(archivePath);
+      return {
+        version,
+        published: PUBLISHED_AT,
+        integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
+      };
+    });
+    fs.writeFileSync(
+      path.join(mcpDir, "index.json"),
+      `${JSON.stringify(
+        {
+          owner: OWNER,
+          type: "mcp-server",
+          name,
+          publisherBindingId: "hbnd_test",
+          deprecation: null,
+          versions: entries,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  };
+
   return {
     root,
     source: { name: "agentxm", type: "registry", location: `file://${root}` },
     writeSkill,
+    writeMcp,
     cleanup: (): void => {
       fs.rmSync(root, { recursive: true, force: true });
     },

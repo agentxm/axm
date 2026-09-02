@@ -386,10 +386,17 @@ export const makeWorkspaceMutations = (
     }) =>
       Effect.gen(function* () {
         const settings = yield* readSettingsSafe(workspaceDir);
+        const configuredSources = yield* getConfiguredSources();
+        const registryAuthorities = Object.fromEntries(
+          configuredSources.flatMap((source) =>
+            source.type === "registry" ? [[source.name, source.location] as const] : [],
+          ),
+        );
         const graph = yield* buildDesiredStateGraph({
           baseDir,
           settings,
           layout,
+          registryAuthorities,
           ...(graphOptions?.prospectivePacks === undefined
             ? {}
             : { prospectivePacks: graphOptions.prospectivePacks }),
@@ -1690,12 +1697,31 @@ export const makeWorkspaceMutations = (
       getLockedMcpServers: () =>
         readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.mcpServers ?? {})),
 
-      getLockedMcpServer: (name: string) =>
+      getLockedMcpServer: (resolutionKey: string) =>
         readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromUndefinedOr((lf.mcpServers ?? {})[name])),
+          Effect.map((lf) => Option.fromUndefinedOr((lf.mcpServers ?? {})[resolutionKey])),
         ),
 
-      setMcpServer: ({ name, lockEntry, versionRange, env, enabled, agents }: SetMcpServerArgs) =>
+      getLockedMcpServerForConnection: (localName: string) =>
+        Effect.gen(function* () {
+          const graph = yield* readDesiredStateGraph();
+          const node = graph.nodes.find(
+            (candidate) => candidate.type === "mcp-server" && candidate.name === localName,
+          );
+          if (node === undefined || node.authority === "inline") return Option.none();
+          const lockfile = yield* readLockfileSafe(workspaceDir);
+          return Option.fromUndefinedOr((lockfile.mcpServers ?? {})[node.identity]);
+        }),
+
+      setMcpServer: ({
+        name,
+        resolutionKey,
+        lockEntry,
+        versionRange,
+        env,
+        enabled,
+        agents,
+      }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
@@ -1712,7 +1738,7 @@ export const makeWorkspaceMutations = (
                       const fqn = formatFqn({
                         owner: lockEntry.owner,
                         type: "mcp-server",
-                        name: decodeExtensionNameSync(name),
+                        name: lockEntry.name,
                       });
                       const locator = Option.isSome(versionRange)
                         ? `${fqn}@${versionRange.value}`
@@ -1742,14 +1768,17 @@ export const makeWorkspaceMutations = (
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: preserveAcceptedResolutionOnNoop(currentLockedMcpServers[name], lockEntry),
+                [resolutionKey]: preserveAcceptedResolutionOnNoop(
+                  currentLockedMcpServers[resolutionKey],
+                  lockEntry,
+                ),
               },
             };
             yield* commitWorkspaceState(currentLockfile, updatedLockfile);
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setMcpServer")),
 
-      setMcpServerLock: ({ name, lockEntry }: SetMcpServerArgs) =>
+      setMcpServerLock: ({ name: _name, resolutionKey, lockEntry }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
@@ -1759,7 +1788,10 @@ export const makeWorkspaceMutations = (
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: preserveAcceptedResolutionOnNoop(currentLockedMcpServers[name], lockEntry),
+                [resolutionKey]: preserveAcceptedResolutionOnNoop(
+                  currentLockedMcpServers[resolutionKey],
+                  lockEntry,
+                ),
               },
             };
             yield* commitWorkspaceState(currentLockfile, updatedLockfile);
@@ -1801,6 +1833,16 @@ export const makeWorkspaceMutations = (
       removeMcpServer: (name: string) =>
         withMutex(
           Effect.gen(function* () {
+            const graph = yield* readDesiredStateGraph();
+            const desiredNode = graph.nodes.find(
+              (node) => node.type === "mcp-server" && node.name === name,
+            );
+            const closure =
+              desiredNode === undefined || desiredNode.authority === "inline"
+                ? undefined
+                : graph.mcpSourceClosures.find(
+                    (candidate) => candidate.identity === desiredNode.identity,
+                  );
             // Update settings (uses "mcpServers" key)
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
@@ -1819,8 +1861,17 @@ export const makeWorkspaceMutations = (
             // Update lockfile (uses "mcpServers" key)
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLockedMcpServers = currentLockfile.mcpServers ?? {};
-            if (name in currentLockedMcpServers) {
-              const { [name]: __, ...remainingLockedMcpServers } = currentLockedMcpServers;
+            const resolutionKey = desiredNode?.identity;
+            const keepSharedResolution =
+              closure !== undefined &&
+              (closure.localNames.length > 1 ||
+                closure.origins.some((origin) => origin.type === "pack"));
+            if (
+              resolutionKey !== undefined &&
+              !keepSharedResolution &&
+              resolutionKey in currentLockedMcpServers
+            ) {
+              const { [resolutionKey]: __, ...remainingLockedMcpServers } = currentLockedMcpServers;
               void __;
               const updatedLockfile = {
                 ...currentLockfile,

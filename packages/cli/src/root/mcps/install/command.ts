@@ -26,6 +26,7 @@ const installConfig = {
     Flag.withDescription("Provide an MCP input value as KEY=VALUE; repeatable"),
     Flag.atLeast(0),
   ),
+  as: Flag.string("as").pipe(Flag.withDescription("Install using this local name"), Flag.optional),
   agent: Flag.choice("agent", CONFIGURABLE_AGENT_IDS).pipe(
     Flag.withDescription("Coding agent to target; repeatable (default: all configured agents)"),
     Flag.atLeast(1),
@@ -36,11 +37,12 @@ const installConfig = {
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview, env, agent }) =>
+  ({ source, scope, yes, force, preview, env, agent, as }) =>
     handleInstallMcpServer(
       {
         source,
         env,
+        localName: as,
         ...Option.match(agent, {
           onNone: () => ({}),
           onSome: (value) => ({ agents: [...value] }),
@@ -61,6 +63,10 @@ export const installCommand = Command.make(
     {
       command: "axm mcps install @acme/mcps/my-server",
       description: "Add an MCP server from the registry",
+    },
+    {
+      command: "axm mcps install @acme/mcps/my-server --as work-server",
+      description: "Install a second connection under an explicit local name",
     },
     {
       command: "axm mcps install my-server",

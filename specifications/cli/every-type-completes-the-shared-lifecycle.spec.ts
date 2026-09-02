@@ -32,8 +32,8 @@ type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 
 /**
  * One conformance row per extension type the root locator install can acquire
- * from a local directory. MCP servers (inline-only settings authority) and
- * packs (registry or workspace authorship, no local package source) cannot be
+ * from a local directory. MCP servers (Registry package or inline settings
+ * authority) and packs (Registry or workspace authorship, no local package source) cannot be
  * driven through this route; the catalog-completeness case below binds them to
  * the process-boundary executions that carry their lifecycle evidence.
  */

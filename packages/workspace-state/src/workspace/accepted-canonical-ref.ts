@@ -37,11 +37,7 @@ import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensi
 import { protectWorkspacePath } from "./transaction.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
-import type {
-  WorkspaceLockfileReadFailure,
-  WorkspaceMutationsService,
-  WorkspaceStateReadFailure,
-} from "./service-interface.js";
+import type { WorkspaceMutationsService, WorkspaceStateReadFailure } from "./service-interface.js";
 
 interface AcceptedCanonicalRefArgs {
   readonly workspace: WorkspaceMutationsService;
@@ -87,16 +83,16 @@ const getAcceptedResolution = (
   workspace: WorkspaceMutationsService,
   type: DesiredExtensionNode["type"],
   name: string,
-): Effect.Effect<Option.Option<AcceptedExtensionResolution>, WorkspaceLockfileReadFailure> => {
+): Effect.Effect<Option.Option<AcceptedExtensionResolution>, WorkspaceStateReadFailure> => {
   const read = (): Effect.Effect<
     Option.Option<AcceptedExtensionResolution>,
-    WorkspaceLockfileReadFailure
+    WorkspaceStateReadFailure
   > => {
     switch (type) {
       case "skill":
         return workspace.getLockedSkill(name);
       case "mcp-server":
-        return workspace.getLockedMcpServer(name);
+        return workspace.getLockedMcpServerForConnection(name);
       case "subagent":
         return workspace.getLockedSubagent(name);
       case "rule":
@@ -115,7 +111,7 @@ const getAcceptedResolution = (
 /** Exact acquired canonical path reconstructed directly from accepted lock authority. */
 export const acceptedLockedCanonicalPath = (
   args: AcceptedCanonicalRefArgs,
-): Effect.Effect<Option.Option<string>, WorkspaceLockfileReadFailure, Path.Path> =>
+): Effect.Effect<Option.Option<string>, WorkspaceStateReadFailure, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const accepted = yield* getAcceptedResolution(args.workspace, args.type, args.name);
@@ -160,7 +156,7 @@ export const prepareAcceptedCanonicalTransition = (
   args: AcceptedCanonicalRefArgs & { readonly ref: ExtensionRef },
 ): Effect.Effect<
   Effect.Effect<void, WorkspaceSnapshotError | SupersededCanonicalRemovalFailed>,
-  WorkspaceLockfileReadFailure,
+  WorkspaceStateReadFailure,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
@@ -221,7 +217,7 @@ const refFromAcceptedResolution = (
         });
       }
       case "mcp-server": {
-        const entry = yield* workspace.getLockedMcpServer(name);
+        const entry = yield* workspace.getLockedMcpServerForConnection(name);
         return yield* Option.match(entry, {
           onNone: () => Effect.fail(missingAccepted("MCP", name)),
           onSome: (value) => mcpServerLockEntryToRef(name, value, deps),

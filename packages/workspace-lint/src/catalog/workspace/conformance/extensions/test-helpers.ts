@@ -103,7 +103,7 @@ const skillLockContext = (accepted: boolean) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 6,
+        lockfileVersion: 7,
         skills: accepted
           ? {
               reviewer: {
@@ -134,6 +134,7 @@ const skillLockContext = (accepted: boolean) =>
             desiredState: Effect.succeed({
               complete: true,
               nodes: [desiredReviewer],
+              mcpSourceClosures: [],
               problems: [],
             }),
           },
@@ -288,6 +289,7 @@ const packDependencyContext = (accepted: boolean) =>
             desiredState: Effect.succeed({
               complete: true,
               nodes: [packDeclaredReviewer],
+              mcpSourceClosures: [],
               problems: [],
             }),
           },

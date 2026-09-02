@@ -9,12 +9,14 @@
 import type * as Option from "effect/Option";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 
 /**
  * Intent for installing an MCP server extension.
  */
 export interface InstallMcpServerCommandIntent {
   readonly ref: McpServerExtensionRef;
+  readonly localName: ExtensionName;
   readonly versionRange: Option.Option<string>;
   readonly force: boolean;
   readonly env?: Readonly<Record<string, string>>;

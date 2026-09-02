@@ -54,7 +54,7 @@ const initWorkspace = (
   fs.writeFileSync(path.join(workspaceRoot, "axm.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(workspaceRoot, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 6, skills: {}, subagents: {} }),
+    YAML.stringify({ lockfileVersion: 7, skills: {}, subagents: {} }),
   );
 };
 

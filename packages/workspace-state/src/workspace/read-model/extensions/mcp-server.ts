@@ -15,6 +15,7 @@ import {
   decodeExtensionNameSync,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import type { Lockfile, McpServerLockEntry } from "../../../lockfile/schema.js";
 import type { McpServerEntry, Settings } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
@@ -108,18 +109,46 @@ const declaredFromSettings = (settings: Settings): DeclaredMcpServers => {
   }));
 };
 
-const resolvedFromLockfile = (lockfile: Lockfile): ResolvedMcpServers => {
-  if (lockfile.mcpServers === undefined) return [];
-  return Object.entries(lockfile.mcpServers).map(([name, lockEntry]) => ({
-    name: decodeExtensionNameSync(name),
-    lockEntry,
-  }));
+const resolvedFromState = (
+  settings: Settings,
+  lockfile: Lockfile,
+  packs: ReadonlyArray<InstalledPackForMcpServers>,
+): ResolvedMcpServers => {
+  const locked = Object.values(lockfile.mcpServers ?? {});
+  const resolved: ResolvedMcpServer[] = [];
+  const names = new Set<string>();
+  for (const [localName, entry] of Object.entries(settings.mcpServers ?? {})) {
+    if (entry.kind === "inline") continue;
+    const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
+    const lockEntry = locked.find((candidate) =>
+      parsed !== undefined && candidate.type === "registry"
+        ? candidate.sourceName === parsed.sourceName &&
+          candidate.owner === parsed.owner &&
+          candidate.name === parsed.name
+        : candidate.workspaceName === localName,
+    );
+    if (lockEntry === undefined) continue;
+    names.add(localName);
+    resolved.push({ name: decodeExtensionNameSync(localName), lockEntry });
+  }
+  for (const member of packs.flatMap((pack) => pack.mcpServers)) {
+    if (names.has(member.name)) continue;
+    const lockEntry = locked.find((candidate) => candidate.workspaceName === member.name);
+    if (lockEntry === undefined) continue;
+    names.add(member.name);
+    resolved.push({ name: member.name, lockEntry });
+  }
+  return resolved;
 };
 
-const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualMcpServer => {
+const canonicalToActual = (
+  occ: CanonicalExtensionOccurrence,
+  scope: Scope,
+  localName: ExtensionName = occ.name,
+): ActualMcpServer => {
   const packageRoot = canonicalAxmPackageRoot(occ);
   return {
-    key: { scope, type: "mcp-server", name: occ.name },
+    key: { scope, type: "mcp-server", name: localName },
     origin:
       occ.origin === "canonical-axm"
         ? { _tag: "canonical-axm-mcp-server" }
@@ -253,14 +282,35 @@ export const makeMcpServerExtensionsApi = (
     const declared: McpServerExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
     );
-    const resolved: McpServerExtensionsApi["resolved"] = loaders.lockfile.pipe(
-      Effect.map((opt) => Option.map(opt, resolvedFromLockfile)),
+    const resolved: McpServerExtensionsApi["resolved"] = Effect.all({
+      settings: loaders.settings.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+      lockfile: loaders.lockfile,
+      packs: installedPacks.pipe(Effect.catch(() => Effect.succeed([]))),
+    }).pipe(
+      Effect.map(({ settings, lockfile, packs }) =>
+        Option.all({ settings, lockfile }).pipe(
+          Option.map(({ settings: decodedSettings, lockfile: decodedLockfile }) =>
+            resolvedFromState(decodedSettings, decodedLockfile, packs),
+          ),
+        ),
+      ),
     );
     const actual: McpServerExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
       const mcpConfig = yield* scanners.mcpConfig;
-      const fromCanonical = filterMapOccurrences(canonical, "mcp-server", (occ) =>
-        canonicalToActual(occ, scope),
+      const accepted = yield* resolved.pipe(Effect.catch(() => Effect.succeed(Option.none())));
+      const resolvedEntries = Option.getOrElse(accepted, () => []);
+      const fromCanonical = filterMapOccurrences(canonical, "mcp-server", (occ) => occ).flatMap(
+        (occ) => {
+          const matchingNames = resolvedEntries
+            .filter(
+              (entry) => entry.lockEntry.type === "registry" && entry.lockEntry.name === occ.name,
+            )
+            .map((entry) => entry.name);
+          return matchingNames.length === 0
+            ? [canonicalToActual(occ, scope)]
+            : matchingNames.map((name) => canonicalToActual(occ, scope, name));
+        },
       );
       const fromMcpConfig = mcpConfig.map((occ) => mcpConfigToActual(occ, scope));
       return [...fromCanonical, ...fromMcpConfig];

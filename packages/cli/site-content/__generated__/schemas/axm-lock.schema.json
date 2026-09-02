@@ -74,9 +74,9 @@
       "properties": {
         "lockfileVersion": {
           "type": "number",
-          "enum": [6],
+          "enum": [7],
           "description": "Lockfile schema version.",
-          "default": 6
+          "default": 7
         },
         "skills": {
           "type": "object",

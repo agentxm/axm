@@ -32,7 +32,7 @@ const settingsWithKnowledge = (
 
 const lockfileWithKnowledge = (names: ReadonlyArray<string>): Effect.Effect<Lockfile, never> =>
   decodedLockfile({
-    lockfileVersion: 6,
+    lockfileVersion: 7,
     skills: {},
     knowledge: Object.fromEntries(
       names.map((name) => [

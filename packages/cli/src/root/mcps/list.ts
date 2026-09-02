@@ -8,9 +8,10 @@ import {
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import {
   type ConfiguredAgentOutcome,
-  ExtensionInventorySchema,
+  ExtensionInventoryRowSchema,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
+import * as Schema from "effect/Schema";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -22,7 +23,8 @@ import {
 } from "../inventory-view.js";
 
 interface McpServerListItem {
-  readonly name: string;
+  readonly localName: string;
+  readonly source: string;
   readonly state: string;
   readonly version: string;
   readonly transport: string;
@@ -31,7 +33,8 @@ interface McpServerListItem {
 }
 
 const McpServerListColumns = [
-  { header: "Name", value: (row: McpServerListItem) => row.name },
+  { header: "Local name", value: (row: McpServerListItem) => row.localName },
+  { header: "Source", value: (row: McpServerListItem) => row.source },
   { header: "State", value: (row: McpServerListItem) => row.state },
   { header: "Version", value: (row: McpServerListItem) => row.version },
   { header: "Transport", value: (row: McpServerListItem) => row.transport },
@@ -41,6 +44,40 @@ const McpServerListColumns = [
     value: (row: McpServerListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
 ] satisfies ReadonlyArray<ViewColumn<McpServerListItem>>;
+
+const McpServerSourceSchema = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("inline") }),
+  Schema.Struct({
+    kind: Schema.Literal("registry"),
+    locator: Schema.String,
+    identity: Schema.String,
+  }),
+  Schema.Struct({ kind: Schema.Literal("unmanaged") }),
+]);
+
+const McpServerResolutionSchema = Schema.NullOr(
+  Schema.Struct({
+    kind: Schema.Literal("registry"),
+    version: Schema.String,
+    integrity: Schema.String,
+  }),
+);
+
+export const McpServerListQueryResultSchema = Schema.Struct({
+  items: Schema.Array(
+    Schema.Struct({
+      ...ExtensionInventoryRowSchema.fields,
+      localName: Schema.String,
+      source: McpServerSourceSchema,
+      resolution: McpServerResolutionSchema,
+    }),
+  ),
+  count: Schema.Number,
+  configuredCount: Schema.Number,
+  implicitCount: Schema.Number,
+  installedCount: Schema.Number,
+  unmanagedCount: Schema.Number,
+});
 
 const driftStatus = (inspections: ReadonlyArray<AgentMcpServerInspection>): string => {
   if (inspections.some((inspection) => inspection.status === "drift")) return "drift";
@@ -96,13 +133,17 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
   const inventory = yield* ws.records.getExtensionInventory("mcp-server", {});
   const configuredEntries = yield* ws.getConfiguredMcpServerEntries();
   const configuredAgents = yield* ws.getConfiguredAgents();
+  const graph = yield* ws.getDesiredStateGraph();
 
   const items = yield* Effect.forEach(
     inventory.items,
     (row) =>
       Effect.gen(function* () {
-        const locked = yield* ws.getLockedMcpServer(row.name);
+        const locked = yield* ws.getLockedMcpServerForConnection(row.name);
         const configuredEntry = configuredEntries[row.name];
+        const desiredNode = graph.nodes.find(
+          (node) => node.type === "mcp-server" && node.name === row.name,
+        );
         const inspections =
           row.enabled !== false &&
           row.classification.lifecycle !== "unmanaged" &&
@@ -124,7 +165,31 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
                 inspections,
               });
         return {
-          name: row.name,
+          localName: row.name,
+          source:
+            configuredEntry?.kind === "inline"
+              ? "inline"
+              : configuredEntry?.kind === "sourced"
+                ? configuredEntry.source
+                : (desiredNode?.source ?? "unmanaged"),
+          machineSource:
+            configuredEntry?.kind === "inline"
+              ? ({ kind: "inline" } as const)
+              : desiredNode !== undefined && desiredNode.authority !== "inline"
+                ? ({
+                    kind: "registry",
+                    locator: configuredEntry?.source ?? desiredNode.source,
+                    identity: desiredNode.identity,
+                  } as const)
+                : ({ kind: "unmanaged" } as const),
+          resolution:
+            locked._tag === "Some" && locked.value.type === "registry"
+              ? ({
+                  kind: "registry",
+                  version: locked.value.resolvedVersion,
+                  integrity: locked.value.integrity,
+                } as const)
+              : null,
           state: inventoryState(row),
           version:
             locked._tag === "Some" && locked.value.type === "registry"
@@ -140,8 +205,8 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
       }),
     { concurrency: "unbounded" },
   );
-  const details = new Map(items.map((item) => [item.name, item]));
-  const output = augmentInventory(inventory, (row) => {
+  const details = new Map(items.map((item) => [item.localName, item]));
+  const augmented = augmentInventory(inventory, (row) => {
     const item = details.get(row.name);
     return {
       version: item?.version ?? "n/a",
@@ -150,8 +215,20 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
       agentOutcomes: item?.agentOutcomes ?? row.agentOutcomes,
     };
   });
+  const output = {
+    ...augmented,
+    items: augmented.items.map((row) => {
+      const detail = details.get(row.name);
+      return {
+        ...row,
+        localName: row.name,
+        source: detail?.machineSource ?? ({ kind: "unmanaged" } as const),
+        resolution: detail?.resolution ?? null,
+      };
+    }),
+  };
 
-  if (yield* screen.document(output, ExtensionInventorySchema)) return;
+  if (yield* screen.document(output, McpServerListQueryResultSchema)) return;
   yield* screen.result(
     inventoryDoc({
       rows: items,

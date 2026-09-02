@@ -14,6 +14,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { createHash } from "node:crypto";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CodingAgent, McpServerSyncOutcome } from "@agentxm/extension-workspace";
 import {
@@ -25,7 +26,7 @@ import {
   sharedMcpTargetPolicyConflict,
 } from "@agentxm/extension-workspace";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { isPathSafe } from "@agentxm/workspace-state";
+import { isPathSafe, mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
@@ -74,6 +75,8 @@ import { ExtensionLifecycleFailed } from "../../errors.js";
  */
 export type InstallMcpServerOperationArgs = {
   readonly ref: McpServerExtensionRef;
+  /** Local connection identity and exact agent-native MCP key. */
+  readonly localName?: string;
   readonly force: boolean;
   /** Explicitly permit a workspace-authored relocation during reconciliation. */
   readonly allowWorkspaceSourceTransition?: boolean;
@@ -130,12 +133,20 @@ const buildLockEntry = (
 
 const MCP_SECRET_SERVICE = "axm-mcp";
 
-const mcpSecretAccount = (serverName: string, inputName: string): string =>
-  `${serverName}:${inputName}`;
+export const mcpSecretAccount = (args: {
+  readonly scopeRoot: string;
+  readonly localName: string;
+  readonly sourceIdentity: string;
+  readonly inputName: string;
+}): string =>
+  createHash("sha256")
+    .update([args.scopeRoot, args.localName, args.sourceIdentity, args.inputName].join("\0"))
+    .digest("hex");
 
 type KeyringEntry = {
   readonly getPassword: () => string | null;
   readonly setPassword: (password: string) => void;
+  readonly deletePassword: () => boolean;
 };
 
 type KeyringEntryConstructor = new (service: string, account: string) => KeyringEntry;
@@ -159,8 +170,13 @@ type McpSecretPersistenceOutcome =
   | { readonly _tag: "skipped"; readonly inputName: string }
   | { readonly _tag: "failed"; readonly inputName: string };
 
+export type McpSecretDeletionOutcome =
+  | { readonly _tag: "deleted"; readonly inputName: string }
+  | { readonly _tag: "absent"; readonly inputName: string }
+  | { readonly _tag: "failed"; readonly inputName: string };
+
 const saveMcpSecret = (
-  serverName: string,
+  account: string,
   inputName: string,
   value: string,
 ): Effect.Effect<McpSecretPersistenceOutcome> =>
@@ -168,7 +184,7 @@ const saveMcpSecret = (
     const Entry = yield* loadKeyringEntry;
     return yield* Effect.try({
       try: () => {
-        const entry = new Entry(MCP_SECRET_SERVICE, mcpSecretAccount(serverName, inputName));
+        const entry = new Entry(MCP_SECRET_SERVICE, account);
         entry.setPassword(value);
         return { _tag: "saved", inputName } satisfies McpSecretPersistenceOutcome;
       },
@@ -180,15 +196,12 @@ const saveMcpSecret = (
     ),
   );
 
-const loadMcpSecret = (
-  serverName: string,
-  inputName: string,
-): Effect.Effect<Option.Option<string>> =>
+const loadMcpSecret = (account: string): Effect.Effect<Option.Option<string>> =>
   Effect.gen(function* () {
     const Entry = yield* loadKeyringEntry;
     return yield* Effect.try({
       try: () => {
-        const entry = new Entry(MCP_SECRET_SERVICE, mcpSecretAccount(serverName, inputName));
+        const entry = new Entry(MCP_SECRET_SERVICE, account);
         return Option.fromNullOr(entry.getPassword());
       },
       catch: () => undefined,
@@ -228,7 +241,7 @@ const collectRequiredInputNames = (manifest: McpServerManifest): ReadonlySet<str
   return names;
 };
 
-const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySet<string> => {
+export const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySet<string> => {
   const names = new Set<string>();
   const add = (input: McpRegistryInput | McpRegistryKeyValueInput | McpRegistryArgument) => {
     const name = maybeSecretInputName(input);
@@ -306,7 +319,7 @@ const installFromRegistry = (
     return canonicalPath;
   });
 
-const readManifest = (
+export const readMcpServerManifest = (
   canonicalPath: string,
 ): Effect.Effect<Option.Option<McpServerManifest>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
@@ -346,11 +359,17 @@ const isNothingRunnableManifest = (manifest: Option.Option<McpServerManifest>): 
       (value.server.remotes === undefined || value.server.remotes.length === 0),
   });
 
-const loadStoredMcpSecrets = (serverName: string, secretNames: ReadonlySet<string>) =>
+const loadStoredMcpSecrets = (
+  identity: Omit<Parameters<typeof mcpSecretAccount>[0], "inputName">,
+  secretNames: ReadonlySet<string>,
+) =>
   Effect.gen(function* () {
     const entries = yield* Effect.forEach(
       secretNames,
-      (name) => loadMcpSecret(serverName, name).pipe(Effect.map((value) => ({ name, value }))),
+      (name) =>
+        loadMcpSecret(mcpSecretAccount({ ...identity, inputName: name })).pipe(
+          Effect.map((value) => ({ name, value })),
+        ),
       { concurrency: "unbounded" },
     );
     const loaded: Record<string, string> = {};
@@ -361,7 +380,7 @@ const loadStoredMcpSecrets = (serverName: string, secretNames: ReadonlySet<strin
   });
 
 const persistMcpSecrets = (
-  serverName: string,
+  identity: Omit<Parameters<typeof mcpSecretAccount>[0], "inputName">,
   secretNames: ReadonlySet<string>,
   values: Readonly<Record<string, string>>,
 ) =>
@@ -371,8 +390,37 @@ const persistMcpSecrets = (
       const value = values[name];
       return value === undefined
         ? Effect.succeed({ _tag: "skipped", inputName: name } satisfies McpSecretPersistenceOutcome)
-        : saveMcpSecret(serverName, name, value);
+        : saveMcpSecret(mcpSecretAccount({ ...identity, inputName: name }), name, value);
     },
+    { concurrency: "unbounded" },
+  );
+
+export const deleteMcpSecrets = (
+  identity: Omit<Parameters<typeof mcpSecretAccount>[0], "inputName">,
+  secretNames: ReadonlySet<string>,
+): Effect.Effect<ReadonlyArray<McpSecretDeletionOutcome>> =>
+  Effect.forEach(
+    secretNames,
+    (inputName) =>
+      Effect.gen(function* () {
+        const Entry = yield* loadKeyringEntry;
+        return yield* Effect.try({
+          try: () => {
+            const entry = new Entry(
+              MCP_SECRET_SERVICE,
+              mcpSecretAccount({ ...identity, inputName }),
+            );
+            return entry.deletePassword()
+              ? ({ _tag: "deleted", inputName } satisfies McpSecretDeletionOutcome)
+              : ({ _tag: "absent", inputName } satisfies McpSecretDeletionOutcome);
+          },
+          catch: () => undefined,
+        });
+      }).pipe(
+        Effect.catch(() =>
+          Effect.succeed({ _tag: "failed", inputName } satisfies McpSecretDeletionOutcome),
+        ),
+      ),
     { concurrency: "unbounded" },
   );
 
@@ -647,9 +695,10 @@ export const installMcpServer: (
   | LifecycleFailureAdapter
 > = (op) =>
   Effect.gen(function* () {
-    const adapter = yield* LifecycleFailureAdapter;
     const ws = yield* WorkspaceMutations;
+    const path = yield* Path.Path;
     const { ref } = op.args;
+    const localName = op.args.localName ?? ref.server.name;
 
     if (ref.refType !== "registry" && ref.refType !== "workspace") {
       return yield* new ExtensionLifecycleFailed({
@@ -666,9 +715,34 @@ export const installMcpServer: (
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
+    const resolutionKey =
+      ref.refType === "registry"
+        ? mcpRegistryResolutionKey({
+            authority: ref.source.location,
+            owner: ref.owner,
+            name: ref.server.name,
+          })
+        : undefined;
+    const sourceIdentity = resolutionKey ?? `workspace:${ref.owner}/mcps/${ref.server.name}`;
+    const desiredGraph = yield* ws.getDesiredStateGraph();
+    const existingLocalNode = desiredGraph.nodes.find(
+      (node) => node.type === "mcp-server" && node.name === localName,
+    );
+    if (
+      existingLocalNode !== undefined &&
+      (existingLocalNode.authority === "inline" || existingLocalNode.identity !== sourceIdentity)
+    ) {
+      return yield* new ExtensionLifecycleFailed({
+        category: "conflict",
+        detail: `Local MCP name "${localName}" is already owned by a different source`,
+      });
+    }
+    const existingClosure = desiredGraph.mcpSourceClosures.find(
+      (closure) => closure.identity === sourceIdentity,
+    );
     const lockedVersion =
       ref.refType === "registry"
-        ? acceptedRegistryVersionForRef(yield* ws.getLockedMcpServer(ref.server.name), ref)
+        ? acceptedRegistryVersionForRef(yield* ws.getLockedMcpServer(resolutionKey ?? ""), ref)
         : undefined;
     const canonicalPath =
       ref.refType === "registry"
@@ -709,7 +783,7 @@ export const installMcpServer: (
             }
             return ref.location;
           });
-    const manifest = yield* readManifest(canonicalPath);
+    const manifest = yield* readMcpServerManifest(canonicalPath);
     const nothingRunnable = isNothingRunnableManifest(manifest);
     const secretNames = Option.match(manifest, {
       onNone: () => new Set<string>(),
@@ -728,8 +802,13 @@ export const installMcpServer: (
         ? buildLockEntry(ref, yield* computeMaterializedTreeIntegrity(canonicalPath))
         : undefined;
     const currentMcpServers = yield* ws.getConfiguredMcpServerEntries();
-    const currentEntry = currentMcpServers[ref.server.name];
-    const storedSecrets = yield* loadStoredMcpSecrets(ref.server.name, secretNames);
+    const currentEntry = currentMcpServers[localName];
+    const secretIdentity = {
+      scopeRoot: path.resolve(ws.baseDir),
+      localName,
+      sourceIdentity,
+    };
+    const storedSecrets = yield* loadStoredMcpSecrets(secretIdentity, secretNames);
     const mergedEnv = { ...storedSecrets, ...(currentEntry?.env ?? {}), ...env };
 
     // Under --non-interactive there is nobody to prompt, so a required input
@@ -745,7 +824,7 @@ export const installMcpServer: (
     if (missingInputs.length > 0 && op.args.nonInteractive) {
       return yield* new ExtensionLifecycleFailed({
         category: "usage",
-        detail: `${ref.server.name} needs ${missingInputs.join(", ")}, and --non-interactive cannot prompt for them`,
+        detail: `${localName} needs ${missingInputs.join(", ")}, and --non-interactive cannot prompt for them`,
         suggestions: [
           {
             description: "Supply each required input on the command line",
@@ -764,26 +843,6 @@ export const installMcpServer: (
       enabled,
       ...(agents === undefined ? {} : { agents }),
     };
-    const agentSync = yield* syncConfiguredAgentsOnInstall({
-      wsBaseDir: ws.baseDir,
-      scope: ws.scope,
-      strict: strictAgentSync,
-      serverName: ref.server.name,
-      canonicalPath,
-      owner: ref.owner,
-      resolvedVersion: ref.version,
-      nothingRunnable,
-      enabled,
-      configValues: preserveSecretReferences(mergedEnv, secretNames),
-      entry: settingsEntry,
-    });
-
-    const secretPersistence = yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);
-    const secretWarnings = secretPersistence.flatMap((outcome) =>
-      outcome._tag === "failed"
-        ? [`${outcome.inputName} could not be saved to the system keychain`]
-        : [],
-    );
     const writeEffect =
       op.args.skipStateWrites === true
         ? Effect.void
@@ -791,33 +850,90 @@ export const installMcpServer: (
           ? lockEntry === undefined
             ? Effect.void
             : ws.setMcpServerLock({
-                name: ref.server.name,
+                name: resolutionKey ?? ref.server.name,
+                resolutionKey: resolutionKey ?? ref.server.name,
                 lockEntry,
                 versionRange: Option.none(),
               })
           : lockEntry === undefined
-            ? ws.setMcpServerEntry(ref.server.name, {
+            ? ws.setMcpServerEntry(localName, {
                 ...settingsEntry,
               })
             : ws.setMcpServer({
-                name: ref.server.name,
+                name: localName,
+                resolutionKey: resolutionKey ?? localName,
                 lockEntry,
                 versionRange: op.args.versionRange,
                 env: persistedEnv,
                 enabled,
                 ...(agents === undefined ? {} : { agents }),
               });
-    const writeWarning = yield* writeEffect.pipe(
-      Effect.as(Option.none<string>()),
-      Effect.catch((e) =>
-        Effect.succeed(Option.some(`MCP server update failed: ${adapter.describeFailure(e)}`)),
-      ),
+    yield* writeEffect;
+
+    const projectionNames =
+      ref.refType === "registry" && lockedVersion !== undefined && lockedVersion !== ref.version
+        ? [...new Set([...(existingClosure?.localNames ?? []), localName])].sort()
+        : [localName];
+    const agentSyncResults = yield* Effect.forEach(
+      projectionNames,
+      (projectionName) =>
+        Effect.gen(function* () {
+          const projectionEntry =
+            projectionName === localName ? settingsEntry : currentMcpServers[projectionName];
+          if (projectionEntry === undefined || projectionEntry.kind === "inline") {
+            return undefined;
+          }
+          const projectionSecretIdentity = {
+            scopeRoot: path.resolve(ws.baseDir),
+            localName: projectionName,
+            sourceIdentity,
+          };
+          const projectionStoredSecrets = yield* loadStoredMcpSecrets(
+            projectionSecretIdentity,
+            secretNames,
+          );
+          const projectionEnv =
+            projectionName === localName
+              ? mergedEnv
+              : { ...projectionStoredSecrets, ...projectionEntry.env };
+          return yield* syncConfiguredAgentsOnInstall({
+            wsBaseDir: ws.baseDir,
+            scope: ws.scope,
+            strict: strictAgentSync,
+            serverName: projectionName,
+            canonicalPath,
+            owner: ref.owner,
+            resolvedVersion: ref.version,
+            nothingRunnable,
+            enabled: projectionEntry.enabled,
+            configValues: preserveSecretReferences(projectionEnv, secretNames),
+            entry: projectionEntry,
+          });
+        }),
+      { concurrency: 1 },
+    );
+    const agentSyncSummaries = agentSyncResults.filter(
+      (summary): summary is AgentSyncSummary => summary !== undefined,
+    );
+    const agentSync: AgentSyncSummary = {
+      status: agentSyncSummaries.some((summary) => summary.status === "degraded")
+        ? "degraded"
+        : "green",
+      details: agentSyncSummaries.flatMap((summary) => summary.details),
+      warnings: agentSyncSummaries.flatMap((summary) => summary.warnings),
+      outcomes: agentSyncSummaries.flatMap((summary) => summary.outcomes),
+    };
+
+    const secretPersistence = yield* persistMcpSecrets(secretIdentity, secretNames, mergedEnv);
+    const secretWarnings = secretPersistence.flatMap((outcome) =>
+      outcome._tag === "failed"
+        ? [
+            `${outcome.inputName} could not be saved to the system keychain; AXM state was applied and credential action is required`,
+          ]
+        : [],
     );
 
-    const warnings = Option.match(writeWarning, {
-      onNone: () => [...secretWarnings, ...agentSync.warnings],
-      onSome: (warning) => [warning, ...secretWarnings, ...agentSync.warnings],
-    });
+    const warnings = [...secretWarnings, ...agentSync.warnings];
     const change = currentEntry === undefined ? "created" : "updated";
     const agentOutcomes = agentSync.outcomes.flatMap(({ agentId, outcome }) =>
       outcome._tag === "success" || outcome._tag === "fallback"
@@ -833,7 +949,7 @@ export const installMcpServer: (
     return {
       result: "success",
       message: appendWarningsToMessage(
-        `Installed ${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
+        `Installed ${localName} from ${ref.owner}/mcps/${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
         warnings,
       ),
       artifact: mcpServerArtifact({

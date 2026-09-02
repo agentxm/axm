@@ -119,7 +119,7 @@ describe("JsonEnvelopeSchema", () => {
           code: "workspace-lockfile-version-unsupported",
           path: "/workspace/axm-lock.yaml",
           observedVersion: 7,
-          supportedVersion: 6,
+          supportedVersion: 7,
           direction: "newer",
         },
         suggestions: [
@@ -141,7 +141,7 @@ describe("JsonEnvelopeSchema", () => {
         code: "workspace-lockfile-version-unsupported",
         path: "/workspace/axm-lock.yaml",
         observedVersion: 7,
-        supportedVersion: 6,
+        supportedVersion: 7,
         direction: "newer",
       },
       suggestions: [

@@ -32,11 +32,17 @@ export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> =
       };
       const findings: AdvisoryFinding[] = [];
       for (const node of graphResult.success.nodes) {
+        const hasAcceptedResolution =
+          node.type === "mcp-server"
+            ? lockedNames["mcp-server"].has(node.identity)
+            : node.type === "pack"
+              ? false
+              : lockedNames[node.type].has(node.name);
         if (
           node.type === "pack" ||
           node.identity.startsWith("workspace:") ||
           !node.origins.some((origin) => origin.type === "pack") ||
-          lockedNames[node.type].has(node.name)
+          hasAcceptedResolution
         ) {
           continue;
         }

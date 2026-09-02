@@ -18,10 +18,15 @@ import * as Result from "effect/Result";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "../../../app-error/index.js";
-import type { ExtensionName, Handle } from "@agentxm/extension-model/unstable/extensions";
+import {
+  ExtensionNameSchema,
+  type ExtensionName,
+  type Handle,
+} from "@agentxm/extension-model/unstable/extensions";
+import * as Schema from "effect/Schema";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { mcpRegistryResolutionKey, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
@@ -39,6 +44,7 @@ import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login
 import { toAppError } from "../../../app-error/conversions.js";
 import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
 import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -46,8 +52,10 @@ import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
 
 export interface InstallMcpServerHandlerArgs {
   readonly source: string;
+  readonly localName?: string;
   readonly env?: ReadonlyArray<string>;
   readonly agents?: ReadonlyArray<ConfigurableAgentId>;
+  readonly force?: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -57,6 +65,7 @@ export interface InstallMcpServerHandlerArgs {
 export interface ParsedMcpServerInstallArgs {
   readonly owner: Handle;
   readonly serverName: ExtensionName;
+  readonly localName: ExtensionName;
   readonly versionRange: Option.Option<string>;
   readonly resolvedInput: string;
   readonly force: boolean;
@@ -157,12 +166,25 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
 
       if (Result.isSuccess(parsed)) {
         if (parsed.success.kind === "registry") {
+          const localName = yield* Schema.decodeUnknownEffect(ExtensionNameSchema)(
+            args.localName ?? parsed.success.name,
+          ).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "validation",
+                detail:
+                  "Local MCP names must be max 64 chars, use lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen.",
+                cause,
+              }),
+            ),
+          );
           return {
             owner: parsed.success.owner,
             serverName: parsed.success.name,
+            localName,
             versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
             resolvedInput: trimmed,
-            force: false,
+            force: args.force ?? false,
             env,
             ...(args.agents === undefined ? {} : { agents: args.agents }),
           };
@@ -195,9 +217,21 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
         return {
           owner,
           serverName: parsed.success.name,
+          localName: yield* Schema.decodeUnknownEffect(ExtensionNameSchema)(
+            args.localName ?? parsed.success.name,
+          ).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "validation",
+                detail:
+                  "Local MCP names must be max 64 chars, use lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen.",
+                cause,
+              }),
+            ),
+          ),
           versionRange: Option.none<string>(),
           resolvedInput: `${owner}/mcps/${parsed.success.name}`,
-          force: false,
+          force: args.force ?? false,
           env,
           ...(args.agents === undefined ? {} : { agents: args.agents }),
         };
@@ -261,12 +295,61 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
           });
         }
 
+        const identity = mcpRegistryResolutionKey({
+          authority: source.location,
+          owner: parsed.owner,
+          name: parsed.serverName,
+        });
+        const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+        const existingLocalNode = graph.nodes.find(
+          (node) => node.type === "mcp-server" && node.name === parsed.localName,
+        );
+        if (
+          existingLocalNode !== undefined &&
+          (existingLocalNode.authority === "inline" || existingLocalNode.identity !== identity)
+        ) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Local MCP name "${parsed.localName}" is already owned by a different source`,
+          });
+        }
+
+        const closure = graph.mcpSourceClosures.find(
+          (candidate) => candidate.identity === identity,
+        );
+        const retainedConstraints = (closure?.origins ?? []).flatMap((origin) => {
+          if (origin.constraint === undefined) return [];
+          if (origin.type === "settings" && origin.localName === parsed.localName) return [];
+          return [origin.constraint];
+        });
+        const requestedConstraints = Option.match(parsed.versionRange, {
+          onNone: () => retainedConstraints,
+          onSome: (range) => [...retainedConstraints, range],
+        });
+        const combinedConstraint = intersectVersionConstraints(requestedConstraints);
+        if (requestedConstraints.length > 0 && combinedConstraint === undefined) {
+          const contributors = (closure?.origins ?? [])
+            .filter((origin) => origin.constraint !== undefined)
+            .map((origin) =>
+              origin.type === "settings"
+                ? `${origin.localName ?? "settings"}:${origin.constraint}`
+                : `${origin.pack}:${origin.constraint}`,
+            );
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `MCP source constraints do not intersect for ${parsed.owner}/mcps/${parsed.serverName}: ${[...contributors, `${parsed.localName}:${Option.getOrElse(parsed.versionRange, () => "*")}`].join(", ")}`,
+          });
+        }
+
         return [
           {
             source,
             owner: parsed.owner,
             serverName: parsed.serverName,
-            versionRange: parsed.versionRange,
+            versionRange:
+              combinedConstraint === undefined
+                ? Option.none<string>()
+                : Option.some(combinedConstraint),
           },
         ];
       }),
@@ -339,6 +422,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
       }
       return {
         ref,
+        localName: parsed.localName,
         versionRange: parsed.versionRange,
         force: parsed.force,
         env: parsed.env,
@@ -373,20 +457,21 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
       return {
         _tag: "Plan",
         name: "Install MCP server",
-        description: Option.some(`Install MCP server ${intent.ref.server.name}`),
+        description: Option.some(`Install MCP server ${intent.localName}`),
         jobs: [
           {
             concurrency: 1 as const,
             steps: [
               {
-                key: `mcp-server:${intent.ref.server.name}`,
-                label: intent.ref.server.name,
+                key: `mcp-server:${intent.localName}`,
+                label: intent.localName,
                 readiness: "ready" as const,
                 run: provide(
                   installMcpServer({
                     name: "install-mcp-server",
                     args: {
                       ref: intent.ref,
+                      localName: intent.localName,
                       nonInteractive: yield* isNonInteractiveOptional,
                       force: intent.force,
                       versionRange: intent.versionRange,

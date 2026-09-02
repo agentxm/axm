@@ -37,6 +37,7 @@ const packNode = (identity: string, name = "toolkit"): DesiredExtensionNode => (
 const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
   complete: true,
   nodes,
+  mcpSourceClosures: [],
   problems: [],
 });
 
@@ -103,7 +104,12 @@ describe("pack uninstall target precondition", () => {
 
   it.effect("revalidates target identity without introducing a graph-completeness rule", () =>
     validateResolvedPackUninstallTargets(
-      { complete: false, nodes: [packNode(selected.desiredIdentity)], problems: [] },
+      {
+        complete: false,
+        nodes: [packNode(selected.desiredIdentity)],
+        mcpSourceClosures: [],
+        problems: [],
+      },
       [selected],
     ),
   );
@@ -115,6 +121,7 @@ describe("pack uninstall graph readiness", () => {
       {
         complete: false,
         nodes: [],
+        mcpSourceClosures: [],
         problems: [
           {
             type: "pack-manifest-unavailable",

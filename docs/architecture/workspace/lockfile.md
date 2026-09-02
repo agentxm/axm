@@ -32,7 +32,7 @@ the accepted content from another result at the same mutable source:
 - a Git commit and tree identity; or
 - a local-path content identity.
 
-The current strict version is version 6. Every acquired package row records
+The current strict version is version 7. Every acquired package row records
 the exact source type, source name, endpoint or coordinates, requested intent,
 and immutable resolution. It also
 records `treeIntegrity`, the deterministic integrity of the complete installed
@@ -40,6 +40,14 @@ package tree under `agent_extensions/<source-name>/<source-full-name>/`. This pa
 identity covers every shipped file, including companion files outside the
 extension's primary payload, rather than treating a single manifest or entry
 file as the installed unit.
+
+Most extension maps are keyed by workspace extension name. MCP resolution rows
+are instead keyed by source identity: source authority plus published package
+FQN for Registry packages, or the corresponding stable identity for another
+source class. The local connection name is deliberately absent from that key.
+Consequently, multiple local MCP connections can share one accepted resolution
+and one canonical acquired package without making the lock row a declaration of
+any connection.
 
 Exact fields and the strict lockfile version remain executable contracts owned
 by schemas and behavior tests. The architectural requirement is that the row
@@ -71,6 +79,10 @@ Pack-member metadata in a lock row can verify the accepted Pack manifest but
 cannot independently contribute dependency edges. Inline MCP definitions,
 workspace-authored content, and bundled content have no artificial external-
 resolution rows.
+
+An MCP row remains reachable while at least one local connection or Pack route
+requires its source. Removing one local connection does not remove shared
+canonical content or its accepted row; removing the final route does.
 
 ## Planning and materialization
 

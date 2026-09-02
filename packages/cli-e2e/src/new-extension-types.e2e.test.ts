@@ -89,7 +89,7 @@ describe("axm mcps new", () => {
       });
 
       const lockfile = fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf-8");
-      expect(lockfile).toBe("lockfileVersion: 6\nskills: {}\n");
+      expect(lockfile).toBe("lockfileVersion: 7\nskills: {}\n");
       expect(result.stdout + result.stderr).toContain("Edit `mcps/context/mcp.json`");
     } finally {
       temp.cleanup();

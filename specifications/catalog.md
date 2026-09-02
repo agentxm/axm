@@ -276,6 +276,36 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
 - Source: [`specifications/cli/mcps/inline-lifecycle-is-idempotent.spec.ts`](../specifications/cli/mcps/inline-lifecycle-is-idempotent.spec.ts)
 
+##### One registry MCP source supports multiple independently named local connections
+
+- Requirement: `cli/mcps/install/local-connection-names-share-source-resolution`
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts`](../specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts)
+
+##### Uninstall removes one local MCP connection and retains shared source state
+
+- Requirement: `cli/mcps/uninstall/removes-one-local-connection-at-a-time`
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/mcps/uninstall/removes-one-local-connection-at-a-time.spec.ts`](../specifications/cli/mcps/uninstall/removes-one-local-connection-at-a-time.spec.ts)
+
+##### Updating one locally named connection advances every connection sharing its source
+
+- Requirement: `cli/mcps/update/shared-source-update-is-closure-wide`
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/mcps/update/shared-source-update-is-closure-wide.spec.ts`](../specifications/cli/mcps/update/shared-source-update-is-closure-wide.spec.ts)
+
 #### Mutations Are Closure Atomic
 
 ##### A failed workspace mutation leaves every authoritative state family unchanged
@@ -603,6 +633,18 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/machine-mode-never-prompts.spec.ts`](../specifications/cli/machine-mode-never-prompts.spec.ts)
 
+#### Mcps
+
+##### MCP inventory distinguishes local connection identity from source resolution
+
+- Requirement: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: golden-output, contract
+- Source: [`specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts`](../specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts)
+
 ### Extension identity
 
 #### Canonical Names Round Trip
@@ -737,6 +779,20 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Source: [`specifications/version-constraints/range-satisfaction-follows-semver.spec.ts`](../specifications/version-constraints/range-satisfaction-follows-semver.spec.ts)
 
 ## Supporting system behavior
+
+### CLI
+
+#### Mcps
+
+##### MCP secret accounts isolate workspace, local connection, source, and input identity
+
+- Requirement: `cli/mcps/secret-namespaces-include-local-and-source-identity`
+- Class: security
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: property
+- Source: [`specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts`](../specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts)
 
 ### System
 

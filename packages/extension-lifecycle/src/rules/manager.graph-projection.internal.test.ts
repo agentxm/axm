@@ -110,6 +110,7 @@ const packRuleNode = (name: string, pack: string): DesiredExtensionNode => ({
 const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
   complete: true,
   nodes,
+  mcpSourceClosures: [],
   problems: [],
 });
 
@@ -370,6 +371,7 @@ describe("RuleManager graph-derived region projection", () => {
       graph: {
         complete: false,
         nodes: [packRuleNode("pack-a-rule", "pack-a")],
+        mcpSourceClosures: [],
         problems: [
           {
             type: "pack-manifest-unavailable",

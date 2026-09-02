@@ -75,7 +75,7 @@ describe("workspace lockfile rejection diagnostics", () => {
         title: "Unsupported workspace lockfile version",
         problem: {
           code: "workspace-lockfile-version-unsupported",
-          path: lockPath,
+          path: fs.realpathSync(lockPath),
           observedVersion: 5,
           supportedVersion: 6,
           direction: "older",
@@ -188,7 +188,7 @@ describe("workspace lockfile rejection diagnostics", () => {
       expect(result.exitCode, result.stdout + result.stderr).toBe(9);
       const document = JSON.parse(result.stdout);
       expect(document).toMatchObject({
-        problem: { path: lockPath, direction: "newer" },
+        problem: { path: fs.realpathSync(lockPath), direction: "newer" },
         suggestions: [{ cmd: "axm upgrade" }],
       });
       expect(JSON.stringify(document)).not.toMatch(/not initialized|axm setup/i);
@@ -218,7 +218,9 @@ describe("workspace lockfile rejection diagnostics", () => {
       expect(result.exitCode, result.stdout + result.stderr).toBe(9);
       const document = JSON.parse(result.stdout);
       expect(document).toMatchObject({ ok: false, code: "validation" });
-      expect(document.detail).toContain(`Invalid workspace lockfile at ${lockPath}`);
+      expect(document.detail).toContain(
+        `Invalid workspace lockfile at ${fs.realpathSync(lockPath)}`,
+      );
       expect(document.detail).not.toMatch(/permission/i);
       expect(document.problem).toBeUndefined();
       expect(snapshotTree(workspace.path)).toEqual(before);

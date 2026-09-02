@@ -90,7 +90,7 @@ describe("axm skills list", () => {
 
       expect(result.exitCode).toBe(9);
       expect(result.stderr).toContain(
-        `Invalid workspace lockfile at ${path.join(temp.path, "axm-lock.yaml")}`,
+        `Invalid workspace lockfile at ${fs.realpathSync(path.join(temp.path, "axm-lock.yaml"))}`,
       );
     } finally {
       temp.cleanup();

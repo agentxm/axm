@@ -49,7 +49,7 @@ describe("authoritative lockfile recovery boundary", () => {
 
       expect(result.exitCode).toBe(9);
       expect(getOutput(result)).toContain(
-        `Workspace lockfile at ${lockfilePath} is not valid YAML`,
+        `Workspace lockfile at ${fs.realpathSync(lockfilePath)} is not valid YAML`,
       );
       expect(fs.readFileSync(lockfilePath, "utf8")).toBe(invalidLockfile);
       expect(fs.existsSync(path.join(temp.path, "agent_extensions", "local"))).toBe(false);
@@ -84,7 +84,7 @@ describe("authoritative lockfile recovery boundary", () => {
 
       expect(result.exitCode).toBe(9);
       expect(getOutput(result)).toContain(
-        `Workspace lockfile at ${lockfilePath} is not valid YAML`,
+        `Workspace lockfile at ${fs.realpathSync(lockfilePath)} is not valid YAML`,
       );
       expect(fs.readFileSync(lockfilePath, "utf8")).toBe(invalidLockfile);
     } finally {

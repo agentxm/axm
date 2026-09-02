@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
+import { extensionConformanceCases } from "./conformance/extensions/test-helpers.js";
 import { foundationConformanceCases } from "./conformance/foundation/test-helpers.js";
 import { instructionConformanceCases } from "./conformance/instructions/test-helpers.js";
 import { reconciliationConformanceCases } from "./conformance/reconciliation/test-helpers.js";
@@ -15,6 +16,7 @@ const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   ...reconciliationConformanceCases,
   ...instructionConformanceCases,
   ...workspaceStateConformanceCases,
+  ...extensionConformanceCases,
 ];
 
 for (const testCase of cases) {

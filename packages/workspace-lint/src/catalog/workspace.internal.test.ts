@@ -192,7 +192,8 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/configured-but-not-installed",
-    "packages/workspace-lint/src/catalog/workspace/configured-but-not-installed.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/extensions/test-helpers.ts",
+    "configuredButNotInstalledConformance",
   ),
   evidence(
     "workspace/knowledge-state-valid",

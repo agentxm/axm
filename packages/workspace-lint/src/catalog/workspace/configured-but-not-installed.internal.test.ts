@@ -60,21 +60,6 @@ const makeContext = (rows: {
   }) as unknown as WorkspaceRuleContext;
 
 describe("workspace/configured-but-not-installed", () => {
-  it.effect("reports direct settings entries with no canonical on-disk content", () =>
-    Effect.gen(function* () {
-      const findings = yield* configuredButNotInstalledRule.check(
-        makeContext({
-          subagents: [row({ type: "subagent", name: "reviewer" })],
-        }),
-      );
-
-      expect(findings).toHaveLength(1);
-      expect(findings[0]?.message).toBe(
-        "subagent 'reviewer' is desired, but its canonical content is missing from agent_extensions.",
-      );
-    }),
-  );
-
   it.effect("reports pack-implied entries with no canonical on-disk content", () =>
     Effect.gen(function* () {
       const findings = yield* configuredButNotInstalledRule.check(
@@ -126,18 +111,6 @@ describe("workspace/configured-but-not-installed", () => {
         expect.stringContaining("hook 'pre-commit' is desired"),
         expect.stringContaining("knowledge bundle 'domain' is desired"),
       ]);
-    }),
-  );
-
-  it.effect("labels every type from the type table rather than degrading to 'extension'", () =>
-    Effect.gen(function* () {
-      const findings = yield* configuredButNotInstalledRule.check(
-        makeContext({
-          knowledge: [row({ type: "knowledge", name: "domain", plural: "knowledge" })],
-        }),
-      );
-
-      expect(findings[0]?.message.startsWith("knowledge bundle ")).toBe(true);
     }),
   );
 });

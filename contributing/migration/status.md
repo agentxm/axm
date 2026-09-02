@@ -37,62 +37,29 @@ at 06a6b8e08.
 | 03144a7ee | Interaction-split S5: auth flows behind the AuthLoginPresenter port; renderer-backed Live in cli-runtime with machine-mode emission before side effects                                                   |
 | 9daa7d366 | Interaction-split S4: workspace initialization decoupling — WorkspaceInitializationCancelled, presenter methods on the interaction service, WorkspaceMutationsOptions.nonInteractive, Live in cli-runtime |
 
-## In flight
+## Completion
 
-- Interaction-split S5 auth presenter (design-interaction-split §S5).
-- B0 ref-vocabulary contract descent (working tree): the extension-management
-  workspace barrel still fronts the vocabulary moved to extension-model
-  (refs, WorkspaceScope, installable-types, SourceHostProvider port types,
-  SourceHash) via re-exports — sanctioned this slice only; the
-  kernel-extraction slice must finish pointing barrel consumers at
-  @agentxm/extension-model.
+Migration steps 1-7 are implemented. The workspace holds two contracts,
+three shared kernels (workspace-state, workspace-operations,
+extension-workspace), three integrations (registry-client,
+agent-integration, extension-sources), ten vertical features
+(workspace-sync, workspace-lint, extension-lifecycle, extension-authoring,
+extension-publish, extension-discovery, workspace-configuration,
+workspace-inspection, registry-auth, knowledge-query), and the axm.sh
+application shell; @agentxm/extension-management is deleted with no
+compatibility surface. Full CI (workspace + complete e2e including the
+compiled-binary and install suites) is green on the final state.
 
-## Landed in the working tree (B6, uncommitted)
+Recorded follow-up candidates (application wiring that could still descend
+into features; each was deferred under the migration's scope-control rule
+with rationale in the corresponding commit):
 
-- Migration steps 5–6, extension-lifecycle slice: `@agentxm/extension-lifecycle`
-  extracted (13th release package) — configured-entry resolution,
-  install/uninstall command workflows (CliRenderer/PromptCancelled inverted
-  behind the `LifecycleResolutionProgress` port and generic error channels),
-  the seven per-type manager Lives behind `./live`, per-type lifecycle
-  operations, registry materialization; shared step-building and canonical
-  machinery (`extensions/operations`, canonical-directory staging/swap,
-  configured-entry predicates, materializable-from-disk, source-authority,
-  copy-directory, skill-artifact semantics, knowledge instruction-entry)
-  descended to `@agentxm/extension-workspace`; typed failures per the
-  error-decoupling recipe with the CLI-owned `LifecycleFailureAdapter`;
-  workspace-sync completed (`collectMaterializeSteps` and the B5 leftovers
-  moved into `@agentxm/workspace-sync` behind injected lifecycle
-  capabilities; `collectConfiguredPackRecovery` stays application wiring).
-  The workspace-install/update collectors and per-type command-action policy
-  remain CLI-side (deliberate scope control; see the B6 report).
-
-## Remaining (in order)
-
-2. Error-decoupling wave 0 enablers: toAppError dispatcher + classifyError
-   branch + OperationErrorCategory (~11 files)
-3. Workspace-partition S1 contract descent: release-age → registry-protocol,
-   AGENTS registry → extension-model, path-types/format-issues homing (~53)
-4. Workspace-partition S2 ref vocabulary → workspace-state area (V2+V5+§3.4
-   predicates) (~120)
-5. Workspace-partition S3 sources split (syntax → contract, lock-entry
-   mapping → WS, K4 printer grammar lift) (~76)
-6. Workspace-partition S4 transaction WS/WO seam + WorkspaceMutations
-   capability injection + ExtensionManager → extension-workspace (~30)
-7. Workspace-partition S5 AgentPresence port (~6)
-8. Error-decoupling wave 1 (kernel modules, 4 sub-steps per design §5.5, ~150)
-9. Workspace-partition S6 feature pulls + S7 knots K1/K2/K3/K5 (~80+)
-10. Migration step 3: extract @agentxm/workspace-state, workspace-operations,
-    extension-workspace packages
-11. Migration step 4: extract registry-client, extension-sources,
-    agent-integration (+ error wave 2)
-12. Migration steps 5–6: feature packages one slice at a time, sync and lint
-    first (+ error wave 3); CLI handlers thin down per slice
-13. Migration step 7: delete extension-management; CLI-destined modules
-    (app-error, cli-*, telemetry, install-meta/method, update-check,
-    version-resolution, branding) move into axm.sh; update the architecture
-    specs that hardcode package lists
-    (public-system-depends-only-on-published-contracts,
-    e2e-observes-only-shipped-artifacts), instructions, and docs
+- publish selection/decoding, preview orchestration, and machine-output
+  shaping in the CLI publish command
+- the workspace-install/update plan collectors and per-type command-action
+  policy (error-channel genericization across the seven action modules)
+- fork/import/adopt/demote and per-type new-* command orchestration
+- bundled-skill materialization (sequences the lifecycle feature)
 
 ## Baseline and environment notes
 

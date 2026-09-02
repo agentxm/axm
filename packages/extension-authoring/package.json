@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/extension-authoring",
-  "version": "0.28.4",
+  "version": "0.28.5",
   "description": "AXM extension-authoring feature: new-extension scaffolding, fork, native import, adopt/demote identity policy, and authored pack membership for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

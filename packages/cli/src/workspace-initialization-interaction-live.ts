@@ -15,6 +15,7 @@ import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import { autocompleteMultiselect, requireInteractive } from "./prompt/index.js";
 import { CliRenderer } from "./cli-renderer/index.js";
+import { Screen } from "./screen/index.js";
 import type { AppError } from "./app-error/index.js";
 import {
   WorkspaceConfigurationFailed,
@@ -64,6 +65,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
   WorkspaceInitializationInteraction,
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const terminal = yield* Terminal.Terminal;
@@ -81,96 +83,116 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
         suggestedIds,
         configuredIds,
       }) =>
-        requireInteractive(
-          autocompleteMultiselect({
-            message: selectAgentsMessage,
-            maxPerPage: 10,
-            filterLabel: "Filter",
-            selectionCountMessage: (selected) =>
-              `${selected.length} ${selected.length === 1 ? "agent" : "agents"} selected`,
-            submissionMessage: (selected) =>
-              `Selected ${selected.length} ${selected.length === 1 ? "agent" : "agents"}`,
-            choices: allAgents.map((agent) => ({
-              title: agent.name,
-              value: agent.id,
-              description: [
-                configuredIds.includes(agent.id) ? "configured" : undefined,
-                projectDetectedIds.includes(agent.id) ? "detected in project" : undefined,
-                userDetectedIds.includes(agent.id) ? "detected on workstation" : undefined,
-                suggestedIds.includes(agent.id) ? "suggested" : undefined,
-                agent.skills === undefined ? "skills: unsupported" : `skills: ${agent.skills.dir}`,
-              ]
-                .filter((part) => part !== undefined)
-                .join(" · "),
-              selected:
-                configuredIds.includes(agent.id) ||
-                projectDetectedIds.includes(agent.id) ||
-                suggestedIds.includes(agent.id),
-            })),
-          }),
-          { message: selectAgentsMessage },
-        ).pipe(
-          Effect.provide(promptEnvironment),
-          Effect.catchTag("PromptCancelled", cancelled),
-          Effect.mapError(toInteractionFailure),
-        ),
+        screen
+          .prompt(
+            requireInteractive(
+              autocompleteMultiselect({
+                message: selectAgentsMessage,
+                maxPerPage: 10,
+                filterLabel: "Filter",
+                selectionCountMessage: (selected) =>
+                  `${selected.length} ${selected.length === 1 ? "agent" : "agents"} selected`,
+                submissionMessage: (selected) =>
+                  `Selected ${selected.length} ${selected.length === 1 ? "agent" : "agents"}`,
+                choices: allAgents.map((agent) => ({
+                  title: agent.name,
+                  value: agent.id,
+                  description: [
+                    configuredIds.includes(agent.id) ? "configured" : undefined,
+                    projectDetectedIds.includes(agent.id) ? "detected in project" : undefined,
+                    userDetectedIds.includes(agent.id) ? "detected on workstation" : undefined,
+                    suggestedIds.includes(agent.id) ? "suggested" : undefined,
+                    agent.skills === undefined
+                      ? "skills: unsupported"
+                      : `skills: ${agent.skills.dir}`,
+                  ]
+                    .filter((part) => part !== undefined)
+                    .join(" · "),
+                  selected:
+                    configuredIds.includes(agent.id) ||
+                    projectDetectedIds.includes(agent.id) ||
+                    suggestedIds.includes(agent.id),
+                })),
+              }),
+              { message: selectAgentsMessage },
+            ),
+          )
+          .pipe(
+            Effect.provide(promptEnvironment),
+            Effect.catchTag("PromptCancelled", cancelled),
+            Effect.mapError(toInteractionFailure),
+          ),
       confirmInstructionSync: ({ enabled }) =>
-        requireInteractive(
-          Prompt.confirm({ message: confirmInstructionSyncMessage, initial: enabled }),
-          { message: confirmInstructionSyncMessage },
-        ).pipe(
-          Effect.provide(promptEnvironment),
-          Effect.catchTag("PromptCancelled", cancelled),
-          Effect.mapError(toInteractionFailure),
-        ),
+        screen
+          .prompt(
+            requireInteractive(
+              Prompt.confirm({ message: confirmInstructionSyncMessage, initial: enabled }),
+              { message: confirmInstructionSyncMessage },
+            ),
+          )
+          .pipe(
+            Effect.provide(promptEnvironment),
+            Effect.catchTag("PromptCancelled", cancelled),
+            Effect.mapError(toInteractionFailure),
+          ),
       selectInstructionSource: ({ defaultFileName, choices }) =>
         Effect.gen(function* () {
           yield* Effect.ignore(terminal.display("\n"));
-          const selected = yield* requireInteractive(
-            Prompt.select({
-              message: selectInstructionSourceMessage,
-              choices: [
-                ...choices.map((choice) => {
-                  const description = [
-                    choice.fileName === defaultFileName ? "Recommended" : undefined,
-                    choice.exists ? "existing" : "will be created",
-                    choice.exists ? `${String(choice.lines)} lines` : undefined,
-                  ]
-                    .filter((part) => part !== undefined)
-                    .join(" · ");
-                  return {
-                    title: choice.fileName,
-                    value: choice.fileName,
-                    description,
-                    selected: choice.fileName === defaultFileName,
-                  };
-                }),
-                {
-                  title: "Enter another filename...",
-                  value: CUSTOM_SOURCE_FILE,
-                },
-              ],
-            }),
-            { message: selectInstructionSourceMessage },
-          ).pipe(Effect.provide(promptEnvironment));
+          const selected = yield* screen.prompt(
+            requireInteractive(
+              Prompt.select({
+                message: selectInstructionSourceMessage,
+                choices: [
+                  ...choices.map((choice) => {
+                    const description = [
+                      choice.fileName === defaultFileName ? "Recommended" : undefined,
+                      choice.exists ? "existing" : "will be created",
+                      choice.exists ? `${String(choice.lines)} lines` : undefined,
+                    ]
+                      .filter((part) => part !== undefined)
+                      .join(" · ");
+                    return {
+                      title: choice.fileName,
+                      value: choice.fileName,
+                      description,
+                      selected: choice.fileName === defaultFileName,
+                    };
+                  }),
+                  {
+                    title: "Enter another filename...",
+                    value: CUSTOM_SOURCE_FILE,
+                  },
+                ],
+              }),
+              { message: selectInstructionSourceMessage },
+            ).pipe(Effect.provide(promptEnvironment)),
+          );
           if (selected !== CUSTOM_SOURCE_FILE) return selected;
           yield* Effect.ignore(terminal.display("\n"));
-          return yield* requireInteractive(
-            Prompt.text({ message: customInstructionSourceMessage }),
-            { message: customInstructionSourceMessage },
-          ).pipe(Effect.provide(promptEnvironment));
+          return yield* screen.prompt(
+            requireInteractive(Prompt.text({ message: customInstructionSourceMessage }), {
+              message: customInstructionSourceMessage,
+            }).pipe(Effect.provide(promptEnvironment)),
+          );
         }).pipe(
           Effect.catchTag("PromptCancelled", cancelled),
           Effect.mapError(toInteractionFailure),
         ),
       confirmSetupPlan: () =>
-        requireInteractive(Prompt.confirm({ message: confirmSetupPlanMessage, initial: true }), {
-          message: confirmSetupPlanMessage,
-        }).pipe(
-          Effect.provide(promptEnvironment),
-          Effect.catchTag("PromptCancelled", cancelled),
-          Effect.mapError(toInteractionFailure),
-        ),
+        screen
+          .prompt(
+            requireInteractive(
+              Prompt.confirm({ message: confirmSetupPlanMessage, initial: true }),
+              {
+                message: confirmSetupPlanMessage,
+              },
+            ),
+          )
+          .pipe(
+            Effect.provide(promptEnvironment),
+            Effect.catchTag("PromptCancelled", cancelled),
+            Effect.mapError(toInteractionFailure),
+          ),
       presentAgentScan: (scan) =>
         Effect.gen(function* () {
           yield* renderer.info(

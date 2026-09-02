@@ -81,7 +81,6 @@ import { resolveTelemetryMode } from "./telemetry/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
-import { CliRenderer } from "./cli-renderer/index.js";
 import type { SourceHostConfig } from "@agentxm/workspace-state";
 import {
   decodeAbsolutePathSync,
@@ -90,7 +89,7 @@ import {
 import { ExecutionDirectory } from "./execution-directory.js";
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
-import { ScreenLoggerLive } from "./screen/index.js";
+import { Screen, ScreenLoggerLive } from "./screen/index.js";
 
 export { verboseFlag, debugFlag };
 
@@ -327,10 +326,10 @@ export const withWorkspace =
         projectRoot: configured.projectRoot ?? executionDirectory.path,
       } satisfies Omit<WorkspaceMutationsOptions, "builtInSources">;
       const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
-      const renderer = yield* CliRenderer;
+      const screen = yield* Screen;
       return yield* Effect.scoped(
-        renderer
-          .withSpinner(`Loading ${resolved.scope} workspace`, () => Layer.build(wsLayer), {
+        screen
+          .task(`Loading ${resolved.scope} workspace`, () => Layer.build(wsLayer), {
             successMessage: `Loaded ${resolved.scope} workspace`,
           })
           .pipe(Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext))),

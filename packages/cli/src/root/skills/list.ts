@@ -1,6 +1,6 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { CliRenderer, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
@@ -15,8 +15,6 @@ import {
   inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
-  renderEmptyInventory,
-  renderInventoryTable,
 } from "../extension-inventory.js";
 
 export interface ListHandlerArgs {
@@ -32,31 +30,23 @@ interface SkillListItem {
   readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
-const SkillListTable = {
-  columns: {
-    name: { header: "Name" },
-    state: { header: "State" },
-    activation: { header: "Activation" },
-    type: { header: "Type" },
-    agents: {
-      header: "Agents",
-      render: (value: ReadonlyArray<string>) => (value.length === 0 ? "none" : value.join(", ")),
-    },
-    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
+const SkillListColumns = [
+  { header: "Name", value: (row: SkillListItem) => row.name },
+  { header: "State", value: (row: SkillListItem) => row.state },
+  { header: "Activation", value: (row: SkillListItem) => row.activation },
+  { header: "Type", value: (row: SkillListItem) => row.type },
+  {
+    header: "Agents",
+    value: (row: SkillListItem) => (row.agents.length === 0 ? "none" : row.agents.join(", ")),
   },
-} as const satisfies TableView<SkillListItem>;
-
-registerEntity<SkillListItem>("skill", {
-  list: {
-    columns: SkillListTable.columns,
-    emptyMessage: "No skills found",
-    singularLabel: "skill",
-    pluralLabel: "skills",
+  {
+    header: "Agent outcomes",
+    value: (row: SkillListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-});
+] satisfies ReadonlyArray<ViewColumn<SkillListItem>>;
 
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const inventory = yield* ws.records.getExtensionInventory("skill", {
     agents: args.agents,
@@ -74,20 +64,17 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     sourceType: locked[row.name]?.type ?? "detected",
   }));
 
-  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
-  if (items.length === 0) {
-    yield* renderEmptyInventory(
-      renderer,
-      args.agents.length === 0 ? "No skills found" : "No skills matched the selected agent filter.",
-    );
-    return;
-  }
-
-  yield* renderInventoryTable(
-    renderer,
-    items,
-    SkillListTable,
-    inventorySummary(inventory, "skill"),
+  if (yield* screen.document(output, ExtensionInventorySchema)) return;
+  yield* screen.result(
+    inventoryDoc({
+      rows: items,
+      columns: SkillListColumns,
+      summary: inventorySummary(inventory, "skill"),
+      empty:
+        args.agents.length === 0
+          ? "No skills found"
+          : "No skills matched the selected agent filter.",
+    }),
   );
 });
 

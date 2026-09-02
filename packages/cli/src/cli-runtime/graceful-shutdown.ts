@@ -7,6 +7,7 @@ import { writeSync } from "node:fs";
 
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { recordInterruptionSignal } from "./interruption.js";
+import { interruptionFallback } from "../screen/index.js";
 
 const resolvedItself = (exit: Exit.Exit<unknown, unknown> | undefined): boolean => {
   if (exit === undefined) return false;
@@ -16,12 +17,7 @@ const resolvedItself = (exit: Exit.Exit<unknown, unknown> | undefined): boolean 
 
 const fallbackTermination = (exitCode: number, signal: "SIGINT" | "SIGTERM"): void => {
   const json = process.argv.includes("--json");
-  writeSync(
-    2,
-    json
-      ? `${JSON.stringify({ type: "error", code: "interrupted", message: `Cancelled by ${signal}.`, reason: "interrupted", signal })}\n`
-      : `Cancelled by ${signal}.\n`,
-  );
+  writeSync(2, interruptionFallback(signal, json));
   void process.exit(exitCode);
 };
 

@@ -32,6 +32,7 @@ import type { PromptCancelled } from "../../prompt/prompt-cancelled.js";
 import { envOption } from "../../utils/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
+import { Screen } from "../../screen/index.js";
 
 export const LoginNoOpResultSchema = Schema.Struct({
   status: Schema.Literal("already-logged-in"),
@@ -73,7 +74,9 @@ interface LoginInteractions {
 }
 
 const confirmRelogin = (message: string) =>
-  requireInteractive(Prompt.confirm({ message }), { message });
+  Effect.flatMap(Screen, (screen) =>
+    screen.prompt(requireInteractive(Prompt.confirm({ message }), { message })),
+  );
 
 const loginStrategyEnvironment = Effect.gen(function* () {
   const env = yield* Effect.all({

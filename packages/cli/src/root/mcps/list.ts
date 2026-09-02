@@ -1,6 +1,6 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { CliRenderer, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   inspectMcpServerAcrossAgents,
   type AgentMcpServerInspection,
@@ -19,8 +19,6 @@ import {
   inventoryState,
   inventoryAgentOutcomes,
   inventorySummary,
-  renderEmptyInventory,
-  renderInventoryTable,
 } from "../extension-inventory.js";
 
 interface McpServerListItem {
@@ -32,25 +30,17 @@ interface McpServerListItem {
   readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
-const McpServerListTable = {
-  columns: {
-    name: { header: "Name" },
-    state: { header: "State" },
-    version: { header: "Version" },
-    transport: { header: "Transport" },
-    status: { header: "Status" },
-    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
+const McpServerListColumns = [
+  { header: "Name", value: (row: McpServerListItem) => row.name },
+  { header: "State", value: (row: McpServerListItem) => row.state },
+  { header: "Version", value: (row: McpServerListItem) => row.version },
+  { header: "Transport", value: (row: McpServerListItem) => row.transport },
+  { header: "Status", value: (row: McpServerListItem) => row.status },
+  {
+    header: "Agent outcomes",
+    value: (row: McpServerListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-} as const satisfies TableView<McpServerListItem>;
-
-registerEntity<McpServerListItem>("mcp-server", {
-  list: {
-    columns: McpServerListTable.columns,
-    emptyMessage: "No MCP servers found",
-    singularLabel: "MCP server",
-    pluralLabel: "MCP servers",
-  },
-});
+] satisfies ReadonlyArray<ViewColumn<McpServerListItem>>;
 
 const driftStatus = (inspections: ReadonlyArray<AgentMcpServerInspection>): string => {
   if (inspections.some((inspection) => inspection.status === "drift")) return "drift";
@@ -101,7 +91,7 @@ const inspectionOutcome = (
 });
 
 export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const inventory = yield* ws.records.getExtensionInventory("mcp-server", {});
   const configuredEntries = yield* ws.getConfiguredMcpServerEntries();
@@ -161,16 +151,14 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
     };
   });
 
-  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
-  if (items.length === 0) {
-    yield* renderEmptyInventory(renderer, "No MCP servers found");
-    return;
-  }
-  yield* renderInventoryTable(
-    renderer,
-    items,
-    McpServerListTable,
-    inventorySummary(inventory, "MCP server"),
+  if (yield* screen.document(output, ExtensionInventorySchema)) return;
+  yield* screen.result(
+    inventoryDoc({
+      rows: items,
+      columns: McpServerListColumns,
+      summary: inventorySummary(inventory, "MCP server"),
+      empty: "No MCP servers found",
+    }),
   );
 });
 

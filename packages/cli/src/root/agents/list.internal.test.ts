@@ -87,13 +87,15 @@ describe("agents list.handler", () => {
       Effect.gen(function* () {
         yield* handleAgentsList({ detected: false, available: false });
 
-        expect(rendererState.tables[0]?.items).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ id: "claude-code", configured: true }),
-            expect.objectContaining({ id: "cursor", detected: true, configured: false }),
+        const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
+        expect(table).toMatchObject({
+          _tag: "table",
+          rows: expect.arrayContaining([
+            expect.arrayContaining(["claude-code", "yes"]),
+            expect.arrayContaining(["cursor", "no", "yes"]),
           ]),
-        );
-        expect(rendererState.tables[0]?.caption).toBe("2 coding agents");
+          caption: "2 coding agents",
+        });
       }),
     );
   });
@@ -177,10 +179,13 @@ describe("agents list.handler", () => {
 
         expect(rendererState.tables).toEqual([]);
         expect(rendererState.logs).toEqual([]);
-        expect(rendererState.results[1]?.data).toMatchObject({
+        expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
-          emptyMessage: "No coding agents configured or detected.",
+        });
+        expect(rendererState.docs[0]?.doc).toContainEqual({
+          _tag: "paragraph",
+          text: "No coding agents configured or detected.",
         });
         expect(rendererState.suggestions).toEqual([SET_UP_AXM_WORKSPACE]);
       }),

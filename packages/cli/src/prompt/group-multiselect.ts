@@ -1,7 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import type * as PromptTypes from "effect/unstable/cli/Prompt";
+import { erasePromptFrame } from "../screen/index.js";
 
 export interface GroupMultiselectChoice<A> {
   readonly title: string;
@@ -386,6 +388,10 @@ export const groupMultiselect = <A>(
           return Effect.succeed(beep<A>());
       }
     },
-    clear: () => Effect.succeed("\x1B[2J\x1B[H"),
+    clear: (state) =>
+      Effect.gen(function* () {
+        const terminal = yield* Terminal.Terminal;
+        return erasePromptFrame(renderFrame(state, model, options), yield* terminal.columns);
+      }),
   });
 };

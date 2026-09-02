@@ -21,6 +21,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
+import { Screen } from "../../../screen/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -37,7 +38,7 @@ interface SelectSkillsInteractions {
   ) => Effect.Effect<
     ReadonlyArray<SkillExtensionRef>,
     PromptCancelled | AppError,
-    FileSystem.FileSystem | Path.Path | Terminal.Terminal
+    FileSystem.FileSystem | Path.Path | Terminal.Terminal | Screen
   >;
 }
 
@@ -104,26 +105,29 @@ const selectSkillsPrompt = (skills: Array.NonEmptyReadonlyArray<SkillExtensionRe
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const terminal = yield* Terminal.Terminal;
+    const screen = yield* Screen;
     const promptEnvironment = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fileSystem),
       Layer.succeed(Path.Path, path),
       Layer.succeed(Terminal.Terminal, terminal),
     );
 
-    return yield* requireInteractive(
-      Prompt.multiSelect({
-        message,
-        choices: skills.map((skill) => ({
-          title: skill.skill.name,
-          value: skill,
-          ...(Option.isSome(skill.skill.description)
-            ? { description: skill.skill.description.value }
-            : {}),
-        })),
-        min: 1,
-      }),
-      { message },
-    ).pipe(Effect.provide(promptEnvironment));
+    return yield* screen.prompt(
+      requireInteractive(
+        Prompt.multiSelect({
+          message,
+          choices: skills.map((skill) => ({
+            title: skill.skill.name,
+            value: skill,
+            ...(Option.isSome(skill.skill.description)
+              ? { description: skill.skill.description.value }
+              : {}),
+          })),
+          min: 1,
+        }),
+        { message },
+      ).pipe(Effect.provide(promptEnvironment)),
+    );
   });
 };
 

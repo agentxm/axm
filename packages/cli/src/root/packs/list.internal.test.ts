@@ -119,23 +119,14 @@ describe("packs list.handler", () => {
       Effect.gen(function* () {
         yield* handleList();
 
-        expect(rendererState.tables).toHaveLength(1);
-        expect(rendererState.tables[0]?.items).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              name: "starter-pack",
-              owner: "@acme",
-              version: "1.0.0",
-              source: "agentxm",
-            }),
-            expect.objectContaining({
-              name: "frontend-tools",
-              owner: "@team",
-              version: "2.3.1",
-              source: "company",
-            }),
+        const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
+        expect(table).toMatchObject({
+          _tag: "table",
+          rows: expect.arrayContaining([
+            expect.arrayContaining(["starter-pack", "configured", "@acme", "1.0.0", "agentxm"]),
+            expect.arrayContaining(["frontend-tools", "configured", "@team", "2.3.1", "company"]),
           ]),
-        );
+        });
       }),
     );
   });

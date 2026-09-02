@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Terminal from "effect/Terminal";
 import * as Cli from "effect/unstable/cli";
+import { erasePromptFrame } from "../screen/index.js";
 
 const { Prompt } = Cli;
 
@@ -75,5 +77,10 @@ export const selectKey = <A>(options: SelectKeyOptions<A>) =>
         value: choice.value,
       });
     },
-    clear: () => Effect.succeed("\x1B[2J\x1B[H"),
+    clear: (state) =>
+      Effect.gen(function* () {
+        const terminal = yield* Terminal.Terminal;
+        const frame = `${options.message}\n${renderChoices(options)}${renderError(state)}`;
+        return erasePromptFrame(frame, yield* terminal.columns);
+      }),
   });

@@ -21,6 +21,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
+import { Screen } from "../../../screen/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -37,7 +38,7 @@ interface SelectSubagentsInteractions {
   ) => Effect.Effect<
     ReadonlyArray<SubagentExtensionRef>,
     PromptCancelled | AppError,
-    FileSystem.FileSystem | Path.Path | Terminal.Terminal
+    FileSystem.FileSystem | Path.Path | Terminal.Terminal | Screen
   >;
 }
 
@@ -106,26 +107,29 @@ export const confirmSubagentsToInstall = (
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const terminal = yield* Terminal.Terminal;
+      const screen = yield* Screen;
       const promptEnvironment = Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem, fileSystem),
         Layer.succeed(Path.Path, path),
         Layer.succeed(Terminal.Terminal, terminal),
       );
 
-      return yield* requireInteractive(
-        Prompt.multiSelect({
-          message,
-          choices: availableSubagents.map((subagent) => ({
-            title: subagent.subagent.name,
-            value: subagent,
-            ...(Option.isSome(subagent.subagent.description)
-              ? { description: subagent.subagent.description.value }
-              : {}),
-          })),
-          min: 1,
-        }),
-        { message },
-      ).pipe(Effect.provide(promptEnvironment));
+      return yield* screen.prompt(
+        requireInteractive(
+          Prompt.multiSelect({
+            message,
+            choices: availableSubagents.map((subagent) => ({
+              title: subagent.subagent.name,
+              value: subagent,
+              ...(Option.isSome(subagent.subagent.description)
+                ? { description: subagent.subagent.description.value }
+                : {}),
+            })),
+            min: 1,
+          }),
+          { message },
+        ).pipe(Effect.provide(promptEnvironment)),
+      );
     });
   },
 ) => selectSubagents(subagents);

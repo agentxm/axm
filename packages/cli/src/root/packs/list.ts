@@ -1,6 +1,6 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { CliRenderer, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
@@ -18,8 +18,6 @@ import {
   inventoryState,
   inventoryAgentOutcomes,
   inventorySummary,
-  renderEmptyInventory,
-  renderInventoryTable,
 } from "../extension-inventory.js";
 
 interface PackListItem {
@@ -31,28 +29,20 @@ interface PackListItem {
   readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
-const PackListTable = {
-  columns: {
-    name: { header: "Name" },
-    state: { header: "State" },
-    owner: { header: "Owner" },
-    version: { header: "Version" },
-    source: { header: "Source" },
-    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
+const PackListColumns = [
+  { header: "Name", value: (row: PackListItem) => row.name },
+  { header: "State", value: (row: PackListItem) => row.state },
+  { header: "Owner", value: (row: PackListItem) => row.owner },
+  { header: "Version", value: (row: PackListItem) => row.version },
+  { header: "Source", value: (row: PackListItem) => row.source },
+  {
+    header: "Agent outcomes",
+    value: (row: PackListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-} as const satisfies TableView<PackListItem>;
-
-registerEntity<PackListItem>("pack", {
-  list: {
-    columns: PackListTable.columns,
-    emptyMessage: "No packs found",
-    singularLabel: "pack",
-    pluralLabel: "packs",
-  },
-});
+] satisfies ReadonlyArray<ViewColumn<PackListItem>>;
 
 export const handleList = Effect.fn("PacksList.handle")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const inventory = yield* ws.records.getExtensionInventory("pack", {});
   const packs = yield* ws.getLockedPacks();
@@ -85,13 +75,15 @@ export const handleList = Effect.fn("PacksList.handle")(function* () {
     };
   });
 
-  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
-  if (items.length === 0) {
-    yield* renderEmptyInventory(renderer, "No packs found");
-    return;
-  }
-
-  yield* renderInventoryTable(renderer, items, PackListTable, inventorySummary(inventory, "pack"));
+  if (yield* screen.document(output, ExtensionInventorySchema)) return;
+  yield* screen.result(
+    inventoryDoc({
+      rows: items,
+      columns: PackListColumns,
+      summary: inventorySummary(inventory, "pack"),
+      empty: "No packs found",
+    }),
+  );
 });
 
 const listConfig = {

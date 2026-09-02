@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { CliRenderer, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { Screen, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   ConfiguredAgentOutcomeSchema,
@@ -63,30 +63,23 @@ const renderInstructionEntry = (
     ? "n/a"
     : `${resolution.included ? "included" : "excluded"} (${resolution.reason})`;
 
-const BundleTable = {
-  columns: {
-    name: { header: "Bundle" },
-    concepts: { header: "Concepts" },
-    diagnostics: { header: "Diagnostics" },
-    sourceRoot: { header: "Source" },
-    instructionEntry: { header: "Instruction entry", render: renderInstructionEntry },
-    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
+const BundleColumns = [
+  { header: "Bundle", value: (row: BundleRow) => row.name },
+  { header: "Concepts", value: (row: BundleRow) => String(row.concepts) },
+  { header: "Diagnostics", value: (row: BundleRow) => String(row.diagnostics) },
+  { header: "Source", value: (row: BundleRow) => row.sourceRoot },
+  {
+    header: "Instruction entry",
+    value: (row: BundleRow) => renderInstructionEntry(row.instructionEntry),
   },
-} as const satisfies TableView<BundleRow>;
-
-// Keyed by the catalog type id, per parity obligation 8.6, so the table and
-// JSON views of `knowledge list` render from one column definition.
-registerEntity<BundleRow>("knowledge", {
-  list: {
-    columns: BundleTable.columns,
-    emptyMessage: "No knowledge bundles installed",
-    singularLabel: "knowledge bundle",
-    pluralLabel: "knowledge bundles",
+  {
+    header: "Agent outcomes",
+    value: (row: BundleRow) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-});
+] satisfies ReadonlyArray<ViewColumn<BundleRow>>;
 
 export const handleKnowledgeList = Effect.fn("Knowledge.list")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const bundles = yield* inspectInstalledKnowledge();
   const inventory = yield* ws.records.getExtensionInventory("knowledge", {});
@@ -149,9 +142,16 @@ export const handleKnowledgeList = Effect.fn("Knowledge.list")(function* () {
         }),
       })),
   ].sort((left, right) => left.name.localeCompare(right.name));
-  if (yield* renderer.result({ items: rows, count: rows.length }, KnowledgeListQueryResultSchema))
+  if (yield* screen.document({ items: rows, count: rows.length }, KnowledgeListQueryResultSchema))
     return;
-  yield* renderer.list("knowledge", { items: rows, count: rows.length });
+  yield* screen.result(
+    inventoryDoc({
+      rows,
+      columns: BundleColumns,
+      summary: count(rows.length, "knowledge bundle"),
+      empty: "No knowledge bundles installed",
+    }),
+  );
 });
 
 export const listCommand = Command.make("list", scopeConfig, ({ scope }) =>

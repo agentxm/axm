@@ -1,7 +1,7 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CliRenderer, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
@@ -16,8 +16,6 @@ import {
   inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
-  renderEmptyInventory,
-  renderInventoryTable,
 } from "../extension-inventory.js";
 import { HookManager } from "@agentxm/extension-workspace";
 
@@ -30,29 +28,20 @@ interface HookListItem {
   readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
-const HookListTable = {
-  columns: {
-    name: { header: "Name" },
-    state: { header: "State" },
-    activation: { header: "Activation" },
-    source: { header: "Source" },
-    locked: { header: "Locked", render: (value: boolean) => (value ? "yes" : "no") },
-    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
+const HookListColumns = [
+  { header: "Name", value: (row: HookListItem) => row.name },
+  { header: "State", value: (row: HookListItem) => row.state },
+  { header: "Activation", value: (row: HookListItem) => row.activation },
+  { header: "Source", value: (row: HookListItem) => row.source },
+  { header: "Locked", value: (row: HookListItem) => (row.locked ? "yes" : "no") },
+  {
+    header: "Agent outcomes",
+    value: (row: HookListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-} as const satisfies TableView<HookListItem>;
-
-// Keyed by the catalog type id, per parity obligation 8.6.
-registerEntity<HookListItem>("hook", {
-  list: {
-    columns: HookListTable.columns,
-    emptyMessage: "No hooks packages found",
-    singularLabel: "hooks package",
-    pluralLabel: "hooks packages",
-  },
-});
+] satisfies ReadonlyArray<ViewColumn<HookListItem>>;
 
 export const handleListHook = Effect.fn("ListHook.handle")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const inventory = yield* ws.records.getExtensionInventory("hook", {});
   const configured = yield* ws.getConfiguredHookEntries();
@@ -86,16 +75,14 @@ export const handleListHook = Effect.fn("ListHook.handle")(function* () {
     };
   });
 
-  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
-  if (items.length === 0) {
-    yield* renderEmptyInventory(renderer, "No hooks packages found");
-    return;
-  }
-  yield* renderInventoryTable(
-    renderer,
-    items,
-    HookListTable,
-    inventorySummary(inventory, "hooks package"),
+  if (yield* screen.document(output, ExtensionInventorySchema)) return;
+  yield* screen.result(
+    inventoryDoc({
+      rows: items,
+      columns: HookListColumns,
+      summary: inventorySummary(inventory, "hooks package"),
+      empty: "No hooks packages found",
+    }),
   );
 });
 

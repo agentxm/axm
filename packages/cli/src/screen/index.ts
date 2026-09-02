@@ -69,6 +69,8 @@ export {
   type SuggestionEvent,
 } from "./machine-events.js";
 export { ScreenLoggerLive } from "./logger.js";
+export { erasePromptFrame } from "./prompt-clear.js";
+export { interruptionFallback } from "./interruption-fallback.js";
 export {
   Verbs,
   agentOutcome,
@@ -91,3 +93,4 @@ export {
   truncateDisplay,
   wrapDisplay,
 } from "./width.js";
+export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";

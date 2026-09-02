@@ -84,13 +84,14 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: [] });
 
-        expect(rendererState.tables).toHaveLength(1);
-        expect(rendererState.tables[0]?.items).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ name: "subagent-one" }),
-            expect.objectContaining({ name: "subagent-two" }),
+        const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
+        expect(table).toMatchObject({
+          _tag: "table",
+          rows: expect.arrayContaining([
+            expect.arrayContaining(["subagent-one"]),
+            expect.arrayContaining(["subagent-two"]),
           ]),
-        );
+        });
       }),
     );
   });
@@ -137,9 +138,11 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: [] });
 
-        expect(rendererState.tables[0]?.items).toEqual([
-          expect.objectContaining({ name: "my-subagent", state: "configured" }),
-        ]);
+        const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
+        expect(table).toMatchObject({
+          _tag: "table",
+          rows: [expect.arrayContaining(["my-subagent", "configured"])],
+        });
       }),
     );
   });
@@ -163,9 +166,11 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: [] });
 
-        expect(rendererState.tables[0]?.items).toEqual([
-          expect.objectContaining({ name: "my-subagent", activation: "disabled" }),
-        ]);
+        const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
+        expect(table).toMatchObject({
+          _tag: "table",
+          rows: [expect.arrayContaining(["my-subagent", "disabled"])],
+        });
       }),
     );
   });
@@ -191,12 +196,14 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: [] });
 
-        expect(rendererState.tables[0]?.items).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ name: "subagent-a" }),
-            expect.objectContaining({ name: "subagent-b" }),
+        const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
+        expect(table).toMatchObject({
+          _tag: "table",
+          rows: expect.arrayContaining([
+            expect.arrayContaining(["subagent-a"]),
+            expect.arrayContaining(["subagent-b"]),
           ]),
-        );
+        });
       }),
     );
   });
@@ -218,13 +225,14 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: ["claude-code"] });
 
-        expect(rendererState.tables).toHaveLength(1);
-        expect(rendererState.tables[0]?.items).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ name: "subagent-claude", agents: ["claude-code"] }),
-            expect.objectContaining({ name: "subagent-cursor", agents: ["claude-code"] }),
+        const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
+        expect(table).toMatchObject({
+          _tag: "table",
+          rows: expect.arrayContaining([
+            expect.arrayContaining(["subagent-claude", "claude-code"]),
+            expect.arrayContaining(["subagent-cursor", "claude-code"]),
           ]),
-        );
+        });
       }),
     );
   });

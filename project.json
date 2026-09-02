@@ -39,10 +39,26 @@
         "cwd": "."
       }
     },
+    "build-test-reporting": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/allurerc.ts",
+        "{workspaceRoot}/vitest.reporting.ts",
+        "{workspaceRoot}/tsconfig*.json",
+        { "externalDependencies": ["@typescript/native"] }
+      ],
+      "outputs": ["{workspaceRoot}/out-tsc/reporting"],
+      "options": {
+        "command": "tsc -b tsconfig.json",
+        "cwd": "."
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "cache": false,
       "dependsOn": [
+        "build-test-reporting",
         "extension-model:build",
         "registry-protocol:build",
         "extension-workspace:build"
@@ -104,6 +120,20 @@
       ],
       "options": {
         "command": "bun scripts/release-prepare.ts",
+        "cwd": "."
+      }
+    },
+    "release-prepare-candidate": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [
+        "build-test-reporting",
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-workspace:build"
+      ],
+      "options": {
+        "command": "bun scripts/release-prepare-candidate.ts",
         "cwd": "."
       }
     },

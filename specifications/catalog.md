@@ -737,6 +737,26 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Source: [`specifications/system/process/public-artifacts-protect-private-context.spec.ts`](../specifications/system/process/public-artifacts-protect-private-context.spec.ts)
 
+##### Release preparation isolates candidate state until delivery
+
+- Requirement: `system/process/release-preparation-isolates-candidate-state`
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`, `safe-repetition`
+- Boundary: repository; selection: per-change
+- Methods: model, decision-table
+- Source: [`specifications/system/process/release-preparation-isolates-candidate-state.spec.ts`](../specifications/system/process/release-preparation-isolates-candidate-state.spec.ts)
+
+##### Release preparation validates production Registry gates without distribution
+
+- Requirement: `system/process/release-preparation-validates-production-gates`
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`, `trustworthy-distribution`
+- Boundary: repository; selection: per-change
+- Methods: contract, decision-table
+- Source: [`specifications/system/process/release-preparation-validates-production-gates.spec.ts`](../specifications/system/process/release-preparation-validates-production-gates.spec.ts)
+
 ##### Releases publish only through the canonical automated workflow
 
 - Requirement: `system/process/releases-publish-through-canonical-workflow`

@@ -18,9 +18,9 @@ prepared release is ready to publish.
 
 ## Release Model
 
-The binding obligation is the executable specification
-`system/process/releases-publish-through-canonical-workflow` in the
-[specification catalog](../../specifications/catalog.md).
+The binding obligations are the executable process specifications for the
+canonical publish workflow, production-gate validation, and isolated candidate
+state in the [specification catalog](../../specifications/catalog.md).
 
 - Releases are published from GitHub Actions. Do not publish packages or create
   GitHub Releases manually.
@@ -55,11 +55,24 @@ The binding obligation is the executable specification
    pnpm release:prepare
    ```
 
-   Dry-run previews the version and artifact changes. The real run validates the
-   repo state, runs `pnpm run ci` via Nx `preVersionCommand`, consumes the
-   pending version plan, updates the fixed CLI release group, refreshes
-   `CHANGELOG.md`, creates and pushes `release/cli-v{VERSION}`, and opens the
-   release pull request.
+   Both modes first use the committed bundled AXM skill to verify production
+   Registry authentication and the authoritative publish-preview contract. No
+   candidate state exists yet, so an expired token or incompatible Registry
+   fails before CI or release generation.
+
+   Preparation then creates a disposable detached Git worktree from the
+   preflighted `main` commit and installs the locked workspace dependencies.
+   Dry-run performs real versioning, changelog generation, bundled-skill
+   generation, and an exact production Registry preview inside that worktree,
+   then removes it without committing, pushing, opening a pull request, or
+   publishing. Temporary writes inside the disposable worktree are what make
+   the dry run faithful; the invoking checkout and external systems remain
+   unchanged.
+
+   The real run performs the same isolated candidate preparation, commits it in
+   the detached worktree, pushes `release/cli-v{VERSION}`, opens the release
+   pull request, and removes the worktree. The invoking checkout stays clean on
+   `main` throughout.
 
 3. Wait for pull request CI, then squash-merge with the exact release subject.
 
@@ -191,5 +204,13 @@ available from GitHub Actions).
 
 - If the tag version and package manifest versions do not match, publishing
   fails fast.
+- Candidate-generation failures remove the owned disposable worktree and do
+  not restore files in the invoking checkout because that checkout was never
+  mutated. If cleanup itself fails, the command reports the exact temporary
+  path for targeted recovery.
+- A failed push creates no remote release branch. If the push succeeds but pull
+  request creation fails, keep the remote branch and rerun the pull request
+  recovery command printed by the tool; do not delete shared remote state as
+  rollback.
 - Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in
   `agentxm/axm`.

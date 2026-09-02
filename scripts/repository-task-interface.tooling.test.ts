@@ -143,6 +143,17 @@ describe("repository task interface", () => {
     }
   });
 
+  it("builds shared test reporting before isolated release preparation", () => {
+    const rootTargets = readTargets("project.json");
+    const reportingTarget = rootTargets["build-test-reporting"];
+    if (!isRecord(reportingTarget)) throw new Error("Missing build-test-reporting target.");
+    expect(reportingTarget["outputs"]).toEqual(["{workspaceRoot}/out-tsc/reporting"]);
+
+    const candidateTarget = rootTargets["release-prepare-candidate"];
+    if (!isRecord(candidateTarget)) throw new Error("Missing release-prepare-candidate target.");
+    expect(candidateTarget["dependsOn"]).toContain("build-test-reporting");
+  });
+
   it("declares observations and external mutations fresh", () => {
     const rootTargets = readTargets("project.json");
     for (const targetName of [

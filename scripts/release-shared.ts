@@ -159,7 +159,7 @@ export type GitHubRun = {
   url: string;
 };
 
-const NX_ENV = {
+export const RELEASE_PROCESS_ENV = {
   ...process.env,
   NX_TUI: "false",
   NX_DEFAULT_OUTPUT_STYLE: "static",
@@ -177,6 +177,23 @@ const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
 
 export const RELEASE_REPO = readEnvWithDefault(process.env, "GITHUB_REPOSITORY", "agentxm/axm");
 
+export const AXM_SKILL_HANDLE = "@agentxm/skills/axm";
+export const PRODUCTION_REGISTRY_URL = "https://registry.agentxm.ai";
+export const PRODUCTION_REGISTRY_PREVIEW_ARGS: readonly string[] = [
+  "axm:local",
+  "skills",
+  "publish",
+  AXM_SKILL_HANDLE,
+  "--registry-url",
+  PRODUCTION_REGISTRY_URL,
+  "--on-existing",
+  "verify",
+  "--preview",
+  "--yes",
+  "--json",
+  "--non-interactive",
+];
+
 export const fail = (message: string): never => {
   console.error(message);
   process.exit(1);
@@ -184,7 +201,7 @@ export const fail = (message: string): never => {
 };
 
 export const runNx = (...args: readonly string[]) =>
-  run("pnpm", ["exec", "nx", ...args, "--outputStyle=static"], NX_ENV);
+  run("pnpm", ["exec", "nx", ...args, "--outputStyle=static"], RELEASE_PROCESS_ENV);
 
 const readVersionFromJson = (content: string, source: string): string => {
   const parsed: unknown = JSON.parse(content);

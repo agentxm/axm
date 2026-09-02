@@ -147,28 +147,39 @@ describe("projection managed-region markers", () => {
     expect(updated).not.toContain("ext=@acme/rules/old");
   });
 
-  it("treats a generated body as opaque when ownership and generation match", () => {
-    const style: FileCommentStyle = { kind: "block", open: "<!--", close: "-->" };
-    const content = [
-      "before",
-      "<!-- axm:start v=1 region=rules ext=@acme/rules gen=authority-1 -->",
-      "arbitrarily reformatted body",
-      "<!-- axm:end v=1 region=rules -->",
-      "after",
-    ].join("\n");
-    const state = inspectManagedRegion(content, "rules", style);
-    expect(
-      renderManagedRegion({
-        content,
-        state,
-        region: "rules",
-        owner: "@acme/rules",
-        generation: "authority-1",
-        rendered: "canonical generated body",
-        style,
-      }),
-    ).toBe(content);
-  });
+  it.prop(
+    "treats every non-boundary generated body as opaque when ownership and generation match",
+    {
+      body: FastCheck.array(FastCheck.string({ maxLength: 80 }), { maxLength: 12 })
+        .filter((lines) =>
+          lines.every((line) => !line.includes("axm:start") && !line.includes("axm:end")),
+        )
+        .map((lines) => lines.join("\n")),
+    },
+    ({ body }) => {
+      const style: FileCommentStyle = { kind: "block", open: "<!--", close: "-->" };
+      const content = [
+        "before",
+        "<!-- axm:start v=1 region=rules ext=@acme/rules gen=authority-1 -->",
+        body,
+        "<!-- axm:end v=1 region=rules -->",
+        "after",
+      ].join("\n");
+      const state = inspectManagedRegion(content, "rules", style);
+      expect(
+        renderManagedRegion({
+          content,
+          state,
+          region: "rules",
+          owner: "@acme/rules",
+          generation: "authority-1",
+          rendered: "canonical generated body",
+          style,
+        }),
+      ).toBe(content);
+    },
+    { fastCheck: { numRuns: 250, seed: 0x41584d } },
+  );
 
   it("regenerates when generation provenance changes", () => {
     const style: FileCommentStyle = { kind: "block", open: "<!--", close: "-->" };

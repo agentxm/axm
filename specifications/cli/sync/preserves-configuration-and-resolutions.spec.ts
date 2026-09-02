@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
+import YAML from "yaml";
 
 import { handleInstall, handleSync } from "axm.sh/specification-harness";
 
@@ -29,7 +30,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
     }
   });
 
-  it.effect("leaves a fully realized workspace byte-identical and reports no work", () =>
+  it.effect("preserves equivalent repository serialization and reports no work", () =>
     Effect.gen(function* () {
       const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
       cleanups.push(workspace.cleanup);
@@ -40,12 +41,19 @@ describe("Sync preserves configuration and accepted resolutions", () => {
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
-      const settingsBefore = JSON.stringify(workspace.readSettings());
-      const lockfileBefore = workspace.readLockfileText();
+
+      const settingsBefore = `${JSON.stringify(workspace.readSettings(), null, 4)}\n`;
+      fs.writeFileSync(path.join(workspace.root, "axm.json"), settingsBefore);
+      const decodedLockfile: unknown = YAML.parse(workspace.readLockfileText());
+      const lockfileBefore = `# Repository-owned YAML serialization\n${YAML.stringify(
+        decodedLockfile,
+        { indent: 4 },
+      )}`;
+      fs.writeFileSync(path.join(workspace.root, "axm-lock.yaml"), lockfileBefore);
 
       yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
 
-      expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
+      expect(workspace.readFile("axm.json")).toBe(settingsBefore);
       expect(workspace.readLockfileText()).toBe(lockfileBefore);
       const lastResult = workspace.rendererState.results.at(-1);
       expect(lastResult?.data).toMatchObject({

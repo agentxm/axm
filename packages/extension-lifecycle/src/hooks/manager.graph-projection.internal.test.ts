@@ -249,7 +249,7 @@ describe("HookManager graph-derived unit projection", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("renders both packs' hooks into the fallback region for writer-less agents", () => {
+  it.effect("preserves repository rewrites in the fallback region for writer-less agents", () => {
     writeHookPackage("pack-a-hook");
     writeHookPackage("pack-b-hook");
     const layer = makeTestLayer({
@@ -266,10 +266,24 @@ describe("HookManager graph-derived unit projection", () => {
     return Effect.gen(function* () {
       const manager = yield* HookManager;
       yield* applyPlannedProjections(manager);
-      const instructions = nodeFs.readFileSync(nodePath.join(baseDir, "AGENTS.md"), "utf8");
+      const instructionsPath = nodePath.join(baseDir, "AGENTS.md");
+      const instructions = nodeFs.readFileSync(instructionsPath, "utf8");
       expect(instructions).toContain("region=hook-fallbacks");
       expect(instructions.split("pack-a-hook/src/hook.sh").length - 1).toBe(1);
       expect(instructions.split("pack-b-hook/src/hook.sh").length - 1).toBe(1);
+
+      const rewritten = instructions.replace(
+        "pack-a-hook/src/hook.sh",
+        "repository-formatted-fallback",
+      );
+      expect(rewritten).not.toBe(instructions);
+      nodeFs.writeFileSync(instructionsPath, rewritten);
+
+      expect(yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).toEqual(
+        [expect.objectContaining({ present: true, current: true })],
+      );
+      yield* applyPlannedProjections(manager);
+      expect(nodeFs.readFileSync(instructionsPath, "utf8")).toBe(rewritten);
     }).pipe(Effect.provide(layer));
   });
 

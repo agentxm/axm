@@ -1,3 +1,13 @@
+## 0.28.5 (2026-09-02)
+
+### 🚀 Features
+
+- Add locally named MCP connections and typed CLI screen output, and improve workspace lint, projection recovery, publishing, and release reliability.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.28.4 (2026-09-02)
 
 ### 🚀 Features

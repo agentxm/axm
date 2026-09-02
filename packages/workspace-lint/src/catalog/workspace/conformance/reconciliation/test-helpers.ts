@@ -1,3 +1,8 @@
+import * as Effect from "effect/Effect";
+
+import type { CanonicalObservation, DesiredExtensionNode } from "@agentxm/workspace-state";
+import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
+import { desiredStateReconcilableRule } from "../../desired-state-reconcilable.js";
 import { sourceEndpointsAlignedRule } from "../../source-endpoints-aligned.js";
 import { contextFor, validSettings, type WorkspaceRuleConformanceCase } from "../test-helpers.js";
 
@@ -54,6 +59,61 @@ export const sourceEndpointsAlignedConformance: WorkspaceRuleConformanceCase = {
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: { _tag: "absent" } }),
 };
 
+const desiredSkill = {
+  type: "skill",
+  name: "installed-skill",
+  identity: "@test/skills/installed-skill",
+  source: "@test/skills/installed-skill@1.0.0",
+  enabled: true,
+  constraints: ["1.0.0"],
+  origins: [],
+} satisfies DesiredExtensionNode;
+
+const desiredStateContext = (observation: CanonicalObservation) =>
+  contextFor({ settings: validSettings(), lockfile: { _tag: "absent" } }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          health: {
+            desiredState: Effect.succeed({
+              complete: true,
+              nodes: [desiredSkill],
+              problems: [],
+            }),
+            canonicalObservations: Effect.succeed([{ desired: desiredSkill, observation }]),
+          },
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const desiredStateReconcilableConformance: WorkspaceRuleConformanceCase = {
+  rule: desiredStateReconcilableRule,
+  satisfied: () =>
+    desiredStateContext({
+      type: "skill",
+      name: "installed-skill",
+      status: "usable",
+      path: "/workspace/skills/installed-skill",
+    }),
+  violated: () =>
+    desiredStateContext({
+      type: "skill",
+      name: "installed-skill",
+      status: "locally-modified",
+      path: "/workspace/skills/installed-skill",
+      contentIdentity: "sha256-working",
+    }),
+  expectedFindings: [
+    {
+      message: "skill '@test/skills/installed-skill' has canonical state locally-modified.",
+      location: { file: "/workspace/skills/installed-skill" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: { _tag: "absent" } }),
+};
+
 export const reconciliationConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   sourceEndpointsAlignedConformance,
+  desiredStateReconcilableConformance,
 ];

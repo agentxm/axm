@@ -83,28 +83,6 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
     });
   });
 
-  it.effect("reports external canonical modifications as a fact without workflow guidance", () => {
-    const desired = {
-      type: "skill",
-      name: "installed-skill",
-      identity: "@test/skills/installed-skill",
-      source: "@test/skills/installed-skill@1.0.0",
-      enabled: true,
-      constraints: ["1.0.0"],
-      origins: [],
-    } satisfies DesiredExtensionNode;
-
-    return Effect.gen(function* () {
-      const findings = yield* runCheck(desired);
-
-      expect(findings).toHaveLength(1);
-      expect(findings[0]).toMatchObject({
-        severity: "error",
-        message: "skill '@test/skills/installed-skill' has canonical state locally-modified.",
-      });
-    });
-  });
-
   it.effect("describes a materialized package-tree integrity mismatch", () => {
     const desired = {
       type: "skill",

@@ -119,7 +119,8 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/desired-state-reconcilable",
-    "packages/workspace-lint/src/catalog/workspace/desired-state-reconcilable.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/reconciliation/test-helpers.ts",
+    "desiredStateReconcilableConformance",
   ),
   evidence(
     "workspace/axm-skill-compatible",

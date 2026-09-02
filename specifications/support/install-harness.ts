@@ -96,6 +96,9 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     rendererState: context.rendererState,
     logs: context.logs,
     readSettings: (): unknown => JSON.parse(fs.readFileSync(path.join(root, "axm.json"), "utf8")),
+    writeSettings: (settings: unknown): void => {
+      fs.writeFileSync(path.join(root, "axm.json"), `${JSON.stringify(settings, null, 2)}\n`);
+    },
     readLockfileText: (): string => {
       const lockPath = path.join(root, "axm-lock.yaml");
       return fs.existsSync(lockPath) ? fs.readFileSync(lockPath, "utf8") : "";

@@ -292,6 +292,8 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
           serialMaterialization,
           expectedSkillNames,
           expectedSubagentNames,
+          expectedMcpServerNames,
+          expectedHookNames,
           releaseAge,
         } = yield* collectMaterializeSteps({
           selection,
@@ -339,6 +341,8 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
             : yield* collectCleanupStep({
                 expectedSkillNames,
                 expectedSubagentNames,
+                expectedMcpServerNames,
+                expectedHookNames,
                 adapter: syncStepFailureAdapter,
               }).pipe(Effect.mapError(syncFailureToAppError));
         const instructionStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =

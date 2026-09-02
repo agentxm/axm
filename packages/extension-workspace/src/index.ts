@@ -77,6 +77,13 @@ export {
   safeReadFileString,
   type WorkspaceOwnershipIssue,
 } from "./extension-workspace/managed-file-discovery.js";
+export {
+  observeAgentOutputs,
+  type AgentOutputInventory,
+  type AgentOutputObservation,
+  type AgentOutputOwnershipProof,
+  type ObserveAgentOutputsArgs,
+} from "./extension-workspace/agent-output-observation.js";
 
 // MCP sync helpers
 export {
@@ -245,10 +252,14 @@ export {
   ambiguousHookCommands,
   isManagedHookEntry,
   managedHookCommands,
+  managedHookUnits,
+  pruneManagedHooksFromJson,
   readAmbiguousHookCommands,
   readManagedHookCommands,
+  readManagedHookUnits,
   stripManagedHookGroups,
   stripManagedHooksFromJson,
+  type ManagedHookUnit,
   updateHooksJson,
 } from "./hooks/managed-groups.js";
 export { evaluateHookAgentOutcome, type HookOutcomeTarget } from "./hooks/outcomes.js";

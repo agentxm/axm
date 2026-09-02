@@ -68,6 +68,11 @@ interface ManagedHookCommand {
   };
 }
 
+export interface ManagedHookUnit {
+  readonly name: string;
+  readonly command: string;
+}
+
 export const isManagedHookEntry = (value: unknown): value is ManagedHookCommand => {
   if (!isRecord(value) || value["type"] !== "command" || typeof value["command"] !== "string") {
     return false;
@@ -98,6 +103,26 @@ export const managedHookCommands = (hooks: unknown): ReadonlyArray<string> => {
     }
   }
   return commands;
+};
+
+/** AXM-owned hook units recovered from one native hooks object. */
+export const managedHookUnits = (hooks: unknown): ReadonlyArray<ManagedHookUnit> => {
+  if (!isRecord(hooks)) return [];
+  const units: Array<ManagedHookUnit> = [];
+  for (const groups of Object.values(hooks)) {
+    if (!Array.isArray(groups)) continue;
+    for (const group of groups) {
+      if (!isRecord(group) || !Array.isArray(group["hooks"])) continue;
+      for (const entry of group["hooks"]) {
+        if (!isManagedHookEntry(entry)) continue;
+        units.push({
+          name: entry["x-axm"].unit.slice("hook:".length),
+          command: entry.command,
+        });
+      }
+    }
+  }
+  return units;
 };
 
 export const ambiguousHookCommands = (hooks: unknown): ReadonlyArray<string> => {
@@ -133,6 +158,18 @@ export const readManagedHookCommands = (
     const parsed = yield* parseJsonConfig(configPath, raw.trim().length === 0 ? "{}\n" : raw);
     yield* validateHooksShape(configPath, settingsKey, parsed);
     return isRecord(parsed) ? managedHookCommands(parsed[settingsKey]) : [];
+  });
+
+/** Parse a native config and recover its AXM-owned hook units. */
+export const readManagedHookUnits = (
+  configPath: string,
+  settingsKey: string,
+  raw: string,
+): Effect.Effect<ReadonlyArray<ManagedHookUnit>, HookConfigInvalid> =>
+  Effect.gen(function* () {
+    const parsed = yield* parseJsonConfig(configPath, raw.trim().length === 0 ? "{}\n" : raw);
+    yield* validateHooksShape(configPath, settingsKey, parsed);
+    return isRecord(parsed) ? managedHookUnits(parsed[settingsKey]) : [];
   });
 
 export const readAmbiguousHookCommands = (
@@ -197,6 +234,35 @@ export const stripManagedHookGroups = (hooks: Record<string, unknown>): Record<s
   return next;
 };
 
+const retainExpectedManagedHookGroups = (
+  hooks: Record<string, unknown>,
+  expectedNames: ReadonlySet<string>,
+): Record<string, unknown> => {
+  const next: Record<string, unknown> = {};
+  for (const [event, groups] of Object.entries(hooks)) {
+    if (!Array.isArray(groups)) {
+      next[event] = groups;
+      continue;
+    }
+
+    const retainedGroups: unknown[] = [];
+    for (const group of groups) {
+      if (!isRecord(group) || !Array.isArray(group["hooks"])) {
+        retainedGroups.push(group);
+        continue;
+      }
+      const retainedHooks = group["hooks"].filter(
+        (entry) =>
+          !isManagedHookEntry(entry) ||
+          expectedNames.has(entry["x-axm"].unit.slice("hook:".length)),
+      );
+      if (retainedHooks.length > 0) retainedGroups.push({ ...group, hooks: retainedHooks });
+    }
+    if (retainedGroups.length > 0) next[event] = retainedGroups;
+  }
+  return next;
+};
+
 /**
  * Rewrite `settingsKey` so it holds `renderedHooks` plus every user-authored
  * group already present. Edits go through jsonc-parser so comments and
@@ -250,3 +316,25 @@ export const stripManagedHooksFromJson = (
   settingsKey: string,
   raw: string,
 ): Effect.Effect<string, HookConfigInvalid> => updateHooksJson(configPath, settingsKey, raw, {});
+
+/** Remove unexpected AXM-owned hook units while preserving expected and user-authored groups. */
+export const pruneManagedHooksFromJson = (
+  configPath: string,
+  settingsKey: string,
+  raw: string,
+  expectedNames: ReadonlySet<string>,
+): Effect.Effect<string, HookConfigInvalid> =>
+  Effect.gen(function* () {
+    const initial = raw.trim().length === 0 ? "{}\n" : raw;
+    const parsed = yield* parseJsonConfig(configPath, initial);
+    yield* validateHooksShape(configPath, settingsKey, parsed);
+    if (!isRecord(parsed) || !isRecord(parsed[settingsKey])) return initial;
+    const retained = retainExpectedManagedHookGroups(parsed[settingsKey], expectedNames);
+    const edits = modify(
+      initial,
+      [settingsKey],
+      Object.keys(retained).length === 0 ? undefined : retained,
+      { formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" } },
+    );
+    return applyEdits(initial, edits);
+  });

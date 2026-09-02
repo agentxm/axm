@@ -1,390 +1,213 @@
 /**
- * Destructive sweep of AXM-managed rendered files across agent surfaces:
- * stale skill and subagent projections, managed MCP server entries, and
- * managed hook groups. Read-only discovery primitives live in
- * `extension-workspace/managed-file-discovery.ts`.
+ * Destructive reconciliation of AXM-owned agent-native outputs. Read-only
+ * ownership and claimant discovery lives in `@agentxm/extension-workspace`.
  *
  * @experimental This API is unstable and may change without notice.
- * @packageDocumentation
  */
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 import {
   CodingAgentRepository,
-  type CodingAgent,
+  observeAgentOutputs,
+  pruneManagedHooksFromJson,
   pruneManagedMcpServersForAgent,
-  extensionNameFromFilename,
-  hasAxmManagedMarker,
-  safeReadDirectory,
   safeReadFileString,
+  type AgentOutputInventory,
+  type AgentOutputObservation,
   type WorkspaceOwnershipIssue,
-  readAmbiguousHookCommands,
-  stripManagedHooksFromJson,
 } from "@agentxm/extension-workspace";
 import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import {
-  PER_AGENT_EXTENSION_TYPES,
-  type PerAgentType,
-} from "@agentxm/extension-model/unstable/extensions/common";
-import { ACQUIRED_EXTENSIONS_DIR } from "@agentxm/workspace-state";
-import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
-import { recordFootprint } from "@agentxm/workspace-state";
+  WorkspaceMutations,
+  protectWorkspacePath,
+  recordFootprint,
+} from "@agentxm/workspace-state";
+import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 
-export interface RenderedFileCleanupResult {
-  readonly removedPaths: ReadonlyArray<string>;
-}
-
-export interface RemovedAgentArtifactCleanupResult {
+export interface ReconcileAgentOutputsResult {
   readonly removedPaths: ReadonlyArray<string>;
   readonly preservedPaths: ReadonlyArray<string>;
 }
 
-type RemovedAgentCleanupPaths = RemovedAgentArtifactCleanupResult;
-
-const isWithin = (path: Path.Path, parent: string, child: string): boolean => {
-  const relative = path.relative(path.resolve(parent), path.resolve(child));
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-};
-
-const removePath = (
-  fs: FileSystem.FileSystem,
-  filePath: string,
-  dryRun: boolean,
-): Effect.Effect<void, WorkspaceSyncCleanupFailure> =>
-  dryRun
-    ? Effect.void
-    : protectWorkspacePath(filePath).pipe(
-        Effect.andThen(fs.remove(filePath, { recursive: true })),
-        Effect.andThen(recordFootprint({ path: filePath, change: "removed" })),
-        Effect.mapError(
-          (error) =>
-            new WorkspaceSyncFailed({
-              category: "internal",
-              detail: `Failed to remove managed agent artifact: ${filePath}`,
-              cause: error,
-            }),
-        ),
-      );
-
-const hasManagedSkillCopyMarker = (
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  artifactPath: string,
-) =>
-  safeReadFileString(fs, path.join(artifactPath, "SKILL.md")).pipe(Effect.map(hasAxmManagedMarker));
-
-const cleanupSkillArtifactsInDir = (args: {
-  readonly fs: FileSystem.FileSystem;
-  readonly path: Path.Path;
-  readonly baseDir: string;
-  readonly skillsDir: string;
-  readonly dryRun: boolean;
-  readonly ownershipRoots?: ReadonlyArray<string>;
-  readonly expectedNames?: ReadonlySet<string>;
-}) =>
-  Effect.gen(function* () {
-    const removedPaths: Array<string> = [];
-    const preservedPaths: Array<string> = [];
-    const entries = yield* safeReadDirectory(args.fs, args.skillsDir);
-    const configuredRoots = args.ownershipRoots ?? [
-      args.path.join(args.baseDir, ACQUIRED_EXTENSIONS_DIR),
-    ];
-    const ownershipRoots = yield* Effect.forEach(configuredRoots, (root) =>
-      args.fs.realPath(root).pipe(Effect.orElseSucceed(() => root)),
-    );
-
-    for (const entry of entries) {
-      if (args.expectedNames?.has(entry) === true) continue;
-      const artifactPath = args.path.join(args.skillsDir, entry);
-      const linkTarget = yield* args.fs.readLink(artifactPath).pipe(Effect.option);
-      if (linkTarget._tag === "Some") {
-        const resolvedTarget = args.path.resolve(args.skillsDir, linkTarget.value);
-        const canonicalTarget = yield* args.fs.realPath(resolvedTarget).pipe(Effect.option);
-        const ownershipTarget =
-          canonicalTarget._tag === "Some" ? canonicalTarget.value : resolvedTarget;
-        if (!ownershipRoots.some((root) => isWithin(args.path, root, ownershipTarget))) {
-          preservedPaths.push(artifactPath);
-          continue;
-        }
-        yield* removePath(args.fs, artifactPath, args.dryRun);
-        removedPaths.push(artifactPath);
-        continue;
-      }
-
-      const stat = yield* args.fs.stat(artifactPath).pipe(Effect.option);
-      if (stat._tag === "None") continue;
-      if (stat.value.type !== "Directory") {
-        preservedPaths.push(artifactPath);
-        continue;
-      }
-      const managedCopy = yield* hasManagedSkillCopyMarker(args.fs, args.path, artifactPath);
-      if (!managedCopy) {
-        preservedPaths.push(artifactPath);
-        continue;
-      }
-      yield* removePath(args.fs, artifactPath, args.dryRun);
-      removedPaths.push(artifactPath);
-    }
-
-    return { removedPaths, preservedPaths } satisfies RemovedAgentCleanupPaths;
-  });
-
-/** Remove AXM-owned skill projections whose package is no longer desired. */
-export const cleanupStaleManagedSkillDirectories = (args: {
-  readonly expectedSkillNames: ReadonlySet<string>;
+export interface ReconcileAgentOutputsArgs {
+  readonly desiredAgentIds: ReadonlySet<string>;
+  readonly expectedNames: Readonly<Record<PerAgentType, ReadonlySet<string>>>;
   readonly dryRun?: boolean;
-}): Effect.Effect<
-  RenderedFileCleanupResult,
-  WorkspaceSyncCleanupFailure,
-  CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
-    const agentRepo = yield* CodingAgentRepository;
-    const configuredAgentIds = new Set(yield* ws.getConfiguredAgents());
-    const agents = yield* agentRepo.all;
-    const removedPaths: Array<string> = [];
-    const ownershipRoots =
-      ws.layout.scope === "project"
-        ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
-        : [ws.layout.acquiredRoot];
-
-    for (const agent of agents) {
-      if (!configuredAgentIds.has(agent.id)) continue;
-      const resolved = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir });
-      if (resolved._tag !== "supported") continue;
-      const result = yield* cleanupSkillArtifactsInDir({
-        fs,
-        path,
-        baseDir: ws.baseDir,
-        skillsDir: resolved.dir,
-        dryRun: args.dryRun === true,
-        ownershipRoots,
-        expectedNames: args.expectedSkillNames,
-      });
-      removedPaths.push(...result.removedPaths);
-    }
-
-    return { removedPaths: [...new Set(removedPaths)] };
-  });
-
-const cleanupSubagentArtifactsInDir = (args: {
-  readonly fs: FileSystem.FileSystem;
-  readonly path: Path.Path;
-  readonly subagentsDir: string;
-  readonly dryRun: boolean;
-}) =>
-  Effect.gen(function* () {
-    const removedPaths: Array<string> = [];
-    const preservedPaths: Array<string> = [];
-    const entries = yield* safeReadDirectory(args.fs, args.subagentsDir);
-
-    for (const entry of entries) {
-      const filePath = args.path.join(args.subagentsDir, entry);
-      const stat = yield* args.fs.stat(filePath).pipe(Effect.option);
-      if (stat._tag === "None" || stat.value.type !== "File") continue;
-      const content = yield* safeReadFileString(args.fs, filePath);
-      if (!hasAxmManagedMarker(content)) {
-        preservedPaths.push(filePath);
-        continue;
-      }
-      yield* removePath(args.fs, filePath, args.dryRun);
-      removedPaths.push(filePath);
-    }
-
-    return { removedPaths, preservedPaths } satisfies RemovedAgentCleanupPaths;
-  });
-
-interface RemovedAgentCleanupContext {
-  readonly fs: FileSystem.FileSystem;
-  readonly path: Path.Path;
-  readonly agent: CodingAgent;
-  readonly workspaceRoot: string;
-  readonly scope: WorkspaceScope;
-  readonly skillOwnershipRoots: ReadonlyArray<string>;
-  readonly dryRun: boolean;
 }
 
-type RemovedAgentCleanup = (
-  context: RemovedAgentCleanupContext,
-) => Effect.Effect<
-  RemovedAgentCleanupPaths,
-  WorkspaceSyncCleanupFailure,
-  FileSystem.FileSystem | Path.Path
->;
-
-const NO_PATHS: RemovedAgentCleanupPaths = { removedPaths: [], preservedPaths: [] };
-
-const cleanupAgentSkills: RemovedAgentCleanup = (context) =>
+const inventory = (
+  args: ReconcileAgentOutputsArgs,
+): Effect.Effect<
+  AgentOutputInventory,
+  never,
+  CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
+> =>
   Effect.gen(function* () {
-    const skillsDir = yield* context.agent.resolveEffectiveSkillsDir({
-      workspaceRoot: context.workspaceRoot,
-    });
-    if (skillsDir._tag !== "supported") return NO_PATHS;
-    return yield* cleanupSkillArtifactsInDir({
-      fs: context.fs,
-      path: context.path,
-      baseDir: context.workspaceRoot,
-      skillsDir: skillsDir.dir,
-      dryRun: context.dryRun,
-      ownershipRoots: context.skillOwnershipRoots,
+    const ws = yield* WorkspaceMutations;
+    return yield* observeAgentOutputs({
+      workspaceRoot: ws.baseDir,
+      scope: ws.scope,
+      desiredAgentIds: args.desiredAgentIds,
+      expectedNames: args.expectedNames,
+      skillOwnershipRoots:
+        ws.layout.scope === "project"
+          ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
+          : [ws.layout.acquiredRoot],
     });
   });
 
-const cleanupAgentSubagents: RemovedAgentCleanup = (context) =>
-  Effect.gen(function* () {
-    const subagentsDir = yield* context.agent.resolveEffectiveSubagentsDir({
-      workspaceRoot: context.workspaceRoot,
-      scope: context.scope,
-    });
-    if (subagentsDir._tag !== "supported") return NO_PATHS;
-    return yield* cleanupSubagentArtifactsInDir({
-      fs: context.fs,
-      path: context.path,
-      subagentsDir: subagentsDir.dir,
-      dryRun: context.dryRun,
-    });
-  });
+const cleanupFailure = (detail: string, cause: unknown) =>
+  new WorkspaceSyncFailed({ category: "internal", detail, cause });
 
-/**
- * Drop every `x-axm`-tagged server from the agent's MCP config. An empty
- * declared set means "nothing should remain", so only managed entries go and
- * user-authored servers stay.
- */
-const cleanupAgentMcpServers: RemovedAgentCleanup = (context) =>
-  Effect.gen(function* () {
-    const outcome = yield* pruneManagedMcpServersForAgent(context.agent.id, {
-      workspaceRoot: context.workspaceRoot,
-      declaredServerNames: new Set<string>(),
-      scope: context.scope,
-      dryRun: context.dryRun,
-    });
-    if (outcome._tag !== "success") return NO_PATHS;
-    return {
-      removedPaths: (outcome.targets ?? []).map((target) => target.path),
-      preservedPaths: [],
-    } satisfies RemovedAgentCleanupPaths;
-  });
+const removeOwnedFile = (
+  fs: FileSystem.FileSystem,
+  output: AgentOutputObservation,
+): Effect.Effect<void, WorkspaceSyncCleanupFailure> =>
+  protectWorkspacePath(output.path).pipe(
+    Effect.andThen(fs.remove(output.path, { recursive: true })),
+    Effect.andThen(recordFootprint({ path: output.path, change: "removed" })),
+    Effect.mapError((error) =>
+      cleanupFailure(`Failed to remove managed agent artifact: ${output.path}`, error),
+    ),
+  );
 
-/**
- * Strip AXM-rendered hook groups from the agent's settings files. Edits go
- * through jsonc-parser so user-authored groups, comments, and formatting in
- * these user-owned files survive.
- */
-const cleanupAgentHooks: RemovedAgentCleanup = (context) =>
+const uniqueContainers = (
+  outputs: ReadonlyArray<AgentOutputObservation>,
+): ReadonlyArray<AgentOutputObservation> =>
+  outputs.filter(
+    (output, index) =>
+      outputs.findIndex(
+        (candidate) =>
+          candidate.extensionType === output.extensionType &&
+          candidate.containerPath === output.containerPath,
+      ) === index,
+  );
+
+const desiredNamesForContainer = (
+  output: AgentOutputObservation,
+  args: ReconcileAgentOutputsArgs,
+): ReadonlySet<string> =>
+  output.claimantAgentIds.some((agentId) => args.desiredAgentIds.has(agentId))
+    ? args.expectedNames[output.extensionType]
+    : new Set<string>();
+
+const pruneMcpContainer = (
+  output: AgentOutputObservation,
+  args: ReconcileAgentOutputsArgs,
+  workspaceRoot: string,
+  scope: "project" | "user",
+): Effect.Effect<void, WorkspaceSyncCleanupFailure, FileSystem.FileSystem | Path.Path> => {
+  const claimant = output.claimantAgentIds[0];
+  if (claimant === undefined) return Effect.void;
+  return pruneManagedMcpServersForAgent(claimant, {
+    workspaceRoot,
+    scope,
+    declaredServerNames: desiredNamesForContainer(output, args),
+  }).pipe(
+    Effect.mapError((error) =>
+      cleanupFailure(`Failed to reconcile managed MCP entries in: ${output.containerPath}`, error),
+    ),
+    Effect.asVoid,
+  );
+};
+
+const pruneHookContainer = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  output: AgentOutputObservation,
+  args: ReconcileAgentOutputsArgs,
+  workspaceRoot: string,
+  scope: "project" | "user",
+): Effect.Effect<void, WorkspaceSyncCleanupFailure> =>
   Effect.gen(function* () {
-    const capabilityAgent = CAPABILITY_AGENTS.find(
-      (candidate) => candidate.id === context.agent.id,
+    const writer = CAPABILITY_AGENTS.flatMap((agent) => {
+      if (!output.claimantAgentIds.includes(agent.id)) return [];
+      const candidate = agent.capabilities.hook.axm.writer;
+      if (candidate === null) return [];
+      const ownsPath = candidate.configFiles.some(
+        (file) =>
+          file.scope === scope &&
+          file.format === "json" &&
+          path.resolve(workspaceRoot, file.path) === output.containerPath,
+      );
+      return ownsPath ? [candidate] : [];
+    })[0];
+    if (writer === undefined) return;
+    const raw = yield* safeReadFileString(fs, output.containerPath);
+    const next = yield* pruneManagedHooksFromJson(
+      output.containerPath,
+      writer.settingsKey,
+      raw,
+      desiredNamesForContainer(output, args),
+    ).pipe(
+      Effect.mapError((error) =>
+        cleanupFailure(`Failed to reconcile managed hooks in: ${output.containerPath}`, error),
+      ),
     );
-    const writer = capabilityAgent?.capabilities.hook.axm.writer;
-    if (writer === undefined || writer === null) return NO_PATHS;
-
-    const removedPaths: Array<string> = [];
-    const configFiles = writer.configFiles.filter(
-      (file) => file.scope === "project" && file.format === "json",
+    if (next === raw) return;
+    yield* protectWorkspacePath(output.containerPath).pipe(
+      Effect.andThen(fs.writeFileString(output.containerPath, next)),
+      Effect.andThen(recordFootprint({ path: output.containerPath, change: "modified" })),
+      Effect.mapError((error) =>
+        cleanupFailure(`Failed to write reconciled hooks to: ${output.containerPath}`, error),
+      ),
     );
-    for (const file of configFiles) {
-      const configPath = context.path.resolve(context.workspaceRoot, file.path);
-      const exists = yield* context.fs
-        .exists(configPath)
-        .pipe(Effect.catch(() => Effect.succeed(false)));
-      if (!exists) continue;
-
-      const raw = yield* safeReadFileString(context.fs, configPath);
-      const next = yield* stripManagedHooksFromJson(configPath, writer.settingsKey, raw);
-      if (next === raw) continue;
-
-      if (!context.dryRun) {
-        yield* protectWorkspacePath(configPath);
-        yield* context.fs.writeFileString(configPath, next).pipe(
-          Effect.mapError(
-            (error) =>
-              new WorkspaceSyncFailed({
-                category: "internal",
-                detail: `Failed to strip managed hooks from: ${configPath}`,
-                cause: error,
-              }),
-          ),
-        );
-      }
-      removedPaths.push(configPath);
-    }
-    return { removedPaths, preservedPaths: [] } satisfies RemovedAgentCleanupPaths;
   });
 
-/**
- * Cleanup keyed on the placement axis: every extension type that renders into a
- * directory the agent owns needs removal behavior here, and adding a per-agent
- * type fails to compile until that behavior is decided.
- *
- * Workspace-placed types are deliberately absent rather than mapped to a no-op.
- * Workspace-placed extensions live in shared workspace content and are not
- * keyed to a single agent, so removing one agent must not delete them.
- */
-const cleanupByExtensionType = {
-  skill: cleanupAgentSkills,
-  subagent: cleanupAgentSubagents,
-  "mcp-server": cleanupAgentMcpServers,
-  hook: cleanupAgentHooks,
-} as const satisfies Record<PerAgentType, RemovedAgentCleanup>;
-
-/**
- * Remove AXM-managed artifacts for agents that are no longer configured for a
- * workspace: rendered skill and subagent files, plus the agent's
- * managed MCP server entries and hook groups. Only content carrying an
- * AXM-managed signal is removed; user-authored files and entries are left
- * untouched.
- */
-export const cleanupManagedArtifactsForRemovedAgents = (args: {
-  readonly removedAgentIds: ReadonlySet<string>;
-  readonly dryRun?: boolean;
-}): Effect.Effect<
-  RemovedAgentArtifactCleanupResult,
+/** Converge all AXM-owned per-agent outputs on desired workspace state. */
+export const reconcileAgentOutputs = (
+  args: ReconcileAgentOutputsArgs,
+): Effect.Effect<
+  ReconcileAgentOutputsResult,
   WorkspaceSyncCleanupFailure,
   CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > =>
   Effect.gen(function* () {
+    const before = yield* inventory(args);
+    const candidates = before.ownedResidue;
+    const preservedPaths = [...new Set(before.unownedFootprints.map(({ path }) => path))].sort();
+    if (args.dryRun === true) {
+      return {
+        removedPaths: [...new Set(candidates.map(({ path }) => path))].sort(),
+        preservedPaths,
+      };
+    }
+
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const agentRepo = yield* CodingAgentRepository;
-    const agents = yield* agentRepo.all;
-    const removedPaths: Array<string> = [];
-    const preservedPaths: Array<string> = [];
-
-    for (const agent of agents) {
-      if (!args.removedAgentIds.has(agent.id)) continue;
-
-      const context: RemovedAgentCleanupContext = {
-        fs,
-        path,
-        agent,
-        workspaceRoot: ws.baseDir,
-        scope: ws.scope,
-        skillOwnershipRoots:
-          ws.layout.scope === "project"
-            ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
-            : [ws.layout.acquiredRoot],
-        dryRun: args.dryRun === true,
-      };
-      for (const type of PER_AGENT_EXTENSION_TYPES) {
-        const result = yield* cleanupByExtensionType[type](context);
-        removedPaths.push(...result.removedPaths);
-        preservedPaths.push(...result.preservedPaths);
+    for (const output of candidates) {
+      if (output.extensionType === "skill" || output.extensionType === "subagent") {
+        yield* removeOwnedFile(fs, output);
       }
     }
+    for (const output of uniqueContainers(
+      candidates.filter(({ extensionType }) => extensionType === "mcp-server"),
+    )) {
+      yield* pruneMcpContainer(output, args, ws.baseDir, ws.scope);
+    }
+    for (const output of uniqueContainers(
+      candidates.filter(({ extensionType }) => extensionType === "hook"),
+    )) {
+      yield* pruneHookContainer(fs, path, output, args, ws.baseDir, ws.scope);
+    }
 
-    return {
-      removedPaths: [...new Set(removedPaths)],
-      preservedPaths: [...new Set(preservedPaths)],
-    };
+    const after = yield* inventory(args);
+    const remaining = new Set(
+      after.outputs.map(
+        (output) => `${output.extensionType}\u0000${output.path}\u0000${output.entryName}`,
+      ),
+    );
+    const removedPaths = candidates
+      .filter(
+        (output) =>
+          !remaining.has(`${output.extensionType}\u0000${output.path}\u0000${output.entryName}`),
+      )
+      .map(({ path: outputPath }) => outputPath);
+    return { removedPaths: [...new Set(removedPaths)].sort(), preservedPaths };
   });
 
 /** Inspect ownership proofs without mutating any agent-native artifact. */
@@ -394,149 +217,27 @@ export const inspectWorkspaceOwnership = (): Effect.Effect<
   CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const agentRepo = yield* CodingAgentRepository;
     const configured = new Set(yield* ws.getConfiguredAgents());
-    const agents = yield* agentRepo.all;
-    const issues: Array<WorkspaceOwnershipIssue> = [];
-    for (const agent of agents) {
-      if (!configured.has(agent.id)) continue;
-      const skillsDir = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir });
-      if (skillsDir._tag === "supported") {
-        const result = yield* cleanupSkillArtifactsInDir({
-          fs,
-          path,
-          baseDir: ws.baseDir,
-          skillsDir: skillsDir.dir,
-          dryRun: true,
-          ownershipRoots:
-            ws.layout.scope === "project"
-              ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
-              : [ws.layout.acquiredRoot],
-        });
-        issues.push(
-          ...result.preservedPaths.map((artifactPath) => ({
-            kind: "managed-file-unowned" as const,
-            path: artifactPath,
-            detail: "Agent skill artifact has no AXM symlink or structured file ownership proof.",
-          })),
-        );
-      }
-      const subagentsDir = yield* agent.resolveEffectiveSubagentsDir({
-        workspaceRoot: ws.baseDir,
-        scope: ws.scope,
-      });
-      if (subagentsDir._tag === "supported") {
-        const result = yield* cleanupSubagentArtifactsInDir({
-          fs,
-          path,
-          subagentsDir: subagentsDir.dir,
-          dryRun: true,
-        });
-        issues.push(
-          ...result.preservedPaths.map((artifactPath) => ({
-            kind: "managed-file-unowned" as const,
-            path: artifactPath,
-            detail: "Agent subagent artifact has no structured file ownership proof.",
-          })),
-        );
-      }
-      const capabilityAgent = CAPABILITY_AGENTS.find((candidate) => candidate.id === agent.id);
-      const writer = capabilityAgent?.capabilities.hook.axm.writer;
-      if (writer === undefined || writer === null) continue;
-      for (const file of writer.configFiles.filter(
-        (candidate) => candidate.scope === ws.scope && candidate.format === "json",
-      )) {
-        const configPath = path.resolve(ws.baseDir, file.path);
-        if (!(yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)))))
-          continue;
-        const raw = yield* safeReadFileString(fs, configPath);
-        const commands = yield* readAmbiguousHookCommands(configPath, writer.settingsKey, raw);
-        issues.push(
-          ...commands.map((command) => ({
-            kind: "hook-ownership-ambiguous" as const,
-            path: configPath,
-            detail: `Hook command targets an AXM canonical extension path without x-axm ownership metadata: ${command}`,
-          })),
-        );
-      }
-    }
-    return issues.filter(
-      (issue, index) =>
-        issues.findIndex(
-          (candidate) =>
-            candidate.kind === issue.kind &&
-            candidate.path === issue.path &&
-            candidate.detail === issue.detail,
-        ) === index,
-    );
-  });
-
-export const cleanupStaleManagedSubagentFiles = (args: {
-  readonly expectedSubagentNames: ReadonlySet<string>;
-  readonly dryRun?: boolean;
-}): Effect.Effect<
-  RenderedFileCleanupResult,
-  WorkspaceSyncCleanupFailure,
-  CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
-    const agentRepo = yield* CodingAgentRepository;
-    const configuredAgentIds = new Set(yield* ws.getConfiguredAgents());
-    const agents = yield* agentRepo.all;
-    const removedPaths: Array<string> = [];
-
-    for (const agent of agents) {
-      const resolved = yield* agent.resolveEffectiveSubagentsDir({
-        workspaceRoot: ws.baseDir,
-        scope: ws.scope,
-      });
-      if (resolved._tag !== "supported") continue;
-
-      const exists = yield* fs.exists(resolved.dir).pipe(Effect.catch(() => Effect.succeed(false)));
-      if (!exists) continue;
-
-      const entries = yield* fs
-        .readDirectory(resolved.dir)
-        .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-      for (const entry of entries) {
-        const filePath = path.join(resolved.dir, entry);
-        const stat = yield* fs.stat(filePath).pipe(Effect.option);
-        if (stat._tag === "None" || stat.value.type !== "File") continue;
-
-        const content = yield* fs
-          .readFileString(filePath)
-          .pipe(Effect.catch(() => Effect.succeed("")));
-        if (!hasAxmManagedMarker(content)) continue;
-
-        const expected =
-          configuredAgentIds.has(agent.id) &&
-          args.expectedSubagentNames.has(extensionNameFromFilename(entry));
-        if (expected) continue;
-
-        if (args.dryRun !== true) {
-          yield* protectWorkspacePath(filePath);
-          yield* fs.remove(filePath).pipe(
-            Effect.mapError(
-              (error) =>
-                new WorkspaceSyncFailed({
-                  category: "internal",
-                  detail: `Failed to remove stale managed subagent file: ${filePath}`,
-                  cause: error,
-                }),
-            ),
-          );
-          yield* recordFootprint({ path: filePath, change: "removed" });
-        }
-        removedPaths.push(filePath);
-      }
-    }
-
-    return { removedPaths };
+    const empty = new Set<string>();
+    const observed = yield* inventory({
+      desiredAgentIds: configured,
+      expectedNames: {
+        skill: empty,
+        subagent: empty,
+        "mcp-server": empty,
+        hook: empty,
+      },
+    });
+    return observed.unownedFootprints.map((output) => ({
+      kind:
+        output.extensionType === "hook"
+          ? ("hook-ownership-ambiguous" as const)
+          : ("managed-file-unowned" as const),
+      path: output.path,
+      detail:
+        output.extensionType === "hook"
+          ? `Hook command targets an AXM canonical extension path without x-axm ownership metadata: ${output.entryName}`
+          : `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
+    }));
   });

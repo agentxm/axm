@@ -8,8 +8,9 @@ import {
   type CodingAgentRepositoryService,
 } from "@agentxm/extension-workspace";
 import {
-  cleanupManagedArtifactsForRemovedAgents,
-  type RemovedAgentArtifactCleanupResult,
+  reconcileAgentOutputs,
+  type ReconcileAgentOutputsArgs,
+  type ReconcileAgentOutputsResult,
 } from "@agentxm/workspace-sync";
 import { makeAppError } from "../../app-error/index.js";
 import {
@@ -70,8 +71,9 @@ const provideCleanupServices = <A, E>(
 
 const cleanupStep = (
   removedAgentIds: ReadonlySet<string>,
+  reconciliation: ReconcileAgentOutputsArgs,
   services: CleanupServices,
-  preview: RemovedAgentArtifactCleanupResult,
+  preview: ReconcileAgentOutputsResult,
 ): PlannedJobStep => ({
   label: "Remove managed agent artifacts",
   readiness: "ready",
@@ -93,7 +95,7 @@ const cleanupStep = (
     ],
   },
   run: provideCleanupServices(
-    cleanupManagedArtifactsForRemovedAgents({ removedAgentIds }).pipe(
+    reconcileAgentOutputs(reconciliation).pipe(
       Effect.mapError(syncStepFailureAdapter.toStepFailure),
       Effect.map(
         (result) =>
@@ -216,15 +218,42 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
   }
 
   const removedAgentIds = new Set(agentIds);
+  const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+  if (!graph.complete) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: "Cannot safely clean agent projections while desired workspace state is incomplete",
+    });
+  }
+  const enabledNames = (extensionType: "skill" | "subagent" | "mcp-server" | "hook") =>
+    new Set(
+      graph.nodes
+        .filter((node) => node.enabled && node.type === extensionType)
+        .map(({ name }) => name),
+    );
+  const expectedSubagentNames = enabledNames("subagent");
+  const desiredAgentIds = new Set([
+    "universal",
+    ...configured.filter((agentId) => !removedAgentIds.has(agentId)),
+  ]);
+  const reconciliation = {
+    desiredAgentIds,
+    expectedNames: {
+      skill: new Set([...enabledNames("skill"), ...expectedSubagentNames]),
+      subagent: expectedSubagentNames,
+      "mcp-server": enabledNames("mcp-server"),
+      hook: enabledNames("hook"),
+    },
+  } as const;
   const cleanupServices = { ws, fs, path, agentRepo };
   const cleanupPreview = yield* provideCleanupServices(
-    cleanupManagedArtifactsForRemovedAgents({ removedAgentIds, dryRun: true }).pipe(
+    reconcileAgentOutputs({ ...reconciliation, dryRun: true }).pipe(
       Effect.mapError(syncFailureToAppError),
     ),
     cleanupServices,
   );
   const steps = [
-    cleanupStep(removedAgentIds, cleanupServices, cleanupPreview),
+    cleanupStep(removedAgentIds, reconciliation, cleanupServices, cleanupPreview),
     ...agentIds.map((agentId) => removeAgentStep(ws, agentId)),
   ];
   const atomicSteps = yield* makeAtomicMembershipSteps({

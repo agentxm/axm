@@ -18,6 +18,7 @@ import { settingsKeysRecognizedRule } from "./workspace/settings-keys-recognized
 import { lockfileValidRule } from "./workspace/lockfile-valid.js";
 import { agentsRecognizedRule } from "./workspace/agents-recognized.js";
 import { agentsDetectedDeclaredRule } from "./workspace/agents-detected-declared.js";
+import { agentsProjectionsStaleRule } from "./workspace/agents-projections-stale.js";
 import { instructionsSourcePresentRule } from "./workspace/instructions-source-present.js";
 import { instructionsTargetCurrentRule } from "./workspace/instructions-target-current.js";
 import { instructionsTargetUnownedRule } from "./workspace/instructions-target-unowned.js";
@@ -85,6 +86,7 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
 /** Rules whose evidence exists only in the live managed workspace. */
 export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   agentsDetectedDeclaredRule,
+  agentsProjectionsStaleRule,
   instructionsTargetCurrentRule,
   instructionsTargetUnownedRule,
   instructionsTargetStaleRule,
@@ -107,6 +109,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   axmSkillCompatibleRule,
   agentsRecognizedRule,
   agentsDetectedDeclaredRule,
+  agentsProjectionsStaleRule,
   instructionsSourcePresentRule,
   instructionsTargetCurrentRule,
   instructionsTargetUnownedRule,

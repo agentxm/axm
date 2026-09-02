@@ -15,6 +15,7 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type {
   PackDependencyReachability,
+  AgentOutputInventory,
   AxmSkillCompatibility,
   WorkspaceOwnershipIssue,
   InstructionProjectionSnapshot,
@@ -53,6 +54,8 @@ export interface WorkspaceRuleContext {
   /** Read-back currency for aggregate managed output units. */
   readonly projections?: WorkspaceProjectionsAccessor;
   readonly ownership?: Effect.Effect<ReadonlyArray<WorkspaceOwnershipIssue>>;
+  /** Owned and unowned agent-native outputs observed from resolved containers. */
+  readonly agentOutputs?: Effect.Effect<AgentOutputInventory>;
   /**
    * Installed non-pack extension manifests, keyed by nothing — rules walk the
    * list. Landed for `workspace/recommended-packs-retained`, which needs the

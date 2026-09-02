@@ -31,7 +31,6 @@ import {
   isConfiguredEntryEnabled,
   makeExtensionConstraintInvariantFact,
   planExtensionConstraintFact,
-  pruneManagedMcpServersForAgent,
   skillArtifactFromTargets,
   targetFromRef,
   toStepKey,
@@ -78,7 +77,6 @@ import {
   isInlineMcpServerEntry,
   SYNC_RECOVERY_IDS,
   buildInlineMcpServerSyncOperation,
-  buildMcpServerPruneOperation,
   type SyncStepRequirements,
 } from "./plan.js";
 import type { SyncFailureAdapter } from "./failure-adapter.js";
@@ -423,7 +421,6 @@ export const collectMaterializeSteps = <
     const configuredAgents = args.configuredAgents ?? (yield* ws.getConfiguredAgents());
     const desiredState = yield* ws.getDesiredStateGraph();
     const selection = args.selection ?? { target: Option.none(), type: Option.none() };
-    const isScoped = Option.isSome(selection.target) || Option.isSome(selection.type);
     const problems = scopedProblems(desiredState, selection);
     const blockers = problems.filter((problem) => {
       const name = recoverableExternalPackName(desiredState, problem);
@@ -714,28 +711,6 @@ export const collectMaterializeSteps = <
     ).pipe(
       Effect.map((steps) => steps.flatMap((step) => (Option.isSome(step) ? [step.value] : []))),
     );
-    const needsMcpServerPrune =
-      problems.length === 0 &&
-      !isScoped &&
-      configuredAgents.length > 0 &&
-      (yield* Effect.forEach(
-        configuredAgents,
-        (agentId) =>
-          pruneManagedMcpServersForAgent(agentId, {
-            workspaceRoot: ws.baseDir,
-            declaredServerNames: declaredMcpServerNames,
-            scope: ws.scope,
-            dryRun: true,
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-        { concurrency: "unbounded" },
-      ).pipe(
-        Effect.map((outcomes) =>
-          outcomes.some((outcome) => outcome._tag === "success" && outcome.targets !== undefined),
-        ),
-      ));
     const skillMaterializeStep = ({ ref, force, transitionLabel }: Reconciled<SkillExtensionRef>) =>
       Effect.gen(function* () {
         const buildArtifact = () =>
@@ -801,6 +776,8 @@ export const collectMaterializeSteps = <
       serialMaterialization: packRecoverySteps.length > 0,
       expectedSkillNames: new Set(skillRefs.map(({ ref }) => ref.skill.name)),
       expectedSubagentNames: new Set(subagentRefs.map(({ ref }) => ref.subagent.name)),
+      expectedMcpServerNames: declaredMcpServerNames,
+      expectedHookNames: new Set(hookRefs.map(({ ref }) => ref.hook.name)),
       releaseAge: {
         evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
         holdbacks: normalizeReleaseAgeRecords([
@@ -826,16 +803,6 @@ export const collectMaterializeSteps = <
             }),
           ),
         ...inlineMcpServerSteps,
-        ...(needsMcpServerPrune
-          ? [
-              buildMcpServerPruneOperation({
-                declaredServerNames: declaredMcpServerNames,
-                agentIds: configuredAgents,
-                ws,
-                adapter: args.adapter,
-              }),
-            ]
-          : []),
         ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
         ...ruleRefs
           .filter(({ materialize }) => materialize)

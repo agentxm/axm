@@ -13,7 +13,7 @@ import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install
 
 export const specification = defineSpecification({
   requirement: "cli/sync/realizes-desired-state",
-  title: "Sync restores managed state until it agrees with desired state",
+  title: "Sync converges AXM-owned outputs bidirectionally on desired state",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "agent-interoperability"],
@@ -96,5 +96,23 @@ describe("Sync realizes desired workspace state", () => {
         result: { outcome: "no-op", counts: { total: 0 } },
       });
     }),
+  );
+
+  it.effect(
+    "removes universal projections after a direct settings edit and then becomes a no-op",
+    () =>
+      Effect.gen(function* () {
+        const workspace = yield* installedWorkspace();
+        expect(workspace.exists(".agents/skills/code-review")).toBe(true);
+
+        workspace.writeSettings({ owner: "@acme", agents: ["claude-code"], skills: {} });
+        yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
+
+        expect(workspace.exists(".agents/skills/code-review")).toBe(false);
+        yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
+        expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
+          result: { outcome: "no-op", counts: { total: 0 } },
+        });
+      }),
   );
 });

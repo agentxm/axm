@@ -29,7 +29,7 @@ import { ExitCode, makeAppError } from "../../app-error/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { effectCliExit } from "../../cli-runtime/index.js";
-import { WorkspaceInvariantFacts } from "@agentxm/extension-workspace";
+import { WorkspaceInvariantFacts, observeAgentOutputs } from "@agentxm/extension-workspace";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { inspectWorkspaceOwnership } from "@agentxm/workspace-sync";
@@ -362,9 +362,40 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     Effect.provideService(WorkspaceMutations, ws),
     Effect.provideService(CodingAgentRepository, agentRepo),
   );
+  const desiredGraph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+  const enabledNames = (extensionType: "skill" | "subagent" | "mcp-server" | "hook") =>
+    new Set(
+      desiredGraph.nodes
+        .filter((node) => node.enabled && node.type === extensionType)
+        .map(({ name }) => name),
+    );
+  const expectedSubagentNames = enabledNames("subagent");
+  const desiredAgentIds = new Set(
+    (yield* agentRepo.getMaterializationAgents()).map(({ id }) => id),
+  );
+  const agentOutputs = yield* observeAgentOutputs({
+    workspaceRoot: ws.baseDir,
+    scope: ws.scope,
+    desiredAgentIds,
+    expectedNames: {
+      skill: new Set([...enabledNames("skill"), ...expectedSubagentNames]),
+      subagent: expectedSubagentNames,
+      "mcp-server": enabledNames("mcp-server"),
+      hook: enabledNames("hook"),
+    },
+    skillOwnershipRoots:
+      ws.layout.scope === "project"
+        ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
+        : [ws.layout.acquiredRoot],
+  }).pipe(
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+    Effect.provideService(CodingAgentRepository, agentRepo),
+  );
   const workspaceHealthContext = {
     ...workspaceContext,
     ownership: Effect.succeed(ownershipIssues),
+    agentOutputs: Effect.succeed(agentOutputs),
     health: {
       desiredState: ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError)),
       canonicalObservations,

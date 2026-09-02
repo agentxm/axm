@@ -751,6 +751,7 @@
             "workspace/axm-skill-compatible": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/agents-recognized": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/agents-detected-declared": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/agents-projections-stale": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/instructions-source-present": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/instructions-target-current": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/instructions-target-unowned": { "$ref": "#/definitions/LintRuleSeverity" },

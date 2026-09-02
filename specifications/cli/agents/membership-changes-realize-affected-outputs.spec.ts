@@ -135,4 +135,17 @@ describe("Coding-agent membership changes", () => {
       );
     }),
   );
+
+  it.effect("removing one claimant preserves an owned projection in a shared agent directory", () =>
+    Effect.gen(function* () {
+      const workspace = yield* workspaceWithInstalledSkill();
+      yield* addAgent(workspace, "amp");
+      expect(workspace.exists(".agents/skills/code-review")).toBe(true);
+
+      yield* removeAgent(workspace, "amp");
+
+      expect(workspace.exists(".agents/skills/code-review")).toBe(true);
+      expect(workspace.readSettings()).toMatchObject({ agents: ["claude-code"] });
+    }),
+  );
 });

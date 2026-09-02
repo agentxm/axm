@@ -752,7 +752,7 @@ describe("root sync handler", () => {
           counts: { committed: 0 },
           units: [
             {
-              label: "mcp-server stale managed entries",
+              label: "stale managed agent projections",
               state: "ready",
             },
           ],
@@ -964,9 +964,9 @@ describe("root sync handler", () => {
       const units = planResultUnits(result);
       expect(units).toMatchObject([
         {
-          label: "mcp-server stale managed entries",
+          label: "stale managed agent projections",
           state: "committed",
-          message: "Pruned stale managed MCP server entries",
+          message: "Removed 1 stale managed agent projection",
         },
       ]);
       const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
@@ -1360,11 +1360,11 @@ describe("root sync handler", () => {
       const previewUnits = planResultUnits(preview);
       expect(previewUnits).toMatchObject([
         {
-          label: "mcp-server stale managed entries",
+          label: "stale managed agent projections",
           state: "ready",
         },
       ]);
-      expect(JSON.stringify(previewUnits)).not.toContain("browser");
+      expect(JSON.stringify(previewUnits)).toContain("browser");
 
       rendererState.results.length = 0;
       yield* provide(handleSync({ preview: false }));
@@ -1375,7 +1375,7 @@ describe("root sync handler", () => {
       });
       expect(planResultUnits(applied)).toMatchObject([
         {
-          label: "mcp-server stale managed entries",
+          label: "stale managed agent projections",
           state: "committed",
         },
       ]);

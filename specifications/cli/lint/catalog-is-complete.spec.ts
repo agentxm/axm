@@ -117,6 +117,7 @@ const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["workspace/axm-skill-compatible", "error", bothViews],
   ["workspace/agents-recognized", "error", bothViews],
   ["workspace/agents-detected-declared", "warning", workspaceView],
+  ["workspace/agents-projections-stale", "warning", workspaceView],
   ["workspace/instructions-source-present", "error", bothViews],
   ["workspace/instructions-target-current", "warning", workspaceView],
   ["workspace/instructions-target-unowned", "warning", workspaceView],

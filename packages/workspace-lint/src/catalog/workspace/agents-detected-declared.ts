@@ -50,9 +50,18 @@ export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
       }
 
       const detected = yield* scoped.agents.detected;
+      const outputs = context.agentOutputs === undefined ? undefined : yield* context.agentOutputs;
       const findings: Array<AdvisoryFinding> = [];
       for (const detection of detected) {
         if (detection.status !== "unmanaged-present") {
+          continue;
+        }
+        if (
+          outputs?.outputs.some(
+            (output) =>
+              output.ownership === "owned" && output.claimantAgentIds.includes(detection.agentId),
+          ) === true
+        ) {
           continue;
         }
         findings.push({

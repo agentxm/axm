@@ -13,13 +13,22 @@ import {
 import type { CodingAgentRepositoryService } from "@agentxm/extension-workspace";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
-import {
-  cleanupManagedArtifactsForRemovedAgents,
-  cleanupStaleManagedSkillDirectories,
-} from "./index.js";
+import { reconcileAgentOutputs } from "./index.js";
 
 const AXM_MANAGED_MARKER =
   "<!-- axm:file v=1 ext=@acme/subagents/test src=agent_extensions/@acme/subagents/test -->";
+
+const expectedNames = (overrides?: {
+  readonly skill?: ReadonlyArray<string>;
+  readonly subagent?: ReadonlyArray<string>;
+  readonly mcpServer?: ReadonlyArray<string>;
+  readonly hook?: ReadonlyArray<string>;
+}) => ({
+  skill: new Set(overrides?.skill ?? []),
+  subagent: new Set(overrides?.subagent ?? []),
+  "mcp-server": new Set(overrides?.mcpServer ?? []),
+  hook: new Set(overrides?.hook ?? []),
+});
 
 describe("cleanupManagedArtifactsForRemovedAgents", () => {
   it.effect("removes only AXM-managed skill and subagent artifacts for removed agents", () =>
@@ -72,8 +81,9 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           Layer.succeed(CodingAgentRepository, agentRepo),
         );
 
-        const preview = yield* cleanupManagedArtifactsForRemovedAgents({
-          removedAgentIds: new Set(["cursor"]),
+        const preview = yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(),
+          expectedNames: expectedNames(),
           dryRun: true,
         }).pipe(Effect.provide(layer));
 
@@ -86,8 +96,9 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         expect(fs.existsSync(managedSkillLink)).toBe(true);
         expect(fs.existsSync(managedSubagent)).toBe(true);
 
-        const result = yield* cleanupManagedArtifactsForRemovedAgents({
-          removedAgentIds: new Set(["cursor"]),
+        const result = yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(),
+          expectedNames: expectedNames(),
         }).pipe(Effect.provide(layer));
 
         expect(result.removedPaths).toEqual(
@@ -139,8 +150,9 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           Layer.succeed(CodingAgentRepository, agentRepo),
         );
 
-        const result = yield* cleanupManagedArtifactsForRemovedAgents({
-          removedAgentIds: new Set(["cursor"]),
+        const result = yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(),
+          expectedNames: expectedNames(),
         }).pipe(Effect.provide(layer));
 
         expect(result.removedPaths).toEqual([]);
@@ -155,6 +167,43 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
 });
 
 describe("cleanupStaleManagedSkillDirectories", () => {
+  it.effect("reconciles the synthetic universal skill container", () =>
+    Effect.gen(function* () {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-universal-cleanup-"));
+      try {
+        const source = path.join(tempDir, "agent_extensions", "@acme", "skills", "retired", "src");
+        const skillsDir = path.join(tempDir, ".agents", "skills");
+        const projection = path.join(skillsDir, "retired");
+        fs.mkdirSync(source, { recursive: true });
+        fs.mkdirSync(skillsDir, { recursive: true });
+        fs.symlinkSync(source, projection);
+
+        const universal = codingAgentForId("universal");
+        const agentRepo: CodingAgentRepositoryService = {
+          get: () => Effect.succeed(universal),
+          all: Effect.succeed([universal]),
+          getConfiguredAgents: () => Effect.succeed([]),
+          getMaterializationAgents: () => Effect.succeed([universal]),
+          getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+        };
+        const layer = Layer.mergeAll(
+          NodeServices.layer,
+          Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(path.join(tempDir, ".axm"))),
+          Layer.succeed(CodingAgentRepository, agentRepo),
+        );
+
+        yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(["universal"]),
+          expectedNames: expectedNames(),
+        }).pipe(Effect.provide(layer));
+
+        expect(fs.existsSync(projection)).toBe(false);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }),
+  );
+
   it.effect(
     "previews and removes retired owned skill projections while preserving lookalikes",
     () =>
@@ -193,15 +242,17 @@ describe("cleanupStaleManagedSkillDirectories", () => {
             Layer.succeed(CodingAgentRepository, agentRepo),
           );
 
-          const preview = yield* cleanupStaleManagedSkillDirectories({
-            expectedSkillNames: new Set(["current"]),
+          const preview = yield* reconcileAgentOutputs({
+            desiredAgentIds: new Set(["cursor"]),
+            expectedNames: expectedNames({ skill: ["current"] }),
             dryRun: true,
           }).pipe(Effect.provide(layer));
           expect(preview.removedPaths).toEqual([retired]);
           expect(fs.existsSync(retired)).toBe(true);
 
-          yield* cleanupStaleManagedSkillDirectories({
-            expectedSkillNames: new Set(["current"]),
+          yield* reconcileAgentOutputs({
+            desiredAgentIds: new Set(["cursor"]),
+            expectedNames: expectedNames({ skill: ["current"] }),
           }).pipe(Effect.provide(layer));
           expect(fs.existsSync(current)).toBe(true);
           expect(fs.existsSync(retired)).toBe(false);
@@ -260,15 +311,16 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           )}\n`,
         );
 
-        const result = yield* cleanupManagedArtifactsForRemovedAgents({
-          removedAgentIds: new Set(["claude-code"]),
+        const result = yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(),
+          expectedNames: expectedNames(),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
 
         const parsed: unknown = JSON.parse(fs.readFileSync(mcpConfig, "utf8"));
         expect(parsed).toEqual({
           mcpServers: { "user-server": { command: "npx", args: ["-y", "user-mcp"] } },
         });
-        expect(result.removedPaths).toEqual(expect.arrayContaining([mcpConfig]));
+        expect(result.removedPaths).toEqual(expect.arrayContaining([`${mcpConfig}#acme-managed`]));
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -323,15 +375,17 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         );
 
         const before = fs.readFileSync(settingsPath, "utf8");
-        const preview = yield* cleanupManagedArtifactsForRemovedAgents({
-          removedAgentIds: new Set(["claude-code"]),
+        const preview = yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(),
+          expectedNames: expectedNames(),
           dryRun: true,
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
-        expect(preview.removedPaths).toContain(settingsPath);
+        expect(preview.removedPaths).toContain(`${settingsPath}#guard`);
         expect(fs.readFileSync(settingsPath, "utf8")).toBe(before);
 
-        const result = yield* cleanupManagedArtifactsForRemovedAgents({
-          removedAgentIds: new Set(["claude-code"]),
+        const result = yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(),
+          expectedNames: expectedNames(),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
 
         const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
@@ -339,7 +393,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           permissions: { allow: ["Bash"] },
           hooks: { PreToolUse: [unownedCollision, userGroup] },
         });
-        expect(result.removedPaths).toEqual(expect.arrayContaining([settingsPath]));
+        expect(result.removedPaths).toEqual(expect.arrayContaining([`${settingsPath}#guard`]));
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -382,8 +436,9 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           )}\n`,
         );
 
-        yield* cleanupManagedArtifactsForRemovedAgents({
-          removedAgentIds: new Set(["claude-code"]),
+        yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(),
+          expectedNames: expectedNames(),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
 
         const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
@@ -418,8 +473,9 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         )}\n`;
         fs.writeFileSync(mcpConfig, original);
 
-        const result = yield* cleanupManagedArtifactsForRemovedAgents({
-          removedAgentIds: new Set(["codex"]),
+        const result = yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(["claude-code"]),
+          expectedNames: expectedNames({ mcpServer: ["acme-managed"] }),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
 
         expect(fs.readFileSync(mcpConfig, "utf8")).toEqual(original);

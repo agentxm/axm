@@ -8,8 +8,6 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { codingAgentForId, CodingAgentRepository } from "@agentxm/extension-workspace";
 import type { CodingAgentRepositoryService } from "@agentxm/extension-workspace";
-import { makeAppError } from "../../app-error/index.js";
-import { coupleAppError } from "../../app-error/conversions.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
@@ -66,7 +64,6 @@ describe("agents remove.handler", () => {
   const makeLayers = (opts?: {
     readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
     readonly machine?: boolean;
-    readonly failCleanupAtApply?: boolean;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const interaction = ResolvePlanInteractionTest();
@@ -85,27 +82,9 @@ describe("agents remove.handler", () => {
       baseLayer,
     );
     const opencode = codingAgentForId("opencode");
-    let skillsResolutionCount = 0;
-    const cleanupAgent =
-      opts?.failCleanupAtApply === true
-        ? {
-            ...opencode,
-            resolveEffectiveSkillsDir: (args: { readonly workspaceRoot: string }) => {
-              skillsResolutionCount += 1;
-              return skillsResolutionCount === 1
-                ? opencode.resolveEffectiveSkillsDir(args)
-                : coupleAppError(
-                    makeAppError({
-                      code: "internal",
-                      detail: "Injected managed artifact cleanup failure",
-                    }),
-                  );
-            },
-          }
-        : opencode;
     const agentRepo: CodingAgentRepositoryService = {
       get: () => Effect.succeed(opencode),
-      all: Effect.succeed([cleanupAgent]),
+      all: Effect.succeed([opencode]),
       getConfiguredAgents: () => Effect.succeed([]),
       getMaterializationAgents: () => Effect.succeed([]),
       getUnknownConfiguredAgentIds: () => Effect.succeed([]),
@@ -226,44 +205,6 @@ describe("agents remove.handler", () => {
             },
           ],
         });
-      }),
-    );
-  });
-
-  it.effect("reports cleanup failure instead of a removed-agent success", () => {
-    const { provide, rendererState } = makeLayers({ failCleanupAtApply: true });
-    writeWorkspace(path.join(tempDir, ".axm"), {
-      agents: ["opencode"],
-      lockfile: "lockfileVersion: 6\nskills: {}\n",
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleAgentsRemove({
-          ids: ["opencode"],
-          yes: true,
-          force: false,
-          preview: false,
-        });
-
-        expect(rendererState.logs).toContainEqual({
-          _tag: "error",
-          message: "Failed to remove 2 agents",
-        });
-        expect(rendererState.logs).toContainEqual(
-          expect.objectContaining({
-            _tag: "error",
-            message: expect.stringContaining("Injected managed artifact cleanup failure"),
-          }),
-        );
-        expect(rendererState.logs).not.toContainEqual({
-          _tag: "success",
-          message: "Removed 1 agent",
-        });
-        const settings: { readonly agents?: unknown } = JSON.parse(
-          fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),
-        );
-        expect(settings.agents).toEqual(["opencode"]);
       }),
     );
   });

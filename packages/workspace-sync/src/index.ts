@@ -10,12 +10,10 @@
 export { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 export { type SyncFailureAdapter, type SyncPolicyFailure } from "./failure-adapter.js";
 export {
-  cleanupManagedArtifactsForRemovedAgents,
-  cleanupStaleManagedSkillDirectories,
-  cleanupStaleManagedSubagentFiles,
   inspectWorkspaceOwnership,
-  type RemovedAgentArtifactCleanupResult,
-  type RenderedFileCleanupResult,
+  reconcileAgentOutputs,
+  type ReconcileAgentOutputsArgs,
+  type ReconcileAgentOutputsResult,
 } from "./rendered-file-cleanup.js";
 export {
   buildInlineMcpServerSyncOperation,

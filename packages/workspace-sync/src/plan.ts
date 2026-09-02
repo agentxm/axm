@@ -47,10 +47,7 @@ import {
 } from "@agentxm/workspace-operations";
 import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { WorkspaceMutations, type McpServerEntry } from "@agentxm/workspace-state";
-import {
-  cleanupStaleManagedSkillDirectories,
-  cleanupStaleManagedSubagentFiles,
-} from "./rendered-file-cleanup.js";
+import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import type { SyncFailureAdapter } from "./failure-adapter.js";
 
 export const SYNC_RECOVERY_IDS = {
@@ -347,24 +344,31 @@ export const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(funct
 export const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function* (args: {
   readonly expectedSkillNames: ReadonlySet<string>;
   readonly expectedSubagentNames: ReadonlySet<string>;
+  readonly expectedMcpServerNames: ReadonlySet<string>;
+  readonly expectedHookNames: ReadonlySet<string>;
   readonly adapter: SyncFailureAdapter;
 }) {
   const ws = yield* WorkspaceMutations;
+  const agentRepo = yield* CodingAgentRepository;
+  const desiredAgentIds = new Set(
+    (yield* agentRepo.getMaterializationAgents()).map(({ id }) => id),
+  );
   const expectedSkillProjectionNames = new Set([
     ...args.expectedSkillNames,
     ...args.expectedSubagentNames,
   ]);
-  const preview = yield* Effect.all([
-    cleanupStaleManagedSkillDirectories({
-      expectedSkillNames: expectedSkillProjectionNames,
-      dryRun: true,
-    }),
-    cleanupStaleManagedSubagentFiles({
-      expectedSubagentNames: args.expectedSubagentNames,
-      dryRun: true,
-    }),
-  ]);
-  const previewPaths = preview.flatMap(({ removedPaths }) => removedPaths);
+  const expectedNames = {
+    skill: expectedSkillProjectionNames,
+    subagent: args.expectedSubagentNames,
+    "mcp-server": args.expectedMcpServerNames,
+    hook: args.expectedHookNames,
+  } as const;
+  const preview = yield* reconcileAgentOutputs({
+    desiredAgentIds,
+    expectedNames,
+    dryRun: true,
+  });
+  const previewPaths = preview.removedPaths;
   if (previewPaths.length === 0) return Option.none<PlannedJobStep<SyncStepRequirements>>();
   return Option.some<PlannedJobStep<SyncStepRequirements>>({
     key: "projection:cleanup",
@@ -377,15 +381,10 @@ export const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function*
       fileCount: previewPaths.length,
       targets: previewPaths.map((filePath) => ({ path: filePath, change: "removed" })),
     },
-    run: Effect.all([
-      cleanupStaleManagedSkillDirectories({
-        expectedSkillNames: expectedSkillProjectionNames,
-      }),
-      cleanupStaleManagedSubagentFiles({ expectedSubagentNames: args.expectedSubagentNames }),
-    ]).pipe(
+    run: reconcileAgentOutputs({ desiredAgentIds, expectedNames }).pipe(
       Effect.mapError(args.adapter.toStepFailure),
-      Effect.map((results): JobStepResult => {
-        const removedPaths = results.flatMap((result) => result.removedPaths);
+      Effect.map((result): JobStepResult => {
+        const removedPaths = result.removedPaths;
         return {
           result: "success",
           message: `Removed ${count(removedPaths.length, "stale managed agent projection")}`,

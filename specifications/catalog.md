@@ -338,7 +338,17 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/sync/preserves-configuration-and-resolutions.spec.ts`](../specifications/cli/sync/preserves-configuration-and-resolutions.spec.ts)
 
-##### Sync restores managed state until it agrees with desired state
+##### Sync never removes agent-native content without AXM ownership proof
+
+- Requirement: `cli/sync/preserves-unowned-agent-content`
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/sync/preserves-unowned-agent-content.spec.ts`](../specifications/cli/sync/preserves-unowned-agent-content.spec.ts)
+
+##### Sync converges AXM-owned outputs bidirectionally on desired state
 
 - Requirement: `cli/sync/realizes-desired-state`
 - Class: functional
@@ -476,6 +486,16 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: contract, decision-table
 - Source: [`specifications/cli/lint/catalog-is-complete.spec.ts`](../specifications/cli/lint/catalog-is-complete.spec.ts)
+
+##### Lint distinguishes AXM-owned residue from genuinely undeclared agents
+
+- Requirement: `cli/lint/distinguishes-owned-residue-from-undeclared-agents`
+- Class: functional
+- Role: interface
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/lint/distinguishes-owned-residue-from-undeclared-agents.spec.ts`](../specifications/cli/lint/distinguishes-owned-residue-from-undeclared-agents.spec.ts)
 
 ##### Lint findings identify the violated invariant and affected subject as facts
 

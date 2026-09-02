@@ -4,11 +4,13 @@ import * as Option from "effect/Option";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  type AgentOutputInventory,
   evaluateAxmSkillCompatibility,
   makeProjectionInvariantFact,
 } from "@agentxm/extension-workspace";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { agentsDetectedDeclaredRule } from "../../agents-detected-declared.js";
+import { agentsProjectionsStaleRule } from "../../agents-projections-stale.js";
 import { axmSkillCompatibleRule } from "../../axm-skill-compatible.js";
 import { hookOwnershipAmbiguousRule } from "../../hook-ownership-ambiguous.js";
 import { knowledgeStateValidRule } from "../../knowledge-state-valid.js";
@@ -87,6 +89,45 @@ export const agentsDetectedDeclaredConformance: WorkspaceRuleConformanceCase = {
           }) satisfies WorkspaceRuleContext,
       ),
     ),
+};
+
+const staleAgentProjection: AgentOutputInventory["ownedResidue"][number] = {
+  extensionType: "skill",
+  containerPath: "/workspace/.agents/skills",
+  path: "/workspace/.agents/skills/review",
+  entryName: "review",
+  claimantAgentIds: ["universal"],
+  ownership: "owned",
+  proof: "managed-banner",
+  desired: false,
+};
+
+const agentProjectionContext = (ownedResidue: AgentOutputInventory["ownedResidue"]) =>
+  contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          agentOutputs: Effect.succeed({
+            outputs: ownedResidue,
+            ownedResidue,
+            unownedFootprints: [],
+          }),
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const agentsProjectionsStaleConformance: WorkspaceRuleConformanceCase = {
+  rule: agentsProjectionsStaleRule,
+  satisfied: () => agentProjectionContext([]),
+  violated: () => agentProjectionContext([staleAgentProjection]),
+  expectedFindings: [
+    {
+      message: "AXM-owned skill projection 'review' is no longer desired.",
+      location: { file: "/workspace/.agents/skills/review" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
 };
 
 const ownershipContext = (

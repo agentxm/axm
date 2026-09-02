@@ -37,6 +37,7 @@ import {
 } from "./conformance/reconciliation/test-helpers.js";
 import {
   agentsDetectedDeclaredConformance,
+  agentsProjectionsStaleConformance,
   axmSkillCompatibleConformance,
   hookOwnershipAmbiguousConformance,
   knowledgeStateValidConformance,
@@ -60,6 +61,7 @@ const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   axmSkillCompatibleConformance,
   agentsRecognizedConformance,
   agentsDetectedDeclaredConformance,
+  agentsProjectionsStaleConformance,
   instructionsSourcePresentConformance,
   instructionsTargetCurrentConformance,
   instructionsTargetUnownedConformance,

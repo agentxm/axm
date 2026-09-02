@@ -515,6 +515,12 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: workspaceView,
   },
   {
+    id: "workspace/agents-projections-stale",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: workspaceView,
+  },
+  {
     id: "workspace/instructions-source-present",
     defaultSeverity: "error",
     group: "workspace",

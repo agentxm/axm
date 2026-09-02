@@ -18,6 +18,12 @@ const projectHasBuildTarget = (configFile: string): boolean => {
 
 export const typecheckTargetGlob = "{packages/*,specifications}/tsconfig.spec.json";
 
+export const typecheckDependencies = (hasBuildTarget: boolean): string[] => [
+  "axm:build-test-reporting",
+  ...(hasBuildTarget ? ["build"] : []),
+  "^typecheck",
+];
+
 export const createNodesV2: CreateNodesV2 = [
   typecheckTargetGlob,
   (configFiles, options, context): Promise<CreateNodesResultV2> =>
@@ -31,10 +37,7 @@ export const createNodesV2: CreateNodesV2 = [
                 typecheck: {
                   executor: "nx:run-commands",
                   cache: true,
-                  dependsOn: [
-                    ...(projectHasBuildTarget(configFile) ? ["build"] : []),
-                    "^typecheck",
-                  ],
+                  dependsOn: typecheckDependencies(projectHasBuildTarget(configFile)),
                   inputs: [
                     "{projectRoot}/package.json",
                     "{projectRoot}/tsconfig*.json",

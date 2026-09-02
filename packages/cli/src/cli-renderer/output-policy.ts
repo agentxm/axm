@@ -5,6 +5,7 @@ export interface CliOutputEnvironment {
 
 export interface CliOutputPolicy {
   readonly colors: boolean;
+  readonly animate: boolean;
   readonly interactiveActivity: boolean;
   readonly quiet: boolean;
 }
@@ -25,6 +26,11 @@ const hasCi = (env: NodeJS.ProcessEnv): boolean => hasNonEmptyEnv(env, "CI");
 
 const hasNoColor = (env: NodeJS.ProcessEnv): boolean => hasNonEmptyEnv(env, "NO_COLOR");
 
+const hasForceColor = (env: NodeJS.ProcessEnv): boolean => {
+  const value = env["FORCE_COLOR"];
+  return value !== undefined && value !== "" && value !== "0";
+};
+
 const hasDisabledForceColor = (env: NodeJS.ProcessEnv): boolean => {
   const value = env["FORCE_COLOR"];
   return value !== undefined && (value === "" || value === "0");
@@ -38,16 +44,23 @@ export const resolveCliOutputPolicy = (
   // eslint-disable-next-line no-restricted-properties -- Centralized env access for CLI output policy detection.
   const env = environment?.env ?? process.env;
   const stdoutIsTTY = environment?.stdoutIsTTY ?? process.stdout.isTTY;
-  const plainOutput =
-    stdoutIsTTY !== true ||
-    hasCi(env) ||
-    hasNoColor(env) ||
-    hasDisabledForceColor(env) ||
-    hasDumbTerminal(env);
+  const animate =
+    stdoutIsTTY === true &&
+    !hasCi(env) &&
+    !hasNoColor(env) &&
+    !hasDisabledForceColor(env) &&
+    !hasDumbTerminal(env);
+  const colors =
+    (!hasCi(env) || hasForceColor(env)) &&
+    !hasNoColor(env) &&
+    !hasDisabledForceColor(env) &&
+    !hasDumbTerminal(env) &&
+    (stdoutIsTTY === true || hasForceColor(env));
 
   return {
-    colors: !plainOutput,
-    interactiveActivity: !plainOutput,
+    colors,
+    animate,
+    interactiveActivity: animate,
     quiet: environment?.quiet ?? false,
   };
 };

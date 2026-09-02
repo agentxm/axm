@@ -334,11 +334,11 @@ knowledge:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: software-engineering
-    resolvedVersion: 2.0.1
-    integrity: sha512-d+hv9YejccC8+Rxl5aPleYxe8sKXOwh834+CUAezK9bDKDaflU3cYyzFl4lwCPjRY/2T8o6gqjXx76SSPULrBQ==
+    resolvedVersion: 2.3.0
+    integrity: sha512-LGtOesvo1G3OfepfjmubJRNCZ5lYn/cKBp6xsueU0YGCd3u35qJqKa9FvPPSQrWxoSXw/2yv0GqJmmY/6DchRQ==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:08fc9ef531fdd454395695161a358ebf061c15634f3160f2f6c8f9c92fda5ba0
+    treeIntegrity: sha256-tree-v1:4311633d158193ca0bdd327263ae3698f3e16f3db5e8f9c683913b96b3e3ced7
   requirements-engineering:
     type: registry
     sourceType: registry

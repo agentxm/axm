@@ -109,7 +109,7 @@ arguments resolve from that directory.
 
 These path forms are the one supported exception to invoking `axm:local` by its
 published name, recorded in the
-[Command execution policy](../../docs/guides/command-execution-policy.md#named-exceptions):
+[Repository task interface](../../docs/guides/repository-task-interface.md#entrypoints-and-host-adapters):
 outside the checkout there is no `pnpm` that resolves the name against AXM's
 `package.json`. Inside the checkout, use `pnpm run axm:local -C <workspace>`.
 
@@ -149,7 +149,7 @@ scripts/container-environment.sh smoke
 ```
 
 That path invocation is a recorded exception in the
-[Command execution policy](../../docs/guides/command-execution-policy.md); do
+[Repository task interface](../../docs/guides/repository-task-interface.md); do
 not add flags or environment to the `container:*` scripts without updating the
 CI call sites in the same change, since those two forms could otherwise
 diverge.

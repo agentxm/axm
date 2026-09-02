@@ -35,7 +35,7 @@ full-repo Prettier commands. Use `pnpm format:affected` or
 ranges.
 
 Before adding a script, an Nx target, or a wrapper script, read the
-[Command execution policy](docs/guides/command-execution-policy.md). It decides
+[Repository task interface](docs/guides/repository-task-interface.md). It decides
 which of the three a new piece of work belongs in, and records every deliberate
 exception.
 

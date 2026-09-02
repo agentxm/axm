@@ -46,6 +46,7 @@
     },
     "binary-smoke-artifact": {
       "executor": "nx:run-commands",
+      "cache": false,
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",
         "cwd": "packages/cli-e2e",
@@ -55,6 +56,7 @@
       }
     },
     "install-suite": {
+      "cache": false,
       "parallelism": false,
       "dependsOn": ["cli:compile-host"],
       "executor": "nx:run-commands",

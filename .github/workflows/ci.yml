@@ -154,7 +154,8 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Run actionlint from the pinned CI image
-        # Named exception in docs/guides/command-execution-policy.md: this job
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
         # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: scripts/container-environment.sh ci actionlint
 
@@ -242,7 +243,8 @@ jobs:
           AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
           NX_BASE: ${{ github.event.pull_request.base.sha }}
           NX_HEAD: ${{ github.event.pull_request.head.sha }}
-        # Named exception in docs/guides/command-execution-policy.md: this job
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
         # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: |
           scripts/container-environment.sh ci bash -lc '
@@ -338,7 +340,8 @@ jobs:
         env:
           AXM_CONTAINER_NX_PARALLEL: "2"
           AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
-        # Named exception in docs/guides/command-execution-policy.md: this job
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
         # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: >-
           scripts/container-environment.sh ci bash -lc
@@ -408,7 +411,8 @@ jobs:
         env:
           AXM_CONTAINER_NX_PARALLEL: "2"
           AXM_CONTAINER_VITEST_MAX_WORKERS: "4"
-        # Named exception in docs/guides/command-execution-policy.md: this job
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
         # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: >-
           scripts/container-environment.sh ci bash -lc
@@ -470,7 +474,8 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Verify main in pinned CI image
-        # Named exception in docs/guides/command-execution-policy.md: this job
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
         # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: >-
           scripts/container-environment.sh ci bash -lc

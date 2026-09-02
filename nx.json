@@ -7,13 +7,11 @@
     {
       "plugin": "@nx/js/typescript",
       "options": {
-        "typecheck": {
-          "targetName": "typecheck",
-          "configName": "tsconfig.json"
-        },
+        "typecheck": false,
         "build": false
       }
     },
+    "./scripts/typecheck-plugin.ts",
     {
       "plugin": "@nx/eslint/plugin",
       "options": {

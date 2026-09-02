@@ -5,10 +5,10 @@
  *   bun lint-bundled-skill.ts
  *
  * Implementation of the published `axm:lint-bundled-skill` target. Under
- * docs/guides/command-execution-policy.md and the command execution strategy
- * it binds (@craigsmitham/knowledge/software-engineering, principle 4) this
- * file is reached through that target, never by path — that is what lets a
- * developer reproduce the CI `extension-lint` job by name.
+ * docs/guides/repository-task-interface.md and the portable task-interface
+ * guide it binds, this file is reached through that target, never by path —
+ * that is what lets a developer reproduce the CI `extension-lint` job by
+ * name.
  *
  * The CLI's diagnostics stream straight through to the caller and its exit
  * status is inspected rather than masked: a lint run that never happened must

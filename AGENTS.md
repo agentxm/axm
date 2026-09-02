@@ -14,12 +14,12 @@ and package inventory.
 
 Nx targets are the units of work; `pnpm` scripts name workflows. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm axm` runs the Bun entrypoint from source; it does not build first.
 
-The layering of Nx targets, `pnpm` scripts, and wrapper scripts follows the
-[Command execution strategy](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/command-execution.md)
-from the installed `@craigsmitham/knowledge/software-engineering` bundle, bound
-locally by the
-[Command execution policy](docs/guides/command-execution-policy.md) — read it
-before adding a script, a target, or a wrapper. The table below is human
+The portable
+[Repository task interface](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/repository-task-interface.md)
+is authoritative for execution-surface semantics and conformance. AXM binds it
+locally in [Repository task interface](docs/guides/repository-task-interface.md) —
+read that binding before adding a script, target, wrapper, cache, or automation
+entrypoint. The table below is human
 convenience; the canonical forms are targets for units of work and published
 workflow names for workflows.
 
@@ -199,7 +199,7 @@ owns the binding constraint. The notes below are its operational projection.
 - `build` stays on TypeScript 6: `@nx/js:tsc` compiles in-process, and
   `dist/**/*.d.ts` is the published contract. `--batch` belongs to the `build`
   and `build:affected` scripts, not to the target — see the
-  [Command execution policy](docs/guides/command-execution-policy.md#named-exceptions).
+  [Repository task interface](docs/guides/repository-task-interface.md#entrypoints-and-host-adapters).
 - Need the TypeScript 6 CLI for a one-off check? It is installed as `tsc6`.
 
 Editors use the patched TypeScript 7 language server
@@ -341,7 +341,7 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                               | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                     |
 | [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                           | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                |
 | [requirements-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/requirements-engineering/src/index.md) | Portable requirements engineering for elicitation, analysis, specification, review, traceability, lifecycle, and evidence across project methods and tools             |
-| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md)         | Portable engineering craft for a repository's execution surface: task graphs, script surfaces, caching intent, and invocation contracts for humans, agents, and CI     |
+| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md)         | Portable engineering craft for evidence-backed codebase review and coherent repository execution surfaces                                                              |
 | [work-management](agent_extensions/agentxm/@craigsmitham/knowledge/work-management/src/index.md)                   | Portable software work-item taxonomy, content contracts, templates, lifecycle, evidence, and tracker-neutral guidance                                                  |
 | [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md)           | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
 

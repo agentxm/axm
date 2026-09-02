@@ -41,7 +41,7 @@
     },
     "test": {
       "executor": "nx:run-commands",
-      "cache": true,
+      "cache": false,
       "dependsOn": [
         "extension-model:build",
         "registry-protocol:build",
@@ -211,7 +211,7 @@
         "{workspaceRoot}/package.json",
         "{workspaceRoot}/scripts/**/*",
         "sharedGlobals",
-        "{workspaceRoot}/packages/*/src/**/*"
+        "{workspaceRoot}/packages/**/*"
       ],
       "options": {
         "command": "bun scripts/verify-source-hygiene.ts",

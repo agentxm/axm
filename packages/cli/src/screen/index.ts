@@ -68,6 +68,7 @@ export {
   type ProgressEvent,
   type SuggestionEvent,
 } from "./machine-events.js";
+export { ScreenLoggerLive } from "./logger.js";
 export {
   Verbs,
   agentOutcome,

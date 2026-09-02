@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { CliRenderer, count } from "./cli-renderer/index.js";
+import { count } from "./cli-renderer/index.js";
 import { Verbosity } from "./cli-flags/index.js";
 import {
   SuggestedActionSchema,
@@ -57,7 +57,8 @@ import { formatMinimumReleaseAgeSeconds } from "@agentxm/registry-protocol/unsta
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
-import { renderOperationOutcome, resolutionAgentCoverage } from "./operation-render.js";
+import { operationDoc, resolutionAgentCoverage } from "./operation-view.js";
+import { Screen, type Doc } from "./screen/index.js";
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
 import type { TargetedUpdatePublicContext } from "./root/update/targeted-update-context.js";
 
@@ -638,38 +639,57 @@ const releaseAgeHoldbackLine = (record: ReleaseAgeRecordView): string => {
 const releaseAgeBypassLine = (record: ReleaseAgeRecordView): string =>
   `Selected ${record.target} ${record.candidateVersion}${releaseAgeRequiredBy(record)} ahead of its eligibility at ${record.eligibleAt} (published ${record.publishedAt}) — ${releaseAgeExemption(record)}`;
 
-const renderReleaseAgeEvidence = (result: PlanResolutionResult) =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    if (result.holdbacks !== undefined && result.holdbacks.length > 0) {
-      const holdbacks = result.holdbacks;
-      yield* renderer.warn(
-        `${count(holdbacks.length, "newer release")} held by the ${releaseAgeWindowLabel(holdbacks)}`,
-      );
-      for (const holdback of holdbacks) {
-        yield* renderer.info(releaseAgeHoldbackLine(holdback));
-      }
-      const targets = Array.from(
-        new Set(holdbacks.map((holdback) => holdback.dependencyPath[0] ?? holdback.target)),
-      );
-      yield* renderer.info(
-        `Wait for the eligible time, pin an eligible version, or change minimumReleaseAge in settings.${
-          targets.length === 1
-            ? ` To take it now for this run only, run axm update ${targets[0]} --ignore-release-age.`
-            : " To take one now for this run only, run axm update <extension[@version]> --ignore-release-age."
-        }`,
-      );
-    }
-    if (result.releaseAgeBypasses !== undefined && result.releaseAgeBypasses.length > 0) {
-      const bypasses = result.releaseAgeBypasses;
-      yield* renderer.warn(
-        `${count(bypasses.length, "release")} skipped the ${releaseAgeWindowLabel(bypasses)}`,
-      );
-      for (const bypass of bypasses) {
-        yield* renderer.info(releaseAgeBypassLine(bypass));
-      }
-    }
-  });
+const releaseAgeDoc = (result: PlanResolutionResult): Doc => {
+  const holdbacks = result.holdbacks ?? [];
+  const bypasses = result.releaseAgeBypasses ?? [];
+  const targets = Array.from(
+    new Set(holdbacks.map((holdback) => holdback.dependencyPath[0] ?? holdback.target)),
+  );
+  return [
+    ...(holdbacks.length === 0
+      ? []
+      : [
+          {
+            _tag: "callout",
+            tone: "warn",
+            title: `${count(holdbacks.length, "newer release")} held by the ${releaseAgeWindowLabel(holdbacks)}`,
+            children: [
+              ...holdbacks.map(
+                (holdback) =>
+                  ({
+                    _tag: "paragraph",
+                    text: releaseAgeHoldbackLine(holdback),
+                  }) as const,
+              ),
+              {
+                _tag: "paragraph",
+                text: `Wait for the eligible time, pin an eligible version, or change minimumReleaseAge in settings.${
+                  targets.length === 1
+                    ? ` To take it now for this run only, run axm update ${targets[0]} --ignore-release-age.`
+                    : " To take one now for this run only, run axm update <extension[@version]> --ignore-release-age."
+                }`,
+              },
+            ],
+          } as const,
+        ]),
+    ...(bypasses.length === 0
+      ? []
+      : [
+          {
+            _tag: "callout",
+            tone: "warn",
+            title: `${count(bypasses.length, "release")} skipped the ${releaseAgeWindowLabel(bypasses)}`,
+            children: bypasses.map(
+              (bypass) =>
+                ({
+                  _tag: "paragraph",
+                  text: releaseAgeBypassLine(bypass),
+                }) as const,
+            ),
+          } as const,
+        ]),
+  ];
+};
 
 // -----------------------------------------------------------------------------
 // The emit boundary
@@ -707,7 +727,7 @@ export const emitOperationResolution = (
 ) =>
   Effect.gen(function* () {
     void command;
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const verbosity = yield* Verbosity;
     const outcome = deriveOperationOutcome(resolution);
     const exitCode = operationExitCode(resolution, outcome);
@@ -749,16 +769,19 @@ export const emitOperationResolution = (
     });
     yield* setOperationExitCode(exitCode);
 
-    const emitted = yield* renderer.result({ result }, PlanResolutionDocumentSchema, {
+    const emitted = yield* screen.document({ result }, PlanResolutionDocumentSchema, {
       ...(suggestions === undefined ? {} : { suggestions }),
       ok,
     });
     if (!emitted) {
-      yield* renderOperationOutcome(resolution, {
-        ...(suggestions === undefined ? {} : { suggestions }),
-        ...(options?.message === undefined ? {} : { message: options.message }),
-      });
-      yield* renderReleaseAgeEvidence(result);
+      yield* screen.result([
+        ...operationDoc(resolution, {
+          verbosity: verbosity.level,
+          ...(suggestions === undefined ? {} : { suggestions }),
+          ...(options?.message === undefined ? {} : { message: options.message }),
+        }),
+        ...releaseAgeDoc(result),
+      ]);
     }
     return { outcome, exitCode, emitted };
   });

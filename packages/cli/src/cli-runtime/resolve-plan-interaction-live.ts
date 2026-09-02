@@ -15,7 +15,8 @@ import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import { requireInteractive } from "../prompt/index.js";
 import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
-import { CliRenderer, displayPlan } from "../cli-renderer/index.js";
+import { planDoc } from "../operation-view.js";
+import { Screen } from "../screen/index.js";
 import { PlanInteractionFailed } from "@agentxm/workspace-operations";
 import { subscribeToLifecycle } from "@agentxm/workspace-operations";
 import { confirmationRecoverySuggestions } from "@agentxm/workspace-operations";
@@ -30,7 +31,7 @@ const confirmApplyChangesMessage = "Apply changes?";
 export const ResolvePlanInteractionLive = Layer.effect(
   ResolvePlanInteraction,
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const verbosity = yield* Verbosity;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -40,49 +41,49 @@ export const ResolvePlanInteractionLive = Layer.effect(
       Layer.succeed(Path.Path, path),
       Layer.succeed(Terminal.Terminal, terminal),
     );
-    const displayEnvironment = Layer.mergeAll(
-      Layer.succeed(CliRenderer, renderer),
-      Layer.succeed(Verbosity, verbosity),
-    );
-
     return {
       isConfirmationAvailable: Effect.map(
         isNonInteractiveOptional,
         (nonInteractive) => !nonInteractive,
       ),
       confirmApplyChanges: (recovery) =>
-        requireInteractive(Prompt.confirm({ message: confirmApplyChangesMessage }), {
-          message: confirmApplyChangesMessage,
-          suggestions: confirmationRecoverySuggestions(recovery),
-        }).pipe(
-          Effect.provide(promptEnvironment),
-          Effect.map((confirmed): ApplyConfirmation => (confirmed ? "approved" : "declined")),
-          Effect.catchTag("PromptCancelled", () => Effect.succeed("cancelled" as const)),
-          Effect.mapError(
-            (error) =>
-              new PlanInteractionFailed({
-                category: error.code,
-                detail: error.detail,
-                ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
-                ...(error.cause === undefined ? {} : { cause: error.cause }),
-              }),
+        screen
+          .prompt(
+            requireInteractive(Prompt.confirm({ message: confirmApplyChangesMessage }), {
+              message: confirmApplyChangesMessage,
+              suggestions: confirmationRecoverySuggestions(recovery),
+            }).pipe(Effect.provide(promptEnvironment)),
+          )
+          .pipe(
+            Effect.map((confirmed): ApplyConfirmation => (confirmed ? "approved" : "declined")),
+            Effect.catchTag("PromptCancelled", () => Effect.succeed("cancelled" as const)),
+            Effect.mapError(
+              (error) =>
+                new PlanInteractionFailed({
+                  category: error.code,
+                  detail: error.detail,
+                  ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+                  ...(error.cause === undefined ? {} : { cause: error.cause }),
+                }),
+            ),
           ),
-        ),
       presentPlan: (plan, options) =>
         Effect.suspend(() => {
           const hasConfirmableRisk = (plan.riskConditions ?? []).some(
             (condition) => condition.level === "confirmable",
           );
-          return options.mode === "preview" || verbosity.level !== "quiet" || hasConfirmableRisk
-            ? displayPlan(plan, { mode: options.mode }).pipe(Effect.provide(displayEnvironment))
-            : Effect.void;
+          if (options.mode !== "preview" && verbosity.level === "quiet" && !hasConfirmableRisk) {
+            return Effect.void;
+          }
+          const doc = planDoc(plan, { mode: options.mode, verbosity: verbosity.level });
+          return options.mode === "preview" ? screen.result(doc) : screen.note(doc);
         }),
       withPlanningProgress: <A, E, R>(planName: string, run: () => Effect.Effect<A, E, R>) =>
-        renderer.withSpinner(`Resolving ${planName}`, () => run(), {
+        screen.task(`Resolving ${planName}`, () => run(), {
           successMessage: `Resolved ${planName}`,
         }),
       withApplyProgress: <A, E, R>(planName: string, run: () => Effect.Effect<A, E, R>) =>
-        renderer.withSpinner(
+        screen.task(
           `Applying ${planName}`,
           (handle) =>
             Effect.scoped(
@@ -114,12 +115,16 @@ export const ResolvePlanInteractionLive = Layer.effect(
           { successMessage: `Processed ${planName}` },
         ),
       noteTransitionWait: (holder) =>
-        renderer.step(
-          `Waiting: resource-conflict — workspace transition held by ${Option.match(holder, {
-            onNone: () => "another operation",
-            onSome: (value) => `${value.command} (pid ${value.pid})`,
-          })}`,
-        ),
+        screen.note([
+          {
+            _tag: "callout",
+            tone: "warn",
+            title: `Waiting — workspace transition held by ${Option.match(holder, {
+              onNone: () => "another operation",
+              onSome: (value) => `${value.command} (pid ${value.pid})`,
+            })}`,
+          },
+        ]),
     } satisfies ResolvePlanInteractionService;
   }),
 );

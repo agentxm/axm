@@ -27,6 +27,7 @@ import {
 } from "./cli-renderer.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { taskCompletionMessage } from "./renderer-helpers.js";
+import { Screen, type Doc, type TaskHandle } from "../screen/index.js";
 
 // ---------------------------------------------------------------------------
 // TestRendererState — mutable state object capturing all CliRenderer calls
@@ -64,6 +65,7 @@ export interface TestRendererState {
   readonly outroMessages: Array<string>;
   readonly suggestions: Array<SuggestedAction>;
   readonly summaries: Array<string>;
+  readonly docs: Array<{ readonly channel: "stdout" | "stderr"; readonly doc: Doc }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +88,81 @@ const makeEmptyState = (): TestRendererState => ({
   outroMessages: [],
   suggestions: [],
   summaries: [],
+  docs: [],
+});
+
+const makeTestScreenService = (
+  state: TestRendererState,
+  resultReturnValue: boolean,
+): typeof Screen.Service => ({
+  result: (doc) =>
+    Effect.sync(() => {
+      state.docs.push({ channel: "stdout", doc });
+    }),
+  note: (doc) =>
+    Effect.sync(() => {
+      state.docs.push({ channel: "stderr", doc });
+    }),
+  document: <S extends Schema.Top>(
+    data: Schema.Schema.Type<S>,
+    schema: S,
+    options?: ResultOptions,
+  ) =>
+    Effect.sync(() => {
+      state.results.push({
+        data,
+        schema: Option.some(schema),
+        ...(options?.ok === undefined ? {} : { ok: options.ok }),
+      });
+      if (options?.withoutSuggestions !== true && options?.suggestions !== undefined) {
+        state.suggestions.push(...options.suggestions);
+      }
+      return resultReturnValue;
+    }),
+  task: <A, E, R>(
+    label: string,
+    body: (handle: TaskHandle) => Effect.Effect<A, E, R>,
+    options?: { readonly successMessage?: string | ((value: A) => string) },
+  ) => {
+    state.spinnerMessages.push(label);
+    const handle: TaskHandle = {
+      update: (message) =>
+        Effect.sync(() => {
+          state.spinnerMessages.push(message);
+        }),
+      progress: (done, total) =>
+        Effect.sync(() => {
+          state.spinnerMessages.push(`${done}/${total}`);
+        }),
+      child: (message) => Effect.succeed(handle).pipe(Effect.tap(() => handle.update(message))),
+    };
+    return body(handle).pipe(
+      Effect.tap((value) =>
+        Effect.sync(() => {
+          const message =
+            typeof options?.successMessage === "function"
+              ? options.successMessage(value)
+              : options?.successMessage;
+          if (message !== undefined) state.spinnerMessages.push(message);
+        }),
+      ),
+    );
+  },
+  log: (record) =>
+    Effect.sync(() => {
+      state.logs.push({
+        _tag:
+          record.level === "warn"
+            ? "warn"
+            : record.level === "error" || record.level === "fatal"
+              ? "error"
+              : "info",
+        message: record.message,
+      });
+    }),
+  prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
+  facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
+  settle: Effect.void,
 });
 
 const makeMockSpinnerHandle = (state: TestRendererState, _message: string): SpinnerHandle => ({
@@ -560,10 +637,16 @@ export const logsByTag = (state: TestRendererState) => ({
 // ---------------------------------------------------------------------------
 
 export const TestRenderer = {
-  make: (): { readonly layer: Layer.Layer<CliRenderer>; readonly state: TestRendererState } => {
+  make: (): {
+    readonly layer: Layer.Layer<CliRenderer | Screen>;
+    readonly state: TestRendererState;
+  } => {
     const state = makeEmptyState();
     const service = makeTestRendererService(state, false);
-    const layer = Layer.succeed(CliRenderer, service);
+    const layer = Layer.mergeAll(
+      Layer.succeed(CliRenderer, service),
+      Layer.succeed(Screen, makeTestScreenService(state, false)),
+    );
     return { layer, state };
   },
 };
@@ -573,10 +656,16 @@ export const TestRenderer = {
 // ---------------------------------------------------------------------------
 
 export const TestMachineRenderer = {
-  make: (): { readonly layer: Layer.Layer<CliRenderer>; readonly state: TestRendererState } => {
+  make: (): {
+    readonly layer: Layer.Layer<CliRenderer | Screen>;
+    readonly state: TestRendererState;
+  } => {
     const state = makeEmptyState();
     const service = makeTestRendererService(state, true);
-    const layer = Layer.succeed(CliRenderer, service);
+    const layer = Layer.mergeAll(
+      Layer.succeed(CliRenderer, service),
+      Layer.succeed(Screen, makeTestScreenService(state, true)),
+    );
     return { layer, state };
   },
 };

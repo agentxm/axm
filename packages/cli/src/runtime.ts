@@ -10,11 +10,10 @@ import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as References from "effect/References";
 import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 import { pathToFileURL } from "node:url";
 
-import { AppError, makeAppError, redactSensitiveValue } from "./app-error/index.js";
+import { AppError, makeAppError } from "./app-error/index.js";
 
 import {
   AgentPresenceProbeLive,
@@ -24,7 +23,6 @@ import {
 import {
   type CliTelemetryConfig,
   type ExpectedCliError,
-  type OutputFormat,
   getCommandSemanticProperties,
   InterruptionSignalSourceLive,
   makeFoundationLayer,
@@ -42,7 +40,6 @@ import {
   debugFlag,
   quietFlag,
   directoryFlag,
-  verbosityToLogLevel,
 } from "./cli-flags/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
 import {
@@ -93,6 +90,7 @@ import {
 import { ExecutionDirectory } from "./execution-directory.js";
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
+import { ScreenLoggerLive } from "./screen/index.js";
 
 export { verboseFlag, debugFlag };
 
@@ -172,49 +170,12 @@ export const cliConfigLayer = CliConfig.layer({ builtIns: [GlobalFlag.Help, vers
 
 export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer, cliConfigLayer);
 
-/**
- * Verbosity-driven diagnostics always use stderr so structured command output
- * on stdout remains machine-readable. The minimum level tracks the full
- * verbosity ladder (quiet→Warn, normal→Info, verbose→Debug, debug→Trace).
- */
-const formatMachineLogMessage = (message: unknown): string => {
-  const redacted = redactSensitiveValue(message);
-  if (typeof redacted === "string") return redacted;
-  if (Array.isArray(redacted)) {
-    return redacted
-      .map((part) => (typeof part === "string" ? part : (JSON.stringify(part) ?? String(part))))
-      .join(" ");
-  }
-  return JSON.stringify(redacted) ?? String(redacted);
-};
+/** Route Effect diagnostics through the Screen's serialized transcript writer. */
+export const makeCliLoggerLayer = (level: VerbosityLevel) => ScreenLoggerLive(level);
 
-const machineLogLevel = (level: Logger.Options<unknown>["logLevel"]) => {
-  if (level === "Fatal" || level === "Error") return "error";
-  if (level === "Warn") return "warn";
-  return "info";
-};
-
-const machineLogger = Logger.withConsoleError(
-  Logger.make((options) =>
-    JSON.stringify({
-      type: "log",
-      level: machineLogLevel(options.logLevel),
-      message: formatMachineLogMessage(options.message),
-    }),
-  ),
+const makeRuntimeLoggerLayer = Layer.unwrap(
+  Effect.map(Verbosity, (verbosity) => makeCliLoggerLayer(verbosity.level)),
 );
-
-export const makeCliLoggerLayer = (level: VerbosityLevel, format: OutputFormat = "text") =>
-  Layer.mergeAll(
-    Logger.layer([format === "json" ? machineLogger : Logger.consolePretty()], {
-      mergeWithExisting: false,
-    }),
-    Layer.succeed(References.LogToStderr, true),
-    Layer.succeed(References.MinimumLogLevel, verbosityToLogLevel(level)),
-  );
-
-const makeRuntimeLoggerLayer = (format: OutputFormat) =>
-  Layer.unwrap(Effect.map(Verbosity, (verbosity) => makeCliLoggerLayer(verbosity.level, format)));
 
 interface RuntimeEnvConfig {
   readonly registryLocation: string;
@@ -449,7 +410,7 @@ export const withRuntime =
       // run before a workspace exists (setup); workspace-bound commands get
       // the same layer again through withWorkspace, harmlessly.
       const appLayer = Layer.provideMerge(
-        makeRuntimeLoggerLayer(format),
+        makeRuntimeLoggerLayer,
         Layer.mergeAll(foundationLayer, interactionLayer, CodingAgentRepositoryLive),
       );
 

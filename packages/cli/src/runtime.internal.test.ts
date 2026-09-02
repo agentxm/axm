@@ -4,8 +4,8 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "@effect/vitest";
-import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
@@ -19,6 +19,7 @@ import {
   withWorkspace,
 } from "./runtime.js";
 import { makeWorkspaceHandlerTestContext } from "./test-helpers.js";
+import { makeTestScreen } from "./screen/index.js";
 
 describe("getBuiltInSources", () => {
   it("defines exactly the four accepted built-in source names and types", () => {
@@ -93,68 +94,30 @@ describe("withAxmUserAgent", () => {
 });
 
 describe("makeCliLoggerLayer", () => {
-  it.effect("routes debug diagnostics to stderr", () =>
+  it.effect("routes debug diagnostics through Screen", () =>
     Effect.gen(function* () {
-      const errors: Array<ReadonlyArray<unknown>> = [];
-      const logs: Array<ReadonlyArray<unknown>> = [];
-      const testConsole: Console.Console = {
-        ...console,
-        error: (...args: ReadonlyArray<unknown>) => errors.push(args),
-        log: (...args: ReadonlyArray<unknown>) => logs.push(args),
-      };
+      const screen = makeTestScreen();
 
       yield* Effect.logDebug("machine-safe debug message").pipe(
-        Effect.provideService(Console.Console, testConsole),
-        Effect.provide(makeCliLoggerLayer("debug")),
+        Effect.provide(Layer.provide(makeCliLoggerLayer("debug"), screen.layer)),
       );
 
-      expect(errors).toHaveLength(1);
-      expect(logs).toHaveLength(0);
+      expect(screen.state.logs).toEqual([
+        { level: "debug", message: "machine-safe debug message" },
+      ]);
     }),
   );
 
   it.effect("emits warnings but suppresses debug diagnostics at normal verbosity", () =>
     Effect.gen(function* () {
-      const errors: Array<ReadonlyArray<unknown>> = [];
-      const testConsole: Console.Console = {
-        ...console,
-        error: (...args: ReadonlyArray<unknown>) => errors.push(args),
-      };
+      const screen = makeTestScreen();
 
       yield* Effect.gen(function* () {
         yield* Effect.logDebug("hidden debug message");
         yield* Effect.logWarning("visible warning message");
-      }).pipe(
-        Effect.provideService(Console.Console, testConsole),
-        Effect.provide(makeCliLoggerLayer("normal")),
-      );
+      }).pipe(Effect.provide(Layer.provide(makeCliLoggerLayer("normal"), screen.layer)));
 
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.join(" ")).toContain("visible warning message");
-    }),
-  );
-
-  it.effect("emits machine-mode warnings as one typed JSON log event", () =>
-    Effect.gen(function* () {
-      const errors: Array<ReadonlyArray<unknown>> = [];
-      const testConsole: Console.Console = {
-        ...console,
-        error: (...args: ReadonlyArray<unknown>) => errors.push(args),
-      };
-
-      yield* Effect.logWarning("OS keychain unavailable; using restricted credential file.").pipe(
-        Effect.provideService(Console.Console, testConsole),
-        Effect.provide(makeCliLoggerLayer("normal", "json")),
-      );
-
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toEqual([
-        JSON.stringify({
-          type: "log",
-          level: "warn",
-          message: "OS keychain unavailable; using restricted credential file.",
-        }),
-      ]);
+      expect(screen.state.logs).toEqual([{ level: "warn", message: "visible warning message" }]);
     }),
   );
 });

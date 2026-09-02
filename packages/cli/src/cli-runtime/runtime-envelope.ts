@@ -53,6 +53,7 @@ import {
 } from "../cli-renderer/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
 import { makeJsonErrorEnvelope } from "./json-envelope.js";
+import { type Screen } from "../screen/index.js";
 
 const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
@@ -100,7 +101,7 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat): 
 
 export type ExpectedCliError =
   AppError | KnownFailure | PromptCancelled | WorkspaceInitializationCancelled;
-export type CliRuntimeFoundation = CliRenderer | Verbosity;
+export type CliRuntimeFoundation = CliRenderer | Screen | Verbosity;
 
 /**
  * Resolve the AppError rendering for an expected error. Known typed failures
@@ -199,21 +200,19 @@ export const makeFoundationLayer = (
     readonly verbosityLevel?: VerbosityLevel | undefined;
   },
 ) => {
-  // Json mode uses machine-readable output.
-  const rendererLayer =
-    format !== "text"
-      ? MachineRenderer()
-      : Layer.unwrap(
-          Effect.gen(function* () {
-            const quiet =
-              options?.verbosityLevel === undefined
-                ? yield* quietFlag
-                : options.verbosityLevel === "quiet";
-            return InteractiveRenderer({
-              outputPolicy: resolveCliOutputPolicy({ quiet }),
-            });
-          }),
-        );
+  const outputLayer = Layer.unwrap(
+    Effect.gen(function* () {
+      const quiet =
+        options?.verbosityLevel === undefined
+          ? yield* quietFlag
+          : options.verbosityLevel === "quiet";
+      if (format !== "text") {
+        return MachineRenderer({ quiet });
+      }
+      const outputPolicy = resolveCliOutputPolicy({ quiet });
+      return InteractiveRenderer({ outputPolicy });
+    }),
+  );
 
   // Verbosity: use explicit level if provided, otherwise derive from flags + env vars
   const verbosityLayer = options?.verbosityLevel
@@ -238,7 +237,7 @@ export const makeFoundationLayer = (
         }),
       );
 
-  return Layer.mergeAll(rendererLayer, verbosityLayer);
+  return Layer.mergeAll(outputLayer, verbosityLayer);
 };
 
 /**

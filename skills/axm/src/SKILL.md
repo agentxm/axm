@@ -82,7 +82,9 @@ preflight, lint, inventory, or state commands; hand the work to its owner.
 2. Check the CLI version and run `axm lint --json` when a workspace exists.
    Read `result.axmSkillCompatibility`. If it is incompatible, follow the
    reported recovery plan and `axm help upgrade`; do not invent a recovery or
-   edit release-owned compatibility stamps.
+   edit release-owned compatibility stamps. If the field is absent, the
+   workspace did not declare the official skill and compatibility recovery does
+   not apply.
 3. Resolve project or user scope, the fully qualified extension identity,
    source authority, and canonical path. Use local inventory and workspace
    facts before a network lookup. In project scope, treat `axm.json` as desired

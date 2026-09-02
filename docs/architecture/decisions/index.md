@@ -19,3 +19,6 @@ specifications, never in these records.
 - [Project workspace settings validity prerequisite](project-workspace-settings-validity-prerequisite.md) —
   project workspace construction fails before operation execution when either
   present settings source is invalid
+- [Official AXM skill is opt-in](official-axm-skill-is-opt-in.md) — workspaces
+  declare the official skill directly or through a Pack before compatibility
+  applies; undeclared absence remains informational

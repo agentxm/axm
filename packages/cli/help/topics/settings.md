@@ -168,6 +168,17 @@ which means the result has no errors or warnings.
 The active project or user workspace supplies its own settings. These local
 overrides do not change the Registry's fixed publication requirements.
 
+## Official AXM skill
+
+The official `@agentxm/skills/axm` skill is opt-in workspace intent. A direct
+official `skills.axm` entry or an official Pack member declares it; when neither
+exists, the workspace has not selected the skill and lint reports only an
+informational discovery fact for its absence.
+
+`axm setup` seeds the official skill when it creates a new workspace. Adopting
+an existing `axm.json` preserves that workspace's declared skills. To opt in
+later, run `axm skills install @agentxm/skills/axm --bundled`.
+
 Each extension type has an optional authored-root setting such as
 `skillsConfig.dir`, `rulesConfig.dir`, or `packsConfig.dir`. The value must be a
 normalized workspace-relative directory contained by the project. Authored

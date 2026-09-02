@@ -1,6 +1,6 @@
 {
   "skill_name": "axm",
-  "suite_version": "0.3.0",
+  "suite_version": "0.4.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -685,6 +685,16 @@
         "The response reports the supplied update results for workspaces under `~/Code` and does not reject or refuse that collection scope.",
         "Each workspace retains its own observed mutation and verification result.",
         "The collection is reported as partially complete rather than atomically successful, and no retry is invented."
+      ]
+    },
+    {
+      "id": 65,
+      "stage": "execution",
+      "prompt": "Treat this as supplied AXM lint evidence: the JSON result has no `axmSkillCompatibility` field and reports `workspace/axm-skill-declared` at `info`. Without modifying files, explain whether compatibility recovery applies.",
+      "expected_output": "A truthful conclusion that the workspace has not declared the official AXM skill, so compatibility recovery does not apply; the informational finding remains distinct from an incompatibility error.",
+      "assertions": [
+        "The absent compatibility field and informational declaration finding are interpreted as undeclared official-skill intent.",
+        "No bundled install, update, upgrade, or compatibility recovery is prescribed or claimed."
       ]
     }
   ]

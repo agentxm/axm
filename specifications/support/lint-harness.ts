@@ -31,10 +31,7 @@ import {
   writeLocalSkillPackage,
 } from "./install-harness.js";
 
-/**
- * Installs the bundled official AXM skill — the workspace state lint expects
- * of every set-up workspace before it can report clean.
- */
+/** Installs the bundled official AXM skill for scenarios that declare it. */
 export const installBundledAxmSkill = handleSkillsInstall(
   { source: Option.some("@agentxm/skills/axm"), skills: [], all: false, bundled: true },
   { yes: true, force: false, preview: false },

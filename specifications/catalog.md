@@ -207,6 +207,16 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/observes-selected-filesystem-view.spec.ts`](../specifications/cli/lint/observes-selected-filesystem-view.spec.ts)
 
+##### Lint reports the official AXM skill against what the workspace declared
+
+- Requirement: `cli/lint/official-skill-findings-follow-declared-intent`
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Source: [`specifications/cli/lint/official-skill-findings-follow-declared-intent.spec.ts`](../specifications/cli/lint/official-skill-findings-follow-declared-intent.spec.ts)
+
 ##### Lint reports invariant violations without changing any workspace state
 
 - Requirement: `cli/lint/reports-facts-without-mutation`

@@ -72,7 +72,7 @@ export interface WorkspaceRuleContext {
   readonly owner?: Effect.Effect<Option.Option<Handle>>;
   /** One caller-built evaluation over the authoritative installed AXM skill. */
   readonly axmSkillCompatibility?: Effect.Effect<
-    AxmSkillCompatibility,
+    Option.Option<AxmSkillCompatibility>,
     SettingsReadError | LockfileReadError
   >;
   /** Deterministic desired-state preflight used by local reconciliation-health rules. */

@@ -101,6 +101,12 @@ root-cause rule reports the primary violation; rules that depend on that failed
 precondition skip instead of emitting cascade symptoms. Independent rules
 continue so one broken area does not hide another.
 
+Rule applicability follows declared workspace intent. A compatibility rule
+evaluates an extension only when desired state selects it directly or through a
+Pack; an extension that the workspace did not select is not a violated
+compatibility invariant. Lint may report that absence as an informational
+discovery fact without turning it into a manual-attention outcome.
+
 Every catalog severity is a default for local lint. An exact `lint.rules`
 entry in the active scope selects that rule's effective local severity:
 `off` suppresses its findings, `info` emits informational findings, `warn`

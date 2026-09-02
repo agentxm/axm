@@ -105,6 +105,38 @@ describe("lint fact rendering", () => {
     expect(diagnostics[0]?.fixable).toBe(false);
   });
 
+  it("does not describe informational findings as needing manual attention", () => {
+    const blocks = toLintHumanBlocks({
+      summary: {
+        findings: [
+          {
+            group: "workspace",
+            ruleDescription: "The workspace declares the official AXM skill.",
+            displayRoot: ".",
+            path: "./axm.json",
+            finding: {
+              kind: "advisory",
+              ruleId: "workspace/axm-skill-declared",
+              severity: "info",
+              message: "This workspace does not declare the official AXM skill.",
+              location: { file: "axm.json" },
+            },
+          },
+        ],
+        counts: { total: 1, errors: 0, warnings: 0, infos: 1 },
+        exitCategory: "clean",
+        driftBanner: [],
+      },
+      reporter: "grouped",
+    });
+
+    const overview = blocks.find((block) => block.kind === "overview");
+    expect(overview?.kind).toBe("overview");
+    if (overview?.kind === "overview") {
+      expect(overview.message).toBe("1 issue.");
+    }
+  });
+
   it("keeps strictness as exit policy without relabeling warnings", () => {
     expect(resolveLintExitCategory({ category: "warnings", strict: false })).toBe("success");
     expect(resolveLintExitCategory({ category: "warnings", strict: true })).toBe("fail");

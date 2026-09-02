@@ -86,6 +86,49 @@ const sharedMcpPairs = [
 ] as const;
 
 describe("axm lint (e2e, Phase 7)", () => {
+  describe("official AXM skill intent", () => {
+    it("reports an undeclared official skill as informational and exits zero", async () => {
+      const temp = createTempDir("axm-lint-opt-in-");
+      try {
+        const env = { HOME: temp.path, AXM_USER_HOME: temp.path, DO_NOT_TRACK: "1" };
+        writeJson(path.join(temp.path, "axm.json"), {
+          owner: "@test",
+          agents: [],
+          skills: {},
+        });
+        fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
+
+        const machine = await runCli(["lint", "--json"], { cwd: temp.path, env });
+        expect(machine.exitCode, `${machine.stderr}\n${machine.stdout}`).toBe(0);
+        const document = JSON.parse(machine.stdout);
+        expect(document.ok).toBe(true);
+        expect(document.result.findings).toEqual([
+          expect.objectContaining({
+            ruleId: "workspace/axm-skill-declared",
+            severity: "info",
+          }),
+        ]);
+        expect(document.result.summary).toEqual({
+          total: 1,
+          errors: 0,
+          warnings: 0,
+          infos: 1,
+          exitCategory: "clean",
+        });
+        expect(document.result).not.toHaveProperty("axmSkillCompatibility");
+
+        const human = await runCli(["lint", "--details"], { cwd: temp.path, env });
+        expect(human.exitCode, `${human.stderr}\n${human.stdout}`).toBe(0);
+        const humanOutput = `${human.stderr}\n${human.stdout}`;
+        expect(humanOutput).toContain("workspace/axm-skill-declared");
+        expect(humanOutput).not.toContain("workspace/axm-skill-compatible");
+        expect(humanOutput).not.toContain("manual attention");
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
   describe("workspace-authored canonical changes", () => {
     it("treats unpublished edits as non-blocking and recommends publish", async () => {
       const temp = createTempDir();

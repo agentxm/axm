@@ -748,6 +748,7 @@
             "workspace/lockfile-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/source-endpoints-aligned": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/desired-state-reconcilable": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/axm-skill-declared": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/axm-skill-compatible": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/agents-recognized": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/agents-detected-declared": { "$ref": "#/definitions/LintRuleSeverity" },

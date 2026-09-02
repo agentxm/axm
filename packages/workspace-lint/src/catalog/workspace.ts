@@ -40,6 +40,7 @@ import { mcpServerSharedTargetCompatibleRule } from "./workspace/mcps-shared-tar
 import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
 import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
+import { axmSkillDeclaredRule } from "./workspace/axm-skill-declared.js";
 import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
 import { hookOwnershipAmbiguousRule } from "./workspace/hook-ownership-ambiguous.js";
 import { managedFileUnownedRule } from "./workspace/managed-file-unowned.js";
@@ -60,6 +61,7 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   lockfileValidRule,
   sourceEndpointsAlignedRule,
   desiredStateReconcilableRule,
+  axmSkillDeclaredRule,
   axmSkillCompatibleRule,
   agentsRecognizedRule,
   instructionsSourcePresentRule,
@@ -106,6 +108,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   lockfileValidRule,
   sourceEndpointsAlignedRule,
   desiredStateReconcilableRule,
+  axmSkillDeclaredRule,
   axmSkillCompatibleRule,
   agentsRecognizedRule,
   agentsDetectedDeclaredRule,

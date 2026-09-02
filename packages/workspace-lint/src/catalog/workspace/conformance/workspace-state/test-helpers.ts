@@ -11,6 +11,7 @@ import {
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { agentsDetectedDeclaredRule } from "../../agents-detected-declared.js";
 import { agentsProjectionsStaleRule } from "../../agents-projections-stale.js";
+import { axmSkillDeclaredRule } from "../../axm-skill-declared.js";
 import { axmSkillCompatibleRule } from "../../axm-skill-compatible.js";
 import { hookOwnershipAmbiguousRule } from "../../hook-ownership-ambiguous.js";
 import { knowledgeStateValidRule } from "../../knowledge-state-valid.js";
@@ -243,7 +244,7 @@ const axmSkillContext = (cliVersion: string) =>
       (context) =>
         ({
           ...context,
-          axmSkillCompatibility: Effect.succeed(skillCompatibility(cliVersion)),
+          axmSkillCompatibility: Effect.succeed(Option.some(skillCompatibility(cliVersion))),
         }) satisfies WorkspaceRuleContext,
     ),
   );
@@ -257,6 +258,33 @@ export const axmSkillCompatibleConformance: WorkspaceRuleConformanceCase = {
       message:
         "AXM CLI 1.2.3 is outside the official AXM skill range >=1.1.0 <1.2.0. Reason: cli-version-incompatible. Target: AXM CLI 1.2.3 + official AXM skill 1.2.3. Next: `axm skills update --name axm --preview`.",
       location: { file: "skills/axm" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
+const axmSkillDeclarationContext = (declared: boolean) =>
+  contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          axmSkillCompatibility: Effect.succeed(
+            declared ? Option.some(skillCompatibility("1.1.3")) : Option.none(),
+          ),
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const axmSkillDeclaredConformance: WorkspaceRuleConformanceCase = {
+  rule: axmSkillDeclaredRule,
+  satisfied: () => axmSkillDeclarationContext(true),
+  violated: () => axmSkillDeclarationContext(false),
+  expectedFindings: [
+    {
+      message:
+        "This workspace does not declare the official AXM skill. Install it with `axm skills install @agentxm/skills/axm --bundled`.",
+      location: { file: "axm.json" },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),

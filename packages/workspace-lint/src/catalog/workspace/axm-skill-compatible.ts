@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { formatAxmSkillCompatibilityTarget } from "@agentxm/extension-workspace";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
@@ -33,7 +34,8 @@ export const axmSkillCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
           },
         ];
       }
-      const compatibility = compatibilityResult.success;
+      if (Option.isNone(compatibilityResult.success)) return EMPTY_ADVISORY_FINDINGS;
+      const compatibility = compatibilityResult.success.value;
       if (compatibility.status === "compatible") return EMPTY_ADVISORY_FINDINGS;
       const recovery = compatibility.recovery.nextAction;
       const target = formatAxmSkillCompatibilityTarget(compatibility.recovery);

@@ -236,7 +236,7 @@ describe("axm lint handler", () => {
     expect(summary.findings[0]?.finding.location?.file).toBe(`${displayRoot}/axm.json`);
   });
 
-  it.effect("clean workspace exits zero and logs 'No findings.'", () => {
+  it.effect("informational findings preserve a clean exit without manual-attention wording", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({ agents: ["claude-code"] });
     // Also create an empty lockfile so workspace/lockfile-valid doesn't fire
@@ -248,8 +248,34 @@ describe("axm lint handler", () => {
         const outcome = yield* lint({}).pipe(Effect.exit);
         expect(outcome._tag).toBe("Success");
         const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        // The renderer emits one line per linted section plus the summary.
-        expect(allMessages).toMatch(/(No findings|Summary:)/);
+        expect(allMessages).toContain("workspace/axm-skill-declared");
+        expect(allMessages).not.toContain("manual attention");
+      }),
+    );
+  });
+
+  it.effect("omits AXM skill compatibility from JSON when the skill is undeclared", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    writeSettings({ agents: ["claude-code"] });
+
+    return provide(
+      Effect.gen(function* () {
+        const outcome = yield* lint({}).pipe(Effect.exit);
+        expect(Exit.isSuccess(outcome)).toBe(true);
+        const emitted = rendererState.results.at(-1);
+        expect(emitted?.ok).toBe(true);
+        expect(emitted?.data).toMatchObject({
+          result: {
+            findings: [
+              expect.objectContaining({
+                ruleId: "workspace/axm-skill-declared",
+                severity: "info",
+              }),
+            ],
+            summary: { exitCategory: "clean" },
+          },
+        });
+        expect(emitted?.data).not.toHaveProperty("result.axmSkillCompatibility");
       }),
     );
   });

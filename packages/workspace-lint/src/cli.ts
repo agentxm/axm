@@ -993,6 +993,7 @@ const formatFullOverviewSentence = (args: {
 const formatGroupedOverviewSentence = (args: {
   readonly diagnosticCount: number;
   readonly fixableCount: number;
+  readonly manualCount: number;
 }): string => {
   const parts = [`${args.diagnosticCount} ${pluralize(args.diagnosticCount, "issue", "issues")}.`];
   if (args.fixableCount > 0) {
@@ -1000,9 +1001,10 @@ const formatGroupedOverviewSentence = (args: {
       `${args.fixableCount} ${pluralize(args.fixableCount, "can", "can")} be fixed automatically.`,
     );
   }
-  const manualCount = args.diagnosticCount - args.fixableCount;
-  if (manualCount > 0) {
-    parts.push(`${manualCount} ${pluralize(manualCount, "needs", "need")} manual attention.`);
+  if (args.manualCount > 0) {
+    parts.push(
+      `${args.manualCount} ${pluralize(args.manualCount, "needs", "need")} manual attention.`,
+    );
   }
   return parts.join(" ");
 };
@@ -1210,6 +1212,9 @@ const toGroupedLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
       message: formatGroupedOverviewSentence({
         diagnosticCount: diagnostics.length,
         fixableCount,
+        manualCount: diagnostics.filter(
+          (diagnostic) => diagnostic.severity !== "info" && !diagnostic.fixable,
+        ).length,
       }),
       counts: summary.counts,
       notes: [],
@@ -1266,6 +1271,9 @@ const toSummaryLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
       message: formatGroupedOverviewSentence({
         diagnosticCount: diagnostics.length,
         fixableCount,
+        manualCount: diagnostics.filter(
+          (diagnostic) => diagnostic.severity !== "info" && !diagnostic.fixable,
+        ).length,
       }),
       counts: summary.counts,
       notes: [],

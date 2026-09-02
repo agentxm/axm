@@ -38,6 +38,7 @@ import {
 import {
   agentsDetectedDeclaredConformance,
   agentsProjectionsStaleConformance,
+  axmSkillDeclaredConformance,
   axmSkillCompatibleConformance,
   hookOwnershipAmbiguousConformance,
   knowledgeStateValidConformance,
@@ -58,6 +59,7 @@ const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   lockfileValidConformance,
   sourceEndpointsAlignedConformance,
   desiredStateReconcilableConformance,
+  axmSkillDeclaredConformance,
   axmSkillCompatibleConformance,
   agentsRecognizedConformance,
   agentsDetectedDeclaredConformance,

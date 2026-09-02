@@ -2,8 +2,12 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import type { WorkspaceReadModel } from "@agentxm/workspace-state";
-import type { LockfileReadError, SettingsReadError } from "@agentxm/workspace-state";
+import type { InstalledSkill, WorkspaceReadModel } from "@agentxm/workspace-state";
+import {
+  printSkillLockSourceLocator,
+  type LockfileReadError,
+  type SettingsReadError,
+} from "@agentxm/workspace-state";
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content/skill-content";
 import {
   AXM_SKILL_FQN,
@@ -37,6 +41,25 @@ const isOfficialSource = (source: string): boolean => {
   );
 };
 
+const resolvesToOfficialAxmSkill = (installed: InstalledSkill): boolean =>
+  Option.exists(installed.resolved, ({ lockEntry }) =>
+    lockEntry.type === "registry"
+      ? lockEntry.owner === "@agentxm" && lockEntry.name === "axm"
+      : lockEntry.packageOwner === "@agentxm" && lockEntry.packageName === "axm",
+  );
+
+/** Whether desired workspace state directly or transitively declares the official AXM skill. */
+export const declaresOfficialAxmSkill = (args: {
+  readonly declaredSource: string | null;
+  readonly installed: Option.Option<InstalledSkill>;
+}): boolean =>
+  (args.declaredSource !== null && isOfficialSource(args.declaredSource)) ||
+  Option.exists(
+    args.installed,
+    (installed) =>
+      installed.installationOrigin._tag === "pack-member" && resolvesToOfficialAxmSkill(installed),
+  );
+
 export interface ReadAxmSkillWorkspaceCompatibilityArgs {
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
@@ -49,9 +72,18 @@ export interface ReadAxmSkillWorkspaceCompatibilityArgs {
 /** Read and evaluate the authoritative installed AXM skill without mutating the workspace. */
 export const readAxmSkillWorkspaceCompatibility = (
   args: ReadAxmSkillWorkspaceCompatibilityArgs,
-): Effect.Effect<AxmSkillCompatibility, SettingsReadError | LockfileReadError> =>
+): Effect.Effect<Option.Option<AxmSkillCompatibility>, SettingsReadError | LockfileReadError> =>
   Effect.gen(function* () {
+    const declared = yield* args.workspace.skills.declaredByName("axm");
     const installed = yield* args.workspace.skills.byName("axm");
+    const declaredSource = Option.match(declared, {
+      onNone: () => null,
+      onSome: ({ entry }) => entry.source,
+    });
+    if (!declaresOfficialAxmSkill({ declaredSource, installed })) {
+      return Option.none();
+    }
+
     if (Option.isNone(installed)) {
       const result = args.policy.evaluate({ fqn: AXM_SKILL_FQN, candidate: null });
       if (result === null) {
@@ -59,25 +91,22 @@ export const readAxmSkillWorkspaceCompatibility = (
           "AXM compatibility policy did not evaluate the official AXM skill",
         );
       }
-      return result;
+      return Option.some(result);
     }
 
+    const installedSkill = installed.value;
     const declaredEntry =
-      installed.value.installationOrigin._tag === "direct"
-        ? installed.value.installationOrigin.declared.entry
+      installedSkill.installationOrigin._tag === "direct"
+        ? installedSkill.installationOrigin.declared.entry
         : null;
-    const source = declaredEntry?.source ?? null;
-    if (source === null || !isOfficialSource(source)) {
-      const result = args.policy.evaluate({ fqn: AXM_SKILL_FQN, candidate: null });
-      if (result === null) {
-        return yield* Effect.die(
-          "AXM compatibility policy did not evaluate the official AXM skill",
-        );
-      }
-      return result;
-    }
+    const source =
+      declaredEntry?.source ??
+      Option.match(installedSkill.resolved, {
+        onNone: () => null,
+        onSome: ({ lockEntry }) => printSkillLockSourceLocator("axm", lockEntry),
+      });
 
-    const actual = installed.value.actual.find((occurrence) => {
+    const actual = installedSkill.actual.find((occurrence) => {
       if (occurrence.origin._tag !== "canonical-axm-skill") return false;
       if (occurrence.packageRoot === null) return false;
       const skillDirectory = occurrence.packageRoot;
@@ -90,14 +119,23 @@ export const readAxmSkillWorkspaceCompatibility = (
         ? projectAuthored
         : projectAuthored && args.platform.path.basename(ownerDirectory) === "@agentxm";
     });
+    if (actual === undefined) {
+      const result = args.policy.evaluate({ fqn: AXM_SKILL_FQN, candidate: null });
+      if (result === null) {
+        return yield* Effect.die(
+          "AXM compatibility policy did not evaluate the official AXM skill",
+        );
+      }
+      return Option.some(result);
+    }
     const manifestContent =
-      actual?.packageRoot === null || actual?.packageRoot === undefined
+      actual.packageRoot === null
         ? Option.none<string>()
         : yield* args.platform.fs
             .readFileString(args.platform.path.join(actual.packageRoot, "skill.json"))
             .pipe(Effect.option);
     const skillContent =
-      actual?.sourcePath === null || actual?.sourcePath === undefined
+      actual.sourcePath === null
         ? Option.none<string>()
         : yield* args.platform.fs.readFileString(actual.sourcePath).pipe(Effect.option);
     const skill = Option.flatMap(skillContent, (content) => parseSkillMd(content, "axm"));
@@ -121,5 +159,5 @@ export const readAxmSkillWorkspaceCompatibility = (
     if (result === null) {
       return yield* Effect.die("AXM compatibility policy did not evaluate the official AXM skill");
     }
-    return result;
+    return Option.some(result);
   });

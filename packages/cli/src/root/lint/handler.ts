@@ -425,7 +425,9 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const axmSkillCompatibility =
     workspaceContext.axmSkillCompatibility === undefined
       ? undefined
-      : Option.getOrUndefined(yield* workspaceContext.axmSkillCompatibility.pipe(Effect.option));
+      : Option.getOrUndefined(
+          Option.flatten(yield* workspaceContext.axmSkillCompatibility.pipe(Effect.option)),
+        );
 
   // -- Resolve the semantic outcome before emitting the machine document so
   // its `ok` field and the eventual process exit code cannot disagree. --

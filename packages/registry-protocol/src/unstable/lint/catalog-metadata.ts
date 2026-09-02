@@ -497,6 +497,12 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: bothViews,
   },
   {
+    id: "workspace/axm-skill-declared",
+    defaultSeverity: "info",
+    group: "workspace",
+    views: bothViews,
+  },
+  {
     id: "workspace/axm-skill-compatible",
     defaultSeverity: "error",
     group: "workspace",

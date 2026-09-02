@@ -114,6 +114,7 @@ const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["workspace/lockfile-valid", "error", bothViews],
   ["workspace/source-endpoints-aligned", "error", bothViews],
   ["workspace/desired-state-reconcilable", "error", bothViews],
+  ["workspace/axm-skill-declared", "info", bothViews],
   ["workspace/axm-skill-compatible", "error", bothViews],
   ["workspace/agents-recognized", "error", bothViews],
   ["workspace/agents-detected-declared", "warning", workspaceView],

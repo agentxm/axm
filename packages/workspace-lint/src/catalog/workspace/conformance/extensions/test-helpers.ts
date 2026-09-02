@@ -2,10 +2,15 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
-import type { DesiredExtensionNode, InstalledSubagent } from "@agentxm/workspace-state";
+import type {
+  ActualSkill,
+  DesiredExtensionNode,
+  InstalledSubagent,
+} from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { configuredButNotInstalledRule } from "../../configured-but-not-installed.js";
 import { skillsLockfileAlignedRule } from "../../skills-lockfile-aligned.js";
+import { skillsIntegrityValidRule } from "../../skills-integrity-valid.js";
 import {
   contextFor,
   validLockfile,
@@ -146,7 +151,49 @@ export const skillsLockfileAlignedConformance: WorkspaceRuleConformanceCase = {
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
 };
 
+const canonicalReviewer: ActualSkill = {
+  key: { scope: "project", type: "skill", name: decodeExtensionNameSync("reviewer") },
+  origin: { _tag: "canonical-axm-skill" },
+  contentRoot: "/workspace/agent_extensions/agentxm/@acme/skills/reviewer/src",
+  sourcePath: "/workspace/agent_extensions/agentxm/@acme/skills/reviewer/src/SKILL.md",
+  packageRoot: "/workspace/agent_extensions/agentxm/@acme/skills/reviewer",
+  hasSkillMd: true,
+  hasSkillJson: true,
+};
+
+const skillIntegrityContext = (canonicalPresent: boolean) =>
+  skillLockContext(true).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          workspace: {
+            ...context.workspace,
+            skills: {
+              ...context.workspace.skills,
+              actual: Effect.succeed(canonicalPresent ? [canonicalReviewer] : []),
+            },
+          },
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const skillsIntegrityValidConformance: WorkspaceRuleConformanceCase = {
+  rule: skillsIntegrityValidRule,
+  satisfied: () => skillIntegrityContext(true),
+  violated: () => skillIntegrityContext(false),
+  expectedFindings: [
+    {
+      message:
+        "Skill 'reviewer' has an accepted resolution, but its installed source directory is missing.",
+      location: { file: "axm-lock.yaml" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
 export const extensionConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   configuredButNotInstalledConformance,
   skillsLockfileAlignedConformance,
+  skillsIntegrityValidConformance,
 ];

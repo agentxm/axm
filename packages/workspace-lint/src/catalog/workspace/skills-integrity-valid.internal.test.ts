@@ -10,22 +10,6 @@ import { skillsIntegrityValidRule } from "./skills-integrity-valid.js";
 
 const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
 
-const desired: DesiredExtensionNode = {
-  type: "skill",
-  name: "my-skill",
-  identity: "@examples/skills/my-skill",
-  source: "@examples/skills/my-skill@1.0.0",
-  enabled: true,
-  constraints: ["1.0.0"],
-  origins: [
-    {
-      type: "settings",
-      source: "@examples/skills/my-skill@1.0.0",
-      enabled: true,
-    },
-  ],
-};
-
 const contextFor = (
   state: WorkspaceState,
   nodes: ReadonlyArray<DesiredExtensionNode>,
@@ -81,43 +65,10 @@ const stateWithDesiredSkill = () => {
 };
 
 describe("workspace/skills-integrity-valid", () => {
-  it.effect("accepts present canonical content for a desired accepted resolution", () =>
-    Effect.gen(function* () {
-      const state = stateWithDesiredSkill();
-      state.existingPaths.add("agent_extensions/agentxm/@examples/skills/my-skill/src/SKILL.md");
-      state.existingPaths.add("agent_extensions/agentxm/@examples/skills/my-skill/skill.json");
-
-      expect(yield* runCheck(state, [desired])).toEqual([]);
-    }),
-  );
-
-  it.effect("reports missing canonical content as a fact-only advisory", () =>
-    Effect.gen(function* () {
-      const findings = yield* runCheck(stateWithDesiredSkill(), [desired]);
-
-      expect(findings).toHaveLength(1);
-      expect(findings[0]).toMatchObject({ kind: "advisory", severity: "error" });
-      expect(findings[0]?.message).toContain("its installed source directory is missing");
-    }),
-  );
-
   it.effect("does not treat a lock-only resolution as desired installed content", () =>
     Effect.gen(function* () {
       const state = stateWithDesiredSkill();
       state.settings = { agents: ["claude-code"], skills: {} };
-
-      expect(yield* runCheck(state, [])).toEqual([]);
-    }),
-  );
-
-  it.effect("does not require a lock row for workspace-authored desired content", () =>
-    Effect.gen(function* () {
-      const state = emptyWorkspaceState();
-      state.settings = {
-        agents: ["claude-code"],
-        skills: { draft: "workspace:@examples/skills/draft" },
-      };
-      state.lockfile = { lockfileVersion: 6, skills: {} };
 
       expect(yield* runCheck(state, [])).toEqual([]);
     }),

@@ -229,7 +229,8 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/skills-integrity-valid",
-    "packages/workspace-lint/src/catalog/workspace/skills-integrity-valid.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/extensions/test-helpers.ts",
+    "skillsIntegrityValidConformance",
   ),
   evidence(
     "workspace/skills-artifacts-correct",

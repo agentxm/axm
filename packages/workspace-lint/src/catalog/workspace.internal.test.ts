@@ -104,7 +104,8 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/settings-keys-recognized",
-    "packages/workspace-lint/src/catalog/workspace/settings-keys-recognized.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/workspace-state/test-helpers.ts",
+    "settingsKeysRecognizedConformance",
   ),
   evidence(
     "workspace/lockfile-valid",
@@ -162,14 +163,20 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
     "packages/workspace-lint/src/catalog/workspace/conformance/instructions/test-helpers.ts",
     "instructionsGitignoreCurrentConformance",
   ),
-  evidence("workspace/projections-current", "packages/cli/src/root/lint/handler.internal.test.ts"),
+  evidence(
+    "workspace/projections-current",
+    "packages/workspace-lint/src/catalog/workspace/conformance/workspace-state/test-helpers.ts",
+    "projectionsCurrentConformance",
+  ),
   evidence(
     "workspace/hook-ownership-ambiguous",
-    "packages/workspace-lint/src/catalog/workspace/ownership-rules.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/workspace-state/test-helpers.ts",
+    "hookOwnershipAmbiguousConformance",
   ),
   evidence(
     "workspace/managed-file-unowned",
-    "packages/workspace-lint/src/catalog/workspace/ownership-rules.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/workspace-state/test-helpers.ts",
+    "managedFileUnownedConformance",
   ),
   evidence(
     "workspace/skills-declarations-valid",
@@ -187,7 +194,8 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/knowledge-state-valid",
-    "packages/workspace-lint/src/catalog/workspace/knowledge-state-valid.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/workspace-state/test-helpers.ts",
+    "knowledgeStateValidConformance",
   ),
   evidence(
     "workspace/mcps-transport-exclusivity",

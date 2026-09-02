@@ -53,7 +53,7 @@ import {
   property,
 } from "../../test-helpers.js";
 import { exactVersion, extensionName, handle, versionRange } from "../../test-stubs.js";
-import { emitPublishResult, type PublishResultItem } from "../../json-output.js";
+import { emitPublishResult, type PublishResultItem } from "./result.js";
 import {
   buildPublishJobs,
   exactPublishUploadBinding,

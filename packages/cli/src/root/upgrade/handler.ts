@@ -16,7 +16,7 @@ import { AppError, makeAppError } from "../../app-error/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import { InstallMeta } from "../../install-meta/install-meta.js";
 import {
   AXM_SKILL_BUNDLED_APPLY_COMMAND,
@@ -1934,7 +1934,8 @@ const upgradeSuggestions = (result: UpgradeCoreResult): ReadonlyArray<SuggestedA
 
 const renderHuman = (result: UpgradeCoreResult) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const verbosity = yield* Verbosity;
     const quiet = verbosity.level === "quiet";
     const verbose = verbosity.isAtLeast("verbose");
@@ -2044,7 +2045,8 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       suggestions: [{ description: "Use a supported AXM platform." }],
     });
   }
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
 
   const httpClient = yield* HttpClient.HttpClient;
   const repo = yield* resolveGithubRepo();

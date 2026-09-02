@@ -3,8 +3,10 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 
-import { CliRenderer, type DetailView, type TableView } from "./cli-renderer.js";
-import { MachineRenderer } from "./cli-renderer-machine.js";
+import { type DetailView, type TableView } from "./output.js";
+import { Screen } from "./screen.js";
+import { makeScreenOutput } from "./output-live.js";
+import { MachineScreen } from "./machine.js";
 
 // ---------------------------------------------------------------------------
 // Test infrastructure — capture stdout and stderr writes
@@ -37,12 +39,11 @@ afterEach(() => {
   stderrWriteSpy.mockRestore();
 });
 
-const layer = MachineRenderer();
-const quietLayer = MachineRenderer({ quiet: true });
+const layer = MachineScreen();
+const quietLayer = MachineScreen({ quiet: true });
 
-const run = <A>(effect: Effect.Effect<A, never, CliRenderer>) => Effect.provide(effect, layer);
-const runQuiet = <A>(effect: Effect.Effect<A, never, CliRenderer>) =>
-  Effect.provide(effect, quietLayer);
+const run = <A>(effect: Effect.Effect<A, never, Screen>) => Effect.provide(effect, layer);
+const runQuiet = <A>(effect: Effect.Effect<A, never, Screen>) => Effect.provide(effect, quietLayer);
 
 const parseStderrEvents = () =>
   stderrWrites.map((line) => {
@@ -59,13 +60,13 @@ const parseStdout = () => stdoutWrites.map((line) => JSON.parse(line.trim()));
 // Chrome methods — stderr is signal-only
 // ---------------------------------------------------------------------------
 
-describe("MachineRenderer", () => {
+describe("MachineScreen", () => {
   describe("chrome methods keep advisory narration silent", () => {
     it.effect("emits required instructions as ANSI-free structured stderr in quiet mode", () =>
       Effect.gen(function* () {
         yield* runQuiet(
           Effect.gen(function* () {
-            const renderer = yield* CliRenderer;
+            const renderer = makeScreenOutput(yield* Screen);
             yield* renderer.instruction("Open https://example.com and enter ABCD-1234");
           }),
         );
@@ -85,7 +86,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.info("Processing");
           }),
         );
@@ -98,7 +99,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.message("Hello");
           }),
         );
@@ -110,7 +111,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.success("Done");
           }),
         );
@@ -122,7 +123,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.success("Done", {
               suggestions: [
                 { description: "Edit the file" },
@@ -140,7 +141,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.success("Published", {
               suggestions: [
                 {
@@ -160,7 +161,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.step("Next step");
           }),
         );
@@ -178,7 +179,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.intro("App");
           }),
         );
@@ -190,7 +191,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.outro("Bye");
           }),
         );
@@ -202,7 +203,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.note("body text", "Note Title");
           }),
         );
@@ -214,7 +215,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.box("content", "heading");
           }),
         );
@@ -226,7 +227,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.warn("Careful");
           }),
         );
@@ -239,7 +240,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.error("Bad");
           }),
         );
@@ -253,7 +254,7 @@ describe("MachineRenderer", () => {
         const secret = "ghp_abcdefghijklmnopqrstuvwxyz123456";
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.error(`Bearer ${secret}`, {
               suggestions: [
                 {
@@ -276,7 +277,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.cancel("Aborted");
           }),
         );
@@ -289,7 +290,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.cancel();
           }),
         );
@@ -303,7 +304,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.withSpinner("Working...", () => Effect.succeed("done"));
           }),
         );
@@ -330,7 +331,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         const value = yield* runQuiet(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             return yield* r.withSpinner(
               "Resolving @acme/skills/review",
               () => Effect.succeed("resolved"),
@@ -348,7 +349,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.spinner("Loading...");
           }),
         );
@@ -366,7 +367,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.withProgress({ max: 2 }, "Downloading", (handle) =>
               Effect.gen(function* () {
                 yield* handle.advance(1, "Halfway");
@@ -390,7 +391,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.runTasks([
               { title: "Lint", task: () => Effect.succeed("No issues") },
               { title: "Test", task: () => Effect.succeed("All passed") },
@@ -421,7 +422,7 @@ describe("MachineRenderer", () => {
 
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.table([{ name: "a" }], Table);
           }),
         );
@@ -440,7 +441,7 @@ describe("MachineRenderer", () => {
 
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.detail({ name: "test" }, Detail);
           }),
         );
@@ -452,7 +453,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.tree([{ data: { name: "root" } }], { label: (i: { name: string }) => i.name });
           }),
         );
@@ -470,7 +471,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         const result = yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             return yield* r.list("skill", { items: [{ name: "test" }], count: 1 });
           }),
         );
@@ -482,7 +483,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.list("skill", { items: [{ name: "my-skill" }], count: 1 });
           }),
         );
@@ -502,7 +503,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.list("hook", {
               items: [{ name: "my-hook" }],
               count: 1,
@@ -535,7 +536,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.list("skill", {
               items: [],
               count: 0,
@@ -564,7 +565,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         const result = yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             return yield* r.result({ name: "test" }, Schema.Struct({ name: Schema.String }));
           }),
         );
@@ -576,7 +577,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.result(
               { name: "my-skill", version: "1.0.0" },
               Schema.Struct({ name: Schema.String, version: Schema.String }),
@@ -596,7 +597,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.result({ a: 1 }, Schema.Struct({ a: Schema.Number }));
           }),
         );
@@ -609,7 +610,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.result({ x: 1 }, Schema.Struct({ x: Schema.Number }));
           }),
         );
@@ -621,7 +622,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.result({ x: 1 }, Schema.Struct({ x: Schema.Number }), {
               suggestions: [
                 { description: "Inspect state", cmd: "axm skills list" },
@@ -653,7 +654,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.json({ key: "value" });
           }),
         );
@@ -669,7 +670,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.raw("plain text content");
           }),
         );
@@ -685,7 +686,7 @@ describe("MachineRenderer", () => {
         const content = "# Title\n\nUse **AXM**.\n";
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.markdown(content);
           }),
         );
@@ -700,7 +701,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.streamLog("info", Stream.make("hello ", "world"));
           }),
         );
@@ -714,7 +715,7 @@ describe("MachineRenderer", () => {
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
-            const r = yield* CliRenderer;
+            const r = makeScreenOutput(yield* Screen);
             yield* r.streamLog("warn", Stream.make("warning text"));
           }),
         );

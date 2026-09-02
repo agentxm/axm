@@ -29,7 +29,7 @@ import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { CliRenderer } from "../../../cli-renderer/index.js";
+import { Screen } from "../../../screen/index.js";
 import type { Plan } from "@agentxm/workspace-operations";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import { isNonInteractiveOptional } from "../../../cli-flags/index.js";
@@ -117,7 +117,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
   const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -137,7 +137,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
     Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
-    Layer.succeed(CliRenderer, renderer),
+    Layer.succeed(Screen, screen),
     Layer.succeed(CodingAgentRepository, agentRepo),
     LifecycleFailureAdapterLive,
   );

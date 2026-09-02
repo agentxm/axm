@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import type { InstructionsConfig, InstructionsConfigValue } from "@agentxm/workspace-state";
 import { previewFlag } from "../cli-flags/index.js";
 import { withArgvTracking } from "../cli-runtime/index.js";
-import { CliRenderer, registerEntity, type TableView } from "../cli-renderer/index.js";
+import { Screen, inventoryDoc, type ViewColumn } from "../screen/index.js";
 import type {
   JobStepResult,
   JobStepArtifact,
@@ -80,16 +80,14 @@ export const InstructionsStatusOutputSchema = Schema.Struct({
 });
 export type InstructionsStatusOutput = typeof InstructionsStatusOutputSchema.Type;
 
-const InstructionsTable = {
-  columns: {
-    agentId: { header: "Agent" },
-    mechanism: { header: "Mode" },
-    health: { header: "Status" },
-    ownership: { header: "Ownership" },
-    sourceFile: { header: "Source" },
-    targetFile: { header: "Target" },
-  },
-} as const satisfies TableView<InstructionTableItem>;
+const InstructionsColumns = [
+  { header: "Agent", value: (row: InstructionTableItem) => row.agentId },
+  { header: "Mode", value: (row: InstructionTableItem) => row.mechanism },
+  { header: "Status", value: (row: InstructionTableItem) => row.health },
+  { header: "Ownership", value: (row: InstructionTableItem) => row.ownership },
+  { header: "Source", value: (row: InstructionTableItem) => row.sourceFile },
+  { header: "Target", value: (row: InstructionTableItem) => row.targetFile },
+] satisfies ReadonlyArray<ViewColumn<InstructionTableItem>>;
 
 const toTableItem = (item: InstructionStatusItem): InstructionTableItem => ({
   agentId: item.agentId,
@@ -98,18 +96,6 @@ const toTableItem = (item: InstructionStatusItem): InstructionTableItem => ({
   ownership: item.ownership,
   sourceFile: item.sourceFile,
   targetFile: item.targetFile,
-});
-
-// Instruction-file targets are a workspace capability, not rule extensions, so
-// this entity stays under its own id. The catalog entity for the `rule` type is
-// registered by `rules/list.ts` (parity obligation 8.6).
-registerEntity<InstructionTableItem>("agent-rule", {
-  list: {
-    columns: InstructionsTable.columns,
-    emptyMessage: "No instruction files configured",
-    singularLabel: "instruction file",
-    pluralLabel: "instruction files",
-  },
 });
 
 const currentInstructionsConfig = Effect.fn("Instructions.currentConfig")(function* () {
@@ -176,7 +162,7 @@ const makeInstructionArtifact = (args: {
 };
 
 export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const config = yield* currentInstructionsConfig();
 
@@ -190,12 +176,15 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
       items: [],
       staleTargets: [],
     };
-    if (yield* renderer.result(output, InstructionsStatusOutputSchema)) return;
-    yield* renderer.list("agent-rule", {
-      items: [],
-      count: 0,
-      emptyMessage: "Instruction-file management is disabled.",
-    });
+    if (yield* screen.document(output, InstructionsStatusOutputSchema)) return;
+    yield* screen.result(
+      inventoryDoc({
+        rows: [],
+        columns: InstructionsColumns,
+        summary: "",
+        empty: "Instruction-file management is disabled.",
+      }),
+    );
     return;
   }
 
@@ -207,22 +196,29 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
     config: config.value,
   });
 
-  if (yield* renderer.result(status, InstructionsStatusOutputSchema)) return;
+  if (yield* screen.document(status, InstructionsStatusOutputSchema)) return;
   // Stale rows follow the configured rows so residue AXM still owns is visible
   // beside the targets it currently maintains.
   const tableItems = [...status.items, ...status.staleTargets].map(toTableItem);
   if (tableItems.length === 0) {
-    yield* renderer.list("agent-rule", {
-      items: [],
-      count: 0,
-      emptyMessage: "No configured agents need instruction-file propagation.",
-    });
+    yield* screen.result(
+      inventoryDoc({
+        rows: [],
+        columns: InstructionsColumns,
+        summary: "",
+        empty: "No configured agents need instruction-file propagation.",
+      }),
+    );
     return;
   }
-  yield* renderer.list("agent-rule", {
-    items: tableItems,
-    count: tableItems.length,
-  });
+  yield* screen.result(
+    inventoryDoc({
+      rows: tableItems,
+      columns: InstructionsColumns,
+      summary: `${String(tableItems.length)} instruction ${tableItems.length === 1 ? "file" : "files"}`,
+      empty: "No instruction files configured",
+    }),
+  );
 });
 
 export const handleInstructionsEnable = (args: {

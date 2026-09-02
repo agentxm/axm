@@ -32,8 +32,7 @@ import {
   isVersionEntryMature,
   parseMinimumReleaseAge,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
-import { CliRenderer, count } from "../../../cli-renderer/index.js";
-import { Screen } from "../../../screen/index.js";
+import { Screen, makeScreenOutput, count } from "../../../screen/index.js";
 import { WorkspaceMutations, type SkillPathSource, sanitizeName } from "@agentxm/workspace-state";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { computeSkillSourceHash, gitHostedSkillArtifactSource } from "@agentxm/extension-lifecycle";
@@ -334,8 +333,8 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
   const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
-  const renderer = yield* CliRenderer;
   const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const skillMgr = yield* SkillManager;
   const ws = yield* WorkspaceMutations;
   const pathSvc = yield* Path.Path;
@@ -441,7 +440,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
     Layer.succeed(SourceHostProviders, sources),
     Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
-    Layer.succeed(CliRenderer, renderer),
+    Layer.succeed(Screen, screen),
     Layer.succeed(Screen, screen),
     Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(Path.Path, pathSvc),

@@ -6,7 +6,7 @@ import type {
   TableColumnConfig,
   TableView,
   ViewKey,
-} from "./cli-renderer.js";
+} from "./output.js";
 
 const defaultRenderValue = (value: unknown): string => {
   if (value == null) {

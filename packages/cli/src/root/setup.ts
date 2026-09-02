@@ -3,7 +3,7 @@ import { bootstrapWorkspace, type SetupAgentCandidate } from "@agentxm/workspace
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { isNonInteractive, jsonFlag, previewFlag, yesFlag, Verbosity } from "../cli-flags/index.js";
-import { CliRenderer, count } from "../cli-renderer/index.js";
+import { Screen, makeScreenOutput, count, type ScreenOutput } from "../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { resolveTelemetryMode } from "../telemetry/index.js";
@@ -199,7 +199,7 @@ type InstallDefaultSkill = typeof installDefaultSkill;
  * Render subagent file summary to the CLI output.
  */
 const renderSubagentSummary = (
-  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+  renderer: ScreenOutput,
   path: Path.Path,
   summaries: ReadonlyArray<AgentSubagentSummary>,
 ) =>
@@ -215,7 +215,7 @@ const renderSubagentSummary = (
     }
   });
 
-const renderSetupBranding = (renderer: ServiceMap.Service.Shape<typeof CliRenderer>) =>
+const renderSetupBranding = (renderer: ScreenOutput) =>
   Effect.gen(function* () {
     const json = yield* jsonFlag;
     if (Option.getOrElse(json, () => false)) return;
@@ -230,7 +230,7 @@ const renderSetupBranding = (renderer: ServiceMap.Service.Shape<typeof CliRender
   });
 
 const renderSetupScopeSupport = (
-  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+  renderer: ScreenOutput,
   scope: WorkspaceScope,
   categories: ReadonlyArray<SetupScopeSupportCategory>,
 ) =>
@@ -523,7 +523,8 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
   },
   installSkill: InstallDefaultSkill = installDefaultSkill,
 ) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const executionDirectory = yield* ExecutionDirectory;

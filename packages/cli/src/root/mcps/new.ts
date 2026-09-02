@@ -12,7 +12,7 @@ import {
   formatFqn,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen } from "../../screen/index.js";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { previewFlag, yesFlag } from "../../cli-flags/index.js";
@@ -81,7 +81,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
   const httpClient = yield* HttpClient.HttpClient;
   const owner = Option.isSome(args.owner)
@@ -250,7 +250,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
               Effect.provideService(WorkspaceMutations, ws),
-              Effect.provideService(CliRenderer, renderer),
+              Effect.provideService(Screen, screen),
               Effect.provideService(CodingAgentRepository, agentRepo),
               Effect.provideService(HttpClient.HttpClient, httpClient),
               provideLifecycleFailureAdapter,

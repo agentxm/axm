@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";

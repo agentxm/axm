@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 import YAML from "yaml";
 
-import { CliRenderer } from "../../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/knowledge-query";
 import { LockfileSchema } from "@agentxm/workspace-state";
@@ -75,7 +75,8 @@ const crossScopeCollisions = Effect.gen(function* () {
 });
 
 export const handleKnowledgeConceptStatus = Effect.fn("Knowledge.concepts.status")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const capturedResult = yield* Effect.result(captureInstalledKnowledgeIndex());
   const scopeCollisions = yield* crossScopeCollisions;
   const output =

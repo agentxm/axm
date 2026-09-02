@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
-import { CliRenderer, type TableView } from "../../../cli-renderer/index.js";
+import { Screen, makeScreenOutput, type TableView } from "../../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
 import { resolveKnowledgeConcept } from "@agentxm/knowledge-query";
 
@@ -31,7 +31,8 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
   input: string,
   fuzzy = false,
 ) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const captured = yield* captureInstalledKnowledgeIndex();
   if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const resolved = resolveKnowledgeConcept(captured.snapshot, input, 10, fuzzy);

@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { makeUserArchiveCache } from "@agentxm/registry-client";
 import { withRuntime } from "../../runtime.js";
@@ -50,7 +50,8 @@ const formatBytes = (bytes: number): string => {
 };
 
 export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const cache = yield* makeUserArchiveCache();
   const status = yield* renderer.withSpinner("Loading archive cache status", () => cache.status(), {
     successMessage: "Loaded archive cache status",
@@ -69,7 +70,8 @@ export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
 });
 
 export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const cache = yield* makeUserArchiveCache();
   const result = yield* renderer.withSpinner("Verifying archive cache", () => cache.verify(), {
     successMessage: "Verified archive cache",
@@ -81,7 +83,8 @@ export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
 });
 
 export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const cache = yield* makeUserArchiveCache();
   const result = yield* renderer.withSpinner("Pruning archive cache", () => cache.prune(), {
     successMessage: "Pruned archive cache",

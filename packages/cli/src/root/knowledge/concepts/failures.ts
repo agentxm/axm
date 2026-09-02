@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 
 import { ExitCode } from "../../../app-error/index.js";
-import { CliRenderer } from "../../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../../screen/index.js";
 import { effectCliExit } from "../../../cli-runtime/index.js";
 
 import {
@@ -13,7 +13,8 @@ const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(functi
   readonly outcome: "failed";
   readonly reason: "corpus-changing" | "cursor-expired";
 }) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const schema =
     output.reason === "cursor-expired"
       ? KnowledgeConceptCursorFailureSchema
@@ -29,8 +30,8 @@ const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(functi
   return yield* Effect.die(effectCliExit(ExitCode.Conflict));
 });
 
-export const failKnowledgeCursorExpired = (): Effect.Effect<never, never, CliRenderer> =>
+export const failKnowledgeCursorExpired = (): Effect.Effect<never, never, Screen> =>
   failWithConflict({ outcome: "failed", reason: "cursor-expired" });
 
-export const failKnowledgeCorpusChanging = (): Effect.Effect<never, never, CliRenderer> =>
+export const failKnowledgeCorpusChanging = (): Effect.Effect<never, never, Screen> =>
   failWithConflict({ outcome: "failed", reason: "corpus-changing" });

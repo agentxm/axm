@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyPublishResults, type PublishResultItem } from "./json-output.js";
-import { extensionName, handle } from "./test-stubs.js";
+import { classifyPublishResults, type PublishResultItem } from "./result.js";
+import { extensionName, handle } from "../../test-stubs.js";
 
 describe("classifyPublishResults", () => {
   it("derives every aggregate count from the item classifications", () => {

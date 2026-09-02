@@ -10,7 +10,7 @@ import {
   type Agent,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeAppError } from "../../app-error/index.js";
-import { CliRenderer, count, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { Screen, count, tableDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime } from "../../runtime.js";
 import { agentLifecycle, isCatalogAgentId, lifecycleCell } from "./lifecycle.js";
@@ -50,25 +50,14 @@ export const AgentCapabilitiesOutputSchema = Schema.Struct({
 });
 export type AgentCapabilitiesOutput = typeof AgentCapabilitiesOutputSchema.Type;
 
-const AgentCapabilityTable = {
-  columns: {
-    type: { header: "Type" },
-    capabilityKey: { header: "Capability" },
-    native: { header: "Native" },
-    axm: { header: "AXM" },
-    directory: { header: "Directory" },
-    scopes: { header: "Scopes" },
-  },
-} as const satisfies TableView<AgentCapabilityItem>;
-
-registerEntity<AgentCapabilityItem>("agent-capability", {
-  list: {
-    columns: AgentCapabilityTable.columns,
-    emptyMessage: "No modeled capabilities",
-    singularLabel: "capability",
-    pluralLabel: "capabilities",
-  },
-});
+const AgentCapabilityColumns = [
+  { header: "Type", value: (row: AgentCapabilityItem) => row.type },
+  { header: "Capability", value: (row: AgentCapabilityItem) => row.capabilityKey },
+  { header: "Native", value: (row: AgentCapabilityItem) => row.native },
+  { header: "AXM", value: (row: AgentCapabilityItem) => row.axm },
+  { header: "Directory", value: (row: AgentCapabilityItem) => row.directory },
+  { header: "Scopes", value: (row: AgentCapabilityItem) => row.scopes },
+] satisfies ReadonlyArray<ViewColumn<AgentCapabilityItem>>;
 
 const capabilityRows = (agent: Agent): ReadonlyArray<AgentCapabilityItem> =>
   listCapabilities(agent).map(({ type, capability }) => {
@@ -86,7 +75,7 @@ const capabilityRows = (agent: Agent): ReadonlyArray<AgentCapabilityItem> =>
 export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(function* (
   agentId: string,
 ) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   // Reuses the shared validator for its "did you mean" suggestions; the guard
   // below is what narrows the id for the catalog lookup.
   yield* validateAgentIds([agentId]).pipe(Effect.mapError(configurationFailureToAppError));
@@ -111,15 +100,17 @@ export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(functio
     count: items.length,
   };
 
-  if (yield* renderer.result(output, AgentCapabilitiesOutputSchema)) {
+  if (yield* screen.document(output, AgentCapabilitiesOutputSchema)) {
     return;
   }
 
   const lifecycle = lifecycleCell(agent.id);
-  yield* renderer.table(
-    items,
-    AgentCapabilityTable,
-    `${agent.name}${lifecycle === "" ? "" : ` (${lifecycle})`}   ${count(items.length, "capability")}`,
+  yield* screen.result(
+    tableDoc(
+      items,
+      AgentCapabilityColumns,
+      `${agent.name}${lifecycle === "" ? "" : ` (${lifecycle})`}   ${count(items.length, "capability")}`,
+    ),
   );
 });
 

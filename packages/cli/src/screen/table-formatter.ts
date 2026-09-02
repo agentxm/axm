@@ -1,4 +1,4 @@
-import type { ResolvedTableColumn } from "./cli-renderer.js";
+import type { ResolvedTableColumn } from "./output.js";
 
 const DEFAULT_TERMINAL_WIDTH = 80;
 const COLUMN_GAP = 2;

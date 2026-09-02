@@ -19,7 +19,7 @@ import {
   SubagentManager,
 } from "@agentxm/extension-workspace";
 import { makeAppError } from "../../app-error/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen } from "../../screen/index.js";
 import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -248,7 +248,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
     | LifecycleFailureAdapter
     | Scope.Scope
     | HttpClient.HttpClient
-    | CliRenderer
+    | Screen
     | SourceHostProviders
     | WorkspaceCatalog
     | WorkspaceMutations

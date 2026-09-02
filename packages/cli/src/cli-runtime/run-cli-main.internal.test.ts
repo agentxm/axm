@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Effect from "effect/Effect";
-import { CliError } from "effect/unstable/cli";
 
-import { ExitCode } from "../app-error/index.js";
+import { ExitCode, makeAppError } from "../app-error/index.js";
 import { effectCliExit } from "./effect-cli-exit.js";
-import { makeErrorEvent } from "./output-mode.js";
 import { runCliMain } from "./run-cli-main.js";
 
 class ExitCalled extends Error {
@@ -48,227 +46,65 @@ describe("runCliMain", () => {
     vi.restoreAllMocks();
   });
 
-  it("drops formatter help stdout and emits one usage envelope for json parser errors", async () => {
-    const execute = () =>
-      Effect.sync(() => {
-        console.log('{"type":"help","usage":"axm token create [flags]"}');
-        process.stderr.write(
-          `${JSON.stringify(makeErrorEvent("usage", "Missing required flag: --name"))}\n`,
-        );
-      }).pipe(
-        Effect.andThen(
-          Effect.fail(
-            new CliError.ShowHelp({
-              commandPath: ["axm", "token", "create"],
-              errors: [new CliError.MissingOption({ option: "name" })],
-            }),
-          ),
-        ),
-      );
-
-    await expect(
-      runCliMain(execute, { args: ["token", "create", "--json"] }),
-    ).rejects.toMatchObject({
-      code: ExitCode.Usage,
-    });
-
-    expect(stdoutWrites).toHaveLength(1);
-    const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");
-    expect(stdoutDoc).toMatchObject({
-      ok: false,
-      code: "usage",
-      title: "Usage Error",
-      detail: "Missing required flag: --name",
-    });
-    expect(stdoutWrites.join("")).not.toContain('"type":"help"');
-
-    expect(stderrWrites).toEqual([
-      `${JSON.stringify(makeErrorEvent("usage", "Missing required flag: --name"))}\n`,
-    ]);
-  });
-
-  it("releases one complete JSON document after a successful machine invocation", async () => {
-    const document = { ok: true, result: { outcome: "no-op" } };
-    const execute = () =>
-      Effect.sync(() => {
-        process.stdout.write(`${JSON.stringify(document)}\n`);
-      });
-
-    await runCliMain(execute, { args: ["sync", "--json"] });
-
-    expect(stdoutWrites).toEqual([`${JSON.stringify(document)}\n`]);
+  it("leaves successful Screen-owned output untouched", async () => {
+    await runCliMain(() => Effect.void, { args: ["sync", "--json"] });
+    expect(stdoutWrites).toEqual([]);
     expect(stderrWrites).toEqual([]);
   });
 
-  it("waits for a large machine document to drain before a semantic exit", async () => {
-    const document = { ok: true, result: { findings: "x".repeat(200_000) } };
-    let releaseWrite: (() => void) | undefined;
-    vi.mocked(process.stdout.write).mockImplementation((...args: Array<unknown>) => {
-      stdoutWrites.push(String(args[0]));
-      const callback = args.find(
-        (arg): arg is (error?: Error | null) => void => typeof arg === "function",
-      );
-      releaseWrite = () => callback?.();
-      return false;
-    });
-
-    const execute = () =>
-      Effect.sync(() => {
-        process.stdout.write(`${JSON.stringify(document)}\n`);
-      }).pipe(Effect.andThen(Effect.die(effectCliExit(ExitCode.Issues))));
-
-    const running = runCliMain(execute, { args: ["lint", "--json"] });
-    await vi.waitFor(() => expect(stdoutWrites).toHaveLength(1));
-
-    expect(process.exit).not.toHaveBeenCalled();
-    releaseWrite?.();
-
-    await expect(running).rejects.toMatchObject({ code: ExitCode.Issues });
-    expect(process.exit).toHaveBeenCalledWith(ExitCode.Issues);
-    expect(JSON.parse(stdoutWrites.join(""))).toEqual(document);
-  });
-
-  it("replaces concatenated machine documents with one internal-error envelope", async () => {
-    const execute = () =>
-      Effect.sync(() => {
-        process.stdout.write('{"ok":true}\n');
-        process.stdout.write('{"ok":true}\n');
-      });
-
-    await expect(runCliMain(execute, { args: ["sync", "--json"] })).rejects.toMatchObject({
-      code: ExitCode.Internal,
-    });
+  it("renders bootstrap failures through a machine Screen", async () => {
+    await expect(
+      runCliMain(
+        () => Effect.fail(makeAppError({ code: "usage", detail: "Missing required flag" })),
+        { args: ["token", "create", "--json"] },
+      ),
+    ).rejects.toMatchObject({ code: ExitCode.Usage });
 
     expect(stdoutWrites).toHaveLength(1);
     expect(JSON.parse(stdoutWrites.join(""))).toMatchObject({
       ok: false,
-      code: "internal",
+      code: "usage",
+      detail: "Missing required flag",
     });
-    expect(stdoutWrites.join("")).not.toContain('{"ok":true}');
+    expect(stderrWrites).toHaveLength(1);
+    expect(JSON.parse(stderrWrites[0] ?? "")).toMatchObject({
+      type: "error",
+      code: "usage",
+    });
   });
 
-  it("replaces stray human stdout with one internal-error envelope in machine mode", async () => {
-    const execute = () =>
-      Effect.sync(() => {
-        process.stdout.write("Preparing workspace...\n");
-        process.stdout.write('{"ok":true}\n');
-      });
-
-    await expect(runCliMain(execute, { args: ["setup", "--json"] })).rejects.toMatchObject({
-      code: ExitCode.Internal,
-    });
-
-    expect(stdoutWrites).toHaveLength(1);
-    expect(JSON.parse(stdoutWrites.join(""))).toMatchObject({
-      ok: false,
-      code: "internal",
-    });
-    expect(stdoutWrites.join("")).not.toContain("Preparing workspace");
-  });
-
-  it("routes text parser usage help to stderr and drops the duplicate terse parser error", async () => {
-    const execute = () =>
-      Effect.sync(() => {
-        console.log("ERROR\n  Missing required flag: --name\n\nUSAGE\n  axm token create [flags]");
-        process.stderr.write("\nERROR\n  Missing required flag: --name\n");
-      }).pipe(
-        Effect.andThen(
-          Effect.fail(
-            new CliError.ShowHelp({
-              commandPath: ["axm", "token", "create"],
-              errors: [new CliError.MissingOption({ option: "name" })],
-            }),
-          ),
-        ),
-      );
-
-    await expect(runCliMain(execute, { args: ["token", "create"] })).rejects.toMatchObject({
-      code: ExitCode.Usage,
-    });
+  it("renders bootstrap failures through an interactive Screen", async () => {
+    await expect(
+      runCliMain(() => Effect.fail(makeAppError({ code: "conflict", detail: "Already exists" })), {
+        args: ["install", "--non-interactive"],
+      }),
+    ).rejects.toMatchObject({ code: ExitCode.Conflict });
 
     expect(stdoutWrites).toEqual([]);
-    expect(stderrWrites.join("")).toBe(
-      "ERROR\n  Missing required flag: --name\n\nUSAGE\n  axm token create [flags]\n",
+    expect(stderrWrites.join("")).toContain("Already exists");
+  });
+
+  it("does not replace process or console writers", async () => {
+    const stdoutWrite = process.stdout.write;
+    const stderrWrite = process.stderr.write;
+    const consoleLog = console.log;
+
+    await runCliMain(() =>
+      Effect.sync(() => {
+        expect(process.stdout.write).toBe(stdoutWrite);
+        expect(process.stderr.write).toBe(stderrWrite);
+        expect(console.log).toBe(consoleLog);
+      }),
     );
   });
 
-  describe("interactive output buffering", () => {
-    let originalIsTTY: boolean | undefined;
-    let originalCI: string | undefined;
-
-    beforeEach(() => {
-      originalIsTTY = process.stdin.isTTY;
-      originalCI = process.env["CI"];
-    });
-
-    afterEach(() => {
-      Object.defineProperty(process.stdin, "isTTY", {
-        value: originalIsTTY,
-        configurable: true,
-      });
-      if (originalCI === undefined) {
-        delete process.env["CI"];
-      } else {
-        process.env["CI"] = originalCI;
-      }
-    });
-
-    const setTTY = (value: boolean) => {
-      Object.defineProperty(process.stdin, "isTTY", { value, configurable: true });
-    };
-
-    it("does not withhold output in an interactive TTY session (prevents hangs)", async () => {
-      setTTY(true);
-      delete process.env["CI"];
-
-      // Records whether stdout had already reached the real writer at the moment
-      // the program wrote it — i.e. before runCliMain resolves. With buffering on,
-      // the write is captured and only flushed after completion, so this is false.
-      let visibleDuringExecution = false;
-      const execute = () =>
-        Effect.sync(() => {
-          process.stdout.write("live frame\n");
-          visibleDuringExecution = stdoutWrites.includes("live frame\n");
-        });
-
-      await runCliMain(execute, { args: ["setup"] });
-
-      expect(visibleDuringExecution).toBe(true);
-      expect(stdoutWrites).toContain("live frame\n");
-    });
-
-    it("still buffers on a TTY when --non-interactive is passed", async () => {
-      setTTY(true);
-      delete process.env["CI"];
-
-      let visibleDuringExecution = false;
-      const execute = () =>
-        Effect.sync(() => {
-          process.stdout.write("buffered frame\n");
-          visibleDuringExecution = stdoutWrites.includes("buffered frame\n");
-        });
-
-      await runCliMain(execute, { args: ["setup", "--non-interactive"] });
-
-      expect(visibleDuringExecution).toBe(false);
-      expect(stdoutWrites).toContain("buffered frame\n");
-    });
-
-    it("still buffers on a TTY under CI", async () => {
-      setTTY(true);
-      process.env["CI"] = "true";
-
-      let visibleDuringExecution = false;
-      const execute = () =>
-        Effect.sync(() => {
-          process.stdout.write("buffered frame\n");
-          visibleDuringExecution = stdoutWrites.includes("buffered frame\n");
-        });
-
-      await runCliMain(execute, { args: ["setup"] });
-
-      expect(visibleDuringExecution).toBe(false);
-      expect(stdoutWrites).toContain("buffered frame\n");
-    });
+  it("preserves a semantic exit without adding output", async () => {
+    await expect(
+      runCliMain(() => Effect.die(effectCliExit(ExitCode.Issues)), {
+        args: ["lint", "--json"],
+      }),
+    ).rejects.toMatchObject({ code: ExitCode.Issues });
+    expect(stdoutWrites).toEqual([]);
+    expect(stderrWrites).toEqual([]);
   });
 });

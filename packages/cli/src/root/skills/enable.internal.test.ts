@@ -251,7 +251,7 @@ describe("enable.handler", () => {
 
   describe("settings-only enable (no lock entry)", () => {
     it.effect("refuses to enable a configured-disabled skill without trusted content", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       // Skill in settings as disabled but not in lockfile
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -272,11 +272,22 @@ describe("enable.handler", () => {
           // Apply mode renders no planned block; the refusal is the terminal
           // failed-outcome block.
           expect(logs.success).toEqual([]);
-          expect(logs.error).toEqual([
-            "Failed to enable 1 skill",
-            '  Accepted skill content for "my-skill" is not usable (not_found)',
-            '  my-skill: Accepted skill content for "my-skill" is not usable (not_found)',
-          ]);
+          expect(logs.error[0]).toBe("Failed to enable 1 skill");
+          expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
+            expect.objectContaining({
+              _tag: "rows",
+              rows: expect.arrayContaining([
+                expect.objectContaining({
+                  _tag: "row",
+                  change: "failed",
+                  cells: expect.arrayContaining([
+                    "my-skill",
+                    'Accepted skill content for "my-skill" is not usable (not_found)',
+                  ]),
+                }),
+              ]),
+            }),
+          );
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");

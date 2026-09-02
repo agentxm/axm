@@ -15,11 +15,10 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
-import { logsByTag } from "../../cli-renderer/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { toPlanResolutionResult } from "../../operation-output.js";
-import { renderOperationOutcome } from "../../operation-render.js";
+import { operationDoc } from "../../operation-view.js";
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { makeWorkspaceUpdatePlan } from "../update/workspace-update.js";
 import { buildAtomicPackGraphStep } from "./graph-transition.js";
@@ -108,7 +107,7 @@ describe("atomic pack graph transition", () => {
   });
 
   it.effect("isolates a failed Pack closure from an independent successful update", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({
+    const { provide } = makeWorkspaceHandlerTestContext({
       wsOptions: { projectRoot: tempDir },
     });
 
@@ -210,9 +209,7 @@ describe("atomic pack graph transition", () => {
             { label: "@test/packs/healthy", state: "committed" },
           ],
         });
-        yield* renderOperationOutcome(resolution);
-        const logs = logsByTag(rendererState);
-        const humanError = logs.error.join("\n");
+        const humanError = JSON.stringify(operationDoc(resolution, { verbosity: "normal" }));
         expect(humanError).toContain("@test/packs/failed");
         expect(humanError).toContain("expected activation disabled; observed activation enabled");
       }),

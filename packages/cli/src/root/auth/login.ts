@@ -23,7 +23,7 @@ import {
 } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { requireInteractive } from "../../prompt/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import { isNonInteractive, jsonFlag, yesFlag } from "../../cli-flags/index.js";
 import { setCommandSemanticProperties, withArgvTracking } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -32,7 +32,6 @@ import type { PromptCancelled } from "../../prompt/prompt-cancelled.js";
 import { envOption } from "../../utils/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
-import { Screen } from "../../screen/index.js";
 
 export const LoginNoOpResultSchema = Schema.Struct({
   status: Schema.Literal("already-logged-in"),
@@ -113,7 +112,8 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
     interactions?: LoginInteractions,
   ) {
     const credStore = yield* CredentialStore;
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const registryUrl = yield* RegistryUrl;
     const registryHost = new URL(registryUrl).host;
     const json = yield* jsonFlag;

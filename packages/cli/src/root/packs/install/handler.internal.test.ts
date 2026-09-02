@@ -17,7 +17,8 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { afterEach, beforeEach, vi } from "vitest";
-import { displayPlan, TestRenderer, logsByTag } from "../../../cli-renderer/index.js";
+import { TestRenderer, logsByTag } from "../../../screen/index.js";
+import { presentPlan } from "../../../operation-view.js";
 import { TestFlagsLayer } from "../../../cli-flags/index.js";
 import {
   WorkspaceMutations,
@@ -155,7 +156,7 @@ describe("packs install handler", () => {
           (tuiConfig?.confirmValue ?? true) ? ("approved" as const) : ("declined" as const),
         ),
       presentPlan: (plan, options) =>
-        displayPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
+        presentPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
@@ -222,7 +223,7 @@ describe("packs install handler", () => {
       isConfirmationAvailable: flagsOverrides?.nonInteractive === false,
       confirmApplyChanges: () => Effect.succeed("approved" as const),
       presentPlan: (plan, options) =>
-        displayPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
+        presentPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,

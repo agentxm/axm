@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 
 import { Verbosity } from "../../cli-flags/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const emitScaffoldSuccess = (args: {
@@ -11,7 +11,8 @@ export const emitScaffoldSuccess = (args: {
   readonly withoutSuggestions: boolean;
 }) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const verbosity = yield* Verbosity;
 
     yield* renderer.success(

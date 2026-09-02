@@ -21,7 +21,7 @@ import {
 } from "../../feature-errors.js";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { count } from "../../cli-renderer/index.js";
+import { count } from "../../screen/index.js";
 import {
   previewOrApplyPlan,
   type JobStepArtifactTarget,

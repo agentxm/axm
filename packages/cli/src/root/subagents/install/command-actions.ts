@@ -25,8 +25,7 @@ import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/par
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { InputParseResult } from "@agentxm/extension-model/unstable/sources/parser";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
-import { CliRenderer, count } from "../../../cli-renderer/index.js";
-import { Screen } from "../../../screen/index.js";
+import { Screen, makeScreenOutput, count } from "../../../screen/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { buildInstallOperation } from "@agentxm/extension-workspace";
@@ -191,8 +190,8 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
   const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
-  const renderer = yield* CliRenderer;
   const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const subagentMgr = yield* SubagentManager;
   const agentRepo = yield* CodingAgentRepository;
   const ws = yield* WorkspaceMutations;
@@ -210,7 +209,7 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
     Layer.succeed(SourceHostProviders, sources),
     Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
-    Layer.succeed(CliRenderer, renderer),
+    Layer.succeed(Screen, screen),
     Layer.succeed(Screen, screen),
     Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(Path.Path, pathSvc),

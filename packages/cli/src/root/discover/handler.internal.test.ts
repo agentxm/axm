@@ -126,24 +126,16 @@ describe("discover handler", () => {
       Effect.provide(baseLayer),
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(rendererState.tables).toEqual([]);
           expect(rendererState.logs).toEqual([]);
-          expect(rendererState.results[1]?.data).toMatchObject({
-            count: 2,
-            items: expect.arrayContaining([
-              expect.objectContaining({
-                package: "react",
-                extension: "@acme/skills/react-testing",
-                official: "yes",
-              }),
-              expect.objectContaining({
-                package: "vitest@3.2.1",
-                extension: "@acme/skills/effect-testing",
-                official: "no",
-              }),
-            ]),
-            summary: "Found 2 companion extensions for 2 of 2 detected packages.",
-          });
+          expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
+            expect.objectContaining({
+              _tag: "table",
+              rows: expect.arrayContaining([
+                expect.arrayContaining(["react", "@acme/skills/react-testing", "yes"]),
+                expect.arrayContaining(["vitest@3.2.1", "@acme/skills/effect-testing", "no"]),
+              ]),
+            }),
+          );
           expect(rendererState.spinnerMessages).toEqual([
             "Scanning project dependencies",
             "Scanned project dependencies",
@@ -167,10 +159,9 @@ describe("discover handler", () => {
         Effect.sync(() => {
           expect(rendererState.tables).toEqual([]);
           expect(rendererState.logs).toEqual([]);
-          expect(rendererState.results[1]?.data).toMatchObject({
-            count: 0,
-            items: [],
-            emptyMessage: "No companion extensions found.",
+          expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
+            _tag: "paragraph",
+            text: "No companion extensions found.",
           });
         }),
       ),
@@ -191,11 +182,9 @@ describe("discover handler", () => {
         Effect.sync(() => {
           expect(rendererState.tables).toEqual([]);
           expect(rendererState.logs).toEqual([]);
-          expect(rendererState.results[1]?.data).toMatchObject({
-            count: 0,
-            items: [],
-            emptyMessage:
-              "Registry unavailable. Showing local recommendations only. No companion extensions found.",
+          expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
+            _tag: "paragraph",
+            text: "Registry unavailable. Showing local recommendations only. No companion extensions found.",
           });
         }),
       ),
@@ -214,11 +203,13 @@ describe("discover handler", () => {
       Effect.tap(() =>
         Effect.sync(() => {
           expect(rendererState.logs).toEqual([]);
-          expect(rendererState.results[1]?.data).toMatchObject({
-            count: 2,
-            summary:
-              "Registry unavailable. Showing local recommendations only. Found 2 companion extensions for 2 of 2 detected packages.",
-          });
+          expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
+            expect.objectContaining({
+              _tag: "table",
+              caption:
+                "Registry unavailable. Showing local recommendations only. Found 2 companion extensions for 2 of 2 detected packages.",
+            }),
+          );
         }),
       ),
     );

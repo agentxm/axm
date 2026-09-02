@@ -336,9 +336,13 @@ describe("subagents install handler — error propagation", () => {
         });
 
         expect(logs.success).toEqual(["Already up to date — 1 subagent"]);
-        expect(rendererState.summaries).toEqual([
-          "planner   1.2.3   unchanged   1 file   .claude/agents/planner.md",
-        ]);
+        expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
+          _tag: "collapsed",
+          change: "unchanged",
+          count: 1,
+          noun: "subagents already current",
+          hint: "--verbose to list",
+        });
       }),
     );
   });

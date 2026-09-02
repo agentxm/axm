@@ -17,7 +17,7 @@ import {
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { expandGlobs, isGlobPattern } from "../../utils/index.js";
-import { count } from "../../cli-renderer/index.js";
+import { count } from "../../screen/index.js";
 import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
 import {
   operationPresentation,

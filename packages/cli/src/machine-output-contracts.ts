@@ -85,7 +85,7 @@ const planFamily = {
   ],
   rationale: "Mutations expose one durable plan-resolution result across all execution outcomes.",
   centralizedCoverage: [
-    "packages/cli/src/json-output.internal.test.ts",
+    "packages/cli/src/root/publish/result.internal.test.ts",
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   commandCoverage: ["command-specific tests cover branches not represented by the shared plan"],
@@ -117,7 +117,7 @@ const publishFamily = {
   rationale:
     "Publish reconciliation has a purpose-built multi-item result whose actions differ from file plans.",
   centralizedCoverage: [
-    "packages/cli/src/json-output.internal.test.ts",
+    "packages/cli/src/root/publish/result.internal.test.ts",
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   commandCoverage: ["packages/cli/src/root/publish/command.internal.test.ts"],
@@ -149,7 +149,7 @@ const defineResultFamily = (input: {
   rationale: input.rationale,
   centralizedCoverage: [
     "packages/cli/src/machine-output-contracts.internal.test.ts",
-    "packages/cli/src/cli-renderer/cli-renderer-machine.internal.test.ts",
+    "packages/cli/src/screen/machine.internal.test.ts",
   ],
   commandCoverage: input.commandCoverage,
   documentation: ["docs/architecture/commands/output.md"],

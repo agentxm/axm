@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { makeAppError } from "../../app-error/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import { CliRenderer, type TableView } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput, type TableView } from "../../screen/index.js";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
@@ -300,7 +300,8 @@ const deprecationReplacementText = (deprecation: DeprecationView): string => {
 
 const emitFieldValue = (field: SupportedField, value: ViewFieldValue) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const emitted = yield* renderer.result(value, ViewFieldValueSchema);
     if (emitted) return;
     yield* renderer.raw(
@@ -351,7 +352,8 @@ const handleResolvedView = (args: {
   readonly parts: ExtensionFqnParts;
 }) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const client = yield* createRegistryClient(args.targetRegistry.registryUrl);
     const subject = `${args.handle} from ${args.targetRegistry.registryName}`;
     const index = yield* renderer.withSpinner(

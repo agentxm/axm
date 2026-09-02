@@ -10,7 +10,7 @@ import { CodingAgentRepository, McpServerManager } from "@agentxm/extension-work
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { CliRenderer, count } from "../../cli-renderer/index.js";
+import { Screen, count } from "../../screen/index.js";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
@@ -237,7 +237,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
     },
   };
   const manager = yield* McpServerManager;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
   const source = "workspace";
   const adoptionPaths = Array.from(
@@ -355,7 +355,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
         Effect.provideService(FileSystem.FileSystem, args.fs),
         Effect.provideService(Path.Path, args.path),
         Effect.provideService(WorkspaceMutations, args.ws),
-        Effect.provideService(CliRenderer, renderer),
+        Effect.provideService(Screen, screen),
         Effect.provideService(CodingAgentRepository, agentRepo),
         Effect.provideService(HttpClient.HttpClient, httpClient),
         provideLifecycleFailureAdapter,

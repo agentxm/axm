@@ -5,7 +5,7 @@ import { Command } from "effect/unstable/cli";
 import { AuthClient, CredentialStore } from "@agentxm/registry-auth";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import * as Schema from "effect/Schema";
@@ -34,7 +34,8 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
   function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const registryUrl = yield* RegistryUrl;
     const registryHost = new URL(registryUrl).host;
 

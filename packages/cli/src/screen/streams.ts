@@ -6,6 +6,18 @@ import * as Stream from "effect/Stream";
 
 const DEFAULT_COLUMNS = 80;
 
+const write = (stream: NodeJS.WriteStream, content: string): Effect.Effect<void> =>
+  Effect.callback<void>((resume) => {
+    let resumed = false;
+    const complete = (error?: Error | null) => {
+      if (resumed) return;
+      resumed = true;
+      resume(error === undefined || error === null ? Effect.void : Effect.die(error));
+    };
+    const accepted = stream.write(content, complete);
+    if (accepted) complete();
+  });
+
 export interface OutputStreamFacts {
   readonly stdoutIsTTY: boolean;
   readonly stderrIsTTY: boolean;
@@ -42,14 +54,8 @@ const resizeStream = Stream.callback<number>((queue) =>
 );
 
 export const OutputStreamsLive: Layer.Layer<OutputStreams> = Layer.succeed(OutputStreams, {
-  stdout: (content) =>
-    Effect.sync(() => {
-      process.stdout.write(content);
-    }),
-  stderr: (content) =>
-    Effect.sync(() => {
-      process.stderr.write(content);
-    }),
+  stdout: (content) => write(process.stdout, content),
+  stderr: (content) => write(process.stderr, content),
   facts: Effect.sync(() => ({
     stdoutIsTTY: process.stdout.isTTY === true,
     stderrIsTTY: process.stderr.isTTY === true,

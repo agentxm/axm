@@ -17,7 +17,7 @@ import { RegistryUrl } from "@agentxm/registry-client";
 import { makeAppError } from "../app-error/index.js";
 import { BRANDING } from "../branding/index.js";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
-import { TestMachineRenderer, TestRenderer } from "../cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer } from "../screen/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceInitializationCancelled } from "@agentxm/workspace-configuration";
@@ -1410,10 +1410,10 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          expect(rendererState.logs.slice(0, 3)).toEqual([
-            { _tag: "message", message: "" },
-            { _tag: "message", message: BRANDING },
-            { _tag: "message", message: "" },
+          expect(rendererState.docs.slice(0, 3).map((entry) => entry.doc)).toEqual([
+            [{ _tag: "paragraph", text: "" }],
+            [{ _tag: "paragraph", text: BRANDING }],
+            [{ _tag: "paragraph", text: "" }],
           ]);
         }),
       );

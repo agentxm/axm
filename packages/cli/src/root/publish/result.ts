@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { SourceTypeSchema } from "@agentxm/extension-model/unstable/sources/types";
 
-import { CliRenderer, count } from "./cli-renderer/index.js";
-import { Verbosity } from "./cli-flags/index.js";
+import { Screen, makeScreenOutput, count, type ScreenOutput } from "../../screen/index.js";
+import { Verbosity } from "../../cli-flags/index.js";
 import {
   SuggestedActionSchema,
   type SuggestedAction,
@@ -14,12 +14,12 @@ import {
   getCommandSemanticProperties,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
-} from "./cli-runtime/index.js";
+} from "../../cli-runtime/index.js";
 import {
   OperationPreconditionSchema,
   PlanRiskConditionSchema,
 } from "@agentxm/workspace-operations";
-import { AppErrorCodeSchema } from "./app-error/index.js";
+import { AppErrorCodeSchema } from "../../app-error/index.js";
 import {
   PublishVisibilitySchema,
   type PublishVisibility,
@@ -475,7 +475,7 @@ const publishOutcomeLine = (item: PublishResultItem): string =>
   }${item.message === undefined ? "" : `: ${item.message}`}`;
 
 const renderHumanPublishResult = (
-  renderer: typeof CliRenderer.Service,
+  renderer: ScreenOutput,
   result: PublishResult,
   options: {
     readonly suggestions: ReadonlyArray<SuggestedAction>;
@@ -750,7 +750,8 @@ export const emitPublishResult = <TCommand extends string>(
 ) =>
   Effect.gen(function* () {
     const result = normalizePublishResult(input);
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const browserSuggestions = publishBrowserSuggestions(result);
     const findingSuggestions = result.execution.outcomes.flatMap((item) =>
       (item.findings ?? []).flatMap((finding) => finding.suggestions),

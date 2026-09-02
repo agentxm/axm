@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestRenderer } from "../../cli-renderer/index.js";
+import { TestRenderer } from "../../screen/index.js";
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { isWorkspaceTransitionHeldByThisInvocation } from "@agentxm/workspace-operations";

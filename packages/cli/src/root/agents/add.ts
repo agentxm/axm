@@ -5,7 +5,7 @@ import { detectAgentsForScope } from "@agentxm/agent-integration";
 import { makeAppError } from "../../app-error/index.js";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import {
   previewOrApplyPlan,
   deriveOperationOutcome,
@@ -189,7 +189,8 @@ export const handleAgentsAdd = (args: AgentsAddArgs) =>
   );
 
 const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddArgs) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const ws = yield* WorkspaceMutations;
 
   if (args.ids.length === 0 && !args.detected) {

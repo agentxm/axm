@@ -1,13 +1,14 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
-import type { Doc } from "./doc.js";
+import type { Doc, DocNode } from "./doc.js";
 import { plain } from "./doc.js";
 import { Frame, taskEndForCause, type FrameTaskHandle } from "./frame.js";
 import {
@@ -99,6 +100,7 @@ const successMessage = <A>(label: string, value: A, options?: TaskOptions<A>): s
 export const ScreenLive = (options: {
   readonly colors: boolean;
   readonly animate: boolean;
+  readonly quiet?: boolean;
 }): Layer.Layer<Screen, never, Frame | OutputStreams> =>
   Layer.effect(
     Screen,
@@ -125,8 +127,27 @@ export const ScreenLive = (options: {
       });
 
       return {
-        result: (doc) => Effect.flatMap(render(doc), frame.stdout),
-        note: (doc) => Effect.flatMap(render(doc), frame.stderr),
+        result: (doc) => {
+          const literal =
+            doc.length === 1 && (doc[0]?._tag === "raw" || doc[0]?._tag === "markdown")
+              ? doc[0].content
+              : undefined;
+          return literal === undefined
+            ? Effect.flatMap(render(doc), frame.stdout)
+            : frame.stdout(literal);
+        },
+        note: (doc, noteOptions) => {
+          const visible =
+            options.quiet !== true || noteOptions?.persistent === true
+              ? doc
+              : doc.filter(
+                  (node) =>
+                    (node._tag === "headline" && (node.tone === "warn" || node.tone === "error")) ||
+                    (node._tag === "callout" && (node.tone === "warn" || node.tone === "error")) ||
+                    node._tag === "next",
+                );
+          return visible.length === 0 ? Effect.void : Effect.flatMap(render(visible), frame.stderr);
+        },
         document: () => Effect.succeed(false),
         task: <A, E, R>(
           label: string,
@@ -180,8 +201,65 @@ export const ScreenMachine = (options?: {
     Effect.gen(function* () {
       const streams = yield* OutputStreams;
       const quiet = options?.quiet === true;
+      const resultWritten = yield* Ref.make(false);
       const emit = (event: Parameters<typeof encodeMachineEvent>[0]) =>
         streams.stderr(encodeMachineEvent(event));
+
+      const writeResult = (content: string) =>
+        Ref.getAndSet(resultWritten, true).pipe(
+          Effect.flatMap((alreadyWritten) =>
+            alreadyWritten
+              ? Effect.die(
+                  new Error(
+                    "Machine-output contract violation: stdout must contain at most one complete JSON document.",
+                  ),
+                )
+              : streams.stdout(content),
+          ),
+        );
+
+      const nodeEvents = (node: DocNode): Effect.Effect<void> => {
+        if (node._tag === "next") {
+          return Effect.forEach(node.actions, (action) => emit(suggestionEvent(action)), {
+            discard: true,
+          });
+        }
+        if (node._tag === "section") {
+          return Effect.forEach(node.children, nodeEvents, { discard: true });
+        }
+        if (node._tag === "rows") {
+          return Effect.forEach(node.rows, nodeEvents, { discard: true });
+        }
+        if (node._tag === "row") {
+          const message = node.cells.map(plain).join("   ");
+          const level = node.change === "failed" ? "error" : "warn";
+          return node.change === "failed" || node.change === "blocked"
+            ? emit(logEvent(level, message))
+            : Effect.void;
+        }
+        if (node._tag === "headline") {
+          return node.tone === "error" || node.tone === "warn"
+            ? emit(logEvent(node.tone, plain(node.text)))
+            : Effect.void;
+        }
+        if (node._tag === "callout") {
+          const own =
+            node.tone === "error" || node.tone === "warn"
+              ? emit(logEvent(node.tone, plain(node.title)))
+              : Effect.void;
+          return node.children === undefined
+            ? own
+            : own.pipe(
+                Effect.andThen(Effect.forEach(node.children, nodeEvents, { discard: true })),
+              );
+        }
+        if (node._tag === "progress") {
+          return quiet
+            ? Effect.void
+            : emit(progressEvent(node.phase, node.percent, node.message, node.detail));
+        }
+        return Effect.void;
+      };
 
       const machineHandle = (phase: string, labelRef: { value: string }): TaskHandle => ({
         update: (label, detail) => {
@@ -202,15 +280,27 @@ export const ScreenMachine = (options?: {
       });
 
       return {
-        result: () => Effect.void,
-        note: (doc, noteOptions) =>
-          noteOptions?.persistent === true
+        result: (doc) => {
+          const literal = doc
+            .filter((node) => node._tag === "raw" || node._tag === "markdown")
+            .map((node) => node.content)
+            .join("");
+          return literal.length === 0 ? Effect.void : writeResult(literal);
+        },
+        note: (doc, noteOptions) => {
+          const literal = doc
+            .filter((node) => node._tag === "raw" || node._tag === "markdown")
+            .map((node) => node.content)
+            .join("");
+          if (literal.length > 0) return streams.stderr(literal);
+          return noteOptions?.persistent === true
             ? emit(
                 instructionEvent(
                   doc.map((node) => ("text" in node ? plain(node.text) : "")).join("\n"),
                 ),
               )
-            : Effect.void,
+            : Effect.forEach(doc, nodeEvents, { discard: true });
+        },
         document: <S extends Schema.Top>(
           data: Schema.Schema.Type<S>,
           schema: S,
@@ -218,7 +308,7 @@ export const ScreenMachine = (options?: {
         ) =>
           encodeJson(data, schema).pipe(
             Effect.flatMap((encoded) =>
-              streams.stdout(
+              writeResult(
                 `${JSON.stringify(
                   makeJsonSuccessEnvelope({
                     payload: encoded,

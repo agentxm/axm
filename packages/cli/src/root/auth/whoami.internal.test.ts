@@ -10,7 +10,7 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { handleWhoami } from "./whoami.js";
@@ -121,7 +121,7 @@ describe("auth whoami handler", () => {
     );
   });
 
-  it.effect("emits machine-readable output through CliRenderer in machine mode", () => {
+  it.effect("emits machine-readable output through ScreenPresenter in machine mode", () => {
     const { provide, rendererState } = makeLayers({ hasCredentials: true, machine: true });
 
     return provide(

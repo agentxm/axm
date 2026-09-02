@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { CliRenderer } from "../../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../../screen/index.js";
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { runUninstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 
@@ -41,7 +41,8 @@ const handleUninstallPackBody = (
     if (resolution.mode === "preview" && resolution.units.length === 0) {
       const { emitted } = yield* emitOperationResolution("packs.uninstall", resolution);
       if (!emitted) {
-        const renderer = yield* CliRenderer;
+        const screen = yield* Screen;
+        const renderer = makeScreenOutput(screen);
         yield* renderer.success("No packs would be uninstalled.");
       }
       return;

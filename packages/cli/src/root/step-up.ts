@@ -14,7 +14,7 @@ import {
 import { RegistryUrl } from "@agentxm/registry-client";
 import { AppError } from "../app-error/index.js";
 import { isNonInteractive, jsonFlag } from "../cli-flags/index.js";
-import { CliRenderer } from "../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../screen/index.js";
 import { coerceAuthFailure } from "../feature-errors.js";
 
 export interface StepUpOperationMessages {
@@ -38,7 +38,8 @@ export const runWithStepUp = <A, E, R>(
   messages: StepUpOperationMessages,
 ) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const activity = yield* renderer.spinner(messages.initial);
     const initial = yield* Effect.result(operation()).pipe(
       Effect.onInterrupt(() => activity.cancel(messages.cancelled)),

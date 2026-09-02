@@ -1,4 +1,4 @@
-import type { CliRenderer, TableView } from "../cli-renderer/index.js";
+import type { ScreenOutput, TableView } from "../screen/index.js";
 import type {
   ConfiguredAgentOutcome,
   ExtensionInventory,
@@ -50,11 +50,11 @@ export const inventorySummary = (inventory: ExtensionInventory, label: string): 
   `${inventory.count} ${inventory.count === 1 ? label : `${label}s`} (${inventory.configuredCount} configured, ${inventory.implicitCount} implicit, ${inventory.installedCount} installed, ${inventory.unmanagedCount} unmanaged)`;
 
 export const renderInventoryTable = <T extends object>(
-  renderer: typeof CliRenderer.Service,
+  renderer: ScreenOutput,
   items: ReadonlyArray<T>,
   view: TableView<T>,
   summary: string,
 ) => renderer.diagnosticTable(items, view, summary);
 
-export const renderEmptyInventory = (renderer: typeof CliRenderer.Service, message: string) =>
+export const renderEmptyInventory = (renderer: ScreenOutput, message: string) =>
   renderer.diagnostic(message);

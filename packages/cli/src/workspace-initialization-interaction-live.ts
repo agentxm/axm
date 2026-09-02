@@ -14,8 +14,7 @@ import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import { autocompleteMultiselect, requireInteractive } from "./prompt/index.js";
-import { CliRenderer } from "./cli-renderer/index.js";
-import { Screen } from "./screen/index.js";
+import { Screen, makeScreenOutput } from "./screen/index.js";
 import type { AppError } from "./app-error/index.js";
 import {
   WorkspaceConfigurationFailed,
@@ -64,8 +63,8 @@ const toInteractionFailure = (
 export const WorkspaceInitializationInteractionLive = Layer.effect(
   WorkspaceInitializationInteraction,
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
     const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const terminal = yield* Terminal.Terminal;

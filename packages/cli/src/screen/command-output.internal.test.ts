@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { DetailView, TableView } from "./cli-renderer.js";
+import type { DetailView, TableView } from "./output.js";
 import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
 
 interface SkillRow {

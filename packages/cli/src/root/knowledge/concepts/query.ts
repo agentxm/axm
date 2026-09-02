@@ -4,7 +4,7 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../../app-error/index.js";
-import { CliRenderer, type TableView } from "../../../cli-renderer/index.js";
+import { Screen, makeScreenOutput, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   KNOWLEDGE_LIFECYCLE_FILTER_FIELDS,
@@ -263,7 +263,8 @@ export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")
     });
   }
 
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const index = yield* KnowledgeIndex;
   const captured = yield* renderer.withSpinner(
     "Querying installed knowledge",

@@ -4,7 +4,7 @@ import { Command } from "effect/unstable/cli";
 
 import { AuthClient, authLoginRequired, resolveRequiredToken } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
@@ -22,7 +22,8 @@ export type WhoamiDocument = typeof WhoamiDocumentSchema.Type;
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(
   function* () {
     const authClient = yield* AuthClient;
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const registryUrl = yield* RegistryUrl;
 
     // Step 1: Resolve token

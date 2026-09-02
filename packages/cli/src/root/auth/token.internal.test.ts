@@ -18,7 +18,7 @@ import { RegistryUrl } from "@agentxm/registry-client";
 import { StepUpRequired } from "@agentxm/registry-auth";
 import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { expectNoPlanEnvelope, expectRecord, property } from "../../test-helpers.js";
 import {
@@ -488,10 +488,9 @@ describe("auth token handler", () => {
           count: 0,
           items: [],
         });
-        expect(rendererState.results[1]?.data).toMatchObject({
-          count: 0,
-          items: [],
-          emptyMessage: "No tokens found",
+        expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
+          _tag: "paragraph",
+          text: "No tokens found",
         });
       }),
     );

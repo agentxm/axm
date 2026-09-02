@@ -143,12 +143,7 @@ export { SourceHostProvidersLive } from "./test-helpers.js";
 export { AppError, ExitCodeDefinitions } from "./app-error/index.js";
 export { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
 export { TestFlagsLayer, Verbosity } from "./cli-flags/index.js";
-export {
-  CliRenderer,
-  TestMachineRenderer,
-  TestRenderer,
-  type TestRendererState,
-} from "./cli-renderer/index.js";
+export { TestMachineRenderer, TestRenderer, type TestRendererState } from "./screen/index.js";
 export { PromptCancelled } from "./prompt/prompt-cancelled.js";
 export { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "./telemetry/index.js";
 export {

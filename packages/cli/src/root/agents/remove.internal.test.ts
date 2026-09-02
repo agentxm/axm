@@ -9,7 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 import { codingAgentForId, CodingAgentRepository } from "@agentxm/extension-workspace";
 import type { CodingAgentRepositoryService } from "@agentxm/extension-workspace";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";

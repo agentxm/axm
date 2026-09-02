@@ -1,4 +1,5 @@
 import * as Option from "effect/Option";
+import * as Effect from "effect/Effect";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
@@ -13,8 +14,9 @@ import {
   type ResolvedUnit,
 } from "@agentxm/workspace-operations";
 
-import type { VerbosityLevel } from "./cli-flags/index.js";
+import { Verbosity, type VerbosityLevel } from "./cli-flags/index.js";
 import type { Doc, RowNode, Tone } from "./screen/doc.js";
+import { Screen } from "./screen/screen.js";
 import {
   agentOutcome,
   artifactChange,
@@ -57,7 +59,11 @@ const resolutionRow = (unit: ResolvedUnit<unknown>): RowNode => ({
     unit.label,
     ...artifactCells(unit.artifact),
     ...(unit.artifact === undefined ? [unitState(unit.state)] : []),
-    ...(unit.message === undefined || unit.message.trim().length === 0 ? [] : [unit.message]),
+    ...(unit.artifact !== undefined ||
+    unit.message === undefined ||
+    unit.message.trim().length === 0
+      ? []
+      : [unit.message]),
     ...(unit.disposition === undefined ? [] : [disposition(unit.disposition)]),
   ],
   ...(outcomeChildren(unit).length === 0 ? {} : { children: outcomeChildren(unit) }),
@@ -202,7 +208,6 @@ export const operationDoc = (
 
 const plannedRow = (step: PlannedJobStep<unknown, unknown>): RowNode => {
   const outcomes = step.agentOutcomes ?? step.artifact?.agentOutcomes ?? [];
-  const message = step.readiness === "ready" ? step.message : undefined;
   const children: Doc = outcomes.map((outcome) => ({
     _tag: "paragraph",
     tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
@@ -214,7 +219,6 @@ const plannedRow = (step: PlannedJobStep<unknown, unknown>): RowNode => {
     cells: [
       step.label,
       ...artifactCells(step.artifact),
-      ...(message === undefined ? [] : [message]),
       ...(step.readiness === "warn" ? [step.warnMessage] : []),
       ...(step.readiness === "error" ? [step.errorMessage] : []),
     ],
@@ -260,3 +264,18 @@ export const planDoc = (
       : [{ _tag: "summary", parts: parts.map((text) => ({ text })) } as const]),
   ];
 };
+
+/** Paint the planning-time orientation through the application-owned screen. */
+export const presentPlan = (
+  plan: Plan<unknown, unknown>,
+  options?: { readonly mode?: "preview" | "apply" },
+) =>
+  Effect.gen(function* () {
+    const screen = yield* Screen;
+    const verbosity = yield* Verbosity;
+    const doc = planDoc(plan, {
+      mode: options?.mode ?? "preview",
+      verbosity: verbosity.level,
+    });
+    if (doc.length > 0) yield* screen.note(doc);
+  });

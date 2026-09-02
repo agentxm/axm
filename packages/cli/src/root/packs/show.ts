@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "../../app-error/index.js";
-import { CliRenderer, type DetailView } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput, type DetailView } from "../../screen/index.js";
 import {
   formatFqn,
   parseExtensionFqnParts,
@@ -72,7 +72,8 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const requested = parseExtensionFqnParts(target);
   if (requested !== undefined && requested.type !== "pack") {
     return yield* makeAppError({

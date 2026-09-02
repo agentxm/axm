@@ -5,7 +5,7 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import { previewFlag, Verbosity } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -228,7 +228,8 @@ const handleVersionBody = (args: VersionHandlerArgs) =>
 
     // The preview display is the planning-time render this command owns.
     if (args.preview && !emitted) {
-      const renderer = yield* CliRenderer;
+      const screen = yield* Screen;
+      const renderer = makeScreenOutput(screen);
       const verbosity = yield* Verbosity;
       const message = versionResultMessage(previewResult, "Would update");
       if (verbosity.level === "quiet") {

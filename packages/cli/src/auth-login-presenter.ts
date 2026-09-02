@@ -18,7 +18,7 @@ import {
   type AuthLoginProgress,
   type DeviceLoginPendingResult,
 } from "@agentxm/registry-auth";
-import { CliRenderer } from "./cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "./screen/index.js";
 
 const progressMessages = (
   progress: AuthLoginProgress,
@@ -75,7 +75,8 @@ const loginSuccessSuggestions = [
 export const AuthLoginPresenterLive = Layer.effect(
   AuthLoginPresenter,
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
 
     return {
       withProgress: <A, E, R>(progress: AuthLoginProgress, run: () => Effect.Effect<A, E, R>) => {

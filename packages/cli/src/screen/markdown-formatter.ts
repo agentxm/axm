@@ -1,8 +1,8 @@
 import { lexer, type MarkedToken, type Token, type Tokens } from "marked";
 
-import type { ResolvedTableColumn } from "./cli-renderer.js";
-import { ANSI_BOLD, ANSI_CYAN, ANSI_DIM, Symbols } from "./ansi-chrome.js";
-import { annotate, repeat } from "./renderer-helpers.js";
+import type { ResolvedTableColumn } from "./output.js";
+import { ANSI_BOLD, ANSI_CYAN, ANSI_DIM, Symbols } from "./terminal-style.js";
+import { annotate, repeat } from "./presenter-helpers.js";
 import { formatTable } from "./table-formatter.js";
 
 type MarkdownTableRow = { [key: string]: string };

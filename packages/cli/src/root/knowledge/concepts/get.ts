@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
-import { CliRenderer } from "../../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
 import { getKnowledgeIndexConcept } from "@agentxm/knowledge-query";
 import {
@@ -42,7 +42,8 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
     });
   }
 
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const captured = yield* captureInstalledKnowledgeIndex();
   if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const { snapshot } = captured;

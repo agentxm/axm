@@ -10,7 +10,13 @@ import { RegistryUrl } from "@agentxm/registry-client";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import { jsonFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import { CliRenderer, type DetailView, type TableView } from "../../cli-renderer/index.js";
+import {
+  Screen,
+  fieldsDoc,
+  inventoryDoc,
+  type ViewColumn,
+  type ViewField,
+} from "../../screen/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
@@ -93,14 +99,12 @@ const createTokenSuggestions = (tokenId: string): ReadonlyArray<SuggestedAction>
   { description: "Revoke this token", cmd: `axm token revoke ${tokenId}` },
 ];
 
-const CreatedTokenDetail = {
-  fields: {
-    id: { label: "ID" },
-    name: { label: "Name" },
-    token: { label: "Token" },
-    expiresAt: { label: "Expires" },
-  },
-} as const satisfies DetailView<CreatedTokenDetailItem>;
+const CreatedTokenFields = [
+  { label: "ID", value: (row: CreatedTokenDetailItem) => row.id },
+  { label: "Name", value: (row: CreatedTokenDetailItem) => row.name },
+  { label: "Token", value: (row: CreatedTokenDetailItem) => row.token },
+  { label: "Expires", value: (row: CreatedTokenDetailItem) => row.expiresAt },
+] satisfies ReadonlyArray<ViewField<CreatedTokenDetailItem>>;
 
 interface TokenTableItem {
   readonly id: string;
@@ -110,15 +114,13 @@ interface TokenTableItem {
   readonly lastUsedAt: string;
 }
 
-const TokenListTable = {
-  columns: {
-    id: { header: "ID" },
-    name: { header: "Name" },
-    type: { header: "Type" },
-    expiresAt: { header: "Expires" },
-    lastUsedAt: { header: "Last used" },
-  },
-} as const satisfies TableView<TokenTableItem>;
+const TokenListColumns = [
+  { header: "ID", value: (row: TokenTableItem) => row.id },
+  { header: "Name", value: (row: TokenTableItem) => row.name },
+  { header: "Type", value: (row: TokenTableItem) => row.type },
+  { header: "Expires", value: (row: TokenTableItem) => row.expiresAt },
+  { header: "Last used", value: (row: TokenTableItem) => row.lastUsedAt },
+] satisfies ReadonlyArray<ViewColumn<TokenTableItem>>;
 
 export interface CreateTokenHandlerArgs {
   readonly name: string;
@@ -181,7 +183,7 @@ const compactPermissions = (args: CreateTokenHandlerArgs) => ({
 export const handleToken = Effect.fn("AuthToken.handle")(
   function* () {
     const registryUrl = yield* RegistryUrl;
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const json = Option.getOrElse(yield* jsonFlag, () => false);
 
     // Step 1: Resolve token
@@ -190,10 +192,10 @@ export const handleToken = Effect.fn("AuthToken.handle")(
     });
 
     // Step 2: Output raw token to stdout, unless --json was explicitly requested
-    if (json && (yield* renderer.result({ data: { token: token.token } }, TokenDocumentSchema)))
+    if (json && (yield* screen.document({ data: { token: token.token } }, TokenDocumentSchema)))
       return;
 
-    yield* renderer.raw(token.token + "\n");
+    yield* screen.result([{ _tag: "raw", content: token.token + "\n" }]);
   },
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,
@@ -203,7 +205,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
   function* (args: CreateTokenHandlerArgs) {
     const registryUrl = yield* RegistryUrl;
     const authClient = yield* AuthClient;
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const token = yield* resolveRequiredToken(registryUrl, {
       missingTokenError: authLoginRequired("Not authenticated"),
     });
@@ -236,7 +238,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
     const suggestions = createTokenSuggestions(created.id);
 
     if (
-      yield* renderer.result(
+      yield* screen.document(
         {
           result: {
             status: "created",
@@ -261,17 +263,17 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
       return;
     }
 
-    yield* renderer.detail(
-      {
-        id: created.id,
-        name: created.name,
-        token: created.token,
-        expiresAt: DateTime.formatIso(created.expiresAt),
-      },
-      CreatedTokenDetail,
-      "Created token",
-    );
-    yield* renderer.suggestions(suggestions);
+    const detail = {
+      id: created.id,
+      name: created.name,
+      token: created.token,
+      expiresAt: DateTime.formatIso(created.expiresAt),
+    };
+    yield* screen.result([
+      { _tag: "headline", tone: "ok", text: "Created token" },
+      ...fieldsDoc(detail, CreatedTokenFields),
+      { _tag: "next", actions: suggestions },
+    ]);
   },
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,
@@ -281,19 +283,19 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
   function* () {
     const registryUrl = yield* RegistryUrl;
     const authClient = yield* AuthClient;
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const token = yield* resolveRequiredToken(registryUrl, {
       missingTokenError: authLoginRequired("Not authenticated"),
     });
 
-    const result = yield* renderer.withSpinner(
+    const result = yield* screen.task(
       "Loading registry tokens",
       () => authClient.listTokens(token.token),
       { successMessage: "Loaded registry tokens" },
     );
 
     if (
-      yield* renderer.result(
+      yield* screen.document(
         {
           items: result.tokens.map((item) => ({
             id: item.id,
@@ -315,24 +317,31 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
     }
 
     if (result.tokens.length === 0) {
-      yield* renderer.list("token", {
-        items: [],
-        count: 0,
-        emptyMessage: "No tokens found",
-      });
+      yield* screen.result(
+        inventoryDoc({
+          rows: [],
+          columns: TokenListColumns,
+          summary: "",
+          empty: "No tokens found",
+        }),
+      );
       return;
     }
 
-    yield* renderer.table(
-      result.tokens.map((item) => ({
-        id: item.id,
-        name: item.name ?? "",
-        type: item.type,
-        expiresAt: DateTime.formatIso(item.expiresAt),
-        lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
-      })),
-      TokenListTable,
-      "Tokens",
+    const rows = result.tokens.map((item) => ({
+      id: item.id,
+      name: item.name ?? "",
+      type: item.type,
+      expiresAt: DateTime.formatIso(item.expiresAt),
+      lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
+    }));
+    yield* screen.result(
+      inventoryDoc({
+        rows,
+        columns: TokenListColumns,
+        summary: "Tokens",
+        empty: "No tokens found",
+      }),
     );
   },
   Effect.mapError(coerceAuthFailure),
@@ -343,7 +352,7 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   function* (tokenId: string) {
     const registryUrl = yield* RegistryUrl;
     const authClient = yield* AuthClient;
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const token = yield* resolveRequiredToken(registryUrl, {
       missingTokenError: authLoginRequired("Not authenticated"),
     });
@@ -366,7 +375,7 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
     );
 
     if (
-      yield* renderer.result(
+      yield* screen.document(
         {
           result: {
             status: "revoked",
@@ -381,9 +390,10 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
       return;
     }
 
-    yield* renderer.success(`Revoked token ${tokenId}.`, {
-      suggestions: RevokeTokenSuggestions,
-    });
+    yield* screen.result([
+      { _tag: "headline", tone: "ok", text: `Revoked token ${tokenId}.` },
+      { _tag: "next", actions: RevokeTokenSuggestions },
+    ]);
   },
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,

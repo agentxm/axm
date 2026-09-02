@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { CliRenderer, type DetailView, type TableView } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput, type DetailView, type TableView } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   CatalogExtensionTypeSchema,
@@ -154,7 +154,8 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
   readonly type: CatalogExtensionType;
   readonly name: string;
 }) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const ws = yield* WorkspaceMutations;
   const label = extensionTypeSentenceLabels[args.type];
 

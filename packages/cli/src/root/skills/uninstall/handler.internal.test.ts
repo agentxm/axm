@@ -478,7 +478,7 @@ describe("uninstall.handler", () => {
 
   describe("preview flag", () => {
     it.effect("preserves workspace-authored source while removing its settings entry", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, rendererState } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
         {},
@@ -497,7 +497,7 @@ describe("uninstall.handler", () => {
             preview: true,
           });
 
-          expect(logs.message).toContain("    unchanged: skills/my-skill");
+          expect(JSON.stringify(rendererState.docs)).toContain("skills/my-skill");
           expect(fs.existsSync(path.join(tempDir, "skills", "my-skill"))).toBe(true);
         }),
       );
@@ -506,7 +506,7 @@ describe("uninstall.handler", () => {
     it.effect(
       "previews single skill uninstall without deleting files or modifying lockfile",
       () => {
-        const { provide, logs } = makeLayers();
+        const { provide, logs, rendererState } = makeLayers();
         initWorkspace(path.join(tempDir, ".axm"), {
           "my-skill": makeLockEntry("my-skill"),
         });
@@ -542,14 +542,11 @@ describe("uninstall.handler", () => {
 
             // Preview outcome should be displayed
             expect(logs.info.some((m) => m.includes("Would uninstall 1 skill"))).toBe(true);
-            expect(logs.message).toEqual(
-              expect.arrayContaining([
-                "    updated: axm-lock.yaml",
-                "    updated: axm.json",
-                "    removed: agent_extensions/agentxm/@acme/skills/my-skill",
-                "    removed: .claude/skills/my-skill",
-              ]),
-            );
+            const docs = JSON.stringify(rendererState.docs);
+            expect(docs).toContain("axm-lock.yaml");
+            expect(docs).toContain("axm.json");
+            expect(docs).toContain("agent_extensions/agentxm/@acme/skills/my-skill");
+            expect(docs).toContain(".claude/skills/my-skill");
           }),
         );
       },

@@ -11,7 +11,6 @@
 import * as fs from "node:fs";
 import * as Effect from "effect/Effect";
 
-import { getEntityView } from "./cli-renderer/index.js";
 import type { SubjectType } from "./cli-runtime/index.js";
 import {
   CATALOG_EXTENSION_TYPES,
@@ -32,9 +31,6 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { HELP_TOPIC_NAMES } from "./__generated__/help-topics.js";
 import { collectHelpFiles, type HelpFiles } from "./command-tree-test-helpers.js";
-// Loading the command tree registers every renderer entity as a module side
-// effect; without this import the 8.6 check would observe an empty registry.
-import "./app.js";
 
 const TIER = "cli-test";
 
@@ -62,6 +58,21 @@ const hasScopeSurface = (files: HelpFiles, type: CatalogExtensionType): boolean 
     (doc) => doc !== undefined && doc.flags.some((flag) => flag.name === "scope"),
   );
 
+const hasExplicitInventoryView = (_files: HelpFiles, type: CatalogExtensionType): boolean => {
+  const directory = `./root/${toExtensionTypePlural(type)}`;
+  const candidates = [
+    new URL(`${directory}/list.ts`, import.meta.url),
+    new URL(`${directory}/list/command.ts`, import.meta.url),
+    new URL(`${directory}/list/handler.ts`, import.meta.url),
+  ];
+  return candidates.some(
+    (candidate) =>
+      fs.existsSync(candidate) &&
+      fs.readFileSync(candidate, "utf-8").includes("inventoryDoc(") &&
+      fs.readFileSync(candidate, "utf-8").includes("ViewColumn"),
+  );
+};
+
 /**
  * Obligation checks, keyed by id. Each returns `true` when the type meets the
  * obligation. Adding a cli-tier obligation without a checker here fails the
@@ -83,7 +94,7 @@ const CHECKS: Record<
   "6.5-scope-isolation": null,
   "6.6-pack-reachability": null,
   "7.1-help-topic": (_files, type) => topicNames.has(toExtensionTypePlural(type)),
-  "8.6-entity-key": (_files, type) => getEntityView(type) !== undefined,
+  "8.6-entity-key": hasExplicitInventoryView,
   "8.7-lifecycle-verbs": hasLifecycleVerbs,
   "8.8-lifecycle-flags": hasLifecycleFlags,
   "8.9-scope-surface": hasScopeSurface,

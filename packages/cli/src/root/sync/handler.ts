@@ -18,7 +18,7 @@ import {
   preapprovedPlanExecution,
   previewPlanExecution,
 } from "@agentxm/workspace-operations";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import {
   desiredStateProblemsText,
   WorkspaceMutations,
@@ -96,7 +96,7 @@ type SyncPlanRequirements =
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
-  | CliRenderer
+  | Screen
   | CodingAgentRepository;
 const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecovery")(
   function* (args: { readonly selection: SyncSelection; readonly ignoreReleaseAge: boolean }) {
@@ -249,7 +249,8 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
     });
   }
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
@@ -258,7 +259,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
     Layer.succeed(WorkspaceMutations, ws),
-    Layer.succeed(CliRenderer, renderer),
+    Layer.succeed(Screen, screen),
     Layer.succeed(CodingAgentRepository, agentRepo),
   );
   const target = args.target ?? Option.none<string>();

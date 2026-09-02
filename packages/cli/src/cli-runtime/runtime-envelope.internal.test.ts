@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import { CliRenderer } from "../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../screen/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag, jsonFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
@@ -57,30 +57,27 @@ const testLayer = (
 // ---------------------------------------------------------------------------
 
 describe("makeFoundationLayer", () => {
-  it.effect("provides CliRenderer service in text mode (interactive)", () =>
+  it.effect("provides Screen in text mode", () =>
     Effect.gen(function* () {
-      const renderer = yield* CliRenderer.pipe(Effect.provide(testLayer("text")));
-      expect(renderer).toBeDefined();
-      expect(renderer.intro).toBeDefined();
-      expect(renderer.table).toBeDefined();
+      const screen = yield* Screen.pipe(Effect.provide(testLayer("text")));
+      expect(screen).toBeDefined();
+      expect(screen.result).toBeDefined();
+      expect(screen.task).toBeDefined();
     }),
   );
 
-  it.effect("provides CliRenderer as MachineRenderer in json mode", () =>
+  it.effect("provides a machine Screen in json mode", () =>
     Effect.gen(function* () {
-      const renderer = yield* CliRenderer.pipe(Effect.provide(testLayer("json")));
-      expect(renderer).toBeDefined();
-      // Machine renderer: result() returns true
-      const emitted = yield* renderer.result("test", Schema.String);
+      const screen = yield* Screen.pipe(Effect.provide(testLayer("json")));
+      const emitted = yield* screen.document("test", Schema.String);
       expect(emitted).toBe(true);
     }),
   );
 
-  it.effect("provides CliRenderer as InteractiveRenderer when format is text", () =>
+  it.effect("provides an interactive Screen when format is text", () =>
     Effect.gen(function* () {
-      const renderer = yield* CliRenderer.pipe(Effect.provide(testLayer("text")));
-      // Interactive renderer: result() returns false (no machine output)
-      const emitted = yield* renderer.result("test", Schema.String);
+      const screen = yield* Screen.pipe(Effect.provide(testLayer("text")));
+      const emitted = yield* screen.document("test", Schema.String);
       expect(emitted).toBe(false);
     }),
   );
@@ -119,7 +116,7 @@ describe("makeFoundationLayer", () => {
     Effect.gen(function* () {
       const layer = testLayer("text", { verbosityLevel: "verbose" });
 
-      const renderer = yield* CliRenderer.pipe(Effect.provide(layer));
+      const renderer = makeScreenOutput(yield* Screen.pipe(Effect.provide(layer)));
       const verbosity = yield* Verbosity.pipe(Effect.provide(layer));
 
       expect(renderer).toBeDefined();
@@ -203,53 +200,65 @@ describe("writeDefect", () => {
     stderrWriteSpy.mockRestore();
   });
 
-  it("text mode: writes human-readable defect to stderr only, leaving stdout untouched", () => {
-    writeDefect(Cause.die(new Error("boom")), "text");
+  it.effect(
+    "text mode: writes human-readable defect to stderr only, leaving stdout untouched",
+    () =>
+      Effect.gen(function* () {
+        yield* writeDefect(Cause.die(new Error("boom")), "text").pipe(
+          Effect.provide(testLayer("text")),
+        );
 
-    expect(stdoutWrites).toEqual([]);
-    expect(stderrWrites).toHaveLength(1);
-    expect(stderrWrites[0]).toContain("✖  boom");
-    expect(stderrWrites[0]).not.toContain("✗");
-    expect(stderrWrites[0]).toContain("boom");
-  });
+        expect(stdoutWrites).toEqual([]);
+        expect(stderrWrites).toHaveLength(1);
+        expect(stderrWrites[0]).toContain("✖  boom");
+        expect(stderrWrites[0]).not.toContain("✗");
+        expect(stderrWrites[0]).toContain("boom");
+      }),
+  );
 
-  it("json mode: emits one JSON envelope on stdout and pure NDJSON on stderr", () => {
-    writeDefect(Cause.die(new Error("boom")), "json");
+  it.effect("json mode: emits one JSON envelope on stdout and pure NDJSON on stderr", () =>
+    Effect.gen(function* () {
+      yield* writeDefect(Cause.die(new Error("boom")), "json").pipe(
+        Effect.provide(testLayer("json")),
+      );
 
-    expect(stdoutWrites).toHaveLength(1);
-    const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");
-    expect(stdoutDoc).toMatchObject({
-      ok: false,
-      code: "internal",
-      title: "Internal Error",
-      detail: "boom",
-    });
-
-    expect(stderrWrites).toHaveLength(1);
-    for (const line of stderrWrites) {
-      const event: unknown = JSON.parse(line.trim());
-      // Schema-conformant ErrorEvent: { type, code, message } — full detail
-      // (title/detail/suggestions) lives in the stdout envelope.
-      expect(event).toEqual({
-        type: "error",
+      expect(stdoutWrites).toHaveLength(1);
+      const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");
+      expect(stdoutDoc).toMatchObject({
+        ok: false,
         code: "internal",
-        message: "boom",
+        title: "Internal Error",
+        detail: "boom",
       });
-    }
-  });
 
-  it("json mode: stringifies non-Error defects via String()", () => {
-    writeDefect(Cause.die("kaboom"), "json");
+      expect(stderrWrites).toHaveLength(1);
+      for (const line of stderrWrites) {
+        const event: unknown = JSON.parse(line.trim());
+        // Schema-conformant ErrorEvent: { type, code, message } — full detail
+        // (title/detail/suggestions) lives in the stdout envelope.
+        expect(event).toEqual({
+          type: "error",
+          code: "internal",
+          message: "boom",
+        });
+      }
+    }),
+  );
 
-    expect(stdoutWrites).toHaveLength(1);
-    const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");
-    expect(stdoutDoc).toMatchObject({
-      ok: false,
-      code: "internal",
-      title: "Internal Error",
-      detail: "kaboom",
-    });
-  });
+  it.effect("json mode: stringifies non-Error defects via String()", () =>
+    Effect.gen(function* () {
+      yield* writeDefect(Cause.die("kaboom"), "json").pipe(Effect.provide(testLayer("json")));
+
+      expect(stdoutWrites).toHaveLength(1);
+      const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");
+      expect(stdoutDoc).toMatchObject({
+        ok: false,
+        code: "internal",
+        title: "Internal Error",
+        detail: "kaboom",
+      });
+    }),
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -292,7 +301,7 @@ describe("writeExpectedCliError", () => {
 
   it.effect("text mode: renders the suggestion exactly once (no duplicate block)", () =>
     Effect.gen(function* () {
-      yield* writeExpectedCliError(conflictError, "text");
+      yield* writeExpectedCliError(conflictError, "text").pipe(Effect.provide(testLayer("text")));
 
       const stderr = stderrWrites.join("");
       // renderAppError owns the single suggestions block.
@@ -309,7 +318,7 @@ describe("writeExpectedCliError", () => {
     "json mode: streams suggestion + error events on stderr and one envelope on stdout",
     () =>
       Effect.gen(function* () {
-        yield* writeExpectedCliError(conflictError, "json");
+        yield* writeExpectedCliError(conflictError, "json").pipe(Effect.provide(testLayer("json")));
 
         // stderr is the live event stream: suggestion(s) first, then the error.
         const events = stderrWrites.map((line) => JSON.parse(line.trim()) as unknown);
@@ -345,8 +354,8 @@ describe("writeExpectedCliError", () => {
         message: "Operation cancelled.",
       });
 
-      yield* writeExpectedCliError(cancellation, "text");
-      yield* writeExpectedCliError(cancellation, "json");
+      yield* writeExpectedCliError(cancellation, "text").pipe(Effect.provide(testLayer("text")));
+      yield* writeExpectedCliError(cancellation, "json").pipe(Effect.provide(testLayer("json")));
 
       expect(stdoutWrites).toEqual([]);
       expect(stderrWrites).toEqual([]);

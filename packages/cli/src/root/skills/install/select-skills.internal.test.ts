@@ -10,7 +10,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { TestRenderer } from "../../../cli-renderer/index.js";
+import { TestRenderer } from "../../../screen/index.js";
 import { TestFlagsLayer } from "../../../cli-flags/index.js";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { extensionName, handle } from "../../../test-stubs.js";

@@ -202,10 +202,9 @@ describe("instructions handler", () => {
         yield* handleInstructionsStatus();
 
         expect(rendererState.logs).toEqual([]);
-        expect(rendererState.results[1]?.data).toMatchObject({
-          count: 0,
-          items: [],
-          emptyMessage: "Instruction-file management is disabled.",
+        expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
+          _tag: "paragraph",
+          text: "Instruction-file management is disabled.",
         });
       }),
     );
@@ -224,10 +223,9 @@ describe("instructions handler", () => {
         yield* handleInstructionsStatus();
 
         expect(rendererState.logs).toEqual([]);
-        expect(rendererState.results[1]?.data).toMatchObject({
-          count: 0,
-          items: [],
-          emptyMessage: "No configured agents need instruction-file propagation.",
+        expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
+          _tag: "paragraph",
+          text: "No configured agents need instruction-file propagation.",
         });
       }),
     );
@@ -245,18 +243,13 @@ describe("instructions handler", () => {
       Effect.gen(function* () {
         yield* handleInstructionsStatus();
 
-        expect(rendererState.tables).toEqual([]);
         expect(rendererState.logs).toEqual([]);
-        expect(rendererState.results[1]?.data).toMatchObject({
-          count: 1,
-          items: [
-            expect.objectContaining({
-              agentId: "claude-code",
-              mechanism: expect.any(String),
-              health: expect.any(String),
-            }),
-          ],
-        });
+        expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
+          expect.objectContaining({
+            _tag: "table",
+            rows: expect.arrayContaining([expect.arrayContaining(["claude-code"])]),
+          }),
+        );
       }),
     );
   });

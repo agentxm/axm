@@ -1,4 +1,5 @@
 import { CliError } from "effect/unstable/cli";
+import * as Effect from "effect/Effect";
 import {
   AppError,
   ExitCode,
@@ -15,28 +16,7 @@ import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 import { makeErrorEvent, makeSuggestionEvent } from "./output-mode.js";
-
-type WriteCallback = (error?: Error | null) => void;
-
-const writeStream = (
-  write: (chunk: string, callback: WriteCallback) => boolean,
-  message: string,
-): Promise<void> =>
-  new Promise((resolve, reject) => {
-    write(message, (error) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve();
-    });
-  });
-
-const writeStderr = (message: string): Promise<void> =>
-  writeStream(
-    process.stderr.write.bind(process.stderr),
-    message.endsWith("\n") ? message : `${message}\n`,
-  );
+import { InteractiveScreen, MachineScreen, Screen } from "../screen/index.js";
 
 const cliErrorMessage = (errors: ReadonlyArray<{ readonly message?: string }>): string =>
   errors.map((error) => error.message ?? String(error)).join("; ");
@@ -200,15 +180,22 @@ export const classifyError = (
  * Classifies the error, writes its stderr lines and optional stdout document,
  * and exits.
  */
-export const handleError = async (error: unknown, format: OutputFormat): Promise<never> => {
+export const handleError = (error: unknown, format: OutputFormat) => {
   const { exitCode, stderr, stdout } = classifyError(error, format);
-
-  for (const line of stderr ?? []) {
-    await writeStderr(line);
-  }
-  if (stdout !== undefined) {
-    await writeStream(process.stdout.write.bind(process.stdout), stdout);
-  }
-
-  process.exit(exitCode);
+  const output = Effect.gen(function* () {
+    const screen = yield* Screen;
+    for (const line of stderr ?? []) {
+      yield* screen.note([{ _tag: "raw", content: line.endsWith("\n") ? line : `${line}\n` }]);
+    }
+    if (stdout !== undefined) yield* screen.result([{ _tag: "raw", content: stdout }]);
+    yield* screen.settle;
+  });
+  return output.pipe(
+    Effect.provide(format === "json" ? MachineScreen() : InteractiveScreen()),
+    Effect.andThen(
+      Effect.sync(() => {
+        process.exit(exitCode);
+      }),
+    ),
+  );
 };

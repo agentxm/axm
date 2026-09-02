@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { count } from "../../../cli-renderer/index.js";
+import { count } from "../../../screen/index.js";
 import {
   WorkspaceMutations,
   acquiredExtensionDisplayPathFromLockEntry,

@@ -16,7 +16,7 @@ import {
   SkillManager,
   SubagentManager,
 } from "@agentxm/extension-workspace";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen } from "../../screen/index.js";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { makeAppError } from "../../app-error/index.js";
 import { previewFlag, yesFlag } from "../../cli-flags/index.js";
@@ -370,7 +370,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
       });
       break;
     case "mcp-server": {
-      const renderer = yield* CliRenderer;
+      const screen = yield* Screen;
       const agentRepo = yield* CodingAgentRepository;
       step = buildAuthoredExtensionStep(yield* McpServerManager, {
         toStepFailure: failureToStepFailure,
@@ -395,7 +395,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
             Effect.provideService(WorkspaceMutations, ws),
-            Effect.provideService(CliRenderer, renderer),
+            Effect.provideService(Screen, screen),
             Effect.provideService(CodingAgentRepository, agentRepo),
             Effect.provideService(HttpClient.HttpClient, httpClient),
             provideLifecycleFailureAdapter,

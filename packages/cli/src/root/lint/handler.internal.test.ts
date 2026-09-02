@@ -18,7 +18,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "../../cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
 import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";

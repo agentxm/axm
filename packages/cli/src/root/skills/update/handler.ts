@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError } from "../../../app-error/index.js";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
-import { CliRenderer } from "../../../cli-renderer/index.js";
+import { Screen } from "../../../screen/index.js";
 import {
   previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
@@ -166,7 +166,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) =>
 const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
     Effect.mapError(lifecycleFailureToAppError),
@@ -723,7 +723,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
-      Effect.provideService(CliRenderer, renderer),
+      Effect.provideService(Screen, screen),
       Effect.provideService(SourceHostProviders, sources),
       Effect.provideService(CodingAgentRepository, agentRepo),
       Effect.provideService(HttpClient.HttpClient, httpClient),

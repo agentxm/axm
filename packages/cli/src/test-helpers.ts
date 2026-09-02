@@ -19,7 +19,8 @@ import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "./cli-flags/index.js";
-import { displayPlan, TestMachineRenderer, TestRenderer, logsByTag } from "./cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "./screen/index.js";
+import { presentPlan } from "./operation-view.js";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -424,7 +425,7 @@ export const makeCliTestContext = (opts?: {
     // Render plan candidates like the CLI Live so output assertions keep
     // observing the real display wording.
     presentPlan: (plan, options) =>
-      displayPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
+      presentPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
   });
   const workspaceInitializationTest = WorkspaceInitializationInteractionTest({
     selectAgents: ({ allAgents, detectedIds }) =>

@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { TestRenderer } from "../../../cli-renderer/index.js";
+import { TestRenderer } from "../../../screen/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestFlagsLayer } from "../../../cli-flags/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";

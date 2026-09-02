@@ -10,7 +10,7 @@ import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
 
 import { BRANDING } from "./branding/index.js";
-import { stripTerminalFormatting } from "./cli-renderer/index.js";
+import { stripTerminalFormatting } from "./screen/index.js";
 import {
   JsonHelpDocSchema,
   JsonVersionDocSchema,

@@ -6,12 +6,13 @@ import { Argument, CliError, Command } from "effect/unstable/cli";
 import { type AppError, makeAppError } from "../../app-error/index.js";
 import { quietFlag } from "../../cli-flags/index.js";
 import {
-  CliRenderer,
-  InteractiveRenderer,
-  MachineRenderer,
+  Screen,
+  makeScreenOutput,
+  InteractiveScreen,
+  MachineScreen,
   resolveCliOutputPolicy,
   type TableView,
-} from "../../cli-renderer/index.js";
+} from "../../screen/index.js";
 import { resolveCliFormat, withArgvTracking } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
@@ -123,14 +124,15 @@ const helpRendererLayer = Layer.unwrap(
     const outputPolicy = resolveCliOutputPolicy({ quiet });
 
     return format === "json"
-      ? MachineRenderer({ quiet: outputPolicy.quiet })
-      : InteractiveRenderer({ outputPolicy });
+      ? MachineScreen({ quiet: outputPolicy.quiet })
+      : InteractiveScreen({ outputPolicy });
   }),
 );
 
 const writeHelpTopicIndex = () =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const rows: ReadonlyArray<HelpTopicRow> = ORDERED_TOPIC_NAMES.map((topic) => ({
       topic,
       description: HELP_TOPIC_DESCRIPTIONS[topic],
@@ -152,7 +154,8 @@ const writeHelpTopicIndex = () =>
 
 const writeHelpTopic = (name: HelpTopicName) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const raw = HELP_TOPICS[name];
     const content = raw.endsWith("\n") ? raw : `${raw}\n`;
     const emitted = yield* renderer.result({ topic: name, content }, HelpTopicResultSchema);
@@ -187,7 +190,7 @@ export const resolveCommandPath = (
 export const handleHelpPath = (
   path: ReadonlyArray<string>,
   root: Command.Command.Any,
-): Effect.Effect<void, AppError | CliError.ShowHelp, CliRenderer> => {
+): Effect.Effect<void, AppError | CliError.ShowHelp, Screen> => {
   if (path.length === 0) return writeHelpTopicIndex();
 
   const [singleTopic] = path;

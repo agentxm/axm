@@ -512,7 +512,7 @@ describe("update.handler — error recovery", () => {
   });
 
   it.effect("surfaces publisher epoch changes in an interactive preview", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     const registryRoot = path.join(tempDir, "registry");
     writeRegistrySkill({
       registryRoot,
@@ -547,8 +547,7 @@ describe("update.handler — error recovery", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleUpdate(defaultArgs({ preview: true }));
-        // The warning rides its unit's planned row, not a bespoke section.
-        expect(logs.success.some((message) => message.includes("Publisher identity changed"))).toBe(
+        expect(JSON.stringify(rendererState.results).includes("Publisher identity changed")).toBe(
           true,
         );
       }),

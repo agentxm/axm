@@ -263,14 +263,23 @@ describe("root list", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleList({ type: Option.none(), outdated: false, deprecated: false });
-        expect(rendererState.results[1]?.data).toMatchObject({
-          items: [
-            expect.objectContaining({
-              state: "deprecated",
-              guidance: "axm view @acme/skills/review deprecation",
-            }),
-          ],
-        });
+        expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
+          expect.objectContaining({
+            _tag: "table",
+            rows: expect.arrayContaining([
+              expect.arrayContaining([
+                "@acme/skills/review",
+                "skill",
+                "configured",
+                "yes",
+                "1.0.0",
+                expect.any(String),
+                "deprecated",
+                "axm view @acme/skills/review deprecation",
+              ]),
+            ]),
+          }),
+        );
       }),
     );
   });

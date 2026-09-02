@@ -37,7 +37,7 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
-import { count } from "../../../cli-renderer/index.js";
+import { count } from "../../../screen/index.js";
 import { workspaceCanonicalNodePath } from "../../shared/workspace-display-paths.js";
 import { expandGlob } from "../../../utils/index.js";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";

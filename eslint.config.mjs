@@ -245,6 +245,32 @@ export default [
     },
   },
   {
+    // Screen exclusively owns runtime stdout/stderr. The startup update notice
+    // runs before the runtime exists; streams.ts is Screen's process adapter.
+    files: ["packages/cli/src/**/*.ts"],
+    ignores: [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "packages/cli/src/screen/streams.ts",
+      "packages/cli/src/update-check-startup.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.object.type='MemberExpression'][callee.object.object.name='process'][callee.object.property.name=/^(stdout|stderr)$/][callee.property.name='write']",
+          message: "Route CLI output through Screen instead of writing process streams directly.",
+        },
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.object.name='console'][callee.property.name=/^(log|error|warn|info)$/]",
+          message: "Route CLI output through Screen instead of the global console.",
+        },
+      ],
+    },
+  },
+  {
     // Timestamp backstop: production code reads the clock through
     // DateTime.now / Clock and holds DateTime.Utc; ambient Date construction
     // belongs only at sanctioned edges (listed in ignores) and tests.

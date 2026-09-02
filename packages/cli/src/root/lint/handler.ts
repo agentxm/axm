@@ -26,7 +26,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { ExitCode, makeAppError } from "../../app-error/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput, type ScreenOutput } from "../../screen/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { effectCliExit } from "../../cli-runtime/index.js";
 import { WorkspaceInvariantFacts, observeAgentOutputs } from "@agentxm/extension-workspace";
@@ -111,13 +111,15 @@ export type LintResultDocument = typeof LintResultDocumentSchema.Type;
 
 const emitJsonDocument = (doc: LintJsonDocument, ok: boolean) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     return yield* renderer.result({ result: doc }, LintResultDocumentSchema, { ok });
   });
 
 const emitHumanOutput = (args: { readonly summary: LintSummary; readonly details: boolean }) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const blocks = toLintHumanBlocks({
       summary: args.summary,
       reporter: args.details ? "full" : "grouped",
@@ -178,10 +180,7 @@ const emitHumanOutput = (args: { readonly summary: LintSummary; readonly details
     );
   });
 
-const emitQuietHumanOutput = (
-  renderer: typeof CliRenderer.Service,
-  blocks: ReadonlyArray<LintHumanBlock>,
-) =>
+const emitQuietHumanOutput = (renderer: ScreenOutput, blocks: ReadonlyArray<LintHumanBlock>) =>
   Effect.forEach(
     blocks,
     (block) =>
@@ -200,10 +199,7 @@ const emitQuietHumanOutput = (
     { discard: true },
   );
 
-const emitFullHumanDiagnostic = (
-  renderer: typeof CliRenderer.Service,
-  diagnostic: LintHumanDiagnostic,
-) =>
+const emitFullHumanDiagnostic = (renderer: ScreenOutput, diagnostic: LintHumanDiagnostic) =>
   Effect.gen(function* () {
     const label = `${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}: ${diagnostic.title}`;
     switch (diagnostic.severity) {
@@ -225,10 +221,7 @@ const emitFullHumanDiagnostic = (
     });
   });
 
-const emitGroupedHumanDiagnostic = (
-  renderer: typeof CliRenderer.Service,
-  diagnostic: LintHumanDiagnostic,
-) =>
+const emitGroupedHumanDiagnostic = (renderer: ScreenOutput, diagnostic: LintHumanDiagnostic) =>
   Effect.gen(function* () {
     const location =
       diagnostic.paths.length === 1
@@ -259,11 +252,7 @@ const emitGroupedHumanDiagnostic = (
     });
   });
 
-const emitSummary = (
-  renderer: typeof CliRenderer.Service,
-  message: string,
-  counts: LintSummary["counts"],
-) => {
+const emitSummary = (renderer: ScreenOutput, message: string, counts: LintSummary["counts"]) => {
   if (counts.errors > 0) {
     return renderer.error(message);
   }

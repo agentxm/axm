@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { CliRenderer } from "./cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "./screen/index.js";
 import { UpdateCheck, isCacheStale } from "./update-check/update-check.js";
 import {
   resolveLatestVersion,
@@ -156,7 +156,8 @@ export const withUpdateCheck = <A, E, R>(
   Effect.gen(function* () {
     const updateCheck = yield* UpdateCheck;
     const skipContext = buildSkipContext(options.inputs);
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const printer =
       options.printNotification ??
       (skipContext.isAgentSession

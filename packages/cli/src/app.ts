@@ -3,15 +3,20 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Cause from "effect/Cause";
+import * as Console from "effect/Console";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import { CliError, CliOutput, Command } from "effect/unstable/cli";
+import { format as formatConsoleArgs } from "node:util";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 import {
-  InteractiveRenderer,
-  MachineRenderer,
+  InteractiveScreen,
+  MachineScreen,
+  Screen,
   resolveCliOutputPolicy,
-} from "./cli-renderer/index.js";
+} from "./screen/index.js";
 import { resolveVerbosityFromArgv } from "./cli-flags/index.js";
 import { runCliMain } from "./cli-runtime/index.js";
 import { InstallMethodLive } from "./install-method/install-method.js";
@@ -156,6 +161,46 @@ const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
 
 const usesRetiredAuthCommand = (args: ReadonlyArray<string>): boolean => args[0] === "auth";
 
+const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
+  Effect.gen(function* () {
+    const screen = yield* Screen;
+    const stdout: Array<string> = [];
+    const stderr: Array<string> = [];
+    const bufferedConsole: Console.Console = {
+      ...globalThis.console,
+      log: (...args: ReadonlyArray<unknown>) => void stdout.push(`${formatConsoleArgs(...args)}\n`),
+      error: (...args: ReadonlyArray<unknown>) =>
+        void stderr.push(`${formatConsoleArgs(...args)}\n`),
+    };
+    const exit = yield* Effect.exit(
+      Command.runWith(rootCommand, { version })(argv).pipe(
+        Effect.provideService(Console.Console, bufferedConsole),
+      ),
+    );
+    const failure = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined;
+    const usageHelp =
+      failure !== undefined &&
+      CliError.isCliError(failure) &&
+      failure._tag === "ShowHelp" &&
+      failure.errors.length > 0;
+
+    if (usageHelp) {
+      if (!isJson) {
+        if (stdout.length > 0) {
+          yield* screen.note([{ _tag: "raw", content: stdout.join("") }]);
+        }
+        if (stderr.length > 0) {
+          yield* screen.note([{ _tag: "raw", content: stderr.join("") }]);
+        }
+      }
+    } else {
+      if (stdout.length > 0) yield* screen.result([{ _tag: "raw", content: stdout.join("") }]);
+      if (stderr.length > 0) yield* screen.note([{ _tag: "raw", content: stderr.join("") }]);
+    }
+
+    if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
+  });
+
 /** Layer providing UpdateCheck and InstallMethod for the startup update check. */
 const updateCheckServicesLayer = Layer.provide(
   Layer.mergeAll(UpdateCheckLive, InstallMethodLive),
@@ -189,16 +234,14 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
                 detail: "Unrecognized flag: -vv. Use --debug for full debug diagnostics.",
               }),
             )
-          : Command.runWith(rootCommand, { version })(argv).pipe(
-              Effect.mapError((error): CommandProgramError => error),
-            );
+          : runCommand(argv, isJson).pipe(Effect.mapError((error): CommandProgramError => error));
       const outputPolicy = resolveCliOutputPolicy({
         quiet: resolveVerbosityFromArgv(argv) === "quiet",
       });
 
       const rendererLayer = isJson
-        ? MachineRenderer({ quiet: outputPolicy.quiet })
-        : InteractiveRenderer({ outputPolicy });
+        ? MachineScreen({ quiet: outputPolicy.quiet })
+        : InteractiveScreen({ outputPolicy });
 
       return withUpdateCheck(commandProgram, {
         localVersion: version,

@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen } from "../../screen/index.js";
 import { enableMcpServer } from "@agentxm/extension-lifecycle";
 import {
   previewOrApplyPlan,
@@ -61,7 +61,7 @@ const handleEnableMcpServerBody = Effect.fn("EnableMcpServer.handle")(function* 
   }
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
 
   const step: PlannedJobStep = {
@@ -72,7 +72,7 @@ const handleEnableMcpServerBody = Effect.fn("EnableMcpServer.handle")(function* 
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
-      Effect.provideService(CliRenderer, renderer),
+      Effect.provideService(Screen, screen),
       Effect.provideService(CodingAgentRepository, agentRepo),
     ),
   };

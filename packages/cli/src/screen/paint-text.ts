@@ -224,6 +224,8 @@ const paintNode = (node: DocNode, style: PaintStyle, indent: number): ReadonlyAr
     case "markdown":
     case "raw":
       return node.content.split("\n").map((line) => `${" ".repeat(indent)}${line}`);
+    case "progress":
+      return paintWrapped(node.message, style, { indent, hanging: indent, tone: "dim" });
     case "blank":
       return [""];
   }

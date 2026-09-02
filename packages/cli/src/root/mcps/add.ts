@@ -12,7 +12,7 @@ import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agen
 import { makeAppError } from "../../app-error/index.js";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { count } from "../../cli-renderer/index.js";
+import { count } from "../../screen/index.js";
 import {
   operationPresentation,
   type JobStepArtifact,

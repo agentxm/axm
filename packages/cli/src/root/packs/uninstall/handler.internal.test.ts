@@ -14,12 +14,8 @@ import * as Layer from "effect/Layer";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  displayPlan,
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-} from "../../../cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "../../../screen/index.js";
+import { presentPlan } from "../../../operation-view.js";
 import { TestFlagsLayer } from "../../../cli-flags/index.js";
 import {
   type WorkspaceMutationsOptions,
@@ -217,7 +213,7 @@ describe("packs uninstall handler", () => {
           (tuiConfig?.confirmValue ?? true) ? ("approved" as const) : ("declined" as const),
         ),
       presentPlan: (plan, options) =>
-        displayPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
+        presentPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,

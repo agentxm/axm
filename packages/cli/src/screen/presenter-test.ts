@@ -6,7 +6,7 @@ import type * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import {
-  CliRenderer,
+  type ScreenOutput,
   type SuggestionOptions,
   type BoxOptions,
   type DetailOptions,
@@ -24,13 +24,13 @@ import {
   type TaskLogHandle,
   type TreeNode,
   type TreePayload,
-} from "./cli-renderer.js";
+} from "./output.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { taskCompletionMessage } from "./renderer-helpers.js";
-import { Screen, type Doc, type TaskHandle } from "../screen/index.js";
+import { taskCompletionMessage } from "./presenter-helpers.js";
+import { Screen, plain, type Doc, type DocNode, type TaskHandle } from "./index.js";
 
 // ---------------------------------------------------------------------------
-// TestRendererState — mutable state object capturing all CliRenderer calls
+// TestRendererState — mutable state object capturing all ScreenPresenter calls
 // ---------------------------------------------------------------------------
 
 export interface TestRendererState {
@@ -91,6 +91,168 @@ const makeEmptyState = (): TestRendererState => ({
   docs: [],
 });
 
+const nodeText = (node: DocNode): string => {
+  switch (node._tag) {
+    case "headline":
+    case "paragraph":
+      return plain(node.text);
+    case "row":
+      return node.cells.map(plain).join("   ");
+    case "collapsed":
+      return `${String(node.count)} ${node.noun}`;
+    case "callout":
+      return plain(node.title);
+    case "summary":
+      return node.parts.map((part) => plain(part.text)).join(", ");
+    case "section":
+      return node.title === undefined ? "" : plain(node.title);
+    case "markdown":
+      return node.content;
+    case "raw":
+      return node.content;
+    case "progress":
+      return node.message;
+    case "fields":
+      return node.fields.map((field) => `${plain(field.label)}: ${plain(field.value)}`).join("\n");
+    case "table":
+      return node.rows.map((row) => row.map(plain).join("   ")).join("\n");
+    case "tree":
+      return node.roots.map((root) => plain(root.text)).join("\n");
+    case "rows":
+    case "next":
+    case "blank":
+      return "";
+  }
+};
+
+const keyFromHeader = (header: string): string => {
+  if (header === "Capability") return "capabilityKey";
+  if (header === "AXM") return "axm";
+  if (header === "Last used") return "lastUsedAt";
+  if (header === "Expires") return "expiresAt";
+  const words = header.trim().split(/[^A-Za-z0-9]+/u);
+  const first = words[0]?.toLowerCase() ?? "column";
+  return `${first}${words
+    .slice(1)
+    .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1).toLowerCase()}`)
+    .join("")}`;
+};
+
+const captureDoc = (
+  state: TestRendererState,
+  doc: Doc,
+  channel: "stdout" | "stderr",
+  persistent = false,
+): void => {
+  const capture = (node: DocNode): void => {
+    if (node._tag === "rows") {
+      for (const row of node.rows) {
+        state.summaries.push(nodeText(row));
+        if (row.change === "failed") {
+          state.logs.push({ _tag: "error", message: nodeText(row) });
+        }
+        if (row.children !== undefined) captureDoc(state, row.children, channel, persistent);
+      }
+      return;
+    }
+    if (node._tag === "section") {
+      if (node.children.length === 1 && node.children[0]?._tag === "raw") {
+        state.summaries.push(node.children[0].content);
+        return;
+      }
+      if (node.title !== undefined)
+        state.logs.push({ _tag: "message", message: plain(node.title) });
+      captureDoc(state, node.children, channel, persistent);
+      return;
+    }
+    if (node._tag === "next") {
+      state.suggestions.push(...node.actions);
+      return;
+    }
+    if (node._tag === "blank") return;
+    if (node._tag === "table") {
+      const keys = node.columns.map((column) => keyFromHeader(plain(column.header)));
+      state.tables.push({
+        items: node.rows.map((row) =>
+          Object.fromEntries(
+            row.map((cell, index) => [keys[index] ?? `column${String(index)}`, plain(cell)]),
+          ),
+        ),
+        view: node.columns,
+        ...(node.caption === undefined ? {} : { caption: plain(node.caption) }),
+      });
+      return;
+    }
+    if (node._tag === "fields") {
+      state.details.push({
+        item: Object.fromEntries(
+          node.fields.map((field) => [keyFromHeader(plain(field.label)), plain(field.value)]),
+        ),
+        view: node.fields,
+      });
+      return;
+    }
+    if (node._tag === "markdown") {
+      state.markdown.push(node.content);
+      return;
+    }
+    if (node._tag === "raw") {
+      state.logs.push({ _tag: "message", message: node.content });
+      return;
+    }
+    if (node._tag === "progress") {
+      if (node.phase === "step") {
+        state.logs.push({ _tag: "step", message: node.message });
+      } else {
+        state.spinnerMessages.push(node.message);
+      }
+      return;
+    }
+    if (node._tag === "callout") {
+      const message =
+        node.children === undefined ? "" : node.children.map(nodeText).filter(Boolean).join("\n");
+      if (node.tone === "info") {
+        state.notes.push({ message, title: plain(node.title) });
+        return;
+      }
+      if (node.tone === "warn" && node.children !== undefined) {
+        state.logs.push({ _tag: "warn", message: plain(node.title) });
+        for (const child of node.children) {
+          const childMessage = nodeText(child);
+          if (childMessage.length > 0) state.logs.push({ _tag: "info", message: childMessage });
+        }
+        return;
+      }
+    }
+    if (node._tag === "paragraph" && channel === "stdout") return;
+    const message = nodeText(node);
+    if (message.length === 0) return;
+    const tag =
+      node._tag === "headline"
+        ? node.tone === "ok"
+          ? "success"
+          : node.tone === "warn"
+            ? "warn"
+            : node.tone === "error"
+              ? "error"
+              : "info"
+        : node._tag === "callout"
+          ? node.tone === "error"
+            ? "error"
+            : node.tone === "warn"
+              ? "warn"
+              : "info"
+          : node._tag === "paragraph" && persistent
+            ? "info"
+            : "message";
+    state.logs.push({ _tag: tag, message });
+    if (node._tag === "callout" && node.children !== undefined) {
+      captureDoc(state, node.children, channel, persistent);
+    }
+  };
+  for (const node of doc) capture(node);
+};
+
 const makeTestScreenService = (
   state: TestRendererState,
   resultReturnValue: boolean,
@@ -98,10 +260,12 @@ const makeTestScreenService = (
   result: (doc) =>
     Effect.sync(() => {
       state.docs.push({ channel: "stdout", doc });
+      captureDoc(state, doc, "stdout");
     }),
-  note: (doc) =>
+  note: (doc, options) =>
     Effect.sync(() => {
       state.docs.push({ channel: "stderr", doc });
+      captureDoc(state, doc, "stderr", options?.persistent === true);
     }),
   document: <S extends Schema.Top>(
     data: Schema.Schema.Type<S>,
@@ -114,7 +278,11 @@ const makeTestScreenService = (
         schema: Option.some(schema),
         ...(options?.ok === undefined ? {} : { ok: options.ok }),
       });
-      if (options?.withoutSuggestions !== true && options?.suggestions !== undefined) {
+      if (
+        resultReturnValue &&
+        options?.withoutSuggestions !== true &&
+        options?.suggestions !== undefined
+      ) {
         state.suggestions.push(...options.suggestions);
       }
       return resultReturnValue;
@@ -122,7 +290,10 @@ const makeTestScreenService = (
   task: <A, E, R>(
     label: string,
     body: (handle: TaskHandle) => Effect.Effect<A, E, R>,
-    options?: { readonly successMessage?: string | ((value: A) => string) },
+    options?: {
+      readonly successMessage?: string | ((value: A) => string);
+      readonly failureMessage?: string;
+    },
   ) => {
     state.spinnerMessages.push(label);
     const handle: TaskHandle = {
@@ -136,16 +307,28 @@ const makeTestScreenService = (
         }),
       child: (message) => Effect.succeed(handle).pipe(Effect.tap(() => handle.update(message))),
     };
-    return body(handle).pipe(
-      Effect.tap((value) =>
-        Effect.sync(() => {
-          const message =
-            typeof options?.successMessage === "function"
-              ? options.successMessage(value)
-              : options?.successMessage;
-          if (message !== undefined) state.spinnerMessages.push(message);
-        }),
-      ),
+    return Effect.interruptible(body(handle)).pipe(
+      Effect.matchCauseEffect({
+        onFailure: (cause) => {
+          if (Cause.hasInterruptsOnly(cause)) {
+            state.cancelMessages.push("Cancelled");
+          } else {
+            state.spinnerMessages.push(options?.failureMessage ?? "Failed");
+            state.logs.push({ _tag: "error", message: options?.failureMessage ?? label });
+          }
+          return Effect.failCause(cause);
+        },
+        onSuccess: (value) =>
+          Effect.sync(() => {
+            const message =
+              typeof options?.successMessage === "function"
+                ? options.successMessage(value)
+                : options?.successMessage;
+            if (message !== undefined) state.spinnerMessages.push(message);
+            return value;
+          }),
+      }),
+      Effect.uninterruptible,
     );
   },
   log: (record) =>
@@ -218,7 +401,7 @@ const makeMockProgressHandle = (state: TestRendererState, message: string): Prog
 const makeTestRendererService = (
   state: TestRendererState,
   resultReturnValue: boolean,
-): typeof CliRenderer.Service => {
+): ScreenOutput => {
   const mockWithSpinner = <A, E, R>(
     message: string,
     f: (handle: SpinnerHandle) => Effect.Effect<A, E, R>,
@@ -258,7 +441,7 @@ const makeTestRendererService = (
       );
     });
 
-  const service: typeof CliRenderer.Service = {
+  const service: ScreenOutput = {
     // Chrome (stderr)
     intro: (title: string) =>
       Effect.sync(() => {
@@ -532,7 +715,7 @@ const makeTestRendererService = (
           ...(typeof third === "string" && { title: third }),
         });
         return undefined;
-      })) as typeof CliRenderer.Service.detail,
+      })) as ScreenOutput["detail"],
     // Assertion needed: function implements the service's overloaded tree signature.
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     tree: ((first: unknown, second: unknown, third?: unknown) =>
@@ -562,7 +745,7 @@ const makeTestRendererService = (
           ...(typeof third === "string" && { title: third }),
         });
         return undefined;
-      })) as typeof CliRenderer.Service.tree,
+      })) as ScreenOutput["tree"],
 
     // Machine data output (stdout)
     result: <S extends Schema.Top>(
@@ -638,15 +821,12 @@ export const logsByTag = (state: TestRendererState) => ({
 
 export const TestRenderer = {
   make: (): {
-    readonly layer: Layer.Layer<CliRenderer | Screen>;
+    readonly layer: Layer.Layer<Screen>;
     readonly state: TestRendererState;
   } => {
     const state = makeEmptyState();
-    const service = makeTestRendererService(state, false);
-    const layer = Layer.mergeAll(
-      Layer.succeed(CliRenderer, service),
-      Layer.succeed(Screen, makeTestScreenService(state, false)),
-    );
+    void makeTestRendererService(state, false);
+    const layer = Layer.succeed(Screen, makeTestScreenService(state, false));
     return { layer, state };
   },
 };
@@ -657,15 +837,12 @@ export const TestRenderer = {
 
 export const TestMachineRenderer = {
   make: (): {
-    readonly layer: Layer.Layer<CliRenderer | Screen>;
+    readonly layer: Layer.Layer<Screen>;
     readonly state: TestRendererState;
   } => {
     const state = makeEmptyState();
-    const service = makeTestRendererService(state, true);
-    const layer = Layer.mergeAll(
-      Layer.succeed(CliRenderer, service),
-      Layer.succeed(Screen, makeTestScreenService(state, true)),
-    );
+    void makeTestRendererService(state, true);
+    const layer = Layer.succeed(Screen, makeTestScreenService(state, true));
     return { layer, state };
   },
 };

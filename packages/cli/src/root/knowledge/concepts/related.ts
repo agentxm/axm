@@ -4,7 +4,7 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../../app-error/index.js";
-import { CliRenderer, type TableView } from "../../../cli-renderer/index.js";
+import { Screen, makeScreenOutput, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { getKnowledgeIndexConcept, relatedKnowledgeConcepts } from "@agentxm/knowledge-query";
 import { parseConceptRef } from "@agentxm/extension-model/unstable/knowledge";
@@ -47,7 +47,8 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
   if (!Number.isSafeInteger(maximumDepth) || maximumDepth < 1 || maximumDepth > 3) {
     return yield* makeAppError({ code: "validation", detail: "Depth must be between 1 and 3" });
   }
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const captured = yield* captureInstalledKnowledgeIndex();
   if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const { snapshot } = captured;

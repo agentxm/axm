@@ -13,7 +13,7 @@ import {
 } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 
 import { expectAppliedPlanResult, expectRecord, property } from "../../test-helpers.js";

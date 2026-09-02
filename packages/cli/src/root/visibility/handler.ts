@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { makeAppError } from "../../app-error/index.js";
 import { toAppError } from "../../app-error/conversions.js";
-import { CliRenderer, type TableView } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput, type TableView } from "../../screen/index.js";
 import {
   ExtensionFqnSchema,
   ExtensionVisibilitySchema,
@@ -147,7 +147,8 @@ const getEvaluation = (target: string, intent: VisibilityIntent | null) =>
 
 const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     if (yield* renderer.result(evaluation, VisibilityEvaluationSchema)) return;
     yield* renderer.table(
       [
@@ -179,7 +180,8 @@ export const handleVisibilityStatus = (target: string) =>
 
 const emitMutation = (result: typeof VisibilityMutationResultSchema.Type) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     if (yield* renderer.result(result, VisibilityMutationResultSchema)) return;
     yield* renderer.success(
       result.result === "already-satisfied"

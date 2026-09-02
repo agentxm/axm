@@ -168,7 +168,7 @@ describe("subagents enable.handler", () => {
 
   describe("settings-only enable (no lock entry)", () => {
     it.effect("refuses to enable a configured-disabled subagent without trusted content", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         subagents: {
           "my-agent": {
@@ -185,11 +185,22 @@ describe("subagents enable.handler", () => {
           // Apply mode renders no planned block; the refusal is the terminal
           // failed-outcome block.
           expect(logs.success).toEqual([]);
-          expect(logs.error).toEqual([
-            "Failed to enable 1 subagent",
-            '  Accepted subagent content for "my-agent" is not usable (not_found)',
-            '  my-agent: Accepted subagent content for "my-agent" is not usable (not_found)',
-          ]);
+          expect(logs.error[0]).toBe("Failed to enable 1 subagent");
+          expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
+            expect.objectContaining({
+              _tag: "rows",
+              rows: expect.arrayContaining([
+                expect.objectContaining({
+                  _tag: "row",
+                  change: "failed",
+                  cells: expect.arrayContaining([
+                    "my-agent",
+                    'Accepted subagent content for "my-agent" is not usable (not_found)',
+                  ]),
+                }),
+              ]),
+            }),
+          );
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");

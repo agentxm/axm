@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   ExtensionFqnSchema,
@@ -230,7 +230,8 @@ export const handleUnyank = (input: string) =>
 
 const emitDeprecationTransition = (transition: DeprecationTransition) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     if (yield* renderer.result(transition, LifecycleTransitionOutputSchema)) return;
     const verb =
       transition.disposition === "created"
@@ -279,7 +280,8 @@ export const handleDeprecate = (input: {
         detail: "--replacement and --clear-replacement cannot be combined.",
       });
     }
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const current = yield* renderer.withSpinner(
       `Reading deprecation for ${input.ref}`,
       () => getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
@@ -327,7 +329,8 @@ export const handleDeprecate = (input: {
 export const handleUndeprecate = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input);
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
+    const renderer = makeScreenOutput(screen);
     const current = yield* renderer.withSpinner(
       `Reading deprecation for ${input}`,
       () => getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),

@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { TestRenderer } from "./cli-renderer/index.js";
+import { TestRenderer } from "./screen/index.js";
 import { UpdateCheck, UpdateCheckTest } from "./update-check/update-check.js";
 
 import {

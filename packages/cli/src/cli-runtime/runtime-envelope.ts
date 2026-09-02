@@ -45,19 +45,10 @@ import {
   type TelemetryProperties,
 } from "../telemetry/index.js";
 
-import {
-  InteractiveRenderer,
-  MachineRenderer,
-  resolveCliOutputPolicy,
-  type CliRenderer,
-} from "../cli-renderer/index.js";
+import { InteractiveScreen, MachineScreen, resolveCliOutputPolicy } from "../screen/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
 import { makeJsonErrorEnvelope } from "./json-envelope.js";
-import { type Screen } from "../screen/index.js";
-
-const writeStderr = (message: string): void => {
-  process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
-};
+import { Screen } from "../screen/index.js";
 
 export interface CliTelemetryConfig {
   readonly mode: TelemetryClientOptions["mode"];
@@ -77,31 +68,39 @@ const defectMessage = (cause: Cause.Cause<unknown>): string => {
  *
  * Exported for tests; production callers route through `withCliErrorHandling`.
  */
-export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat): void => {
-  const message = defectMessage(cause);
+export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) =>
+  Effect.gen(function* () {
+    const screen = yield* Screen;
+    const message = defectMessage(cause);
 
-  if (format === "text") {
-    writeStderr(`✖  ${message}`);
-    return;
-  }
+    if (format === "text") {
+      yield* screen.note([{ _tag: "raw", content: `✖  ${message}\n` }]);
+      return;
+    }
 
-  writeStderr(JSON.stringify(makeErrorEvent("internal", message)));
-  process.stdout.write(
-    JSON.stringify(
-      makeJsonErrorEnvelope({
-        code: "internal",
-        title: "Internal Error",
-        detail: message,
-      }),
-      null,
-      2,
-    ) + "\n",
-  );
-};
+    yield* screen.note([
+      { _tag: "raw", content: `${JSON.stringify(makeErrorEvent("internal", message))}\n` },
+    ]);
+    yield* screen.result([
+      {
+        _tag: "raw",
+        content:
+          JSON.stringify(
+            makeJsonErrorEnvelope({
+              code: "internal",
+              title: "Internal Error",
+              detail: message,
+            }),
+            null,
+            2,
+          ) + "\n",
+      },
+    ]);
+  });
 
 export type ExpectedCliError =
   AppError | KnownFailure | PromptCancelled | WorkspaceInitializationCancelled;
-export type CliRuntimeFoundation = CliRenderer | Screen | Verbosity;
+export type CliRuntimeFoundation = Screen | Verbosity;
 
 /**
  * Resolve the AppError rendering for an expected error. Known typed failures
@@ -173,12 +172,13 @@ export const writeExpectedCliError = (error: ExpectedCliError, format: OutputFor
     });
 
     const { stderr, stdout } = renderAppErrorChannels(resolved, format, { verbose, debug });
+    const screen = yield* Screen;
 
     for (const line of stderr) {
-      writeStderr(line);
+      yield* screen.note([{ _tag: "raw", content: line.endsWith("\n") ? line : `${line}\n` }]);
     }
     if (stdout !== undefined) {
-      process.stdout.write(stdout);
+      yield* screen.result([{ _tag: "raw", content: stdout }]);
     }
   });
 
@@ -187,7 +187,7 @@ export const writeExpectedCliError = (error: ExpectedCliError, format: OutputFor
 // ---------------------------------------------------------------------------
 
 /**
- * Build the foundation layer: CliRenderer + Verbosity.
+ * Build the foundation layer: Screen + Verbosity.
  *
  * The returned layer requires the global verbosity flag settings in its
  * context when no explicit verbosity level is supplied.
@@ -207,10 +207,10 @@ export const makeFoundationLayer = (
           ? yield* quietFlag
           : options.verbosityLevel === "quiet";
       if (format !== "text") {
-        return MachineRenderer({ quiet });
+        return MachineScreen({ quiet });
       }
       const outputPolicy = resolveCliOutputPolicy({ quiet });
-      return InteractiveRenderer({ outputPolicy });
+      return InteractiveScreen({ outputPolicy });
     }),
   );
 
@@ -412,7 +412,7 @@ export const withCliErrorHandling = <A, R>(
           return Effect.failCause(cause);
         }
 
-        return Effect.sync(() => writeDefect(cause, options.format)).pipe(
+        return writeDefect(cause, options.format).pipe(
           Effect.andThen(reportCliDefect(cause, command)),
           Effect.andThen(
             Effect.gen(function* () {

@@ -94,3 +94,47 @@ export {
   wrapDisplay,
 } from "./width.js";
 export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";
+export {
+  type ScreenOutput,
+  type SuggestionOptions,
+  type BoxOptions,
+  type DetailFieldConfig,
+  type DetailView,
+  type LogLevel,
+  type LogMessage,
+  type ListPayload,
+  type DetailOptions,
+  type ProgressConfig,
+  type ProgressHandle,
+  type ResolvedDetailField,
+  type ResolvedTableColumn,
+  type SpinnerHandle,
+  type SpinnerOptions,
+  type SuccessOptions,
+  type Task,
+  type TaskLogConfig,
+  type TaskLogGroupHandle,
+  type TaskLogHandle,
+  type TableAlign,
+  type TableColumnConfig,
+  type TableView,
+  type TableWidth,
+  type TreeDef,
+  type ViewKey,
+} from "./output.js";
+export { makeScreenOutput } from "./output-live.js";
+export { resolveDetailFields, resolveTableColumns } from "./command-output.js";
+export { InteractiveScreen } from "./interactive.js";
+export { MachineScreen } from "./machine.js";
+export { formatMarkdown } from "./markdown-formatter.js";
+export {
+  resolveCliOutputPolicy,
+  type CliOutputEnvironment,
+  type CliOutputPolicy,
+} from "./output-policy.js";
+export {
+  TestRenderer,
+  TestMachineRenderer,
+  logsByTag,
+  type TestRendererState,
+} from "./presenter-test.js";

@@ -79,7 +79,7 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { Verbosity } from "../../../cli-flags/index.js";
-import { CliRenderer } from "../../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../../screen/index.js";
 import {
   type WorkspacePackDependencyResolver,
   expandPackInstallRefs,
@@ -400,7 +400,8 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
   const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   const fsSvc = yield* FileSystem.FileSystem;
   const agentRepo = yield* CodingAgentRepository;
   const packMgr = yield* PackManager;
@@ -425,7 +426,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
     Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(WorkspaceMutations, ws),
-    Layer.succeed(CliRenderer, renderer),
+    Layer.succeed(Screen, screen),
     Layer.succeed(FileSystem.FileSystem, fsSvc),
     Layer.succeed(Path.Path, pathSvc),
     Layer.succeed(CodingAgentRepository, agentRepo),

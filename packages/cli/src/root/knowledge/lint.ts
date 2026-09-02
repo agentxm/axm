@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { ExitCode, makeAppError } from "../../app-error/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import { Screen, makeScreenOutput } from "../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../cli-runtime/index.js";
 import { type KnowledgeDiagnostic } from "@agentxm/registry-protocol/unstable/knowledge";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
@@ -69,7 +69,8 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
   name?: string,
   packagePath?: string,
 ) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
+  const renderer = makeScreenOutput(screen);
   if (name !== undefined && packagePath !== undefined) {
     return yield* makeAppError({
       code: "validation",

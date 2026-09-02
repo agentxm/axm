@@ -28,7 +28,7 @@ import {
 } from "@agentxm/extension-authoring";
 import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 import { expandGlobs, isGlobPattern } from "../../utils/index.js";
-import { count } from "../../cli-renderer/index.js";
+import { count } from "../../screen/index.js";
 import {
   WorkspaceMutations,
   configuredRowsByName,

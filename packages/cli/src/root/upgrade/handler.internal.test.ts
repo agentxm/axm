@@ -18,7 +18,7 @@ import * as semver from "semver";
 
 import { makeAppError } from "../../app-error/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { logsByTag, TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
+import { logsByTag, TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import {
   Homebrew,
   InstallMethod,

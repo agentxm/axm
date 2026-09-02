@@ -239,7 +239,8 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/packs-dependencies-resolved",
-    "packages/cli-e2e/src/cli-commands/packs/packs.e2e.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/extensions/test-helpers.ts",
+    "packsDependenciesResolvedConformance",
   ),
 ];
 

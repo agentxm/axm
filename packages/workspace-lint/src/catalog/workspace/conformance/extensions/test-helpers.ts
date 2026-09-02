@@ -10,6 +10,7 @@ import type {
 } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { configuredButNotInstalledRule } from "../../configured-but-not-installed.js";
+import { packsDependenciesResolvedRule } from "../../packs-dependencies-resolved.js";
 import { skillsLockfileAlignedRule } from "../../skills-lockfile-aligned.js";
 import { skillsIntegrityValidRule } from "../../skills-integrity-valid.js";
 import { skillsArtifactsCorrectRule } from "../../skills-artifacts-correct.js";
@@ -258,9 +259,59 @@ export const skillsArtifactsCorrectConformance: WorkspaceRuleConformanceCase = {
     contextFor({ settings: validSettings({ agents: [] }), lockfile: validLockfile }),
 };
 
+const packDeclaredReviewer = {
+  type: "skill",
+  name: "reviewer",
+  identity: "@acme/skills/reviewer",
+  source: "@acme/skills/reviewer@^1.0.0",
+  enabled: true,
+  constraints: ["^1.0.0"],
+  origins: [
+    {
+      type: "pack",
+      pack: "@acme/packs/quality",
+      manifestPath: "agent_extensions/agentxm/@acme/packs/quality/pack.json",
+      source: "@acme/skills/reviewer@^1.0.0",
+      constraint: "^1.0.0",
+      enabled: true,
+    },
+  ],
+} satisfies DesiredExtensionNode;
+
+const packDependencyContext = (accepted: boolean) =>
+  skillLockContext(accepted).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          health: {
+            desiredState: Effect.succeed({
+              complete: true,
+              nodes: [packDeclaredReviewer],
+              problems: [],
+            }),
+          },
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const packsDependenciesResolvedConformance: WorkspaceRuleConformanceCase = {
+  rule: packsDependenciesResolvedRule,
+  satisfied: () => packDependencyContext(true),
+  violated: () => packDependencyContext(false),
+  expectedFindings: [
+    {
+      message: "Pack-declared skill '@acme/skills/reviewer' has no accepted external resolution.",
+      location: { file: "axm-lock.yaml" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
 export const extensionConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   configuredButNotInstalledConformance,
   skillsLockfileAlignedConformance,
   skillsIntegrityValidConformance,
   skillsArtifactsCorrectConformance,
+  packsDependenciesResolvedConformance,
 ];

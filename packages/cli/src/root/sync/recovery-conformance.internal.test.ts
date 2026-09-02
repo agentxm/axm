@@ -166,7 +166,7 @@ const packageLintEntries = packageLintErrorIds.map((id) =>
 );
 
 const workspaceEvidence = [
-  "packages/workspace-lint/src/catalog/workspace.internal.test.ts",
+  "packages/workspace-lint/src/catalog/workspace/workspace-rule-conformance.internal.test.ts",
   "packages/cli/src/root/lint/handler.internal.test.ts",
 ] as const;
 

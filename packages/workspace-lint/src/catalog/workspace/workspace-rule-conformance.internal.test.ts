@@ -1,13 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { initializedConformance } from "./conformance/foundation/test-helpers.js";
+import { foundationConformanceCases } from "./conformance/foundation/test-helpers.js";
 import {
   completeWorkspaceFindings,
   type WorkspaceRuleConformanceCase,
 } from "./conformance/test-helpers.js";
 
-const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [initializedConformance];
+const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = foundationConformanceCases;
 
 for (const testCase of cases) {
   describe(testCase.rule.id, () => {

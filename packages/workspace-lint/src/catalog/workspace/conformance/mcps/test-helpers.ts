@@ -196,9 +196,3 @@ export const mcpAgentOrphanedConformance: WorkspaceRuleConformanceCase = {
   ],
   inapplicable: () => orphanContext(false),
 };
-
-export const mcpConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
-  mcpSharedTargetCompatibleConformance,
-  mcpAgentDriftConformance,
-  mcpAgentOrphanedConformance,
-];

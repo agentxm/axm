@@ -307,11 +307,3 @@ export const packsDependenciesResolvedConformance: WorkspaceRuleConformanceCase 
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
 };
-
-export const extensionConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
-  configuredButNotInstalledConformance,
-  skillsLockfileAlignedConformance,
-  skillsIntegrityValidConformance,
-  skillsArtifactsCorrectConformance,
-  packsDependenciesResolvedConformance,
-];

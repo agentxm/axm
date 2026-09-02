@@ -277,13 +277,3 @@ export const knowledgeStateValidConformance: WorkspaceRuleConformanceCase = {
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
 };
-
-export const workspaceStateConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
-  settingsKeysRecognizedConformance,
-  agentsDetectedDeclaredConformance,
-  hookOwnershipAmbiguousConformance,
-  managedFileUnownedConformance,
-  projectionsCurrentConformance,
-  axmSkillCompatibleConformance,
-  knowledgeStateValidConformance,
-];

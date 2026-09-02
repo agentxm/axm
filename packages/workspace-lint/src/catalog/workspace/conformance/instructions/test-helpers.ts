@@ -244,12 +244,3 @@ export const instructionsGitignoreCurrentConformance: WorkspaceRuleConformanceCa
   ],
   inapplicable,
 };
-
-export const instructionConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
-  instructionsSourcePresentConformance,
-  instructionsTargetCurrentConformance,
-  instructionsTargetUnownedConformance,
-  instructionsTargetStaleConformance,
-  instructionsAgentSupportedConformance,
-  instructionsGitignoreCurrentConformance,
-];

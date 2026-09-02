@@ -112,8 +112,3 @@ export const desiredStateReconcilableConformance: WorkspaceRuleConformanceCase =
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: { _tag: "absent" } }),
 };
-
-export const reconciliationConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
-  sourceEndpointsAlignedConformance,
-  desiredStateReconcilableConformance,
-];

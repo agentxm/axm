@@ -206,14 +206,3 @@ export const mcpNoSecretLiteralConformance: WorkspaceRuleConformanceCase = {
       lockfile: validLockfile,
     }),
 };
-
-export const foundationConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
-  initializedConformance,
-  settingsSchemaValidConformance,
-  lockfileValidConformance,
-  agentsRecognizedConformance,
-  skillsDeclarationsValidConformance,
-  packsDeclarationsValidConformance,
-  mcpTransportExclusivityConformance,
-  mcpNoSecretLiteralConformance,
-];

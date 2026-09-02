@@ -55,10 +55,16 @@ state in the [specification catalog](../../specifications/catalog.md).
    pnpm release:prepare
    ```
 
-   Both modes first use the committed bundled AXM skill to verify production
-   Registry authentication and the authoritative publish-preview contract. No
-   candidate state exists yet, so an expired token or incompatible Registry
-   fails before CI or release generation.
+   Both modes first use the committed source CLI and the skill package from the
+   current version's matching release tag to verify production Registry
+   authentication, immutable archive integrity, and the authoritative
+   publish-preview contract. This disposable preflight worktree prevents
+   next-version edits on `main` from being compared with the current immutable
+   release. The preflight workspace exposes only that released skill as
+   workspace-authored content; it does not consume the historic accepted
+   resolution lockfile. No candidate state exists yet, so an expired token,
+   incompatible Registry, or inability to reproduce the current release fails
+   before CI or release generation.
 
    Preparation then creates a disposable detached Git worktree from the
    preflighted `main` commit and installs the locked workspace dependencies.

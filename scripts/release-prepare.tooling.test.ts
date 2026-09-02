@@ -13,6 +13,7 @@ import {
   AXM_SKILL_HANDLE,
   PRODUCTION_REGISTRY_PREVIEW_ARGS,
   PRODUCTION_REGISTRY_URL,
+  productionRegistryPreviewArgs,
 } from "./release-shared.js";
 
 type FailurePoint =
@@ -83,6 +84,25 @@ describe("release preparation orchestration", () => {
   it("uses the authenticated production preview contract", () => {
     expect(PRODUCTION_REGISTRY_PREVIEW_ARGS).toEqual([
       "axm:local",
+      "skills",
+      "publish",
+      AXM_SKILL_HANDLE,
+      "--registry-url",
+      PRODUCTION_REGISTRY_URL,
+      "--on-existing",
+      "verify",
+      "--preview",
+      "--yes",
+      "--json",
+      "--non-interactive",
+    ]);
+  });
+
+  it("can verify the published archive from its released workspace", () => {
+    expect(productionRegistryPreviewArgs("/tmp/axm-released")).toEqual([
+      "axm:local",
+      "-C",
+      "/tmp/axm-released",
       "skills",
       "publish",
       AXM_SKILL_HANDLE,

@@ -5,7 +5,7 @@
  *   pnpm release:prepare -- [--dry-run]
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -16,16 +16,17 @@ import {
   runReleasePreparation,
 } from "./release-prepare-orchestration.js";
 import {
-  PRODUCTION_REGISTRY_PREVIEW_ARGS,
   RELEASE_PROCESS_ENV,
   RELEASE_REPO,
   currentHeadSha,
   fail,
   fetchOriginMain,
+  productionRegistryPreviewArgs,
   requireCleanWorkingTree,
   requireMainBranch,
   requireMatchingReleasePackageVersions,
   requireNotBehindOriginMain,
+  releaseTagFromVersion,
 } from "./release-shared.js";
 
 const args = process.argv.slice(2);
@@ -59,6 +60,61 @@ const readCandidateVersion = (workspace: CandidateWorkspace): string => {
   return version;
 };
 
+const failureMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const configureReleasedSkillPreflightWorkspace = (checkout: string) => {
+  rmSync(join(checkout, "axm-lock.yaml"), { force: true });
+  writeFileSync(
+    join(checkout, "axm.json"),
+    `${JSON.stringify(
+      {
+        $schema: "https://axm.sh/schemas/settings.schema.json",
+        owner: "@agentxm",
+        skills: { axm: "workspace" },
+      },
+      undefined,
+      2,
+    )}\n`,
+  );
+};
+
+const preflightRegistryFromReleasedSkill = () => {
+  const version = requireMatchingReleasePackageVersions();
+  const tag = releaseTagFromVersion(version);
+  const root = mkdtempSync(join(tmpdir(), "axm-release-preflight-"));
+  const checkout = join(root, "released");
+  let primaryFailure: unknown;
+
+  try {
+    console.log(`  Verify released skill archive from ${tag}`);
+    run("git", ["worktree", "add", "--detach", checkout, tag]);
+    configureReleasedSkillPreflightWorkspace(checkout);
+    run("pnpm", productionRegistryPreviewArgs(checkout), RELEASE_PROCESS_ENV);
+  } catch (error) {
+    primaryFailure = error;
+  }
+
+  let cleanupFailure: unknown;
+  try {
+    if (existsSync(join(checkout, ".git"))) {
+      run("git", ["worktree", "remove", "--force", checkout]);
+    }
+    rmSync(root, { recursive: true, force: true });
+  } catch (error) {
+    cleanupFailure = error;
+  }
+
+  if (primaryFailure !== undefined && cleanupFailure !== undefined) {
+    throw new Error(
+      `${failureMessage(primaryFailure)}\nAdditionally, Registry preflight cleanup failed: ${failureMessage(cleanupFailure)}`,
+      { cause: new AggregateError([primaryFailure, cleanupFailure]) },
+    );
+  }
+  if (primaryFailure !== undefined) throw primaryFailure;
+  if (cleanupFailure !== undefined) throw cleanupFailure;
+};
+
 const releaseHost: ReleasePreparationHost = {
   preflightSource: (isDryRun) => {
     console.log("==> Source preflight checks");
@@ -79,7 +135,7 @@ const releaseHost: ReleasePreparationHost = {
 
   preflightRegistry: () => {
     console.log("\n==> Production Registry authentication and contract preflight");
-    run("pnpm", PRODUCTION_REGISTRY_PREVIEW_ARGS, RELEASE_PROCESS_ENV);
+    preflightRegistryFromReleasedSkill();
   },
 
   allocateCandidateWorkspace: () => {

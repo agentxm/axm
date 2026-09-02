@@ -114,7 +114,8 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/source-endpoints-aligned",
-    "packages/workspace-lint/src/catalog/workspace/source-endpoints-aligned.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/reconciliation/test-helpers.ts",
+    "sourceEndpointsAlignedConformance",
   ),
   evidence(
     "workspace/desired-state-reconcilable",

@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 
 import { foundationConformanceCases } from "./conformance/foundation/test-helpers.js";
 import { instructionConformanceCases } from "./conformance/instructions/test-helpers.js";
+import { reconciliationConformanceCases } from "./conformance/reconciliation/test-helpers.js";
 import { workspaceStateConformanceCases } from "./conformance/workspace-state/test-helpers.js";
 import {
   completeWorkspaceFindings,
@@ -11,6 +12,7 @@ import {
 
 const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   ...foundationConformanceCases,
+  ...reconciliationConformanceCases,
   ...instructionConformanceCases,
   ...workspaceStateConformanceCases,
 ];

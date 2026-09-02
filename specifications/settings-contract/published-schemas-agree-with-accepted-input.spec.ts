@@ -45,6 +45,12 @@ const settingsExamples = (): ReadonlyArray<unknown> => {
   return decodeJsonArray(child(child(document, "definitions"), "AxmSettings")["examples"]);
 };
 
+const lintRulesDefinition = (): Record<string, unknown> => {
+  const document = readPublishedSchema("settings.schema.json");
+  const lintConfig = child(child(document, "definitions"), "LintConfig");
+  return child(child(lintConfig, "properties"), "rules");
+};
+
 const severityValues = ["off", "info", "warn", "error"];
 const registeredRuleId = "skill/manifest-keys-recognized";
 
@@ -86,21 +92,36 @@ describe("Published settings schema", () => {
     }),
   );
 
-  it.effect(
-    "the published and runtime contracts accept the complete lint severity vocabulary",
-    () =>
-      Effect.gen(function* () {
-        const document = readPublishedSchema("settings.schema.json");
-        const severity = child(child(document, "definitions"), "LintRuleSeverity");
-        expect(severity["enum"]).toEqual(severityValues);
+  it.effect("the published schema exposes exactly the runtime lint rule identities", () =>
+    Effect.sync(() => {
+      const rules = lintRulesDefinition();
+      const properties = child(rules, "properties");
+      expect(Object.keys(properties)).toEqual(allCatalogRuleIds);
+      expect(rules["additionalProperties"]).toBe(false);
 
+      for (const ruleId of allCatalogRuleIds) {
+        expect(properties[ruleId]).toEqual({
+          $ref: "#/definitions/LintRuleSeverity",
+        });
+      }
+    }),
+  );
+
+  it.effect("the published and runtime contracts accept every rule at every lint severity", () =>
+    Effect.gen(function* () {
+      const document = readPublishedSchema("settings.schema.json");
+      const severity = child(child(document, "definitions"), "LintRuleSeverity");
+      expect(severity["enum"]).toEqual(severityValues);
+
+      for (const ruleId of allCatalogRuleIds) {
         for (const value of severityValues) {
           const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)({
-            lint: { rules: { [registeredRuleId]: value } },
+            lint: { rules: { [ruleId]: value } },
           });
-          expect(decoded.lint?.rules?.[registeredRuleId]).toBe(value);
+          expect(decoded.lint?.rules?.[ruleId]).toBe(value);
         }
-      }),
+      }
+    }),
   );
 
   it.effect("runtime settings reject finding spelling, wildcards, and unknown rule ids", () =>

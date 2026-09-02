@@ -26,6 +26,7 @@ import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowl
 import { LockfileSchema } from "../../workspace-state/src/lockfile/index.js";
 import { AxmPackageMetaSchema } from "../../registry-client/src/axm-package-meta.js";
 import { SettingsSchema } from "../../workspace-state/src/settings/index.js";
+import { allCatalogRuleIds } from "../../workspace-lint/src/catalog/index.js";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const SITE_CONTENT_SCHEMAS_DIR = path.join(CLI_ROOT, "site-content/__generated__/schemas");
@@ -158,6 +159,29 @@ const rewritePatternProperties = (node: unknown, patternRefs: Map<string, string
   return out;
 };
 
+const lintRuleProperties = () =>
+  Object.fromEntries(
+    allCatalogRuleIds.map((ruleId) => [ruleId, { $ref: "#/definitions/LintRuleSeverity" }]),
+  );
+
+const exposeExactLintRuleProperties = (node: unknown): unknown => {
+  if (Array.isArray(node)) {
+    return node.map(exposeExactLintRuleProperties);
+  }
+  if (!isJsonObject(node)) return node;
+  if (node["title"] === "Lint Rules Map") {
+    return {
+      ...node,
+      properties: lintRuleProperties(),
+      additionalProperties: false,
+    };
+  }
+  const properties = Object.fromEntries(
+    Object.entries(node).map(([key, value]) => [key, exposeExactLintRuleProperties(value)]),
+  );
+  return properties;
+};
+
 const toDraft07SchemaFile = (schema: Schema.Top) => {
   const document = JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(schema));
 
@@ -170,7 +194,9 @@ const toDraft07SchemaFile = (schema: Schema.Top) => {
     ...(Object.keys(document.definitions).length > 0 ? { definitions: document.definitions } : {}),
   };
 
-  return rewritePatternProperties(file, buildPatternRefIndex(document.definitions));
+  return exposeExactLintRuleProperties(
+    rewritePatternProperties(file, buildPatternRefIndex(document.definitions)),
+  );
 };
 
 for (const { name, schema, outputDir } of schemas) {

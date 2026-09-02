@@ -10,14 +10,9 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
 
-import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionName, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
@@ -25,7 +20,7 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistryClient } from "@agentxm/registry-client";
-import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
+import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
 import {
   VersionSchema,
   type Version,
@@ -48,7 +43,8 @@ import type {
 } from "@agentxm/workspace-state";
 import { isSourcedDesiredExtension } from "@agentxm/workspace-state";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
-import { toAppError } from "../../app-error/conversions.js";
+import { WorkspaceInspectionFailed } from "../errors.js";
+import { InspectionFailureAdapter } from "../failure-adapter.js";
 
 // Registry currency reads share the same four-request transport cap used by
 // publishing. Git source probes stay serial because each provider may allocate
@@ -123,29 +119,23 @@ const getAcceptedResolution = (
   ws: WorkspaceMutationsService,
   type: ExtensionType,
   name: string,
-): Effect.Effect<Option.Option<AcceptedResolution>, AppError> => {
-  const read = (): Effect.Effect<
-    Option.Option<AcceptedResolution>,
-    WorkspaceLockfileReadFailure
-  > => {
-    switch (type) {
-      case "skill":
-        return ws.getLockedSkill(name);
-      case "mcp-server":
-        return ws.getLockedMcpServer(name);
-      case "subagent":
-        return ws.getLockedSubagent(name);
-      case "rule":
-        return ws.getLockedRuleEntry(name);
-      case "hook":
-        return ws.getLockedHookEntry(name);
-      case "knowledge":
-        return ws.getLockedKnowledgeEntry(name);
-      case "pack":
-        return ws.getLockedPack(name);
-    }
-  };
-  return read().pipe(Effect.mapError(toAppError));
+): Effect.Effect<Option.Option<AcceptedResolution>, WorkspaceLockfileReadFailure> => {
+  switch (type) {
+    case "skill":
+      return ws.getLockedSkill(name);
+    case "mcp-server":
+      return ws.getLockedMcpServer(name);
+    case "subagent":
+      return ws.getLockedSubagent(name);
+    case "rule":
+      return ws.getLockedRuleEntry(name);
+    case "hook":
+      return ws.getLockedHookEntry(name);
+    case "knowledge":
+      return ws.getLockedKnowledgeEntry(name);
+    case "pack":
+      return ws.getLockedPack(name);
+  }
 };
 
 type GitAcceptedResolution = Exclude<AcceptedResolution, { readonly type: "registry" | "local" }>;
@@ -164,16 +154,13 @@ const isGitAcceptedResolution = (entry: AcceptedResolution): entry is GitAccepte
 /**
  * Collect currency from desired state and accepted Registry resolutions.
  */
-const collectCurrency = (
-  extensionType: ExtensionType,
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
+const collectCurrency = (extensionType: ExtensionType, client: RegistryClient) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+    const graph = yield* ws.getDesiredStateGraph();
     if (!graph.complete) {
-      return yield* makeAppError({
-        code: "validation",
+      return yield* new WorkspaceInspectionFailed({
+        category: "validation",
         detail: "Cannot assess extension currency while the desired pack graph is incomplete",
       });
     }
@@ -199,21 +186,20 @@ const collectCurrency = (
           const installedVersion = yield* Schema.decodeUnknownEffect(VersionSchema)(
             resolution.resolvedVersion,
           ).pipe(
-            Effect.mapError(() =>
-              makeAppError({
-                code: "validation",
-                detail: `Accepted version for ${node.type} "${node.name}" is invalid`,
-              }),
+            Effect.mapError(
+              () =>
+                new WorkspaceInspectionFailed({
+                  category: "validation",
+                  detail: `Accepted version for ${node.type} "${node.name}" is invalid`,
+                }),
             ),
           );
           const constraint = parseConstraintFromSource(node.source);
-          const indexOption = yield* client
-            .getExtensionIndex({
-              owner: resolution.owner,
-              type: extensionType,
-              name: resolution.name,
-            })
-            .pipe(Effect.mapError(toAppError));
+          const indexOption = yield* client.getExtensionIndex({
+            owner: resolution.owner,
+            type: extensionType,
+            name: resolution.name,
+          });
           if (Option.isNone(indexOption)) return Option.none();
           const currency = checkCurrency(installedVersion, constraint, indexOption.value);
           return Option.some({
@@ -310,27 +296,16 @@ const matchingRefTreeSha = (
 /**
  * Compare desired Git-hosted entries against their accepted immutable revision.
  */
-const collectSourceFreshness = (args: {
-  readonly extensionType: ExtensionType;
-}): Effect.Effect<
-  ReadonlyArray<ExtensionSourceFreshnessEntry>,
-  AppError,
-  | FileSystem.FileSystem
-  | HttpClient.HttpClient
-  | Path.Path
-  | WorkspaceMutations
-  | WorkspaceCatalog
-  | SourceHostProviders
-  | Scope.Scope
-> =>
+const collectSourceFreshness = (args: { readonly extensionType: ExtensionType }) =>
   Effect.gen(function* () {
     const providers = yield* SourceHostProviders;
     const ws = yield* WorkspaceMutations;
+    const adapter = yield* InspectionFailureAdapter;
     const { extensionType } = args;
-    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+    const graph = yield* ws.getDesiredStateGraph();
     if (!graph.complete) {
-      return yield* makeAppError({
-        code: "validation",
+      return yield* new WorkspaceInspectionFailed({
+        category: "validation",
         detail: "Cannot assess source freshness while the desired pack graph is incomplete",
       });
     }
@@ -366,7 +341,7 @@ const collectSourceFreshness = (args: {
 
           const sourceResult = yield* resolveSource(node.source).pipe(Effect.result);
           if (sourceResult._tag === "Failure") {
-            return unresolved(toAppError(sourceResult.failure).detail);
+            return unresolved(adapter.describeFailure(sourceResult.failure));
           }
 
           const refsResult = yield* providers
@@ -379,7 +354,7 @@ const collectSourceFreshness = (args: {
             .pipe(Effect.result);
 
           if (refsResult._tag === "Failure") {
-            return unresolved(toAppError(refsResult.failure).detail);
+            return unresolved(adapter.describeFailure(refsResult.failure));
           }
 
           return freshnessEntry({
@@ -395,17 +370,7 @@ const collectSourceFreshness = (args: {
     );
   });
 
-type SourceFreshnessCollector = () => Effect.Effect<
-  ReadonlyArray<ExtensionSourceFreshnessEntry>,
-  AppError,
-  | FileSystem.FileSystem
-  | HttpClient.HttpClient
-  | Path.Path
-  | WorkspaceMutations
-  | WorkspaceCatalog
-  | SourceHostProviders
-  | Scope.Scope
->;
+type SourceFreshnessCollector = () => ReturnType<typeof collectSourceFreshness>;
 
 const makeSourceFreshnessCollector =
   (extensionType: ExtensionType): SourceFreshnessCollector =>
@@ -447,72 +412,40 @@ export const sourceFreshnessCollectors: ReadonlyArray<SourceFreshnessCollector> 
 /**
  * Collect currency entries for all enabled, registry-sourced skills.
  */
-export const collectSkillCurrency = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
-  Effect.gen(function* () {
-    return yield* collectCurrency("skill", client);
-  });
+export const collectSkillCurrency = (client: RegistryClient) => collectCurrency("skill", client);
 
 /**
  * Collect currency entries for all registry-sourced MCP servers.
  */
-export const collectMcpServerCurrency = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
-  Effect.gen(function* () {
-    return yield* collectCurrency("mcp-server", client);
-  });
+export const collectMcpServerCurrency = (client: RegistryClient) =>
+  collectCurrency("mcp-server", client);
 
 /**
  * Collect currency entries for all enabled, registry-sourced subagents.
  */
-export const collectSubagentCurrency = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
-  Effect.gen(function* () {
-    return yield* collectCurrency("subagent", client);
-  });
+export const collectSubagentCurrency = (client: RegistryClient) =>
+  collectCurrency("subagent", client);
 
 /**
  * Collect currency entries for all registry-sourced packs.
  */
-export const collectPackCurrency = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
-  Effect.gen(function* () {
-    return yield* collectCurrency("pack", client);
-  });
+export const collectPackCurrency = (client: RegistryClient) => collectCurrency("pack", client);
 
 /**
  * Collect currency entries for all enabled, registry-sourced rules.
  */
-export const collectRuleCurrency = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
-  Effect.gen(function* () {
-    return yield* collectCurrency("rule", client);
-  });
+export const collectRuleCurrency = (client: RegistryClient) => collectCurrency("rule", client);
 
 /**
  * Collect currency entries for all enabled, registry-sourced hooks.
  */
-export const collectHookCurrency = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
-  Effect.gen(function* () {
-    return yield* collectCurrency("hook", client);
-  });
+export const collectHookCurrency = (client: RegistryClient) => collectCurrency("hook", client);
 
 /**
  * Collect currency entries for all enabled, registry-sourced knowledge bundles.
  */
-export const collectKnowledgeCurrency = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
-  Effect.gen(function* () {
-    return yield* collectCurrency("knowledge", client);
-  });
+export const collectKnowledgeCurrency = (client: RegistryClient) =>
+  collectCurrency("knowledge", client);
 
 // ---------------------------------------------------------------------------
 // Aggregator
@@ -521,9 +454,7 @@ export const collectKnowledgeCurrency = (
 /**
  * Collect currency entries for all extension types and merge into a single array.
  */
-export const collectAllCurrencyEntries = (
-  client: RegistryClient,
-): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
+export const collectAllCurrencyEntries = (client: RegistryClient) =>
   Effect.gen(function* () {
     const [skills, mcpServers, subagents, packs, rules, hooks, knowledge] = yield* Effect.all(
       [
@@ -541,19 +472,7 @@ export const collectAllCurrencyEntries = (
     return [...skills, ...mcpServers, ...subagents, ...packs, ...rules, ...hooks, ...knowledge];
   });
 
-export const collectAllUpdateEntries = (
-  client: RegistryClient,
-): Effect.Effect<
-  ReadonlyArray<ExtensionUpdateEntry>,
-  AppError,
-  | FileSystem.FileSystem
-  | HttpClient.HttpClient
-  | Path.Path
-  | WorkspaceMutations
-  | WorkspaceCatalog
-  | SourceHostProviders
-  | Scope.Scope
-> =>
+export const collectAllUpdateEntries = (client: RegistryClient) =>
   Effect.gen(function* () {
     const [currencyEntries, freshnessByType] = yield* Effect.all(
       [

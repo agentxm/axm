@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as DateTime from "effect/DateTime";
 
-import { preflightMcpImports } from "./import-preflight.js";
+import { preflightMcpImports } from "./mcp-import-preflight.js";
 
 const now = DateTime.makeUnsafe("2026-08-05T00:00:00Z");
 

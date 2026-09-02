@@ -16,9 +16,8 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
-import { TestFlagsLayer } from "../cli-flags/index.js";
-import { TestRenderer } from "../cli-renderer/index.js";
-import { bootstrapWorkspace, WorkspaceInitializationInteractionTest } from "./index.js";
+import { bootstrapWorkspace } from "./index.js";
+import { WorkspaceInitializationInteractionTest } from "./testing.js";
 
 describe("bootstrapWorkspace", () => {
   let tempDir: string;
@@ -61,22 +60,11 @@ describe("bootstrapWorkspace", () => {
    * Helper to create workspace layer with custom TUI behaviors for init testing.
    * Uses multiselect behavior to control which agents are "selected".
    */
-  const getServiceWithInit = (flags: {
-    verbose?: boolean;
-    debug?: boolean;
-    nonInteractive?: boolean;
-  }) => {
-    const { layer: logLayer } = TestRenderer.make();
+  const getServiceWithInit = (flags: { nonInteractive?: boolean }) => {
     const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
       selectAgents: () => Effect.succeed([]),
     });
-    const flagsLayer = TestFlagsLayer(flags);
-    const base = Layer.mergeAll(
-      NodeServices.layer,
-      logLayer,
-      workspaceInitInteraction.layer,
-      flagsLayer,
-    );
+    const base = Layer.mergeAll(NodeServices.layer, workspaceInitInteraction.layer);
     // Initialization reads non-interactivity from the options, not the flag.
     const wsOptions = {
       ...defaultOptions,

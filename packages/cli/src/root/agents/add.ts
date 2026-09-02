@@ -27,14 +27,21 @@ import { makePublicPositionalPlanExecution } from "../shared/confirmation-recove
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
-import { makeAtomicMembershipSteps } from "./atomic-membership.js";
+import {
+  dedupe,
+  makeAtomicMembershipSteps,
+  validateAgentIds,
+} from "@agentxm/workspace-configuration";
 import { isRetiredAgent, lifecycleWarning } from "./lifecycle.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
-import { dedupe, validateAgentIds } from "./shared.js";
 import {
   failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  configurationFailureToAppError,
+  configurationFailureToStepFailure,
+} from "../../feature-errors.js";
 
 export interface AgentsAddArgs {
   readonly ids: ReadonlyArray<string>;
@@ -203,7 +210,9 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     });
   }
 
-  const requested = yield* validateAgentIds(args.ids);
+  const requested = yield* validateAgentIds(args.ids).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const configured = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const configuredSet = new Set(configured);
   const detected = args.detected
@@ -216,7 +225,9 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
         { successMessage: "Detected coding agents" },
       )
     : [];
-  const detectedConfigurable = yield* validateAgentIds(detected);
+  const detectedConfigurable = yield* validateAgentIds(detected).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const requestedSet = new Set(requested);
   const retiredDetected = detectedConfigurable.filter(
     (id) => isRetiredAgent(id) && !requestedSet.has(id),
@@ -275,6 +286,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   const atomicSteps = yield* makeAtomicMembershipSteps({
     ws,
     steps,
+    toStepFailure: configurationFailureToStepFailure,
     validate: () =>
       ws
         .getConfiguredAgents()

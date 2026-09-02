@@ -27,6 +27,7 @@ import {
   SourceHostProvidersLive,
   workspaceInvariantFactsLive,
   HookManagerLive,
+  InspectionFailureAdapterLive,
   KnowledgeManagerLive,
   LifecycleFailureAdapterLive,
   McpServerManagerLive,
@@ -65,6 +66,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     Layer.mergeAll(
       SourceHostProvidersLive,
       CodingAgentRepositoryLive,
+      InspectionFailureAdapterLive,
       LifecycleFailureAdapterLive,
       makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
     ),

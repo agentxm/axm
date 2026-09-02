@@ -24,7 +24,7 @@ import {
   TestRenderer,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace-configuration";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import {
   CodingAgentRepositoryLive,
   ExecutionDirectory,

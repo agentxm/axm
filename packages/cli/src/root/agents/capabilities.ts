@@ -19,7 +19,8 @@ import {
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 import { agentLifecycle, isCatalogAgentId, lifecycleCell } from "./lifecycle.js";
-import { validateAgentIds } from "./shared.js";
+import { validateAgentIds } from "@agentxm/workspace-configuration";
+import { configurationFailureToAppError } from "../../feature-errors.js";
 
 const NONE = "-";
 
@@ -93,7 +94,7 @@ export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(functio
   const renderer = yield* CliRenderer;
   // Reuses the shared validator for its "did you mean" suggestions; the guard
   // below is what narrows the id for the catalog lookup.
-  yield* validateAgentIds([agentId]);
+  yield* validateAgentIds([agentId]).pipe(Effect.mapError(configurationFailureToAppError));
   if (!isCatalogAgentId(agentId)) {
     return yield* makeAppError({
       code: "validation",

@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-configuration",
+  "projectType": "library",
+  "root": "packages/workspace-configuration",
+  "sourceRoot": "packages/workspace-configuration/src",
+  "tags": ["type:lib", "layer:feature", "scope:workspace-configuration", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/workspace-configuration/src/index.ts",
+        "outputPath": "packages/workspace-configuration/dist",
+        "tsConfig": "packages/workspace-configuration/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

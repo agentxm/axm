@@ -1,10 +1,15 @@
+/**
+ * Instruction-management policy over the kernel's instruction semantics:
+ * observation, readiness preflight, reconciliation transitions, and disabling
+ * instruction-file management. Failures stay typed through this feature; the
+ * application boundary owns their rendering.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
@@ -19,9 +24,9 @@ import type {
   InstructionProjectionSnapshot,
   ResolvedInstructionsConfig,
 } from "@agentxm/extension-workspace";
+import { WorkspaceConfigurationFailed } from "./errors.js";
 
-const configuredAgents = (ws: WorkspaceMutationsService) =>
-  ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
+const configuredAgents = (ws: WorkspaceMutationsService) => ws.getConfiguredAgents();
 
 /** The one observation a command's planning derives its views from. */
 export const observeInstructions = Effect.fn("Instructions.observe")(function* (args: {
@@ -34,13 +39,13 @@ export const observeInstructions = Effect.fn("Instructions.observe")(function* (
     scope: args.ws.scope,
     configuredAgents: agents,
     config: args.config,
-  }).pipe(Effect.mapError(toAppError));
+  });
 });
 
 export const activeInstructionsConfig = Effect.fn("Instructions.activeConfig")(function* (
   ws: WorkspaceMutationsService,
 ) {
-  const value = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
+  const value = yield* ws.getInstructionsConfig();
   if (Option.isNone(value) || value.value === false) {
     return Option.none<ResolvedInstructionsConfig>();
   }
@@ -49,6 +54,11 @@ export const activeInstructionsConfig = Effect.fn("Instructions.activeConfig")(f
 
 export const instructionStateIsCurrent = (snapshot: InstructionProjectionSnapshot): boolean =>
   snapshot.status.missingSources.length === 0 && instructionProjectionIsCurrent(snapshot);
+
+/** The typed failure a readiness preflight can surface. */
+export type InstructionReadinessFailure =
+  | Effect.Error<ReturnType<typeof assertInstructionTargetsSafe>>
+  | Effect.Error<ReturnType<typeof assertInstructionsGitignoreSafe>>;
 
 export const instructionReconciliationReadiness = Effect.fn("Instructions.reconciliationReadiness")(
   function* (args: {
@@ -66,8 +76,8 @@ export const instructionReconciliationReadiness = Effect.fn("Instructions.reconc
     ).pipe(
       Effect.map((result) =>
         result._tag === "Success"
-          ? Option.none<AppError>()
-          : Option.some(toAppError(result.failure)),
+          ? Option.none<InstructionReadinessFailure>()
+          : Option.some(result.failure),
       ),
     );
   },
@@ -86,9 +96,7 @@ export const removeInstructionTargetsFor = (args: {
 }) =>
   Effect.gen(function* () {
     const snapshot = yield* observeInstructions(args);
-    return yield* removeManagedInstructionTargets({ snapshot, dryRun: false }).pipe(
-      Effect.mapError(toAppError),
-    );
+    return yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
   });
 
 /**
@@ -96,20 +104,20 @@ export const removeInstructionTargetsFor = (args: {
  * observation (the plan's readiness check ran before the transaction opened),
  * apply the transition, reconcile, and verify from the sync's own readback.
  */
-export const reconcileInstructionTransition = <A>(args: {
+export const reconcileInstructionTransition = <A, E>(args: {
   readonly ws: WorkspaceMutationsService;
   readonly config: ResolvedInstructionsConfig;
   readonly preflightConfig?: ResolvedInstructionsConfig;
-  readonly transition: Effect.Effect<A, AppError>;
-}): Effect.Effect<A, AppError, FileSystem.FileSystem | Path.Path> =>
+  readonly transition: Effect.Effect<A, E>;
+}) =>
   Effect.gen(function* () {
     const agents = yield* configuredAgents(args.ws);
     const preflight = yield* observeInstructions({
       ws: args.ws,
       config: args.preflightConfig ?? args.config,
     });
-    yield* assertInstructionTargetsSafe(preflight.status).pipe(Effect.mapError(toAppError));
-    yield* assertInstructionsGitignoreSafe(args.ws.baseDir).pipe(Effect.mapError(toAppError));
+    yield* assertInstructionTargetsSafe(preflight.status);
+    yield* assertInstructionsGitignoreSafe(args.ws.baseDir);
     const transitionResult = yield* args.transition;
     const syncResult = yield* syncInstructions({
       workspaceRoot: args.ws.baseDir,
@@ -117,10 +125,10 @@ export const reconcileInstructionTransition = <A>(args: {
       configuredAgents: agents,
       config: args.config,
       dryRun: false,
-    }).pipe(Effect.mapError(toAppError));
+    });
     if (!instructionProjectionIsCurrent(syncResult.snapshot)) {
-      return yield* makeAppError({
-        code: "internal",
+      return yield* new WorkspaceConfigurationFailed({
+        category: "internal",
         detail: "Instruction reconciliation did not reach the desired state",
       });
     }
@@ -132,13 +140,13 @@ export const disableInstructionManagement = Effect.fn("Instructions.disableManag
     readonly ws: WorkspaceMutationsService;
     readonly config: ResolvedInstructionsConfig;
   }) {
-    yield* assertInstructionsGitignoreSafe(args.ws.baseDir).pipe(Effect.mapError(toAppError));
+    yield* assertInstructionsGitignoreSafe(args.ws.baseDir);
     const removed = yield* removeInstructionTargetsFor(args);
     const gitignore = yield* removeInstructionsGitignore({
       workspaceRoot: args.ws.baseDir,
       dryRun: false,
-    }).pipe(Effect.mapError(toAppError));
-    yield* args.ws.setInstructionsConfig(false).pipe(Effect.mapError(toAppError));
+    });
+    yield* args.ws.setInstructionsConfig(false);
     return {
       removed,
       gitignore: Option.getOrUndefined(gitignore),

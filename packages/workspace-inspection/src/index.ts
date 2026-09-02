@@ -7,6 +7,13 @@
  * @packageDocumentation
  */
 
+export { WorkspaceInspectionFailed } from "./errors.js";
+
+export {
+  InspectionFailureAdapter,
+  type InspectionFailureAdapterService,
+} from "./failure-adapter.js";
+
 export {
   assessExtensionListItems,
   collectExtensionListItems,

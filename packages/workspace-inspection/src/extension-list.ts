@@ -3,7 +3,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
@@ -37,7 +36,8 @@ import {
   type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
 import { checkCurrency } from "./version-currency/index.js";
-import { toAppError } from "../app-error/conversions.js";
+import { WorkspaceInspectionFailed } from "./errors.js";
+import { InspectionFailureAdapter } from "./failure-adapter.js";
 
 export type ExtensionListFilter = "all" | "outdated" | "deprecated";
 
@@ -89,26 +89,23 @@ const getAcceptedEntry = (
   ws: WorkspaceMutationsService,
   type: InstallableExtensionType,
   name: string,
-): Effect.Effect<Option.Option<AcceptedEntry>, AppError> => {
-  const read = (): Effect.Effect<Option.Option<AcceptedEntry>, WorkspaceLockfileReadFailure> => {
-    switch (type) {
-      case "skill":
-        return ws.getLockedSkill(name);
-      case "mcp-server":
-        return ws.getLockedMcpServer(name);
-      case "subagent":
-        return ws.getLockedSubagent(name);
-      case "rule":
-        return ws.getLockedRuleEntry(name);
-      case "hook":
-        return ws.getLockedHookEntry(name);
-      case "knowledge":
-        return ws.getLockedKnowledgeEntry(name);
-      case "pack":
-        return ws.getLockedPack(name);
-    }
-  };
-  return read().pipe(Effect.mapError(toAppError));
+): Effect.Effect<Option.Option<AcceptedEntry>, WorkspaceLockfileReadFailure> => {
+  switch (type) {
+    case "skill":
+      return ws.getLockedSkill(name);
+    case "mcp-server":
+      return ws.getLockedMcpServer(name);
+    case "subagent":
+      return ws.getLockedSubagent(name);
+    case "rule":
+      return ws.getLockedRuleEntry(name);
+    case "hook":
+      return ws.getLockedHookEntry(name);
+    case "knowledge":
+      return ws.getLockedKnowledgeEntry(name);
+    case "pack":
+      return ws.getLockedPack(name);
+  }
 };
 
 const recordSource = (row: ReadModelRecordRow | undefined): string | undefined => {
@@ -142,29 +139,23 @@ const inventoryKey = (type: string, name: string): string => `${type}:${name}`;
 export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionListItems")(
   function* (type?: InstallableExtensionType) {
     const ws = yield* WorkspaceMutations;
-    const inventory = yield* ws.records
-      .getInventory(type === undefined ? {} : { type })
-      .pipe(Effect.mapError(toAppError));
+    const inventory = yield* ws.records.getInventory(type === undefined ? {} : { type });
     const types = type === undefined ? installableExtensionTypes : [type];
     const rowsByKey = new Map<string, ReadModelRecordRow>();
-    const rowsByType = yield* Effect.forEach(
-      types,
-      (itemType) => ws.records.rows(itemType).pipe(Effect.mapError(toAppError)),
-      {
-        concurrency: "unbounded",
-      },
-    );
+    const rowsByType = yield* Effect.forEach(types, (itemType) => ws.records.rows(itemType), {
+      concurrency: "unbounded",
+    });
     for (const row of rowsByType.flat()) {
       rowsByKey.set(inventoryKey(row.type, row.name), row);
     }
     const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all([
-      ws.getLockedSkills().pipe(Effect.mapError(toAppError)),
-      ws.getLockedMcpServers().pipe(Effect.mapError(toAppError)),
-      ws.getLockedSubagents().pipe(Effect.mapError(toAppError)),
-      ws.getLockedRules().pipe(Effect.mapError(toAppError)),
-      ws.getLockedHooks().pipe(Effect.mapError(toAppError)),
-      ws.getLockedKnowledge().pipe(Effect.mapError(toAppError)),
-      ws.getLockedPacks().pipe(Effect.mapError(toAppError)),
+      ws.getLockedSkills(),
+      ws.getLockedMcpServers(),
+      ws.getLockedSubagents(),
+      ws.getLockedRules(),
+      ws.getLockedHooks(),
+      ws.getLockedKnowledge(),
+      ws.getLockedPacks(),
     ]);
     const accepted = (
       itemType: InstallableExtensionType,
@@ -225,8 +216,12 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
 
 const decodeInstalledVersion = (value: string, ref: string) =>
   Schema.decodeUnknownEffect(VersionSchema)(value).pipe(
-    Effect.mapError(() =>
-      makeAppError({ code: "validation", detail: `Accepted version for ${ref} is invalid` }),
+    Effect.mapError(
+      () =>
+        new WorkspaceInspectionFailed({
+          category: "validation",
+          detail: `Accepted version for ${ref} is invalid`,
+        }),
     ),
   );
 
@@ -250,7 +245,7 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
   }
   const identity = { owner: record.owner, type: item.type, name: record.name };
   const sourceName = record.sourceName;
-  const source = yield* ws.getConfiguredSourceByName(sourceName).pipe(Effect.mapError(toAppError));
+  const source = yield* ws.getConfiguredSourceByName(sourceName);
   if (Option.isNone(source) || source.value.type !== "registry") {
     return {
       state: "unknown",
@@ -258,13 +253,11 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
     } satisfies ExtensionAssessment;
   }
   const client = yield* createRegistryClient(source.value.location.href);
-  const index = yield* client
-    .getExtensionIndex({
-      owner: identity.owner,
-      type: identity.type,
-      name: identity.name,
-    })
-    .pipe(Effect.mapError(toAppError));
+  const index = yield* client.getExtensionIndex({
+    owner: identity.owner,
+    type: identity.type,
+    name: identity.name,
+  });
   if (Option.isNone(index)) {
     return {
       state: "unknown",
@@ -305,6 +298,7 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   record: AcceptedEntry,
 ) {
   const providers = yield* SourceHostProviders;
+  const adapter = yield* InspectionFailureAdapter;
   if (record.type === "registry" || record.type === "local") {
     return {
       state: "unknown",
@@ -317,7 +311,7 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   if (source._tag === "Failure") {
     return {
       state: "unknown",
-      reason: toAppError(source.failure).detail,
+      reason: adapter.describeFailure(source.failure),
     } satisfies ExtensionAssessment;
   }
   const refs = yield* providers
@@ -331,7 +325,7 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   if (refs._tag === "Failure") {
     return {
       state: "unknown",
-      reason: toAppError(refs.failure).detail,
+      reason: adapter.describeFailure(refs.failure),
     } satisfies ExtensionAssessment;
   }
   const match = refs.success.find((ref) => ref.type === item.type && refName(ref) === item.name);

@@ -13,21 +13,21 @@ import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/e
 import { assessExtensionListItems, type ExtensionListItem } from "./extension-list.js";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
-import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { handle, TestInspectionFailureAdapter, WorkspaceCatalogTestLive } from "./test-helpers.js";
 
 const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
   const wsLayer = Layer.succeed(WorkspaceMutations, ws);
-  return Layer.merge(
+  return Layer.mergeAll(
     wsLayer,
-    WorkspaceCatalogLive.pipe(
+    TestInspectionFailureAdapter,
+    WorkspaceCatalogTestLive.pipe(
       Layer.provide(wsLayer),
       Layer.provide(CodingAgentRepositoryLive),
       Layer.provide(NodeServices.layer),
     ),
   );
 };
-import { handle } from "../test-helpers.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(

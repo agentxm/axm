@@ -3,8 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   applyPlan,
   type JobStepResult,
@@ -18,13 +16,12 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { StepFailure } from "@agentxm/workspace-operations";
-import { makeAtomicMembershipSteps } from "./atomic-membership.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { makeAtomicMembershipSteps } from "./membership.js";
+import { testToStepFailure, writeMinimalWorkspace } from "./test-helpers.js";
 
 const writeWorkspace = (root: string, agents: ReadonlyArray<string>) => {
-  writeWorkspaceFiles(path.join(root, ".axm"), { agents });
+  writeMinimalWorkspace(root, agents);
 };
 
 const readAgents = (root: string): ReadonlyArray<string> => {
@@ -46,8 +43,7 @@ describe("makeAtomicMembershipSteps", () => {
   it.effect("restores membership and an earlier materialized target after add failure", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-add-transaction-"));
     writeWorkspace(root, []);
-    const renderer = TestRenderer.make();
-    const platform = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
+    const platform = NodeServices.layer;
     const workspace = Layer.provide(
       coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
@@ -62,7 +58,7 @@ describe("makeAtomicMembershipSteps", () => {
           label: "Add cursor",
           readiness: "ready",
           run: ws.addConfiguredAgent("cursor").pipe(
-            Effect.mapError(failureToStepFailure),
+            Effect.mapError(testToStepFailure),
             Effect.as({
               result: "success",
               message: "Configured cursor",
@@ -97,6 +93,7 @@ describe("makeAtomicMembershipSteps", () => {
         ws,
         steps,
         validate: () => Effect.void,
+        toStepFailure: testToStepFailure,
       });
 
       const result = yield* applyPlan(plan(atomic));
@@ -126,8 +123,7 @@ describe("makeAtomicMembershipSteps", () => {
   it.effect("attributes a membership-step failure only to that membership step", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-membership-failure-"));
     writeWorkspace(root, []);
-    const renderer = TestRenderer.make();
-    const platform = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
+    const platform = NodeServices.layer;
     const workspace = Layer.provide(
       coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
@@ -157,6 +153,7 @@ describe("makeAtomicMembershipSteps", () => {
         ws,
         steps,
         validate: () => Effect.void,
+        toStepFailure: testToStepFailure,
       });
 
       const result = yield* applyPlan(plan(atomic));
@@ -188,8 +185,7 @@ describe("makeAtomicMembershipSteps", () => {
     const target = path.join(root, ".cursor", "commands", "review.md");
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, "managed\n");
-    const renderer = TestRenderer.make();
-    const platform = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
+    const platform = NodeServices.layer;
     const workspace = Layer.provide(
       coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
@@ -220,7 +216,7 @@ describe("makeAtomicMembershipSteps", () => {
           label: "Remove cursor",
           readiness: "ready",
           run: ws.removeConfiguredAgent("cursor").pipe(
-            Effect.mapError(failureToStepFailure),
+            Effect.mapError(testToStepFailure),
             Effect.andThen(
               new StepFailure({
                 category: "internal",
@@ -234,6 +230,7 @@ describe("makeAtomicMembershipSteps", () => {
         ws,
         steps,
         validate: () => Effect.void,
+        toStepFailure: testToStepFailure,
       });
 
       yield* applyPlan(plan(atomic));

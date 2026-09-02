@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
-import type { AppError } from "../app-error/index.js";
+import type { WorkspaceConfigurationFailed } from "./errors.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { SetupScopeSupportCategory } from "@agentxm/workspace-state";
 
@@ -43,17 +43,20 @@ export interface WorkspaceInitializationInteractionService {
     readonly userDetectedIds: ReadonlyArray<string>;
     readonly suggestedIds: ReadonlyArray<string>;
     readonly configuredIds: ReadonlyArray<string>;
-  }) => Effect.Effect<ReadonlyArray<string>, WorkspaceInitializationCancelled | AppError>;
+  }) => Effect.Effect<
+    ReadonlyArray<string>,
+    WorkspaceInitializationCancelled | WorkspaceConfigurationFailed
+  >;
   readonly confirmInstructionSync: (options: {
     readonly enabled: boolean;
-  }) => Effect.Effect<boolean, WorkspaceInitializationCancelled | AppError>;
+  }) => Effect.Effect<boolean, WorkspaceInitializationCancelled | WorkspaceConfigurationFailed>;
   readonly selectInstructionSource: (options: {
     readonly defaultFileName: string;
     readonly choices: ReadonlyArray<InstructionSourceChoice>;
-  }) => Effect.Effect<string, WorkspaceInitializationCancelled | AppError>;
+  }) => Effect.Effect<string, WorkspaceInitializationCancelled | WorkspaceConfigurationFailed>;
   readonly confirmSetupPlan: () => Effect.Effect<
     boolean,
-    WorkspaceInitializationCancelled | AppError
+    WorkspaceInitializationCancelled | WorkspaceConfigurationFailed
   >;
   /** Present the agent scan summary. The implementation owns all wording. */
   readonly presentAgentScan: (scan: SetupAgentScan) => Effect.Effect<void>;
@@ -70,7 +73,7 @@ export class WorkspaceInitializationInteraction extends ServiceMap.Service<
   WorkspaceInitializationInteraction,
   WorkspaceInitializationInteractionService
 >()(
-  "@agentxm/extension-management/unstable/workspace-configuration/initialization-interaction/WorkspaceInitializationInteraction",
+  "@agentxm/workspace-configuration/initialization-interaction/WorkspaceInitializationInteraction",
 ) {}
 
 export interface WorkspaceInitializationInteractionTestState {
@@ -104,17 +107,20 @@ export const WorkspaceInitializationInteractionTest = (overrides?: {
     readonly userDetectedIds: ReadonlyArray<string>;
     readonly suggestedIds: ReadonlyArray<string>;
     readonly configuredIds: ReadonlyArray<string>;
-  }) => Effect.Effect<ReadonlyArray<string>, WorkspaceInitializationCancelled | AppError>;
+  }) => Effect.Effect<
+    ReadonlyArray<string>,
+    WorkspaceInitializationCancelled | WorkspaceConfigurationFailed
+  >;
   readonly confirmInstructionSync?: (options: {
     readonly enabled: boolean;
-  }) => Effect.Effect<boolean, WorkspaceInitializationCancelled | AppError>;
+  }) => Effect.Effect<boolean, WorkspaceInitializationCancelled | WorkspaceConfigurationFailed>;
   readonly selectInstructionSource?: (options: {
     readonly defaultFileName: string;
     readonly choices: ReadonlyArray<InstructionSourceChoice>;
-  }) => Effect.Effect<string, WorkspaceInitializationCancelled | AppError>;
+  }) => Effect.Effect<string, WorkspaceInitializationCancelled | WorkspaceConfigurationFailed>;
   readonly confirmSetupPlan?: () => Effect.Effect<
     boolean,
-    WorkspaceInitializationCancelled | AppError
+    WorkspaceInitializationCancelled | WorkspaceConfigurationFailed
   >;
 }) => {
   const state: WorkspaceInitializationInteractionTestState = {

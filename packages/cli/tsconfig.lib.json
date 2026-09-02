@@ -14,6 +14,12 @@
       "path": "../workspace-sync/tsconfig.lib.json"
     },
     {
+      "path": "../workspace-configuration/tsconfig.lib.json"
+    },
+    {
+      "path": "../workspace-inspection/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-state/tsconfig.lib.json"
     },
     {

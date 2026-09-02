@@ -13,13 +13,18 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
-import { autocompleteMultiselect, requireInteractive } from "../cli/prompt/index.js";
-import { CliRenderer } from "../cli-renderer/index.js";
 import {
+  autocompleteMultiselect,
+  requireInteractive,
+} from "@agentxm/extension-management/unstable/cli/prompt";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import {
+  WorkspaceConfigurationFailed,
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,
   type WorkspaceInitializationInteractionService,
-} from "../workspace-configuration/initialization-interaction.js";
+} from "@agentxm/workspace-configuration";
 
 const selectAgentsMessage = "Select agents to configure";
 const confirmInstructionSyncMessage =
@@ -35,6 +40,28 @@ const CUSTOM_SOURCE_FILE = "__custom__";
 
 const cancelled = (error: { readonly message: string }) =>
   Effect.fail(new WorkspaceInitializationCancelled({ message: error.message }));
+
+const carriedCategory = (
+  code: AppError["code"],
+): "conflict" | "internal" | "usage" | "validation" =>
+  code === "conflict" || code === "usage" || code === "validation" ? code : "internal";
+
+/**
+ * Carry a prompt-guard envelope into the feature's typed failure family; the
+ * boundary conversion back is a field copy, so the rendered envelope stays
+ * byte-identical.
+ */
+const toInteractionFailure = (
+  error: AppError | WorkspaceInitializationCancelled,
+): WorkspaceConfigurationFailed | WorkspaceInitializationCancelled =>
+  error instanceof WorkspaceInitializationCancelled
+    ? error
+    : new WorkspaceConfigurationFailed({
+        category: carriedCategory(error.code),
+        detail: error.detail,
+        ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+        ...(error.cause === undefined ? {} : { cause: error.cause }),
+      });
 
 export const WorkspaceInitializationInteractionLive = Layer.effect(
   WorkspaceInitializationInteraction,
@@ -85,12 +112,20 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
             })),
           }),
           { message: selectAgentsMessage },
-        ).pipe(Effect.provide(promptEnvironment), Effect.catchTag("PromptCancelled", cancelled)),
+        ).pipe(
+          Effect.provide(promptEnvironment),
+          Effect.catchTag("PromptCancelled", cancelled),
+          Effect.mapError(toInteractionFailure),
+        ),
       confirmInstructionSync: ({ enabled }) =>
         requireInteractive(
           Prompt.confirm({ message: confirmInstructionSyncMessage, initial: enabled }),
           { message: confirmInstructionSyncMessage },
-        ).pipe(Effect.provide(promptEnvironment), Effect.catchTag("PromptCancelled", cancelled)),
+        ).pipe(
+          Effect.provide(promptEnvironment),
+          Effect.catchTag("PromptCancelled", cancelled),
+          Effect.mapError(toInteractionFailure),
+        ),
       selectInstructionSource: ({ defaultFileName, choices }) =>
         Effect.gen(function* () {
           yield* Effect.ignore(terminal.display("\n"));
@@ -127,11 +162,18 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
             Prompt.text({ message: customInstructionSourceMessage }),
             { message: customInstructionSourceMessage },
           ).pipe(Effect.provide(promptEnvironment));
-        }).pipe(Effect.catchTag("PromptCancelled", cancelled)),
+        }).pipe(
+          Effect.catchTag("PromptCancelled", cancelled),
+          Effect.mapError(toInteractionFailure),
+        ),
       confirmSetupPlan: () =>
         requireInteractive(Prompt.confirm({ message: confirmSetupPlanMessage, initial: true }), {
           message: confirmSetupPlanMessage,
-        }).pipe(Effect.provide(promptEnvironment), Effect.catchTag("PromptCancelled", cancelled)),
+        }).pipe(
+          Effect.provide(promptEnvironment),
+          Effect.catchTag("PromptCancelled", cancelled),
+          Effect.mapError(toInteractionFailure),
+        ),
       presentAgentScan: (scan) =>
         Effect.gen(function* () {
           yield* renderer.info(

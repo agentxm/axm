@@ -23,7 +23,7 @@ import {
   type AgentId,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
-import { makeAppError } from "../app-error/index.js";
+import { WorkspaceConfigurationFailed } from "./errors.js";
 import { isGitManaged } from "@agentxm/extension-sources";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { LOCKFILE_VERSION, writeLockfileAtPath } from "@agentxm/workspace-state";
@@ -49,8 +49,8 @@ import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-f
 import { resolveInstructionTarget, syncInstructions } from "@agentxm/extension-workspace";
 import type { InstructionMechanism } from "@agentxm/extension-workspace";
 
-const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
-  code: "usage",
+const SELECT_AGENTS_PROMPT_MISSING = new WorkspaceConfigurationFailed({
+  category: "usage",
   detail: "Interactive prompt required: Select agents to configure",
   suggestions: [{ description: "Provide WorkspaceInitializationInteraction in the runtime." }],
 });
@@ -219,12 +219,13 @@ const ensureWorkspaceTransientIgnores = (workspaceRoot: string) =>
     const exists = yield* fileExists(filePath);
     const current = exists
       ? yield* fs.readFileString(filePath).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to read AXM workspace ignore file: ${filePath}`,
-              cause,
-            }),
+          Effect.mapError(
+            (cause) =>
+              new WorkspaceConfigurationFailed({
+                category: "internal",
+                detail: `Failed to read AXM workspace ignore file: ${filePath}`,
+                cause,
+              }),
           ),
         )
       : "";
@@ -236,12 +237,13 @@ const ensureWorkspaceTransientIgnores = (workspaceRoot: string) =>
     const prefix = current.length === 0 || hasTrailingNewline ? current : `${current}${newline}`;
     yield* protectWorkspacePath(filePath);
     yield* fs.writeFileString(filePath, `${prefix}${missing.join(newline)}${newline}`).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to write AXM workspace ignore file: ${filePath}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new WorkspaceConfigurationFailed({
+            category: "internal",
+            detail: `Failed to write AXM workspace ignore file: ${filePath}`,
+            cause,
+          }),
       ),
     );
   });
@@ -314,21 +316,23 @@ const writeSourceFileIfMissing = (args: {
     if (!args.dryRun) {
       yield* protectWorkspacePath(filePath);
       yield* fs.makeDirectory(path.dirname(filePath), { recursive: true }).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to create instruction source directory: ${path.dirname(filePath)}`,
-            cause: error,
-          }),
+        Effect.mapError(
+          (error) =>
+            new WorkspaceConfigurationFailed({
+              category: "internal",
+              detail: `Failed to create instruction source directory: ${path.dirname(filePath)}`,
+              cause: error,
+            }),
         ),
       );
       yield* fs.writeFileString(filePath, args.content.value).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to write instruction source file: ${filePath}`,
-            cause: error,
-          }),
+        Effect.mapError(
+          (error) =>
+            new WorkspaceConfigurationFailed({
+              category: "internal",
+              detail: `Failed to write instruction source file: ${filePath}`,
+              cause: error,
+            }),
         ),
       );
     }
@@ -400,20 +404,21 @@ const selectSetupAgents = (args: {
       const unrecognized = requested.filter((id) => !isKnownConfigurableAgentId(id));
       if (unrecognized.length > 0) {
         const label = unrecognized.length === 1 ? "agent" : "agents";
-        return yield* makeAppError({
-          code: "validation",
+        return yield* new WorkspaceConfigurationFailed({
+          category: "validation",
           detail: `Unrecognized setup ${label}: ${unrecognized.join(", ")}`,
           suggestions: [{ description: "Show available setup agents.", cmd: "axm setup --help" }],
         });
       }
     }
     const detections = yield* detectAgentScopeResults(args.workspaceRoot).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to detect agents: ${error.message}`,
-          cause: error,
-        }),
+      Effect.mapError(
+        (error) =>
+          new WorkspaceConfigurationFailed({
+            category: "internal",
+            detail: `Failed to detect agents: ${error.message}`,
+            cause: error,
+          }),
       ),
     );
     const detectedAgents = detections.map((detection) => detection.agent);
@@ -599,12 +604,13 @@ const readSettingsFromReadModel = (
     return yield* makeWorkspaceReadModel(scope).pipe(
       Effect.flatMap((readModel) => readModel.state.settings),
       Effect.provide(env),
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "validation",
-          detail: "Workspace settings could not be read",
-          cause: error,
-        }),
+      Effect.mapError(
+        (error) =>
+          new WorkspaceConfigurationFailed({
+            category: "validation",
+            detail: "Workspace settings could not be read",
+            cause: error,
+          }),
       ),
     );
   });
@@ -833,12 +839,13 @@ export const ensureUserWorkspaceInitialized = (
     const settingsPath = path.join(workspaceRoot, SETTINGS_FILENAME);
 
     const settingsExists = yield* fs.exists(settingsPath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to check if settings file exists: ${settingsPath}`,
-          cause: error,
-        }),
+      Effect.mapError(
+        (error) =>
+          new WorkspaceConfigurationFailed({
+            category: "validation",
+            detail: `Failed to check if settings file exists: ${settingsPath}`,
+            cause: error,
+          }),
       ),
     );
     if (!settingsExists) {

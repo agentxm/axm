@@ -36,7 +36,6 @@ import {
   resolveCliFormat,
   setCommandSemanticProperties,
   withCliErrorHandling,
-  WorkspaceInitializationInteractionLive,
 } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   Verbosity,
@@ -64,7 +63,12 @@ import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
-import { AuthoringFailureAdapterLive, LifecycleFailureAdapterLive } from "./feature-errors.js";
+import {
+  AuthoringFailureAdapterLive,
+  InspectionFailureAdapterLive,
+  LifecycleFailureAdapterLive,
+} from "./feature-errors.js";
+import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import { LifecycleResolutionProgressLive } from "./lifecycle-interaction.js";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
@@ -300,6 +304,7 @@ const makeWorkspaceProgramLayer = (
     sourceProvidersLayer,
     CodingAgentRepositoryLive,
     AuthoringFailureAdapterLive,
+    InspectionFailureAdapterLive,
     LifecycleFailureAdapterLive,
   );
 

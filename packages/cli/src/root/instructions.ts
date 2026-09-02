@@ -43,7 +43,8 @@ import {
   observeInstructions,
   reconcileInstructionTransition,
   removeInstructionTargetsFor,
-} from "./instruction-reconciliation.js";
+} from "@agentxm/workspace-configuration";
+import { configurationFailureToAppError } from "../feature-errors.js";
 import {
   failureToStepFailure,
   toAppError,
@@ -269,7 +270,9 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
     Option.isSome(previousConfig) &&
     (previousConfig.value.fileName !== resolvedConfig.fileName ||
       previousConfig.value.gitignoreAliases !== resolvedConfig.gitignoreAliases);
-  const observed = yield* observeInstructions({ ws, config: resolvedConfig });
+  const observed = yield* observeInstructions({ ws, config: resolvedConfig }).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const alreadyCurrent =
     Option.isSome(current) &&
     rawInstructionsConfigEquals(current.value, config) &&
@@ -287,7 +290,9 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
   // configuration owns, because those are the files the transition removes.
   const preflight =
     configChanged && Option.isSome(previousConfig)
-      ? yield* observeInstructions({ ws, config: previousConfig.value })
+      ? yield* observeInstructions({ ws, config: previousConfig.value }).pipe(
+          Effect.mapError(configurationFailureToAppError),
+        )
       : observed;
   const ruleEffects = (yield* ruleManager
     .projectionPlans()
@@ -306,7 +311,10 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
       ...instructionProjectionEffects(observed),
     ],
   });
-  const readiness = yield* instructionReconciliationReadiness({ ws, snapshot: preflight });
+  const readiness = Option.map(
+    yield* instructionReconciliationReadiness({ ws, snapshot: preflight }),
+    configurationFailureToAppError,
+  );
   const step: PlannedJobStep = Option.match(readiness, {
     onNone: () => ({
       label: "Enable instruction-file management",
@@ -327,11 +335,12 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
               yield* ws.setInstructionsConfig(config).pipe(Effect.mapError(toAppError));
               yield* applyPlannedProjections(ruleManager);
             }).pipe(
-              Effect.mapError(toAppError),
+              Effect.mapError(configurationFailureToAppError),
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
             ),
           }).pipe(
+            Effect.mapError(configurationFailureToAppError),
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
           ),
@@ -392,13 +401,18 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
   }
 
   const config = resolveInstructionsConfig(current.value);
-  const snapshot = yield* observeInstructions({ ws, config });
+  const snapshot = yield* observeInstructions({ ws, config }).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const artifact = makeInstructionArtifact({
     ws,
     path,
     effects: instructionProjectionRemovalEffects(snapshot),
   });
-  const readiness = yield* instructionReconciliationReadiness({ ws, snapshot });
+  const readiness = Option.map(
+    yield* instructionReconciliationReadiness({ ws, snapshot }),
+    configurationFailureToAppError,
+  );
   const step: PlannedJobStep = Option.match(readiness, {
     onNone: () => ({
       label: "Disable instruction-file management",
@@ -407,6 +421,7 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
       run: ws
         .runTransaction({
           transition: disableInstructionManagement({ ws, config }).pipe(
+            Effect.mapError(configurationFailureToAppError),
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
           ),

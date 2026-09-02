@@ -13,7 +13,7 @@ import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag, jsonFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
-import { WorkspaceInitializationCancelled } from "../workspace-configuration/initialization-interaction.js";
+import * as Data from "effect/Data";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import {
   exitCodeForSemanticProperties,
@@ -22,6 +22,15 @@ import {
   writeDefect,
   writeExpectedCliError,
 } from "./runtime-envelope.js";
+
+/**
+ * Structural stand-in for the workspace-configuration feature's typed
+ * cancellation: the envelope dispatches on the tag alone, and the residue may
+ * not depend on feature packages.
+ */
+class WorkspaceInitializationCancelled extends Data.TaggedError(
+  "WorkspaceInitializationCancelled",
+)<{ readonly message: string }> {}
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -12,7 +12,12 @@ import {
   type RemovedAgentArtifactCleanupResult,
 } from "@agentxm/workspace-sync";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { syncFailureToAppError, syncStepFailureAdapter } from "../../feature-errors.js";
+import {
+  configurationFailureToAppError,
+  configurationFailureToStepFailure,
+  syncFailureToAppError,
+  syncStepFailureAdapter,
+} from "../../feature-errors.js";
 import {
   acceptWarningsFlag,
   previewFlag,
@@ -35,8 +40,7 @@ import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { makeAtomicMembershipSteps } from "./atomic-membership.js";
-import { validateAgentIds } from "./shared.js";
+import { makeAtomicMembershipSteps, validateAgentIds } from "@agentxm/workspace-configuration";
 import {
   failureToStepFailure,
   toAppError,
@@ -195,7 +199,9 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
 
-  const agentIds = yield* validateAgentIds(args.ids);
+  const agentIds = yield* validateAgentIds(args.ids).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const configured = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const configuredSet = new Set(configured);
   const missing = agentIds.filter((id) => !configuredSet.has(id));
@@ -231,6 +237,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
   const atomicSteps = yield* makeAtomicMembershipSteps({
     ws,
     steps,
+    toStepFailure: configurationFailureToStepFailure,
     validate: () =>
       ws
         .getConfiguredAgents()

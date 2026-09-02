@@ -35,14 +35,6 @@
       "types": "./dist/src/unstable/utils/index.d.ts",
       "default": "./dist/src/unstable/utils/index.js"
     },
-    "./unstable/workspace-configuration": {
-      "types": "./dist/src/unstable/workspace-configuration/index.d.ts",
-      "default": "./dist/src/unstable/workspace-configuration/index.js"
-    },
-    "./unstable/workspace-inspection": {
-      "types": "./dist/src/unstable/workspace-inspection/index.d.ts",
-      "default": "./dist/src/unstable/workspace-inspection/index.js"
-    },
     "./unstable/cli-flags": {
       "types": "./dist/src/unstable/cli-flags/index.d.ts",
       "default": "./dist/src/unstable/cli-flags/index.js"

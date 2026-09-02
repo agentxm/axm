@@ -92,6 +92,8 @@
     "@agentxm/registry-auth": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-configuration": "workspace:^",
+    "@agentxm/workspace-inspection": "workspace:^",
     "@agentxm/workspace-lint": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",

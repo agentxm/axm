@@ -50,11 +50,11 @@ export {
   SkillManagerLive,
   SubagentManagerLive,
 } from "@agentxm/extension-lifecycle/live";
-import { LifecycleFailureAdapterLive } from "./feature-errors.js";
-export { LifecycleFailureAdapterLive };
+import { InspectionFailureAdapterLive, LifecycleFailureAdapterLive } from "./feature-errors.js";
+export { InspectionFailureAdapterLive, LifecycleFailureAdapterLive };
 import { LifecycleResolutionProgressLive } from "./lifecycle-interaction.js";
 export { LifecycleResolutionProgressLive };
-import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace-configuration";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { ExecutionDirectory } from "./execution-directory.js";
 
 const testHttpClient = HttpClient.make((request) =>

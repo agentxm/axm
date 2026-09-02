@@ -265,6 +265,8 @@ export default [
       "packages/registry-auth/src/**/*.ts",
       "packages/registry-client/src/**/*.ts",
       "packages/registry-protocol/src/**/*.ts",
+      "packages/workspace-configuration/src/**/*.ts",
+      "packages/workspace-inspection/src/**/*.ts",
       "packages/workspace-lint/src/**/*.ts",
       "packages/workspace-operations/src/**/*.ts",
       "packages/workspace-state/src/**/*.ts",

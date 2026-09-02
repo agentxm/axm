@@ -1,8 +1,5 @@
 import { CodingAgentRepository, resolveInstructionTarget } from "@agentxm/extension-workspace";
-import {
-  bootstrapWorkspace,
-  type SetupAgentCandidate,
-} from "@agentxm/extension-management/unstable/workspace-configuration";
+import { bootstrapWorkspace, type SetupAgentCandidate } from "@agentxm/workspace-configuration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
@@ -59,6 +56,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { Command, Flag } from "effect/unstable/cli";
 
+import { coerceConfigurationFailure } from "../feature-errors.js";
 import { LearnMore, formatLearnMore } from "../formatter.js";
 import { BRANDING } from "@agentxm/extension-management/unstable/branding";
 import { ExecutionDirectory } from "../execution-directory.js";
@@ -757,7 +755,9 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
     ...(args.preview !== undefined ? { preview: args.preview } : {}),
   };
   const initialize = Effect.gen(function* () {
-    const result = yield* bootstrapWorkspace(workspaceOptions);
+    const result = yield* bootstrapWorkspace(workspaceOptions).pipe(
+      Effect.mapError(coerceConfigurationFailure),
+    );
     if (result.initialized) {
       yield* installSkill({
         scope: args.scope,

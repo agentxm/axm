@@ -13,7 +13,17 @@ import type { AppError } from "../app-error/index.js";
 import { AppErrorCodes, ExitCode, exitCodeFor, redactSensitiveText } from "../app-error/index.js";
 import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
-import type { WorkspaceInitializationCancelled } from "../workspace-configuration/initialization-interaction.js";
+
+/**
+ * Structural shape of the workspace-configuration feature's typed
+ * initialization cancellation. The envelope dispatches on the tag alone, so
+ * it does not import the feature package (the transitional residue may not
+ * depend on features).
+ */
+export interface WorkspaceInitializationCancelled {
+  readonly _tag: "WorkspaceInitializationCancelled";
+  readonly message: string;
+}
 import { renderAppErrorChannels } from "./handle-error.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";

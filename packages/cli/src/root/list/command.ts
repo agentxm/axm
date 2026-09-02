@@ -20,9 +20,10 @@ import {
   collectExtensionListItems,
   type ExtensionListFilter,
   type ExtensionListItem,
-} from "@agentxm/extension-management/unstable/workspace-inspection";
+} from "@agentxm/workspace-inspection";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
+import { inspectionFailureToAppError } from "../../feature-errors.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
@@ -147,7 +148,9 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     });
   }
   const renderer = yield* CliRenderer;
-  const localItems = yield* collectExtensionListItems(Option.getOrUndefined(args.type));
+  const localItems = yield* collectExtensionListItems(Option.getOrUndefined(args.type)).pipe(
+    Effect.mapError(inspectionFailureToAppError),
+  );
   const filter: ExtensionListFilter = args.outdated
     ? "outdated"
     : args.deprecated
@@ -156,7 +159,10 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   const assessmentFilter = filter === "outdated" ? "outdated" : "deprecated";
   const assessed = yield* renderer.withSpinner(
     `Checking extensions for ${assessmentFilter === "outdated" ? "updates" : "deprecation"}`,
-    () => Effect.scoped(assessExtensionListItems(localItems, assessmentFilter)),
+    () =>
+      Effect.scoped(assessExtensionListItems(localItems, assessmentFilter)).pipe(
+        Effect.mapError(inspectionFailureToAppError),
+      ),
     { successMessage: `Checked extension ${assessmentFilter} status` },
   );
   const items = assessed

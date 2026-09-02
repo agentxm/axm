@@ -16,6 +16,7 @@ import {
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { configurationFailureToAppError } from "../../feature-errors.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
@@ -26,7 +27,7 @@ import {
   instructionReconciliationReadiness,
   observeInstructions,
   reconcileInstructionTransition,
-} from "../instruction-reconciliation.js";
+} from "@agentxm/workspace-configuration";
 import {
   failureToStepFailure,
   toAppError,
@@ -74,12 +75,19 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
     return;
   }
 
-  const instructionsConfig = yield* activeInstructionsConfig(ws);
+  const instructionsConfig = yield* activeInstructionsConfig(ws).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const readiness = Option.isSome(instructionsConfig)
-    ? yield* instructionReconciliationReadiness({
-        ws,
-        snapshot: yield* observeInstructions({ ws, config: instructionsConfig.value }),
-      })
+    ? Option.map(
+        yield* instructionReconciliationReadiness({
+          ws,
+          snapshot: yield* observeInstructions({ ws, config: instructionsConfig.value }).pipe(
+            Effect.mapError(configurationFailureToAppError),
+          ),
+        }),
+        configurationFailureToAppError,
+      )
     : Option.none();
   const disableTransition = Effect.gen(function* () {
     yield* ws
@@ -118,6 +126,7 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
                 config: instructionsConfig.value,
                 transition: disableTransition,
               }).pipe(
+                Effect.mapError(configurationFailureToAppError),
                 Effect.provideService(FileSystem.FileSystem, fs),
                 Effect.provideService(Path.Path, path),
               )

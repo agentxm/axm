@@ -127,6 +127,7 @@ export { SourceHostProvidersLive } from "./test-helpers.js";
 export {
   HookConfiguredAgentOutcomesProviderLive,
   HookManagerLive,
+  InspectionFailureAdapterLive,
   KnowledgeIndexLive,
   KnowledgeManagerLive,
   LifecycleFailureAdapterLive,

@@ -48,6 +48,15 @@ import {
 } from "@agentxm/registry-auth";
 import type { LintStagingFailed } from "@agentxm/workspace-lint";
 import {
+  WorkspaceConfigurationFailed,
+  WorkspaceInitializationCancelled,
+} from "@agentxm/workspace-configuration";
+import {
+  InspectionFailureAdapter,
+  WorkspaceInspectionFailed,
+  type InspectionFailureAdapterService,
+} from "@agentxm/workspace-inspection";
+import {
   WorkspaceSyncFailed,
   type SyncFailureAdapter,
   type SyncPolicyFailure,
@@ -408,3 +417,92 @@ export const authFailureToAppError = (failure: unknown): AppError => {
   if (isKnownFailure(failure)) return toAppError(failure);
   return makeAppError({ code: "internal", detail: String(failure), cause: failure });
 };
+
+/**
+ * Translate a workspace-configuration policy failure: the implementation
+ * chose the category and wording at construction, so the envelope carries
+ * them over 1:1 through the same normalization the envelope constructor
+ * applies.
+ */
+export const workspaceConfigurationFailedToAppError = (
+  error: WorkspaceConfigurationFailed,
+): AppError =>
+  makeAppError({
+    code: error.category,
+    detail: error.detail,
+    ...(error.recover === undefined ? {} : { recover: error.recover }),
+    ...(error.cmd === undefined ? {} : { cmd: error.cmd }),
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
+/**
+ * Convert any failure a workspace-configuration flow can surface — the
+ * feature's own typed failure, a known kernel or integration failure, or an
+ * envelope that travelled through a still-coupled channel — into the
+ * CLI-facing `AppError`.
+ */
+export const configurationFailureToAppError = (failure: unknown): AppError => {
+  if (failure instanceof WorkspaceConfigurationFailed) {
+    return workspaceConfigurationFailedToAppError(failure);
+  }
+  if (failure instanceof AppError) return failure;
+  if (isKnownFailure(failure)) return toAppError(failure);
+  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+};
+
+/**
+ * Convert configuration failures into the envelope while letting the typed
+ * initialization cancellation pass through to the runtime envelope's silent
+ * success exit.
+ */
+export const coerceConfigurationFailure = (failure: unknown): ExpectedCliError =>
+  failure instanceof WorkspaceInitializationCancelled
+    ? failure
+    : configurationFailureToAppError(failure);
+
+/** Serialize any configuration failure into the plan-step vocabulary. */
+export const configurationFailureToStepFailure = (failure: unknown) =>
+  appErrorToStepFailure(configurationFailureToAppError(failure));
+
+/**
+ * Translate a workspace-inspection query failure: the implementation chose
+ * the category and wording at construction, so the envelope carries them over
+ * 1:1 through the same normalization the envelope constructor applies.
+ */
+export const workspaceInspectionFailedToAppError = (error: WorkspaceInspectionFailed): AppError =>
+  makeAppError({
+    code: error.category,
+    detail: error.detail,
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
+/**
+ * Convert any failure a workspace-inspection query can surface — the
+ * feature's own typed failure, a known kernel or integration failure, or an
+ * envelope that travelled through a still-coupled channel — into the
+ * CLI-facing `AppError`.
+ */
+export const inspectionFailureToAppError = (failure: unknown): AppError => {
+  if (failure instanceof WorkspaceInspectionFailed) {
+    return workspaceInspectionFailedToAppError(failure);
+  }
+  if (failure instanceof AppError) return failure;
+  if (isKnownFailure(failure)) return toAppError(failure);
+  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+};
+
+/**
+ * The inspection feature's failure adapter: assessment reasons reuse the
+ * boundary's own conversions so diagnostic sentences inside inspection
+ * results stay byte-identical with rendered errors.
+ */
+export const inspectionFailureAdapter: InspectionFailureAdapterService = {
+  describeFailure: (failure) => inspectionFailureToAppError(failure).detail,
+};
+
+/** Layer wiring the boundary's failure conversions into inspection queries. */
+export const InspectionFailureAdapterLive = Layer.succeed(
+  InspectionFailureAdapter,
+  inspectionFailureAdapter,
+);

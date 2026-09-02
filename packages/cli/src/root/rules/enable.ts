@@ -30,13 +30,16 @@ import {
   instructionReconciliationReadiness,
   observeInstructions,
   reconcileInstructionTransition,
-} from "../instruction-reconciliation.js";
+} from "@agentxm/workspace-configuration";
 import {
   toAppError,
   failureToStepFailure,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { RuleManager } from "@agentxm/extension-workspace";
-import { lifecycleFailureToAppError } from "../../feature-errors.js";
+import {
+  configurationFailureToAppError,
+  lifecycleFailureToAppError,
+} from "../../feature-errors.js";
 
 export const handleEnableRule = (args: {
   readonly name: string;
@@ -99,12 +102,19 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
         change: "updated",
       } satisfies JobStepArtifact),
   });
-  const instructionsConfig = yield* activeInstructionsConfig(ws);
+  const instructionsConfig = yield* activeInstructionsConfig(ws).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const readiness = Option.isSome(instructionsConfig)
-    ? yield* instructionReconciliationReadiness({
-        ws,
-        snapshot: yield* observeInstructions({ ws, config: instructionsConfig.value }),
-      })
+    ? Option.map(
+        yield* instructionReconciliationReadiness({
+          ws,
+          snapshot: yield* observeInstructions({ ws, config: instructionsConfig.value }).pipe(
+            Effect.mapError(configurationFailureToAppError),
+          ),
+        }),
+        configurationFailureToAppError,
+      )
     : Option.none();
   const activationStep: PlannedJobStep =
     installStep.readiness === "error"
@@ -122,6 +132,7 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
                   config: instructionsConfig.value,
                   transition: installStep.run.pipe(Effect.mapError(toAppError)),
                 }).pipe(
+                  Effect.mapError(configurationFailureToAppError),
                   Effect.provideService(FileSystem.FileSystem, fs),
                   Effect.provideService(Path.Path, path),
                 )

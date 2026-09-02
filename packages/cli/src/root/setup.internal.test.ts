@@ -23,10 +23,8 @@ import {
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import {
-  WorkspaceInitializationCancelled,
-  WorkspaceInitializationInteractionTest,
-} from "@agentxm/extension-management/unstable/workspace-configuration";
+import { WorkspaceInitializationCancelled } from "@agentxm/workspace-configuration";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { expectDefined, expectRecord, property } from "../test-helpers.js";

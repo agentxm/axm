@@ -96,6 +96,20 @@ describe("repository task interface", () => {
     );
   });
 
+  it("batches homogeneous build and test phases without batching mixed static verification", () => {
+    const scripts = readObject("package.json")["scripts"];
+    if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
+
+    for (const name of ["verify:affected", "verify:workspace"]) {
+      const script = scripts[name];
+      if (typeof script !== "string") throw new Error(`Missing ${name} script.`);
+      const [staticVerification = ""] = script.split("&&", 1);
+      expect(staticVerification, name).not.toContain("--batch");
+      expect(script, name).toContain("-t build --batch");
+      expect(script, name).toContain("-t test --batch");
+    }
+  });
+
   it("gives every cached resolved target a non-empty input contract", () => {
     const missing: string[] = [];
     for (const project of projects) {

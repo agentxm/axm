@@ -4,6 +4,7 @@ status: stable
 description: Human and machine output responsibilities, channel boundaries, and contract authority.
 depends-on:
   - ../principles.md
+  - ../decisions/cli-output-view-model-and-terminal-ownership.md
 ---
 
 # CLI output
@@ -48,8 +49,18 @@ them, and this document owns the remaining channel-semantics detail.
   this field to report the lockfile path, observed version, supported version,
   and `older` or `newer` direction.
 
-Handlers produce structured results before rendering. They do not write
-directly to process streams or derive machine data by parsing terminal text.
+Handlers produce structured results before rendering. Feature-owned views turn
+those results into typed human documents, and the application-owned `Screen`
+is the sole writer after runtime startup. It serializes stdout and stderr,
+maintains the append-only transcript and bottom live frame, coordinates
+prompts, and restores terminal state on shutdown. Views do not write directly
+to process streams or derive machine data by parsing terminal text.
+
+Interactive and plain modes paint the same human document. Interactive mode
+may add color and animate the live frame only when the target stream is a TTY;
+plain mode emits static text without cursor movement. Color capability and
+animation capability are separate so forced color does not imply a live
+terminal.
 
 Workspace mutations report the plan and artifacts AXM applied locally. A
 Registry administration command instead reports the authoritative remote
@@ -66,9 +77,10 @@ so a command cannot silently acquire or lose a machine contract.
 Machine contracts evolve additively unless an explicit breaking decision says
 otherwise. Optional structured problems extend the stable error envelope; they
 do not replace its required fields or create a new exit category. Human wording
-and layout may improve without changing the machine schema. Exact fields,
-envelopes, and scenarios remain executable authority, not prose maintained
-here.
+and layout may improve without changing the machine schema. The typed human
+document is not a wire format, and machine output is not derived from it. Exact
+fields, envelopes, and scenarios remain executable authority, not prose
+maintained here.
 
 ## Interaction
 

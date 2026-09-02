@@ -22,3 +22,6 @@ specifications, never in these records.
 - [Official AXM skill is opt-in](official-axm-skill-is-opt-in.md) — workspaces
   declare the official skill directly or through a Pack before compatibility
   applies; undeclared absence remains informational
+- [CLI output view model and terminal ownership](cli-output-view-model-and-terminal-ownership.md) —
+  human output crosses the application boundary as a typed document painted by
+  one terminal owner while machine output remains schema-backed

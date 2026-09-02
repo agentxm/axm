@@ -50,6 +50,11 @@ application shell; @agentxm/extension-management is deleted with no
 compatibility surface. Full CI (workspace + complete e2e including the
 compiled-binary and install suites) is green on the final state.
 
+The subsequent CLI output migration is active: human presentation is moving to
+a typed document model and one application-owned terminal screen while machine
+contracts remain unchanged. The legacy imperative renderer is removed when all
+feature views have migrated.
+
 Recorded follow-up candidates (application wiring that could still descend
 into features; each was deferred under the migration's scope-control rule
 with rationale in the corresponding commit):

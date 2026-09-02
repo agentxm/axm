@@ -84,6 +84,8 @@ inventory or presentation details:
   derived copies.
 - The formatter owns terminal layout and formatter-produced machine help
   documents.
+- The formatter's help document remains authoritative input; the output screen
+  paints or transports it without redefining help semantics.
 - [CLI output](output.md) owns channel boundaries, envelopes, and the separation
   between human and machine presentation.
 - Behavior and completeness tests own the exact supported results.

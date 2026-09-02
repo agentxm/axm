@@ -6,13 +6,9 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  CliRenderer,
-  type DetailView,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { CliRenderer, type DetailView, type TableView } from "../../cli-renderer/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   CatalogExtensionTypeSchema,
   type CatalogExtensionType,
@@ -33,7 +29,7 @@ import {
   lockEntryVersion,
 } from "@agentxm/workspace-state";
 
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { commandForScope } from "./scoped-command.js";
 

@@ -13,12 +13,9 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
-import {
-  autocompleteMultiselect,
-  requireInteractive,
-} from "@agentxm/extension-management/unstable/cli/prompt";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import { autocompleteMultiselect, requireInteractive } from "./prompt/index.js";
+import { CliRenderer } from "./cli-renderer/index.js";
+import type { AppError } from "./app-error/index.js";
 import {
   WorkspaceConfigurationFailed,
   WorkspaceInitializationCancelled,

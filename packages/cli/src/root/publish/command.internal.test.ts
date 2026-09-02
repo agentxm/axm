@@ -9,7 +9,7 @@ import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
   isEffectCliExit,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "../../cli-runtime/index.js";
 import { StepFailure, renderConfirmationRecoveryCommand } from "@agentxm/workspace-operations";
 import {
   extensionTypes,
@@ -39,7 +39,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import { RegistryAuthFailed } from "@agentxm/registry-auth";
 
 import {

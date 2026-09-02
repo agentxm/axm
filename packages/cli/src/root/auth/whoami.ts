@@ -4,8 +4,8 @@ import { Command } from "effect/unstable/cli";
 
 import { AuthClient, authLoginRequired, resolveRequiredToken } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 

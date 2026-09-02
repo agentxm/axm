@@ -5,9 +5,9 @@ import { Command } from "effect/unstable/cli";
 import { AuthClient, CredentialStore } from "@agentxm/registry-auth";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "../../cli-renderer/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import * as Schema from "effect/Schema";
 import { withRuntime } from "../../runtime.js";
 

@@ -1,6 +1,6 @@
 import { Command } from "effect/unstable/cli";
 
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { activationConfig, setKnowledgeEnabled } from "./activation.js";

@@ -22,11 +22,8 @@ import {
   PendingDeviceLoginStoreTest,
 } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { expectRecord, property } from "../../test-helpers.js";

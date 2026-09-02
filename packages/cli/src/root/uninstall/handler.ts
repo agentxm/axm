@@ -1,8 +1,5 @@
 import * as Effect from "effect/Effect";
-import {
-  setCommandSemanticProperties,
-  summarizeCommandOutcome,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace-operations";
 import {
@@ -46,7 +43,7 @@ import {
   resolveRootUninstallIntent,
   type RootUninstallableType,
 } from "./resolve-root-uninstall-intent.js";
-import { type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { type AppError } from "../../app-error/index.js";
 
 export interface RootUninstallFlags {
   readonly yes: boolean;

@@ -17,12 +17,8 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { afterEach, beforeEach, vi } from "vitest";
-import {
-  displayPlan,
-  TestRenderer,
-  logsByTag,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { displayPlan, TestRenderer, logsByTag } from "../../../cli-renderer/index.js";
+import { TestFlagsLayer } from "../../../cli-flags/index.js";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsOptions,
@@ -52,10 +48,7 @@ import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
 import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
 import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import {
-  AxmSkillCandidateGateLive,
-  WorkspaceCatalogLive,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { AxmSkillCandidateGateLive, WorkspaceCatalogLive } from "../../../cli-runtime/index.js";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging";
 import {

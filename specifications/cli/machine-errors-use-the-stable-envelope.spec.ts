@@ -9,8 +9,8 @@ import { afterEach } from "vitest";
 import {
   JsonErrorEnvelopeSchema,
   classifyError,
-} from "@agentxm/extension-management/unstable/cli-runtime";
-import { handleInstall } from "axm.sh/specification-harness";
+  handleInstall,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 import { makeSpecWorkspace } from "../support/install-harness.js";

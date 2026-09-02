@@ -5,13 +5,13 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   extensionTypeToPlural,
   parseFqn,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";

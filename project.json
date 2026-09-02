@@ -31,7 +31,7 @@
       "dependsOn": [
         "extension-model:build",
         "registry-protocol:build",
-        "extension-management:build"
+        "extension-workspace:build"
       ],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "options": {
@@ -45,7 +45,7 @@
       "dependsOn": [
         "extension-model:build",
         "registry-protocol:build",
-        "extension-management:build"
+        "extension-workspace:build"
       ],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "outputs": ["{workspaceRoot}/test-results/scripts"],
@@ -100,7 +100,7 @@
       "dependsOn": [
         "extension-model:build",
         "registry-protocol:build",
-        "extension-management:build"
+        "extension-workspace:build"
       ],
       "options": {
         "command": "bun scripts/release-prepare.ts",
@@ -113,7 +113,7 @@
       "dependsOn": [
         "extension-model:build",
         "registry-protocol:build",
-        "extension-management:build"
+        "extension-workspace:build"
       ],
       "options": {
         "command": "bun scripts/release-publish.ts",
@@ -126,7 +126,7 @@
       "dependsOn": [
         "extension-model:build",
         "registry-protocol:build",
-        "extension-management:build"
+        "extension-workspace:build"
       ],
       "options": {
         "command": "bun scripts/release-publish-local.ts",
@@ -139,7 +139,7 @@
       "dependsOn": [
         "extension-model:build",
         "registry-protocol:build",
-        "extension-management:build"
+        "extension-workspace:build"
       ],
       "options": {
         "command": "bun scripts/validate-release-tag.ts",
@@ -152,7 +152,7 @@
       "dependsOn": [
         "extension-model:build",
         "registry-protocol:build",
-        "extension-management:build"
+        "extension-workspace:build"
       ],
       "options": {
         "command": "bun scripts/resolve-release-meta.ts",
@@ -165,7 +165,7 @@
       "dependsOn": [
         "extension-model:build",
         "registry-protocol:build",
-        "extension-management:build"
+        "extension-workspace:build"
       ],
       "options": {
         "command": "bun scripts/download-ci-binaries.ts",

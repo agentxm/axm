@@ -12,15 +12,12 @@ import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as semver from "semver";
 
-import { AppError, makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import {
-  setCommandSemanticProperties,
-  summarizeCommandOutcome,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { AppError, makeAppError } from "../../app-error/index.js";
+import { Verbosity } from "../../cli-flags/index.js";
+import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { InstallMeta } from "@agentxm/extension-management/unstable/install-meta";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { InstallMeta } from "../../install-meta/install-meta.js";
 import {
   AXM_SKILL_BUNDLED_APPLY_COMMAND,
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
@@ -35,12 +32,12 @@ import {
   type DetectionSource,
   type InstallMethodName,
   type InstallMethodType,
-} from "@agentxm/extension-management/unstable/install-method";
+} from "../../install-method/install-method.js";
 import {
   DEFAULT_GITHUB_REPO,
   resolveLatestVersion,
   type VersionRelation,
-} from "@agentxm/extension-management/unstable/version-resolution";
+} from "../../version-resolution/version-resolution.js";
 import { loadVersion } from "../../version.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
@@ -1508,7 +1505,7 @@ const handleScript = (
         }
 
         const targetDirectory = path.dirname(targetPath);
-        // Deliberately not `writeFileAtomic` (@agentxm/extension-management utils): the
+        // Deliberately not `writeFileAtomic` (the CLI utils module): the
         // upgrade transaction keeps the temp binary as a standalone artifact
         // between write and rename so it can be chmod'ed, executed to verify
         // the exact version, and swapped in only after a restorable backup

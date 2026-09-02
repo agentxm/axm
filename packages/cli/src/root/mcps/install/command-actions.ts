@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { ExtensionName, Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
@@ -29,15 +29,15 @@ import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "../../../cli-renderer/index.js";
 import type { Plan } from "@agentxm/workspace-operations";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
-import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
+import { isNonInteractiveOptional } from "../../../cli-flags/index.js";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { toAppError } from "../../../app-error/conversions.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
 import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
 
 // -----------------------------------------------------------------------------

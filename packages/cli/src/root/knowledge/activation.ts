@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import { buildInstallOperation } from "@agentxm/extension-workspace";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
@@ -18,10 +18,7 @@ import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { KnowledgeManager } from "@agentxm/extension-workspace";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
 

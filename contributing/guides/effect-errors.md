@@ -33,7 +33,7 @@ original `cause`, and choose one closed category: `issues`, `usage`,
 `not_found`, `auth`, `forbidden`, `conflict`, `rate_limit`, `network`,
 `validation`, `internal`, `unavailable`, or `quota`. Numeric exit status is a
 pure mapping owned by
-[`ExitCode`](../../packages/extension-management/src/unstable/app-error/app-error.ts).
+[`ExitCode`](../../packages/cli/src/app-error/app-error.ts).
 
 - `usage` means the invocation shape is wrong; `validation` means a parsed
   value violates domain rules.

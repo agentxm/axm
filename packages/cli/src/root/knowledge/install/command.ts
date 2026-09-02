@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 

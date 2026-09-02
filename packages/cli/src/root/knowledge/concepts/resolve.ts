@@ -1,12 +1,9 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ExitCode, makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { CliRenderer, type TableView } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  effectCliExit,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { ExitCode, makeAppError } from "../../../app-error/index.js";
+import { CliRenderer, type TableView } from "../../../cli-renderer/index.js";
+import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
 import { resolveKnowledgeConcept } from "@agentxm/knowledge-query";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";

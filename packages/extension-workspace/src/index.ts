@@ -530,8 +530,8 @@ export {
   type TransientFileBackup,
 } from "./utils/transient-backup.js";
 
-// Instruction-projection semantics (descended from extension-management so
-// sync, lint, and configuration features share one inward implementation)
+// Instruction-projection semantics (kept inward so sync, lint, and
+// configuration features share one implementation)
 export {
   InstructionMaintenanceFailed,
   type InstructionMaintenanceFailure,

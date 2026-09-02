@@ -4,7 +4,7 @@
  * The kernel owns the manager contract ({@link ExtensionManager}) and these
  * service identities so plan-building features can require a manager through
  * its tag without depending on the package that implements it. The Live
- * implementations stay with the extension-management lifecycle code.
+ * implementations stay with the extension-lifecycle feature code.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

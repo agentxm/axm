@@ -2,7 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 import {
   buildNewExtensionStep,
   createCanonicalDirectory,
@@ -36,10 +36,7 @@ import {
   workspaceAuthoredRoot,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;

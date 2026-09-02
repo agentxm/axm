@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import { createCanonicalDirectory, recoverCanonicalDirectory } from "@agentxm/extension-workspace";
 import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import {
@@ -12,11 +12,11 @@ import {
   formatFqn,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "../../cli-renderer/index.js";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
   protectedRecoveryValue,
@@ -42,7 +42,7 @@ import {
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
@@ -52,10 +52,7 @@ import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export const handleMcpServersNew = (args: {

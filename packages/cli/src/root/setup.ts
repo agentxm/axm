@@ -2,26 +2,14 @@ import { CodingAgentRepository, resolveInstructionTarget } from "@agentxm/extens
 import { bootstrapWorkspace, type SetupAgentCandidate } from "@agentxm/workspace-configuration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import {
-  isNonInteractive,
-  jsonFlag,
-  previewFlag,
-  yesFlag,
-  Verbosity,
-} from "@agentxm/extension-management/unstable/cli-flags";
-import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  effectCliExit,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { isNonInteractive, jsonFlag, previewFlag, yesFlag, Verbosity } from "../cli-flags/index.js";
+import { CliRenderer, count } from "../cli-renderer/index.js";
+import { effectCliExit, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/telemetry";
-import { envOption } from "@agentxm/extension-management/unstable/utils";
-import { ExitCode, makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  isKnownFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { resolveTelemetryMode } from "../telemetry/index.js";
+import { envOption } from "../utils/index.js";
+import { ExitCode, makeAppError } from "../app-error/index.js";
+import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import {
   AXM_DIR_NAME,
   resolveUserWorkspaceRoot,
@@ -58,7 +46,7 @@ import { Command, Flag } from "effect/unstable/cli";
 
 import { coerceConfigurationFailure } from "../feature-errors.js";
 import { LearnMore, formatLearnMore } from "../formatter.js";
-import { BRANDING } from "@agentxm/extension-management/unstable/branding";
+import { BRANDING } from "../branding/index.js";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { loadVersion } from "../version.js";
 import { withRuntime, withWorkspace } from "../runtime.js";

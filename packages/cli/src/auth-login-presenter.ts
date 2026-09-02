@@ -18,7 +18,7 @@ import {
   type AuthLoginProgress,
   type DeviceLoginPendingResult,
 } from "@agentxm/registry-auth";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "./cli-renderer/index.js";
 
 const progressMessages = (
   progress: AuthLoginProgress,

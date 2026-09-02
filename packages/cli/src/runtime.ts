@@ -14,17 +14,13 @@ import * as References from "effect/References";
 import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 import { pathToFileURL } from "node:url";
 
-import {
-  AppError,
-  makeAppError,
-  redactSensitiveValue,
-} from "@agentxm/extension-management/unstable/app-error";
+import { AppError, makeAppError, redactSensitiveValue } from "./app-error/index.js";
 
 import {
   AgentPresenceProbeLive,
   AxmSkillCandidateGateLive,
   WorkspaceCatalogLive,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "./cli-runtime/index.js";
 import {
   type CliTelemetryConfig,
   type ExpectedCliError,
@@ -36,7 +32,7 @@ import {
   resolveCliFormat,
   setCommandSemanticProperties,
   withCliErrorHandling,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "./cli-runtime/index.js";
 import {
   Verbosity,
   type VerbosityLevel,
@@ -47,7 +43,7 @@ import {
   quietFlag,
   directoryFlag,
   verbosityToLogLevel,
-} from "@agentxm/extension-management/unstable/cli-flags";
+} from "./cli-flags/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
 import {
   HookConfiguredAgentOutcomesProviderLive,
@@ -61,7 +57,7 @@ import {
 } from "@agentxm/extension-lifecycle/live";
 import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "./app-error/conversions.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import {
   AuthoringFailureAdapterLive,
@@ -81,11 +77,11 @@ import {
   PendingDeviceLoginStoreLive,
 } from "@agentxm/registry-auth/live";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/telemetry";
+import { resolveTelemetryMode } from "./telemetry/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "./cli-renderer/index.js";
 import type { SourceHostConfig } from "@agentxm/workspace-state";
 import {
   decodeAbsolutePathSync,
@@ -463,3 +459,11 @@ export const withRuntime =
         },
       ).pipe(Effect.provide(appLayer), Effect.scoped);
     }).pipe(Effect.provide(RegistryRuntimeLayer));
+
+// Machine-output decoding surface for JavaScript and TypeScript automation.
+// The machine-output help topic points consumers here, so the published
+// `axm.sh/runtime` entry re-exports the schema and kind detector.
+export {
+  MachineOutputDocumentSchema,
+  detectMachineOutputDocumentKind,
+} from "./cli-runtime/index.js";

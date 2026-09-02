@@ -4,7 +4,7 @@ import * as Result from "effect/Result";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,

@@ -7,10 +7,10 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { CodingAgentRepository, McpServerManager } from "@agentxm/extension-workspace";
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { CliRenderer, count } from "../../cli-renderer/index.js";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
@@ -30,7 +30,7 @@ import {
   fqnInvalidErrorToAppError,
   toAppError,
   failureToStepFailure,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+} from "../../app-error/conversions.js";
 import type {
   JobStepArtifact,
   JobStepResult,
@@ -39,7 +39,7 @@ import type {
 } from "@agentxm/workspace-operations";
 import { operationPresentation, type OperationResolution } from "@agentxm/workspace-operations";
 import { emitOperationResolution } from "../../operation-output.js";
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
@@ -47,7 +47,7 @@ import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import {
   applyMcpImport,
   collectMcpImportSources,

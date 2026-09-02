@@ -2,9 +2,13 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-import { ExitCodeDefinitions } from "@agentxm/extension-management/unstable/app-error";
-import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { HelpTopicResultSchema, handleHelpPath, rootCommand } from "axm.sh/specification-harness";
+import {
+  ExitCodeDefinitions,
+  HelpTopicResultSchema,
+  TestRenderer,
+  handleHelpPath,
+  rootCommand,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 

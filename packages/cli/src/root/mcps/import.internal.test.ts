@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { AppError, makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { AppError, makeAppError } from "../../app-error/index.js";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";

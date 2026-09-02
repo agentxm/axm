@@ -2,11 +2,11 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
 import type { PublishableType } from "@agentxm/extension-publish";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";

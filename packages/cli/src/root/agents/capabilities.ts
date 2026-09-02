@@ -9,14 +9,9 @@ import {
   listCapabilities,
   type Agent,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  CliRenderer,
-  count,
-  registerEntity,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { CliRenderer, count, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime } from "../../runtime.js";
 import { agentLifecycle, isCatalogAgentId, lifecycleCell } from "./lifecycle.js";
 import { validateAgentIds } from "@agentxm/workspace-configuration";

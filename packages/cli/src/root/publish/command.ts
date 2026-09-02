@@ -22,7 +22,7 @@ import {
   makeAppError,
   redactSensitiveText,
   type AppErrorCode,
-} from "@agentxm/extension-management/unstable/app-error";
+} from "../../app-error/index.js";
 import {
   AuthClient,
   AuthLoginPresenter,
@@ -33,14 +33,14 @@ import {
 } from "@agentxm/registry-auth";
 import { authFailureToAppError, publishFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import {
   effectCliExit,
   recordCommandCompletion,
   requestedInterruptionSignal,
   withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
@@ -71,7 +71,7 @@ import {
   fqnInvalidErrorToAppError,
   stepFailureToAppError,
   toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+} from "../../app-error/conversions.js";
 import type { Job, JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import {
   OperationJournal,
@@ -145,11 +145,7 @@ import {
 } from "@agentxm/registry-client";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { SourceType } from "@agentxm/extension-model/unstable/sources/types";
-import {
-  computeIntegrity,
-  expandGlobs,
-  isGlobPattern,
-} from "@agentxm/extension-management/unstable/utils";
+import { computeIntegrity, expandGlobs, isGlobPattern } from "../../utils/index.js";
 import {
   VersionSchema,
   decodeVersionRangeSync,

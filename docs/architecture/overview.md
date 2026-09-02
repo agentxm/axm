@@ -78,11 +78,10 @@ agent administration tool.
   identically: request and response schemas, publication and deprecation views,
   suggested-action error vocabulary, content parsing, and publish lint rules.
   It depends only on the extension model.
-- `@agentxm/extension-management` is the transitional implementation boundary
-  for workspace state, operations, integrations, and features. The accepted
-  [package architecture](package-architecture.md) decomposes it into separate
-  shared kernels, integrations, and vertical feature packages, then removes the
-  transitional package without a compatibility façade.
+- The accepted [package architecture](package-architecture.md) decomposed the
+  former `@agentxm/extension-management` transitional boundary into separate
+  shared kernels, integrations, and vertical feature packages; the
+  transitional package is removed without a compatibility façade.
 - `axm.sh` owns command parsing, terminal interaction, rendering, and assembly
   of the executable runtime. It delegates reusable behavior to the libraries
   and publishes the generated site content.

@@ -9,7 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer, count } from "./cli-renderer/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   countUnitStates,

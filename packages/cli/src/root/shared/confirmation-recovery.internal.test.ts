@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
 import {
   publicRecoveryValue,
   recoveryPositional,

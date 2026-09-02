@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ConfiguredAgentOperation } from "@agentxm/workspace-operations";
 import {
   normalizeReleaseAgeRecords,
@@ -71,7 +71,7 @@ import type { InstallSubagentCommandIntent } from "../subagents/install/intent.j
 import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 import { HookManager, KnowledgeManager, RuleManager } from "@agentxm/extension-workspace";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
 

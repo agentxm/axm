@@ -5,13 +5,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type { InstructionsConfig, InstructionsConfigValue } from "@agentxm/workspace-state";
-import { previewFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+import { previewFlag } from "../cli-flags/index.js";
+import { withArgvTracking } from "../cli-runtime/index.js";
+import { CliRenderer, registerEntity, type TableView } from "../cli-renderer/index.js";
 import type {
   JobStepResult,
   JobStepArtifact,
@@ -30,7 +26,7 @@ import {
 } from "@agentxm/extension-workspace";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { emitOperationResolution } from "../operation-output.js";
-import { scopeFlag } from "../cli-flags.js";
+import { scopeFlag } from "../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { previewOrApplyLocalPlan } from "./shared/local-plan.js";
 import { withOperationLifecycle } from "./shared/operation-lifecycle.js";
@@ -45,10 +41,7 @@ import {
   removeInstructionTargetsFor,
 } from "@agentxm/workspace-configuration";
 import { configurationFailureToAppError } from "../feature-errors.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../app-error/conversions.js";
 import type {
   InstructionProjectionEffect,
   InstructionStatusItem,

@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { makeUserArchiveCache } from "@agentxm/registry-client";
 import { withRuntime } from "../../runtime.js";
 

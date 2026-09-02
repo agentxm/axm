@@ -15,12 +15,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { UpdateCheck, isCacheStale } from "@agentxm/extension-management/unstable/update-check";
+import { CliRenderer } from "./cli-renderer/index.js";
+import { UpdateCheck, isCacheStale } from "./update-check/update-check.js";
 import {
   resolveLatestVersion,
   DEFAULT_GITHUB_REPO,
-} from "@agentxm/extension-management/unstable/version-resolution";
+} from "./version-resolution/version-resolution.js";
 import { isAgent } from "./interaction.js";
 
 // -----------------------------------------------------------------------------

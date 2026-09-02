@@ -8,7 +8,7 @@ import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -19,10 +19,7 @@ import {
 } from "../../test-helpers.js";
 import { managerLifecycleStubs, writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleAgentsAdd } from "./add.js";
-import {
-  coupleAppError,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { coupleAppError, toAppError } from "../../app-error/conversions.js";
 import {
   HookManager,
   KnowledgeManager,

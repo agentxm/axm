@@ -22,8 +22,8 @@ import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/
 import { newPack, preflightCreateOnly, type NewPackOperation } from "@agentxm/extension-authoring";
 import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -33,10 +33,7 @@ import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { PackManager } from "@agentxm/extension-workspace";
 
 export interface PacksNewHandlerArgs {

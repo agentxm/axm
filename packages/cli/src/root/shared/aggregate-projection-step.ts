@@ -10,7 +10,7 @@ import {
   KnowledgeManager,
   RuleManager,
 } from "@agentxm/extension-workspace";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 
 /**
  * One trailing projection write per semantic closure. Member steps commit

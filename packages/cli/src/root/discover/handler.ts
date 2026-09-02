@@ -4,11 +4,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { RegistryUrl } from "@agentxm/registry-client";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer, registerEntity, type TableView } from "../../cli-renderer/index.js";
 import {
   discover,
   type DiscoverPackageResult,

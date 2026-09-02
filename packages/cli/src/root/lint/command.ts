@@ -3,13 +3,13 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { materializeGitIndexWorkspace, type LintView } from "@agentxm/workspace-lint";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleLint } from "./handler.js";

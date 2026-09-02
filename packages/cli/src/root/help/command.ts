@@ -3,19 +3,16 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { Argument, CliError, Command } from "effect/unstable/cli";
 
-import { type AppError, makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { quietFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { type AppError, makeAppError } from "../../app-error/index.js";
+import { quietFlag } from "../../cli-flags/index.js";
 import {
   CliRenderer,
   InteractiveRenderer,
   MachineRenderer,
   resolveCliOutputPolicy,
   type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  resolveCliFormat,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "../../cli-renderer/index.js";
+import { resolveCliFormat, withArgvTracking } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   HELP_TOPICS,

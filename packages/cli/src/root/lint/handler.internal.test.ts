@@ -21,26 +21,19 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "../../cli-renderer/index.js";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
 import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
 import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
 import { PackManagerLive } from "@agentxm/extension-lifecycle/live";
 import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import {
-  AxmSkillCandidateGateLive,
-  WorkspaceCatalogLive,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { AxmSkillCandidateGateLive, WorkspaceCatalogLive } from "../../cli-runtime/index.js";
 import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";

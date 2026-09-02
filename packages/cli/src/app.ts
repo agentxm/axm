@@ -6,16 +6,16 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { CliError, CliOutput, Command } from "effect/unstable/cli";
 
-import { AppError, makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { AppError, makeAppError } from "./app-error/index.js";
 import {
   InteractiveRenderer,
   MachineRenderer,
   resolveCliOutputPolicy,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { resolveVerbosityFromArgv } from "@agentxm/extension-management/unstable/cli-flags";
-import { runCliMain } from "@agentxm/extension-management/unstable/cli-runtime";
-import { InstallMethodLive } from "@agentxm/extension-management/unstable/install-method";
-import { UpdateCheckLive } from "@agentxm/extension-management/unstable/update-check";
+} from "./cli-renderer/index.js";
+import { resolveVerbosityFromArgv } from "./cli-flags/index.js";
+import { runCliMain } from "./cli-runtime/index.js";
+import { InstallMethodLive } from "./install-method/install-method.js";
+import { UpdateCheckLive } from "./update-check/update-check.js";
 
 import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";

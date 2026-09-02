@@ -7,16 +7,12 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { AuthClient, authLoginRequired, resolveRequiredToken } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import { jsonFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import { jsonFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import {
-  CliRenderer,
-  type DetailView,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer, type DetailView, type TableView } from "../../cli-renderer/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 import { runWithStepUp } from "../step-up.js";

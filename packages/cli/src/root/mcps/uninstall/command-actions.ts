@@ -9,9 +9,9 @@
  */
 
 import * as Effect from "effect/Effect";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure } from "../../../app-error/conversions.js";
 import * as Option from "effect/Option";
-import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { AppError } from "../../../app-error/index.js";
 import { WorkspaceMutations, type McpServerExtensionTarget } from "@agentxm/workspace-state";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { mcpServerArtifact, mcpSourceTarget } from "@agentxm/extension-lifecycle";

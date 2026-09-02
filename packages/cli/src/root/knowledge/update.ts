@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { resolveWorkspaceUpdateSelection, updateNameFilterFlag } from "../shared/update-targets.js";

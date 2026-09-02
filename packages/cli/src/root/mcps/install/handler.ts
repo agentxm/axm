@@ -22,7 +22,7 @@ import {
   type InstallMcpServerHandlerArgs,
 } from "./command-actions.js";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 
 export interface InstallMcpServerFlags {
   readonly yes: boolean;

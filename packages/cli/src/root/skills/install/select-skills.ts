@@ -9,11 +9,11 @@
 
 import * as FileSystem from "effect/FileSystem";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { requireInteractive } from "@agentxm/extension-management/unstable/cli/prompt";
-import { isNonInteractive } from "@agentxm/extension-management/unstable/cli-flags";
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
-import { expandGlobs } from "@agentxm/extension-management/unstable/utils";
+import { requireInteractive } from "../../../prompt/index.js";
+import { isNonInteractive } from "../../../cli-flags/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
+import { expandGlobs } from "../../../utils/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

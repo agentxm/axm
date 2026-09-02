@@ -18,10 +18,10 @@ import {
   SkillManager,
   SubagentManager,
 } from "@agentxm/extension-workspace";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   RenderedFilePathSchema,
   sanitizeName,
@@ -40,7 +40,7 @@ import {
 import { applyProjectionPlans, type ProjectionPlan } from "@agentxm/extension-workspace";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
@@ -52,7 +52,7 @@ import {
 } from "../shared/workspace-display-paths.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 import { lifecycleFailureToStepFailure } from "../../feature-errors.js";
 import { LifecycleFailureAdapter } from "@agentxm/extension-lifecycle";
 

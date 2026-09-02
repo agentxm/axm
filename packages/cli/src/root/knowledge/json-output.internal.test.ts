@@ -9,7 +9,7 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 
-import { isEffectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
+import { isEffectCliExit } from "../../cli-runtime/index.js";
 
 import {
   managerLifecycleStubs,

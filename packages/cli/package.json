@@ -83,7 +83,6 @@
     "@agentxm/extension-authoring": "workspace:^",
     "@agentxm/extension-discovery": "workspace:^",
     "@agentxm/extension-lifecycle": "workspace:^",
-    "@agentxm/extension-management": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-publish": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",
@@ -100,14 +99,18 @@
     "@agentxm/workspace-sync": "workspace:^",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
+    "marked": "^18.0.9",
     "semver": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {
+    "@effect/openapi-generator": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
+    "fflate": "catalog:",
+    "swagger2openapi": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

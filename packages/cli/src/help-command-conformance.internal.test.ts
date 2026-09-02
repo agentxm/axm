@@ -5,8 +5,8 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
-import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { toJsonHelpDoc } from "@agentxm/extension-management/unstable/cli-runtime";
+import { TestRenderer } from "./cli-renderer/index.js";
+import { toJsonHelpDoc } from "./cli-runtime/index.js";
 import { rootCommand } from "./app.js";
 import {
   captureHelpDoc,

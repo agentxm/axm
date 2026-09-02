@@ -15,7 +15,7 @@ import {
   planResultUnits,
 } from "../../test-helpers.js";
 import { handleMcpsAdd } from "./add.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 
 describe("mcps add output", () => {
   let tempDir: string;

@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
   operationPresentation,
   type JobStepResult,

@@ -12,9 +12,9 @@ import {
   type StepUpRequest,
 } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { AppError } from "@agentxm/extension-management/unstable/app-error";
-import { isNonInteractive, jsonFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { AppError } from "../app-error/index.js";
+import { isNonInteractive, jsonFlag } from "../cli-flags/index.js";
+import { CliRenderer } from "../cli-renderer/index.js";
 import { coerceAuthFailure } from "../feature-errors.js";
 
 export interface StepUpOperationMessages {

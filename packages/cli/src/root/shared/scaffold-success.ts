@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 
-import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { Verbosity } from "../../cli-flags/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const emitScaffoldSuccess = (args: {

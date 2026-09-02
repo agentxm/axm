@@ -17,12 +17,13 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 
-import { AgentExecutableResolver, RegistryUrl } from "axm.sh/specification-harness";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
+  AgentExecutableResolver,
+  RegistryUrl,
+  TestFlagsLayer,
   TestMachineRenderer,
   TestRenderer,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+} from "axm.sh/specification-harness";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import {

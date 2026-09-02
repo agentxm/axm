@@ -14,14 +14,11 @@ import * as YAML from "yaml";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { BRANDING } from "@agentxm/extension-management/unstable/branding";
+import { makeAppError } from "../app-error/index.js";
+import { BRANDING } from "../branding/index.js";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { TestMachineRenderer, TestRenderer } from "../cli-renderer/index.js";
+import { TestFlagsLayer } from "../cli-flags/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceInitializationCancelled } from "@agentxm/workspace-configuration";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";

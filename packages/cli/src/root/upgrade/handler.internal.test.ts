@@ -16,13 +16,9 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as semver from "semver";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import {
-  logsByTag,
-  TestMachineRenderer,
-  TestRenderer,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+import { makeAppError } from "../../app-error/index.js";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
+import { logsByTag, TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
 import {
   Homebrew,
   InstallMethod,
@@ -32,12 +28,9 @@ import {
   Unknown,
   Yarn,
   type InstallMethodType,
-} from "@agentxm/extension-management/unstable/install-method";
-import {
-  InstallMeta,
-  type InstallMetaData,
-} from "@agentxm/extension-management/unstable/install-meta";
-import type { VersionRelation } from "@agentxm/extension-management/unstable/version-resolution";
+} from "../../install-method/install-method.js";
+import { InstallMeta, type InstallMetaData } from "../../install-meta/install-meta.js";
+import type { VersionRelation } from "../../version-resolution/version-resolution.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { ExecutionDirectory } from "../../execution-directory.js";

@@ -11,7 +11,7 @@
  */
 
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "./app-error/conversions.js";
 export {
   makeCliTestContext,
   makeWorkspaceHandlerTestContext,
@@ -124,6 +124,21 @@ export { RegistryUrl } from "@agentxm/registry-client";
 // sanctioned test-support module).
 export { resolveSource } from "@agentxm/extension-sources";
 export { SourceHostProvidersLive } from "./test-helpers.js";
+// Application-boundary vocabulary the specifications assert against: exit
+// codes, the machine error envelope, telemetry mode and client, and the
+// captured renderer and flag layers. These modules are CLI-internal, so the
+// harness is their sanctioned specification entry point.
+export { AppError, ExitCodeDefinitions } from "./app-error/index.js";
+export { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
+export { TestFlagsLayer, Verbosity } from "./cli-flags/index.js";
+export {
+  CliRenderer,
+  TestMachineRenderer,
+  TestRenderer,
+  type TestRendererState,
+} from "./cli-renderer/index.js";
+export { PromptCancelled } from "./prompt/prompt-cancelled.js";
+export { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "./telemetry/index.js";
 export {
   HookConfiguredAgentOutcomesProviderLive,
   HookManagerLive,

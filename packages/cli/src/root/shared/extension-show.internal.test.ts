@@ -9,7 +9,7 @@ import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/exten
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { EXTENSION_SHOW_ITEM_FIELDS, handleExtensionShow } from "./extension-show.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 
 const configured = { source: "@acme/skills/thing", enabled: true };
 

@@ -1082,7 +1082,7 @@ export const acquiredSkillDisplayRoot = (
  * Compute the `displayRoot` for a registry-installed pack.
  *
  * **No `src/` segment** — matches the on-disk layout at
- * `axm/packages/extension-management/src/unstable/packs/paths.ts#computePackPathsForLayout`.
+ * `packages/workspace-state/src/workspace/pack-paths.ts#computePackPathsForLayout`.
  *
  * @experimental This API is unstable and may change without notice.
  */

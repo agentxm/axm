@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { type AppError, makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { type AppError, makeAppError } from "../../app-error/index.js";
 import { CredentialStore, getCurrentUserHandle } from "@agentxm/registry-auth";
 import { registryAuthFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
@@ -8,7 +8,7 @@ import { type Handle } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { workspaceSettingsPath } from "./workspace-display-paths.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 
 const makeOwnerRequiredError = (action: string, scope: WorkspaceScope): AppError =>
   makeAppError({

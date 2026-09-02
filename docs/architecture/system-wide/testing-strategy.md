@@ -353,7 +353,6 @@ benchmarks/
 packages/
   extension-model/src/**/*.internal.test.ts
   registry-protocol/src/**/*.internal.test.ts
-  extension-management/src/**/*.internal.test.ts
   cli/src/**/*.internal.test.ts
 
 scripts/**/*.tooling.test.ts

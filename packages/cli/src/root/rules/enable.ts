@@ -3,8 +3,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   previewOrApplyPlan,
@@ -18,7 +18,7 @@ import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredRule,
 } from "@agentxm/extension-lifecycle";
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
@@ -31,10 +31,7 @@ import {
   observeInstructions,
   reconcileInstructionTransition,
 } from "@agentxm/workspace-configuration";
-import {
-  toAppError,
-  failureToStepFailure,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError, failureToStepFailure } from "../../app-error/conversions.js";
 import { RuleManager } from "@agentxm/extension-workspace";
 import {
   configurationFailureToAppError,

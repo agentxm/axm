@@ -27,7 +27,6 @@ const WORKSPACE_MANIFESTS = [
   "packages/extension-authoring/package.json",
   "packages/extension-discovery/package.json",
   "packages/extension-lifecycle/package.json",
-  "packages/extension-management/package.json",
   "packages/extension-model/package.json",
   "packages/extension-publish/package.json",
   "packages/extension-sources/package.json",
@@ -93,11 +92,9 @@ describe("Public and private boundary", () => {
       ).toBe(true);
       // The generated clients and their source specs are tracked inside this
       // repository, so the public system builds without private context.
-      expect(
-        fs.existsSync(
-          path.join(repoRoot, "packages/extension-management/src/unstable/telemetry/__generated__"),
-        ),
-      ).toBe(true);
+      expect(fs.existsSync(path.join(repoRoot, "packages/cli/src/telemetry/__generated__"))).toBe(
+        true,
+      );
     }),
   );
 });

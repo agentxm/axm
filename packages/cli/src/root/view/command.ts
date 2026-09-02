@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Option from "effect/Option";
 
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";

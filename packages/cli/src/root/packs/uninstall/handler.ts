@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "../../../cli-renderer/index.js";
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { runUninstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 

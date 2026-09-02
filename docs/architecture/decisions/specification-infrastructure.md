@@ -46,9 +46,8 @@ project `specifications`) holding the semantic trees `cli/`,
 `extension-identity/`, `package-identity/`, `settings-contract/`,
 `source-resolution/`, `version-constraints/`, and `system/`, shared harness
 code under `support/`, and the product-goal registry. It depends on the
-`@agentxm/extension-model`, `@agentxm/registry-protocol`,
-`@agentxm/extension-management`, and `axm.sh` published surfaces and has no
-build target. The catalog generator and selection runner live in
+`@agentxm/extension-model`, `@agentxm/registry-protocol`, and `axm.sh`
+published surfaces and has no build target. The catalog generator and selection runner live in
 `scripts/` with the other repository automation.
 
 ## Result adapters

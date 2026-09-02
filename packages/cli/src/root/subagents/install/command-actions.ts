@@ -16,16 +16,16 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Terminal from "effect/Terminal";
-import { nonInteractiveFlag, Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
+import { nonInteractiveFlag, Verbosity } from "../../../cli-flags/index.js";
 import { CodingAgentRepository, SubagentManager } from "@agentxm/extension-workspace";
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { InputParseResult } from "@agentxm/extension-model/unstable/sources/parser";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
-import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer, count } from "../../../cli-renderer/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { buildInstallOperation } from "@agentxm/extension-workspace";
@@ -42,11 +42,8 @@ import {
   type RegistryLookupProbe,
 } from "../../shared/install-source-resolution.js";
 import { determineSubagentsToInstall } from "./select-subagents.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
-import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
 
 // -----------------------------------------------------------------------------
 // Types

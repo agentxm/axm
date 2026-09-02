@@ -12,8 +12,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
-import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
+import { CliRenderer, count } from "./cli-renderer/index.js";
+import { Verbosity } from "./cli-flags/index.js";
 import {
   SuggestedActionSchema,
   type SuggestedAction,
@@ -26,7 +26,7 @@ import {
   type CommandOutcomeSummary,
   type SourceKind,
   type SubjectType,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "./cli-runtime/index.js";
 import {
   ArtifactMechanismSchema,
   AtomicityClassSchema,
@@ -52,7 +52,7 @@ import {
   AppErrorCodeSchema,
   redactSensitiveText,
   serializeErrorCauseChain,
-} from "@agentxm/extension-management/unstable/app-error";
+} from "./app-error/index.js";
 import { formatMinimumReleaseAgeSeconds } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";

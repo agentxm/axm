@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 import {
   type UninstallRetentionPolicy,
   buildUninstallOperation,
@@ -30,10 +30,7 @@ import {
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
 import { PackManager } from "@agentxm/extension-workspace";
 
 export interface UnpackHandlerArgs {

@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import type {
   JobStepArtifact,
   JobStepResult,
@@ -13,10 +13,7 @@ import {
   WorkspaceMutations,
   type DesiredExtensionNode,
 } from "@agentxm/workspace-state";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 
 const normalizedIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;

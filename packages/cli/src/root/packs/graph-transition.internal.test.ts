@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { makeAppError } from "../../app-error/index.js";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 import {
   previewOrApplyPlan,
   StepFailure,
@@ -15,7 +15,7 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
-import { logsByTag } from "@agentxm/extension-management/unstable/cli-renderer";
+import { logsByTag } from "../../cli-renderer/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { toPlanResolutionResult } from "../../operation-output.js";

@@ -1,9 +1,5 @@
 import * as Effect from "effect/Effect";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer, registerEntity, type TableView } from "../../../cli-renderer/index.js";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,

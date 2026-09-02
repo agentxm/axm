@@ -3,12 +3,8 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CliRenderer, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   ConfiguredAgentOutcomeSchema,
   configuredAgentLifecycleOutcomes,

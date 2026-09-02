@@ -54,7 +54,7 @@ export interface WorkspaceTransactionContext {
 
 export const CurrentWorkspaceTransaction = ServiceMap.Reference<
   Option.Option<WorkspaceTransactionContext>
->("@agentxm/extension-management/unstable/workspace/transaction/CurrentWorkspaceTransaction", {
+>("@agentxm/workspace-state/workspace/transaction/CurrentWorkspaceTransaction", {
   defaultValue: () => Option.none(),
 });
 
@@ -66,7 +66,7 @@ export const CurrentWorkspaceTransaction = ServiceMap.Reference<
  * by the transaction's own failure handling.
  */
 export const CurrentWorkspaceClosure = ServiceMap.Reference<string | undefined>(
-  "@agentxm/extension-management/unstable/workspace/transaction/CurrentWorkspaceClosure",
+  "@agentxm/workspace-state/workspace/transaction/CurrentWorkspaceClosure",
   { defaultValue: () => undefined },
 );
 

@@ -25,10 +25,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { ExitCode, makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import { effectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
+import { ExitCode, makeAppError } from "../../app-error/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { Verbosity } from "../../cli-flags/index.js";
+import { effectCliExit } from "../../cli-runtime/index.js";
 import { WorkspaceInvariantFacts } from "@agentxm/extension-workspace";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
@@ -64,7 +64,7 @@ import {
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import * as os from "node:os";
 import { ExecutionDirectory } from "../../execution-directory.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 
 // -----------------------------------------------------------------------------
 // Handler args

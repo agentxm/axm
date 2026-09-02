@@ -3,13 +3,9 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { CliRenderer, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import {
   installableExtensionTypes,
@@ -24,7 +20,7 @@ import {
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const ListFilterSchema = Schema.Literals(["all", "outdated", "deprecated"] as const);

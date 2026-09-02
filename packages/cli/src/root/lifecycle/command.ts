@@ -4,19 +4,16 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   ExtensionFqnSchema,
   formatFqn,
   parseFqn,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  fqnInvalidErrorToAppError,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { fqnInvalidErrorToAppError, toAppError } from "../../app-error/conversions.js";
 import {
   deprecateExtension,
   getExtensionDeprecation,

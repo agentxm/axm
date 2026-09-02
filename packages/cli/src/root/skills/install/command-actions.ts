@@ -19,8 +19,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Terminal from "effect/Terminal";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { nonInteractiveFlag, Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { nonInteractiveFlag, Verbosity } from "../../../cli-flags/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
@@ -32,7 +32,7 @@ import {
   isVersionEntryMature,
   parseMinimumReleaseAge,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
-import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer, count } from "../../../cli-renderer/index.js";
 import { WorkspaceMutations, type SkillPathSource, sanitizeName } from "@agentxm/workspace-state";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { computeSkillSourceHash, gitHostedSkillArtifactSource } from "@agentxm/extension-lifecycle";
@@ -63,11 +63,8 @@ import {
   type RegistryLookupProbe,
 } from "../../shared/install-source-resolution.js";
 import { determineSkillsToInstall } from "./select-skills.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
-import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
 
 // -----------------------------------------------------------------------------
 // Types

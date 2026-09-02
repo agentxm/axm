@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/telemetry";
+import { resolveTelemetryMode } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../../support/contract.js";
 

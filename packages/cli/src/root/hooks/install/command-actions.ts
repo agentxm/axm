@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { HOOK_EXTENSION_DIR } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
@@ -35,11 +35,8 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallHookCommandIntent } from "./intent.js";
-import {
-  toAppError,
-  failureToStepFailure,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
-import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { toAppError, failureToStepFailure } from "../../../app-error/conversions.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
 
 export interface InstallHookHandlerArgs {
   readonly source: string;

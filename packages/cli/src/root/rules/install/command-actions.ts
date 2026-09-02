@@ -5,8 +5,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
+import { toAppError } from "../../../app-error/conversions.js";
 import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
@@ -27,8 +27,8 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallRuleCommandIntent } from "./intent.js";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
-import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { failureToStepFailure } from "../../../app-error/conversions.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
 
 export interface InstallRuleHandlerArgs {
   readonly source: string;

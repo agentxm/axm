@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { count } from "../../../cli-renderer/index.js";
 import {
   WorkspaceMutations,
   installedRowsByName,
@@ -24,7 +24,7 @@ import {
   resolveInstalledIdentifierNameOrInput,
   WorkspaceCatalog,
 } from "@agentxm/extension-sources";
-import { expandGlob } from "@agentxm/extension-management/unstable/utils";
+import { expandGlob } from "../../../utils/index.js";
 import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
 import {
   skillArtifactFromTargets,
@@ -40,7 +40,7 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
-import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { AppError } from "../../../app-error/index.js";
 import type {
   JobStepArtifactTarget,
   JobStepResult,
@@ -49,10 +49,7 @@ import type {
 } from "@agentxm/workspace-operations";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
 
 // -----------------------------------------------------------------------------
 // Types

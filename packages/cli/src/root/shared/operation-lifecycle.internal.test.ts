@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
+import { TestRenderer } from "../../cli-renderer/index.js";
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { isWorkspaceTransitionHeldByThisInvocation } from "@agentxm/workspace-operations";

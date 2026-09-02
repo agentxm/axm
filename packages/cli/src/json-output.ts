@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { SourceTypeSchema } from "@agentxm/extension-model/unstable/sources/types";
 
-import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
-import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
+import { CliRenderer, count } from "./cli-renderer/index.js";
+import { Verbosity } from "./cli-flags/index.js";
 import {
   SuggestedActionSchema,
   type SuggestedAction,
@@ -14,9 +14,9 @@ import {
   getCommandSemanticProperties,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "./cli-runtime/index.js";
 import { OperationPreconditionSchema } from "@agentxm/workspace-operations";
-import { AppErrorCodeSchema } from "@agentxm/extension-management/unstable/app-error";
+import { AppErrorCodeSchema } from "./app-error/index.js";
 import {
   PublishVisibilitySchema,
   type PublishVisibility,

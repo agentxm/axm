@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   AuthoringFailureAdapter,
   removeFromPack,
@@ -16,16 +16,16 @@ import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { expandGlobs, isGlobPattern } from "@agentxm/extension-management/unstable/utils";
-import { count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { expandGlobs, isGlobPattern } from "../../utils/index.js";
+import { count } from "../../cli-renderer/index.js";
 import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
 import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";

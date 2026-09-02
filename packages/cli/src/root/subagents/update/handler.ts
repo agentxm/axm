@@ -1,5 +1,5 @@
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure } from "../../../app-error/conversions.js";
 import {
   WorkspaceMutations,
   configuredRowsByName,
@@ -11,7 +11,7 @@ import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 import {
   previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,

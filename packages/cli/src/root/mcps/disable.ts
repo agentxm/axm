@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "../../cli-renderer/index.js";
 import { disableMcpServer } from "@agentxm/extension-lifecycle";
 import {
   previewOrApplyPlan,
@@ -13,9 +13,9 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";

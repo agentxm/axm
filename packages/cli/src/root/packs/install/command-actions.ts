@@ -34,7 +34,7 @@ import {
   McpServerManager,
   SubagentManager,
 } from "@agentxm/extension-workspace";
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import {
   type SourceAuthorityBlockedFact,
   type SourceAuthorityInput,
@@ -78,8 +78,8 @@ import {
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
-import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { Verbosity } from "../../../cli-flags/index.js";
+import { CliRenderer } from "../../../cli-renderer/index.js";
 import {
   type WorkspacePackDependencyResolver,
   expandPackInstallRefs,
@@ -111,11 +111,8 @@ import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-p
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
-import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
 
 // -----------------------------------------------------------------------------
 // Types

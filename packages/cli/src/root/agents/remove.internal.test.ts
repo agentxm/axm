@@ -8,13 +8,10 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { codingAgentForId, CodingAgentRepository } from "@agentxm/extension-workspace";
 import type { CodingAgentRepositoryService } from "@agentxm/extension-workspace";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { coupleAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+import { makeAppError } from "../../app-error/index.js";
+import { coupleAppError } from "../../app-error/conversions.js";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";

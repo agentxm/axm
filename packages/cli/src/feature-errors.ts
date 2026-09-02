@@ -1,7 +1,7 @@
 /**
  * Conversions from vertical-feature typed failures into the CLI-facing
  * `AppError` envelope. The shared `toAppError` dispatcher lives with the
- * extension-management residue and may not depend on feature packages, so the
+ * CLI-local app-error module and may not depend on feature packages, so the
  * application boundary owns these conversions directly.
  *
  * @experimental This API is unstable and may change without notice.
@@ -15,12 +15,8 @@ import {
   withAppErrorSemantics,
   AppError,
   type AppErrorCode,
-} from "@agentxm/extension-management/unstable/app-error";
-import {
-  appErrorToStepFailure,
-  isKnownFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+} from "./app-error/index.js";
+import { appErrorToStepFailure, isKnownFailure, toAppError } from "./app-error/conversions.js";
 import {
   ExtensionLifecycleFailed,
   LifecycleFailureAdapter,
@@ -32,7 +28,7 @@ import {
   type AuthoringFailureAdapterService,
 } from "@agentxm/extension-authoring";
 import { PublishFailed } from "@agentxm/extension-publish";
-import type { ExpectedCliError } from "@agentxm/extension-management/unstable/cli-runtime";
+import type { ExpectedCliError } from "./cli-runtime/index.js";
 import {
   isRegistryAuthFailure,
   REGISTRY_AUTH_ERROR_CATEGORIES,

@@ -53,9 +53,6 @@
       "path": "../extension-model/tsconfig.lib.json"
     },
     {
-      "path": "../extension-management/tsconfig.lib.json"
-    },
-    {
       "path": "../extension-lifecycle/tsconfig.lib.json"
     },
     {

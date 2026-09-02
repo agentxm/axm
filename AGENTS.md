@@ -171,14 +171,13 @@ errors, and tests with the feature that owns them.
 - **Shared within feature** → in a dedicated file in that feature folder (e.g., `schema.ts`)
 - **Never** → cross-feature "constants.ts" or "types.ts" at the root
 
-**Library `unstable` namespace** — All library code in `@agentxm/extension-model`,
-`@agentxm/registry-protocol`, and `@agentxm/extension-management` lives under
-`src/unstable/` and is exported via `<package>/unstable/*`. Never place library
-code directly under `src/`. Packages extracted during the package-architecture
-migration (`@agentxm/workspace-state`, `@agentxm/workspace-operations`,
-`@agentxm/extension-workspace`, `@agentxm/registry-client`,
-`@agentxm/extension-sources`, `@agentxm/agent-integration`) use the successor
-convention instead: code under
+**Library `unstable` namespace** — All library code in `@agentxm/extension-model`
+and `@agentxm/registry-protocol` lives under `src/unstable/` and is exported via
+`<package>/unstable/*`. Never place library code directly under `src/`. Packages
+extracted during the package-architecture migration (`@agentxm/workspace-state`,
+`@agentxm/workspace-operations`, `@agentxm/extension-workspace`,
+`@agentxm/registry-client`, `@agentxm/extension-sources`,
+`@agentxm/agent-integration`) use the successor convention instead: code under
 `src/` with an intentional root export plus at most `./live` and `./testing`
 subpaths — no `unstable/*` namespace and no other deep exports.
 

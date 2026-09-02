@@ -3,11 +3,8 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { makeAppError } from "../../app-error/index.js";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { buildNewExtensionStep } from "@agentxm/extension-workspace";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
@@ -23,8 +20,8 @@ import type {
 import { newHook, preflightCreateOnly, type NewHookOperation } from "@agentxm/extension-authoring";
 import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { HookLockEntry } from "@agentxm/workspace-state";
 import type {
   JobStepArtifact,

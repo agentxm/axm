@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
-import { isEffectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
+import { isEffectCliExit } from "../../cli-runtime/index.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -21,7 +21,7 @@ import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import {
   SourceHostProviders,

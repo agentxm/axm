@@ -102,49 +102,13 @@ export const findSourceHygieneViolations = (
 };
 
 const MACHINE_STDOUT_WRITERS = new Set([
-  path.join(
-    "packages",
-    "extension-management",
-    "src",
-    "unstable",
-    "cli-renderer",
-    "renderer-helpers.ts",
-  ),
-  path.join(
-    "packages",
-    "extension-management",
-    "src",
-    "unstable",
-    "cli-runtime",
-    "handle-error.ts",
-  ),
-  path.join(
-    "packages",
-    "extension-management",
-    "src",
-    "unstable",
-    "cli-runtime",
-    "run-cli-main.ts",
-  ),
-  path.join(
-    "packages",
-    "extension-management",
-    "src",
-    "unstable",
-    "cli-runtime",
-    "runtime-envelope.ts",
-  ),
+  path.join("packages", "cli", "src", "cli-renderer", "renderer-helpers.ts"),
+  path.join("packages", "cli", "src", "cli-runtime", "handle-error.ts"),
+  path.join("packages", "cli", "src", "cli-runtime", "run-cli-main.ts"),
+  path.join("packages", "cli", "src", "cli-runtime", "runtime-envelope.ts"),
 ]);
 
-const PROMPT_RUN_BOUNDARY = path.join(
-  "packages",
-  "extension-management",
-  "src",
-  "unstable",
-  "cli",
-  "prompt",
-  "helpers.ts",
-);
+const PROMPT_RUN_BOUNDARY = path.join("packages", "cli", "src", "prompt", "helpers.ts");
 
 const lineAtOffset = (source: string, offset: number): number =>
   source.slice(0, offset).split("\n").length;

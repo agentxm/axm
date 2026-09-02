@@ -10,11 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { AuthLoginPresenter, type DeviceLoginPendingResult } from "@agentxm/registry-auth";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "./cli-renderer/index.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 
 const pendingResult: DeviceLoginPendingResult = {

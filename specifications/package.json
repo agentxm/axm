@@ -12,7 +12,6 @@
     "includedScripts": []
   },
   "dependencies": {
-    "@agentxm/extension-management": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/registry-auth": "workspace:^",
     "@agentxm/workspace-configuration": "workspace:^",

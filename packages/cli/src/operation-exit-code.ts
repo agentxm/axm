@@ -4,7 +4,7 @@
  * outcome-to-exit mapping the published exit-code reference pins.
  */
 
-import { ExitCode, exitCodeFor } from "@agentxm/extension-management/unstable/app-error";
+import { ExitCode, exitCodeFor } from "./app-error/index.js";
 import {
   deriveOperationOutcome,
   type BlockingClass,

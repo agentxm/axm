@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import {
   type UninstallExtensionCommandWorkflowActions,
@@ -14,7 +14,7 @@ import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.j
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
 import { UninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
-import { type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { type AppError } from "../../../app-error/index.js";
 
 const uninstallPresentation = operationPresentation(
   { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },

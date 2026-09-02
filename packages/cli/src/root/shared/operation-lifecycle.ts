@@ -23,7 +23,7 @@ import {
   effectCliExit,
   recordCommandCompletion,
   requestedInterruptionSignal,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "../../cli-runtime/index.js";
 import {
   OperationJournal,
   OperationLifecycle,

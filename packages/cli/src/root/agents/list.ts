@@ -5,15 +5,10 @@ import * as Schema from "effect/Schema";
 import { detectAgentsForScope } from "@agentxm/agent-integration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
-import {
-  CliRenderer,
-  count,
-  registerEntity,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CliRenderer, count, registerEntity, type TableView } from "../../cli-renderer/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { agentLifecycle, lifecycleCell } from "./lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";

@@ -11,14 +11,14 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   previewOrApplyPlan,
   preapprovedPlanExecution,
   previewPlanExecution,
 } from "@agentxm/workspace-operations";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "../../cli-renderer/index.js";
 import {
   desiredStateProblemsText,
   WorkspaceMutations,
@@ -40,7 +40,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
-import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { WorkspaceInvariantFacts } from "@agentxm/extension-workspace";
 import {
   deriveOperationOutcome,
@@ -51,7 +51,7 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { buildConfiguredPackInstallPlan } from "../install/workspace-install.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 import {
   SYNC_PLAN_DESCRIPTION,
   SYNC_PLAN_NAME,

@@ -7,7 +7,7 @@ import {
   nonInteractiveFlag,
   quietFlag,
   verboseFlag,
-} from "@agentxm/extension-management/unstable/cli-flags";
+} from "../../cli-flags/index.js";
 import {
   applyPlanExecution,
   credentialFreeLocatorRecoveryValue,

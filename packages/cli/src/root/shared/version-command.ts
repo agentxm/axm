@@ -4,16 +4,16 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { previewFlag, Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { previewFlag, Verbosity } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   extensionTypeSentenceLabels,
   extensionTypeToPlural,
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { WorkspaceMutations } from "@agentxm/workspace-state";

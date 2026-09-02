@@ -7,8 +7,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { StepFailure } from "@agentxm/workspace-operations";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { makeAppError } from "../../app-error/index.js";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 import type { JobStepResult, Plan } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 

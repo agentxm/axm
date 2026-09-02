@@ -7,7 +7,7 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { LifecycleResolutionProgress } from "@agentxm/extension-lifecycle";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "./cli-renderer/index.js";
 
 export const LifecycleResolutionProgressLive = Layer.effect(
   LifecycleResolutionProgress,

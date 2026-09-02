@@ -4,15 +4,15 @@
  * Verifies the CLI-surface obligations for every catalog extension type — a
  * prose help topic and a renderer list entity keyed by the type id — and
  * compares observed failures against the exemption ledger with exact equality,
- * mirroring the core-tier suite in
- * `@agentxm/extension-management` extension-types/parity.
+ * mirroring the workspace-tier suite in `@agentxm/extension-workspace`
+ * extension-types parity.
  */
 
 import * as fs from "node:fs";
 import * as Effect from "effect/Effect";
 
-import { getEntityView } from "@agentxm/extension-management/unstable/cli-renderer";
-import type { SubjectType } from "@agentxm/extension-management/unstable/cli-runtime";
+import { getEntityView } from "./cli-renderer/index.js";
+import type { SubjectType } from "./cli-runtime/index.js";
 import {
   CATALOG_EXTENSION_TYPES,
   type CatalogExtensionType,

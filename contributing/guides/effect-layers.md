@@ -18,8 +18,9 @@ composition only.
 
 ## CLI composition
 
-- Use `runCliMain` from `@agentxm/extension-management` as the production entry point.
-  It owns signal handling, error routing, and graceful shutdown.
+- Use `runCliMain` from the CLI's `cli-runtime` module
+  (`packages/cli/src/cli-runtime`) as the production entry point. It owns
+  signal handling, error routing, and graceful shutdown.
 - Treat `withRuntime` and, for workspace commands, `withWorkspace` as the
   sanctioned command edge. They resolve the selected directory and workspace,
   compose invocation-scoped layers, and preserve the `AppError |

@@ -149,7 +149,7 @@ const defineResultFamily = (input: {
   rationale: input.rationale,
   centralizedCoverage: [
     "packages/cli/src/machine-output-contracts.internal.test.ts",
-    "packages/extension-management/src/unstable/cli-renderer/cli-renderer-machine.internal.test.ts",
+    "packages/cli/src/cli-renderer/cli-renderer-machine.internal.test.ts",
   ],
   commandCoverage: input.commandCoverage,
   documentation: ["docs/architecture/commands/output.md"],

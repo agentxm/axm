@@ -18,11 +18,8 @@ import { RegistryUrl } from "@agentxm/registry-client";
 import { StepUpRequired } from "@agentxm/registry-auth";
 import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { expectNoPlanEnvelope, expectRecord, property } from "../../test-helpers.js";
 import {
   handleCreateToken,

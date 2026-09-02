@@ -4,10 +4,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
-import {
-  JsonHelpDocSchema,
-  JsonVersionDocSchema,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { JsonHelpDocSchema, JsonVersionDocSchema } from "./cli-runtime/index.js";
 import { LoginDocumentSchema } from "@agentxm/registry-auth";
 import {
   VisibilityEvaluationSchema,

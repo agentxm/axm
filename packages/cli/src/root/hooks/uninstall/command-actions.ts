@@ -1,11 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { AppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { AppError } from "../../../app-error/index.js";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
 import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
   acquiredExtensionDisplayPathFromLockEntry,

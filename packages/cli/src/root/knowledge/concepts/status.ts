@@ -6,8 +6,8 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 import YAML from "yaml";
 
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CliRenderer } from "../../../cli-renderer/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/knowledge-query";
 import { LockfileSchema } from "@agentxm/workspace-state";
 import { SettingsSchema } from "@agentxm/workspace-state";

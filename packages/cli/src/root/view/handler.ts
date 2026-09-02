@@ -4,9 +4,9 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { RegistryUrl } from "@agentxm/registry-client";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import { CliRenderer, type TableView } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer, type TableView } from "../../cli-renderer/index.js";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,

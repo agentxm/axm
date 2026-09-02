@@ -1,4 +1,4 @@
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 import type {
   InputParseResult,
   InputPattern,

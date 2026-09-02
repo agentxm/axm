@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { InstallMethodLive } from "@agentxm/extension-management/unstable/install-method";
-import { InstallMetaLive } from "@agentxm/extension-management/unstable/install-meta";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { InstallMethodLive } from "../../install-method/install-method.js";
+import { InstallMetaLive } from "../../install-meta/install-meta.js";
 import { Command, Flag } from "effect/unstable/cli";
 import { withRuntime } from "../../runtime.js";
 

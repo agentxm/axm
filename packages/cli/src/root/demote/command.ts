@@ -5,9 +5,9 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
@@ -25,7 +25,7 @@ import {
   failureToStepFailure,
   fqnInvalidErrorToAppError,
   toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+} from "../../app-error/conversions.js";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";

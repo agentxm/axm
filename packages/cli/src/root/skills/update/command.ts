@@ -1,12 +1,8 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  ignoreVersionConstraintsFlag,
-  previewFlag,
-  yesFlag,
-} from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { scopeFlag } from "../../../cli-flags.js";
+import { ignoreVersionConstraintsFlag, previewFlag, yesFlag } from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { updateNameFilterFlag } from "../../shared/update-targets.js";
 import { handleUpdate } from "./handler.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";

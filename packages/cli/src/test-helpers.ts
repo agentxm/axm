@@ -13,29 +13,18 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { ensureWorkspaceFiles } from "./test-stubs.js";
-import { AppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  isKnownFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { AppError } from "./app-error/index.js";
+import { isKnownFailure, toAppError } from "./app-error/conversions.js";
 import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import {
-  displayPlan,
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestFlagsLayer } from "./cli-flags/index.js";
+import { displayPlan, TestMachineRenderer, TestRenderer, logsByTag } from "./cli-renderer/index.js";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
-import {
-  AxmSkillCandidateGateLive,
-  WorkspaceCatalogLive,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { AxmSkillCandidateGateLive, WorkspaceCatalogLive } from "./cli-runtime/index.js";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 export { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";

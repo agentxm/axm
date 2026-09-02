@@ -86,7 +86,6 @@ jobs:
           mkdir -p release-packages
           pnpm --filter @agentxm/extension-model pack --pack-destination release-packages
           pnpm --filter @agentxm/registry-protocol pack --pack-destination release-packages
-          pnpm --filter @agentxm/extension-management pack --pack-destination release-packages
           pnpm --filter axm.sh pack --pack-destination release-packages
 
       - name: Publish npm packages
@@ -110,7 +109,6 @@ jobs:
 
           publish_if_missing "@agentxm/extension-model" "./release-packages/agentxm-extension-model-${VERSION}.tgz"
           publish_if_missing "@agentxm/registry-protocol" "./release-packages/agentxm-registry-protocol-${VERSION}.tgz"
-          publish_if_missing "@agentxm/extension-management" "./release-packages/agentxm-extension-management-${VERSION}.tgz"
           publish_if_missing "axm.sh" "./release-packages/axm.sh-${VERSION}.tgz"
 
       - name: Update Homebrew formula

@@ -5,10 +5,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 
-import {
-  TelemetryClient,
-  TelemetryClientLive,
-} from "@agentxm/extension-management/unstable/telemetry";
+import { TelemetryClient, TelemetryClientLive } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../../support/contract.js";
 

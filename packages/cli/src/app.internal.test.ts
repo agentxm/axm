@@ -9,7 +9,7 @@ import * as ServiceMap from "effect/Context";
 
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
-import { ExitCode } from "@agentxm/extension-management/unstable/app-error";
+import { ExitCode } from "./app-error/index.js";
 import {
   EXTENSION_ONLY_TYPES,
   WORKSPACE_CAPABILITY_EXTENSION_TYPES,

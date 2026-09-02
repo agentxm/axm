@@ -10,11 +10,8 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { TestMachineRenderer, TestRenderer } from "../../cli-renderer/index.js";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { handleWhoami } from "./whoami.js";
 

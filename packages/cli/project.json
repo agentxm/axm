@@ -46,8 +46,33 @@
         "generate:type-enumerations",
         "generate:help-topics",
         "generate:bundled-axm-skill",
-        "generate:schemas"
+        "generate:schemas",
+        "generate:telemetry-client"
       ]
+    },
+    "generate:telemetry-client": {
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/scripts/generate-telemetry-client.ts",
+        "{projectRoot}/specs/telemetry-openapi.json",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/src/telemetry/__generated__/telemetry-client.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-telemetry-client.ts"],
+        "cwd": "packages/cli"
+      }
+    },
+    "sync:telemetry-spec": {
+      "cache": false,
+      "inputs": ["{projectRoot}/scripts/sync-telemetry-spec.ts"],
+      "outputs": ["{projectRoot}/specs/telemetry-openapi.json"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/sync-telemetry-spec.ts"],
+        "cwd": "packages/cli"
+      }
     },
     "generate:type-enumerations": {
       "cache": true,

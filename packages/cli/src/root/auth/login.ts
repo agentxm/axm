@@ -22,25 +22,14 @@ import {
   type RunLoopbackLoginOptions,
 } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { requireInteractive } from "@agentxm/extension-management/unstable/cli/prompt";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  isNonInteractive,
-  jsonFlag,
-  yesFlag,
-} from "@agentxm/extension-management/unstable/cli-flags";
-import {
-  setCommandSemanticProperties,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { requireInteractive } from "../../prompt/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { isNonInteractive, jsonFlag, yesFlag } from "../../cli-flags/index.js";
+import { setCommandSemanticProperties, withArgvTracking } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import {
-  errAuthRequired,
-  makeAppError,
-  type AppError,
-} from "@agentxm/extension-management/unstable/app-error";
-import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
-import { envOption } from "@agentxm/extension-management/unstable/utils";
+import { errAuthRequired, makeAppError, type AppError } from "../../app-error/index.js";
+import type { PromptCancelled } from "../../prompt/prompt-cancelled.js";
+import { envOption } from "../../utils/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 

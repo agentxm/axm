@@ -5,12 +5,9 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ExitCode, makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  effectCliExit,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { ExitCode, makeAppError } from "../../app-error/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { effectCliExit, withArgvTracking } from "../../cli-runtime/index.js";
 import { type KnowledgeDiagnostic } from "@agentxm/registry-protocol/unstable/knowledge";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 

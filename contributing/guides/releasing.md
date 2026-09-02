@@ -26,10 +26,9 @@ The binding obligation is the executable specification
   GitHub Releases manually.
 - `pnpm release:prepare` is the only supported local entry point for cutting a
   release commit and opening its pull request.
-- `packages/extension-model`, `packages/registry-protocol`,
-  `packages/extension-management`, and `packages/cli` are a fixed release
-  group. Their versions must match.
-- Pending version plans in `.nx/version-plans/*.md` and those three package
+- `packages/extension-model`, `packages/registry-protocol`, and `packages/cli`
+  are a fixed release group. Their versions must match.
+- Pending version plans in `.nx/version-plans/*.md` and those package
   manifests are the release version source of truth.
 - Release tags use the `cli-v{SEMVER}` format, for example `cli-v0.1.0`.
 - `pnpm release:plan` runs with `--only-touched=false` so release planning does
@@ -152,9 +151,8 @@ script:
 ## Local Preview Publish
 
 `pnpm release:publish:local` publishes the release-group npm packages
-(`@agentxm/extension-model`, `@agentxm/registry-protocol`,
-`@agentxm/extension-management`, `axm.sh`) directly from the
-working tree under a non-default dist-tag (default: `preview`). It is for fast
+(`@agentxm/extension-model`, `@agentxm/registry-protocol`, `axm.sh`) directly
+from the working tree under a non-default dist-tag (default: `preview`). It is for fast
 iteration only. It is not a substitute for the canonical CI release: it skips
 cross-platform binaries, npm provenance, Homebrew, installer verification, and
 the version-plan changelog flow.

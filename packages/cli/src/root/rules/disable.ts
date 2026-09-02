@@ -3,8 +3,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -14,7 +14,7 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { configurationFailureToAppError } from "../../feature-errors.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -28,10 +28,7 @@ import {
   observeInstructions,
   reconcileInstructionTransition,
 } from "@agentxm/workspace-configuration";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { RuleManager } from "@agentxm/extension-workspace";
 
 export const handleDisableRule = (args: {

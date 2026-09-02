@@ -1,8 +1,8 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleSubagentsNew } from "./handler.js";

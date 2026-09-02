@@ -1,17 +1,13 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer, registerEntity, type TableView } from "../../cli-renderer/index.js";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
   type ConfiguredAgentOutcome,
 } from "@agentxm/workspace-state";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,

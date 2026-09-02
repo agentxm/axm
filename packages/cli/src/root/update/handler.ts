@@ -1,10 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
-import {
-  setCommandSemanticProperties,
-  summarizeCommandOutcome,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
@@ -18,7 +15,7 @@ import {
   makeConfiguredReleaseAgeEvaluation,
   runInstallCommandWorkflow,
 } from "@agentxm/extension-lifecycle";
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeHoldbackRecord,

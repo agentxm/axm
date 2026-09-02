@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { buildUninstallOperation } from "@agentxm/extension-workspace";
 import {
   computeExtensionPathsForLayout,
@@ -25,7 +25,7 @@ import {
   coupleAppError,
   failureToStepFailure,
   toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+} from "../../../app-error/conversions.js";
 import { KnowledgeManager, resolveInstructionsConfig } from "@agentxm/extension-workspace";
 
 export interface UninstallKnowledgeHandlerArgs {

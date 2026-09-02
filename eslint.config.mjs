@@ -72,10 +72,9 @@ export default [
             // Specifications exercise the CLI application boundary in-process
             // through its published harness entry points.
             "^axm\\.sh/(app|runtime|specification-harness)$",
-            // Subprocess e2e fixtures observe the built library artifact by
-            // path. They move to the CLI package's shipped surface when the
-            // runtime envelope moves into the application package.
-            "^\\.\\./\\.\\./\\.\\./extension-management/dist/",
+            // Subprocess e2e fixtures observe the CLI package's built shipped
+            // surface by path.
+            "^\\.\\./\\.\\./\\.\\./cli/dist/",
           ],
           depConstraints: [
             {
@@ -95,7 +94,6 @@ export default [
               onlyDependOnLibsWithTags: ["type:lib"],
               notDependOnLibsWithTags: [
                 "scope:agent-integration",
-                "scope:core",
                 "scope:extension-model",
                 "scope:extension-lifecycle",
                 "scope:extension-sources",
@@ -117,7 +115,6 @@ export default [
               onlyDependOnLibsWithTags: ["type:lib"],
               notDependOnLibsWithTags: [
                 "scope:agent-integration",
-                "scope:core",
                 "scope:extension-model",
                 "scope:extension-lifecycle",
                 "scope:extension-sources",
@@ -255,7 +252,6 @@ export default [
       "packages/agent-integration/src/**/*.ts",
       "packages/extension-authoring/src/**/*.ts",
       "packages/extension-discovery/src/**/*.ts",
-      "packages/extension-management/src/**/*.ts",
       "packages/extension-lifecycle/src/**/*.ts",
       "packages/extension-model/src/**/*.ts",
       "packages/extension-publish/src/**/*.ts",
@@ -469,7 +465,7 @@ export default [
     files: [
       "packages/registry-client/src/remote-client.ts",
       "packages/extension-sources/src/providers/convention-discovery.ts",
-      "packages/extension-management/src/unstable/workspace-inspection/version-currency/collectors.ts",
+      "packages/workspace-inspection/src/version-currency/collectors.ts",
     ],
     plugins: {
       "axm-policy": axmPolicyPlugin,

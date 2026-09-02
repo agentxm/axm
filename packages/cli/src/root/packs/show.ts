@@ -4,8 +4,8 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { CliRenderer, type DetailView } from "@agentxm/extension-management/unstable/cli-renderer";
+import { makeAppError } from "../../app-error/index.js";
+import { CliRenderer, type DetailView } from "../../cli-renderer/index.js";
 import {
   formatFqn,
   parseExtensionFqnParts,
@@ -18,8 +18,8 @@ import {
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { acceptedCanonicalObservation, WorkspaceMutations } from "@agentxm/workspace-state";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const PackMemberSchema = Schema.Struct({

@@ -6,7 +6,7 @@ import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
@@ -58,7 +58,7 @@ import {
   configuredPackConstraintBlockPlan,
   prospectivePackConstraintProblems,
 } from "../packs/constraint-gate.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;

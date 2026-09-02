@@ -10,18 +10,18 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { count } from "../../../cli-renderer/index.js";
 import {
   WorkspaceMutations,
   acquiredExtensionDisplayPathFromLockEntry,
   type SubagentExtensionTarget,
 } from "@agentxm/workspace-state";
-import { expandGlob } from "@agentxm/extension-management/unstable/utils";
+import { expandGlob } from "../../../utils/index.js";
 import { buildUninstallOperation } from "@agentxm/extension-workspace";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { SubagentLockEntry } from "@agentxm/workspace-state";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
-import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { AppError } from "../../../app-error/index.js";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
@@ -37,10 +37,7 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
 import { SubagentManager } from "@agentxm/extension-workspace";
 
 // -----------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 import {
   previewOrApplyPlan,
   publicRecoveryValue,
@@ -28,7 +28,7 @@ import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 import { installBundledAxmSkill } from "../../setup.js";
 import { workspaceAuthoredPath } from "../../shared/workspace-display-paths.js";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure } from "../../../app-error/conversions.js";
 
 export interface InstallHandlerArgs {
   readonly source: Option.Option<string>;

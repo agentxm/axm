@@ -18,7 +18,6 @@ const readEnvWithDefault = (env: NodeJS.ProcessEnv, name: string, fallback: stri
 export const RELEASE_PACKAGE_JSON_PATHS = [
   "packages/extension-model/package.json",
   "packages/registry-protocol/package.json",
-  "packages/extension-management/package.json",
   "packages/cli/package.json",
 ] as const;
 

@@ -6,7 +6,7 @@ pnpm-lock.yaml
 # Lint-engine fixture trees — intentionally contain malformed SKILL.md /
 # skill.json / extension-pack.json inputs that prettier would rewrite into
 # validity (destroying the fixture). Keep contents stable byte-for-byte.
-packages/extension-management/src/unstable/lint/__fixtures__/
+packages/workspace-lint/src/__fixtures__/
 
 .nx/self-healing
 

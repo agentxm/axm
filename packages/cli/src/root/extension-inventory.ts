@@ -1,4 +1,4 @@
-import type { CliRenderer, TableView } from "@agentxm/extension-management/unstable/cli-renderer";
+import type { CliRenderer, TableView } from "../cli-renderer/index.js";
 import type {
   ConfiguredAgentOutcome,
   ExtensionInventory,

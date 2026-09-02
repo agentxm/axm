@@ -2,14 +2,10 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { detectAgentsForScope } from "@agentxm/agent-integration";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  acceptWarningsFlag,
-  previewFlag,
-  yesFlag,
-} from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { makeAppError } from "../../app-error/index.js";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
 import {
   previewOrApplyPlan,
   deriveOperationOutcome,
@@ -19,7 +15,7 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
@@ -34,10 +30,7 @@ import {
 } from "@agentxm/workspace-configuration";
 import { isRetiredAgent, lifecycleWarning } from "./lifecycle.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import {
   configurationFailureToAppError,
   configurationFailureToStepFailure,

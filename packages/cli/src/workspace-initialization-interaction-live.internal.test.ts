@@ -9,8 +9,8 @@ import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
 import * as Terminal from "effect/Terminal";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
-import { nonInteractiveFlag } from "@agentxm/extension-management/unstable/cli-flags";
-import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { nonInteractiveFlag } from "./cli-flags/index.js";
+import { TestRenderer } from "./cli-renderer/index.js";
 import {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,

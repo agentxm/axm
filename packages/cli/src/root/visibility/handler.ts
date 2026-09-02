@@ -5,9 +5,9 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { RegistryUrl } from "@agentxm/registry-client";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { CliRenderer, type TableView } from "@agentxm/extension-management/unstable/cli-renderer";
+import { makeAppError } from "../../app-error/index.js";
+import { toAppError } from "../../app-error/conversions.js";
+import { CliRenderer, type TableView } from "../../cli-renderer/index.js";
 import {
   ExtensionFqnSchema,
   ExtensionVisibilitySchema,

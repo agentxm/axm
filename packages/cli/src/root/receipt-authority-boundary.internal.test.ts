@@ -16,7 +16,6 @@ const collectProductionFiles = (directory: string): ReadonlyArray<string> =>
 
 describe("accepted-resolution authority boundary", () => {
   const productionFiles = [
-    "packages/extension-management/src",
     "packages/workspace-operations/src",
     "packages/workspace-state/src",
     "packages/cli/src",

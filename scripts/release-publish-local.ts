@@ -50,11 +50,6 @@ const RELEASE_PACKAGES: readonly ReleasePackage[] = [
     tarballPrefix: "agentxm-registry-protocol-",
     project: "registry-protocol",
   },
-  {
-    name: "@agentxm/extension-management",
-    tarballPrefix: "agentxm-extension-management-",
-    project: "extension-management",
-  },
   { name: "axm.sh", tarballPrefix: "axm.sh-", project: "cli" },
 ] as const;
 

@@ -10,12 +10,8 @@ import * as Layer from "effect/Layer";
 import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-} from "@agentxm/extension-management/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "../../cli-renderer/index.js";
+import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { RegistryAuthFailed } from "@agentxm/registry-auth";
 import { expectRecord, property } from "../../test-helpers.js";
 import { handleLogout } from "./logout.js";

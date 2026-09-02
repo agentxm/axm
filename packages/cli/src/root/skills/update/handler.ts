@@ -12,9 +12,9 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
-import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CliRenderer } from "../../../cli-renderer/index.js";
 import {
   previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,

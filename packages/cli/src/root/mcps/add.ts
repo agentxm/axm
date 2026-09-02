@@ -9,14 +9,10 @@ import {
 } from "@agentxm/extension-workspace";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  acceptWarningsFlag,
-  previewFlag,
-  yesFlag,
-} from "@agentxm/extension-management/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { makeAppError } from "../../app-error/index.js";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { count } from "../../cli-renderer/index.js";
 import {
   operationPresentation,
   type JobStepArtifact,
@@ -26,7 +22,7 @@ import {
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { emitOperationResolution } from "../../operation-output.js";
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
@@ -39,10 +35,7 @@ import {
   parseInlineMcpHeaders,
   validateInlineMcpRemoteUrl,
 } from "@agentxm/workspace-configuration";
-import {
-  failureToStepFailure,
-  toAppError,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { configurationFailureToAppError } from "../../feature-errors.js";
 
 export interface McpsAddArgs {

@@ -15,7 +15,7 @@ import {
   configuredRowsByName,
   desiredStateProblemText,
 } from "@agentxm/workspace-state";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../app-error/conversions.js";
 
 export type TargetedUpdateBlocker =
   | "not-desired"

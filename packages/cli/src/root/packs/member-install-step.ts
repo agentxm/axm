@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
-import type { AppError } from "@agentxm/extension-management/unstable/app-error";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { AppError } from "../../app-error/index.js";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -39,7 +39,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { installMcpServer, LifecycleFailureAdapter } from "@agentxm/extension-lifecycle";
 import type { JobStepArtifact, PlannedJobStep } from "@agentxm/workspace-operations";
-import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
 
 export type PackMemberRef =

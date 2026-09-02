@@ -5,7 +5,7 @@ import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type SubjectType,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
   publicRecoveryValue,

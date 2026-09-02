@@ -1,5 +1,5 @@
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import { toAppError } from "../../app-error/conversions.js";
 import {
   type ExtensionName,
   type ExtensionType,

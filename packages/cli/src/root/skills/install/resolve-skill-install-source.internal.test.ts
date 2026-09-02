@@ -19,10 +19,10 @@ import {
 } from "@agentxm/extension-model/unstable/sources/parser";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
-import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
+import { WorkspaceCatalogLive } from "../../../cli-runtime/index.js";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "../../../app-error/conversions.js";
 
 const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceMutationsService =>
   makeBaseWorkspaceMock("/tmp/test-workspace/.axm", {

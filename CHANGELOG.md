@@ -1,3 +1,13 @@
+## 0.28.4 (2026-09-02)
+
+### 🚀 Features
+
+- Complete the package-architecture migration by replacing the monolithic extension-management package with focused feature and workspace packages, typed failures, and enforced dependency boundaries.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.28.3 (2026-08-30)
 
 ### 🚀 Features

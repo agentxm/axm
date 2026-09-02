@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/workspace-inspection",
-  "version": "0.28.3",
+  "version": "0.28.4",
   "description": "AXM workspace-inspection feature: list, view, inventory, and version-currency queries for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

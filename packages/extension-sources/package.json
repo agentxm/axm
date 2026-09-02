@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/extension-sources",
-  "version": "0.28.3",
+  "version": "0.28.4",
   "description": "AXM extension-source integration: source locator routing over the contract grammar, host providers for Registry, GitHub, GitLab, Bitbucket, Azure Repos, generic Git, and local paths, convention and manifest package discovery, identifier resolution, and shallow git acquisition for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

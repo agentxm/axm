@@ -32,13 +32,15 @@ a direct settings entry. Combined targets retain direct authority while every
 owning pack constraint remains a guard. When several packs own a member, the
 candidate must satisfy their constraint intersection.
 
-Absent, disabled, workspace-authored, incomplete, and constraint-conflicted
-targets stop before Registry lookup. An explicit version range on a pack-only
-target also stops because accepting it would create new direct intent; update
-the owning pack declaration instead. Preview and apply expose the same
-ownership, activation, authority, owning packs, effective constraint, member
-closure, expected state effects, and blocker facts in human and structured
-output.
+Absent, disabled, workspace-authored, bundled, incomplete, and
+constraint-conflicted targets stop before Registry lookup. A bundled official
+skill remains under the authority of the running executable and directs
+recovery to the embedded bundled-install flow rather than silently becoming a
+Registry installation. An explicit version range on a pack-only target also
+stops because accepting it would create new direct intent; update the owning
+pack declaration instead. Preview and apply expose the same ownership,
+activation, authority, owning packs, effective constraint, member closure,
+expected state effects, and blocker facts in human and structured output.
 
 Apply revalidates those authority facts inside the workspace transaction. A
 changed settings entry, owning pack, manifest identity, accepted pack evidence,

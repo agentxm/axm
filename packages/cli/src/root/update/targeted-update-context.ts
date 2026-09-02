@@ -23,6 +23,7 @@ export type TargetedUpdateBlocker =
   | "pack-owned-constraint"
   | "incomplete-graph"
   | "constraint-conflict"
+  | "bundled-source"
   | "source-authority"
   | "stale-plan";
 
@@ -43,7 +44,7 @@ export interface TargetedUpdatePublicContext {
   readonly activation: "enabled" | "disabled";
   readonly authority: TargetedUpdateAuthority;
   readonly direct?: {
-    readonly source: "inline" | "registry" | "workspace";
+    readonly source: "bundled" | "inline" | "registry" | "workspace";
     readonly enabled: boolean;
     readonly constraint?: string;
   };
@@ -97,8 +98,12 @@ interface ClassifyTargetedUpdateArgs {
   readonly packEvidence?: ReadonlyArray<unknown>;
 }
 
-const normalizedIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+const normalizedIdentity = (identity: string): string => {
+  for (const prefix of ["workspace:", "bundled:"]) {
+    if (identity.startsWith(prefix)) return identity.slice(prefix.length);
+  }
+  return identity;
+};
 
 const sourceAuthority = (source: string): "registry" | "workspace" =>
   isWorkspaceSourceLocator(source) ? "workspace" : "registry";
@@ -165,6 +170,7 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
       targetProblems.includes(problem),
   );
   const directOrigin = node?.origins.find((origin) => origin.type === "settings");
+  const bundled = node?.identity.startsWith("bundled:") === true;
   const packOrigins = (node?.origins ?? [])
     .filter(
       (origin): origin is Extract<DesiredExtensionOrigin, { readonly type: "pack" }> =>
@@ -201,7 +207,11 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
       ? undefined
       : {
           source:
-            directOrigin.source === undefined ? "inline" : sourceAuthority(directOrigin.source),
+            directOrigin.source === undefined
+              ? "inline"
+              : bundled
+                ? "bundled"
+                : sourceAuthority(directOrigin.source),
           enabled: directOrigin.enabled,
           ...(directOrigin.constraint === undefined ? {} : { constraint: directOrigin.constraint }),
         };
@@ -224,6 +234,8 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     blocker = "not-desired";
   } else if (!node.enabled) {
     blocker = "disabled";
+  } else if (direct?.source === "bundled") {
+    blocker = "bundled-source";
   } else if (
     direct?.source === "inline" ||
     direct?.source === "workspace" ||

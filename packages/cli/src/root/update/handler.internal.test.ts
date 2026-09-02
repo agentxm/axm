@@ -516,6 +516,79 @@ describe("root update handler", () => {
     }),
   );
 
+  it.effect("routes a bundled official skill to bundled recovery before Registry resolution", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      let registryCalls = 0;
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          ...selectedSourceHostProviders,
+          resolveNamedRegistry: (_source, options) =>
+            Effect.sync(() => {
+              registryCalls += 1;
+              return {
+                kind: "policy_held" as const,
+                target: `${options.owner}/skills/${options.name}`,
+                candidate: {
+                  version: "2.0.0",
+                  publishedAt: "2026-08-11T12:00:00.000Z",
+                  eligibleAt: "2026-08-12T12:00:00.000Z",
+                  minimumReleaseAgeSeconds: 86_400,
+                },
+              };
+            }),
+        },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@agentxm",
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+        skills: {
+          axm: { source: "workspace", origin: "bundled", enabled: true },
+        },
+      });
+      const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+      const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
+
+      yield* provide(
+        handleUpdate({
+          source: Option.some("@agentxm/skills/axm"),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          contract: "plan-result-v3",
+          outcome: "blocked",
+          blocking: {
+            class: "policy-excluded",
+            causeCode: "conflict",
+            reference: "bundled-source",
+          },
+          targetedUpdate: {
+            ownership: "direct-only",
+            activation: "enabled",
+            authority: "blocked",
+            direct: { source: "bundled", enabled: true },
+            blocker: "bundled-source",
+          },
+        },
+      });
+      expect(rendererState.suggestions).toContainEqual({
+        description: "Reinstall the compatible skill embedded in this AXM executable",
+        cmd: "axm skills install @agentxm/skills/axm --bundled",
+      });
+      expect(registryCalls).toBe(0);
+      expect(calls).toEqual([]);
+      expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+    }),
+  );
+
   it.effect("reports an unrelated desired-state conflict before targeted Registry resolution", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];

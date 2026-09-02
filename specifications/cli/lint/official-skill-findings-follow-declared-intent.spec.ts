@@ -6,11 +6,17 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
+import YAML from "yaml";
 
-import { allCatalogRuleIds, handleInstall } from "axm.sh/specification-harness";
+import {
+  allCatalogRuleIds,
+  computeMaterializedTreeIntegritySync,
+  handleInstall,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../../support/contract.js";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";
+import { writeAuthoredSkill } from "../../support/publish-harness.js";
 import {
   installBundledAxmSkill,
   makeLintSpecWorkspace,
@@ -42,7 +48,9 @@ type WorkspaceState =
   | "undeclared"
   | "non-official"
   | "official-missing"
+  | "official-registry"
   | "official-skewed"
+  | "official-authored"
   | "official-compatible"
   | "official-unreadable";
 
@@ -51,6 +59,8 @@ const cases: ReadonlyArray<{
   readonly findings: ReadonlyArray<readonly [ruleId: string, severity: string]>;
   readonly compatibilityPresent: boolean;
   readonly reasonCode?: string;
+  readonly recoveryAction?: string;
+  readonly nextAction?: string | null;
   readonly succeeds: boolean;
 }> = [
   {
@@ -70,6 +80,17 @@ const cases: ReadonlyArray<{
     findings: [["workspace/axm-skill-compatible", "error"]],
     compatibilityPresent: true,
     reasonCode: "axm-skill-missing",
+    recoveryAction: "install-bundled-skill",
+    nextAction: "axm skills install @agentxm/skills/axm --bundled --preview",
+    succeeds: false,
+  },
+  {
+    state: "official-registry",
+    findings: [["workspace/axm-skill-compatible", "error"]],
+    compatibilityPresent: true,
+    reasonCode: "cli-version-incompatible",
+    recoveryAction: "update-registry-skill",
+    nextAction: "axm skills update --name axm --preview",
     succeeds: false,
   },
   {
@@ -77,18 +98,32 @@ const cases: ReadonlyArray<{
     findings: [["workspace/axm-skill-compatible", "error"]],
     compatibilityPresent: true,
     reasonCode: "skill-release-mismatch",
+    recoveryAction: "install-bundled-skill",
+    nextAction: "axm skills install @agentxm/skills/axm --bundled --preview",
+    succeeds: false,
+  },
+  {
+    state: "official-authored",
+    findings: [["workspace/axm-skill-compatible", "error"]],
+    compatibilityPresent: true,
+    recoveryAction: "preserve-authored-skill",
+    nextAction: "axm help upgrade",
     succeeds: false,
   },
   {
     state: "official-compatible",
     findings: [],
     compatibilityPresent: true,
+    recoveryAction: "none",
+    nextAction: null,
     succeeds: true,
   },
   {
     state: "official-unreadable",
     findings: [["workspace/axm-skill-compatible", "error"]],
     compatibilityPresent: true,
+    recoveryAction: "install-bundled-skill",
+    nextAction: "axm skills install @agentxm/skills/axm --bundled --preview",
     succeeds: false,
   },
 ];
@@ -106,9 +141,11 @@ describe("Official AXM skill lint findings", () => {
         flags: { json: true },
         settings: {
           lint: { rules: isolateOfficialSkillRules() },
-          ...(testCase.state === "official-missing"
+          ...(testCase.state === "official-missing" || testCase.state === "official-registry"
             ? { skills: { axm: "agentxm:@agentxm/skills/axm" } }
-            : {}),
+            : testCase.state === "official-authored"
+              ? { skills: { axm: "workspace" } }
+              : {}),
         },
       });
       cleanups.push(workspace.cleanup);
@@ -131,6 +168,53 @@ describe("Official AXM skill lint findings", () => {
         case "official-compatible":
         case "official-unreadable":
           yield* installBundledAxmSkill.pipe(Effect.provide(workspace.layer));
+          break;
+        case "official-authored":
+          writeAuthoredSkill(workspace.root, { name: "axm", version: "0.0.1" });
+          break;
+        case "official-registry":
+          {
+            const packageRoot = path.join(
+              workspace.root,
+              "agent_extensions",
+              "agentxm",
+              "@agentxm",
+              "skills",
+              "axm",
+            );
+            fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
+            fs.writeFileSync(
+              path.join(packageRoot, "skill.json"),
+              `${JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "0.0.1" })}\n`,
+            );
+            fs.writeFileSync(
+              path.join(packageRoot, "src", "SKILL.md"),
+              `---\nname: axm\ndescription: Registry official skill.\nmetadata:\n  axm.sh/cli-version: "0.0.1"\n  axm.sh/cli-version-range: "0.0.1"\n---\n\n# AXM\n`,
+            );
+            fs.writeFileSync(
+              path.join(workspace.root, "axm-lock.yaml"),
+              YAML.stringify({
+                lockfileVersion: 6,
+                skills: {
+                  axm: {
+                    type: "registry",
+                    sourceType: "registry",
+                    endpoint: "https://registry.agentxm.ai/",
+                    extensionType: "skill",
+                    workspaceName: "axm",
+                    packageFormat: "agentxm",
+                    owner: "@agentxm",
+                    name: "axm",
+                    resolvedVersion: "0.0.1",
+                    integrity: `sha512-${Buffer.alloc(64).toString("base64")}`,
+                    sourceName: "agentxm",
+                    publisherBindingId: "hbnd_agentxm",
+                    treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
+                  },
+                },
+              }),
+            );
+          }
           break;
         case "undeclared":
         case "official-missing":
@@ -169,6 +253,12 @@ describe("Official AXM skill lint findings", () => {
       );
       if (testCase.reasonCode !== undefined) {
         expect(result.result.axmSkillCompatibility?.reasonCode).toBe(testCase.reasonCode);
+      }
+      if (testCase.recoveryAction !== undefined) {
+        expect(result.result.axmSkillCompatibility?.recovery).toMatchObject({
+          action: testCase.recoveryAction,
+          nextAction: testCase.nextAction,
+        });
       }
     }),
   );

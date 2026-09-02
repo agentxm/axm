@@ -361,6 +361,18 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
 - Source: [`specifications/cli/settings-validity-gates-operations.spec.ts`](../specifications/cli/settings-validity-gates-operations.spec.ts)
 
+#### Skills
+
+##### Bundled official-skill recovery converges without changing source authority
+
+- Requirement: `cli/skills/install/bundled-recovery-converges`
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/skills/install/bundled-recovery-converges.spec.ts`](../specifications/cli/skills/install/bundled-recovery-converges.spec.ts)
+
 #### Sync
 
 ##### Sync never changes configuration and never advances a satisfying resolution
@@ -430,6 +442,16 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/http-registry.e2e.test.ts`](../packages/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
 - Source: [`specifications/cli/update/advances-resolution-within-intent.spec.ts`](../specifications/cli/update/advances-resolution-within-intent.spec.ts)
+
+##### Targeted update routes bundled source to its converging recovery
+
+- Requirement: `cli/update/bundled-source-routes-to-recovery`
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/update/bundled-source-routes-to-recovery.spec.ts`](../specifications/cli/update/bundled-source-routes-to-recovery.spec.ts)
 
 #### Workspace Lockfile Rejections Name State And Recovery
 

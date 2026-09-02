@@ -16,6 +16,7 @@ import {
   operationPresentation,
   type JobStepResult,
   type Plan,
+  type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
@@ -26,9 +27,8 @@ import { handleWorkspaceInstall } from "../../install/workspace-install-handler.
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
-import { installBundledAxmSkill } from "../../setup.js";
-import { workspaceAuthoredPath } from "../../shared/workspace-display-paths.js";
 import { failureToStepFailure } from "../../../app-error/conversions.js";
+import { inspectBundledAxmSkillReadiness, installBundledAxmSkill } from "./bundled-axm-skill.js";
 
 export interface InstallHandlerArgs {
   readonly source: Option.Option<string>;
@@ -102,6 +102,38 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
         ),
       ),
     );
+    const readiness = yield* inspectBundledAxmSkillReadiness.pipe(
+      Effect.provideService(WorkspaceMutations, ws),
+      Effect.provideService(Path.Path, path),
+    );
+    const artifact = {
+      path: readiness.canonicalPath,
+      scope: ws.scope,
+      change: "updated" as const,
+    };
+    const step: PlannedJobStep =
+      readiness.readiness === "error"
+        ? {
+            key: "bundled-axm-skill-authored",
+            readiness: "error",
+            errorMessage: readiness.errorMessage,
+            label: "@agentxm/skills/axm",
+            artifact,
+          }
+        : {
+            key: "bundled-axm-skill",
+            readiness: "ready",
+            label: "@agentxm/skills/axm",
+            artifact,
+            run: bundledInstaller.pipe(
+              Effect.mapError(failureToStepFailure),
+              Effect.as({
+                result: "success",
+                message: "Installed the bundled AXM skill",
+                artifact,
+              } satisfies JobStepResult),
+            ),
+          };
     const plan: Plan = {
       _tag: "Plan",
       name: "Install bundled AXM skill",
@@ -119,29 +151,7 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
       jobs: [
         {
           concurrency: 1,
-          steps: [
-            {
-              readiness: "ready",
-              label: "@agentxm/skills/axm",
-              artifact: {
-                path: workspaceAuthoredPath(path, ws, "skill", "axm"),
-                scope: ws.scope,
-                change: "updated",
-              },
-              run: bundledInstaller.pipe(
-                Effect.mapError(failureToStepFailure),
-                Effect.as({
-                  result: "success",
-                  message: "Installed the bundled AXM skill",
-                  artifact: {
-                    path: workspaceAuthoredPath(path, ws, "skill", "axm"),
-                    scope: ws.scope,
-                    change: "updated",
-                  },
-                } satisfies JobStepResult),
-              ),
-            },
-          ],
+          steps: [step],
         },
       ],
     };

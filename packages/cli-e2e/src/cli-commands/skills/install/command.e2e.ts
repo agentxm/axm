@@ -11,6 +11,9 @@ import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 describe("axm skills install", () => {
   describe("with local source --all --yes", () => {
     it("installs all skills and creates the project and acquired-package structure", async () => {
@@ -221,6 +224,52 @@ describe("axm skills install", () => {
           .replaceAll(originalVersion, "99.0.0");
         fs.writeFileSync(skillPath, incompatible);
 
+        const settingsPath = path.join(temp.path, "axm.json");
+        const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        if (!isRecord(settings) || !isRecord(settings["skills"])) {
+          throw new Error("Setup did not write skill settings");
+        }
+        fs.writeFileSync(
+          settingsPath,
+          `${JSON.stringify(
+            {
+              ...settings,
+              skills: { ...settings["skills"], axm: "agentxm:@agentxm/skills/axm" },
+            },
+            null,
+            2,
+          )}\n`,
+        );
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
+        const lock: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
+        if (!isRecord(lock) || !isRecord(lock["skills"])) {
+          throw new Error("Setup did not write a skill lock map");
+        }
+        fs.writeFileSync(
+          lockPath,
+          YAML.stringify({
+            ...lock,
+            skills: {
+              ...lock["skills"],
+              axm: {
+                type: "registry",
+                sourceType: "registry",
+                endpoint: "https://registry.agentxm.ai",
+                extensionType: "skill",
+                workspaceName: "axm",
+                packageFormat: "agentxm",
+                owner: "@agentxm",
+                name: "axm",
+                resolvedVersion: "99.0.0",
+                integrity: `sha512-${Buffer.alloc(64).toString("base64")}`,
+                sourceName: "agentxm",
+                publisherBindingId: "hbnd_test",
+                treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+              },
+            },
+          }),
+        );
+
         const offlineEnv = { AXM_REGISTRY_LOCATION: "http://127.0.0.1:1" };
         const preview = await runCli(
           ["skills", "install", "@agentxm/skills/axm", "--bundled", "--preview"],
@@ -237,11 +286,26 @@ describe("axm skills install", () => {
         expect(fs.readFileSync(manifestPath, "utf8")).not.toContain("99.0.0");
         expect(fs.readFileSync(skillPath, "utf8")).not.toContain("99.0.0");
 
-        const settings = JSON.parse(fs.readFileSync(path.join(temp.path, "axm.json"), "utf8"));
-        expect(settings.skills.axm).toEqual({
-          source: "workspace",
-          origin: "bundled",
+        const recoveredSettings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        expect(recoveredSettings).toMatchObject({
+          skills: {
+            axm: {
+              source: "workspace",
+              origin: "bundled",
+            },
+          },
         });
+        const recoveredLock: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
+        expect(recoveredLock).toMatchObject({ skills: {} });
+        if (!isRecord(recoveredLock) || !isRecord(recoveredLock["skills"])) {
+          throw new Error("Recovery did not preserve a skill lock map");
+        }
+        expect(recoveredLock["skills"]["axm"]).toBeUndefined();
+
+        const lint = await runCli(["lint", "--json"], { cwd: temp.path, env: offlineEnv });
+        expect(lint.exitCode, lint.stderr).toBe(0);
+        expect(getOutput(lint)).not.toContain("workspace/skills-lockfile-aligned");
+        expect(getOutput(lint)).not.toContain("workspace/desired-state-reconcilable");
       } finally {
         temp.cleanup();
       }

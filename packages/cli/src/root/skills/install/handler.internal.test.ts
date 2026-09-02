@@ -703,7 +703,7 @@ describe("skills install handler — error propagation", () => {
     );
   });
 
-  it.effect("refuses to overwrite an authored official AXM skill", () => {
+  it.effect("blocks preview and apply before overwriting an authored official AXM skill", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     const axmDir = path.join(tempDir, ".axm");
     initWorkspace(axmDir);
@@ -728,26 +728,32 @@ describe("skills install handler — error propagation", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleInstall(defaultArgs("@agentxm/skills/axm", { bundled: true }), {
-          yes: true,
-          force: true,
-          preview: false,
-        });
-
-        expect(rendererState.results[0]?.ok).toBe(false);
-        expect(rendererState.results[0]?.data).toMatchObject({
-          result: {
-            outcome: "failed",
-            counts: expect.objectContaining({ failed: 1 }),
-          },
-        });
-        expect(JSON.stringify(rendererState.results[0]?.data)).toContain("workspace-authored");
+        for (const flags of [
+          { yes: false, force: false, preview: true },
+          { yes: true, force: true, preview: false },
+        ]) {
+          yield* handleInstall(defaultArgs("@agentxm/skills/axm", { bundled: true }), flags);
+          const result = rendererState.results.at(-1);
+          expect(result?.ok).toBe(false);
+          expect(result?.data).toMatchObject({
+            result: {
+              outcome: "blocked",
+              counts: expect.objectContaining({ committed: 0, failed: 0, blocked: 1 }),
+              blocking: {
+                class: "precondition-unmet",
+                causeCode: "conflict",
+                subject: "bundled-axm-skill-authored",
+              },
+            },
+          });
+          expect(JSON.stringify(result?.data)).toContain("workspace-authored");
+          expect(fs.readFileSync(settingsPath, "utf8")).toBe(settingsBefore);
+          expect(fs.readFileSync(skillPath, "utf8")).toBe(skillBefore);
+        }
         expect(rendererState.suggestions).toContainEqual({
           description: "Preserve the authored skill and inspect executable compatibility guidance",
           cmd: "axm help upgrade",
         });
-        expect(fs.readFileSync(settingsPath, "utf8")).toBe(settingsBefore);
-        expect(fs.readFileSync(skillPath, "utf8")).toBe(skillBefore);
       }),
     );
   });

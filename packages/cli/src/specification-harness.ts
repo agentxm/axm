@@ -29,6 +29,7 @@ export {
   ensureWorkspaceFiles,
   writeWorkspaceFiles,
   writeKnowledgeExtension,
+  computeMaterializedTreeIntegritySync,
   exactVersion,
   extensionName,
   versionRange,

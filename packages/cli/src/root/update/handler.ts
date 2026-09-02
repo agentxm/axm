@@ -26,6 +26,7 @@ import {
   type ReleaseAgeEvidence,
 } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
+import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/extension-workspace";
 import {
   WorkspaceMutations,
   acceptedResolutionRef,
@@ -366,6 +367,8 @@ const blockerDetail = (context: TargetedUpdatePublicContext): string => {
       return withRelevantProblems(
         `The desired constraints for ${context.target.fqn} have no compatible intersection`,
       );
+    case "bundled-source":
+      return `${context.target.fqn} uses the skill embedded in this AXM executable and cannot be advanced from the Registry`;
     case "source-authority":
       return `${context.target.fqn} is workspace-authored and cannot be replaced from the Registry`;
     case "stale-plan":
@@ -416,6 +419,13 @@ const blockerSuggestions = (
               cmd: `axm update ${pack.fqn}`,
             },
       );
+    case "bundled-source":
+      return [
+        {
+          description: "Reinstall the compatible skill embedded in this AXM executable",
+          cmd: AXM_SKILL_BUNDLED_APPLY_COMMAND,
+        },
+      ];
     case "source-authority":
       return [
         {
@@ -442,6 +452,7 @@ const blockerClass = (
 ): "precondition-unmet" | "policy-excluded" | "stale-candidate" => {
   switch (context.blocker) {
     case "pack-owned-constraint":
+    case "bundled-source":
     case "source-authority":
       return "policy-excluded";
     case "stale-plan":

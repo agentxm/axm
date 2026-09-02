@@ -120,6 +120,54 @@ describe("classifyTargetedUpdate", () => {
     });
   });
 
+  it("matches a bundled official skill and blocks Registry-oriented update truthfully", () => {
+    const bundledTarget = {
+      type: "skill" as const,
+      name: "axm",
+      fqn: "@agentxm/skills/axm",
+    };
+    const context = classifyTargetedUpdate({
+      target: bundledTarget,
+      graph: graph([
+        {
+          type: "skill",
+          name: "axm",
+          identity: "bundled:@agentxm/skills/axm",
+          authority: "sourced",
+          source: "workspace",
+          enabled: true,
+          constraints: [],
+          origins: [
+            {
+              type: "settings",
+              authority: "sourced",
+              source: "workspace",
+              enabled: true,
+            },
+          ],
+        },
+      ]),
+      configuredPacks: [],
+    });
+
+    expect(context.public).toMatchObject({
+      target: bundledTarget,
+      ownership: "direct-only",
+      activation: "enabled",
+      authority: "blocked",
+      direct: { source: "bundled", enabled: true },
+      blocker: "bundled-source",
+      effects: {
+        settings: "unchanged",
+        acceptedResolution: "unchanged",
+        canonical: "unchanged",
+        projection: "unchanged",
+        packRoot: "unchanged",
+        packManifest: "unchanged",
+      },
+    });
+  });
+
   it("classifies one pack as member-scoped pack authority", () => {
     const context = classifyTargetedUpdate({
       target,

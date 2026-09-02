@@ -18,28 +18,18 @@ import {
   type AgentSubagentSummary,
   type SetupScopeSupportCategory,
   type WorkspaceMutationsOptions,
-  WorkspaceMutations,
-  sanitizeName,
   ArtifactChangeSchema,
   type ArtifactChange,
 } from "@agentxm/workspace-state";
 import { runWorkspaceTransaction } from "@agentxm/workspace-operations";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
-import { replaceCanonicalDirectory } from "@agentxm/extension-workspace";
-import { ensureSkillAgentArtifact } from "@agentxm/extension-lifecycle";
-import {
-  AXM_SKILL_CLI_VERSION_METADATA_KEY,
-  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
-  evaluateAxmSkillCompatibility,
-} from "@agentxm/extension-workspace";
 import { isGitManaged } from "@agentxm/extension-sources";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
-import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { Command, Flag } from "effect/unstable/cli";
@@ -48,17 +38,11 @@ import { coerceConfigurationFailure } from "../feature-errors.js";
 import { LearnMore, formatLearnMore } from "../formatter.js";
 import { BRANDING } from "../branding/index.js";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { loadVersion } from "../version.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
 import { commandForScope } from "./shared/scoped-command.js";
-import {
-  AXM_SKILL_JSON,
-  AXM_SKILL_CLI_VERSION,
-  AXM_SKILL_CLI_VERSION_RANGE,
-  AXM_SKILL_SOURCE_FILES,
-  AXM_SKILL_VERSION,
-} from "../__generated__/bundled-axm-skill.js";
+import { AXM_SKILL_VERSION } from "../__generated__/bundled-axm-skill.js";
+import { installBundledAxmSkill } from "./skills/install/bundled-axm-skill.js";
 
 const SubagentFileSchema = Schema.Struct({
   path: Schema.String,
@@ -206,192 +190,6 @@ interface InstallDefaultSkillArgs {
   readonly yes: boolean;
   readonly preview: boolean;
 }
-
-const mapBundledSkillWriteError = (filePath: string) => (cause: unknown) =>
-  makeAppError({
-    code: "internal",
-    detail: `Failed to write bundled AXM skill file: ${filePath}`,
-    cause,
-  });
-
-const bundledSkillCanonicalPath = (
-  ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
-  path: Path.Path,
-): string => path.join(ws.layout.acquiredRoot, "agentxm", "@agentxm", "skills", "axm");
-
-const materializeBundledAxmSkill = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const agentRepo = yield* CodingAgentRepository;
-  const sanitizedName = sanitizeName("axm");
-  const canonicalPath = bundledSkillCanonicalPath(ws, path);
-  const skillSrcPath = path.join(canonicalPath, "src");
-  const fsPathLayer = Layer.mergeAll(
-    Layer.succeed(FileSystem.FileSystem, fs),
-    Layer.succeed(Path.Path, path),
-  );
-  const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, fsPathLayer);
-
-  yield* replaceCanonicalDirectory({
-    baseDir: ws.baseDir,
-    canonicalPath,
-    populate: (stagingPath) => {
-      const stagingSrcPath = path.join(stagingPath, "src");
-      const skillJsonPath = path.join(stagingPath, "skill.json");
-      return Effect.gen(function* () {
-        yield* fs
-          .makeDirectory(stagingSrcPath, { recursive: true })
-          .pipe(Effect.mapError(mapBundledSkillWriteError(stagingSrcPath)));
-        yield* fs
-          .writeFileString(skillJsonPath, AXM_SKILL_JSON)
-          .pipe(Effect.mapError(mapBundledSkillWriteError(skillJsonPath)));
-        yield* Effect.forEach(
-          AXM_SKILL_SOURCE_FILES,
-          (sourceFile) => {
-            const destination = path.join(stagingSrcPath, sourceFile.path);
-            return fs
-              .makeDirectory(path.dirname(destination), { recursive: true })
-              .pipe(
-                Effect.andThen(fs.writeFile(destination, Buffer.from(sourceFile.base64, "base64"))),
-                Effect.mapError(mapBundledSkillWriteError(destination)),
-              );
-          },
-          { concurrency: "unbounded", discard: true },
-        );
-      });
-    },
-  });
-
-  const configuredAgents = yield* agentRepo
-    .getConfiguredAgents()
-    .pipe(Effect.provideService(WorkspaceMutations, ws));
-  const resolvedAgents = yield* Effect.forEach(
-    configuredAgents,
-    (agent) =>
-      agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
-        Effect.provide(fsPathLayer),
-        Effect.map((outcome) => ({ agentId: agent.id, outcome })),
-      ),
-    { concurrency: "unbounded" },
-  );
-  const misconfigured = resolvedAgents.filter(({ outcome }) => outcome._tag === "misconfigured");
-  if (misconfigured.length > 0) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "One or more configured agents have invalid skills directory settings",
-    });
-  }
-
-  const installTargets = resolvedAgents.flatMap(({ outcome }) =>
-    outcome._tag === "supported" ? [path.normalize(outcome.dir)] : [],
-  );
-  const distinctTargets = [...new Set(installTargets)];
-
-  yield* Effect.forEach(
-    distinctTargets,
-    (targetDir) =>
-      ensureSkillAgentArtifact({
-        canonicalSkillSrcPath: skillSrcPath,
-        targetDir,
-        sanitizedName,
-        pathService: path,
-        baseDir: ws.baseDir,
-        provide,
-      }),
-    { concurrency: "unbounded" },
-  );
-
-  yield* ws.setSkillEntry(sanitizedName, {
-    source: "workspace",
-    enabled: true,
-    origin: "bundled",
-  });
-});
-
-/** Install the embedded official AXM skill as one rollback-safe workspace transition. */
-export const installBundledAxmSkill = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const agentRepo = yield* CodingAgentRepository;
-  const sanitizedName = sanitizeName("axm");
-  const configuredBefore = yield* ws.getConfiguredSkillEntries();
-  const existing = configuredBefore[sanitizedName];
-  if (existing?.source === "workspace" && existing.origin !== "bundled") {
-    return yield* makeAppError({
-      code: "conflict",
-      detail:
-        "The official AXM skill is workspace-authored; bundled recovery will not overwrite its in-flight source.",
-      recover: "Preserve the authored skill and inspect executable compatibility guidance",
-      cmd: "axm help upgrade",
-    });
-  }
-  const canonicalPath = bundledSkillCanonicalPath(ws, path);
-  const configuredAgents = yield* agentRepo
-    .getConfiguredAgents()
-    .pipe(Effect.provideService(WorkspaceMutations, ws));
-  const targetDirectories = yield* Effect.forEach(
-    configuredAgents,
-    (agent) =>
-      agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-        Effect.map((outcome) =>
-          outcome._tag === "supported"
-            ? [path.join(path.normalize(outcome.dir), sanitizedName)]
-            : [],
-        ),
-      ),
-    { concurrency: "unbounded" },
-  ).pipe(Effect.map((paths) => paths.flat()));
-  const captured = Layer.mergeAll(
-    Layer.succeed(WorkspaceMutations, ws),
-    Layer.succeed(FileSystem.FileSystem, fs),
-    Layer.succeed(Path.Path, path),
-    Layer.succeed(CodingAgentRepository, agentRepo),
-  );
-
-  yield* ws
-    .runTransaction({
-      targets: [canonicalPath, ...targetDirectories],
-      transition: materializeBundledAxmSkill.pipe(Effect.provide(captured)),
-      validate: () =>
-        Effect.gen(function* () {
-          const configured = yield* ws.getConfiguredSkillEntries();
-          const installedEntry = configured["axm"];
-          if (installedEntry?.source !== "workspace" || installedEntry.origin !== "bundled") {
-            return yield* makeAppError({
-              code: "internal",
-              detail: "Bundled AXM skill did not retain its bundled source authority",
-            });
-          }
-          const compatibility = evaluateAxmSkillCompatibility({
-            cliVersion: loadVersion(),
-            skill: {
-              manifestVersion: AXM_SKILL_VERSION,
-              source: `bundled:@agentxm/skills/axm@${AXM_SKILL_VERSION}`,
-              metadata: {
-                [AXM_SKILL_CLI_VERSION_METADATA_KEY]: AXM_SKILL_CLI_VERSION,
-                [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: AXM_SKILL_CLI_VERSION_RANGE,
-              },
-            },
-          });
-          if (compatibility.status === "incompatible") {
-            return yield* makeAppError({
-              code: "internal",
-              detail:
-                compatibility.detail ??
-                "Bundled AXM skill remained incompatible after workspace installation",
-              ...(compatibility.recovery.nextAction === null
-                ? {}
-                : { cmd: compatibility.recovery.nextAction }),
-            });
-          }
-        }),
-    })
-    .pipe(Effect.mapError(toAppError));
-});
 
 const installDefaultSkill = (args: InstallDefaultSkillArgs) =>
   installBundledAxmSkill.pipe(withWorkspace(args.scope));

@@ -19,7 +19,7 @@ import {
   inventoryState,
   inventoryAgentOutcomes,
   inventorySummary,
-} from "../extension-inventory.js";
+} from "../inventory-view.js";
 
 interface McpServerListItem {
   readonly name: string;

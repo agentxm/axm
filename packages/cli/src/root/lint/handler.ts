@@ -26,7 +26,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { ExitCode, makeAppError } from "../../app-error/index.js";
-import { Screen, makeScreenOutput, type ScreenOutput } from "../../screen/index.js";
+import { Screen } from "../../screen/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { effectCliExit } from "../../cli-runtime/index.js";
 import { WorkspaceInvariantFacts, observeAgentOutputs } from "@agentxm/extension-workspace";
@@ -46,8 +46,6 @@ import {
   summarizeEvaluations,
   toLintHumanBlocks,
   toLintJsonDocument,
-  type LintHumanBlock,
-  type LintHumanDiagnostic,
   LintJsonDocumentSchema,
   type LintJsonDocument,
   type LintInput,
@@ -64,6 +62,7 @@ import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import * as os from "node:os";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { toAppError } from "../../app-error/conversions.js";
+import { lintView } from "./view.js";
 
 // -----------------------------------------------------------------------------
 // Handler args
@@ -112,155 +111,23 @@ export type LintResultDocument = typeof LintResultDocumentSchema.Type;
 const emitJsonDocument = (doc: LintJsonDocument, ok: boolean) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
-    return yield* renderer.result({ result: doc }, LintResultDocumentSchema, { ok });
+    return yield* screen.document({ result: doc }, LintResultDocumentSchema, { ok });
   });
 
 const emitHumanOutput = (args: { readonly summary: LintSummary; readonly details: boolean }) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     const blocks = toLintHumanBlocks({
       summary: args.summary,
       reporter: args.details ? "full" : "grouped",
     });
     const verbosity = yield* Verbosity;
-    if (!verbosity.isAtLeast("normal")) {
-      yield* emitQuietHumanOutput(renderer, blocks);
-      return;
-    }
-
     yield* Effect.forEach(
-      blocks,
-      (block) =>
-        Effect.gen(function* () {
-          switch (block.kind) {
-            case "overview":
-              yield* emitSummary(renderer, block.message, block.counts);
-              yield* Effect.forEach(block.notes, (note) => renderer.message(note), {
-                discard: true,
-              });
-              return;
-            case "blank":
-              yield* renderer.message("");
-              return;
-            case "section": {
-              const label =
-                block.note === undefined ? block.title : `${block.title} (${block.note})`;
-              yield* renderer.step(label);
-              return;
-            }
-            case "diagnostic":
-              yield* emitGroupedHumanDiagnostic(renderer, block.diagnostic);
-              return;
-            case "driftBanner":
-              yield* renderer.warn(block.title);
-              yield* Effect.forEach(block.ruleIds, (id) => renderer.message(`  ${id}`), {
-                discard: true,
-              });
-              return;
-            case "pathGroup":
-              yield* renderer.message(block.path);
-              yield* Effect.forEach(
-                block.diagnostics,
-                (diagnostic) => emitFullHumanDiagnostic(renderer, diagnostic),
-                {
-                  discard: true,
-                },
-              );
-              return;
-            case "empty":
-              yield* renderer.success(block.message);
-              return;
-            case "footer":
-              return;
-          }
-        }),
+      lintView(blocks, verbosity.level),
+      (entry) => (entry.channel === "result" ? screen.result(entry.doc) : screen.note(entry.doc)),
       { discard: true },
     );
   });
-
-const emitQuietHumanOutput = (renderer: ScreenOutput, blocks: ReadonlyArray<LintHumanBlock>) =>
-  Effect.forEach(
-    blocks,
-    (block) =>
-      Effect.gen(function* () {
-        switch (block.kind) {
-          case "overview":
-            yield* emitSummary(renderer, block.message, block.counts);
-            return;
-          case "driftBanner":
-            yield* renderer.warn(block.title);
-            return;
-          default:
-            return;
-        }
-      }),
-    { discard: true },
-  );
-
-const emitFullHumanDiagnostic = (renderer: ScreenOutput, diagnostic: LintHumanDiagnostic) =>
-  Effect.gen(function* () {
-    const label = `${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}: ${diagnostic.title}`;
-    switch (diagnostic.severity) {
-      case "error":
-        yield* renderer.error(label);
-        break;
-      case "warning":
-        yield* renderer.warn(label);
-        break;
-      case "info":
-        yield* renderer.info(label);
-        break;
-    }
-    yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
-      discard: true,
-    });
-    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
-      discard: true,
-    });
-  });
-
-const emitGroupedHumanDiagnostic = (renderer: ScreenOutput, diagnostic: LintHumanDiagnostic) =>
-  Effect.gen(function* () {
-    const location =
-      diagnostic.paths.length === 1
-        ? (diagnostic.paths[0] ?? "")
-        : diagnostic.paths.length > 1
-          ? `(${diagnostic.paths.length} locations)`
-          : "(workspace)";
-    switch (diagnostic.severity) {
-      case "error":
-        yield* renderer.error(location);
-        break;
-      case "warning":
-        yield* renderer.warn(location);
-        break;
-      case "info":
-        yield* renderer.info(location);
-        break;
-    }
-    yield* renderer.message(
-      `  rule: ${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}`,
-    );
-    yield* renderer.message(`  ${diagnostic.title}`);
-    yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
-      discard: true,
-    });
-    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
-      discard: true,
-    });
-  });
-
-const emitSummary = (renderer: ScreenOutput, message: string, counts: LintSummary["counts"]) => {
-  if (counts.errors > 0) {
-    return renderer.error(message);
-  }
-  if (counts.warnings > 0) {
-    return renderer.warn(message);
-  }
-  return renderer.info(message);
-};
 
 // -----------------------------------------------------------------------------
 // Handler entry point

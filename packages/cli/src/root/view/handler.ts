@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { makeAppError } from "../../app-error/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import { Screen, makeScreenOutput, type TableView } from "../../screen/index.js";
+import { Screen, rawDoc, tableViewDoc, type TableView } from "../../screen/index.js";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
@@ -301,17 +301,18 @@ const deprecationReplacementText = (deprecation: DeprecationView): string => {
 const emitFieldValue = (field: SupportedField, value: ViewFieldValue) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
-    const emitted = yield* renderer.result(value, ViewFieldValueSchema);
+    const emitted = yield* screen.document(value, ViewFieldValueSchema);
     if (emitted) return;
-    yield* renderer.raw(
-      typeof value === "string"
-        ? `${value}\n`
-        : Array.isArray(value)
-          ? `${value.join("\n")}\n`
-          : value === null
-            ? "active\n"
-            : `${JSON.stringify(value, null, 2)}\n`,
+    yield* screen.result(
+      rawDoc(
+        typeof value === "string"
+          ? `${value}\n`
+          : Array.isArray(value)
+            ? `${value.join("\n")}\n`
+            : value === null
+              ? "active\n"
+              : `${JSON.stringify(value, null, 2)}\n`,
+      ),
     );
   });
 
@@ -353,10 +354,9 @@ const handleResolvedView = (args: {
 }) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     const client = yield* createRegistryClient(args.targetRegistry.registryUrl);
     const subject = `${args.handle} from ${args.targetRegistry.registryName}`;
-    const index = yield* renderer.withSpinner(
+    const index = yield* screen.task(
       `Loading ${subject}`,
       () =>
         client.getExtensionIndex(args.parts).pipe(
@@ -404,7 +404,7 @@ const handleResolvedView = (args: {
       return;
     }
 
-    if (yield* renderer.result(data, ViewDocumentSchema)) {
+    if (yield* screen.document(data, ViewDocumentSchema)) {
       return;
     }
 
@@ -415,31 +415,36 @@ const handleResolvedView = (args: {
         ? versions.join(", ")
         : `${versions.slice(0, 5).join(", ")} (${versions.length} total)`;
 
-    yield* renderer.table(
-      [
-        { field: "Handle", value: data.handle },
-        { field: "Type", value: data.type },
-        { field: "Owner", value: data.owner },
-        { field: "Latest", value: latest },
-        { field: "Versions", value: versionSummary },
-        { field: "Description", value: data.description ?? "" },
-        { field: "Visibility", value: data.visibility },
-        {
-          field: "Lifecycle",
-          value: data.deprecation === null ? "active" : "deprecated",
-        },
-        ...(data.deprecation === null
-          ? []
-          : [
-              { field: "Deprecated at", value: DateTime.formatIso(data.deprecation.deprecatedAt) },
-              { field: "Deprecation message", value: data.deprecation.message ?? "-" },
-              {
-                field: "Replacement",
-                value: deprecationReplacementText(data.deprecation),
-              },
-            ]),
-        { field: "Install", value: data.install },
-      ],
-      ViewTable,
+    yield* screen.result(
+      tableViewDoc(
+        [
+          { field: "Handle", value: data.handle },
+          { field: "Type", value: data.type },
+          { field: "Owner", value: data.owner },
+          { field: "Latest", value: latest },
+          { field: "Versions", value: versionSummary },
+          { field: "Description", value: data.description ?? "" },
+          { field: "Visibility", value: data.visibility },
+          {
+            field: "Lifecycle",
+            value: data.deprecation === null ? "active" : "deprecated",
+          },
+          ...(data.deprecation === null
+            ? []
+            : [
+                {
+                  field: "Deprecated at",
+                  value: DateTime.formatIso(data.deprecation.deprecatedAt),
+                },
+                { field: "Deprecation message", value: data.deprecation.message ?? "-" },
+                {
+                  field: "Replacement",
+                  value: deprecationReplacementText(data.deprecation),
+                },
+              ]),
+          { field: "Install", value: data.install },
+        ],
+        ViewTable,
+      ),
     );
   });

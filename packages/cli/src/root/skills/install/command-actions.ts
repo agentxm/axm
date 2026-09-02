@@ -32,7 +32,7 @@ import {
   isVersionEntryMature,
   parseMinimumReleaseAge,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
-import { Screen, makeScreenOutput, count } from "../../../screen/index.js";
+import { Screen, count, headlineDoc } from "../../../screen/index.js";
 import { WorkspaceMutations, type SkillPathSource, sanitizeName } from "@agentxm/workspace-state";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { computeSkillSourceHash, gitHostedSkillArtifactSource } from "@agentxm/extension-lifecycle";
@@ -334,7 +334,6 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
   const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const skillMgr = yield* SkillManager;
   const ws = yield* WorkspaceMutations;
   const pathSvc = yield* Path.Path;
@@ -596,7 +595,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
             `Found ${count(discoveredRefs.length, "skill")}`,
           ];
           for (const line of diagnosticLines) {
-            yield* renderer.info(line);
+            yield* screen.note(headlineDoc("info", line));
           }
         }
 
@@ -617,9 +616,9 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
         intent.skillsToInstall.map((entry) => entry.ref),
       );
       if (compatSection !== undefined) {
-        yield* renderer.info(`${compatSection.title}:`);
+        yield* screen.note(headlineDoc("info", `${compatSection.title}:`));
         for (const item of compatSection.items) {
-          yield* renderer.info(`  ${item}`);
+          yield* screen.note(headlineDoc("info", `  ${item}`));
         }
       }
       const steps = yield* Effect.forEach(

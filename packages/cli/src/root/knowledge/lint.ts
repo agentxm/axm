@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { ExitCode, makeAppError } from "../../app-error/index.js";
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen, errorDoc, headlineDoc, successDoc } from "../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../cli-runtime/index.js";
 import { type KnowledgeDiagnostic } from "@agentxm/registry-protocol/unstable/knowledge";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
@@ -70,7 +70,6 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
   packagePath?: string,
 ) {
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   if (name !== undefined && packagePath !== undefined) {
     return yield* makeAppError({
       code: "validation",
@@ -84,10 +83,12 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
   const diagnostics = flattenDiagnostics(bundles);
   const errors = diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   const result = { valid: errors.length === 0, diagnostics };
-  if (!(yield* renderer.result(result, KnowledgeLintQueryResultSchema, { ok: result.valid }))) {
+  if (!(yield* screen.document(result, KnowledgeLintQueryResultSchema, { ok: result.valid }))) {
     if (diagnostics.length === 0) {
-      yield* renderer.success(
-        `Knowledge validation passed for ${bundles.length} bundle${bundles.length === 1 ? "" : "s"}`,
+      yield* screen.result(
+        successDoc(
+          `Knowledge validation passed for ${bundles.length} bundle${bundles.length === 1 ? "" : "s"}`,
+        ),
       );
     } else {
       for (const diagnostic of diagnostics) {
@@ -96,12 +97,12 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
             ? ""
             : `:${diagnostic.line}${diagnostic.column === undefined ? "" : `:${diagnostic.column}`}`;
         const message = `${diagnostic.bundle}/${diagnostic.relativePath}${coordinate}: ${diagnostic.message}`;
-        if (diagnostic.severity === "error") yield* renderer.error(message);
-        else yield* renderer.warn(message);
+        if (diagnostic.severity === "error") yield* screen.note(errorDoc(message));
+        else yield* screen.note(headlineDoc("warn", message));
       }
       if (errors.length > 0) {
-        yield* renderer.error(
-          `${errors.length} knowledge validation error${errors.length === 1 ? "" : "s"}`,
+        yield* screen.note(
+          errorDoc(`${errors.length} knowledge validation error${errors.length === 1 ? "" : "s"}`),
         );
       }
     }

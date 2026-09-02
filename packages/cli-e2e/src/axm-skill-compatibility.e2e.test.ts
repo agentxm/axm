@@ -54,7 +54,7 @@ describe("AXM skill compatibility lifecycle", () => {
 
       const quiet = await runCli(["lint", "--strict", "--quiet"], { cwd: temp.path, env });
       expect(quiet.exitCode).toBe(0);
-      expect(quiet.stdout).toBe("");
+      expect(quiet.stdout).toContain("No findings");
       expect(quiet.stderr).not.toContain("Loading project workspace");
 
       const noColor = await runCli(["lint", "--strict"], {

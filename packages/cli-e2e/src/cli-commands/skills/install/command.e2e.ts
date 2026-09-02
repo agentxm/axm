@@ -124,7 +124,7 @@ describe("axm skills install", () => {
         const unitRow =
           "my-skill   created   1 file   .agents/skills/my-skill, .claude/skills/my-skill";
         expect(output.indexOf(unitRow)).toBeGreaterThan(headlineIndex);
-        expect(output).toContain("Agent coverage: claude-code");
+        expect(output).toContain("Agents: claude-code");
         expect(output).not.toContain("Source:");
         expect(output).not.toContain("Resolution:");
         expect(output).not.toContain("skill(s)");
@@ -514,7 +514,7 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toContain("my-skill");
+        expect(getOutput(result)).toContain("1 skill already current");
       } finally {
         temp.cleanup();
       }
@@ -586,7 +586,7 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toMatch(/\d+ to apply/);
+        expect(getOutput(result)).toMatch(/\d+ to install/);
       } finally {
         temp.cleanup();
       }

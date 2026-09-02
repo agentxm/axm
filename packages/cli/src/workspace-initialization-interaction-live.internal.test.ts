@@ -170,8 +170,6 @@ describe("WorkspaceInitializationInteractionLive", () => {
       }).pipe(Effect.provide(harness.layer));
 
       expect(selected).toBe("GEMINI.md");
-      expect(harness.output[0]).toBe("\n");
-
       const rendered = harness.output.map(stripAnsi).join("\n");
       expect(rendered).toContain("Choose the source file for shared instructions");
       expect(rendered).toContain(

@@ -3,7 +3,7 @@ import { bootstrapWorkspace, type SetupAgentCandidate } from "@agentxm/workspace
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { isNonInteractive, jsonFlag, previewFlag, yesFlag, Verbosity } from "../cli-flags/index.js";
-import { Screen, makeScreenOutput, count, type ScreenOutput } from "../screen/index.js";
+import { Screen, errorDoc, headlineDoc, successDoc, suggestionsDoc } from "../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { resolveTelemetryMode } from "../telemetry/index.js";
@@ -29,7 +29,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import * as ServiceMap from "effect/Context";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { Command, Flag } from "effect/unstable/cli";
@@ -41,6 +40,7 @@ import { ExecutionDirectory } from "../execution-directory.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
 import { commandForScope } from "./shared/scoped-command.js";
+import { setupBrandingDoc, setupScopeSupportDoc, subagentSummaryDoc } from "./setup/view.js";
 import { AXM_SKILL_VERSION } from "../__generated__/bundled-axm-skill.js";
 import { installBundledAxmSkill } from "./skills/install/bundled-axm-skill.js";
 
@@ -199,23 +199,12 @@ type InstallDefaultSkill = typeof installDefaultSkill;
  * Render subagent file summary to the CLI output.
  */
 const renderSubagentSummary = (
-  renderer: ScreenOutput,
+  screen: typeof Screen.Service,
   path: Path.Path,
   summaries: ReadonlyArray<AgentSubagentSummary>,
-) =>
-  Effect.gen(function* () {
-    if (summaries.length === 0) return;
+) => screen.note(subagentSummaryDoc(summaries, (directory) => formatDisplayPath(path, directory)));
 
-    for (const summary of summaries) {
-      if (summary.files.length > 0) {
-        yield* renderer.info(
-          `${summary.agentName}: ${count(summary.files.length, "existing subagent file")} in ${formatDisplayPath(path, summary.subagentDir)}`,
-        );
-      }
-    }
-  });
-
-const renderSetupBranding = (renderer: ScreenOutput) =>
+const renderSetupBranding = (screen: typeof Screen.Service) =>
   Effect.gen(function* () {
     const json = yield* jsonFlag;
     if (Option.getOrElse(json, () => false)) return;
@@ -224,26 +213,14 @@ const renderSetupBranding = (renderer: ScreenOutput) =>
     const verbosity = yield* Verbosity;
     if (verbosity.level === "quiet") return;
 
-    yield* renderer.message("");
-    yield* renderer.message(BRANDING);
-    yield* renderer.message("");
+    yield* screen.note(setupBrandingDoc(BRANDING));
   });
 
 const renderSetupScopeSupport = (
-  renderer: ScreenOutput,
+  screen: typeof Screen.Service,
   scope: WorkspaceScope,
   categories: ReadonlyArray<SetupScopeSupportCategory>,
-) =>
-  Effect.gen(function* () {
-    yield* renderer.info(`Scope support (${scope})`);
-    for (const category of categories) {
-      for (const outcome of category.outcomes) {
-        yield* renderer.info(
-          `${category.label}: ${outcome.status} (${outcome.agentName ?? outcome.target}; ${outcome.reasonCode}) — ${outcome.reason}`,
-        );
-      }
-    }
-  });
+) => screen.note(setupScopeSupportDoc(scope, categories));
 
 const setupSuggestions = (args: {
   readonly status: "initialized" | "already-initialized" | "preview" | "cancelled";
@@ -524,11 +501,10 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
   installSkill: InstallDefaultSkill = installDefaultSkill,
 ) {
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const executionDirectory = yield* ExecutionDirectory;
-  yield* renderSetupBranding(renderer);
+  yield* renderSetupBranding(screen);
   const json = yield* jsonFlag;
   const machineOutput = Option.getOrElse(json, () => false);
   const nonInteractive = (yield* isNonInteractive) || machineOutput;
@@ -592,7 +568,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
         cmd: `axm setup --preview --scope ${args.scope}`,
       },
     ];
-    const emitted = yield* renderer.result(
+    const emitted = yield* screen.document(
       {
         result: {
           outcome: "failed",
@@ -623,7 +599,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
       { suggestions, ok: false },
     );
     if (!emitted) {
-      yield* renderer.error("Approval required — no changes applied", { suggestions });
+      yield* screen.note(errorDoc("Approval required — no changes applied", { suggestions }));
     }
     return yield* Effect.die(effectCliExit(ExitCode.Usage));
   }
@@ -791,7 +767,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
   });
 
   if (
-    yield* renderer.result(
+    yield* screen.document(
       {
         result: {
           ...planFields,
@@ -818,53 +794,62 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
   }
 
   if (cancelled) {
-    yield* renderer.info(message);
+    yield* screen.note(headlineDoc("info", message));
     return;
   }
 
   if (allAgents.length === 0 && status !== "preview") {
-    yield* renderer.warn(
-      `No coding-agent targets are configured. Run \`axm agents add --detected${location.scope === "user" ? " --scope user" : ""}\` to materialize installed extensions.`,
+    yield* screen.note(
+      headlineDoc(
+        "warn",
+        `No coding-agent targets are configured. Run \`axm agents add --detected${location.scope === "user" ? " --scope user" : ""}\` to materialize installed extensions.`,
+      ),
     );
   }
-  yield* renderer.success(message);
+  yield* screen.result(successDoc(message));
 
   const verbosity = yield* Verbosity;
   if (verbosity.level !== "quiet") {
-    yield* renderer.info(`AXM setup (${location.scope})`);
+    yield* screen.note(headlineDoc("info", `AXM setup (${location.scope})`));
     if (allAgents.length > 0) {
-      yield* renderer.info(`Agents: ${agentNames}`);
+      yield* screen.note(headlineDoc("info", `Agents: ${agentNames}`));
     }
-    yield* renderer.info(`Settings: ${settingsPath}`);
+    yield* screen.note(headlineDoc("info", `Settings: ${settingsPath}`));
     if (instructions !== undefined) {
-      yield* renderer.info(
-        instructions.enabled
-          ? `Instructions: ${instructions.fileName ?? "AGENTS.md"}`
-          : "Instructions: disabled",
+      yield* screen.note(
+        headlineDoc(
+          "info",
+          instructions.enabled
+            ? `Instructions: ${instructions.fileName ?? "AGENTS.md"}`
+            : "Instructions: disabled",
+        ),
       );
     }
     if (defaultSkillInstalled) {
-      yield* renderer.info(
-        `Skill: @agentxm/skills/axm -> ${setupSkillFootprint(
-          location.scope,
-          skillTargets.map(({ path: targetPath }) => targetPath),
-        )}`,
+      yield* screen.note(
+        headlineDoc(
+          "info",
+          `Skill: @agentxm/skills/axm -> ${setupSkillFootprint(
+            location.scope,
+            skillTargets.map(({ path: targetPath }) => targetPath),
+          )}`,
+        ),
       );
     }
-    yield* renderSetupScopeSupport(renderer, location.scope, scopeSupport);
+    yield* renderSetupScopeSupport(screen, location.scope, scopeSupport);
 
     // Show subagent file summary
-    yield* renderSubagentSummary(renderer, path, subagentSummaries);
+    yield* renderSubagentSummary(screen, path, subagentSummaries);
   }
 
   // Show telemetry notice (unless telemetry is off)
   if (telemetryMode !== "off" && verbosity.level !== "quiet") {
-    yield* renderer.info("");
-    yield* renderer.info("Telemetry is enabled to help improve AXM.");
+    yield* screen.note(headlineDoc("info", ""));
+    yield* screen.note(headlineDoc("info", "Telemetry is enabled to help improve AXM."));
   }
 
   if (verbosity.level !== "quiet") {
-    yield* renderer.suggestions(suggestions);
+    yield* screen.note(suggestionsDoc(suggestions));
   }
 }, Effect.asVoid);
 

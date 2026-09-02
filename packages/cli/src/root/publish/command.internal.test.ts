@@ -1372,7 +1372,9 @@ describe("root publish", () => {
               message.startsWith("Published @acme/skills/review@1.0.0"),
             ),
           ).toBe(true);
-          expect(logs.success.join("\n")).toContain("visibility: public (establish, platform)");
+          expect(logs.success.join("\n")).toContain(
+            "visibility: public (set from platform defaults)",
+          );
           expect(rendererState.spinnerMessages).toContain("Resolving publish registry");
           expect(rendererState.spinnerMessages).toContain("Preparing publish candidates");
           // Apply-phase spinner wording lives in the CLI Live; the interaction
@@ -1396,7 +1398,9 @@ describe("root publish", () => {
               message.startsWith("Would publish @acme/skills/review@1.0.0"),
             ),
           ).toBe(true);
-          expect(logs.success.join("\n")).toContain("visibility: public (establish, platform)");
+          expect(logs.success.join("\n")).toContain(
+            "visibility: public (set from platform defaults)",
+          );
           expect(logs.success.some((message) => message.startsWith("Published "))).toBe(false);
         }),
       );

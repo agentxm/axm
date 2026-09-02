@@ -11,6 +11,7 @@ import { CliOutput } from "effect/unstable/cli";
 
 import { BRANDING } from "./branding/index.js";
 import { stripTerminalFormatting } from "./screen/index.js";
+import { boldText, cyanText, dimText, greenText } from "./screen/terminal-style.js";
 import {
   JsonHelpDocSchema,
   JsonVersionDocSchema,
@@ -134,10 +135,10 @@ const makeHelpColors = (enabled: boolean): HelpColors => {
 
   return {
     enabled: true,
-    bold: (text) => `\u001b[1m${text}\u001b[0m`,
-    cyan: (text) => `\u001b[36m${text}\u001b[0m`,
-    dim: (text) => `\u001b[2m${text}\u001b[0m`,
-    green: (text) => `\u001b[32m${text}\u001b[0m`,
+    bold: boldText,
+    cyan: cyanText,
+    dim: dimText,
+    green: greenText,
   };
 };
 
@@ -456,7 +457,7 @@ export const makeAxmFormatter = (options?: {
       const learnMore = getLearnMore(doc);
       if (learnMore !== "") {
         const display = colorsEnabled
-          ? learnMore.replace(/^([^\n]+)/, (heading) => `\u001b[1m${heading}\u001b[0m`)
+          ? learnMore.replace(/^([^\n]+)/, (heading) => boldText(heading))
           : learnMore;
         output += "\n\n" + display;
       }

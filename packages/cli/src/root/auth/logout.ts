@@ -5,7 +5,7 @@ import { Command } from "effect/unstable/cli";
 import { AuthClient, CredentialStore } from "@agentxm/registry-auth";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen, successDoc } from "../../screen/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import * as Schema from "effect/Schema";
@@ -35,7 +35,6 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     const registryUrl = yield* RegistryUrl;
     const registryHost = new URL(registryUrl).host;
 
@@ -49,10 +48,10 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
         status,
         registryHost,
       };
-      if (yield* renderer.result({ result }, LogoutDocumentSchema, { suggestions })) {
+      if (yield* screen.document({ result }, LogoutDocumentSchema, { suggestions })) {
         return;
       }
-      yield* renderer.success(`Not logged in to ${registryHost}.`, { suggestions });
+      yield* screen.result(successDoc(`Not logged in to ${registryHost}.`, { suggestions }));
       return;
     }
 
@@ -62,7 +61,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
     const optionalHandle = handle !== "@unknown" ? { handle } : {};
 
     // Step 2: Attempt remote revoke (tolerate failure)
-    const revokeResult = yield* renderer.withSpinner(
+    const revokeResult = yield* screen.task(
       `Revoking registry session on ${registryHost}`,
       () => authClient.revokeToken(existing.value.refresh_token).pipe(Effect.option),
       { successMessage: `Checked registry session revocation on ${registryHost}` },
@@ -82,16 +81,20 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
     };
     const suggestions = logoutSuggestions(status);
 
-    if (yield* renderer.result({ result }, LogoutDocumentSchema, { suggestions })) {
+    if (yield* screen.document({ result }, LogoutDocumentSchema, { suggestions })) {
       return;
     }
 
     if (Option.isSome(revokeResult)) {
-      yield* renderer.success(`Logged out of ${registryHost}${identity}.`, { suggestions });
+      yield* screen.result(
+        successDoc(`Logged out of ${registryHost}${identity}.`, { suggestions }),
+      );
     } else {
-      yield* renderer.success(
-        `Logged out of ${registryHost}${identity} locally. Remote revocation failed — token will expire automatically.`,
-        { suggestions },
+      yield* screen.result(
+        successDoc(
+          `Logged out of ${registryHost}${identity} locally. Remote revocation failed — token will expire automatically.`,
+          { suggestions },
+        ),
       );
     }
   },

@@ -1,4 +1,3 @@
-import type { ScreenOutput, TableView } from "../screen/index.js";
 import type {
   ConfiguredAgentOutcome,
   ExtensionInventory,
@@ -15,10 +14,6 @@ export const inventoryAgentOutcomes = (outcomes: ReadonlyArray<ConfiguredAgentOu
     ? "none"
     : outcomes.map(({ agentId, outcome }) => `${agentId}:${outcome}`).join(", ");
 
-/**
- * Row fields a list command fills in from its own lookups. Every other row
- * field belongs to the read model and must survive augmentation unchanged.
- */
 type InventoryRowAugmentation = Partial<
   Pick<
     ExtensionInventoryRow,
@@ -33,11 +28,6 @@ type InventoryRowAugmentation = Partial<
   >
 >;
 
-/**
- * The one path from a read-model inventory to an emitted inventory payload.
- * Keeping it single-sourced is what holds `items` and the row shape identical
- * across every `axm <type> list --json`.
- */
 export const augmentInventory = (
   inventory: ExtensionInventory,
   augment: (row: ExtensionInventoryRow) => InventoryRowAugmentation,
@@ -48,13 +38,3 @@ export const augmentInventory = (
 
 export const inventorySummary = (inventory: ExtensionInventory, label: string): string =>
   `${inventory.count} ${inventory.count === 1 ? label : `${label}s`} (${inventory.configuredCount} configured, ${inventory.implicitCount} implicit, ${inventory.installedCount} installed, ${inventory.unmanagedCount} unmanaged)`;
-
-export const renderInventoryTable = <T extends object>(
-  renderer: ScreenOutput,
-  items: ReadonlyArray<T>,
-  view: TableView<T>,
-  summary: string,
-) => renderer.diagnosticTable(items, view, summary);
-
-export const renderEmptyInventory = (renderer: ScreenOutput, message: string) =>
-  renderer.diagnostic(message);

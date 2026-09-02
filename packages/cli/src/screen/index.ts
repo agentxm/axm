@@ -38,6 +38,7 @@ export {
   OutputStreams,
   OutputStreamsLive,
   makeTestOutputStreams,
+  stderrIsTTY,
   type OutputStreamFacts,
   type TestOutputStreamsState,
 } from "./streams.js";
@@ -76,15 +77,23 @@ export {
   agentOutcome,
   artifactChange,
   blockingClass,
+  blockingHeadline,
   bytes,
   count,
   disposition,
   duration,
+  interruptionPhrase,
   outcomeHeadline,
+  publishDisposition,
+  publishParticipation,
+  publishReason,
   severityTone,
   unitState,
   unitStateChange,
   type VerbForms,
+  type PublishDisposition,
+  type PublishParticipation,
+  type PublishReason,
 } from "./phrases.js";
 export {
   displayWidth,
@@ -95,7 +104,18 @@ export {
 } from "./width.js";
 export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";
 export {
-  type ScreenOutput,
+  calloutDoc,
+  detailViewDoc,
+  errorDoc,
+  headlineDoc,
+  markdownDoc,
+  paragraphDoc,
+  rawDoc,
+  successDoc,
+  suggestionsDoc,
+  tableViewDoc,
+} from "./docs.js";
+export {
   type SuggestionOptions,
   type BoxOptions,
   type DetailFieldConfig,
@@ -122,7 +142,6 @@ export {
   type TreeDef,
   type ViewKey,
 } from "./output.js";
-export { makeScreenOutput } from "./output-live.js";
 export { resolveDetailFields, resolveTableColumns } from "./command-output.js";
 export { InteractiveScreen } from "./interactive.js";
 export { MachineScreen } from "./machine.js";

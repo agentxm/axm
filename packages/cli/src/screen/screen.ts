@@ -100,7 +100,6 @@ const successMessage = <A>(label: string, value: A, options?: TaskOptions<A>): s
 export const ScreenLive = (options: {
   readonly colors: boolean;
   readonly animate: boolean;
-  readonly quiet?: boolean;
 }): Layer.Layer<Screen, never, Frame | OutputStreams> =>
   Layer.effect(
     Screen,
@@ -136,18 +135,7 @@ export const ScreenLive = (options: {
             ? Effect.flatMap(render(doc), frame.stdout)
             : frame.stdout(literal);
         },
-        note: (doc, noteOptions) => {
-          const visible =
-            options.quiet !== true || noteOptions?.persistent === true
-              ? doc
-              : doc.filter(
-                  (node) =>
-                    (node._tag === "headline" && (node.tone === "warn" || node.tone === "error")) ||
-                    (node._tag === "callout" && (node.tone === "warn" || node.tone === "error")) ||
-                    node._tag === "next",
-                );
-          return visible.length === 0 ? Effect.void : Effect.flatMap(render(visible), frame.stderr);
-        },
+        note: (doc) => Effect.flatMap(render(doc), frame.stderr),
         document: () => Effect.succeed(false),
         task: <A, E, R>(
           label: string,
@@ -252,11 +240,6 @@ export const ScreenMachine = (options?: {
             : own.pipe(
                 Effect.andThen(Effect.forEach(node.children, nodeEvents, { discard: true })),
               );
-        }
-        if (node._tag === "progress") {
-          return quiet
-            ? Effect.void
-            : emit(progressEvent(node.phase, node.percent, node.message, node.detail));
         }
         return Effect.void;
       };

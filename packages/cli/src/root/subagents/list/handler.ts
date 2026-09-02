@@ -10,7 +10,7 @@ import {
   inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
-} from "../../extension-inventory.js";
+} from "../../inventory-view.js";
 
 export interface ListSubagentsHandlerArgs {
   readonly agents: readonly string[];

@@ -64,6 +64,9 @@ export const OutputStreamsLive: Layer.Layer<OutputStreams> = Layer.succeed(Outpu
   resize: resizeStream,
 });
 
+/** Pre-runtime TTY fact for startup policy without exposing Node streams. */
+export const stderrIsTTY = (): boolean => process.stderr.isTTY === true;
+
 export interface TestOutputStreamsState {
   readonly stdout: Array<string>;
   readonly stderr: Array<string>;

@@ -41,4 +41,49 @@ describe("machine Screen", () => {
       expect(harness.state.stderr.join("")).toContain('"type":"log"');
     }).pipe(Effect.provide(harness.layer));
   });
+
+  it.effect("rejects a second final result before writing it", () => {
+    const harness = makeHarness();
+    return Effect.gen(function* () {
+      const screen = yield* Screen;
+      yield* screen.document("first", Schema.String);
+      const second = yield* Effect.exit(screen.document("second", Schema.String));
+
+      expect(second._tag).toBe("Failure");
+      expect(harness.state.stdout).toHaveLength(1);
+      expect(JSON.parse(harness.state.stdout[0] ?? "")).toMatchObject({ result: "first" });
+    }).pipe(Effect.provide(harness.layer));
+  });
+
+  it.effect("handles a sustained semantic event stream without losing order", () => {
+    const harness = makeHarness();
+    const eventCount = 10_000;
+    return Effect.gen(function* () {
+      const screen = yield* Screen;
+      yield* Effect.forEach(
+        Array.from({ length: eventCount }, (_, index) => index),
+        (index) => screen.log({ level: "info", message: `event-${String(index)}` }),
+        { discard: true },
+      );
+
+      expect(harness.state.stderr).toHaveLength(eventCount);
+      expect(harness.state.stderr[0]).toContain("event-0");
+      expect(harness.state.stderr[eventCount - 1]).toContain(`event-${String(eventCount - 1)}`);
+    }).pipe(Effect.provide(harness.layer));
+  });
+
+  it.effect("preserves Windows paths in machine documents", () => {
+    const harness = makeHarness();
+    return Effect.gen(function* () {
+      const screen = yield* Screen;
+      yield* screen.document(
+        { path: String.raw`C:\Users\agent\workspace\axm.json` },
+        Schema.Struct({ path: Schema.String }),
+      );
+
+      expect(JSON.parse(harness.state.stdout.join(""))).toMatchObject({
+        result: { path: String.raw`C:\Users\agent\workspace\axm.json` },
+      });
+    }).pipe(Effect.provide(harness.layer));
+  });
 });

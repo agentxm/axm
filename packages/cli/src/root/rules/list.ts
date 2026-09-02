@@ -15,7 +15,7 @@ import {
   inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
-} from "../extension-inventory.js";
+} from "../inventory-view.js";
 
 interface RuleListItem {
   readonly name: string;

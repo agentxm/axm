@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import { Screen, makeScreenOutput } from "../screen/index.js";
+import { Screen } from "../screen/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag, jsonFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
@@ -116,7 +116,7 @@ describe("makeFoundationLayer", () => {
     Effect.gen(function* () {
       const layer = testLayer("text", { verbosityLevel: "verbose" });
 
-      const renderer = makeScreenOutput(yield* Screen.pipe(Effect.provide(layer)));
+      const renderer = yield* Screen.pipe(Effect.provide(layer));
       const verbosity = yield* Verbosity.pipe(Effect.provide(layer));
 
       expect(renderer).toBeDefined();
@@ -210,7 +210,7 @@ describe("writeDefect", () => {
 
         expect(stdoutWrites).toEqual([]);
         expect(stderrWrites).toHaveLength(1);
-        expect(stderrWrites[0]).toContain("✖  boom");
+        expect(stderrWrites[0]).toContain("✖ An unexpected error occurred");
         expect(stderrWrites[0]).not.toContain("✗");
         expect(stderrWrites[0]).toContain("boom");
       }),
@@ -304,9 +304,9 @@ describe("writeExpectedCliError", () => {
       yield* writeExpectedCliError(conflictError, "text").pipe(Effect.provide(testLayer("text")));
 
       const stderr = stderrWrites.join("");
-      // renderAppError owns the single suggestions block.
-      expect(stderr).toContain("Next:");
-      expect(stderr.split("Next:").length - 1).toBe(1);
+      // The error Doc owns the single suggestions block.
+      expect(stderr).toContain("Next");
+      expect(stderr.split("Next").length - 1).toBe(1);
       // The suggestion text appears once across the whole stderr output.
       const occurrences =
         stderr.split("Choose a different name or remove the existing skill first").length - 1;
@@ -379,7 +379,7 @@ describe("writeExpectedCliError", () => {
       const stderr = stderrWrites.join("");
       expect(stderr).toContain("Cause: Error: settings decode failed");
       expect(stderr).toContain("Stack: Error: settings decode failed");
-      expect(stderr).toContain("Stack:  at decode");
+      expect(stderr).toContain("Stack: at decode");
     }),
   );
 });
@@ -450,6 +450,7 @@ describe("withCliErrorHandling cancellation", () => {
       Effect.provide(
         Layer.mergeAll(
           globalFlagLayer,
+          testLayer("text"),
           Layer.succeed(jsonFlag, Option.none()),
           Layer.succeed(HttpClient.HttpClient, stubHttpClient),
         ),

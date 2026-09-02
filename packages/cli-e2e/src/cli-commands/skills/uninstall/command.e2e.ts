@@ -264,7 +264,7 @@ describe("axm skills uninstall", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toMatch(/\d+ to apply/);
+        expect(getOutput(result)).toMatch(/\d+ to uninstall/);
       } finally {
         temp.cleanup();
       }

@@ -119,19 +119,6 @@ export interface RawNode {
   readonly content: string;
 }
 
-export interface ProgressNode {
-  readonly _tag: "progress";
-  readonly phase: string;
-  readonly percent: number;
-  readonly message: string;
-  readonly detail?: {
-    readonly unit?: string;
-    readonly state?: string;
-    readonly reason?: string;
-    readonly atMs?: number;
-  };
-}
-
 export interface BlankNode {
   readonly _tag: "blank";
 }
@@ -151,7 +138,6 @@ export type DocNode =
   | SectionNode
   | MarkdownNode
   | RawNode
-  | ProgressNode
   | BlankNode;
 
 export type Doc = ReadonlyArray<DocNode>;

@@ -7,7 +7,13 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { Screen, makeScreenOutput, type DetailView, type TableView } from "../../screen/index.js";
+import {
+  Screen,
+  detailViewDoc,
+  tableViewDoc,
+  type DetailView,
+  type TableView,
+} from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   CatalogExtensionTypeSchema,
@@ -155,7 +161,6 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
   readonly name: string;
 }) {
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const ws = yield* WorkspaceMutations;
   const label = extensionTypeSentenceLabels[args.type];
 
@@ -274,39 +279,43 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
     agents,
   };
 
-  if (yield* renderer.result(result, ExtensionShowResultSchema)) return;
+  if (yield* screen.document(result, ExtensionShowResultSchema)) return;
 
-  yield* renderer.detail(
-    {
-      type: args.type,
-      name: args.name,
-      enabled: enabled === null ? "n/a" : yesNo(enabled),
-      source,
-      version: result.item.version ?? "n/a",
-      scope: ws.scope,
-      locked: yesNo(result.item.locked),
-    },
-    ShowDetail,
-    `${label} ${args.name}`,
+  yield* screen.result(
+    detailViewDoc(
+      {
+        type: args.type,
+        name: args.name,
+        enabled: enabled === null ? "n/a" : yesNo(enabled),
+        source,
+        version: result.item.version ?? "n/a",
+        scope: ws.scope,
+        locked: yesNo(result.item.locked),
+      },
+      ShowDetail,
+      `${label} ${args.name}`,
+    ),
   );
 
   if (agents.length > 0) {
-    yield* renderer.table(
-      agents.map((agent) => ({
-        agent: agent.agent,
-        status: agent.status,
-        path: agent.path ?? "",
-        detail: `${agent.reasonCode}: ${
-          agent.reason ??
-          (agent.fields.length > 0
-            ? agent.fields.join(", ")
-            : agent.warnings.length > 0
-              ? agent.warnings.join("; ")
-              : "no additional detail")
-        }`,
-      })),
-      AgentTable,
-      "Agent placements",
+    yield* screen.result(
+      tableViewDoc(
+        agents.map((agent) => ({
+          agent: agent.agent,
+          status: agent.status,
+          path: agent.path ?? "",
+          detail: `${agent.reasonCode}: ${
+            agent.reason ??
+            (agent.fields.length > 0
+              ? agent.fields.join(", ")
+              : agent.warnings.length > 0
+                ? agent.warnings.join("; ")
+                : "no additional detail")
+          }`,
+        })),
+        AgentTable,
+        "Agent placements",
+      ),
     );
   }
 });

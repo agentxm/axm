@@ -1,18 +1,17 @@
+export type { OutputFormat } from "./output-mode.js";
 export type {
-  OutputFormat,
   ProgressEvent,
   LogEvent,
   ErrorEvent,
   SuggestionEvent,
-  StreamEvent,
-} from "./output-mode.js";
+  MachineEvent as StreamEvent,
+} from "../screen/machine-events.js";
 export {
   ProgressEventSchema,
   LogEventSchema,
   ErrorEventSchema,
   SuggestionEventSchema,
-  emitEvent,
-} from "./output-mode.js";
+} from "../screen/machine-events.js";
 export {
   JsonEnvelopeSchema,
   JsonSuccessEnvelopeSchema,

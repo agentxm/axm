@@ -93,12 +93,12 @@ describe("hook configured-agent outcomes", () => {
       );
       expect(humanPreview.exitCode, humanPreview.stdout + humanPreview.stderr).toBe(0);
       expect(humanPreview.stdout + humanPreview.stderr).toContain("Would install 1 hook");
-      expect(humanPreview.stdout + humanPreview.stderr).toContain("1 to apply");
+      expect(humanPreview.stdout + humanPreview.stderr).toContain("1 to install");
       expect(humanPreview.stdout + humanPreview.stderr).toContain(
-        "claude-code: projected (native)",
+        "claude-code: projected — All hook bindings have a supported native mapping",
       );
       expect(humanPreview.stdout + humanPreview.stderr).toContain(
-        "windsurf: projected (advisory-fallback)",
+        "windsurf: projected — AXM has not built a hook writer",
       );
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       const preview = await runCli(
@@ -175,10 +175,10 @@ describe("hook configured-agent outcomes", () => {
       });
       expect(humanSyncPreview.exitCode, humanSyncPreview.stdout + humanSyncPreview.stderr).toBe(0);
       expect(humanSyncPreview.stdout + humanSyncPreview.stderr).toContain(
-        "claude-code: projected (native)",
+        "claude-code: projected — All hook bindings have a supported native mapping",
       );
       expect(humanSyncPreview.stdout + humanSyncPreview.stderr).toContain(
-        "windsurf: projected (advisory-fallback)",
+        "windsurf: projected — AXM has not built a hook writer",
       );
       expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
       const syncPreview = await runCli(["sync", "--preview", "--json", "--non-interactive"], {

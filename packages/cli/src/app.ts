@@ -16,6 +16,7 @@ import {
   MachineScreen,
   Screen,
   resolveCliOutputPolicy,
+  stderrIsTTY,
 } from "./screen/index.js";
 import { resolveVerbosityFromArgv } from "./cli-flags/index.js";
 import { runCliMain } from "./cli-runtime/index.js";
@@ -237,6 +238,7 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
           : runCommand(argv, isJson).pipe(Effect.mapError((error): CommandProgramError => error));
       const outputPolicy = resolveCliOutputPolicy({
         quiet: resolveVerbosityFromArgv(argv) === "quiet",
+        stderrIsTTY: stderrIsTTY(),
       });
 
       const rendererLayer = isJson
@@ -249,6 +251,7 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
           args: argv,
           isNonInteractive: resolveNonInteractiveFromArgv(argv),
           isJsonOutput: isJson,
+          isStderrTTY: stderrIsTTY(),
         },
       }).pipe(
         // Built-in --help / --version output is formatter-driven, so explicit

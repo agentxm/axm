@@ -33,7 +33,7 @@ import {
 } from "@agentxm/registry-auth";
 import { authFailureToAppError, publishFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen } from "../../screen/index.js";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import {
   effectCliExit,
@@ -1729,8 +1729,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const authLoginPresenter = yield* AuthLoginPresenter;
   const registryUrl = yield* RegistryUrl;
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
-  const prepared = yield* renderer.withSpinner(
+  const prepared = yield* screen.task(
     "Preparing publish candidates",
     () =>
       Effect.gen(function* () {
@@ -2610,8 +2609,7 @@ export const handleRootPublish = Effect.fn("Publish.handle")(function* (
   args: RootPublishHandlerArgs,
 ) {
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
-  const registry = yield* renderer.withSpinner(
+  const registry = yield* screen.task(
     "Resolving publish registry",
     () => resolveTargetRegistry(args.registry, args.registryUrl),
     { successMessage: "Resolved publish registry" },

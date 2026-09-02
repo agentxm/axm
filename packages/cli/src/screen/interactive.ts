@@ -14,7 +14,6 @@ export const InteractiveScreen = (options?: { readonly outputPolicy?: CliOutputP
     ScreenLive({
       colors: outputPolicy.colors,
       animate: outputPolicy.animate,
-      quiet: outputPolicy.quiet,
     }),
     frameLayer,
   );

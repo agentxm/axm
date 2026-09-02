@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen, rawDoc, successDoc } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { makeUserArchiveCache } from "@agentxm/registry-client";
 import { withRuntime } from "../../runtime.js";
@@ -51,47 +51,50 @@ const formatBytes = (bytes: number): string => {
 
 export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const cache = yield* makeUserArchiveCache();
-  const status = yield* renderer.withSpinner("Loading archive cache status", () => cache.status(), {
+  const status = yield* screen.task("Loading archive cache status", () => cache.status(), {
     successMessage: "Loaded archive cache status",
   });
-  if (yield* renderer.result(status, CacheStatusOutputSchema)) return;
-  yield* renderer.raw(
-    [
-      "Archive cache",
-      `Entries  ${status.entries}`,
-      `Size     ${formatBytes(status.bytes)}`,
-      `Limit    ${formatBytes(status.maxBytes)}`,
-      `Max age  ${status.maxAgeDays} days`,
-      "",
-    ].join("\n"),
+  if (yield* screen.document(status, CacheStatusOutputSchema)) return;
+  yield* screen.result(
+    rawDoc(
+      [
+        "Archive cache",
+        `Entries  ${status.entries}`,
+        `Size     ${formatBytes(status.bytes)}`,
+        `Limit    ${formatBytes(status.maxBytes)}`,
+        `Max age  ${status.maxAgeDays} days`,
+        "",
+      ].join("\n"),
+    ),
   );
 });
 
 export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const cache = yield* makeUserArchiveCache();
-  const result = yield* renderer.withSpinner("Verifying archive cache", () => cache.verify(), {
+  const result = yield* screen.task("Verifying archive cache", () => cache.verify(), {
     successMessage: "Verified archive cache",
   });
-  if (yield* renderer.result({ result }, CacheVerifyOutputSchema)) return;
-  yield* renderer.success(
-    `Verified ${result.checked} archive cache entr${result.checked === 1 ? "y" : "ies"}; ${result.corruptRemoved} corrupt removed.`,
+  if (yield* screen.document({ result }, CacheVerifyOutputSchema)) return;
+  yield* screen.result(
+    successDoc(
+      `Verified ${result.checked} archive cache entr${result.checked === 1 ? "y" : "ies"}; ${result.corruptRemoved} corrupt removed.`,
+    ),
   );
 });
 
 export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const cache = yield* makeUserArchiveCache();
-  const result = yield* renderer.withSpinner("Pruning archive cache", () => cache.prune(), {
+  const result = yield* screen.task("Pruning archive cache", () => cache.prune(), {
     successMessage: "Pruned archive cache",
   });
-  if (yield* renderer.result({ result }, CachePruneOutputSchema)) return;
-  yield* renderer.success(
-    `Pruned ${result.removed} archive cache entr${result.removed === 1 ? "y" : "ies"} (${formatBytes(result.bytesFreed)}); ${result.remaining} remain (${formatBytes(result.remainingBytes)}).`,
+  if (yield* screen.document({ result }, CachePruneOutputSchema)) return;
+  yield* screen.result(
+    successDoc(
+      `Pruned ${result.removed} archive cache entr${result.removed === 1 ? "y" : "ies"} (${formatBytes(result.bytesFreed)}); ${result.remaining} remain (${formatBytes(result.remainingBytes)}).`,
+    ),
   );
 });
 

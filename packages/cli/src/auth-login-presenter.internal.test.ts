@@ -273,7 +273,7 @@ describe("AuthLoginPresenterLive", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("frames the publish review step for browser and manual paths", () => {
+  it.effect("presents the publish review step for browser and manual paths", () => {
     const { layer, logs } = makeHuman();
 
     return Effect.gen(function* () {
@@ -294,7 +294,7 @@ describe("AuthLoginPresenterLive", () => {
         authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_3",
       });
 
-      expect(logs.step).toEqual([
+      expect(logs.info).toEqual([
         "Opening browser to review 1 publish candidate...",
         "Opening browser to review 2 publish candidates...",
         "Open this URL to review the exact publish: https://agentxm.ai/publish/authorize/pubreq_3",

@@ -340,7 +340,7 @@ describe("subagents install handler — error propagation", () => {
           _tag: "collapsed",
           change: "unchanged",
           count: 1,
-          noun: "subagents already current",
+          noun: "subagent already current",
           hint: "--verbose to list",
         });
       }),

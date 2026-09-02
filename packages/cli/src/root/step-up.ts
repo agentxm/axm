@@ -14,7 +14,7 @@ import {
 import { RegistryUrl } from "@agentxm/registry-client";
 import { AppError } from "../app-error/index.js";
 import { isNonInteractive, jsonFlag } from "../cli-flags/index.js";
-import { Screen, makeScreenOutput } from "../screen/index.js";
+import { Screen, paragraphDoc } from "../screen/index.js";
 import { coerceAuthFailure } from "../feature-errors.js";
 
 export interface StepUpOperationMessages {
@@ -39,22 +39,23 @@ export const runWithStepUp = <A, E, R>(
 ) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
-    const activity = yield* renderer.spinner(messages.initial);
-    const initial = yield* Effect.result(operation()).pipe(
-      Effect.onInterrupt(() => activity.cancel(messages.cancelled)),
-    );
+    const initial = yield* screen.task(messages.initial, () => Effect.result(operation()), {
+      failureMessage: messages.cancelled,
+      successMessage: (result) => {
+        if (Result.isSuccess(result)) return messages.success;
+        return failureStepUpRequest(result.failure) === null
+          ? messages.failure
+          : "Additional verification required";
+      },
+    });
     if (Result.isSuccess(initial)) {
-      yield* activity.stop(messages.success);
       return { value: initial.success, stepUpCompleted: false };
     }
 
     const stepUp = failureStepUpRequest(initial.failure);
     if (stepUp === null) {
-      yield* activity.error(messages.failure);
       return yield* Effect.fail(initial.failure);
     }
-    yield* activity.stop("Additional verification required");
 
     const registryUrl = yield* RegistryUrl;
     const authClient = yield* AuthClient;
@@ -67,20 +68,20 @@ export const runWithStepUp = <A, E, R>(
 
     const opened =
       nonInteractive || jsonMode ? false : yield* interaction.openBrowser(stepUp.verificationUrl);
-    yield* renderer.instruction(`Action: ${stepUp.action}`);
-    yield* renderer.instruction(`Target: ${stepUp.target}`);
-    yield* renderer.instruction(`Verify at: ${stepUp.verificationUrl}`);
-    yield* renderer.instruction(`Verification expires at: ${stepUp.expiresAt}`);
-    yield* renderer.instruction(
+    for (const instruction of [
+      `Action: ${stepUp.action}`,
+      `Target: ${stepUp.target}`,
+      `Verify at: ${stepUp.verificationUrl}`,
+      `Verification expires at: ${stepUp.expiresAt}`,
       opened
         ? "A browser was opened. This command will retry automatically after verification."
         : "Open the verification URL in a browser. This command will retry automatically after verification.",
-    );
-    yield* renderer.instruction(
       "If verification expires or is cancelled, rerun the command to restart.",
-    );
+    ]) {
+      yield* screen.note(paragraphDoc(instruction), { persistent: true });
+    }
 
-    yield* renderer.withSpinner(
+    yield* screen.task(
       messages.waiting,
       () =>
         authClient
@@ -88,7 +89,7 @@ export const runWithStepUp = <A, E, R>(
           .pipe(Effect.mapError(coerceAuthFailure)),
       { successMessage: messages.authorized },
     );
-    const value = yield* renderer.withSpinner(messages.initial, () => operation(stepUp.requestId), {
+    const value = yield* screen.task(messages.initial, () => operation(stepUp.requestId), {
       successMessage: messages.success,
     });
     return { value, stepUpCompleted: true };

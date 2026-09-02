@@ -23,7 +23,7 @@ import {
 } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { requireInteractive } from "../../prompt/index.js";
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen, headlineDoc, paragraphDoc, successDoc } from "../../screen/index.js";
 import { isNonInteractive, jsonFlag, yesFlag } from "../../cli-flags/index.js";
 import { setCommandSemanticProperties, withArgvTracking } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -113,7 +113,6 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
   ) {
     const credStore = yield* CredentialStore;
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     const registryUrl = yield* RegistryUrl;
     const registryHost = new URL(registryUrl).host;
     const json = yield* jsonFlag;
@@ -162,7 +161,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
     const existing = yield* credStore.load(registryUrl);
     if (Option.isSome(existing)) {
       const authClient = yield* AuthClient;
-      const meResult = yield* renderer.withSpinner(
+      const meResult = yield* screen.task(
         `Checking registry session on ${registryHost}`,
         () => authClient.getMe(existing.value.access_token).pipe(Effect.option),
         { successMessage: `Checked registry session on ${registryHost}` },
@@ -176,7 +175,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
         };
         if (!options.yes && jsonMode) {
           if (
-            yield* renderer.result({ result: noOpResult }, LoginNoOpDocumentSchema, {
+            yield* screen.document({ result: noOpResult }, LoginNoOpDocumentSchema, {
               suggestions: LoginNoOpSuggestions,
             })
           ) {
@@ -186,18 +185,19 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
 
         if (nonInteractive) {
           if (!jsonMode) {
-            yield* renderer.success(
-              `Already logged in to ${registryHost} as ${noOpResult.handle}.`,
-              {
+            yield* screen.result(
+              successDoc(`Already logged in to ${registryHost} as ${noOpResult.handle}.`, {
                 suggestions: LoginNoOpSuggestions,
-              },
+              }),
             );
           }
           return;
         }
 
         if (!jsonMode) {
-          yield* renderer.info(`Already logged in as ${meResult.value.userHandle}.`);
+          yield* screen.note(
+            headlineDoc("info", `Already logged in as ${meResult.value.userHandle}.`),
+          );
         }
         if (!options.yes) {
           const message = "Log in with a different account?";
@@ -205,23 +205,27 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
             confirmRelogin(message);
           if (!shouldContinue) {
             if (
-              yield* renderer.result({ result: noOpResult }, LoginNoOpDocumentSchema, {
+              yield* screen.document({ result: noOpResult }, LoginNoOpDocumentSchema, {
                 suggestions: LoginNoOpSuggestions,
               })
             ) {
               return;
             }
-            yield* renderer.success(
-              `Already logged in to ${registryHost} as ${noOpResult.handle}.`,
-              {
+            yield* screen.result(
+              successDoc(`Already logged in to ${registryHost} as ${noOpResult.handle}.`, {
                 suggestions: LoginNoOpSuggestions,
-              },
+              }),
             );
             return;
           }
         }
       } else if (!jsonMode) {
-        yield* renderer.info("Your saved credentials are no longer valid. Starting a new sign-in…");
+        yield* screen.note(
+          headlineDoc(
+            "info",
+            "Your saved credentials are no longer valid. Starting a new sign-in…",
+          ),
+        );
       }
     }
 
@@ -238,8 +242,11 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
 
     if (strategy === "device-code") {
       if (!options.deviceCode) {
-        yield* renderer.instruction(
-          "This environment appears to be remote or headless; using device-code sign-in.",
+        yield* screen.note(
+          paragraphDoc(
+            "This environment appears to be remote or headless; using device-code sign-in.",
+          ),
+          { persistent: true },
         );
       }
       if (nonInteractive) {
@@ -275,8 +282,11 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
       Effect.catchTag("LoopbackLoginFallback", (error) =>
         error.reason === "bind_failed"
           ? Effect.gen(function* () {
-              yield* renderer.instruction(
-                "Could not start a local callback server; using device-code sign-in instead.",
+              yield* screen.note(
+                paragraphDoc(
+                  "Could not start a local callback server; using device-code sign-in instead.",
+                ),
+                { persistent: true },
               );
               yield* performDeviceLogin(registryUrl, {
                 openBrowser: true,

@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import {
   AppError,
   ExitCode,
+  appErrorDoc,
   exitCodeFor,
   effectiveSuggestionsFor,
   collectSensitiveStrings,
@@ -11,11 +12,12 @@ import {
   redactSuggestedAction,
   renderAppError,
 } from "../app-error/index.js";
+import type { Doc } from "../screen/doc.js";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
-import { makeErrorEvent, makeSuggestionEvent } from "./output-mode.js";
+import { errorEvent, suggestionEvent } from "../screen/machine-events.js";
 import { InteractiveScreen, MachineScreen, Screen } from "../screen/index.js";
 
 const cliErrorMessage = (errors: ReadonlyArray<{ readonly message?: string }>): string =>
@@ -32,6 +34,7 @@ const cliErrorMessage = (errors: ReadonlyArray<{ readonly message?: string }>): 
 export interface ErrorClassification {
   readonly exitCode: number;
   readonly stderr?: ReadonlyArray<string>;
+  readonly stderrDoc?: Doc;
   readonly stdout?: string;
 }
 
@@ -56,16 +59,25 @@ export const renderAppErrorChannels = (
     verbose: false,
     debug: false,
   },
-): { readonly stderr: ReadonlyArray<string>; readonly stdout?: string } => {
-  if (format === "text") return { stderr: [renderAppError(error, options)] };
+): {
+  readonly stderr: ReadonlyArray<string>;
+  readonly stderrDoc?: Doc;
+  readonly stdout?: string;
+} => {
+  if (format === "text") {
+    return {
+      stderr: [renderAppError(error, options)],
+      stderrDoc: appErrorDoc(error, options),
+    };
+  }
 
   const secrets = collectSensitiveStrings(error.metadata);
   return {
     stderr: [
       ...effectiveSuggestionsFor(error).map((suggestion) =>
-        JSON.stringify(makeSuggestionEvent(redactSuggestedAction(suggestion, secrets))),
+        JSON.stringify(suggestionEvent(redactSuggestedAction(suggestion, secrets))),
       ),
-      JSON.stringify(makeErrorEvent(error.code, redactSensitiveText(error.detail, { secrets }))),
+      JSON.stringify(errorEvent(error.code, redactSensitiveText(error.detail, { secrets }))),
     ],
     stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, options), null, 2) + "\n",
   };
@@ -121,6 +133,7 @@ export const classifyError = (
         const message = redactSensitiveText(cliErrorMessage(error.errors));
         return {
           exitCode: ExitCode.Usage,
+          stderr: [JSON.stringify(errorEvent("usage", message))],
           stdout:
             JSON.stringify(
               makeJsonErrorEnvelope({
@@ -145,7 +158,7 @@ export const classifyError = (
       const message = redactSensitiveText(rawMessage);
       return {
         exitCode: ExitCode.Usage,
-        stderr: [JSON.stringify(makeErrorEvent("usage", message))],
+        stderr: [JSON.stringify(errorEvent("usage", message))],
         stdout:
           JSON.stringify(
             makeJsonErrorEnvelope({
@@ -181,11 +194,15 @@ export const classifyError = (
  * and exits.
  */
 export const handleError = (error: unknown, format: OutputFormat) => {
-  const { exitCode, stderr, stdout } = classifyError(error, format);
+  const { exitCode, stderr, stderrDoc, stdout } = classifyError(error, format);
   const output = Effect.gen(function* () {
     const screen = yield* Screen;
-    for (const line of stderr ?? []) {
-      yield* screen.note([{ _tag: "raw", content: line.endsWith("\n") ? line : `${line}\n` }]);
+    if (stderrDoc !== undefined) {
+      yield* screen.note(stderrDoc);
+    } else {
+      for (const line of stderr ?? []) {
+        yield* screen.note([{ _tag: "raw", content: line.endsWith("\n") ? line : `${line}\n` }]);
+      }
     }
     if (stdout !== undefined) yield* screen.result([{ _tag: "raw", content: stdout }]);
     yield* screen.settle;

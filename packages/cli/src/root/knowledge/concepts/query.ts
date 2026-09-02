@@ -4,7 +4,7 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../../app-error/index.js";
-import { Screen, makeScreenOutput, type TableView } from "../../../screen/index.js";
+import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   KNOWLEDGE_LIFECYCLE_FILTER_FIELDS,
@@ -264,9 +264,8 @@ export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")
   }
 
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const index = yield* KnowledgeIndex;
-  const captured = yield* renderer.withSpinner(
+  const captured = yield* screen.task(
     "Querying installed knowledge",
     () => captureInstalledKnowledgeIndex(),
     { successMessage: "Queried installed knowledge" },
@@ -305,7 +304,7 @@ export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")
         }
       : {}),
   };
-  if (yield* renderer.result(output, KnowledgeConceptQueryPageSchema)) return;
+  if (yield* screen.document(output, KnowledgeConceptQueryPageSchema)) return;
   const rows = page.items.map(({ ref, title, matchedFields }) => ({
     bundle: sanitizeKnowledgeTerminalText(ref.bundle),
     concept: sanitizeKnowledgeTerminalText(ref.conceptId),
@@ -313,13 +312,15 @@ export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")
     matched: matchedFields.join(", ") || "—",
   }));
   if (rows.length === 0) {
-    yield* renderer.info("No installed knowledge concepts matched the query");
+    yield* screen.note(headlineDoc("info", "No installed knowledge concepts matched the query"));
     return;
   }
-  yield* renderer.table(
-    rows,
-    ConceptTable,
-    `${rows.length} concept result${rows.length === 1 ? "" : "s"}`,
+  yield* screen.result(
+    tableViewDoc(
+      rows,
+      ConceptTable,
+      `${rows.length} concept result${rows.length === 1 ? "" : "s"}`,
+    ),
   );
 });
 

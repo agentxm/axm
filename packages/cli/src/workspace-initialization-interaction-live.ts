@@ -14,7 +14,7 @@ import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import { autocompleteMultiselect, requireInteractive } from "./prompt/index.js";
-import { Screen, makeScreenOutput } from "./screen/index.js";
+import { Screen } from "./screen/index.js";
 import type { AppError } from "./app-error/index.js";
 import {
   WorkspaceConfigurationFailed,
@@ -22,6 +22,7 @@ import {
   WorkspaceInitializationInteraction,
   type WorkspaceInitializationInteractionService,
 } from "@agentxm/workspace-configuration";
+import { setupAgentScanDoc, setupPlanDoc, setupScopeSupportDoc } from "./root/setup/view.js";
 
 const selectAgentsMessage = "Select agents to configure";
 const confirmInstructionSyncMessage =
@@ -30,8 +31,6 @@ const selectInstructionSourceMessage =
   "Choose the source file for shared instructions\n  AXM will sync its contents to the selected agents' instruction files.";
 const customInstructionSourceMessage = "Source instructions file name";
 const confirmSetupPlanMessage = "Proceed?";
-
-const SETUP_PHASES = "Detect · Agents · Instructions · Review";
 
 const CUSTOM_SOURCE_FILE = "__custom__";
 
@@ -64,7 +63,6 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
   WorkspaceInitializationInteraction,
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const terminal = yield* Terminal.Terminal;
@@ -136,7 +134,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
           ),
       selectInstructionSource: ({ defaultFileName, choices }) =>
         Effect.gen(function* () {
-          yield* Effect.ignore(terminal.display("\n"));
+          yield* screen.note([{ _tag: "blank" }]);
           const selected = yield* screen.prompt(
             requireInteractive(
               Prompt.select({
@@ -167,7 +165,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
             ).pipe(Effect.provide(promptEnvironment)),
           );
           if (selected !== CUSTOM_SOURCE_FILE) return selected;
-          yield* Effect.ignore(terminal.display("\n"));
+          yield* screen.note([{ _tag: "blank" }]);
           return yield* screen.prompt(
             requireInteractive(Prompt.text({ message: customInstructionSourceMessage }), {
               message: customInstructionSourceMessage,
@@ -192,37 +190,10 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
             Effect.catchTag("PromptCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),
-      presentAgentScan: (scan) =>
-        Effect.gen(function* () {
-          yield* renderer.info(
-            `Scanned this repo and your machine - found ${String(scan.detectedCount)} agents.`,
-          );
-          for (const agent of scan.retiredAgents) {
-            yield* renderer.warn(
-              `${agent.name} is retired and was not selected automatically. To opt in, run \`axm setup --agent ${agent.id}\`.`,
-            );
-          }
-          yield* renderer.info(SETUP_PHASES);
-        }),
-      presentSetupPlan: (rows) =>
-        Effect.gen(function* () {
-          yield* renderer.info(`Plan ·Review·`);
-          for (const row of rows) {
-            yield* renderer.info(`  ${row.target}  ${row.action}  ${row.detail}`);
-          }
-        }),
+      presentAgentScan: (scan) => screen.note(setupAgentScanDoc(scan)),
+      presentSetupPlan: (rows) => screen.note(setupPlanDoc(rows)),
       presentScopeSupport: (scope, categories) =>
-        Effect.gen(function* () {
-          yield* renderer.info(`Scope support · ${scope}`);
-          for (const category of categories) {
-            for (const outcome of category.outcomes) {
-              const target = outcome.agentName ?? category.placement;
-              yield* renderer.info(
-                `  ${category.label}  ${outcome.status}  ${target} [${outcome.reasonCode}]: ${outcome.reason}`,
-              );
-            }
-          }
-        }),
+        screen.note(setupScopeSupportDoc(scope, categories)),
     } satisfies WorkspaceInitializationInteractionService;
   }),
 );

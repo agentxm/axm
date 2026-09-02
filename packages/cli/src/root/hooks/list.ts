@@ -16,7 +16,7 @@ import {
   inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
-} from "../extension-inventory.js";
+} from "../inventory-view.js";
 import { HookManager } from "@agentxm/extension-workspace";
 
 interface HookListItem {

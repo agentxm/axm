@@ -5,7 +5,7 @@ import { detectAgentsForScope } from "@agentxm/agent-integration";
 import { makeAppError } from "../../app-error/index.js";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen, headlineDoc } from "../../screen/index.js";
 import {
   previewOrApplyPlan,
   deriveOperationOutcome,
@@ -190,7 +190,6 @@ export const handleAgentsAdd = (args: AgentsAddArgs) =>
 
 const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddArgs) {
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const ws = yield* WorkspaceMutations;
 
   if (args.ids.length === 0 && !args.detected) {
@@ -210,7 +209,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   const configured = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const configuredSet = new Set(configured);
   const detected = args.detected
-    ? yield* renderer.withSpinner(
+    ? yield* screen.task(
         "Detecting coding agents",
         () =>
           detectAgentsForScope(ws.baseDir, ws.scope).pipe(
@@ -230,8 +229,11 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     (id) => !isRetiredAgent(id) || requestedSet.has(id),
   );
   for (const agentId of retiredDetected) {
-    yield* renderer.warn(
-      `${lifecycleWarning(agentId) ?? `${agentId} is retired.`} It was not added automatically; run \`axm agents add ${agentId}\` to opt in.`,
+    yield* screen.note(
+      headlineDoc(
+        "warn",
+        `${lifecycleWarning(agentId) ?? `${agentId} is retired.`} It was not added automatically; run \`axm agents add ${agentId}\` to opt in.`,
+      ),
     );
   }
   const agentIds = dedupe([...requested, ...autoDetected]).filter((id) => !configuredSet.has(id));
@@ -262,9 +264,9 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     const warning = lifecycleWarning(agentId);
     return warning === undefined ? [] : [`${agentId}: ${warning}`];
   });
-  for (const warning of lifecycleWarnings) yield* renderer.warn(warning);
+  for (const warning of lifecycleWarnings) yield* screen.note(headlineDoc("warn", warning));
 
-  const materialize = yield* renderer.withSpinner(
+  const materialize = yield* screen.task(
     "Resolving installed extension materialization",
     () =>
       collectMaterializeSteps({

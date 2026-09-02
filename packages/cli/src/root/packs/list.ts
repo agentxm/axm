@@ -18,7 +18,7 @@ import {
   inventoryState,
   inventoryAgentOutcomes,
   inventorySummary,
-} from "../extension-inventory.js";
+} from "../inventory-view.js";
 
 interface PackListItem {
   readonly name: string;

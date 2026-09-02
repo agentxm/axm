@@ -7,16 +7,15 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { LifecycleResolutionProgress } from "@agentxm/extension-lifecycle";
-import { Screen, makeScreenOutput } from "./screen/index.js";
+import { Screen } from "./screen/index.js";
 
 export const LifecycleResolutionProgressLive = Layer.effect(
   LifecycleResolutionProgress,
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     return {
       withSourceResolution: (effect) =>
-        renderer.withSpinner("Resolving extension sources", () => effect, {
+        screen.task("Resolving extension sources", () => effect, {
           successMessage: "Resolved extension sources",
         }),
     };

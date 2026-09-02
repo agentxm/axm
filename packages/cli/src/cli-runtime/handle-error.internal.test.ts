@@ -1,4 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
+import * as Cause from "effect/Cause";
+import * as Effect from "effect/Effect";
 import { CliError } from "effect/unstable/cli";
 import { classifyError } from "./handle-error.js";
 import { handleError } from "./handle-error.js";
@@ -70,7 +72,11 @@ describe("classifyError — ShowHelp", () => {
     const result = classifyError(showHelp, "json");
 
     expect(result.exitCode).toBe(ExitCode.Usage);
-    expect(result.stderr).toBeUndefined();
+    expect(stderrEvents(result.stderr)).toContainEqual({
+      type: "error",
+      code: "usage",
+      message: "Missing required flag: --name",
+    });
     const parsed: unknown = JSON.parse(result.stdout ?? "");
     expect(parsed).toMatchObject({
       ok: false,
@@ -217,9 +223,9 @@ describe("classifyError — AppError", () => {
     expect(result.stderr).toHaveLength(1);
     const content = result.stderr?.[0] ?? "";
     expect(content).toContain("already exists in settings");
-    // Suggestions render once, via renderAppError's "Next:" block.
-    expect(content).toContain("Next:");
-    expect(content.split("Next:").length - 1).toBe(1);
+    // Suggestions render once, via the error Doc's Next block.
+    expect(content).toContain("Next");
+    expect(content.split("Next").length - 1).toBe(1);
   });
 
   it.each([
@@ -267,7 +273,7 @@ describe("classifyError — generic errors", () => {
 
     expect(result.exitCode).toBe(ExitCode.Internal);
     expect(result.stdout).toBeUndefined();
-    expect(result.stderr?.[0]).toContain("✖  boom (internal)");
+    expect(result.stderr?.[0]).toContain("✖ boom (internal)");
     expect(result.stderr?.[0]).toContain("Run with `--debug` to see error details.");
     expect(result.stderr?.[0]).not.toContain("✗");
   });
@@ -330,18 +336,20 @@ describe("handleError — integration", () => {
     vi.restoreAllMocks();
   });
 
-  it("calls process.exit with the classified exit code", async () => {
-    try {
-      await handleError(new Error("boom"), "text");
-    } catch (e) {
-      if (e instanceof ExitCalled) {
-        expect(e.code).toBe(ExitCode.Internal);
-        return;
+  it.effect("calls process.exit with the classified exit code", () =>
+    Effect.gen(function* () {
+      const failure = yield* handleError(new Error("boom"), "text").pipe(
+        Effect.matchCause({
+          onFailure: Cause.squash,
+          onSuccess: () => undefined,
+        }),
+      );
+      if (!(failure instanceof ExitCalled)) {
+        return yield* Effect.die(new Error("handleError did not call process.exit"));
       }
-      throw e;
-    }
-    throw new Error("handleError did not call process.exit");
-  });
+      expect(failure.code).toBe(ExitCode.Internal);
+    }),
+  );
 });
 
 describe("classifyError — extension-sources typed failures", () => {

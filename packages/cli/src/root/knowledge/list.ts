@@ -18,7 +18,7 @@ import {
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";
 import { inspectInstalledKnowledge } from "./inspect.js";
-import { inventoryAgentOutcomes } from "../extension-inventory.js";
+import { inventoryAgentOutcomes } from "../inventory-view.js";
 
 const BundleSchema = Schema.Struct({
   name: Schema.String,

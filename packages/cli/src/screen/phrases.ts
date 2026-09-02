@@ -139,6 +139,172 @@ export const blockingClass = (value: BlockingClass): string => {
   }
 };
 
+export const blockingHeadline = (value: BlockingClass): string => {
+  switch (value) {
+    case "approval-required":
+      return "Approval required";
+    case "override-required":
+      return "Override required";
+    case "precondition-unmet":
+      return "Precondition not met";
+    case "dependency-failed":
+      return "Dependency failed";
+    case "dependency-cycle":
+      return "Dependency cycle";
+    case "stale-candidate":
+      return "Operation changed while waiting";
+    case "policy-excluded":
+      return "Excluded by policy";
+    case "resource-conflict":
+      return "Workspace is busy";
+    case "external-blocked":
+      return "External service blocked the operation";
+    case "operation-aborted":
+      return "Operation stopped";
+    default:
+      return unreachable(value);
+  }
+};
+
+export const interruptionPhrase = (
+  signal: "SIGINT" | "SIGTERM",
+  disposition: "none" | UnitDisposition,
+): string => {
+  const prefix = signal === "SIGINT" ? "Interrupted" : "Terminated";
+  switch (disposition) {
+    case "restored":
+      return `${prefix} — changes rolled back`;
+    case "retained":
+      return `${prefix} — partial work retained`;
+    case "untouched":
+    case "none":
+      return `${prefix} — no changes applied`;
+    case "unknown":
+      return `${prefix} — settlement unknown`;
+    default:
+      return unreachable(disposition);
+  }
+};
+
+export type PublishParticipation = "publish" | "verified-existing";
+
+export const publishParticipation = (value: PublishParticipation): string => {
+  switch (value) {
+    case "publish":
+      return "will publish";
+    case "verified-existing":
+      return "already published and verified";
+    default:
+      return unreachable(value);
+  }
+};
+
+export type PublishDisposition =
+  "included" | "excluded" | "unmanaged" | "not-authored" | "not-publishable" | "unmatched";
+
+export const publishDisposition = (value: PublishDisposition): string => {
+  switch (value) {
+    case "included":
+      return "included";
+    case "excluded":
+      return "excluded by selection";
+    case "unmanaged":
+      return "not managed by this workspace";
+    case "not-authored":
+      return "not authored here";
+    case "not-publishable":
+      return "not publishable";
+    case "unmatched":
+      return "did not match";
+    default:
+      return unreachable(value);
+  }
+};
+
+export type PublishReason =
+  | "selected"
+  | "excluded"
+  | "unmanaged"
+  | "unmatched_selector"
+  | "version_already_published"
+  | "not_authored"
+  | "not_publishable"
+  | "invalid_workspace_source"
+  | "authorization_failed"
+  | "authoritative_preflight_failed"
+  | "dependency_unavailable"
+  | "candidate_invalid"
+  | "stale_material"
+  | "publish_precondition_changed"
+  | "upload_failed"
+  | "integrity_conflict"
+  | "settlement_unresolved"
+  | "authorization_expired"
+  | "blocked_by_dependency"
+  | "interrupted"
+  | "version_exists"
+  | "integrity_drift"
+  | "verify_failed"
+  | "blocked_by_preflight"
+  | "source_state_not_accepted";
+
+export const publishReason = (value: PublishReason): string => {
+  switch (value) {
+    case "selected":
+      return "selected";
+    case "excluded":
+      return "excluded";
+    case "unmanaged":
+      return "not managed by this workspace";
+    case "unmatched_selector":
+      return "selector did not match";
+    case "version_already_published":
+      return "version already published";
+    case "not_authored":
+      return "not authored here";
+    case "not_publishable":
+      return "not publishable";
+    case "invalid_workspace_source":
+      return "workspace source is invalid";
+    case "authorization_failed":
+      return "authorization failed";
+    case "authoritative_preflight_failed":
+      return "authoritative preflight failed";
+    case "dependency_unavailable":
+      return "dependency unavailable";
+    case "candidate_invalid":
+      return "candidate is invalid";
+    case "stale_material":
+      return "source material changed";
+    case "publish_precondition_changed":
+      return "publish precondition changed";
+    case "upload_failed":
+      return "upload failed";
+    case "integrity_conflict":
+      return "published content has different integrity";
+    case "settlement_unresolved":
+      return "registry settlement could not be verified";
+    case "authorization_expired":
+      return "authorization expired";
+    case "blocked_by_dependency":
+      return "blocked by a dependency";
+    case "interrupted":
+      return "interrupted";
+    case "version_exists":
+      return "version already exists";
+    case "integrity_drift":
+      return "published integrity differs";
+    case "verify_failed":
+      return "verification failed";
+    case "blocked_by_preflight":
+      return "blocked by preflight";
+    case "source_state_not_accepted":
+      return "source state was not accepted";
+    default:
+      return unreachable(value);
+  }
+};
+
 export const artifactChange = (value: ArtifactChange): string => {
   switch (value) {
     case "created":

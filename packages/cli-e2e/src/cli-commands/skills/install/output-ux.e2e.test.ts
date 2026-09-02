@@ -33,7 +33,7 @@ describe("axm skills install output UX", () => {
 
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
-      expect(output).toContain("Agent coverage: none");
+      expect(output).toContain("Agents: none");
       expect(output).toContain("No coding-agent targets were materialized");
       expect(output).toContain("axm agents add --detected");
     } finally {
@@ -77,7 +77,7 @@ describe("axm skills install output UX", () => {
       expect(output).toContain(headline);
       expect(output).toContain(unitRow);
       expect(output.indexOf(headline)).toBeLessThan(output.indexOf(unitRow));
-      expect(output).toContain("Agent coverage: antigravity, amp, claude-code");
+      expect(output).toContain("Agents: antigravity, amp, claude-code");
       expect(output).not.toContain("skill(s)");
     } finally {
       temp.cleanup();
@@ -262,7 +262,7 @@ describe("axm skills install output UX", () => {
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
       expect(output).toContain("Already up to date — 1 skill");
-      expect(output).toContain("my-skill   unchanged   1 file");
+      expect(output).toContain("1 skill already current");
     } finally {
       temp.cleanup();
     }

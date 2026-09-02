@@ -2,8 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { SourceTypeSchema } from "@agentxm/extension-model/unstable/sources/types";
 
-import { Screen, makeScreenOutput, count, type ScreenOutput } from "../../screen/index.js";
-import { Verbosity } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import {
   SuggestedActionSchema,
   type SuggestedAction,
@@ -20,17 +19,14 @@ import {
   PlanRiskConditionSchema,
 } from "@agentxm/workspace-operations";
 import { AppErrorCodeSchema } from "../../app-error/index.js";
-import {
-  PublishVisibilitySchema,
-  type PublishVisibility,
-} from "@agentxm/registry-protocol/unstable/publish";
+import { PublishVisibilitySchema } from "@agentxm/registry-protocol/unstable/publish";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   HandleSchema,
-  formatFqn,
 } from "@agentxm/extension-model/unstable/extensions";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
+import { publishBrowserSuggestions, renderHumanPublishResult } from "./view.js";
 
 const PublishActionSchema = Schema.Literals(["publish", "skip", "error"] as const).annotate({
   identifier: "PublishAction",
@@ -437,308 +433,6 @@ const normalizePublishResult = (result: PublishResultInput): PublishResult => {
   };
 };
 
-const publishIdentity = (item: PublishResultItem): string => {
-  const fqn = formatFqn({ owner: item.owner, type: item.type, name: item.name });
-  return item.version === undefined ? fqn : `${fqn}@${item.version}`;
-};
-
-const publishBrowserSuggestions = (result: PublishResult): ReadonlyArray<SuggestedAction> =>
-  result.execution.outcomes.flatMap((item) =>
-    item.links === undefined ? [] : [{ description: "View in browser", url: item.links.html }],
-  );
-
-const publishVisibilityLine = (visibility: PublishVisibility): string =>
-  `visibility: ${visibility.value} (${visibility.disposition}, ${visibility.source})`;
-
-const publishItemLine = (item: PublishResultItem): string => {
-  const identity = publishIdentity(item);
-  const withVisibility =
-    item.visibility === undefined
-      ? identity
-      : `${identity} — ${publishVisibilityLine(item.visibility)}`;
-  return item.links === undefined ? withVisibility : `${withVisibility}\n${item.links.html}`;
-};
-
-const publishOutcomeLine = (item: PublishResultItem): string =>
-  `${publishItemLine(item)} — ${item.status ?? "unknown"}/${item.phase}${
-    item.reason === undefined ? "" : `/${item.reason}`
-  }${
-    item.cause?.retryable === true
-      ? ` (retryable; attempts exhausted${
-          item.cause.attemptCount === undefined || item.cause.maxAttempts === undefined
-            ? ""
-            : `: ${item.cause.attemptCount}/${item.cause.maxAttempts}`
-        })`
-      : item.cause === undefined
-        ? ""
-        : " (terminal)"
-  }${item.message === undefined ? "" : `: ${item.message}`}`;
-
-const renderHumanPublishResult = (
-  renderer: ScreenOutput,
-  result: PublishResult,
-  options: {
-    readonly suggestions: ReadonlyArray<SuggestedAction>;
-    readonly withoutSuggestions?: boolean;
-  },
-) =>
-  Effect.gen(function* () {
-    const verbosity = yield* Verbosity;
-    if (verbosity.level === "quiet") return;
-
-    for (const precondition of result.execution.preconditions ?? []) {
-      if (precondition.status === "unmet") {
-        yield* renderer.warn(
-          `${precondition.label}: ${precondition.detail ?? "Required before apply"}`,
-        );
-      }
-    }
-
-    const omittedDecisions = result.selection.decisions.filter(
-      (decision) => decision.disposition !== "included",
-    );
-    if (omittedDecisions.length > 0) {
-      yield* renderer.info(
-        `Selection decisions (${result.selection.counts.included} included; ${omittedDecisions.length} not included)\n${omittedDecisions
-          .map(
-            (decision) =>
-              `${decision.id} — ${decision.disposition}/${decision.reason}${
-                decision.referencedBy.length === 0
-                  ? ""
-                  : `; referenced by ${decision.referencedBy.join(", ")}`
-              }`,
-          )
-          .join("\n")}`,
-      );
-    }
-    if (result.publicationSet.items.length > 0) {
-      yield* renderer.info(
-        `Authoritative publication set (${result.publicationSet.status})\n${result.publicationSet.items
-          .map(
-            (item) =>
-              `${item.id}@${item.version} — ${item.participation}; dependency order ${item.dependencyOrder}`,
-          )
-          .join("\n")}`,
-      );
-    }
-
-    for (const finding of result.execution.outcomes.flatMap((item) => item.findings ?? [])) {
-      yield* renderer.warn(
-        finding.ruleId === "publish/required-pack-version-unreachable"
-          ? `Required pack compatibility review: ${finding.message}`
-          : finding.message,
-      );
-    }
-    for (const item of result.execution.outcomes) {
-      const source = item.sourceState;
-      if (source === undefined) continue;
-      const revision = source.revision === undefined ? "no HEAD" : source.revision.slice(0, 12);
-      const message =
-        source.status === "matches-head"
-          ? `Source ${publishIdentity(item)} matches Git HEAD ${revision} at ${source.directory}`
-          : `Source ${publishIdentity(item)} is not represented by Git HEAD (${revision}); ${source.differenceCount} archive ${source.differenceCount === 1 ? "path differs" : "paths differ"}`;
-      if (source.status === "matches-head") yield* renderer.info(message);
-      else yield* renderer.warn(message);
-      if (verbosity.level === "verbose" && source.differences.length > 0) {
-        yield* renderer.info(
-          source.differences.map(({ path, change }) => `${change} ${path}`).join("\n"),
-        );
-      }
-    }
-    for (const item of result.execution.outcomes) {
-      if (item.archive === undefined) continue;
-      yield* renderer.info(
-        `Archive ${publishIdentity(item)} — ${item.archive.includedCount} included, ${item.archive.excludedCount} excluded, ${item.archive.uncompressedBytes} source bytes, ${item.archive.zipBytes} ZIP bytes`,
-      );
-      for (const warning of item.archive.warnings) yield* renderer.warn(warning);
-      if (verbosity.level === "verbose") {
-        const inventory = [
-          ...item.archive.included.map((file) => `include ${file.path} (${file.size} bytes)`),
-          ...item.archive.excluded.map(
-            (file) =>
-              `exclude ${file.path} (${file.size} bytes) — ${file.matchedPatterns.join(", ")}`,
-          ),
-        ];
-        if (inventory.length > 0) yield* renderer.info(inventory.join("\n"));
-      }
-    }
-    for (const finding of result.publicationSet.findings) {
-      if (finding.severity === "error") yield* renderer.error(finding.message);
-      else yield* renderer.warn(finding.message);
-    }
-
-    const published = result.execution.outcomes.filter(
-      (item) => item.action === "publish" && item.status === "success",
-    );
-    const publishable = result.execution.outcomes.filter((item) => item.action === "publish");
-    const verifiedExisting = result.execution.outcomes.filter(
-      (item) => item.action === "skip" && item.reason === "version_already_published",
-    );
-    const skipped = result.execution.outcomes.filter(
-      (item) => item.action === "skip" && item.reason !== "version_already_published",
-    );
-    const blocked = result.execution.outcomes.filter((item) => item.status === "blocked");
-    const failed = result.execution.outcomes.filter((item) => item.status === "failed");
-    const suggestions =
-      options.suggestions.length === 0
-        ? undefined
-        : {
-            suggestions: options.suggestions,
-            ...(options.withoutSuggestions === undefined
-              ? {}
-              : { withoutSuggestions: options.withoutSuggestions }),
-          };
-
-    if (result.execution.outcomes.length === 0) {
-      yield* renderer.success("No extensions selected for publishing", suggestions);
-      return;
-    }
-
-    if (result.execution.failure !== undefined) {
-      yield* renderer.error(`Publish failed: ${result.execution.failure.message}`, suggestions);
-      if (blocked.length > 0) {
-        yield* renderer.warn(
-          `${count(blocked.length, "extension")} not attempted\n${blocked
-            .map(publishOutcomeLine)
-            .join("\n")}`,
-        );
-      }
-      return;
-    }
-
-    if (result.mode === "preview") {
-      const previewItems = publishable.filter(
-        (item) => item.status !== "failed" && item.status !== "blocked",
-      );
-      if (previewItems.length > 0) {
-        const [previewItem] = previewItems;
-        const headline =
-          previewItem !== undefined && previewItems.length === 1
-            ? `Would publish ${publishItemLine(previewItem)}`
-            : `Would publish ${count(previewItems.length, "extension")}`;
-        const summary =
-          previewItems.length <= 1
-            ? undefined
-            : previewItems.map((item) => publishItemLine(item)).join("\n");
-        const previewOptions = {
-          ...(summary === undefined ? {} : { summary }),
-          ...(suggestions ?? {}),
-        };
-        yield* renderer.success(headline, previewOptions);
-      } else if (verifiedExisting.length > 0 && failed.length === 0 && blocked.length === 0) {
-        yield* renderer.success(
-          `All ${verifiedExisting.length} selected versions are already published and integrity-verified`,
-          {
-            summary: verifiedExisting.map((item) => publishItemLine(item)).join("\n"),
-            ...(suggestions ?? {}),
-          },
-        );
-      }
-      if (
-        verifiedExisting.length > 0 &&
-        (previewItems.length > 0 || failed.length > 0 || blocked.length > 0)
-      ) {
-        yield* renderer.info(
-          `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
-            .map((item) => publishItemLine(item))
-            .join("\n")}`,
-        );
-      }
-      if (failed.length > 0) {
-        yield* renderer.error(`${count(failed.length, "extension")} failed preflight`);
-      }
-      if (blocked.length > 0) {
-        yield* renderer.warn(`${count(blocked.length, "extension")} not attempted`);
-      }
-      return;
-    }
-
-    if (published.length > 0 && failed.length === 0) {
-      const [publishedItem] = published;
-      const headline =
-        publishedItem !== undefined && published.length === 1
-          ? `Published ${publishItemLine(publishedItem)}`
-          : `Published ${count(published.length, "extension")}`;
-      const summary =
-        published.length <= 1
-          ? undefined
-          : published.map((item) => publishItemLine(item)).join("\n");
-      yield* renderer.success(headline, {
-        ...(summary === undefined ? {} : { summary }),
-        ...(suggestions ?? {}),
-      });
-      if (verifiedExisting.length > 0) {
-        yield* renderer.info(
-          `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
-            .map((item) => publishItemLine(item))
-            .join("\n")}`,
-        );
-      }
-      return;
-    }
-
-    if (published.length > 0) {
-      const headline = `Published ${count(published.length, "extension")}; ${count(failed.length, "extension")} failed; ${count(blocked.length, "extension")} not attempted`;
-      yield* renderer.error(headline, suggestions);
-      yield* renderer.info(
-        [
-          ...published.map((item) => publishItemLine(item)),
-          ...failed.map(publishOutcomeLine),
-          ...blocked.map(publishOutcomeLine),
-        ].join("\n"),
-      );
-      if (verifiedExisting.length > 0) {
-        yield* renderer.info(
-          `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
-            .map((item) => publishItemLine(item))
-            .join("\n")}`,
-        );
-      }
-      return;
-    }
-
-    if (failed.length > 0) {
-      const [failedItem] = failed;
-      const failureLabel = failed.some((item) => item.phase === "upload_execution")
-        ? "Publish failed"
-        : "Publish preflight failed";
-      const headline =
-        failedItem !== undefined && failed.length === 1
-          ? `${failureLabel} for ${publishIdentity(failedItem)}`
-          : `${failureLabel} for ${count(failed.length, "extension")}`;
-      yield* renderer.error(headline, suggestions);
-      yield* renderer.info(failed.map(publishOutcomeLine).join("\n"));
-      if (verifiedExisting.length > 0) {
-        yield* renderer.info(
-          `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
-            .map((item) => publishItemLine(item))
-            .join("\n")}`,
-        );
-      }
-      if (blocked.length > 0) {
-        yield* renderer.warn(
-          `${count(blocked.length, "extension")} ready but not attempted\n${blocked
-            .map(publishOutcomeLine)
-            .join("\n")}`,
-        );
-      }
-      return;
-    }
-
-    const [verifiedItem] = verifiedExisting;
-    const headline =
-      verifiedItem !== undefined && verifiedExisting.length === 1 && skipped.length === 0
-        ? `Already published and integrity-verified — ${publishItemLine(verifiedItem)}`
-        : verifiedExisting.length > 0
-          ? `All ${verifiedExisting.length} selected versions are already published and integrity-verified`
-          : `No extensions published — ${count(skipped.length, "extension")} skipped`;
-    yield* renderer.success(headline, {
-      ...(verifiedExisting.length > 1
-        ? { summary: verifiedExisting.map((item) => publishItemLine(item)).join("\n") }
-        : {}),
-      ...(suggestions ?? {}),
-    });
-  });
 export const emitPublishResult = <TCommand extends string>(
   command: TCommand,
   input: PublishResultInput,
@@ -751,7 +445,6 @@ export const emitPublishResult = <TCommand extends string>(
   Effect.gen(function* () {
     const result = normalizePublishResult(input);
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     const browserSuggestions = publishBrowserSuggestions(result);
     const findingSuggestions = result.execution.outcomes.flatMap((item) =>
       (item.findings ?? []).flatMap((finding) => finding.suggestions),
@@ -781,9 +474,9 @@ export const emitPublishResult = <TCommand extends string>(
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(summary),
     });
-    const emitted = yield* renderer.result(result, PublishResultSchema, renderOptions);
+    const emitted = yield* screen.document(result, PublishResultSchema, renderOptions);
     if (!emitted) {
-      yield* renderHumanPublishResult(renderer, result, {
+      yield* renderHumanPublishResult(screen, result, {
         suggestions,
         ...(options?.withoutSuggestions === undefined
           ? {}

@@ -75,7 +75,8 @@ describe("axm knowledge lifecycle", () => {
         cwd: temp.path,
       });
       expect(escaping.exitCode).toBe(1);
-      expect(escaping.stdout + escaping.stderr).toContain("escapes the Knowledge bundle");
+      expect(escaping.stdout + escaping.stderr).toContain("resource escapes the Knowledge");
+      expect(escaping.stdout + escaping.stderr).toContain("bundle.");
 
       const help = await runCli(["help", "knowledge"], { cwd: temp.path });
       expect(help.exitCode).toBe(0);
@@ -120,8 +121,9 @@ describe("axm knowledge lifecycle", () => {
       });
       expect(directHuman.exitCode).toBe(1);
       expect(directHuman.stdout + directHuman.stderr).toContain(
-        "platform/architecture.md:3:14: Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
+        "platform/architecture.md:3:14: Invalid YAML frontmatter: Nested mappings are",
       );
+      expect(directHuman.stdout + directHuman.stderr).toContain("not allowed in compact mappings");
 
       const directJson = await runCli(["knowledge", "lint", "--path", installedRoot, "--json"], {
         cwd: temp.path,

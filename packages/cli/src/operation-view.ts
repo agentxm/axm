@@ -23,6 +23,7 @@ import {
   blockingClass,
   count,
   disposition,
+  interruptionPhrase,
   outcomeHeadline,
   unitState,
   unitStateChange,
@@ -158,13 +159,13 @@ export const operationDoc = (
       : outcome === "failed" && counts.rolledBack > 0
         ? `${outcomeHeadline(presentation, outcome, counts)} — all changes rolled back`
         : outcome === "interrupted" && resolution.interruption !== undefined
-          ? `Interrupted — ${resolution.interruption.disposition === "restored" ? "changes rolled back" : resolution.interruption.disposition === "retained" ? "partial work retained" : "no settled result"}`
+          ? interruptionPhrase(resolution.interruption.signal, resolution.interruption.disposition)
           : outcomeHeadline(presentation, outcome, counts));
   const detailed = options.verbosity === "verbose" || options.verbosity === "debug";
   const visible = resolution.units.filter(
     (unit) => detailed || (unit.state !== "unchanged" && unit.state !== "skipped"),
   );
-  const agents = agentCoverage(resolution.units);
+  const coverage = resolutionAgentCoverage(resolution);
   const next = [...(options.suggestions ?? []), ...(resolution.recovery?.actions ?? [])];
 
   return [
@@ -182,7 +183,7 @@ export const operationDoc = (
             _tag: "collapsed",
             change: "unchanged",
             count: counts.unchanged,
-            noun: `${presentation.subject.plural} already current`,
+            noun: `${counts.unchanged === 1 ? presentation.subject.singular : presentation.subject.plural} already current`,
             hint: "--verbose to list",
           } as const,
         ]
@@ -193,15 +194,36 @@ export const operationDoc = (
             _tag: "collapsed",
             change: "unchanged",
             count: counts.skipped,
-            noun: `${presentation.subject.plural} not selected`,
+            noun: `${counts.skipped === 1 ? presentation.subject.singular : presentation.subject.plural} not selected`,
             hint: "--verbose to list",
           } as const,
         ]
       : []),
     ...groupedWarnings(resolution.units),
-    ...(agents.length === 0
+    ...(coverage === undefined
       ? []
-      : [{ _tag: "paragraph", tone: "dim", text: `Agents: ${agents.join(", ")}` } as const]),
+      : [
+          {
+            _tag: "paragraph",
+            tone: "dim",
+            text: `Agents: ${coverage.agents.length === 0 ? "none" : coverage.agents.join(", ")}`,
+          } as const,
+        ]),
+    ...(coverage === undefined || coverage.agents.length > 0
+      ? []
+      : [
+          {
+            _tag: "callout",
+            tone: "warn",
+            title: "No coding-agent targets were materialized",
+            children: [
+              {
+                _tag: "paragraph",
+                text: `Run \`axm agents add --detected${coverage.scope === "user" ? " --scope user" : ""}\`, then retry.`,
+              },
+            ],
+          } as const,
+        ]),
     ...(next.length === 0 ? [] : [{ _tag: "next", actions: next } as const]),
   ];
 };

@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen, headlineDoc, successDoc } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   ExtensionFqnSchema,
@@ -231,8 +231,7 @@ export const handleUnyank = (input: string) =>
 const emitDeprecationTransition = (transition: DeprecationTransition) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
-    if (yield* renderer.result(transition, LifecycleTransitionOutputSchema)) return;
+    if (yield* screen.document(transition, LifecycleTransitionOutputSchema)) return;
     const verb =
       transition.disposition === "created"
         ? "Deprecated"
@@ -243,18 +242,21 @@ const emitDeprecationTransition = (transition: DeprecationTransition) =>
             : transition.after === null
               ? "Already active"
               : "Deprecation already current for";
-    yield* renderer.success(`${verb} ${transition.target}.`);
+    yield* screen.result(successDoc(`${verb} ${transition.target}.`));
     if (transition.after?.message !== undefined) {
-      yield* renderer.info(`Message: ${transition.after.message}`);
+      yield* screen.note(headlineDoc("info", `Message: ${transition.after.message}`));
     }
     if (transition.after?.replacement !== undefined) {
       const replacement = transition.after.replacement;
-      yield* renderer.info(
-        replacement.status === "available"
-          ? `Replacement: ${replacement.fqn}`
-          : replacement.fqn === undefined
-            ? "Replacement: unavailable or not visible"
-            : `Replacement: ${replacement.fqn} (unavailable)`,
+      yield* screen.note(
+        headlineDoc(
+          "info",
+          replacement.status === "available"
+            ? `Replacement: ${replacement.fqn}`
+            : replacement.fqn === undefined
+              ? "Replacement: unavailable or not visible"
+              : `Replacement: ${replacement.fqn} (unavailable)`,
+        ),
       );
     }
   });
@@ -281,8 +283,7 @@ export const handleDeprecate = (input: {
       });
     }
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
-    const current = yield* renderer.withSpinner(
+    const current = yield* screen.task(
       `Reading deprecation for ${input.ref}`,
       () => getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
       { successMessage: `Read deprecation for ${input.ref}` },
@@ -315,7 +316,7 @@ export const handleDeprecate = (input: {
         ],
       });
     }
-    const transition = yield* renderer.withSpinner(
+    const transition = yield* screen.task(
       `Deprecating ${input.ref}`,
       () =>
         deprecateExtension(ref, { revision: current.revision, message, replacement }).pipe(
@@ -330,13 +331,12 @@ export const handleUndeprecate = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input);
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
-    const current = yield* renderer.withSpinner(
+    const current = yield* screen.task(
       `Reading deprecation for ${input}`,
       () => getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
       { successMessage: `Read deprecation for ${input}` },
     );
-    const transition = yield* renderer.withSpinner(
+    const transition = yield* screen.task(
       `Removing deprecation from ${input}`,
       () => undeprecateExtension(ref, current.revision).pipe(Effect.mapError(toAppError)),
       { successMessage: `Removed deprecation from ${input}` },

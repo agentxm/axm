@@ -79,7 +79,7 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { Verbosity } from "../../../cli-flags/index.js";
-import { Screen, makeScreenOutput } from "../../../screen/index.js";
+import { Screen, headlineDoc } from "../../../screen/index.js";
 import {
   type WorkspacePackDependencyResolver,
   expandPackInstallRefs,
@@ -401,7 +401,6 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
   const httpClient = yield* HttpClient.HttpClient;
   const ws = yield* WorkspaceMutations;
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const fsSvc = yield* FileSystem.FileSystem;
   const agentRepo = yield* CodingAgentRepository;
   const packMgr = yield* PackManager;
@@ -871,7 +870,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
                 "Found pack",
               ];
               for (const line of diagnosticLines) {
-                yield* renderer.info(line);
+                yield* screen.note(headlineDoc("info", line));
               }
             }
 
@@ -1319,16 +1318,19 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
         }),
       }).pipe(Effect.provideService(WorkspaceMutations, ws));
 
-      yield* renderer.info("Pack activation:");
-      yield* renderer.info(
-        `  ${packIdentity}: preserve ${preservedPackActivation ? "enabled" : "disabled"} activation`,
+      yield* screen.note(headlineDoc("info", "Pack activation:"));
+      yield* screen.note(
+        headlineDoc(
+          "info",
+          `  ${packIdentity}: preserve ${preservedPackActivation ? "enabled" : "disabled"} activation`,
+        ),
       );
-      yield* renderer.info("Pack graph transition:");
+      yield* screen.note(headlineDoc("info", "Pack graph transition:"));
       for (const line of [
         ...installSteps.map((step) => `${step.label} (${step.readiness})`),
         ...droppedTargets.map(({ target }) => `remove ${target.type}: ${target.name}`),
       ]) {
-        yield* renderer.info(`  ${line}`);
+        yield* screen.note(headlineDoc("info", `  ${line}`));
       }
 
       return {

@@ -156,7 +156,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
     );
   });
 
-  it("renders the request-policy timeout failure exactly as the former envelope", () => {
+  it("renders the request-policy timeout failure through the typed error view", () => {
     const requestMetadata = {
       service: "registry",
       method: "GET",
@@ -185,8 +185,8 @@ describe("registry-client failure conversion (golden pairs)", () => {
     expect(error.title).toBe("Timed Out");
     expect(renderAppError(error)).toBe(
       [
-        "✖  Registry request did not complete within the configured deadline. (timeout)",
-        "  Registry: https://registry.agentxm.ai",
+        "✖ Registry request did not complete within the configured deadline. (timeout)",
+        "  Registry:  https://registry.agentxm.ai",
         "  Run with `--debug` to see error details.",
       ].join("\n"),
     );

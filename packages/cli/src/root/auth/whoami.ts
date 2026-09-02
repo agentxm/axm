@@ -4,7 +4,7 @@ import { Command } from "effect/unstable/cli";
 
 import { AuthClient, authLoginRequired, resolveRequiredToken } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen, rawDoc } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
@@ -23,7 +23,6 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
   function* () {
     const authClient = yield* AuthClient;
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     const registryUrl = yield* RegistryUrl;
 
     // Step 1: Resolve token
@@ -33,7 +32,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
 
     // Step 2: Call whoami
     const registryHost = new URL(registryUrl).host;
-    const identity = yield* renderer.withSpinner(
+    const identity = yield* screen.task(
       `Checking identity on ${registryHost}`,
       () => authClient.getWhoami(token.token),
       { successMessage: `Checked identity on ${registryHost}` },
@@ -44,11 +43,11 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
     };
 
     // Step 3: Display result
-    if (yield* renderer.result({ data: result }, WhoamiDocumentSchema)) {
+    if (yield* screen.document({ data: result }, WhoamiDocumentSchema)) {
       return;
     }
 
-    yield* renderer.raw(`Authenticated as ${result.user}\nRegistry  ${result.registry}\n`);
+    yield* screen.result(rawDoc(`Authenticated as ${result.user}\nRegistry  ${result.registry}\n`));
   },
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,

@@ -4,7 +4,7 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../../app-error/index.js";
-import { Screen, makeScreenOutput, type TableView } from "../../../screen/index.js";
+import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   KnowledgeIndex,
@@ -73,9 +73,8 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
   }
 
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const index = yield* KnowledgeIndex;
-  const captured = yield* renderer.withSpinner(
+  const captured = yield* screen.task(
     "Searching installed knowledge",
     () => captureInstalledKnowledgeIndex(),
     { successMessage: "Searched installed knowledge" },
@@ -94,7 +93,7 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
     corpusFingerprint: snapshot.fingerprint,
     ...page,
   };
-  if (yield* renderer.result(output, KnowledgeConceptQueryPageSchema)) return;
+  if (yield* screen.document(output, KnowledgeConceptQueryPageSchema)) return;
 
   const rows = page.items.map(({ ref, title, kind }) => ({
     bundle: sanitizeKnowledgeTerminalText(ref.bundle),
@@ -103,13 +102,15 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
     kind,
   }));
   if (rows.length === 0) {
-    yield* renderer.info("No installed knowledge concepts matched");
+    yield* screen.note(headlineDoc("info", "No installed knowledge concepts matched"));
     return;
   }
-  yield* renderer.table(
-    rows,
-    ConceptTable,
-    `${rows.length} matching concept${rows.length === 1 ? "" : "s"}`,
+  yield* screen.result(
+    tableViewDoc(
+      rows,
+      ConceptTable,
+      `${rows.length} matching concept${rows.length === 1 ? "" : "s"}`,
+    ),
   );
 });
 

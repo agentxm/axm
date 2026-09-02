@@ -389,10 +389,11 @@ describe("setup.handler", () => {
             _tag: "info",
             message: "Scope support (project)",
           });
-          expect(rendererState.logs).toContainEqual({
-            _tag: "info",
-            message:
-              "Skill: supported (Claude Code; supported) — Claude Code supports skills in project scope.",
+          expect(rendererState.tables.flatMap((table) => table.items)).toContainEqual({
+            extension: "Skill",
+            status: "supported",
+            target: "Claude Code",
+            reason: "Claude Code supports skills in project scope.",
           });
         }),
       );
@@ -1410,10 +1411,10 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          expect(rendererState.docs.slice(0, 3).map((entry) => entry.doc)).toEqual([
-            [{ _tag: "paragraph", text: "" }],
-            [{ _tag: "paragraph", text: BRANDING }],
-            [{ _tag: "paragraph", text: "" }],
+          expect(rendererState.docs[0]?.doc).toEqual([
+            { _tag: "blank" },
+            { _tag: "paragraph", text: BRANDING },
+            { _tag: "blank" },
           ]);
         }),
       );
@@ -1488,7 +1489,7 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
           const infoMessages = rendererState.logs
-            .filter((entry) => entry._tag === "info")
+            .filter((entry) => entry._tag === "message")
             .map((entry) => entry.message);
           expect(infoMessages.some((message) => message.includes("existing subagent file"))).toBe(
             true,

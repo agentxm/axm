@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { Screen, makeScreenOutput } from "./screen/index.js";
+import { Screen, calloutDoc } from "./screen/index.js";
 import { UpdateCheck, isCacheStale } from "./update-check/update-check.js";
 import {
   resolveLatestVersion,
@@ -53,7 +53,7 @@ export interface UpdateCheckContextInputs {
   readonly args: ReadonlyArray<string>;
   readonly isNonInteractive: boolean;
   readonly isJsonOutput: boolean;
-  /** Override stderr TTY detection for testability. Defaults to `process.stderr.isTTY`. */
+  /** Stderr TTY detection captured by the screen boundary. */
   readonly isStderrTTY?: boolean | undefined;
   /** Override AXM_NO_UPDATE_CHECK detection for testability. */
   readonly noUpdateCheckEnv?: boolean | undefined;
@@ -69,7 +69,7 @@ export const buildSkipContext = (inputs: UpdateCheckContextInputs) => ({
     process.env["AXM_NO_UPDATE_CHECK"] === "1",
   isUpgradeCommand: isUpgradeCommand(inputs.args),
   isNonInteractive: inputs.isNonInteractive,
-  isStderrTTY: inputs.isStderrTTY ?? process.stderr.isTTY === true,
+  isStderrTTY: inputs.isStderrTTY ?? false,
   // eslint-disable-next-line no-restricted-properties -- Centralized env var access for agent-session detection
   isAgentSession: inputs.isAgentSession ?? isAgent(process.env),
 });
@@ -108,11 +108,6 @@ export const refreshCache = (localVersion: string) =>
  * Print the update notification to stderr.
  */
 export type NotificationPrinter = (message: string) => Effect.Effect<void>;
-
-const printAgentNotification: NotificationPrinter = (message) =>
-  Effect.sync(() => {
-    process.stderr.write(`${message}\n`);
-  });
 
 const UPDATE_AVAILABLE_PREFIX = "Update available: ";
 const UPDATE_AVAILABLE_TITLE = "Update Available";
@@ -157,14 +152,13 @@ export const withUpdateCheck = <A, E, R>(
     const updateCheck = yield* UpdateCheck;
     const skipContext = buildSkipContext(options.inputs);
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     const printer =
       options.printNotification ??
       (skipContext.isAgentSession
-        ? printAgentNotification
+        ? (message: string) => screen.note([{ _tag: "paragraph", text: message }])
         : (message: string) => {
             const note = toHumanUpdateNote(message);
-            return renderer.note(note.message, note.title);
+            return screen.note(calloutDoc(note.message, note.title));
           });
 
     if (updateCheck.shouldSkip(skipContext)) {

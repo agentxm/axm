@@ -91,4 +91,13 @@ describe("resolveCliOutputPolicy", () => {
       quiet: false,
     });
   });
+
+  it("keys live-frame animation to its stderr target", () => {
+    expect(
+      resolveCliOutputPolicy({ stdoutIsTTY: true, stderrIsTTY: false, env: {} }),
+    ).toMatchObject({ colors: true, animate: false, interactiveActivity: false });
+    expect(
+      resolveCliOutputPolicy({ stdoutIsTTY: false, stderrIsTTY: true, env: {} }),
+    ).toMatchObject({ colors: true, animate: true, interactiveActivity: true });
+  });
 });

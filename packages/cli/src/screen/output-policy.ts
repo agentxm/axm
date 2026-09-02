@@ -1,5 +1,6 @@
 export interface CliOutputEnvironment {
   readonly stdoutIsTTY: boolean | undefined;
+  readonly stderrIsTTY: boolean | undefined;
   readonly env: NodeJS.ProcessEnv;
 }
 
@@ -44,8 +45,9 @@ export const resolveCliOutputPolicy = (
   // eslint-disable-next-line no-restricted-properties -- Centralized env access for CLI output policy detection.
   const env = environment?.env ?? process.env;
   const stdoutIsTTY = environment?.stdoutIsTTY ?? process.stdout.isTTY;
+  const stderrIsTTY = environment?.stderrIsTTY ?? environment?.stdoutIsTTY ?? process.stderr.isTTY;
   const animate =
-    stdoutIsTTY === true &&
+    stderrIsTTY === true &&
     !hasCi(env) &&
     !hasNoColor(env) &&
     !hasDisabledForceColor(env) &&
@@ -55,7 +57,7 @@ export const resolveCliOutputPolicy = (
     !hasNoColor(env) &&
     !hasDisabledForceColor(env) &&
     !hasDumbTerminal(env) &&
-    (stdoutIsTTY === true || hasForceColor(env));
+    (stdoutIsTTY === true || stderrIsTTY === true || hasForceColor(env));
 
   return {
     colors,

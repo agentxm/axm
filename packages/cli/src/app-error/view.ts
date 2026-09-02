@@ -1,4 +1,6 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import type { Doc, DocNode, Field } from "../screen/doc.js";
+import { paintText } from "../screen/paint-text.js";
 import { type AppError, effectiveSuggestionsFor } from "./app-error.js";
 import { serializeErrorCauseChain } from "./cause-chain.js";
 import {
@@ -62,120 +64,128 @@ const formatResponseBody = (
   }
 };
 
-const formatSuggestedActionTarget = (suggestion: SuggestedAction): string => {
-  if (suggestion.cmd !== undefined) {
-    return suggestion.cmd;
-  }
-  if (suggestion.url !== undefined) {
-    return suggestion.url;
-  }
-  return "";
-};
-
-/**
- * Render suggested next actions with the same text shape as the CLI renderer's
- * `Next:` block: one action per line, optional command/URL inline.
- */
-const formatSuggestions = (
+const suggestionsNode = (
   suggestions: ReadonlyArray<SuggestedAction>,
   secrets: ReadonlyArray<string>,
-): ReadonlyArray<string> => {
-  if (suggestions.length === 0) return [];
-
-  const lines: Array<string> = ["Next:"];
-  for (const rawSuggestion of suggestions) {
-    const suggestion = redactSuggestedAction(rawSuggestion, secrets);
-    const target = formatSuggestedActionTarget(suggestion);
-    lines.push(
-      target.length === 0
-        ? `  ${suggestion.description}`
-        : `  ${suggestion.description} · ${target}`,
-    );
-  }
-  return lines;
-};
+): DocNode | undefined =>
+  suggestions.length === 0
+    ? undefined
+    : {
+        _tag: "next",
+        actions: suggestions.map((suggestion) => redactSuggestedAction(suggestion, secrets)),
+      };
 
 const formatCause = (
   cause: unknown,
   options: { readonly verbose: boolean; readonly debug: boolean },
   secrets: ReadonlyArray<string>,
-): ReadonlyArray<string> => {
+): Doc => {
   const chain = serializeErrorCauseChain(cause, { debug: options.debug, secrets });
   return chain.flatMap((item) => {
     const code = item.code === undefined ? "" : ` (${item.code})`;
-    const lines = [`Cause: ${item._tag}: ${item.message}${code}`];
+    const lines: Doc = [{ _tag: "paragraph", text: `Cause: ${item._tag}: ${item.message}${code}` }];
     if (options.debug && item.stack !== undefined) {
-      lines.push(...item.stack.split("\n").map((line) => `Stack: ${line}`));
+      return [
+        ...lines,
+        ...item.stack.split("\n").map(
+          (line) =>
+            ({
+              _tag: "paragraph",
+              text: `Stack: ${line}`,
+            }) satisfies DocNode,
+        ),
+      ];
     }
     return lines;
   });
 };
 
-export const renderAppError = (
+export const appErrorDoc = (
   error: AppError,
   options: { readonly verbose: boolean; readonly debug: boolean } = defaultRenderOptions,
-): string => {
-  const lines: Array<string> = [];
+): Doc => {
   const secrets = collectSensitiveStrings(error.metadata);
-
-  lines.push(`\u2716  ${redactSensitiveText(error.detail, { secrets })} (${error.code})`);
-
   const requestId = getRequestId(error);
   const registryUrl = getRegistryUrl(error);
+  const fields: Array<Field> = [];
+  const children: Array<DocNode> = [];
 
   if (registryUrl !== undefined) {
-    lines.push(`  Registry: ${formatRegistryLocation(registryUrl, secrets)}`);
+    fields.push({ label: "Registry:", value: formatRegistryLocation(registryUrl, secrets) });
   }
 
   if (options.verbose || options.debug) {
-    lines.push(`  Title: ${redactSensitiveText(error.title, { secrets })}`);
+    fields.push({ label: "Title:", value: redactSensitiveText(error.title, { secrets }) });
 
     const registryRequest = formatRegistryRequest(error, secrets);
     if (registryRequest !== undefined) {
-      lines.push(`  Request: ${registryRequest}`);
+      fields.push({ label: "Request:", value: registryRequest });
     }
 
     if (requestId !== undefined) {
-      lines.push(`  Request ID: ${redactSensitiveText(requestId, { secrets })}`);
+      fields.push({
+        label: "Request ID:",
+        value: redactSensitiveText(requestId, { secrets }),
+      });
     }
 
     const responseBody = error.metadata?.response?.body;
     if (responseBody !== undefined) {
-      lines.push("  Response:");
-      for (const line of formatResponseBody(responseBody, secrets)) {
-        lines.push(`    ${line}`);
-      }
+      children.push({
+        _tag: "section",
+        title: "Response:",
+        children: [{ _tag: "raw", content: formatResponseBody(responseBody, secrets).join("\n") }],
+      });
     }
   } else if (error.code === "internal" && requestId !== undefined) {
-    lines.push(`  Request ID: ${redactSensitiveText(requestId, { secrets })}`);
+    fields.push({
+      label: "Request ID:",
+      value: redactSensitiveText(requestId, { secrets }),
+    });
   }
 
-  for (const line of formatSuggestions(effectiveSuggestionsFor(error), secrets)) {
-    lines.push(line);
-  }
+  if (fields.length > 0) children.unshift({ _tag: "fields", fields });
 
   if (options.verbose || options.debug) {
-    for (const line of formatCause(error.cause, options, secrets)) {
-      lines.push(`  ${line}`);
-    }
+    children.push(...formatCause(error.cause, options, secrets));
   } else if (error.cause !== undefined && error.cause !== null) {
-    lines.push("  Run with `--debug` to see error details.");
+    children.push({ _tag: "paragraph", text: "Run with `--debug` to see error details." });
   }
 
-  return lines.join("\n");
+  const next = suggestionsNode(effectiveSuggestionsFor(error), secrets);
+  if (next !== undefined) children.push(next);
+
+  return [
+    {
+      _tag: "callout",
+      tone: "error",
+      title: `${redactSensitiveText(error.detail, { secrets })} (${error.code})`,
+      ...(children.length === 0 ? {} : { children }),
+    },
+  ];
 };
 
-export const renderDefect = (error: unknown): string => {
-  const lines: Array<string> = [];
-
-  lines.push("\u2716  An unexpected error occurred");
-  lines.push("  This is a bug. Please report it at https://github.com/agentxm/axm/issues");
+export const defectDoc = (error: unknown): Doc => {
+  const children: Array<DocNode> = [
+    {
+      _tag: "paragraph",
+      text: "This is a bug. Please report it at https://github.com/agentxm/axm/issues",
+    },
+  ];
 
   if (error instanceof Error) {
-    lines.push(`  ${redactSensitiveText(error.message)}`);
+    children.push({ _tag: "paragraph", text: redactSensitiveText(error.message) });
   } else if (typeof error === "string") {
-    lines.push(`  ${redactSensitiveText(error)}`);
+    children.push({ _tag: "paragraph", text: redactSensitiveText(error) });
   }
 
-  return lines.join("\n");
+  return [{ _tag: "callout", tone: "error", title: "An unexpected error occurred", children }];
 };
+
+export const renderAppError = (
+  error: AppError,
+  options: { readonly verbose: boolean; readonly debug: boolean } = defaultRenderOptions,
+): string => paintText(appErrorDoc(error, options), { width: 160, colors: false }).join("\n");
+
+export const renderDefect = (error: unknown): string =>
+  paintText(defectDoc(error), { width: 160, colors: false }).join("\n");

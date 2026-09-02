@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 import YAML from "yaml";
 
-import { Screen, makeScreenOutput } from "../../../screen/index.js";
+import { Screen, rawDoc } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/knowledge-query";
 import { LockfileSchema } from "@agentxm/workspace-state";
@@ -76,7 +76,6 @@ const crossScopeCollisions = Effect.gen(function* () {
 
 export const handleKnowledgeConceptStatus = Effect.fn("Knowledge.concepts.status")(function* () {
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const capturedResult = yield* Effect.result(captureInstalledKnowledgeIndex());
   const scopeCollisions = yield* crossScopeCollisions;
   const output =
@@ -101,9 +100,11 @@ export const handleKnowledgeConceptStatus = Effect.fn("Knowledge.concepts.status
           conceptCount: 0,
           scopeCollisions,
         };
-  if (yield* renderer.result(output, KnowledgeConceptStatusOutputSchema)) return;
-  yield* renderer.raw(
-    `Knowledge discovery ${output.capabilities.version}\nStatus   ${output.readiness}\nBundles  ${String(output.bundleCount)}\nConcepts ${String(output.conceptCount)}\n${output.corpusFingerprint === undefined ? "" : `Corpus   ${output.corpusFingerprint}\n`}`,
+  if (yield* screen.document(output, KnowledgeConceptStatusOutputSchema)) return;
+  yield* screen.result(
+    rawDoc(
+      `Knowledge discovery ${output.capabilities.version}\nStatus   ${output.readiness}\nBundles  ${String(output.bundleCount)}\nConcepts ${String(output.conceptCount)}\n${output.corpusFingerprint === undefined ? "" : `Corpus   ${output.corpusFingerprint}\n`}`,
+    ),
   );
 });
 

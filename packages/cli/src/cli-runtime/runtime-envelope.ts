@@ -8,9 +8,15 @@ import * as Option from "effect/Option";
 
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
-import { makeErrorEvent } from "./output-mode.js";
+import { errorEvent } from "../screen/machine-events.js";
 import type { AppError } from "../app-error/index.js";
-import { AppErrorCodes, ExitCode, exitCodeFor, redactSensitiveText } from "../app-error/index.js";
+import {
+  AppErrorCodes,
+  ExitCode,
+  defectDoc,
+  exitCodeFor,
+  redactSensitiveText,
+} from "../app-error/index.js";
 import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
 import type { PromptCancelled } from "../prompt/prompt-cancelled.js";
 
@@ -74,12 +80,12 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) =
     const message = defectMessage(cause);
 
     if (format === "text") {
-      yield* screen.note([{ _tag: "raw", content: `✖  ${message}\n` }]);
+      yield* screen.note(defectDoc(message));
       return;
     }
 
     yield* screen.note([
-      { _tag: "raw", content: `${JSON.stringify(makeErrorEvent("internal", message))}\n` },
+      { _tag: "raw", content: `${JSON.stringify(errorEvent("internal", message))}\n` },
     ]);
     yield* screen.result([
       {
@@ -171,11 +177,18 @@ export const writeExpectedCliError = (error: ExpectedCliError, format: OutputFor
       }),
     });
 
-    const { stderr, stdout } = renderAppErrorChannels(resolved, format, { verbose, debug });
+    const { stderr, stderrDoc, stdout } = renderAppErrorChannels(resolved, format, {
+      verbose,
+      debug,
+    });
     const screen = yield* Screen;
 
-    for (const line of stderr) {
-      yield* screen.note([{ _tag: "raw", content: line.endsWith("\n") ? line : `${line}\n` }]);
+    if (stderrDoc !== undefined) {
+      yield* screen.note(stderrDoc);
+    } else {
+      for (const line of stderr) {
+        yield* screen.note([{ _tag: "raw", content: line.endsWith("\n") ? line : `${line}\n` }]);
+      }
     }
     if (stdout !== undefined) {
       yield* screen.result([{ _tag: "raw", content: stdout }]);

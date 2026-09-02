@@ -18,7 +18,7 @@ import {
   preapprovedPlanExecution,
   previewPlanExecution,
 } from "@agentxm/workspace-operations";
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen } from "../../screen/index.js";
 import {
   desiredStateProblemsText,
   WorkspaceMutations,
@@ -250,7 +250,6 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
   }
   const ws = yield* WorkspaceMutations;
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
@@ -278,7 +277,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
   const upToDateMessage = scoped
     ? `${scopeLabel} materialization is up to date`
     : "Workspace materialization is up to date";
-  const preflight = yield* renderer.withSpinner(
+  const preflight = yield* screen.task(
     `Resolving ${scopeLabel} sync`,
     () =>
       Effect.gen(function* () {

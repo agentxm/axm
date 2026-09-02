@@ -7,7 +7,13 @@ import * as Schema from "effect/Schema";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { makeAppError } from "../../app-error/index.js";
 import { toAppError } from "../../app-error/conversions.js";
-import { Screen, makeScreenOutput, type TableView } from "../../screen/index.js";
+import {
+  Screen,
+  paragraphDoc,
+  successDoc,
+  tableViewDoc,
+  type TableView,
+} from "../../screen/index.js";
 import {
   ExtensionFqnSchema,
   ExtensionVisibilitySchema,
@@ -148,20 +154,21 @@ const getEvaluation = (target: string, intent: VisibilityIntent | null) =>
 const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
-    if (yield* renderer.result(evaluation, VisibilityEvaluationSchema)) return;
-    yield* renderer.table(
-      [
-        { field: "Extension", value: evaluation.target },
-        { field: "Intended", value: evaluation.intent?.value ?? "not configured" },
-        { field: "Actual", value: evaluation.actual?.value ?? "not established" },
-        { field: "Comparison", value: evaluation.comparison },
-        { field: "Source", value: evaluation.intent?.source ?? "-" },
-      ],
-      VisibilityTable,
+    if (yield* screen.document(evaluation, VisibilityEvaluationSchema)) return;
+    yield* screen.result(
+      tableViewDoc(
+        [
+          { field: "Extension", value: evaluation.target },
+          { field: "Intended", value: evaluation.intent?.value ?? "not configured" },
+          { field: "Actual", value: evaluation.actual?.value ?? "not established" },
+          { field: "Comparison", value: evaluation.comparison },
+          { field: "Source", value: evaluation.intent?.source ?? "-" },
+        ],
+        VisibilityTable,
+      ),
     );
     for (const finding of evaluation.findings) {
-      yield* renderer.message(`${finding.severity.toUpperCase()}: ${finding.message}`);
+      yield* screen.note(paragraphDoc(`${finding.severity.toUpperCase()}: ${finding.message}`));
     }
   });
 
@@ -181,12 +188,13 @@ export const handleVisibilityStatus = (target: string) =>
 const emitMutation = (result: typeof VisibilityMutationResultSchema.Type) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
-    if (yield* renderer.result(result, VisibilityMutationResultSchema)) return;
-    yield* renderer.success(
-      result.result === "already-satisfied"
-        ? `${result.target} is already ${result.after}.`
-        : `Changed ${result.target} from ${result.before} to ${result.after}.`,
+    if (yield* screen.document(result, VisibilityMutationResultSchema)) return;
+    yield* screen.result(
+      successDoc(
+        result.result === "already-satisfied"
+          ? `${result.target} is already ${result.after}.`
+          : `Changed ${result.target} from ${result.before} to ${result.after}.`,
+      ),
     );
   });
 

@@ -67,10 +67,9 @@ describe("axm skills publish", () => {
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" } },
         );
         expect(publishResult.exitCode).toBe(0);
-        expect(publishResult.stdout).toBe("");
+        expect(publishResult.stdout).toContain("Published @test/skills/my-publish-skill@1.0.0");
         expect(publishResult.stderr).toContain("Resolving publish registry");
         expect(publishResult.stderr).toContain("Preparing publish candidates");
-        expect(publishResult.stderr).toContain("Published @test/skills/my-publish-skill@1.0.0");
         expect(publishResult.stderr).not.toContain("\u001b");
 
         // Verify index.json in registry

@@ -16,12 +16,11 @@ import { AppError, makeAppError } from "../../app-error/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { Screen, makeScreenOutput } from "../../screen/index.js";
+import { Screen } from "../../screen/index.js";
 import { InstallMeta } from "../../install-meta/install-meta.js";
 import {
   AXM_SKILL_BUNDLED_APPLY_COMMAND,
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
-  formatAxmSkillCompatibilityTarget,
 } from "@agentxm/extension-workspace";
 import {
   InstallMethod,
@@ -41,6 +40,7 @@ import {
 import { loadVersion } from "../../version.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
+import { upgradeView } from "./view.js";
 
 export interface UpgradeHandlerArgs {
   readonly reinstall: boolean;
@@ -1935,105 +1935,12 @@ const upgradeSuggestions = (result: UpgradeCoreResult): ReadonlyArray<SuggestedA
 const renderHuman = (result: UpgradeCoreResult) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const renderer = makeScreenOutput(screen);
     const verbosity = yield* Verbosity;
-    const quiet = verbosity.level === "quiet";
-    const verbose = verbosity.isAtLeast("verbose");
-    const message =
-      quiet && result.recommendedCommand !== null
-        ? `${resultMessage(result)} · Next: ${result.recommendedCommand.display}`
-        : resultMessage(result);
-    if (quiet) {
-      if (
-        result.resultStatus === "downgrade-refused" ||
-        result.resultStatus === "upgrade-incomplete" ||
-        result.resultStatus === "upgrade-unverified" ||
-        result.resultStatus === "manual-action-required" ||
-        result.resultStatus === "rolled-back"
-      ) {
-        yield* renderer.warn(message);
-      } else {
-        yield* renderer.success(message);
-      }
-      return;
-    }
-    switch (result.resultStatus) {
-      case "upgraded":
-      case "reinstalled":
-      case "already-up-to-date":
-        yield* renderer.success(message);
-        break;
-      case "local-newer":
-        yield* renderer.info(message);
-        break;
-      case "downgrade-refused":
-      case "upgrade-incomplete":
-      case "upgrade-unverified":
-      case "manual-action-required":
-      case "rolled-back":
-        yield* renderer.warn(message);
-        break;
-    }
-    if (!quiet) {
-      yield* Effect.forEach(result.details, (detail) => renderer.info(detail), {
-        concurrency: 1,
-      });
-    }
-    if (!quiet && result.targetVersion !== null) {
-      yield* renderer.info(
-        `Compatibility target: ${formatAxmSkillCompatibilityTarget({
-          targetCliVersion: result.targetVersion,
-          targetSkillVersion: result.targetVersion,
-        })}`,
-      );
-    }
-    if (!quiet && result.recommendedCommand !== null) {
-      yield* renderer.info(`Next: ${result.recommendedCommand.display}`);
-    }
-    if (verbose) {
-      yield* renderer.info(`Detection: ${result.detectionSource} (${result.detectionConfidence})`);
-      yield* Effect.forEach(
-        result.detectionEvidence,
-        (evidence) => renderer.info(`Evidence: ${evidence}`),
-        { concurrency: 1 },
-      );
-      yield* Effect.forEach(
-        result.executedCommands,
-        (command) =>
-          Effect.gen(function* () {
-            yield* renderer.info(
-              `${command.purpose}: ${command.display} · ${command.executionState} · exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? " · output truncated" : ""}`,
-            );
-            if (command.stdout.length > 0) {
-              yield* renderer.info(`stdout: ${command.stdout}`);
-            }
-            if (command.stderr.length > 0) {
-              yield* renderer.info(`stderr: ${command.stderr}`);
-            }
-          }),
-        { concurrency: 1 },
-      );
-      yield* Effect.forEach(
-        result.verificationExecutables,
-        (verification) =>
-          renderer.info(
-            `Verification (${verification.role}${verification.phase === undefined ? "" : `, ${verification.phase}`}): ${verification.resolvedExecutable ?? verification.path} → ${verification.reportedVersion ?? verification.queryOutcome ?? "unavailable"}`,
-          ),
-        { concurrency: 1 },
-      );
-      if (result.backupPath !== null) {
-        yield* renderer.info(`Recoverable backup: ${result.backupPath}`);
-      }
-      if (result.observedFormulaVersion !== undefined) {
-        yield* renderer.info(`Homebrew formula: ${result.observedFormulaVersion ?? "unavailable"}`);
-      }
-      if (result.homebrewFailure !== undefined) {
-        yield* renderer.info(`Homebrew terminal reason: ${result.homebrewFailure}`);
-      }
-      if (result.resultStatus === "upgraded" || result.resultStatus === "reinstalled") {
-        yield* renderer.info("Install metadata: persisted");
-      }
-    }
+    yield* Effect.forEach(
+      upgradeView(result, resultMessage(result), verbosity.level),
+      (entry) => (entry.channel === "result" ? screen.result(entry.doc) : screen.note(entry.doc)),
+      { discard: true },
+    );
   });
 
 export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: UpgradeHandlerArgs) {
@@ -2046,14 +1953,13 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     });
   }
   const screen = yield* Screen;
-  const renderer = makeScreenOutput(screen);
 
   const httpClient = yield* HttpClient.HttpClient;
   const repo = yield* resolveGithubRepo();
   const githubApiBase = yield* resolveGithubApiBase();
   const observedLocal = args.localVersion === undefined ? loadVersion() : args.localVersion;
   const localVersion = observedLocal === null ? null : semver.valid(observedLocal);
-  const resolution = yield* renderer.withSpinner(
+  const resolution = yield* screen.task(
     "Checking AXM releases",
     () =>
       resolveLatestVersion(
@@ -2075,7 +1981,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
 
   const installMethod = yield* InstallMethod;
   const detectionCommands: Array<CommandRecord> = [];
-  const initiallyDetectedMethod = yield* renderer.withSpinner(
+  const initiallyDetectedMethod = yield* screen.task(
     "Detecting AXM installation method",
     () => installMethod.detect(),
     { successMessage: "Detected AXM installation method" },
@@ -2130,7 +2036,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   })();
   const result =
     action === "mutate"
-      ? yield* renderer.withSpinner(`Upgrading AXM to ${targetVersion}`, () => resultEffect, {
+      ? yield* screen.task(`Upgrading AXM to ${targetVersion}`, () => resultEffect, {
           successMessage: `Finished AXM upgrade attempt for ${targetVersion}`,
         })
       : yield* resultEffect;
@@ -2147,7 +2053,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     }),
   );
   if (
-    yield* renderer.result({ result: machineResult }, UpgradeDocumentSchema, {
+    yield* screen.document({ result: machineResult }, UpgradeDocumentSchema, {
       suggestions: upgradeSuggestions(result),
       ok: machineResult.failedCount === 0 && machineResult.blockedCount === 0,
     })

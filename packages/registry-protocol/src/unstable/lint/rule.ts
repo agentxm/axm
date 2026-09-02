@@ -8,8 +8,7 @@
  *
  * Rule ids follow `<namespace>/<subject>-<predicate>` with lowercase letters,
  * digits, and hyphens; ids leak into settings files, CI logs, and agent
- * transcripts, so they are public API stable under a deprecation-alias policy
- * per the `lint-engine` design doc.
+ * transcripts, so changing one is an explicit product-contract change.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

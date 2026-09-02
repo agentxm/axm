@@ -1,4 +1,3 @@
-import { registerLintRuleIds } from "../config.js";
 import type { HookRuleContext } from "../context.js";
 import type { LintRule } from "../rule.js";
 import { entrypointExistsRule } from "./hook/entrypoint-exists.js";
@@ -16,5 +15,3 @@ export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
   hookEnvelopeRules.standaloneDeclarationValid,
   hookEnvelopeRules.recommendedPacksValid,
 ];
-
-registerLintRuleIds(hookRules.map((r) => r.id));

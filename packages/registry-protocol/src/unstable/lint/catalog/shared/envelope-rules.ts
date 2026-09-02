@@ -16,11 +16,6 @@
  * one call, and so the publish-safe barrel (`lint/publish.ts`) and the
  * `axm lint` catalog (`catalog/<type>.ts`) build from the same definitions.
  *
- * The factory is deliberately free of `registerLintRuleIds` — that module-load
- * side effect stays in `catalog/<type>.ts`, because it imports the workspace
- * lint config schema that `lint/publish.ts` exists to keep out of the registry
- * Worker bundle.
- *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */

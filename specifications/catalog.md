@@ -433,6 +433,16 @@ product behavior, programmatic interfaces, and supporting system behavior.
 
 #### Lint
 
+##### Every supported lint rule has a stable default and input scope
+
+- Requirement: `cli/lint/catalog-is-complete`
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: contract, decision-table
+- Source: [`specifications/cli/lint/catalog-is-complete.spec.ts`](../specifications/cli/lint/catalog-is-complete.spec.ts)
+
 ##### Lint findings identify the violated invariant and affected subject as facts
 
 - Requirement: `cli/lint/findings-name-the-violated-invariant`

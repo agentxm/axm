@@ -16,23 +16,16 @@
  * | `skill/recommended-packs-valid`        | warning  | —       |
  *
  * The last two come from `catalog/shared/recommended-packs-rules.ts`; every
- * non-pack catalog registers the same pair against its own manifest.
+ * non-pack catalog applies the same pair against its own manifest.
  *
  * All ship `kind: "advisory"`. Native-vs-non-native applicability is
  * expressed via `check` early-return (no separate `applies` predicate); see
  * each rule's module for the guard.
  *
- * Rule ids are **registered with the lint config allowlist at module-load
- * time**, so importing this catalog extends the set of accepted
- * `axm.json` `lint.rules` keys. Consumers that never import the
- * catalog (the registry Worker bundle for `pack`-only routes, e.g.) don't pay
- * the registration cost.
- *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-import { registerLintRuleIds } from "../config.js";
 import type { LintRule } from "../rule.js";
 import type { SkillRuleContext } from "../context.js";
 import { skillMdPresentRule } from "./skill/skill-md-present.js";
@@ -61,8 +54,3 @@ export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
   standaloneDeclarationValidRule,
   recommendedPacksValidRule,
 ];
-
-// Register ids into the `LintConfig.rules` allowlist. Module-load side effect:
-// a consumer that imports this catalog (or the `catalog/index` barrel) enables
-// `axm.json` `lint.rules` to reference any of the above rule ids.
-registerLintRuleIds(skillRules.map((r) => r.id));

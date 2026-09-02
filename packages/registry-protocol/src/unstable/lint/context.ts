@@ -6,13 +6,9 @@
  * consume accessors as ordinary property access (no Layer wiring); tests pass
  * literal fakes.
  *
- * Phase 2 pins the context shapes and accessor interfaces. Phases 3a, 3b, and
- * 3c land the concrete `subject` decoders and VFT-/platform-backed accessor
- * implementations.
- *
  * Accessor surfaces are intentionally minimal — rules SHALL see only the
- * methods the v1 catalog requires. Extending a surface is a Phase 3a/3b/3c
- * action with a documented rule consumer, not a free action.
+ * methods the current catalog requires. Extend a surface only for a documented
+ * rule consumer.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -30,8 +26,7 @@ import type { KnowledgeInspection } from "../knowledge/okf.js";
  * read fails for reasons other than "file not found" (which is represented
  * by `exists -> false`).
  *
- * Concrete implementations live in Phases 3a/3b; this interface fixes the
- * error shape rules can rely on.
+ * This interface fixes the error shape rules can rely on.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -118,9 +113,7 @@ export interface KnowledgeFileAccessor {
  * Context passed to `skill/*` rules.
  *
  * `subject` is the caller-decoded skill content (SKILL.md frontmatter +
- * optional skill.json). Phase 3a refines the `subject` type to the concrete
- * `SkillContent` shape; Phase 2 leaves it structurally open so the rule
- * primitives don't need a circular dependency on the skill module.
+ * optional skill.json).
  *
  * `displayRoot` is posix and relative; `""` means the accessor root is the
  * rendering base. See `./compose-path.ts` for the four documented cases.

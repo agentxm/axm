@@ -51,12 +51,10 @@ export {
   type RenderedFinding,
 } from "./cli.js";
 
-// Rule catalogs (Phase 3a lands `skillRules`; Phase 3b lands `packRules`;
-// Phase 3c lands `workspaceRules`). Importing this index triggers each
-// catalog's module-load `registerLintRuleIds(...)` call so
-// `axm.json` `lint.rules` keys can reference any exported rule id.
+// Rule catalogs and their stable metadata.
 export {
   allCatalogErrorRuleIds,
+  allCatalogRuleMetadata,
   allCatalogRuleIds,
   buildAcquiredInstalledSkillInfo,
   buildInstalledPackInfo,

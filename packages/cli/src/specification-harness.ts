@@ -53,9 +53,10 @@ export { ExtensionListDocumentSchema, handleList } from "./root/list/command.js"
 export { handleView } from "./root/view/handler.js";
 export { SetupDocumentSchema, handleSetup } from "./root/setup.js";
 export { LintResultDocumentSchema, handleLint } from "./root/lint/handler.js";
-// The lint rule-id catalog, exposed so settings-contract specifications can
-// verify configured rule identities without importing a feature root.
-export { allCatalogRuleIds } from "@agentxm/workspace-lint";
+// The executable lint catalog's observable metadata, exposed so accepted
+// specifications can verify rule identities, defaults, and view membership
+// without importing a feature root.
+export { allCatalogRuleIds, allCatalogRuleMetadata } from "@agentxm/workspace-lint";
 // The application's workspace-facts layer with its boundary failure
 // rendering, for specification workspaces that compose manager layers
 // directly rather than importing the kernel root.

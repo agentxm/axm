@@ -15,17 +15,10 @@
  * context runs every rule and the `check` body's early-return arms handle
  * manifest-absent cases.
  *
- * Rule ids are **registered with the lint config allowlist at module-load
- * time**, so importing this catalog extends the set of accepted
- * `axm.json` `lint.rules` keys. Consumers that never import the
- * catalog (the registry Worker bundle for `skill`-only routes, e.g.) don't
- * pay the registration cost.
- *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-import { registerLintRuleIds } from "../config.js";
 import type { LintRule } from "../rule.js";
 import type { PackRuleContext } from "../context.js";
 import { manifestPresentRule } from "./pack/manifest-present.js";
@@ -44,8 +37,3 @@ export const packRules: ReadonlyArray<LintRule<PackRuleContext>> = [
   manifestSchemaValidRule,
   manifestKeysRecognizedRule,
 ];
-
-// Register ids into the `LintConfig.rules` allowlist. Module-load side effect:
-// a consumer that imports this catalog (or the `catalog/index` barrel) enables
-// `axm.json` `lint.rules` to reference any of the above rule ids.
-registerLintRuleIds(packRules.map((r) => r.id));

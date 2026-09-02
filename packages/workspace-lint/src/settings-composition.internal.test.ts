@@ -9,12 +9,8 @@
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 import { SettingsSchema } from "@agentxm/workspace-state";
-import { registerLintRuleIds } from "@agentxm/registry-protocol/unstable/lint/config";
 
-// Register a sample rule id so tests can reference it. Tests in the same
-// module share the allowlist state; Phases 3a/3b/3c will register catalogs.
 const SAMPLE_RULE_ID = "skill/manifest-keys-recognized";
-registerLintRuleIds([SAMPLE_RULE_ID]);
 
 describe("SettingsSchema lint section", () => {
   it.each(["off", "info", "warn", "error"])(

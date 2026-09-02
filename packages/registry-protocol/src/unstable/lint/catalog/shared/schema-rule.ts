@@ -6,9 +6,8 @@
  * `onExcessProperty: "ignore"` and `errors: "all"`, then mapping the issues
  * through `issuesToFindings`.
  *
- * Phase 3a is the first catalog; landing the helper now keeps the Phase 3b
- * pack catalog from duplicating the composition when it arrives. The helper is
- * intentionally narrow — only the surface the `-schema-valid` rules need.
+ * The helper is intentionally narrow — only the surface the `-schema-valid`
+ * rules need.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

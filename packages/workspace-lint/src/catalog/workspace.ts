@@ -1,44 +1,15 @@
 /**
- * `workspace/*` rule catalog — the v1 rule set.
+ * Executable `workspace/*` rule catalog.
  *
- * Per the lint design, `axm lint` (locally only —
- * never publish) runs exactly these rules against each workspace read model.
- * Rules are grouped by classification invariant — foundation first, then
- * one group per invariant that install-family rules enforce:
- *
- * | ID                                      | Severity | Autofix     |
- * | --------------------------------------- | -------- | ----------- |
- * | `workspace/initialized`                 | error    | —           |
- * | `workspace/settings-schema-valid`       | error    | —           |
- * | `workspace/settings-keys-recognized`    | error    | —           |
- * | `workspace/lockfile-valid`              | error    | autofixing  |
- * | `workspace/desired-state-reconcilable`  | error    | —           |
- * | `workspace/agents-recognized`           | error    | —           |
- * | `workspace/agents-detected-declared`    | warning  | —           |
- * | `workspace/skills-declarations-valid`   | error    | —           |
- * | `workspace/packs-declarations-valid`    | error    | —           |
- * | `workspace/knowledge-state-valid`       | error    | —           |
- * | `workspace/skills-lockfile-aligned`     | error    | autofixing  |
- * | `workspace/skills-integrity-valid`      | error    | autofixing  |
- * | `workspace/skills-artifacts-correct`    | error    | autofixing  |
- * | `workspace/skills-managed`              | error    | —           |
- * | `workspace/packs-dependencies-resolved` | error    | —           |
- * | `workspace/recommended-packs-retained`  | warning  | —           |
- *
- * Autofix rides per-extension Operations only (§6). No `editFile`,
- * `writeFile`, or `syncWorkspace()` reference — arms whose remediation can't
- * be expressed in the operation vocabulary ship as `AdvisoryFinding` with a
- * CLI suggestion instead.
- *
- * Rule ids are **registered with the lint config allowlist at module-load
- * time**, so importing this catalog extends the set of accepted
- * `axm.json` `lint.rules` keys.
+ * Rules are ordered for deterministic reporting and partitioned positively by
+ * the evidence available in repository and live-workspace views. Identity,
+ * default severity, and view membership are specified in the static catalog
+ * metadata and checked against these executable values.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-import { registerLintRuleIds } from "@agentxm/registry-protocol/unstable/lint/config";
 import type { LintRule } from "@agentxm/registry-protocol/unstable/lint/rule";
 import type { WorkspaceRuleContext } from "../workspace-context.js";
 import { initializedRule } from "./workspace/initialized.js";
@@ -74,13 +45,9 @@ import { managedFileUnownedRule } from "./workspace/managed-file-unowned.js";
 import { sourceEndpointsAlignedRule } from "./workspace/source-endpoints-aligned.js";
 
 /**
- * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
- * order within a single `evaluateContexts` call (deterministic ordering is
- * test-observable; see `evaluate.ts`). The catalog groups foundation rules
- * first, then install-family rules by classification invariant: declaration
- * validity, lockfile alignment, integrity, artifact correctness, the
- * unmanaged-class-empty check, pack dependency resolution, and implicit
- * retention.
+ * Ordered repository-safe `workspace/*` rule catalog. Declaration order is
+ * the evaluation order within a single `evaluateContexts` call. It groups
+ * foundation rules first, then install-family rules by invariant.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -124,9 +91,9 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext
   projectionsCurrentRule,
   hookOwnershipAmbiguousRule,
   managedFileUnownedRule,
-  skillsArtifactsCorrectRule,
   mcpServerAgentDriftRule,
   mcpServerAgentOrphanedRule,
+  skillsArtifactsCorrectRule,
 ];
 
 /** Complete workspace-view catalog, retained as the public catalog surface. */
@@ -163,8 +130,3 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   skillsArtifactsCorrectRule,
   packsDependenciesResolvedRule,
 ];
-
-// Register ids into the `LintConfig.rules` allowlist. Module-load side effect:
-// a consumer that imports this catalog (or the `catalog/index` barrel) enables
-// `axm.json` `lint.rules` to reference any of the above rule ids.
-registerLintRuleIds(workspaceRules.map((r) => r.id));

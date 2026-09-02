@@ -107,6 +107,10 @@
       "types": "./dist/src/unstable/lint/compose-path.d.ts",
       "default": "./dist/src/unstable/lint/compose-path.js"
     },
+    "./unstable/lint/catalog-metadata": {
+      "types": "./dist/src/unstable/lint/catalog-metadata.d.ts",
+      "default": "./dist/src/unstable/lint/catalog-metadata.js"
+    },
     "./unstable/lint/config": {
       "types": "./dist/src/unstable/lint/config.d.ts",
       "default": "./dist/src/unstable/lint/config.js"

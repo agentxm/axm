@@ -26,7 +26,7 @@ import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowl
 import { LockfileSchema } from "../../workspace-state/src/lockfile/index.js";
 import { AxmPackageMetaSchema } from "../../registry-client/src/axm-package-meta.js";
 import { SettingsSchema } from "../../workspace-state/src/settings/index.js";
-import { allCatalogRuleIds } from "../../workspace-lint/src/catalog/index.js";
+import { allLintCatalogRuleIds } from "../../registry-protocol/src/unstable/lint/catalog-metadata.js";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const SITE_CONTENT_SCHEMAS_DIR = path.join(CLI_ROOT, "site-content/__generated__/schemas");
@@ -161,7 +161,7 @@ const rewritePatternProperties = (node: unknown, patternRefs: Map<string, string
 
 const lintRuleProperties = () =>
   Object.fromEntries(
-    allCatalogRuleIds.map((ruleId) => [ruleId, { $ref: "#/definitions/LintRuleSeverity" }]),
+    allLintCatalogRuleIds.map((ruleId) => [ruleId, { $ref: "#/definitions/LintRuleSeverity" }]),
   );
 
 const exposeExactLintRuleProperties = (node: unknown): unknown => {

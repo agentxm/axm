@@ -1,4 +1,3 @@
-import { registerLintRuleIds } from "../config.js";
 import type { KnowledgeRuleContext } from "../context.js";
 import type { LintRule } from "../rule.js";
 import { knowledgeEnvelopeRules } from "./knowledge/envelope.js";
@@ -14,5 +13,3 @@ export {
   knowledgeDiagnosticRuleDefinitions,
   knowledgeDiagnosticRules,
 } from "./knowledge/diagnostics.js";
-
-registerLintRuleIds(knowledgeRules.map((r) => r.id));

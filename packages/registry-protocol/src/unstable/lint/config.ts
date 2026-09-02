@@ -6,16 +6,16 @@
  * gate ignores workspace overrides; this config affects `axm lint` only.
  *
  * Keys are **exact** rule ids (`<namespace>/<name>`). No glob, wildcard, or
- * regex syntax is accepted in v1. The accepted-key set is built at schema
- * construction time from rule ids registered via `registerLintRuleIds` — the
- * three v1 catalogs (`skill/*`, `pack/*`, `workspace/*`) each register their
- * ids so adding a catalog in a later phase extends the set by construction.
+ * regex syntax is accepted. The accepted-key set comes from the static lint
+ * catalog metadata, so validation never depends on which executable catalog
+ * modules happened to be imported first.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
 import * as Schema from "effect/Schema";
+import { allLintCatalogRuleIds } from "./catalog-metadata.js";
 
 // -----------------------------------------------------------------------------
 // Config value schema
@@ -44,51 +44,7 @@ export const LintRuleSeveritySchema = Schema.Literals(["off", "info", "warn", "e
  */
 export type LintRuleSeverity = Schema.Schema.Type<typeof LintRuleSeveritySchema>;
 
-// -----------------------------------------------------------------------------
-// Registered rule-id allowlist
-// -----------------------------------------------------------------------------
-
-/**
- * Internal mutable registry of accepted rule ids, populated at module-load
- * time by each rule catalog's side-effecting `registerLintRuleIds` call.
- *
- * The registry is module-local so callers in other packages can't extend it
- * without going through `registerLintRuleIds`; the v1 catalogs register from
- * `./catalog/skill.ts`, `./catalog/pack.ts`, and `./catalog/workspace.ts` in
- * Phases 3a/3b/3c.
- */
-const registeredRuleIds = new Set<string>();
-
-/**
- * Register one or more rule ids into the config allowlist.
- *
- * Each v1 rule catalog calls this once at module-load to extend the set of
- * accepted `lint.rules` keys. Calls are additive and idempotent — registering
- * an id twice is a no-op. A rule id that isn't registered will cause
- * `SettingsSchema` decode to fail at the `lint.rules` key, surfacing the
- * unknown id in the error path.
- *
- * Consumers (Phases 3a/3b/3c) should register from the catalog module by
- * iterating the catalog's own rule array: no copy-paste of rule ids into this
- * file.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const registerLintRuleIds = (ids: Iterable<string>): void => {
-  for (const id of ids) {
-    registeredRuleIds.add(id);
-  }
-};
-
-/**
- * Read-only view of the currently-registered rule ids.
- *
- * Mainly useful for tests and snapshots; production callers should not depend
- * on ordering.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const registeredLintRuleIds = (): ReadonlySet<string> => registeredRuleIds;
+const acceptedRuleIds = new Set(allLintCatalogRuleIds);
 
 // -----------------------------------------------------------------------------
 // Rules map schema
@@ -98,7 +54,7 @@ const ruleIdKeyFilter = Schema.makeFilter(
   (input: Readonly<Record<string, unknown>>): string | undefined => {
     const invalid: Array<string> = [];
     for (const key of Object.keys(input)) {
-      if (!registeredRuleIds.has(key)) {
+      if (!acceptedRuleIds.has(key)) {
         invalid.push(key);
       }
     }

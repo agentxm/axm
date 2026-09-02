@@ -179,8 +179,9 @@ export const RELEASE_REPO = readEnvWithDefault(process.env, "GITHUB_REPOSITORY",
 
 export const AXM_SKILL_HANDLE = "@agentxm/skills/axm";
 export const PRODUCTION_REGISTRY_URL = "https://registry.agentxm.ai";
-export const PRODUCTION_REGISTRY_PREVIEW_ARGS: readonly string[] = [
+export const productionRegistryPreviewArgs = (directory?: string): readonly string[] => [
   "axm:local",
+  ...(directory === undefined ? [] : ["-C", directory]),
   "skills",
   "publish",
   AXM_SKILL_HANDLE,
@@ -193,6 +194,8 @@ export const PRODUCTION_REGISTRY_PREVIEW_ARGS: readonly string[] = [
   "--json",
   "--non-interactive",
 ];
+
+export const PRODUCTION_REGISTRY_PREVIEW_ARGS = productionRegistryPreviewArgs();
 
 export const fail = (message: string): never => {
   console.error(message);

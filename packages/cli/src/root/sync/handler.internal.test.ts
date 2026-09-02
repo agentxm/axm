@@ -2180,43 +2180,45 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("previews and re-renders a managed subagent whose body drifted from its source", () =>
-    Effect.gen(function* () {
-      const first = makeLayers({ machine: true });
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: ["claude-code"],
-        subagents: { researcher: "workspace" },
-      });
-      writeSubagentExtension(tempDir, "researcher");
-      yield* first.provide(handleSync({ preview: false }));
+  it.effect(
+    "previews and re-renders a managed subagent after its authoritative source changes",
+    () =>
+      Effect.gen(function* () {
+        const first = makeLayers({ machine: true });
+        writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+          agents: ["claude-code"],
+          subagents: { researcher: "workspace" },
+        });
+        writeSubagentExtension(tempDir, "researcher");
+        yield* first.provide(handleSync({ preview: false }));
 
-      const sourcePath = path.join(tempDir, "subagents", "researcher", "src", "researcher.md");
-      const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
-      fs.writeFileSync(
-        sourcePath,
-        "---\nname: researcher\ndescription: Test subagent\n---\n\n# Updated researcher body\n",
-      );
+        const sourcePath = path.join(tempDir, "subagents", "researcher", "src", "researcher.md");
+        const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
+        fs.writeFileSync(
+          sourcePath,
+          "---\nname: researcher\ndescription: Test subagent\n---\n\n# Updated researcher body\n",
+        );
 
-      const preview = makeLayers({ machine: true });
-      yield* preview.provide(handleSync({ preview: true }));
-      expectPreviewedPlanResult(preview.rendererState.results[0]?.data, {
-        planName: "Sync workspace",
-        totalSteps: 1,
-      });
-      expect(fs.readFileSync(projectionPath, "utf8")).not.toContain("Updated researcher body");
+        const preview = makeLayers({ machine: true });
+        yield* preview.provide(handleSync({ preview: true }));
+        expectPreviewedPlanResult(preview.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+          totalSteps: 1,
+        });
+        expect(fs.readFileSync(projectionPath, "utf8")).not.toContain("Updated researcher body");
 
-      const apply = makeLayers({ machine: true });
-      yield* apply.provide(handleSync({ preview: false }));
-      expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated researcher body");
+        const apply = makeLayers({ machine: true });
+        yield* apply.provide(handleSync({ preview: false }));
+        expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated researcher body");
 
-      const converged = makeLayers({ machine: true });
-      yield* converged.provide(handleSync({ preview: true }));
-      const result = expectNoOpPlanResult(converged.rendererState.results[0]?.data, {
-        planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
-      });
-      expect(result).toMatchObject({ mode: "preview" });
-    }),
+        const converged = makeLayers({ machine: true });
+        yield* converged.provide(handleSync({ preview: true }));
+        const result = expectNoOpPlanResult(converged.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+          message: "Workspace materialization is up to date",
+        });
+        expect(result).toMatchObject({ mode: "preview" });
+      }),
   );
 
   it.effect("previews and re-renders a drifted Roo mode entry", () =>

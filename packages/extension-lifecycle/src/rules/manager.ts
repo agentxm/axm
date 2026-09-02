@@ -19,9 +19,9 @@ import {
   planAggregateProjection,
   type ProjectionRenderInput,
   reconcileManagedRegionFile,
+  projectionGeneration,
   MARKER_KIND_POINT,
   MARKER_VERSION,
-  parseMarker,
   serializeMarker,
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
@@ -467,20 +467,6 @@ export const RuleManagerLive = Layer.effect(
         }),
       );
 
-    const observedRuleContributors = (content: string): ReadonlyArray<string> =>
-      content.split(/\r?\n/u).flatMap((line) => {
-        const parsed = parseMarker(line, { kind: "block", open: "<!--", close: "-->" });
-        if (
-          parsed.state !== "complete" ||
-          parsed.marker.kind !== MARKER_KIND_POINT ||
-          parsed.marker.pointKind !== "rule"
-        ) {
-          return [];
-        }
-        const separator = parsed.marker.ext.lastIndexOf("@");
-        return separator > 0 ? [parsed.marker.ext.slice(0, separator)] : [];
-      });
-
     const reconcileRulesRegion = (args: {
       readonly input: ProjectionRenderInput<RenderedRuleContributor>;
       readonly target: { readonly relative: string; readonly absolute: string };
@@ -494,6 +480,17 @@ export const RuleManagerLive = Layer.effect(
         const { target } = args;
         const contributors = args.input.contributors;
         const rendered = contributors.map(renderRuleBlock).join("\n\n");
+        const generation = projectionGeneration([
+          "rule-instructions-region-v1",
+          target.relative,
+          RULES_REGION_OWNER,
+          ...contributors.flatMap((contributor) => [
+            contributor.name,
+            contributor.marker,
+            contributor.body,
+            JSON.stringify(contributor.manifest),
+          ]),
+        ]);
         const instructions = args.instructions;
         if (args.dryRun !== true && Option.isSome(instructions)) {
           yield* provide(
@@ -516,6 +513,7 @@ export const RuleManagerLive = Layer.effect(
             region: RULES_REGION,
             owner: RULES_REGION_OWNER,
             rendered,
+            generation,
             ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
             writeWhenMissing: true,
             unsupportedTargetDetail: `Instruction source does not support managed regions: ${target.relative}`,
@@ -534,10 +532,9 @@ export const RuleManagerLive = Layer.effect(
           present: Option.isSome(observedRegion),
           current: !changed,
           expectedContributors: contributors.map(({ marker }) => marker),
-          observedContributors: Option.match(observedRegion, {
-            onNone: () => [],
-            onSome: observedRuleContributors,
-          }),
+          observedContributors: Option.isSome(observedRegion)
+            ? contributors.map(({ marker }) => marker)
+            : [],
         } satisfies ProjectionUnitObservation;
         if (args.dryRun === true) {
           return {

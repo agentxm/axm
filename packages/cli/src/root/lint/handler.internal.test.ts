@@ -425,7 +425,7 @@ describe("axm lint handler", () => {
     );
   });
 
-  it.effect("reports managed subagent body drift without reconciling it", () => {
+  it.effect("ignores managed subagent body formatting", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({
       agents: ["claude-code"],
@@ -443,8 +443,7 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({ details: true }).pipe(Effect.exit);
         const report = rendererState.logs.map(({ message }) => message).join("\n");
-        expect(report).toContain("workspace/projections-current");
-        expect(report).toContain("subagent:researcher");
+        expect(report).not.toContain("workspace/projection-ownership-valid");
         expect(fs.readFileSync(projectionPath, "utf8")).toBe(drifted);
       }),
     );
@@ -466,7 +465,7 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({ details: true }).pipe(Effect.exit);
         const report = rendererState.logs.map(({ message }) => message).join("\n");
-        expect(report).toContain("workspace/projections-current");
+        expect(report).toContain("workspace/projection-ownership-valid");
         expect(report).toContain("upgrade AXM");
         expect(fs.readFileSync(instructionsPath, "utf8")).toBe(before);
       }),

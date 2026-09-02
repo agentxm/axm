@@ -563,7 +563,7 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: bothViews,
   },
   {
-    id: "workspace/projections-current",
+    id: "workspace/projection-ownership-valid",
     defaultSeverity: "error",
     group: "workspace",
     views: workspaceView,

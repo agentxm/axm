@@ -16,7 +16,6 @@ import {
 } from "./marker-grammar.js";
 import {
   inspectManagedRegion,
-  normalizeManagedBody,
   reconcileManagedRegionFile,
   renderManagedRegion,
 } from "./managed-region-adapter.js";
@@ -148,28 +147,48 @@ describe("projection managed-region markers", () => {
     expect(updated).not.toContain("ext=@acme/rules/old");
   });
 
-  it("normalizes prose wrapping, list continuations, and Markdown table padding", () => {
-    const compact = [
-      "A paragraph that a formatter may wrap.",
-      "",
-      "- A list item that a formatter may wrap.",
-      "",
-      "| Name | Value |",
-      "| --- | --- |",
-      "| alpha | beta |",
+  it("treats a generated body as opaque when ownership and generation match", () => {
+    const style: FileCommentStyle = { kind: "block", open: "<!--", close: "-->" };
+    const content = [
+      "before",
+      "<!-- axm:start v=1 region=rules ext=@acme/rules gen=authority-1 -->",
+      "arbitrarily reformatted body",
+      "<!-- axm:end v=1 region=rules -->",
+      "after",
     ].join("\n");
-    const formatted = [
-      "A paragraph that a formatter",
-      "may wrap.",
-      "",
-      "- A list item that a formatter",
-      "  may wrap.",
-      "",
-      "| Name  | Value |",
-      "| ---   | ---   |",
-      "| alpha | beta  |",
+    const state = inspectManagedRegion(content, "rules", style);
+    expect(
+      renderManagedRegion({
+        content,
+        state,
+        region: "rules",
+        owner: "@acme/rules",
+        generation: "authority-1",
+        rendered: "canonical generated body",
+        style,
+      }),
+    ).toBe(content);
+  });
+
+  it("regenerates when generation provenance changes", () => {
+    const style: FileCommentStyle = { kind: "block", open: "<!--", close: "-->" };
+    const content = [
+      "<!-- axm:start v=1 region=rules ext=@acme/rules gen=authority-1 -->",
+      "formatted body",
+      "<!-- axm:end v=1 region=rules -->",
     ].join("\n");
-    expect(normalizeManagedBody(`\n${formatted}\n`)).toBe(normalizeManagedBody(compact));
+    const updated = renderManagedRegion({
+      content,
+      state: inspectManagedRegion(content, "rules", style),
+      region: "rules",
+      owner: "@acme/rules",
+      generation: "authority-2",
+      rendered: "new generated body",
+      style,
+    });
+    expect(updated).toContain("gen=authority-2");
+    expect(updated).toContain("new generated body");
+    expect(updated).not.toContain("formatted body");
   });
 
   it.each(styles)("reports all four region states with distinct reason codes for %j", (style) => {

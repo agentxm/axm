@@ -201,7 +201,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     }).pipe(Effect.provide(after));
   });
 
-  it.effect("reads the intact region back and attributes drift to the missing contributor", () => {
+  it.effect("does not infer currency from contributor anchors in the generated body", () => {
     writeBundle("pack-a-bundle");
     writeBundle("pack-b-bundle");
     const layer = makeTestLayer({
@@ -230,12 +230,15 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
           expect.objectContaining({
             path: `${instructionsPath}#knowledge`,
             present: true,
-            current: false,
+            current: true,
             expectedContributors: [
               "@acme/knowledge/pack-a-bundle",
               "@acme/knowledge/pack-b-bundle",
             ],
-            observedContributors: ["@acme/knowledge/pack-a-bundle"],
+            observedContributors: [
+              "@acme/knowledge/pack-a-bundle",
+              "@acme/knowledge/pack-b-bundle",
+            ],
           }),
         ],
       );

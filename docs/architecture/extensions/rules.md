@@ -71,5 +71,7 @@ behavior.
 
 The aggregate region is `region=rules` with provenance owner
 `@agentxm/rules/instructions`. Each contributed Rule begins with a versioned
-`axm:point` anchor, so observation recovers contributor identity through the
-shared [ownership grammar](../workspace/managed-file-ownership.md).
+`axm:point` anchor for human and diagnostic traceability. Currency comes from
+the region's generation provenance over the complete contributor set, not from
+parsing those anchors or comparing the rendered body. See the shared
+[ownership grammar](../workspace/managed-file-ownership.md).

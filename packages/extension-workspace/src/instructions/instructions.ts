@@ -15,7 +15,7 @@ import { AXM_DIR_NAME } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { recordFootprint } from "@agentxm/workspace-state";
-import { reconcilePatternList } from "../projection/adapters.js";
+import { projectionGeneration, reconcilePatternList } from "../projection/adapters.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
@@ -671,6 +671,13 @@ const withManagedCopyBanner = (args: {
     helpTopic: "instructions",
     format,
     ext: INSTRUCTION_ALIAS_EXT,
+    generation: projectionGeneration([
+      "instruction-copy-v1",
+      INSTRUCTION_ALIAS_EXT,
+      args.sourceFileName,
+      args.targetPath,
+      args.content,
+    ]),
   });
 };
 
@@ -734,12 +741,17 @@ const observeTargetPath = (args: {
     const marker = managedCopyMarker({ targetPath: args.targetPath, content: targetContent.value });
     if (Option.isNone(marker)) return observed("unowned", "file");
     if (Option.isNone(args.sourceContent)) return observed("owned-drift", "copy");
+    const expected = withManagedCopyBanner({
+      targetPath: args.targetPath,
+      sourceFileName: args.sourceFileName,
+      content: args.sourceContent.value,
+    });
+    const expectedMarker = managedCopyMarker({ targetPath: args.targetPath, content: expected });
     return observed(
-      withManagedCopyBanner({
-        targetPath: args.targetPath,
-        sourceFileName: args.sourceFileName,
-        content: args.sourceContent.value,
-      }) === targetContent.value
+      Option.isSome(expectedMarker) &&
+        marker.value.ext === expectedMarker.value.ext &&
+        marker.value.src === expectedMarker.value.src &&
+        marker.value.generation === expectedMarker.value.generation
         ? "owned-current"
         : "owned-drift",
       "copy",
@@ -870,13 +882,21 @@ const observeStaleCandidate = (
     if (Option.isNone(marker) || marker.value.ext !== INSTRUCTION_ALIAS_EXT) return Option.none();
     const sourceFile = path.join(candidate.root, marker.value.src);
     const sourceContent = yield* readFileOption(sourceFile);
-    const current =
-      Option.isSome(sourceContent) &&
+    const expected = Option.map(sourceContent, (source) =>
       withManagedCopyBanner({
         targetPath: candidate.targetPath,
         sourceFileName: marker.value.src,
-        content: sourceContent.value,
-      }) === content.value;
+        content: source,
+      }),
+    );
+    const expectedMarker = Option.flatMap(expected, (value) =>
+      managedCopyMarker({ targetPath: candidate.targetPath, content: value }),
+    );
+    const current =
+      Option.isSome(expectedMarker) &&
+      marker.value.ext === expectedMarker.value.ext &&
+      marker.value.src === expectedMarker.value.src &&
+      marker.value.generation === expectedMarker.value.generation;
     return Option.some(
       stale({
         sourceFile,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { findingsForProjectionFacts } from "@agentxm/workspace-lint";
+import { findingsForProjectionOwnership } from "@agentxm/workspace-lint";
 import { makeProjectionInvariantFact } from "@agentxm/extension-workspace";
 import { type ProjectionUnitObservation } from "@agentxm/extension-workspace";
 import {
@@ -17,7 +17,7 @@ const base: ProjectionUnitObservation = {
 };
 
 describe("projection fact consumers", () => {
-  it("keeps lint and sync equivalent for every intrinsic projection status", () => {
+  it("keeps convergence in sync without turning body currency into lint findings", () => {
     const observations: ReadonlyArray<ProjectionUnitObservation> = [
       base,
       { ...base, current: false },
@@ -33,9 +33,8 @@ describe("projection fact consumers", () => {
 
     for (const observation of observations) {
       const facts = [makeProjectionInvariantFact(observation, "project")];
-      expect(findingsForProjectionFacts(facts).length > 0).toBe(
-        projectionFactsNeedReconciliation(facts),
-      );
+      expect(findingsForProjectionOwnership(facts)).toEqual([]);
+      expect(projectionFactsNeedReconciliation(facts)).toBe(observation.current === false);
     }
 
     const incompleteFacts = [
@@ -44,7 +43,6 @@ describe("projection fact consumers", () => {
         "project",
       ),
     ];
-    expect(findingsForProjectionFacts(incompleteFacts)[0]?.message).toContain("@acme/rules/beta");
     expect(projectionDivergenceLabel("instruction files", incompleteFacts)).toBe(
       "instruction files (incomplete: @acme/rules/beta)",
     );

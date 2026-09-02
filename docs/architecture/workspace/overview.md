@@ -220,10 +220,16 @@ authority. Every agent adapter and workspace-surface writer follows the same
 rules:
 
 - Create a missing AXM-owned projection.
-- Restore a stale or incomplete AXM-owned projection.
+- Restore an AXM-owned projection whose authoritative-input generation is stale.
 - Remove an obsolete AXM-owned projection.
 - Preserve independently coexisting unowned content.
 - Block on an unowned collision or ambiguous ownership and never overwrite it.
+
+Generated document bodies are not inspected for currency. Valid ownership and
+generation provenance establish whether their authoritative inputs are
+current; body formatting or rewriting alone causes no work. Structured native
+configuration instead compares decoded values, so equivalent serialization is
+also a no-op.
 
 An owned unit's required content is the deterministic rendering of its complete
 contributor set: every enabled extension the desired state routes into that

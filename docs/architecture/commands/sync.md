@@ -97,18 +97,18 @@ of decisions at its smallest independently mutable ownership unit:
 | Observed native unit                                | Sync behavior                                         |
 | --------------------------------------------------- | ----------------------------------------------------- |
 | Required and missing                                | Create it with durable unit-local ownership evidence. |
-| Required, AXM-owned, and stale                      | Restore it.                                           |
-| Required, AXM-owned, and incomplete                 | Restore it from its complete contributor set.         |
+| Required, AXM-owned, and stale                      | Restore it from authoritative inputs.                 |
 | No longer required and AXM-owned                    | Remove it.                                            |
 | Unowned and independently coexisting                | Preserve it and plan no change.                       |
 | Required unit occupied by unowned content           | Block the affected closure and preserve it.           |
 | Ownership evidence missing, malformed, or ambiguous | Block the affected closure and preserve the content.  |
 
-Sync decides these cases from the unit's own ownership evidence and content, as
+Sync decides these cases from the unit's ownership evidence and authoritative
+input generation, as
 [projection facts](../workspace/invariants.md#projection-facts) define.
-Installed canonical content is not evidence that the unit derived from it
-exists, is complete, or is current. An incomplete unit is work for sync to
-reconcile, never a no-op.
+Generated document bodies are opaque: their bytes are neither authority nor a
+currency check. Structured native entries compare decoded values. Installed
+canonical content is not evidence that the derived unit exists on disk.
 
 Path, name, matching bytes, or ownership of a surrounding file never prove
 ownership of the unit. AXM does not adopt equivalent native content. Manual

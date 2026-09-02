@@ -5,7 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
-import { reconcileManagedRegionFile } from "../projection/adapters.js";
+import { projectionGeneration, reconcileManagedRegionFile } from "../projection/adapters.js";
 import {
   MARKER_KIND_POINT,
   MARKER_VERSION,
@@ -137,12 +137,30 @@ export const reconcileKnowledgeDiscovery = (args: {
           path,
         })
       : "";
+    const generation = projectionGeneration([
+      "knowledge-discovery-region-v1",
+      instructionRelative,
+      KNOWLEDGE_REGION_OWNER,
+      JSON.stringify(args.config),
+      ...[...args.bundles]
+        .sort(
+          (left, right) =>
+            left.owner.localeCompare(right.owner) || left.name.localeCompare(right.name),
+        )
+        .flatMap((bundle) => [
+          bundle.owner,
+          bundle.name,
+          bundle.sourceDir,
+          bundle.description ?? "",
+        ]),
+    ]);
     const reconciliation = yield* reconcileManagedRegionFile({
       targetPath: args.instructionsPath,
       displayPath: instructionRelative,
       region: KNOWLEDGE_REGION,
       owner: KNOWLEDGE_REGION_OWNER,
       rendered: renderedRegion,
+      generation,
       ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
       removeEmptyFile: true,
       preserveEmptyFile: args.preserveInstructionsSource === true,

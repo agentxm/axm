@@ -27,6 +27,8 @@ export interface ManagedFileProvenance {
 export interface ManagedFileBannerOptions extends ManagedFileProvenance {
   readonly helpTopic: string;
   readonly format: ManagedFileFormat;
+  /** Digest of the authoritative inputs, never of the rendered output. */
+  readonly generation?: string;
 }
 
 export const managedFileFormatForPath = (filePath: string): ManagedFileFormat | undefined => {
@@ -47,6 +49,7 @@ const markerLine = (options: ManagedFileBannerOptions): string =>
       v: MARKER_VERSION,
       ext: options.ext,
       src: options.source.path,
+      ...(options.generation === undefined ? {} : { generation: options.generation }),
     },
     styleFor(options.format),
   );

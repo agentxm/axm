@@ -30,6 +30,9 @@ import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   CodingAgentRepository,
   renderManagedSubagentOutputs,
+  managedFileFormatForPath,
+  managedFileMarker,
+  projectionGeneration,
   type SubagentSyncOutcome,
   computeSubagentPathsForLayout,
   subagentContentFilename,
@@ -148,6 +151,16 @@ export const SubagentManagerLive = Layer.effect(
           ...args.managedFile,
           helpTopic: "subagents",
           format: "markdown",
+          generation: projectionGeneration([
+            "subagent-role-skill-v1",
+            args.managedFile.ext,
+            args.managedFile.source.kind,
+            args.managedFile.source.path,
+            args.agentId,
+            args.name,
+            args.description,
+            args.body,
+          ]),
         },
       );
     const jsonValuesEqual = (left: unknown, right: unknown): boolean => {
@@ -177,6 +190,36 @@ export const SubagentManagerLive = Layer.effect(
         );
       }
       return false;
+    };
+    const serializedJsonValuesEqual = (left: string, right: string): boolean => {
+      try {
+        const leftValue: unknown = JSON.parse(left);
+        const rightValue: unknown = JSON.parse(right);
+        return jsonValuesEqual(leftValue, rightValue);
+      } catch {
+        return false;
+      }
+    };
+    const generatedFileCurrent = (args: {
+      readonly content: string;
+      readonly expected: string;
+      readonly outputPath: string;
+    }): boolean => {
+      const format = managedFileFormatForPath(args.outputPath);
+      if (format === undefined) {
+        return args.outputPath.endsWith(".json")
+          ? serializedJsonValuesEqual(args.content, args.expected)
+          : args.content === args.expected;
+      }
+      const actualMarker = managedFileMarker(args.content, format);
+      const expectedMarker = managedFileMarker(args.expected, format);
+      return (
+        Option.isSome(actualMarker) &&
+        Option.isSome(expectedMarker) &&
+        actualMarker.value.ext === expectedMarker.value.ext &&
+        actualMarker.value.src === expectedMarker.value.src &&
+        actualMarker.value.generation === expectedMarker.value.generation
+      );
     };
 
     const materializeRoleSkillFallback = (args: {
@@ -770,7 +813,13 @@ export const SubagentManagerLive = Layer.effect(
                   present: contents.every(Option.isSome),
                   current: contents.every(
                     (content, index) =>
-                      Option.isSome(content) && content.value === rendered.outputs[index]?.content,
+                      Option.isSome(content) &&
+                      rendered.outputs[index] !== undefined &&
+                      generatedFileCurrent({
+                        content: content.value,
+                        expected: rendered.outputs[index].content,
+                        outputPath: rendered.outputs[index].path,
+                      }),
                   ),
                 })),
               );
@@ -804,7 +853,13 @@ export const SubagentManagerLive = Layer.effect(
                     Effect.option,
                     Effect.map((content) => ({
                       present: Option.isSome(content),
-                      current: Option.exists(content, (value) => value === expected),
+                      current: Option.exists(content, (value) =>
+                        generatedFileCurrent({
+                          content: value,
+                          expected,
+                          outputPath: "SKILL.md",
+                        }),
+                      ),
                     })),
                   );
               }),

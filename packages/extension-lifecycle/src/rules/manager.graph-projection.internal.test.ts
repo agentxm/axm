@@ -264,7 +264,7 @@ describe("RuleManager graph-derived region projection", () => {
     });
   });
 
-  it.effect("reads an incomplete contributor set from the managed region", () => {
+  it.effect("does not infer currency from contributor anchors in the generated body", () => {
     writeRulePackage("pack-a-rule");
     writeRulePackage("pack-b-rule");
     const layer = makeTestLayer({
@@ -291,10 +291,10 @@ describe("RuleManager graph-derived region projection", () => {
       expect(yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).toEqual(
         [
           expect.objectContaining({
-            current: false,
+            current: true,
             present: true,
             expectedContributors: ["@acme/rules/pack-a-rule", "@acme/rules/pack-b-rule"],
-            observedContributors: ["@acme/rules/pack-a-rule"],
+            observedContributors: ["@acme/rules/pack-a-rule", "@acme/rules/pack-b-rule"],
           }),
         ],
       );

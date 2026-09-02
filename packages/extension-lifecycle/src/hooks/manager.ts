@@ -23,6 +23,7 @@ import {
   type ProjectionRenderInput,
   runWithTransientFileBackup,
   reconcileManagedRegionFile,
+  projectionGeneration,
   managedHookCommands,
   readManagedHookCommands,
   updateHooksJson,
@@ -762,6 +763,18 @@ export const HookManagerLive = Layer.effect(
               `### ${hook.manifest.title ?? hook.name}\n\nFor agents without a usable native hook mapping (${hook.fallbackAgentIds.join(", ")}), treat this as a managed advisory rule. After the matching lifecycle event (${hook.manifest.bindings.map((binding) => binding.on).join(", ")}), run \`${hook.command}\` and address any findings before continuing.`,
           )
           .join("\n\n");
+        const generation = projectionGeneration([
+          "hook-fallback-region-v1",
+          target.workspaceRelative,
+          HOOK_FALLBACKS_REGION_OWNER,
+          ...input.contributors.flatMap((contributor) => [
+            contributor.name,
+            contributor.marker,
+            contributor.command,
+            JSON.stringify(contributor.fallbackAgentIds),
+            JSON.stringify(contributor.manifest),
+          ]),
+        ]);
         const { changed, observedRegion } = yield* provide(
           reconcileManagedRegionFile({
             targetPath: target.targetPath,
@@ -769,6 +782,7 @@ export const HookManagerLive = Layer.effect(
             region: HOOK_FALLBACKS_REGION,
             owner: HOOK_FALLBACKS_REGION_OWNER,
             rendered,
+            generation,
             ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
             unsupportedTargetDetail: `Hook fallback target does not support managed regions: ${target.workspaceRelative}`,
           }),
@@ -795,13 +809,9 @@ export const HookManagerLive = Layer.effect(
             present: Option.isSome(observedRegion),
             current: !changed,
             expectedContributors: input.contributors.map(({ marker }) => marker),
-            observedContributors: Option.match(observedRegion, {
-              onNone: () => [],
-              onSome: (region) =>
-                input.contributors
-                  .filter(({ command }) => region.includes(command))
-                  .map(({ marker }) => marker),
-            }),
+            observedContributors: Option.isSome(observedRegion)
+              ? input.contributors.map(({ marker }) => marker)
+              : [],
           } satisfies ProjectionUnitObservation,
         };
       });

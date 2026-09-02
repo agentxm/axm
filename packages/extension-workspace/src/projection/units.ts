@@ -98,9 +98,9 @@ export interface ProjectionUnitObservation {
   readonly owner?: string;
   /** Whether the AXM-owned unit itself is present, not merely its surrounding file. */
   readonly present: boolean;
-  /** Whether the complete expected rendering byte-for-byte matches the output. */
+  /** Whether the unit's authority-derived generation or decoded value is current. */
   readonly current: boolean;
   readonly expectedContributors: ReadonlyArray<string>;
-  /** Contributor identities recovered from the output unit itself. */
+  /** Contributor identities established by the unit's current provenance or structure. */
   readonly observedContributors: ReadonlyArray<string>;
 }

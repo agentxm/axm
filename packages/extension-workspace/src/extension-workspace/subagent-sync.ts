@@ -13,7 +13,10 @@ import * as Path from "effect/Path";
 import {
   insertManagedFileBanner,
   managedFileFormatForPath,
+  managedFileMarker,
 } from "../extensions/managed-file-banner.js";
+import * as Option from "effect/Option";
+import { projectionGeneration } from "../projection/generation.js";
 import { SubagentIoFailed } from "../subagents/errors.js";
 import type { ExtensionManagerFailure, SubagentSyncFailure } from "./errors.js";
 import { protectWorkspacePath } from "@agentxm/workspace-state";
@@ -30,10 +33,25 @@ import type {
   SubagentSyncOutcome,
 } from "./coding-agent.js";
 
+/** Generation provenance for one agent-specific Subagent document projection. */
+export const subagentProjectionGeneration = (args: AddSubagentArgs): string =>
+  projectionGeneration([
+    "subagent-document-v1",
+    args.managedFile.ext,
+    args.managedFile.source.kind,
+    args.managedFile.source.path,
+    args.input.agentId,
+    args.input.name,
+    args.input.body,
+    JSON.stringify(args.input.frontmatter),
+    JSON.stringify(args.input.agentOverrides ?? null),
+  ]);
+
 /** Render the exact managed bytes written by the standard file adapter. */
 export const renderManagedSubagentOutputs = (args: AddSubagentArgs) => {
   const rendered = renderSubagent(args.input);
   if (rendered === undefined || rendered._tag === "Skipped") return rendered;
+  const generation = subagentProjectionGeneration(args);
   return {
     ...rendered,
     outputs: rendered.outputs.map((output) => {
@@ -47,6 +65,7 @@ export const renderManagedSubagentOutputs = (args: AddSubagentArgs) => {
                 ...args.managedFile,
                 helpTopic: "subagents",
                 format,
+                generation,
               }),
       };
     }),
@@ -159,6 +178,24 @@ export const writeSubagentFiles = (
           ),
         );
 
+      const format = managedFileFormatForPath(output.path);
+      const expectedMarker =
+        format === undefined ? Option.none() : managedFileMarker(output.content, format);
+      const existing = yield* fs.readFileString(filePath).pipe(Effect.option);
+      const existingMarker =
+        format === undefined || Option.isNone(existing)
+          ? Option.none()
+          : managedFileMarker(existing.value, format);
+      const generationCurrent =
+        Option.isSome(expectedMarker) &&
+        Option.isSome(existingMarker) &&
+        existingMarker.value.ext === expectedMarker.value.ext &&
+        existingMarker.value.src === expectedMarker.value.src &&
+        existingMarker.value.generation === expectedMarker.value.generation;
+      if (generationCurrent) {
+        renderedFilePaths.push(filePath);
+        continue;
+      }
       yield* fs
         .writeFileString(filePath, output.content)
         .pipe(

@@ -300,6 +300,18 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/packs/authored-packs-expand-membership.spec.ts`](../specifications/cli/packs/authored-packs-expand-membership.spec.ts)
 
+#### Projection Currency Follows State Authority
+
+##### Generated document currency follows authoritative inputs, not rendered bytes
+
+- Requirement: `cli/projection-currency-follows-state-authority`
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`specifications/cli/projection-currency-follows-state-authority.spec.ts`](../specifications/cli/projection-currency-follows-state-authority.spec.ts)
+
 #### Publish
 
 ##### Publish preview evaluates the fixed publication gate and distributes nothing

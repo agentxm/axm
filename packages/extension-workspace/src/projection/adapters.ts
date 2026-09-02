@@ -4,6 +4,7 @@ export {
   reconcileManagedRegionFile,
   type ManagedRegionReconciliation,
 } from "./managed-region-adapter.js";
+export { projectionGeneration } from "./generation.js";
 export { reconcilePatternList, type PatternListReconciliation } from "./pattern-list-adapter.js";
 export {
   managedKeyedBlockNames,

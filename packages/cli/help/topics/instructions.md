@@ -120,7 +120,9 @@ A missing source is not determined — it needs an authoring decision, and
 
 Transitions fail closed when an alias or managed region is unowned or
 ambiguous. Settings and files remain unchanged; there is no generic force flag.
-AXM tolerates formatter-only changes and emits no formatter directives.
+For generated document targets, AXM derives currency from ownership and
+generation provenance and leaves the body alone while authoritative inputs are
+unchanged. AXM emits no formatter directives.
 
 ## Where to go next
 

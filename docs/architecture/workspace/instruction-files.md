@@ -112,8 +112,9 @@ alias path is a collision and remains untouched.
 The shared [managed-file ownership grammar](managed-file-ownership.md) names
 the Rules, Knowledge, Hook fallback, and instruction-alias units. Alias copies
 carry a structured `axm:file` banner, while `.gitignore` uses the
-`instruction-aliases` pattern-list region. Formatting-only changes do not
-create drift, and AXM emits no formatter directives.
+`instruction-aliases` pattern-list region. Generated document currency follows
+generation provenance derived from authoritative inputs, so AXM does not
+inspect or classify body rewrites. AXM emits no formatter directives.
 
 The canonical filename and alias behavior are durable instruction-file
 settings choices. Contributor participation follows the contributor's own
@@ -126,8 +127,9 @@ contributors.
 - Canonical authored prose survives enablement, reconciliation, and disablement.
 - Each managed region is identifiable independently of the surrounding file
   and other regions.
-- Each managed region contains every desired contribution routed into it,
-  exactly once, regardless of which operation last wrote the region.
+- Each generated region records provenance for the complete desired
+  contributor set routed into it, regardless of which operation last wrote
+  the region.
 - Composition order is deterministic and repeated reconciliation adds no
   duplicate content.
 - Agent aliases refer to the selected canonical source without becoming new

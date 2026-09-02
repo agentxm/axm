@@ -479,6 +479,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly scope?: "project" | "user" | undefined;
   readonly agents?: ReadonlyArray<string> | undefined;
   readonly owner?: string | undefined;
+  readonly instructionFiles?: false | Record<string, unknown> | undefined;
   readonly skills?: Record<string, unknown> | undefined;
   readonly rules?: Record<string, unknown> | undefined;
   readonly hooks?: Record<string, unknown> | undefined;
@@ -546,6 +547,7 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
         ? {}
         : { owner: opts.owner }
       : { owner: "@acme" }),
+    ...(opts.instructionFiles !== undefined && { instructionFiles: opts.instructionFiles }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.rules) && { rules: opts.rules }),
     ...(hasEntries(opts.hooks) && { hooks: opts.hooks }),

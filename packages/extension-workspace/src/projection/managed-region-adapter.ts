@@ -121,71 +121,6 @@ export const inspectManagedRegion = (
   };
 };
 
-const normalizeTableCell = (cell: string): string => {
-  const normalized = cell.trim().replace(/\s+/gu, " ");
-  if (!/^:?-{3,}:?$/u.test(normalized)) return normalized;
-  return `${normalized.startsWith(":") ? ":" : ""}---${normalized.endsWith(":") ? ":" : ""}`;
-};
-
-const normalizeTableLine = (line: string): string =>
-  line.trim().startsWith("|") ? line.trim().split("|").map(normalizeTableCell).join("|") : line;
-
-/**
- * Compare generated bodies by meaning that common formatters preserve. Code
- * fences retain their line structure; prose wraps, trailing whitespace, and
- * Markdown table padding do not create drift.
- */
-export const normalizeManagedBody = (content: string): string => {
-  const output: Array<string> = [];
-  let paragraph: Array<string> = [];
-  let fence: "```" | "~~~" | undefined;
-  const flushParagraph = () => {
-    if (paragraph.length === 0) return;
-    output.push(paragraph.join(" ").replace(/\s+/gu, " ").trim());
-    paragraph = [];
-  };
-  for (const rawLine of content.replace(/\r\n?/gu, "\n").split("\n")) {
-    const line = rawLine.trimEnd();
-    const trimmed = line.trim();
-    if (fence !== undefined) {
-      output.push(line);
-      if (trimmed.startsWith(fence)) fence = undefined;
-      continue;
-    }
-    if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) {
-      flushParagraph();
-      fence = trimmed.startsWith("```") ? "```" : "~~~";
-      output.push(line);
-      continue;
-    }
-    if (trimmed.length === 0) {
-      flushParagraph();
-      if (output.length > 0 && output.at(-1) !== "") output.push("");
-      continue;
-    }
-    if (/^\s{2,}\S/u.test(line) && /^[-*+]\s|^\d+[.)]\s/u.test(output.at(-1) ?? "")) {
-      output[output.length - 1] = `${output.at(-1)} ${trimmed}`;
-      continue;
-    }
-    if (trimmed.startsWith(">") && (output.at(-1) ?? "").startsWith(">")) {
-      output[output.length - 1] = `${output.at(-1)} ${trimmed.slice(1).trim()}`;
-      continue;
-    }
-    if (
-      trimmed.startsWith("|") ||
-      /^(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|>|<!--|\/\*|# axm:|\/\/ axm:)/u.test(trimmed)
-    ) {
-      flushParagraph();
-      output.push(normalizeTableLine(line));
-      continue;
-    }
-    paragraph.push(trimmed);
-  }
-  flushParagraph();
-  while (output.at(-1) === "") output.pop();
-  return output.join("\n").trim();
-};
-
 export const renderManagedRegion = (args: {
   readonly content: string;
   readonly state: ManagedRegionState;
@@ -193,6 +128,7 @@ export const renderManagedRegion = (args: {
   readonly owner: string;
   readonly rendered: string;
   readonly style: FileCommentStyle;
+  readonly generation?: string;
 }): string => {
   if (args.state.state === "malformed" || args.state.state === "unsupported-version") {
     return args.content;
@@ -211,6 +147,7 @@ export const renderManagedRegion = (args: {
       v: MARKER_VERSION,
       region: args.region,
       ext: args.owner,
+      ...(args.generation === undefined ? {} : { generation: args.generation }),
     },
     args.style,
   );
@@ -225,11 +162,14 @@ export const renderManagedRegion = (args: {
   }
   const currentStart = args.state.lines[args.state.start];
   const currentEnd = args.state.lines[args.state.end];
-  if (
-    currentStart === start &&
-    currentEnd === end &&
-    normalizeManagedBody(args.state.body) === normalizeManagedBody(args.rendered)
-  ) {
+  const bodyIsCurrent =
+    args.generation === undefined
+      ? args.state.body === args.rendered
+      : args.state.startMarker.ext === args.owner &&
+        args.state.startMarker.generation === args.generation;
+  const markersAreCurrent =
+    args.generation === undefined ? currentStart === start && currentEnd === end : true;
+  if (markersAreCurrent && bodyIsCurrent) {
     return args.content;
   }
   return [
@@ -254,6 +194,8 @@ export const reconcileManagedRegionFile = (args: {
   readonly region: RegionName;
   readonly owner: string;
   readonly rendered: string;
+  /** Authoritative-input token for opaque generated document bodies. */
+  readonly generation?: string;
   readonly dryRun?: boolean;
   readonly removeEmptyFile?: boolean;
   readonly preserveEmptyFile?: boolean;
@@ -307,6 +249,7 @@ export const reconcileManagedRegionFile = (args: {
       owner: args.owner,
       rendered: args.rendered,
       style: style.value,
+      ...(args.generation === undefined ? {} : { generation: args.generation }),
     });
     const changed = updated !== existing;
     const result = {

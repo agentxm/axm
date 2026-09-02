@@ -31,6 +31,7 @@ export interface RegionMarker {
   readonly region: RegionName;
   readonly ext?: string | undefined;
   readonly src?: string | undefined;
+  readonly generation?: string | undefined;
 }
 
 export type ManagedMarker =
@@ -40,6 +41,7 @@ export type ManagedMarker =
       readonly v: typeof MARKER_VERSION;
       readonly ext: string;
       readonly src: string;
+      readonly generation?: string | undefined;
     }
   | {
       readonly kind: typeof MARKER_KIND_POINT;
@@ -172,9 +174,15 @@ const markerAttributes = (marker: ManagedMarker): ReadonlyArray<readonly [string
         ["region", marker.region],
         ...(marker.ext === undefined ? [] : ([["ext", marker.ext]] as const)),
         ...(marker.src === undefined ? [] : ([["src", marker.src]] as const)),
+        ...(marker.generation === undefined ? [] : ([["gen", marker.generation]] as const)),
       ];
     case "axm:file":
-      return [...common, ["ext", marker.ext], ["src", marker.src]];
+      return [
+        ...common,
+        ["ext", marker.ext],
+        ["src", marker.src],
+        ...(marker.generation === undefined ? [] : ([["gen", marker.generation]] as const)),
+      ];
     case "axm:point":
       return [...common, ["ext", marker.ext], ["kind", marker.pointKind]];
   }
@@ -187,6 +195,7 @@ export const serializeMarker = (marker: ManagedMarker, style: FileCommentStyle):
     ["region", 1],
     ["ext", 2],
     ["src", 3],
+    ["gen", 4],
   ]);
   const attributes = [...markerAttributes(marker)]
     .sort(([left], [right]) => {
@@ -258,6 +267,7 @@ export const parseMarker = (line: string, style: FileCommentStyle): MarkerParseR
     }
     const ext = attributes.get("ext");
     const src = attributes.get("src");
+    const generation = attributes.get("gen");
     return {
       state: "complete",
       reasonCode: "marker-complete",
@@ -267,6 +277,7 @@ export const parseMarker = (line: string, style: FileCommentStyle): MarkerParseR
         region,
         ...(ext === undefined ? {} : { ext }),
         ...(src === undefined ? {} : { src }),
+        ...(generation === undefined ? {} : { generation }),
       },
     };
   }
@@ -274,12 +285,19 @@ export const parseMarker = (line: string, style: FileCommentStyle): MarkerParseR
   if (ext === undefined) return malformed(`${head} marker is missing ext`);
   if (head === "axm:file") {
     const src = attributes.get("src");
+    const generation = attributes.get("gen");
     return src === undefined
       ? malformed("axm:file marker is missing src")
       : {
           state: "complete",
           reasonCode: "marker-complete",
-          marker: { kind: head, v: MARKER_VERSION, ext, src },
+          marker: {
+            kind: head,
+            v: MARKER_VERSION,
+            ext,
+            src,
+            ...(generation === undefined ? {} : { generation }),
+          },
         };
   }
   const pointKind = attributes.get("kind");

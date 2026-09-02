@@ -72,6 +72,7 @@ const makeUnavailableProjectionFact = (args: {
   readonly expectedContributors: ReadonlyArray<string>;
   readonly owner?: string;
   readonly errorDetail?: string;
+  readonly ownershipInvalid?: boolean;
 }): ProjectionInvariantFact => {
   const contributors = uniqueSorted(args.expectedContributors);
   return {
@@ -91,7 +92,9 @@ const makeUnavailableProjectionFact = (args: {
         : {
             reasonCode: args.errorDetail.includes("upgrade AXM")
               ? "unsupported-version"
-              : "unavailable",
+              : args.ownershipInvalid === true
+                ? "invalid-ownership"
+                : "unavailable",
             message: args.errorDetail,
           }),
     },
@@ -151,6 +154,12 @@ export const makeProjectionInvariantFact = (
 export const projectionFactIsViolation = (fact: ProjectionInvariantFact): boolean =>
   fact.observation.status !== "current" &&
   (fact.observation.status !== "unavailable" ||
+    fact.observation.reasonCode === "unsupported-version");
+
+/** Whether reconciliation is blocked by malformed or unsupported ownership proof. */
+export const projectionFactHasInvalidOwnership = (fact: ProjectionInvariantFact): boolean =>
+  fact.observation.status === "unavailable" &&
+  (fact.observation.reasonCode === "invalid-ownership" ||
     fact.observation.reasonCode === "unsupported-version");
 
 /** Sync work implied by an intrinsic violation or an unready required unit. */
@@ -289,6 +298,7 @@ export const makeWorkspaceInvariantFactsLive = (options: {
                 expectedContributors: contributors,
                 owner: RULES_REGION_OWNER,
                 errorDetail: options.describeFailure(ruleResult.failure),
+                ownershipInvalid: ruleResult.failure._tag === "ManagedRegionViolation",
               }),
             );
           }
@@ -301,6 +311,7 @@ export const makeWorkspaceInvariantFactsLive = (options: {
                 scope: workspace.scope,
                 expectedContributors: contributors,
                 errorDetail: options.describeFailure(hookResult.failure),
+                ownershipInvalid: hookResult.failure._tag === "ManagedRegionViolation",
               }),
             );
             facts.push(
@@ -311,6 +322,7 @@ export const makeWorkspaceInvariantFactsLive = (options: {
                 expectedContributors: contributors,
                 owner: HOOK_FALLBACKS_REGION_OWNER,
                 errorDetail: options.describeFailure(hookResult.failure),
+                ownershipInvalid: hookResult.failure._tag === "ManagedRegionViolation",
               }),
             );
           }
@@ -324,6 +336,7 @@ export const makeWorkspaceInvariantFactsLive = (options: {
                 expectedContributors: contributors,
                 owner: KNOWLEDGE_REGION_OWNER,
                 errorDetail: options.describeFailure(knowledgeResult.failure),
+                ownershipInvalid: knowledgeResult.failure._tag === "ManagedRegionViolation",
               }),
             );
           }

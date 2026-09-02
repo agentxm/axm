@@ -6,7 +6,7 @@ import {
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   type AgentOutputInventory,
   evaluateAxmSkillCompatibility,
-  makeProjectionInvariantFact,
+  type ProjectionInvariantFact,
 } from "@agentxm/extension-workspace";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { agentsDetectedDeclaredRule } from "../../agents-detected-declared.js";
@@ -16,7 +16,7 @@ import { axmSkillCompatibleRule } from "../../axm-skill-compatible.js";
 import { hookOwnershipAmbiguousRule } from "../../hook-ownership-ambiguous.js";
 import { knowledgeStateValidRule } from "../../knowledge-state-valid.js";
 import { managedFileUnownedRule } from "../../managed-file-unowned.js";
-import { projectionsCurrentRule } from "../../projections-current.js";
+import { projectionOwnershipValidRule } from "../../projection-ownership-valid.js";
 import { settingsKeysRecognizedRule } from "../../settings-keys-recognized.js";
 import {
   contextFor,
@@ -185,7 +185,7 @@ export const managedFileUnownedConformance: WorkspaceRuleConformanceCase = {
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
 };
 
-const projectionContext = (current: boolean) =>
+const projectionContext = (ownershipValid: boolean) =>
   contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
     Effect.map(
       (context) =>
@@ -193,33 +193,47 @@ const projectionContext = (current: boolean) =>
           ...context,
           projections: {
             facts: Effect.succeed([
-              makeProjectionInvariantFact(
-                {
+              {
+                predicate: "workspace/projection-current",
+                subject: {
                   unitId: "rule:instructions-region",
                   path: "AGENTS.md#rules",
-                  present: true,
-                  current,
-                  expectedContributors: ["@acme/rules/alpha", "@acme/rules/beta"],
-                  observedContributors: current
-                    ? ["@acme/rules/alpha", "@acme/rules/beta"]
-                    : ["@acme/rules/alpha"],
+                  scope: "project",
+                  owner: "@agentxm/rules/instructions",
                 },
-                "project",
-              ),
+                authority: {
+                  source: "desired-state-graph",
+                  contributors: ["@acme/rules/alpha", "@acme/rules/beta"],
+                },
+                observation: ownershipValid
+                  ? { status: "current", contributors: ["@acme/rules/alpha", "@acme/rules/beta"] }
+                  : {
+                      status: "unavailable",
+                      contributors: [],
+                      reasonCode: "invalid-ownership",
+                      message: "AXM managed region AGENTS.md has malformed ownership markers.",
+                    },
+                expectation: {
+                  status: "current",
+                  contributors: ["@acme/rules/alpha", "@acme/rules/beta"],
+                },
+                affectedContributors: ownershipValid
+                  ? []
+                  : ["@acme/rules/alpha", "@acme/rules/beta"],
+              } satisfies ProjectionInvariantFact,
             ]),
           },
         }) satisfies WorkspaceRuleContext,
     ),
   );
 
-export const projectionsCurrentConformance: WorkspaceRuleConformanceCase = {
-  rule: projectionsCurrentRule,
+export const projectionOwnershipValidConformance: WorkspaceRuleConformanceCase = {
+  rule: projectionOwnershipValidRule,
   satisfied: () => projectionContext(true),
   violated: () => projectionContext(false),
   expectedFindings: [
     {
-      message:
-        "The AXM-owned projection at AGENTS.md#rules is incomplete. Affected contributors: @acme/rules/beta.",
+      message: "AXM managed region AGENTS.md has malformed ownership markers.",
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),

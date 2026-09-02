@@ -117,6 +117,7 @@ export {
   removeSubagentFiles,
   removeSubagentViaResolve,
   renderManagedSubagentOutputs,
+  subagentProjectionGeneration,
   writeSubagentFiles,
 } from "./extension-workspace/subagent-sync.js";
 
@@ -207,6 +208,7 @@ export {
   managedKeyedBlockNames,
   reconcileKeyedBlock,
   reconcileManagedRegionFile,
+  projectionGeneration,
   reconcilePatternList,
   type KeyedBlockReconciliation,
   type ManagedRegionReconciliation,
@@ -588,6 +590,7 @@ export {
   makeWorkspaceInvariantFactsLive,
   PROJECTION_INVARIANT_PREDICATE,
   projectionFactIsViolation,
+  projectionFactHasInvalidOwnership,
   projectionFactRequiresReconciliation,
   WorkspaceInvariantFacts,
   type ProjectionInvariantFact,

@@ -212,7 +212,6 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: workspaceEvidence,
-    suppressed: ["workspace/projections-current"],
   }),
   makeEntry("workspace/axm-skill-compatible", {
     owner: "sync",
@@ -229,14 +228,13 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
-  makeEntry("workspace/projections-current", {
-    owner: "sync",
+  makeEntry("workspace/projection-ownership-valid", {
+    owner: "direct-correction",
     field: "ownedProjection",
     evidence: [
       "packages/cli/src/root/sync/handler.internal.test.ts",
       "packages/extension-workspace/src/projection/invariant-facts.internal.test.ts",
     ],
-    aggregateCoverage,
   }),
   makeEntry("workspace/skills-declarations-valid", {
     owner: "direct-correction",
@@ -520,12 +518,8 @@ describe("recovery-conformance registry", () => {
     }
   });
 
-  it("drives aggregate multi-route coverage from the projection recovery entry", () => {
-    const projectionEntry = recoveryRegistry.find(
-      ({ id }) => id === "workspace/projections-current",
-    );
-    expect(projectionEntry).toBeDefined();
-    const coverage = projectionEntry?.aggregateCoverage ?? {};
+  it("binds every aggregate projection to multi-route executable coverage", () => {
+    const coverage = aggregateCoverage;
     for (const unit of aggregateOwnershipUnits) {
       const paths = coverage[unit.unitId];
       expect(paths, unit.unitId).toBeDefined();

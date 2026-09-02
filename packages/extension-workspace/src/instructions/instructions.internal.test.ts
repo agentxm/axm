@@ -635,7 +635,7 @@ describe("agent instructions", () => {
     ),
   );
 
-  it.effect("distinguishes an unowned collision from AXM-managed drift", () =>
+  it.effect("distinguishes unowned collisions from an owned copy with an edited body", () =>
     run(
       Effect.gen(function* () {
         fs.mkdirSync(path.join(tempDir, "docs"));
@@ -646,7 +646,8 @@ describe("agent instructions", () => {
         // A foreign symlink at a planned target: unowned.
         fs.writeFileSync(path.join(tempDir, "OTHER.md"), "# Other\n");
         fs.symlinkSync("OTHER.md", path.join(tempDir, "GEMINI.md"));
-        // A managed copy whose body was hand-edited: owned, drifted.
+        // A managed copy whose body was hand-edited: owned and current because
+        // the generation provenance still matches its authoritative inputs.
         yield* syncInstructions({
           workspaceRoot: path.join(tempDir, "docs"),
           scope: "project",
@@ -678,10 +679,10 @@ describe("agent instructions", () => {
           observedForm: "symlink",
         });
         expect(byTarget(status.items, copyPath)).toMatchObject({
-          health: "drift",
-          ownership: "owned-drift",
+          health: "ok",
+          ownership: "owned-current",
           observedForm: "copy",
-          details: "Instruction file needs attention.",
+          details: "Instruction file is current.",
         });
         expect(byTarget(status.items, path.join(tempDir, "docs", "GEMINI.md"))).toMatchObject({
           health: "missing-target",
@@ -719,14 +720,15 @@ describe("agent instructions", () => {
     ),
   );
 
-  it.effect("restores an AXM-owned managed copy that has drifted", () =>
+  it.effect("preserves an AXM-owned managed copy whose body was edited", () =>
     run(
       Effect.gen(function* () {
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
         yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
         const targetPath = path.join(tempDir, "CLAUDE.md");
         const managed = fs.readFileSync(targetPath, "utf-8");
-        fs.writeFileSync(targetPath, managed.replace("# Workspace", "# Drifted"));
+        const edited = managed.replace("# Workspace", "# Repository-formatted");
+        fs.writeFileSync(targetPath, edited);
 
         const { status } = yield* observe({
           configuredAgents: ["claude-code"],
@@ -741,8 +743,8 @@ describe("agent instructions", () => {
           symlinkSupported: false,
         });
 
-        expect(result.written).toContain(targetPath);
-        expect(fs.readFileSync(targetPath, "utf-8")).toBe(managed);
+        expect(result.written).toEqual([]);
+        expect(fs.readFileSync(targetPath, "utf-8")).toBe(edited);
         expect(result.snapshot.status.items[0]?.ownership).toBe("owned-current");
       }),
     ),

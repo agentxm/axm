@@ -56,15 +56,16 @@ block sync, but does not thereby become a lint violation.
 | Sync            | Maps reconcilable facts to closure-local plan steps and other intrinsic or operational facts to blockers. |
 | Intent commands | Preflight only facts required by the semantic closure they must establish.                                |
 
-Lint and sync cannot disagree about an intrinsic predicate. Sync may use
-additional operational evidence without expanding lint's responsibility.
+Lint validates durable workspace invariants such as ownership safety. Sync
+owns derived-output convergence and may plan regeneration from generation
+provenance without turning currency into a lint finding.
 Publish validation remains separate and may impose fixed distribution
 requirements that do not redefine local workspace validity.
 
-Inspection surfaces are bound by the same facts. If an extension's required
-contribution to an owned unit is absent or stale, a projection fact records it.
-Because inventory, lint, and sync consume the same facts, inventory can never
-report an extension as realized while lint and sync find nothing to reconcile.
+Inspection surfaces are bound by the same ownership and authority facts. If an
+extension's required contribution to an owned unit is absent or its generation
+is stale, sync records reconciliation work. Lint reports only invalid or
+unsupported ownership proof, not body currency.
 
 ## Authority and reachability facts
 
@@ -98,18 +99,17 @@ validation.
 ## Projection facts
 
 The projection fact family is cross-type and relates each owned output unit to
-the contributor set the desired state requires of it. A unit is **incomplete**
-when it is well formed and correctly owned but renders only part of its
-required contributor set. Incomplete is a distinct violation beyond missing,
-stale, obsolete, colliding, or ambiguously owned; without it an aggregate unit
-can lose content while every other predicate remains satisfied.
+the contributor set the desired state requires of it. Generated documents
+record one generation digest for the complete authoritative input set. A
+matching digest establishes currency without interpreting the generated body;
+a missing or different digest is sync work. Contributor point markers may aid
+humans and diagnostics but are not currency evidence.
 
-Evidence for projection facts is read from the output: the contributor
-identities, versions, and content read back from the unit decide which
-contributors it carries and whether each is current. The presence, version, or
-content of the canonical extension content that produced a unit is never
-evidence about the unit, so an extension whose canonical content is installed
-and reachable can still be absent from, or stale in, its projection.
+Structured execution-bearing projections derive currency from decoded native
+values. Missing units, stale generation, differing structured values,
+obsolete owned units, collisions, and ambiguous ownership remain distinct
+planning facts. Canonical source content establishes expected generation, not
+proof that a projection exists on disk.
 
 ## Evaluation and isolation
 
@@ -162,13 +162,13 @@ minimal perturbation, expected diagnostic facts and dependent-rule
 suppression, the recovery owner, permitted and forbidden state changes,
 post-recovery state, and second-run idempotence.
 
-The registry's cross-type projection family exercises missing, incomplete,
-stale, obsolete, unowned collision, ambiguous ownership, safe owned removal,
+The registry's cross-type projection family exercises missing, stale,
+obsolete, unowned collision, ambiguous ownership, safe owned removal,
 authored inventory outside desired state, unreachable managed content, and
 unclassifiable canonical content wherever applicable; type-specific cases add
 native merge, ordering, region-boundary, and fallback behavior. Every
-aggregate unit registers the incomplete case using the shared multi-route
-contributor fixture described by the
+aggregate unit registers contributor-change regeneration using the shared
+multi-route contributor fixture described by the
 [extension testing strategy](../extensions/overview.md#testing-strategy), and
 cross-cutting adversarial fixtures cover settings failure, partial closures,
 preservation of authored and unowned content, drift, interruption, lock

@@ -761,7 +761,7 @@
             "workspace/instructions-gitignore-current": {
               "$ref": "#/definitions/LintRuleSeverity"
             },
-            "workspace/projections-current": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/projection-ownership-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/hook-ownership-ambiguous": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/managed-file-unowned": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/skills-declarations-valid": { "$ref": "#/definitions/LintRuleSeverity" },

@@ -26,7 +26,6 @@ import {
   requireCompleteGraph,
   KNOWLEDGE_REGION_OWNER,
   reconcileKnowledgeDiscovery,
-  observedKnowledgeContributors,
   type KnowledgeDiscoveryBundle,
   resolveInstructionsConfig,
 } from "@agentxm/extension-workspace";
@@ -626,10 +625,9 @@ export const KnowledgeManagerLive = Layer.effect(
                   expectedContributors: input.contributors.map(
                     ({ owner, name }) => `${owner}/knowledge/${name}`,
                   ),
-                  observedContributors: Option.match(result.observedRegion, {
-                    onNone: () => [],
-                    onSome: observedKnowledgeContributors,
-                  }),
+                  observedContributors: Option.isSome(result.observedRegion)
+                    ? input.contributors.map(({ owner, name }) => `${owner}/knowledge/${name}`)
+                    : [],
                 })),
               ),
             apply: (input) =>

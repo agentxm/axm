@@ -212,15 +212,18 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/mcps-shared-target-compatible",
-    "packages/cli-e2e/src/cli-commands/lint/command.e2e.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/mcps/test-helpers.ts",
+    "mcpSharedTargetCompatibleConformance",
   ),
   evidence(
     "workspace/mcps-agent-drift",
-    "packages/workspace-lint/src/catalog/workspace/mcps-agent-drift.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/mcps/test-helpers.ts",
+    "mcpAgentDriftConformance",
   ),
   evidence(
     "workspace/mcps-agent-orphaned",
-    "packages/workspace-lint/src/catalog/workspace/mcps-agent-orphaned.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/mcps/test-helpers.ts",
+    "mcpAgentOrphanedConformance",
   ),
   evidence(
     "workspace/skills-lockfile-aligned",

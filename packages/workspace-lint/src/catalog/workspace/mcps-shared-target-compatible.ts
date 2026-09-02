@@ -6,7 +6,7 @@ import {
   resolveSharedMcpTarget,
   groupConfiguredMcpTargets,
 } from "@agentxm/extension-workspace";
-import type { McpServerEntry } from "@agentxm/workspace-state";
+import { isMcpServerApplicableToAgent, type McpServerEntry } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";
 import { settingsDisplayPath } from "./display-paths.js";
@@ -59,6 +59,23 @@ export const mcpServerSharedTargetCompatibleRule: AdvisoryRule<WorkspaceRuleCont
         const transport = transportFor(entry);
         if (transport === undefined) return [];
         return groups.flatMap((group) => {
+          const applicableAgentIds = group.members
+            .filter((member) => isMcpServerApplicableToAgent(entry, member.agentId))
+            .map((member) => member.agentId);
+          if (applicableAgentIds.length === 0) return [];
+          if (applicableAgentIds.length < group.members.length) {
+            const untargetedAgentIds = group.members
+              .filter((member) => !isMcpServerApplicableToAgent(entry, member.agentId))
+              .map((member) => member.agentId);
+            return [
+              findingFor(
+                serverName,
+                group.path,
+                `MCP target policy cannot be represented; targeted agents ${applicableAgentIds.join(", ")} share it with untargeted agents ${untargetedAgentIds.join(", ")}.`,
+                settingsDisplayPath(context.subject.scope),
+              ),
+            ];
+          }
           const resolution = resolveSharedMcpTarget({ members: group.members, transport });
           return resolution._tag === "conflict"
             ? [

@@ -18,6 +18,7 @@
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
+      "axm-source": "./src/index.ts",
       "default": "./dist/src/index.js"
     }
   },

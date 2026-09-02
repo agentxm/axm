@@ -100,7 +100,7 @@ the CLI checkout and target workspace differ:
 
 ```bash
 /path/to/axm/scripts/axm-local -C /path/to/workspace setup --yes
-bun /path/to/axm/packages/cli/src/main.ts -C /path/to/workspace list
+bun --conditions=axm-source /path/to/axm/packages/cli/src/main.ts -C /path/to/workspace list
 ```
 
 Both entrypoints preserve the caller's working directory. `-C` / `--directory`

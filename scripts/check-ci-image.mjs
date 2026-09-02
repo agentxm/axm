@@ -228,6 +228,7 @@ if (imagePnpmVersion === undefined) {
 }
 
 for (const text of [
+  "verifyDepsBeforeRun: error",
   "allowBuilds:",
   '"@swc/core": true',
   "esbuild: true",

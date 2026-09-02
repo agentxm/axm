@@ -12,7 +12,7 @@ and package inventory.
 
 ## Commands
 
-Nx targets are the units of work; `pnpm` scripts name workflows. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm axm` runs the Bun entrypoint from source; it does not build first.
+Nx targets are the units of work; `pnpm` scripts name workflows. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm install` is the explicit dependency-preparation step; commands fail instead of installing implicitly. `pnpm axm` runs the Bun entrypoint and its internal workspace packages from source through the `axm-source` export condition; it does not build first.
 
 The portable
 [Repository task interface](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/repository-task-interface.md)
@@ -25,11 +25,11 @@ workflow names for workflows.
 
 Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists. This is a hard rule. Do not use direct tool invocations like `pnpm exec vitest`, `vitest`, `tsc`, `eslint`, `prettier`, or bare `nx` for repo verification when a repo-backed script or target exists. They can bypass repo conventions, dependency ordering, caching, and build steps and can pick up stale `dist` output.
 
-For focused verification, keep the repo-backed target and pass filters through it:
+For focused verification, keep the repo-backed target and pass filters through it. Test file filters are relative to the selected Nx project's root:
 
-- focused tests: `pnpm nx run <project>:test --args="path/to/test.ts"`
-- focused test by name: `pnpm nx run <project>:test --args='path/to/test.ts -t "test name"'`
-- focused typecheck: `pnpm nx run <project>:typecheck`
+- focused CLI test: `pnpm exec nx run cli:test --args="src/help-command-references.internal.test.ts"`
+- focused test by name: `pnpm exec nx run cli:test --args='src/help-command-references.internal.test.ts -t "names only help topics that exist"'`
+- focused typecheck: `pnpm exec nx run <project>:typecheck`
 
 Only call a direct tool when no equivalent `pnpm` script or `pnpm nx` target exists, and say why.
 

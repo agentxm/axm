@@ -18,14 +18,17 @@
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
+      "axm-source": "./src/index.ts",
       "default": "./dist/src/index.js"
     },
     "./live": {
       "types": "./dist/src/live.d.ts",
+      "axm-source": "./src/live.ts",
       "default": "./dist/src/live.js"
     },
     "./testing": {
       "types": "./dist/src/testing.d.ts",
+      "axm-source": "./src/testing.ts",
       "default": "./dist/src/testing.js"
     }
   },

@@ -6,7 +6,7 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "axm": "bun packages/cli/src/main.ts",
+    "axm": "bun --conditions=axm-source packages/cli/src/main.ts",
     "axm:local": "./scripts/axm-local",
     "axm:link": "./scripts/axm-link link",
     "axm:link:local": "./scripts/axm-link link:local",
@@ -35,7 +35,7 @@
     "lint:fix": "nx run-many -t lint --fix",
     "ci": "pnpm run ci:workspace && pnpm run test:e2e",
     "ci:workspace": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:workspace",
-    "verify:clean": "pnpm run check:ci-image && pnpm run generate:check && pnpm run sync:check",
+    "verify:clean": "pnpm exec nx run axm:source-cli-smoke && pnpm run check:ci-image && pnpm run generate:check && pnpm run sync:check",
     "verify:affected": "pnpm exec nx affected -t lint typecheck verify-source-hygiene parity-ledger-check lint-bundled-skill --batch --nxBail && pnpm exec nx affected -t build --batch --nxBail && pnpm exec nx affected -t test --batch --nxBail --maxWorkers=2 && pnpm exec nx affected -t e2e --batch --nxBail --parallel=1",
     "verify:workspace": "pnpm exec nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check lint-bundled-skill --batch --nxBail && pnpm exec nx run-many -t build --batch --nxBail && pnpm exec nx run-many -t test --batch --nxBail --maxWorkers=2",
     "verify:full": "pnpm run verify:workspace && pnpm run test:e2e",

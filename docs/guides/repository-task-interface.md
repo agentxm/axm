@@ -28,7 +28,7 @@ instructions and contributor guides route here instead of copying this binding.
 | Subject            | One project, every project exposing a target, or Nx's affected project set                               |
 | Resolved contract  | Nx configuration after plugins, target defaults, project configuration, and package scripts are combined |
 | Workflow surface   | Root `package.json` scripts invoked with `pnpm run`                                                      |
-| Bootstrap boundary | The toolchain pinned by `mise.toml` and dependencies installed by pnpm                                   |
+| Bootstrap boundary | The toolchain pinned by `mise.toml` and dependencies explicitly installed by pnpm                        |
 | Host adapter       | CI, release, container, Git, and external-workspace launchers whose state Nx cannot model faithfully     |
 | Diagnostic path    | Direct underlying-CLI invocation used for investigation, not equivalent repository evidence              |
 
@@ -40,7 +40,9 @@ environment, dependencies, inputs, outputs, cache behavior, and result meaning.
 
 The direct-target baseline is the Node, pnpm, and Bun toolchain pinned by
 `mise.toml`, followed by `pnpm install` at the repository root. No environment
-file, service, or container is a general prerequisite.
+file, service, or container is a general prerequisite. The workspace sets
+`verifyDepsBeforeRun: error`, so a command with absent or stale dependencies
+fails before pnpm can install or partially mutate the checkout.
 
 - Container workflows additionally require Docker.
 - Release publication runs in GitHub Actions with repository credentials and
@@ -113,6 +115,13 @@ Automation invokes targets directly unless it needs one of these host
 semantics. Direct Vitest, TypeScript, ESLint, Prettier, or Bun invocation is not
 equivalent evidence when a supported target or workflow exists.
 
+The `axm` and `axm:local` launchers activate Bun's repository-only
+`axm-source` export condition. Every publishable runtime workspace-package
+export maps that condition to TypeScript under `src`, while its normal
+`default` continues to map to JavaScript under `dist`. A source CLI therefore
+resolves transitively to source without requiring or trusting ignored build
+artifacts; installed and published consumers retain the artifact boundary.
+
 ## Workflow membership
 
 - Target presence owns project membership for ordinary `run-many` and affected
@@ -135,11 +144,14 @@ equivalent evidence when a supported target or workflow exists.
 ## Enforcement
 
 `check:ci-image` verifies the pre-install and container contracts. Repository
-tooling tests verify hooks, release helpers, source hygiene, and selected caller
-relationships. Task-interface conformance additionally inspects the resolved Nx
-graph and exercises clean-checkout invocation, argument and freshness
-forwarding, cache invalidation and restoration, output ownership, affected
-selection, host boundaries, and report provenance.
+tooling tests verify hooks, release helpers, source hygiene, the source export
+invariant, explicit dependency preparation, and selected caller relationships.
+The uncached `axm:source-cli-smoke` target runs before builds in `verify:clean`,
+proving that the source launcher starts without workspace `dist`.
+Task-interface conformance additionally inspects the resolved Nx graph and
+exercises clean-checkout invocation, argument and freshness forwarding, cache
+invalidation and restoration, output ownership, affected selection, host
+boundaries, and report provenance.
 
 Changes to `package.json`, `nx.json`, project targets, wrappers, hooks, or
 automation must update the binding and its executable conformance evidence in

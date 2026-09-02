@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   AXM_LOCAL_DEFAULT_REGISTRY_LOCATION,
   AXM_LOCAL_DEFAULT_TELEMETRY,
+  AXM_SOURCE_CONDITION_ARGUMENT,
   createAxmLocalInvocation,
   resolveAxmLocalRepoRoot,
 } from "./axm-local-shared.js";
@@ -26,6 +27,7 @@ describe("axm-local shared helpers", () => {
 
     expect(invocation.command).toBe("bun");
     expect(invocation.args).toEqual([
+      AXM_SOURCE_CONDITION_ARGUMENT,
       path.join("/tmp", "axm", "packages", "cli", "src", "main.ts"),
       "whoami",
       "--json",

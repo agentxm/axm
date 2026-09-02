@@ -18,226 +18,282 @@
   "exports": {
     "./unstable/agent-capabilities": {
       "types": "./dist/src/unstable/agent-capabilities/index.d.ts",
+      "axm-source": "./src/unstable/agent-capabilities/index.ts",
       "default": "./dist/src/unstable/agent-capabilities/index.js"
     },
     "./unstable/agent-capabilities/catalog": {
       "types": "./dist/src/unstable/agent-capabilities/catalog.d.ts",
+      "axm-source": "./src/unstable/agent-capabilities/catalog.ts",
       "default": "./dist/src/unstable/agent-capabilities/catalog.js"
     },
     "./unstable/agent-capabilities/derive": {
       "types": "./dist/src/unstable/agent-capabilities/derive.d.ts",
+      "axm-source": "./src/unstable/agent-capabilities/derive.ts",
       "default": "./dist/src/unstable/agent-capabilities/derive.js"
     },
     "./unstable/agents/registry": {
       "types": "./dist/src/unstable/agents/registry.d.ts",
+      "axm-source": "./src/unstable/agents/registry.ts",
       "default": "./dist/src/unstable/agents/registry.js"
     },
     "./unstable/agents/types": {
       "types": "./dist/src/unstable/agents/types.d.ts",
+      "axm-source": "./src/unstable/agents/types.ts",
       "default": "./dist/src/unstable/agents/types.js"
     },
     "./unstable/date-time": {
       "types": "./dist/src/unstable/date-time.d.ts",
+      "axm-source": "./src/unstable/date-time.ts",
       "default": "./dist/src/unstable/date-time.js"
     },
     "./unstable/discovery-walk": {
       "types": "./dist/src/unstable/discovery-walk.d.ts",
+      "axm-source": "./src/unstable/discovery-walk.ts",
       "default": "./dist/src/unstable/discovery-walk.js"
     },
     "./unstable/extension-types": {
       "types": "./dist/src/unstable/extension-types/index.d.ts",
+      "axm-source": "./src/unstable/extension-types/index.ts",
       "default": "./dist/src/unstable/extension-types/index.js"
     },
     "./unstable/extension-types/schema": {
       "types": "./dist/src/unstable/extension-types/schema.d.ts",
+      "axm-source": "./src/unstable/extension-types/schema.ts",
       "default": "./dist/src/unstable/extension-types/schema.js"
     },
     "./unstable/extension-types/standards": {
       "types": "./dist/src/unstable/extension-types/standards.d.ts",
+      "axm-source": "./src/unstable/extension-types/standards.ts",
       "default": "./dist/src/unstable/extension-types/standards.js"
     },
     "./unstable/extensions": {
       "types": "./dist/src/unstable/extensions/index.d.ts",
+      "axm-source": "./src/unstable/extensions/index.ts",
       "default": "./dist/src/unstable/extensions/index.js"
     },
     "./unstable/extensions/common": {
       "types": "./dist/src/unstable/extensions/common.d.ts",
+      "axm-source": "./src/unstable/extensions/common.ts",
       "default": "./dist/src/unstable/extensions/common.js"
     },
     "./unstable/extensions/deprecation": {
       "types": "./dist/src/unstable/extensions/deprecation.d.ts",
+      "axm-source": "./src/unstable/extensions/deprecation.ts",
       "default": "./dist/src/unstable/extensions/deprecation.js"
     },
     "./unstable/extensions/fqn": {
       "types": "./dist/src/unstable/extensions/fqn.d.ts",
+      "axm-source": "./src/unstable/extensions/fqn.ts",
       "default": "./dist/src/unstable/extensions/fqn.js"
     },
     "./unstable/extensions/fqn-pattern": {
       "types": "./dist/src/unstable/extensions/fqn-pattern.d.ts",
+      "axm-source": "./src/unstable/extensions/fqn-pattern.ts",
       "default": "./dist/src/unstable/extensions/fqn-pattern.js"
     },
     "./unstable/extensions/handle": {
       "types": "./dist/src/unstable/extensions/handle.d.ts",
+      "axm-source": "./src/unstable/extensions/handle.ts",
       "default": "./dist/src/unstable/extensions/handle.js"
     },
     "./unstable/extensions/installable-types": {
       "types": "./dist/src/unstable/extensions/installable-types.d.ts",
+      "axm-source": "./src/unstable/extensions/installable-types.ts",
       "default": "./dist/src/unstable/extensions/installable-types.js"
     },
     "./unstable/extensions/license": {
       "types": "./dist/src/unstable/extensions/license.d.ts",
+      "axm-source": "./src/unstable/extensions/license.ts",
       "default": "./dist/src/unstable/extensions/license.js"
     },
     "./unstable/extensions/manifest-metadata": {
       "types": "./dist/src/unstable/extensions/manifest-metadata.d.ts",
+      "axm-source": "./src/unstable/extensions/manifest-metadata.ts",
       "default": "./dist/src/unstable/extensions/manifest-metadata.js"
     },
     "./unstable/extensions/refs/extension-ref": {
       "types": "./dist/src/unstable/extensions/refs/extension-ref.d.ts",
+      "axm-source": "./src/unstable/extensions/refs/extension-ref.ts",
       "default": "./dist/src/unstable/extensions/refs/extension-ref.js"
     },
     "./unstable/extensions/refs/hook": {
       "types": "./dist/src/unstable/extensions/refs/hook.d.ts",
+      "axm-source": "./src/unstable/extensions/refs/hook.ts",
       "default": "./dist/src/unstable/extensions/refs/hook.js"
     },
     "./unstable/extensions/refs/knowledge": {
       "types": "./dist/src/unstable/extensions/refs/knowledge.d.ts",
+      "axm-source": "./src/unstable/extensions/refs/knowledge.ts",
       "default": "./dist/src/unstable/extensions/refs/knowledge.js"
     },
     "./unstable/extensions/refs/mcp-server": {
       "types": "./dist/src/unstable/extensions/refs/mcp-server.d.ts",
+      "axm-source": "./src/unstable/extensions/refs/mcp-server.ts",
       "default": "./dist/src/unstable/extensions/refs/mcp-server.js"
     },
     "./unstable/extensions/refs/pack": {
       "types": "./dist/src/unstable/extensions/refs/pack.d.ts",
+      "axm-source": "./src/unstable/extensions/refs/pack.ts",
       "default": "./dist/src/unstable/extensions/refs/pack.js"
     },
     "./unstable/extensions/refs/ref-base": {
       "types": "./dist/src/unstable/extensions/refs/ref-base.d.ts",
+      "axm-source": "./src/unstable/extensions/refs/ref-base.ts",
       "default": "./dist/src/unstable/extensions/refs/ref-base.js"
     },
     "./unstable/extensions/refs/rule": {
       "types": "./dist/src/unstable/extensions/refs/rule.d.ts",
+      "axm-source": "./src/unstable/extensions/refs/rule.ts",
       "default": "./dist/src/unstable/extensions/refs/rule.js"
     },
     "./unstable/extensions/refs/skill": {
       "types": "./dist/src/unstable/extensions/refs/skill.d.ts",
+      "axm-source": "./src/unstable/extensions/refs/skill.ts",
       "default": "./dist/src/unstable/extensions/refs/skill.js"
     },
     "./unstable/extensions/refs/subagent": {
       "types": "./dist/src/unstable/extensions/refs/subagent.d.ts",
+      "axm-source": "./src/unstable/extensions/refs/subagent.ts",
       "default": "./dist/src/unstable/extensions/refs/subagent.js"
     },
     "./unstable/extensions/registry-source": {
       "types": "./dist/src/unstable/extensions/registry-source.d.ts",
+      "axm-source": "./src/unstable/extensions/registry-source.ts",
       "default": "./dist/src/unstable/extensions/registry-source.js"
     },
     "./unstable/extensions/release-age": {
       "types": "./dist/src/unstable/extensions/release-age.d.ts",
+      "axm-source": "./src/unstable/extensions/release-age.ts",
       "default": "./dist/src/unstable/extensions/release-age.js"
     },
     "./unstable/extensions/universal-skills-dir": {
       "types": "./dist/src/unstable/extensions/universal-skills-dir.d.ts",
+      "axm-source": "./src/unstable/extensions/universal-skills-dir.ts",
       "default": "./dist/src/unstable/extensions/universal-skills-dir.js"
     },
     "./unstable/hooks/manifest-schema": {
       "types": "./dist/src/unstable/hooks/manifest-schema.d.ts",
+      "axm-source": "./src/unstable/hooks/manifest-schema.ts",
       "default": "./dist/src/unstable/hooks/manifest-schema.js"
     },
     "./unstable/knowledge": {
       "types": "./dist/src/unstable/knowledge/index.d.ts",
+      "axm-source": "./src/unstable/knowledge/index.ts",
       "default": "./dist/src/unstable/knowledge/index.js"
     },
     "./unstable/knowledge/concept-ref": {
       "types": "./dist/src/unstable/knowledge/concept-ref.d.ts",
+      "axm-source": "./src/unstable/knowledge/concept-ref.ts",
       "default": "./dist/src/unstable/knowledge/concept-ref.js"
     },
     "./unstable/knowledge/manifest-schema": {
       "types": "./dist/src/unstable/knowledge/manifest-schema.d.ts",
+      "axm-source": "./src/unstable/knowledge/manifest-schema.ts",
       "default": "./dist/src/unstable/knowledge/manifest-schema.js"
     },
     "./unstable/mcps/manifest-schema": {
       "types": "./dist/src/unstable/mcps/manifest-schema.d.ts",
+      "axm-source": "./src/unstable/mcps/manifest-schema.ts",
       "default": "./dist/src/unstable/mcps/manifest-schema.js"
     },
     "./unstable/package-urls": {
       "types": "./dist/src/unstable/package-urls/index.d.ts",
+      "axm-source": "./src/unstable/package-urls/index.ts",
       "default": "./dist/src/unstable/package-urls/index.js"
     },
     "./unstable/packaging": {
       "types": "./dist/src/unstable/packaging/index.d.ts",
+      "axm-source": "./src/unstable/packaging/index.ts",
       "default": "./dist/src/unstable/packaging/index.js"
     },
     "./unstable/packaging/package-type": {
       "types": "./dist/src/unstable/packaging/package-type.d.ts",
+      "axm-source": "./src/unstable/packaging/package-type.ts",
       "default": "./dist/src/unstable/packaging/package-type.js"
     },
     "./unstable/packaging/package-url": {
       "types": "./dist/src/unstable/packaging/package-url.d.ts",
+      "axm-source": "./src/unstable/packaging/package-url.ts",
       "default": "./dist/src/unstable/packaging/package-url.js"
     },
     "./unstable/packs/manifest-schema": {
       "types": "./dist/src/unstable/packs/manifest-schema.d.ts",
+      "axm-source": "./src/unstable/packs/manifest-schema.ts",
       "default": "./dist/src/unstable/packs/manifest-schema.js"
     },
     "./unstable/path-types": {
       "types": "./dist/src/unstable/path-types.d.ts",
+      "axm-source": "./src/unstable/path-types.ts",
       "default": "./dist/src/unstable/path-types.js"
     },
     "./unstable/rules/manifest-schema": {
       "types": "./dist/src/unstable/rules/manifest-schema.d.ts",
+      "axm-source": "./src/unstable/rules/manifest-schema.ts",
       "default": "./dist/src/unstable/rules/manifest-schema.js"
     },
     "./unstable/schema-issues": {
       "types": "./dist/src/unstable/schema-issues.d.ts",
+      "axm-source": "./src/unstable/schema-issues.ts",
       "default": "./dist/src/unstable/schema-issues.js"
     },
     "./unstable/skills/manifest-schema": {
       "types": "./dist/src/unstable/skills/manifest-schema.d.ts",
+      "axm-source": "./src/unstable/skills/manifest-schema.ts",
       "default": "./dist/src/unstable/skills/manifest-schema.js"
     },
     "./unstable/sources/forge-grammar": {
       "types": "./dist/src/unstable/sources/forge-grammar.d.ts",
+      "axm-source": "./src/unstable/sources/forge-grammar.ts",
       "default": "./dist/src/unstable/sources/forge-grammar.js"
     },
     "./unstable/sources/parser": {
       "types": "./dist/src/unstable/sources/parser.d.ts",
+      "axm-source": "./src/unstable/sources/parser.ts",
       "default": "./dist/src/unstable/sources/parser.js"
     },
     "./unstable/sources/printer": {
       "types": "./dist/src/unstable/sources/printer.d.ts",
+      "axm-source": "./src/unstable/sources/printer.ts",
       "default": "./dist/src/unstable/sources/printer.js"
     },
     "./unstable/sources/source-hash": {
       "types": "./dist/src/unstable/sources/source-hash.d.ts",
+      "axm-source": "./src/unstable/sources/source-hash.ts",
       "default": "./dist/src/unstable/sources/source-hash.js"
     },
     "./unstable/sources/source-host-provider": {
       "types": "./dist/src/unstable/sources/source-host-provider.d.ts",
+      "axm-source": "./src/unstable/sources/source-host-provider.ts",
       "default": "./dist/src/unstable/sources/source-host-provider.js"
     },
     "./unstable/sources/types": {
       "types": "./dist/src/unstable/sources/types.d.ts",
+      "axm-source": "./src/unstable/sources/types.ts",
       "default": "./dist/src/unstable/sources/types.js"
     },
     "./unstable/sources/workspace": {
       "types": "./dist/src/unstable/sources/workspace.d.ts",
+      "axm-source": "./src/unstable/sources/workspace.ts",
       "default": "./dist/src/unstable/sources/workspace.js"
     },
     "./unstable/subagents/manifest-schema": {
       "types": "./dist/src/unstable/subagents/manifest-schema.d.ts",
+      "axm-source": "./src/unstable/subagents/manifest-schema.ts",
       "default": "./dist/src/unstable/subagents/manifest-schema.js"
     },
     "./unstable/version-constraints": {
       "types": "./dist/src/unstable/version-constraints/version-constraints.d.ts",
+      "axm-source": "./src/unstable/version-constraints/version-constraints.ts",
       "default": "./dist/src/unstable/version-constraints/version-constraints.js"
     },
     "./unstable/workspace-files": {
       "types": "./dist/src/unstable/workspace-files.d.ts",
+      "axm-source": "./src/unstable/workspace-files.ts",
       "default": "./dist/src/unstable/workspace-files.js"
     },
     "./unstable/workspace-scope": {
       "types": "./dist/src/unstable/workspace-scope.d.ts",
+      "axm-source": "./src/unstable/workspace-scope.ts",
       "default": "./dist/src/unstable/workspace-scope.js"
     }
   },

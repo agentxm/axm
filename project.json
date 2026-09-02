@@ -4,6 +4,14 @@
   "root": ".",
   "tags": ["type:tooling", "scope:root"],
   "targets": {
+    "source-cli-smoke": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "pnpm axm --version",
+        "cwd": "."
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
       "options": {

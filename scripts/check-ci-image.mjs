@@ -390,7 +390,7 @@ const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "
 for (const text of [
   "nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check",
   "nx run-many -t build --batch",
-  "nx run-many -t test --batch",
+  "nx run-many -t test",
   "--maxWorkers=2",
 ]) {
   requireText(
@@ -405,7 +405,7 @@ for (const text of [
   "nx affected -t lint typecheck",
   "verify-source-hygiene parity-ledger-check",
   "nx affected -t build --batch",
-  "nx affected -t test --batch",
+  "nx affected -t test",
   "--maxWorkers=2",
   "nx affected -t e2e",
 ]) {
@@ -433,8 +433,8 @@ if (
   affectedVerification.indexOf("nx affected -t lint typecheck") >=
     affectedVerification.indexOf("nx affected -t build --batch") ||
   affectedVerification.indexOf("nx affected -t build --batch") >=
-    affectedVerification.indexOf("nx affected -t test --batch") ||
-  affectedVerification.indexOf("nx affected -t test --batch") >=
+    affectedVerification.indexOf("nx affected -t test") ||
+  affectedVerification.indexOf("nx affected -t test") >=
     affectedVerification.indexOf("nx affected -t e2e")
 ) {
   errors.push("verify:affected must complete typechecking, builds, tests, and E2E in order");

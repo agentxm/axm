@@ -10,13 +10,13 @@
       "cache": true,
       "parallelism": false,
       "dependsOn": ["cli:build"],
-      "inputs": ["default", "^production"],
+      "inputs": ["...", "^production", "hostPlatform"],
       "outputs": ["{workspaceRoot}/test-results/cli-e2e"]
     },
     "e2e-windows": {
       "cache": true,
       "dependsOn": ["cli:build"],
-      "inputs": ["default", "^production"],
+      "inputs": ["default", "^production", "hostPlatform"],
       "outputs": ["{workspaceRoot}/test-results/cli-e2e-windows"],
       "executor": "nx:run-commands",
       "options": {
@@ -33,7 +33,7 @@
       "cache": true,
       "parallelism": false,
       "dependsOn": ["cli:compile"],
-      "inputs": ["default", "^production"],
+      "inputs": ["default", "^production", "hostPlatform"],
       "outputs": ["{workspaceRoot}/test-results/cli-e2e-binary"],
       "executor": "nx:run-commands",
       "options": {

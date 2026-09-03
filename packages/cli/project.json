@@ -15,10 +15,11 @@
         "{workspaceRoot}/skills/axm/skill.json",
         "{workspaceRoot}/skills/axm/src/**/*"
       ],
-      "outputs": ["{projectRoot}/dist/src", "{projectRoot}/dist/tsconfig.tsbuildinfo"],
+      "outputs": ["{projectRoot}/dist/src"],
       "options": {
         "main": "packages/cli/src/main.ts",
-        "outputPath": "packages/cli/dist",
+        "outputPath": "packages/cli/dist/src",
+        "rootDir": "packages/cli/src",
         "tsConfig": "packages/cli/tsconfig.lib.json",
         "clean": true,
         "generatePackageJson": false
@@ -27,10 +28,11 @@
     "watch": {
       "cache": false,
       "executor": "@nx/js:tsc",
-      "outputs": ["{projectRoot}/dist/src", "{projectRoot}/dist/tsconfig.tsbuildinfo"],
+      "outputs": ["{projectRoot}/dist/src"],
       "options": {
         "main": "packages/cli/src/main.ts",
-        "outputPath": "packages/cli/dist",
+        "outputPath": "packages/cli/dist/src",
+        "rootDir": "packages/cli/src",
         "tsConfig": "packages/cli/tsconfig.lib.json",
         "clean": true,
         "generatePackageJson": false,
@@ -168,7 +170,7 @@
       "cache": true,
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
-      "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts"],
+      "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts", "hostPlatform"],
       "outputs": ["{projectRoot}/dist/host-bin"],
       "options": {
         "command": ["bun", "scripts/compile.ts", "--host-only"],

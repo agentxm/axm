@@ -4,16 +4,21 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 type ResolvedTarget = {
   readonly cache?: boolean;
+  readonly dependsOn?: ReadonlyArray<unknown>;
+  readonly executor?: string;
   readonly inputs?: ReadonlyArray<unknown>;
   readonly outputs?: ReadonlyArray<string>;
   readonly options?: {
-    readonly command?: string;
+    readonly clean?: boolean;
+    readonly command?: string | ReadonlyArray<string>;
+    readonly outputPath?: string;
   };
 };
 
 type ResolvedProject = {
   readonly name: string;
   readonly data: {
+    readonly root?: string;
     readonly targets?: Readonly<Record<string, ResolvedTarget>>;
   };
 };
@@ -53,6 +58,15 @@ const outputsOverlap = (left: string, right: string): boolean => {
     rightPrefix.startsWith(`${leftPrefix}/`)
   );
 };
+
+const commandText = (command: string | ReadonlyArray<string> | undefined): string =>
+  typeof command === "string" ? command : (command ?? []).join(" ");
+
+const resolvedOutputPath = (projectRoot: string, output: string): string =>
+  outputPrefix(output)
+    .replace("{workspaceRoot}/", "")
+    .replace("{projectRoot}", projectRoot)
+    .replace(/^\.\//u, "");
 
 describe("repository task interface", () => {
   let projects: ReadonlyArray<ResolvedProject> = [];
@@ -124,6 +138,84 @@ describe("repository task interface", () => {
     expect(missing).toEqual([]);
   });
 
+  it("includes dependency production inputs in the cached root typecheck contract", () => {
+    const root = projects.find((project) => project.name === "axm");
+    const typecheck = root?.data.targets?.["typecheck"];
+    expect(typecheck?.dependsOn).toContain("^build");
+    expect(typecheck?.inputs).toContain("^production");
+  });
+
+  it("derives root build prerequisites from the project graph", () => {
+    const root = projects.find((project) => project.name === "axm");
+    for (const targetName of [
+      "typecheck",
+      "test",
+      "release-prepare",
+      "release-prepare-candidate",
+      "release-publish",
+      "release-publish-local",
+      "validate-release-tag",
+      "resolve-release-meta",
+      "download-ci-binaries",
+    ]) {
+      const dependencies = root?.data.targets?.[targetName]?.dependsOn ?? [];
+      expect(dependencies, targetName).toContain("^build");
+      expect(dependencies, targetName).not.toContain("extension-model:build");
+      expect(dependencies, targetName).not.toContain("registry-protocol:build");
+      expect(dependencies, targetName).not.toContain("extension-workspace:build");
+    }
+  });
+
+  it("keeps root lint on the supported executor and root-only file scope", () => {
+    const root = projects.find((project) => project.name === "axm");
+    const lint = root?.data.targets?.["lint"];
+    const command = commandText(lint?.options?.command);
+    expect(lint?.executor).toBe("nx:run-commands");
+    expect(command).toBe(
+      "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.reporting.ts scripts --max-warnings=192",
+    );
+    expect(command).not.toContain("eslint .");
+  });
+
+  it("hashes host identity for cached host-selective targets", () => {
+    for (const project of projects) {
+      for (const [targetName, target] of Object.entries(project.data.targets ?? {})) {
+        if (
+          target.cache !== true ||
+          !commandText(target.options?.command).includes("--host-only")
+        ) {
+          continue;
+        }
+        expect(target.inputs, `${project.name}:${targetName}`).toContain("hostPlatform");
+      }
+    }
+  });
+
+  it("keeps inferred Vitest inputs when CLI E2E adds dependency and host inputs", () => {
+    const e2e = projects.find((project) => project.name === "cli-e2e");
+    const inputs = e2e?.data.targets?.["e2e-main"]?.inputs;
+    expect(inputs).toContain("^production");
+    expect(inputs).toContain("hostPlatform");
+    expect(inputs).toContainEqual({ externalDependencies: ["vitest"] });
+    expect(inputs).toContainEqual({ env: "CI" });
+    expect(inputs).toContainEqual({ dependentTasksOutputFiles: "**/*.js", transitive: true });
+    for (const targetName of ["e2e-windows", "binary-smoke"]) {
+      expect(e2e?.data.targets?.[targetName]?.inputs, targetName).toContain("hostPlatform");
+    }
+  });
+
+  it("declares transitive release publishing once after inference", () => {
+    for (const project of projects) {
+      const dependencies = project.data.targets?.["nx-release-publish"]?.dependsOn;
+      if (dependencies === undefined) continue;
+      expect(
+        dependencies.filter((dependency) => dependency === "^nx-release-publish"),
+        project.name,
+      ).toHaveLength(1);
+      expect(dependencies, project.name).toContain("build");
+    }
+  });
+
   it("runs host and live-state work fresh", () => {
     for (const project of projects) {
       for (const [targetName, target] of Object.entries(project.data.targets ?? {})) {
@@ -154,14 +246,49 @@ describe("repository task interface", () => {
     expect(overlaps).toEqual([]);
   });
 
+  it("contains TSC clean and write scope within declared outputs", () => {
+    for (const project of projects) {
+      for (const [targetName, target] of Object.entries(project.data.targets ?? {})) {
+        if (target.executor !== "@nx/js:tsc" || target.options?.clean !== true) continue;
+
+        const outputPath = target.options.outputPath;
+        if (outputPath === undefined)
+          throw new Error(`${project.name}:${targetName} needs outputPath.`);
+        const declaredOutputs = (target.outputs ?? []).map((output) =>
+          resolvedOutputPath(project.data.root ?? ".", output),
+        );
+        expect(declaredOutputs, `${project.name}:${targetName}`).toContain(outputPath);
+      }
+    }
+  });
+
+  it("keeps CLI source-build outputs disjoint from compiled binaries", () => {
+    const cli = projects.find((project) => project.name === "cli");
+    const targets = cli?.data.targets;
+    for (const sourceTargetName of ["build", "watch"]) {
+      const sourceOutputs = targets?.[sourceTargetName]?.outputs ?? [];
+      for (const compileTargetName of ["compile", "compile-host", "compile-host-dev"]) {
+        const compileOutputs = targets?.[compileTargetName]?.outputs ?? [];
+        for (const sourceOutput of sourceOutputs) {
+          for (const compileOutput of compileOutputs) {
+            expect(
+              outputsOverlap(sourceOutput, compileOutput),
+              `${sourceTargetName}:${sourceOutput} <> ${compileTargetName}:${compileOutput}`,
+            ).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
   it("keeps typecheck writes inside their declared output", () => {
     for (const project of projects) {
       const typecheck = project.data.targets?.["typecheck"];
       if (typecheck === undefined) continue;
 
-      expect(typecheck.options?.command, project.name).toContain("--noEmit");
+      expect(commandText(typecheck.options?.command), project.name).toContain("--noEmit");
       if (project.name === "axm") continue;
-      expect(typecheck.options?.command, project.name).toContain(
+      expect(commandText(typecheck.options?.command), project.name).toContain(
         "--tsBuildInfoFile out-tsc/typecheck/",
       );
       expect(typecheck.outputs, project.name).toEqual(["{projectRoot}/out-tsc/typecheck"]);

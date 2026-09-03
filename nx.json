@@ -43,6 +43,7 @@
   },
   "namedInputs": {
     "sharedGlobals": ["{workspaceRoot}/tsconfig*.json", "{workspaceRoot}/vitest.reporting.ts"],
+    "hostPlatform": [{ "runtime": "node -p \"process.platform + '/' + process.arch\"" }],
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
       "default",
@@ -78,7 +79,7 @@
     },
     "nx-release-publish": {
       "cache": false,
-      "dependsOn": ["build", "^nx-release-publish"]
+      "dependsOn": ["build"]
     }
   },
   "release": {

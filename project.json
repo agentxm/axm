@@ -13,15 +13,12 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint",
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^default", "^production", "{workspaceRoot}/eslint.config.mjs"],
       "options": {
-        "lintFilePatterns": [
-          "allurerc.ts",
-          "eslint.config.mjs",
-          "vitest.config.ts",
-          "vitest.reporting.ts",
-          "scripts"
-        ]
+        "command": "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.reporting.ts scripts --max-warnings=192",
+        "cwd": "."
       }
     },
     "lint-bundled-skill": {
@@ -36,12 +33,13 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": [
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-workspace:build"
+      "dependsOn": ["^build"],
+      "inputs": [
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/scripts/**/*",
+        "sharedGlobals",
+        "^production"
       ],
-      "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "options": {
         "command": "tsc -p scripts/tsconfig.json --noEmit",
         "cwd": "."
@@ -65,12 +63,7 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        "build-test-reporting",
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-workspace:build"
-      ],
+      "dependsOn": ["build-test-reporting", "^build"],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "outputs": ["{workspaceRoot}/test-results/scripts"],
       "options": {
@@ -121,11 +114,7 @@
     "release-prepare": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-workspace:build"
-      ],
+      "dependsOn": ["^build"],
       "options": {
         "command": "bun scripts/release-prepare.ts",
         "cwd": "."
@@ -134,12 +123,7 @@
     "release-prepare-candidate": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        "build-test-reporting",
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-workspace:build"
-      ],
+      "dependsOn": ["build-test-reporting", "^build"],
       "options": {
         "command": "bun scripts/release-prepare-candidate.ts",
         "cwd": "."
@@ -148,11 +132,7 @@
     "release-publish": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-workspace:build"
-      ],
+      "dependsOn": ["^build"],
       "options": {
         "command": "bun scripts/release-publish.ts",
         "cwd": "."
@@ -161,11 +141,7 @@
     "release-publish-local": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-workspace:build"
-      ],
+      "dependsOn": ["^build"],
       "options": {
         "command": "bun scripts/release-publish-local.ts",
         "cwd": "."
@@ -174,11 +150,7 @@
     "validate-release-tag": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-workspace:build"
-      ],
+      "dependsOn": ["^build"],
       "options": {
         "command": "bun scripts/validate-release-tag.ts",
         "cwd": "."
@@ -187,11 +159,7 @@
     "resolve-release-meta": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-workspace:build"
-      ],
+      "dependsOn": ["^build"],
       "options": {
         "command": "bun scripts/resolve-release-meta.ts",
         "cwd": "."
@@ -200,11 +168,7 @@
     "download-ci-binaries": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-workspace:build"
-      ],
+      "dependsOn": ["^build"],
       "options": {
         "command": "bun scripts/download-ci-binaries.ts",
         "cwd": "."

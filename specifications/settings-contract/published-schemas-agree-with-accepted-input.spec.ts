@@ -15,15 +15,24 @@ import {
   SettingsSchema,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "settings-contract/published-schemas-agree-with-accepted-input",
   title: "The published settings and lockfile schemas describe what the product accepts",
+  statement:
+    "The published settings and lockfile schemas shall agree with the product on every example document, top-level key, lint rule identity, severity value, and lockfile version, and shall not admit an unregistered rule, wildcard rule, misspelled severity, or other lockfile version.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["contract", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.",
+  ],
+  openQuestions: [],
 });
 
 const requireFromSpec = createRequire(import.meta.url);

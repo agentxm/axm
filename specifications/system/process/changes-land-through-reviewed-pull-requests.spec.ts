@@ -5,17 +5,28 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/process/changes-land-through-reviewed-pull-requests",
   title:
     "Changes land through human-reviewed pull requests, with requirements changes routed to maintainers",
+  statement:
+    "Every change shall land through a pull request with passing required checks and human approval, and any change under specifications shall be routed to maintainer review as a requirements decision.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "The committed code-owner rules and contributor guidance are the repository-side declaration of the review route, which no in-memory run can observe.",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "GitHub branch protection enforces pull-request review and code-owner approval outside the repository.",
+  ],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

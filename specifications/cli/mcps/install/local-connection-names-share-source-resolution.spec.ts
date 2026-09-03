@@ -6,17 +6,24 @@ import YAML from "yaml";
 
 import { getAppError, handleInstallMcpServer } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
 import { makeSpecRegistry } from "../../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/install/local-connection-names-share-source-resolution",
   title: "One registry MCP source supports multiple independently named local connections",
+  statement:
+    "Installing a Registry MCP server under a local name with --as shall add one connection per name sharing one accepted resolution per source, and shall reject before any change an invalid name, a name owned by another source, a non-intersecting version constraint, or --as without a source.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "agent-interoperability"],
+  status: "accepted",
   methods: ["example", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Install locally named MCP connections", () => {

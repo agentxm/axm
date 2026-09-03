@@ -10,17 +10,24 @@ import {
   handleInstall,
   handleLint,
 } from "axm.sh/specification-harness";
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";
 import { installBundledAxmSkill, makeLintSpecWorkspace } from "../../support/lint-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/distinguishes-owned-residue-from-undeclared-agents",
   title: "Lint distinguishes AXM-owned residue from genuinely undeclared agents",
+  statement:
+    "When a workspace still contains AXM-owned projections for an agent that is no longer declared, lint shall report that residue as stale projections and shall not report the agent as detected but undeclared.",
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(LintResultDocumentSchema);

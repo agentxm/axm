@@ -7,15 +7,27 @@ import { afterEach, beforeEach } from "vitest";
 
 import { TelemetryClient, TelemetryClientLive } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/security/telemetry-payloads-respect-data-boundary",
   title: "Telemetry payloads carry only the documented observation fields",
-  class: "security",
+  statement:
+    "Every telemetry event AXM sends shall carry only the documented observation fields for identity, timing, and command context, so that extension content, authored instructions and knowledge, credentials, and resolved secret values have no field in which to travel.",
+  class: "quality",
+  characteristic: "security",
   role: "interface",
   goals: ["privacy-and-consent"],
+  status: "accepted",
   methods: ["golden-output"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "Values inside the properties field carry only documented observation data; the evidence bounds only top-level field names.",
+  ],
+  openQuestions: [
+    "The allowed field list is declared inside the specification rather than read from a published telemetry contract, so which document is authoritative for the data boundary is unresolved.",
+  ],
 });
 
 /**

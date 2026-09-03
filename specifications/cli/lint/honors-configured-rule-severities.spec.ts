@@ -3,7 +3,7 @@ import * as Exit from "effect/Exit";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import {
   installSkillWithMissingProjection,
   makeIsolatedLintRules,
@@ -15,10 +15,17 @@ import {
 export const specification = defineSpecification({
   requirement: "cli/lint/honors-configured-rule-severities",
   title: "Local lint honors configured rule severities",
+  statement:
+    "For each lint rule, lint shall report findings at the severity axm.json configures, suppress the rule when configured off, apply the catalog default when unconfigured, fail a normal run only on errors, and fail a --strict run on warnings as well.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const targetRuleId = "workspace/skills-artifacts-correct";

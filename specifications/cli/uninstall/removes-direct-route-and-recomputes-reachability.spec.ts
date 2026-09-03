@@ -5,17 +5,24 @@ import { afterEach } from "vitest";
 
 import { handleInstall, handleUninstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 import { makePackRetainedSkillWorkspace } from "../../support/reachability-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/uninstall/removes-direct-route-and-recomputes-reachability",
   title: "Uninstall removes direct intent and keeps state another desired route still reaches",
+  statement:
+    "When a directly desired extension is uninstalled, AXM shall remove its direct configuration from axm.json, shall remove its resolution, canonical content, and projections only when no other desired route still reaches it, reporting retained state otherwise, and shall leave every other desired extension's state untouched.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Uninstall a directly desired extension", () => {

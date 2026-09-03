@@ -9,16 +9,25 @@ import {
   versionSatisfiesRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "version-constraints/constraint-intersection-preserves-every-limit",
   title:
     "Combining version constraints keeps every contributor's limits or reports the combination unsatisfiable",
+  statement:
+    "When version constraints from several contributors are combined, the combined constraint shall accept a version exactly when every contributor accepts it, and a combination that no version satisfies or that includes an invalid contributor shall be reported as unsatisfiable.",
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
+  status: "accepted",
   methods: ["property", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [
+    "Combining the accepts-everything contributor >=0.0.0 yields an empty constraint that the product's own satisfaction check rejects; the property excludes that contributor pending a defect decision on whether it is in scope.",
+  ],
 });
 
 interface VersionTriple {

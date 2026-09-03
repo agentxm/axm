@@ -8,16 +8,23 @@ import { afterEach } from "vitest";
 
 import { handleSync, PlanResolutionDocumentSchema } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/reports-aggregate-projection-drift-at-unit-precision",
   title: "Sync reports aggregate projection drift at ownership-unit precision",
+  statement:
+    "When an aggregate projection like an instruction file's rules or knowledge region drifts, a sync preview shall report it as stale or missing at the owning managed unit and region, and shall not attribute the cause to any individual contributing extension.",
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics", "machine-automation", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["decision-table", "contract", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(PlanResolutionDocumentSchema);

@@ -15,17 +15,24 @@ import {
   handleSync,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 import { pinSpecUserHome, snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/workspace-lockfile-rejections-name-state-and-recovery",
   title: "Workspace lockfile rejections name the observed state and a safe recovery route",
+  statement:
+    "When a present workspace lockfile in either scope is unsupported, unreadable, or invalid, every operation shall stop before it begins with a validation error naming the file, the observed state, and a non-destructive recovery route, and shall change no workspace state.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "machine-automation"],
+  status: "accepted",
   methods: ["decision-table", "example", "invariant"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const userHome = pinSpecUserHome();

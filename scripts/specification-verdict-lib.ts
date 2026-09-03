@@ -24,6 +24,7 @@ export interface AffectedRequirement {
   readonly title: string;
   readonly requirementClass: string;
   readonly requirementRole: string;
+  readonly status: string;
   readonly change: "added" | "removed" | "revised-contract" | "revised-evidence";
   readonly evidence: EvidenceStatus;
 }
@@ -36,18 +37,13 @@ export interface Verdict {
 export const digestContent = (content: string): string =>
   crypto.createHash("sha256").update(content).digest("hex");
 
+/**
+ * The contract digest covers every metadata field: a changed statement,
+ * status, class, goal, lineage entry, assumption, or limitation is a
+ * requirement-contract change, never test maintenance.
+ */
 const metadataDigest = (specification: CatalogSpecification): string =>
-  digestContent(
-    JSON.stringify({
-      title: specification.title,
-      requirementClass: specification.requirementClass,
-      requirementRole: specification.requirementRole,
-      goals: specification.goals,
-      boundary: specification.boundary,
-      selection: specification.selection,
-      methods: specification.methods,
-    }),
-  );
+  digestContent(JSON.stringify(specification.metadata));
 
 export interface JunitFileOutcome {
   readonly failures: number;
@@ -102,50 +98,47 @@ const evidenceForSource = (
   return "passed";
 };
 
+const affected = (
+  entry: VerdictSource,
+  change: AffectedRequirement["change"],
+  evidence: EvidenceStatus,
+): AffectedRequirement => ({
+  requirement: entry.specification.metadata.requirement,
+  title: entry.specification.metadata.title,
+  requirementClass: entry.specification.metadata.class,
+  requirementRole: entry.specification.metadata.role,
+  status: entry.specification.metadata.status,
+  change,
+  evidence,
+});
+
 export const computeVerdict = (
   baseSources: readonly VerdictSource[],
   headSources: readonly VerdictSource[],
   junitOutcomes: ReadonlyMap<string, JunitFileOutcome>,
 ): Verdict => {
-  const base = new Map(baseSources.map((entry) => [entry.specification.requirement, entry]));
-  const head = new Map(headSources.map((entry) => [entry.specification.requirement, entry]));
-  const affected: AffectedRequirement[] = [];
+  const base = new Map(
+    baseSources.map((entry) => [entry.specification.metadata.requirement, entry]),
+  );
+  const head = new Map(
+    headSources.map((entry) => [entry.specification.metadata.requirement, entry]),
+  );
+  const affectedRequirements: AffectedRequirement[] = [];
   let unchangedCount = 0;
 
   for (const [requirement, headEntry] of head) {
     const baseEntry = base.get(requirement);
     const evidence = evidenceForSource(headEntry.specification.source, junitOutcomes);
     if (baseEntry === undefined) {
-      affected.push({
-        requirement,
-        title: headEntry.specification.title,
-        requirementClass: headEntry.specification.requirementClass,
-        requirementRole: headEntry.specification.requirementRole,
-        change: "added",
-        evidence,
-      });
+      affectedRequirements.push(affected(headEntry, "added", evidence));
       continue;
     }
     if (metadataDigest(baseEntry.specification) !== metadataDigest(headEntry.specification)) {
-      affected.push({
-        requirement,
-        title: headEntry.specification.title,
-        requirementClass: headEntry.specification.requirementClass,
-        requirementRole: headEntry.specification.requirementRole,
-        change: "revised-contract",
-        evidence,
-      });
+      affectedRequirements.push(affected(headEntry, "revised-contract", evidence));
       continue;
     }
     if (baseEntry.contentDigest !== headEntry.contentDigest) {
-      affected.push({
-        requirement,
-        title: headEntry.specification.title,
-        requirementClass: headEntry.specification.requirementClass,
-        requirementRole: headEntry.specification.requirementRole,
-        change: "revised-evidence",
-        evidence,
-      });
+      affectedRequirements.push(affected(headEntry, "revised-evidence", evidence));
       continue;
     }
     unchangedCount += 1;
@@ -153,19 +146,12 @@ export const computeVerdict = (
 
   for (const [requirement, baseEntry] of base) {
     if (!head.has(requirement)) {
-      affected.push({
-        requirement,
-        title: baseEntry.specification.title,
-        requirementClass: baseEntry.specification.requirementClass,
-        requirementRole: baseEntry.specification.requirementRole,
-        change: "removed",
-        evidence: "missing",
-      });
+      affectedRequirements.push(affected(baseEntry, "removed", "missing"));
     }
   }
 
-  affected.sort((a, b) => a.requirement.localeCompare(b.requirement));
-  return { affected, unchangedCount };
+  affectedRequirements.sort((a, b) => a.requirement.localeCompare(b.requirement));
+  return { affected: affectedRequirements, unchangedCount };
 };
 
 const CHANGE_LABEL: Readonly<Record<AffectedRequirement["change"], string>> = {
@@ -186,14 +172,15 @@ export const renderVerdictMarkdown = (verdict: Verdict): string => {
   }
   lines.push(
     "This change affects the requirement contract. Review it as a requirements",
-    "decision, not test maintenance.",
+    "decision, not test maintenance. A candidate is not authority until its",
+    "subject batch is accepted.",
     "",
-    "| Requirement | Change | Class | Role | Evidence |",
-    "| --- | --- | --- | --- | --- |",
+    "| Requirement | Change | Status | Class | Role | Evidence |",
+    "| --- | --- | --- | --- | --- | --- |",
   );
   for (const entry of verdict.affected) {
     lines.push(
-      `| \`${entry.requirement}\` — ${entry.title} | ${CHANGE_LABEL[entry.change]} | ${entry.requirementClass} | ${entry.requirementRole} | ${entry.evidence} |`,
+      `| \`${entry.requirement}\` — ${entry.title} | ${CHANGE_LABEL[entry.change]} | ${entry.status} | ${entry.requirementClass} | ${entry.requirementRole} | ${entry.evidence} |`,
     );
   }
   lines.push("", `${verdict.unchangedCount} requirement(s) unchanged.`, "");

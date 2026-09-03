@@ -11,15 +11,22 @@ import {
   VersionSchema,
 } from "@agentxm/extension-model/unstable/version-constraints";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "version-constraints/range-satisfaction-follows-semver",
   title: "A version constraint accepts exactly the versions its semver range allows",
+  statement:
+    "A version constraint shall be accepted only as a valid semver range and shall match a version exactly when semver allows it, and an exact version shall be accepted only in strict semver form with no leading v, missing part, or leading zero.",
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
+  status: "accepted",
   methods: ["property", "decision-table", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 interface VersionTriple {

@@ -12,16 +12,23 @@ import {
   handleInstall,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/machine-errors-use-the-stable-envelope",
   title: "A failed machine invocation still emits the stable error envelope",
+  statement:
+    "When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output, keeping every diagnostic line on standard error as a structured event.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["contract", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeEnvelope = Schema.decodeUnknownEffect(JsonErrorEnvelopeSchema);

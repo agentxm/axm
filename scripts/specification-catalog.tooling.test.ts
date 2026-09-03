@@ -6,24 +6,32 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   collectCatalog,
-  lintSpecificationTitle,
   parseExecutionBindingFile,
   parseProductGoalRegistry,
   parseSpecificationFile,
   renderCatalogMarkdown,
 } from "./specification-catalog-lib.js";
 
-const validSpecificationSource = `
-import { defineSpecification } from "../../support/contract.js";
-
-export const specification = defineSpecification({
+const metadataLiteral = (overrides = ""): string => `{
   requirement: "cli/install/realizes-direct-intent",
   title: "Install realizes directly desired extensions",
+  statement: "When a person installs an extension directly, the workspace shall record that intent and realize it for every configured agent.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption"],
+  status: "accepted",
   methods: ["example"],
-});
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
+  ${overrides}
+}`;
+
+const validSpecificationSource = `
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+
+export const specification = defineSpecification(${metadataLiteral()});
 
 describe("Install", () => {});
 `;
@@ -35,14 +43,13 @@ describe("parseSpecificationFile", () => {
       "specifications/cli/install/realizes-direct-intent.spec.ts",
     );
     expect(parsed.issues).toEqual([]);
-    expect(parsed.specification).toMatchObject({
+    expect(parsed.specification?.metadata).toMatchObject({
       requirement: "cli/install/realizes-direct-intent",
       title: "Install realizes directly desired extensions",
-      requirementClass: "functional",
-      requirementRole: "experience",
+      class: "functional",
+      role: "experience",
       goals: ["extension-adoption"],
-      boundary: "memory",
-      selection: "per-change",
+      status: "accepted",
       methods: ["example"],
     });
   });
@@ -58,44 +65,45 @@ describe("parseSpecificationFile", () => {
 
   it("rejects computed metadata", () => {
     const parsed = parseSpecificationFile(
-      `export const specification = defineSpecification({ requirement: "cli/install/" + name, title: "t", class: "functional", role: "experience", goals: ["a"] });`,
+      `export const specification = defineSpecification({ requirement: "cli/install/" + name, title: "t" });`,
       "specifications/cli/install/computed.spec.ts",
     );
     expect(parsed.specification).toBeUndefined();
     expect(parsed.issues[0]?.message).toContain("literal-only");
   });
 
-  it("rejects a malformed requirement identity", () => {
-    const parsed = parseSpecificationFile(
-      `export const specification = defineSpecification({ requirement: "Install", title: "t", class: "functional", role: "experience", goals: ["a"] });`,
-      "specifications/cli/install/bad-identity.spec.ts",
-    );
-    expect(parsed.specification).toBeUndefined();
-    expect(parsed.issues[0]?.message).toContain("requirement");
+  it("rejects metadata that does not satisfy the shared contract", () => {
+    for (const [label, overrides] of [
+      ["identity", `requirement: "Install",`],
+      ["role", `role: "technical",`],
+      ["class", `class: "usability",`],
+      ["status", `status: "proposed",`],
+      ["boundary rationale", `boundary: "repository",`],
+    ] as const) {
+      const parsed = parseSpecificationFile(
+        `export const specification = defineSpecification(${metadataLiteral(overrides)});`,
+        "specifications/cli/install/a.spec.ts",
+      );
+      expect(parsed.specification, label).toBeUndefined();
+      expect(parsed.issues[0]?.message, label).toContain("specification:");
+    }
   });
 
-  it("rejects an unknown requirement role", () => {
+  it("rejects an omitted lineage field instead of defaulting it", () => {
     const parsed = parseSpecificationFile(
-      `export const specification = defineSpecification({ requirement: "cli/install/a", title: "t", class: "functional", role: "technical", goals: ["a"] });`,
+      `export const specification = defineSpecification({ requirement: "cli/install/a", title: "t", statement: "s", class: "functional", role: "experience", goals: ["a"], status: "accepted", methods: ["example"] });`,
       "specifications/cli/install/a.spec.ts",
     );
     expect(parsed.specification).toBeUndefined();
-    expect(parsed.issues[0]?.message).toContain("role");
   });
 
   it("rejects duplicated case metadata", () => {
     const parsed = parseSpecificationFile(
-      `export const specification = defineSpecification({ requirement: "cli/install/a", title: "t", class: "functional", role: "experience", goals: ["a"], cases: { duplicate: "native test name" } });`,
+      `export const specification = defineSpecification(${metadataLiteral(`cases: { duplicate: "native test name" },`)});`,
       "specifications/cli/install/a.spec.ts",
     );
     expect(parsed.specification).toBeUndefined();
     expect(parsed.issues[0]?.message).toContain("native test names");
-  });
-
-  it("rejects implementation vocabulary in titles", () => {
-    expect(lintSpecificationTitle("Install runs the installHandler")).toContain("camelCase");
-    expect(lintSpecificationTitle("Install provides the workspace layer")).toContain("layer");
-    expect(lintSpecificationTitle("Install realizes directly desired extensions")).toBeUndefined();
   });
 
   it("extracts bound evidence declared beside the specification", () => {
@@ -142,20 +150,18 @@ export const boundEvidence = defineBoundEvidence([{ gate: gateName, verifies: "x
 });
 
 describe("parseProductGoalRegistry", () => {
-  it("extracts product goals with default active status", () => {
+  it("extracts the local registry", () => {
     const parsed = parseProductGoalRegistry(
-      `export const productGoals = defineProductGoals({ "extension-adoption": { outcome: "Extensions install." } });`,
+      `export const productGoals = defineProductGoals({ "safe-repetition": { outcome: "Reruns are no-ops." } });`,
       "specifications/product-goals.ts",
     );
     expect(parsed.issues).toEqual([]);
-    expect(parsed.productGoals).toEqual([
-      { id: "extension-adoption", outcome: "Extensions install.", status: "active" },
-    ]);
+    expect(parsed.registry).toEqual({ "safe-repetition": { outcome: "Reruns are no-ops." } });
   });
 
   it("rejects a product goal without an outcome", () => {
     const parsed = parseProductGoalRegistry(
-      `export const productGoals = defineProductGoals({ "extension-adoption": { status: "active" } });`,
+      `export const productGoals = defineProductGoals({ "safe-repetition": { status: "active" } });`,
       "specifications/product-goals.ts",
     );
     expect(parsed.issues.some((issue) => issue.severity === "error")).toBe(true);
@@ -207,7 +213,7 @@ describe("collectCatalog", () => {
     fs.writeFileSync(
       path.join(repoRoot, "specifications", "product-goals.ts"),
       `export const productGoals = defineProductGoals({
-        "extension-adoption": { outcome: "Extensions install." },
+        "safe-repetition": { outcome: "Reruns are no-ops." },
         "retired-outcome": { outcome: "No longer wanted.", status: "retired" },
         "unreferenced-outcome": { outcome: "Nothing references this." },
       });`,
@@ -218,18 +224,14 @@ describe("collectCatalog", () => {
     fs.rmSync(repoRoot, { recursive: true, force: true });
   });
 
-  const writeSpec = (relativePath: string, requirement: string, goal: string): void => {
+  const writeSpec = (relativePath: string, requirement: string, goal: string, extra = ""): void => {
     const target = path.join(repoRoot, "specifications", relativePath);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(
       target,
-      `export const specification = defineSpecification({
-        requirement: "${requirement}",
-        title: "Install realizes directly desired extensions",
-        class: "functional",
-        role: "experience",
-        goals: ["${goal}"],
-      });`,
+      `export const specification = defineSpecification(${metadataLiteral(
+        `requirement: "${requirement}", goals: ["${goal}"], ${extra}`,
+      )});`,
     );
   };
 
@@ -242,6 +244,19 @@ describe("collectCatalog", () => {
         (issue) => issue.severity === "error" && issue.message.includes("duplicate requirement"),
       ),
     ).toBe(true);
+  });
+
+  it("resolves shared goals from the contract and local goals from the registry", () => {
+    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
+    writeSpec("cli/install/b.spec.ts", "cli/install/b", "safe-repetition");
+    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    expect(catalog.issues.filter((issue) => issue.severity === "error")).toEqual([]);
+    expect(catalog.productGoals).toContainEqual(
+      expect.objectContaining({ id: "extension-adoption", scope: "shared" }),
+    );
+    expect(catalog.productGoals).toContainEqual(
+      expect.objectContaining({ id: "safe-repetition", scope: "local" }),
+    );
   });
 
   it("flags unregistered and retired product goals, and unreferenced active goals", () => {
@@ -259,6 +274,30 @@ describe("collectCatalog", () => {
     ).toBe(true);
   });
 
+  it("rejects a local registry that redefines a shared goal", () => {
+    fs.writeFileSync(
+      path.join(repoRoot, "specifications", "product-goals.ts"),
+      `export const productGoals = defineProductGoals({ "extension-adoption": { outcome: "Redefined locally." } });`,
+    );
+    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
+    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    expect(catalog.issues.some((issue) => issue.message.includes("shared goal"))).toBe(true);
+  });
+
+  it("rejects a successor whose superseded predecessor is still present", () => {
+    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
+    writeSpec(
+      "cli/install/b.spec.ts",
+      "cli/install/b",
+      "extension-adoption",
+      `supersedes: ["cli/install/a"],`,
+    );
+    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    expect(
+      catalog.issues.some((issue) => issue.message.includes("still present in the corpus")),
+    ).toBe(true);
+  });
+
   it("warns when a requirement identity does not match its directory", () => {
     writeSpec("cli/install/a.spec.ts", "cli/uninstall/a", "extension-adoption");
     const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
@@ -269,28 +308,35 @@ describe("collectCatalog", () => {
     ).toBe(true);
   });
 
-  it("renders a product-shaped catalog listing every specification", () => {
-    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
+  it("renders a product-shaped catalog listing every specification with its statement and status", () => {
+    writeSpec(
+      "cli/install/a.spec.ts",
+      "cli/install/a",
+      "extension-adoption",
+      `status: "candidate", derivedFrom: ["AXM-REQ-0001"], assumptions: "unknown", limitations: [{ limitation: "Does not observe the real registry.", retirementCondition: "A registry boundary execution binds evidence to this identity." }],`,
+    );
     const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
     const markdown = renderCatalogMarkdown(catalog);
     expect(markdown).toContain("## Product behavior");
     expect(markdown).toContain("### CLI");
     expect(markdown).toContain("#### Install");
     expect(markdown).toContain("`cli/install/a`");
-    expect(markdown).toContain("## Product goals");
+    expect(markdown).toContain("- Status: candidate");
+    expect(markdown).toContain("- Statement: When a person installs an extension directly");
+    expect(markdown).toContain("- Derived from: `AXM-REQ-0001`");
+    expect(markdown).toContain("- Assumptions: unknown (not yet assessed)");
+    expect(markdown).toContain("- Limitation: Does not observe the real registry.");
+    expect(markdown).toContain("### Shared across AgentXM repositories");
+    expect(markdown).toContain("### Local to AXM");
   });
 
   it("renders bound evidence beside its owning requirement", () => {
     const target = path.join(repoRoot, "specifications", "cli", "install", "a.spec.ts");
     fs.writeFileSync(
       target,
-      `export const specification = defineSpecification({
-        requirement: "cli/install/a",
-        title: "Install realizes directly desired extensions",
-        class: "functional",
-        role: "experience",
-        goals: ["extension-adoption"],
-      });
+      `export const specification = defineSpecification(${metadataLiteral(
+        `requirement: "cli/install/a",`,
+      )});
 export const boundEvidence = defineBoundEvidence([
   { gate: "lint: example-gate", verifies: "Rejects the violation on every change." },
 ]);`,

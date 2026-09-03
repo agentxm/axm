@@ -10,16 +10,23 @@ import {
   handleInstall,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/machine-result-is-schema-backed",
   title: "Machine install output is one complete schema-backed plan document",
+  statement:
+    "When the install command runs in machine output mode, it shall emit a single result document that satisfies the published plan-result schema and accounts for every unit exactly once in its counts, and preview shall report through that same contract with a previewed outcome.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation"],
+  status: "accepted",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(PlanResolutionDocumentSchema);

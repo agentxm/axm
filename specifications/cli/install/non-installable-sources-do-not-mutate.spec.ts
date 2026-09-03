@@ -6,16 +6,25 @@ import { afterEach } from "vitest";
 
 import { getAppError, handleInstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/non-installable-sources-do-not-mutate",
   title: "Install rejects a source it cannot install without changing the workspace",
+  statement:
+    "When the install source is a bare name or names an unknown extension type, the install command shall fail with usage guidance or a not-found outcome and shall not change settings, the lockfile, or workspace content.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["property"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [
+    "Whether an unknown extension type in a registry name fails as usage guidance or as not found is undecided; the scenario accepts either outcome.",
+  ],
 });
 
 /** Bare names: valid-looking identifiers that are not FQNs or locators. */

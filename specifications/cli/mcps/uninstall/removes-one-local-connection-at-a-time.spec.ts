@@ -5,17 +5,24 @@ import { afterEach } from "vitest";
 
 import { handleInstallMcpServer, handleUninstallMcpServer } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
 import { makeSpecRegistry } from "../../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/uninstall/removes-one-local-connection-at-a-time",
   title: "Uninstall removes one local MCP connection and retains shared source state",
+  statement:
+    "When a locally named MCP connection is uninstalled, AXM shall remove only that connection from axm.json and agent configuration, and shall retain the shared source's package content and accepted resolution until no connection to that source remains.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition", "agent-interoperability"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Uninstall a locally named MCP connection", () => {

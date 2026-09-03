@@ -5,7 +5,9 @@
  * executing any test file, so the catalog renders even when an
  * implementation fails its specification. Metadata must be literal-only:
  * computed metadata is rejected so every requirement-contract change is an
- * explicit source diff.
+ * explicit source diff. Vocabulary, shape, and corpus linkage come from the
+ * shared contract in `@agentxm/extension-model`; this module owns only the
+ * static extraction and the repository's catalog rendering.
  */
 
 import * as fs from "node:fs";
@@ -13,34 +15,33 @@ import * as path from "node:path";
 
 import ts from "typescript";
 
+import {
+  type BoundEvidenceGate,
+  type ConformanceIssue,
+  type ExecutionBinding,
+  type ProductGoalRegistry,
+  type SpecificationMetadata,
+  checkSpecificationCorpus,
+  decodeBoundEvidence,
+  decodeExecutionBinding,
+  decodeProductGoalRegistry,
+  decodeSpecificationMetadata,
+  sharedProductGoals,
+} from "@agentxm/extension-model/unstable/specifications";
+
 export interface CatalogSpecification {
-  readonly requirement: string;
-  readonly title: string;
-  readonly requirementClass: string;
-  readonly requirementRole: string;
-  readonly goals: readonly string[];
-  readonly boundary: string;
-  readonly selection: string;
-  readonly methods: readonly string[];
+  readonly metadata: SpecificationMetadata;
   /**
    * Static gates declared beside the specification whose results are bound
    * to its requirement identity as evidence. Bound evidence supports the
    * owning specification; it never replaces it.
    */
-  readonly boundEvidence: readonly CatalogBoundEvidenceGate[];
+  readonly boundEvidence: readonly BoundEvidenceGate[];
   /** Repository-relative source path. */
   readonly source: string;
 }
 
-export interface CatalogBoundEvidenceGate {
-  readonly gate: string;
-  readonly verifies: string;
-}
-
-export interface CatalogExecutionBinding {
-  readonly requirements: readonly string[];
-  readonly boundary: string;
-  readonly rationale: string;
+export interface CatalogExecutionBinding extends ExecutionBinding {
   /** Repository-relative source path. */
   readonly source: string;
 }
@@ -49,13 +50,11 @@ export interface CatalogProductGoal {
   readonly id: string;
   readonly outcome: string;
   readonly status: "active" | "retired";
+  /** Whether the goal is registered in the shared contract or locally. */
+  readonly scope: "shared" | "local";
 }
 
-export interface CatalogIssue {
-  readonly severity: "error" | "warning";
-  readonly source: string;
-  readonly message: string;
-}
+export type CatalogIssue = ConformanceIssue;
 
 export interface SpecificationCatalog {
   readonly specifications: readonly CatalogSpecification[];
@@ -64,20 +63,7 @@ export interface SpecificationCatalog {
   readonly issues: readonly CatalogIssue[];
 }
 
-const REQUIREMENT_CLASSES = new Set([
-  "functional",
-  "installability",
-  "compatibility",
-  "performance",
-  "security",
-  "usability",
-  "architecture",
-  "process",
-  "external-conformance",
-]);
-
 const REQUIREMENT_ROLE_ORDER = ["experience", "interface", "supporting"] as const;
-const REQUIREMENT_ROLES: ReadonlySet<string> = new Set(REQUIREMENT_ROLE_ORDER);
 
 const REQUIREMENT_ROLE_LABELS: Readonly<Record<(typeof REQUIREMENT_ROLE_ORDER)[number], string>> = {
   experience: "Product behavior",
@@ -85,39 +71,17 @@ const REQUIREMENT_ROLE_LABELS: Readonly<Record<(typeof REQUIREMENT_ROLE_ORDER)[n
   supporting: "Supporting system behavior",
 };
 
-const EXECUTION_BOUNDARIES = new Set([
-  "memory",
-  "process",
-  "binary",
-  "packed-artifact",
-  "installed",
-  "platform",
-  "published-artifact",
-  "deployed",
-  "repository",
-]);
+export const SPECIFICATION_AREAS = [
+  "cli",
+  "extension-identity",
+  "package-identity",
+  "settings-contract",
+  "source-resolution",
+  "version-constraints",
+  "system",
+] as const;
 
-const EXECUTION_SELECTIONS = new Set([
-  "per-change",
-  "platform-matrix",
-  "scheduled",
-  "release-candidate",
-  "post-deployment",
-]);
-
-const IDENTITY_SEGMENT = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-/** Words that identify implementation vocabulary leaking into product titles. */
-const TITLE_IMPLEMENTATION_WORDS = new Set([
-  "layer",
-  "handler",
-  "mock",
-  "stub",
-  "middleware",
-  "refactor",
-]);
-
-const CAMEL_CASE_TOKEN = /\b[a-z]+[A-Z][A-Za-z]*\b/;
+const PRODUCT_GOALS_SOURCE = "specifications/product-goals.ts";
 
 type LiteralValue =
   string | number | boolean | readonly LiteralValue[] | { readonly [key: string]: LiteralValue };
@@ -268,33 +232,10 @@ const extractDefinedLiteral = (
   return found === undefined ? { issues } : { value: found, issues };
 };
 
-const isStringValue = (value: LiteralValue | undefined): value is string =>
-  typeof value === "string";
-
-const isStringArray = (value: LiteralValue | undefined): value is readonly string[] =>
-  Array.isArray(value) && value.every((entry) => typeof entry === "string");
-
 const isRecordValue = (
   value: LiteralValue | undefined,
 ): value is { readonly [key: string]: LiteralValue } =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isValidIdentity = (value: string): boolean => {
-  const segments = value.split("/");
-  return segments.length >= 2 && segments.every((segment) => IDENTITY_SEGMENT.test(segment));
-};
-
-export const lintSpecificationTitle = (title: string): string | undefined => {
-  if (CAMEL_CASE_TOKEN.test(title)) {
-    return `title contains an implementation-style camelCase token: "${title}"`;
-  }
-  for (const word of title.toLowerCase().split(/[^a-z]+/)) {
-    if (TITLE_IMPLEMENTATION_WORDS.has(word)) {
-      return `title contains implementation vocabulary ("${word}"): "${title}"`;
-    }
-  }
-  return undefined;
-};
 
 export const parseSpecificationFile = (
   sourceText: string,
@@ -315,88 +256,7 @@ export const parseSpecificationFile = (
     }
     return { issues };
   }
-  if (!isRecordValue(extraction.value)) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`specification` must be an object literal",
-    });
-    return { issues };
-  }
-  const record = extraction.value;
-  const requirement = record["requirement"];
-  const title = record["title"];
-  const requirementClass = record["class"];
-  const requirementRole = record["role"];
-  const goals = record["goals"];
-  if (!isStringValue(requirement) || !isValidIdentity(requirement)) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`requirement` must be two or more lowercase kebab segments joined by '/'",
-    });
-    return { issues };
-  }
-  if (!isStringValue(title) || title.length === 0) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`title` must be a non-empty string",
-    });
-    return { issues };
-  }
-  if (!isStringValue(requirementClass) || !REQUIREMENT_CLASSES.has(requirementClass)) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`class` must be a known requirement class",
-    });
-    return { issues };
-  }
-  if (!isStringValue(requirementRole) || !REQUIREMENT_ROLES.has(requirementRole)) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`role` must be a known requirement role",
-    });
-    return { issues };
-  }
-  if (!isStringArray(goals) || goals.length === 0) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`goals` must name at least one registered product goal",
-    });
-    return { issues };
-  }
-  const boundary = record["boundary"] ?? "memory";
-  if (!isStringValue(boundary) || !EXECUTION_BOUNDARIES.has(boundary)) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`boundary` must be a known execution boundary",
-    });
-    return { issues };
-  }
-  const selection = record["selection"] ?? "per-change";
-  if (!isStringValue(selection) || !EXECUTION_SELECTIONS.has(selection)) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`selection` must be a known selection policy",
-    });
-    return { issues };
-  }
-  const methods = record["methods"] ?? [];
-  if (!isStringArray(methods)) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`methods` must be an array of strings",
-    });
-    return { issues };
-  }
-  if (record["cases"] !== undefined) {
+  if (isRecordValue(extraction.value) && extraction.value["cases"] !== undefined) {
     issues.push({
       severity: "error",
       source: relativePath,
@@ -404,9 +264,12 @@ export const parseSpecificationFile = (
     });
     return { issues };
   }
-  const titleFinding = lintSpecificationTitle(title);
-  if (titleFinding !== undefined) {
-    issues.push({ severity: "error", source: relativePath, message: titleFinding });
+  const decoded = decodeSpecificationMetadata(extraction.value);
+  if (!decoded.ok) {
+    for (const issue of decoded.issues) {
+      issues.push({ severity: "error", source: relativePath, message: `specification: ${issue}` });
+    }
+    return { issues };
   }
   const evidenceExtraction = extractDefinedLiteral(sourceText, relativePath, "boundEvidence", [
     "defineBoundEvidence",
@@ -415,49 +278,23 @@ export const parseSpecificationFile = (
   if (evidenceExtraction.issues.length > 0) {
     return { issues };
   }
-  const boundEvidence: CatalogBoundEvidenceGate[] = [];
+  let boundEvidence: readonly BoundEvidenceGate[] = [];
   if (evidenceExtraction.value !== undefined) {
-    if (!Array.isArray(evidenceExtraction.value) || evidenceExtraction.value.length === 0) {
-      issues.push({
-        severity: "error",
-        source: relativePath,
-        message: "`boundEvidence` must be a non-empty array of gate declarations",
-      });
-      return { issues };
-    }
-    for (const entry of evidenceExtraction.value) {
-      const gate = isRecordValue(entry) ? entry["gate"] : undefined;
-      const verifies = isRecordValue(entry) ? entry["verifies"] : undefined;
-      if (
-        !isStringValue(gate) ||
-        gate.length === 0 ||
-        !isStringValue(verifies) ||
-        verifies.length === 0
-      ) {
+    const decodedEvidence = decodeBoundEvidence(evidenceExtraction.value);
+    if (!decodedEvidence.ok) {
+      for (const issue of decodedEvidence.issues) {
         issues.push({
           severity: "error",
           source: relativePath,
-          message:
-            "each `boundEvidence` entry must declare non-empty `gate` and `verifies` strings",
+          message: `boundEvidence: ${issue}`,
         });
-        return { issues };
       }
-      boundEvidence.push({ gate, verifies });
+      return { issues };
     }
+    boundEvidence = decodedEvidence.value;
   }
   return {
-    specification: {
-      requirement,
-      title,
-      requirementClass,
-      requirementRole,
-      goals,
-      boundary,
-      selection,
-      methods,
-      boundEvidence,
-      source: relativePath,
-    },
+    specification: { metadata: decoded.value, boundEvidence, source: relativePath },
     issues,
   };
 };
@@ -465,50 +302,28 @@ export const parseSpecificationFile = (
 export const parseProductGoalRegistry = (
   sourceText: string,
   relativePath: string,
-): { readonly productGoals: readonly CatalogProductGoal[]; readonly issues: CatalogIssue[] } => {
+): { readonly registry?: ProductGoalRegistry; readonly issues: CatalogIssue[] } => {
   const issues: CatalogIssue[] = [];
   const extraction = extractDefinedLiteral(sourceText, relativePath, "productGoals", [
     "defineProductGoals",
   ]);
   issues.push(...extraction.issues);
-  if (extraction.value === undefined || !isRecordValue(extraction.value)) {
+  if (extraction.value === undefined) {
     issues.push({
       severity: "error",
       source: relativePath,
       message: "product-goal registry must export a `productGoals` object literal",
     });
-    return { productGoals: [], issues };
+    return { issues };
   }
-  const productGoals: CatalogProductGoal[] = [];
-  for (const [id, definition] of Object.entries(extraction.value)) {
-    if (!IDENTITY_SEGMENT.test(id)) {
-      issues.push({
-        severity: "error",
-        source: relativePath,
-        message: `product-goal id \`${id}\` must be a lowercase kebab identifier`,
-      });
-      continue;
+  const decoded = decodeProductGoalRegistry(extraction.value);
+  if (!decoded.ok) {
+    for (const issue of decoded.issues) {
+      issues.push({ severity: "error", source: relativePath, message: `productGoals: ${issue}` });
     }
-    if (!isRecordValue(definition) || !isStringValue(definition["outcome"])) {
-      issues.push({
-        severity: "error",
-        source: relativePath,
-        message: `product goal \`${id}\` must declare a string outcome`,
-      });
-      continue;
-    }
-    const status = definition["status"] ?? "active";
-    if (status !== "active" && status !== "retired") {
-      issues.push({
-        severity: "error",
-        source: relativePath,
-        message: `product goal \`${id}\` status must be "active" or "retired"`,
-      });
-      continue;
-    }
-    productGoals.push({ id, outcome: definition["outcome"], status });
+    return { issues };
   }
-  return { productGoals, issues };
+  return { registry: decoded.value, issues };
 };
 
 export const parseExecutionBindingFile = (
@@ -523,44 +338,18 @@ export const parseExecutionBindingFile = (
   if (extraction.value === undefined) {
     return { issues };
   }
-  if (!isRecordValue(extraction.value)) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`executionBinding` must be an object literal",
-    });
+  const decoded = decodeExecutionBinding(extraction.value);
+  if (!decoded.ok) {
+    for (const issue of decoded.issues) {
+      issues.push({
+        severity: "error",
+        source: relativePath,
+        message: `executionBinding: ${issue}`,
+      });
+    }
     return { issues };
   }
-  const record = extraction.value;
-  const requirements = record["requirements"];
-  const boundary = record["boundary"];
-  const rationale = record["rationale"];
-  if (!isStringArray(requirements) || requirements.length === 0) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`executionBinding.requirements` must list at least one requirement identity",
-    });
-    return { issues };
-  }
-  if (!isStringValue(boundary) || !EXECUTION_BOUNDARIES.has(boundary)) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message: "`executionBinding.boundary` must be a known execution boundary",
-    });
-    return { issues };
-  }
-  if (!isStringValue(rationale) || rationale.length === 0) {
-    issues.push({
-      severity: "error",
-      source: relativePath,
-      message:
-        "`executionBinding.rationale` must state the boundary-specific reason this execution exists",
-    });
-    return { issues };
-  }
-  return { binding: { requirements, boundary, rationale, source: relativePath }, issues };
+  return { binding: { ...decoded.value, source: relativePath }, issues };
 };
 
 const listFilesRecursively = (root: string, suffix: string): string[] => {
@@ -585,6 +374,17 @@ const listFilesRecursively = (root: string, suffix: string): string[] => {
   return collected.sort();
 };
 
+const toCatalogGoals = (
+  registry: ProductGoalRegistry,
+  scope: CatalogProductGoal["scope"],
+): CatalogProductGoal[] =>
+  Object.entries(registry).map(([id, definition]) => ({
+    id,
+    outcome: definition.outcome,
+    status: definition.status ?? "active",
+    scope,
+  }));
+
 export interface CollectCatalogOptions {
   readonly repoRoot: string;
   /** Directories under the repository root that hold execution bindings. */
@@ -597,32 +397,24 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
   const specifications: CatalogSpecification[] = [];
 
   const specificationsRoot = path.join(repoRoot, "specifications");
-  const productGoalsPath = path.join(specificationsRoot, "product-goals.ts");
-  let productGoals: readonly CatalogProductGoal[] = [];
+  const productGoalsPath = path.join(repoRoot, PRODUCT_GOALS_SOURCE);
+  let localGoals: ProductGoalRegistry = {};
   if (fs.existsSync(productGoalsPath)) {
     const parsed = parseProductGoalRegistry(
       fs.readFileSync(productGoalsPath, "utf8"),
-      path.relative(repoRoot, productGoalsPath),
+      PRODUCT_GOALS_SOURCE,
     );
-    productGoals = parsed.productGoals;
+    localGoals = parsed.registry ?? {};
     issues.push(...parsed.issues);
   } else {
     issues.push({
       severity: "error",
-      source: "specifications/product-goals.ts",
+      source: PRODUCT_GOALS_SOURCE,
       message: "product-goal registry file is missing",
     });
   }
 
-  for (const area of [
-    "cli",
-    "extension-identity",
-    "package-identity",
-    "settings-contract",
-    "source-resolution",
-    "version-constraints",
-    "system",
-  ]) {
+  for (const area of SPECIFICATION_AREAS) {
     for (const filePath of listFilesRecursively(path.join(specificationsRoot, area), ".spec.ts")) {
       const relativePath = path.relative(repoRoot, filePath);
       const parsed = parseSpecificationFile(fs.readFileSync(filePath, "utf8"), relativePath);
@@ -630,63 +422,6 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
       if (parsed.specification !== undefined) {
         specifications.push(parsed.specification);
       }
-    }
-  }
-
-  const byRequirement = new Map<string, CatalogSpecification>();
-  for (const specification of specifications) {
-    const existing = byRequirement.get(specification.requirement);
-    if (existing !== undefined) {
-      issues.push({
-        severity: "error",
-        source: specification.source,
-        message: `duplicate requirement identity \`${specification.requirement}\` (also declared in ${existing.source})`,
-      });
-      continue;
-    }
-    byRequirement.set(specification.requirement, specification);
-  }
-
-  const productGoalIds = new Map(productGoals.map((goal) => [goal.id, goal] as const));
-  const referencedProductGoals = new Set<string>();
-  for (const specification of specifications) {
-    for (const goal of specification.goals) {
-      referencedProductGoals.add(goal);
-      const registered = productGoalIds.get(goal);
-      if (registered === undefined) {
-        issues.push({
-          severity: "error",
-          source: specification.source,
-          message: `references unregistered product goal \`${goal}\``,
-        });
-      } else if (registered.status === "retired") {
-        issues.push({
-          severity: "error",
-          source: specification.source,
-          message: `references retired product goal \`${goal}\`; the specification is a retirement candidate`,
-        });
-      }
-    }
-    const directory = path.dirname(specification.source).replace(/^specifications\//, "");
-    if (!specification.requirement.startsWith(`${directory}/`)) {
-      issues.push({
-        severity: "warning",
-        source: specification.source,
-        message: `requirement identity \`${specification.requirement}\` does not match its directory \`${directory}\``,
-      });
-    }
-  }
-  for (const goal of productGoals) {
-    if (
-      goal.status === "active" &&
-      !referencedProductGoals.has(goal.id) &&
-      specifications.length > 0
-    ) {
-      issues.push({
-        severity: "warning",
-        source: "specifications/product-goals.ts",
-        message: `active product goal \`${goal.id}\` has no referencing specification (missing coverage or a dead goal)`,
-      });
     }
   }
 
@@ -701,19 +436,39 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
       }
     }
   }
-  for (const binding of executionBindings) {
-    for (const requirement of binding.requirements) {
-      if (!byRequirement.has(requirement)) {
-        issues.push({
-          severity: "error",
-          source: binding.source,
-          message: `execution binding references unknown requirement \`${requirement}\``,
-        });
-      }
+
+  issues.push(
+    ...checkSpecificationCorpus({
+      specifications,
+      localGoals,
+      localGoalsSource: PRODUCT_GOALS_SOURCE,
+      executionBindings: executionBindings.map((binding) => ({
+        source: binding.source,
+        binding,
+      })),
+    }),
+  );
+
+  for (const specification of specifications) {
+    const directory = path.dirname(specification.source).replace(/^specifications\//, "");
+    if (!specification.metadata.requirement.startsWith(`${directory}/`)) {
+      issues.push({
+        severity: "warning",
+        source: specification.source,
+        message: `requirement identity \`${specification.metadata.requirement}\` does not match its directory \`${directory}\``,
+      });
     }
   }
 
-  return { specifications, productGoals, executionBindings, issues };
+  return {
+    specifications,
+    productGoals: [
+      ...toCatalogGoals(sharedProductGoals, "shared"),
+      ...toCatalogGoals(localGoals, "local"),
+    ],
+    executionBindings,
+    issues,
+  };
 };
 
 const groupLabel = (segment: string): string => {
@@ -744,6 +499,16 @@ const groupLabel = (segment: string): string => {
     .join(" ");
 };
 
+const renderStatedOrUnknown = (value: readonly string[] | "unknown"): string | undefined => {
+  if (value === "unknown") {
+    return "unknown (not yet assessed)";
+  }
+  if (value.length === 0) {
+    return undefined;
+  }
+  return value.join("; ");
+};
+
 /** Renders the committed, product-shaped catalog document. */
 export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => {
   const lines: string[] = [
@@ -751,27 +516,30 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     "",
     "Generated from `specifications/` metadata by `scripts/specification-catalog.ts`.",
     "Do not edit by hand: run `pnpm run generate` after a specification change.",
-    "This catalog lists every authoritative requirement whether or not its",
+    "This catalog lists every requirement specification whether or not its",
     "implementation currently passes; execution evidence lives in test results,",
-    "never here. Requirements are organized by their role in the product contract:",
-    "product behavior, programmatic interfaces, and supporting system behavior.",
+    "never here. An accepted specification is normative; a candidate records a",
+    "proposed obligation and its sources and is not authority until its subject",
+    "batch is accepted. Requirements are organized by their role in the product",
+    "contract: product behavior, programmatic interfaces, and supporting system",
+    "behavior.",
     "",
   ];
 
   const byRole = new Map<string, Map<string, Map<string, CatalogSpecification[]>>>();
   for (const specification of catalog.specifications) {
-    const segments = specification.requirement.split("/");
+    const segments = specification.metadata.requirement.split("/");
     const area = segments[0] ?? "system";
     const capability = segments[1] ?? "general";
     const areas =
-      byRole.get(specification.requirementRole) ??
+      byRole.get(specification.metadata.role) ??
       new Map<string, Map<string, CatalogSpecification[]>>();
     const capabilities = areas.get(area) ?? new Map<string, CatalogSpecification[]>();
     const entries = capabilities.get(capability) ?? [];
     entries.push(specification);
     capabilities.set(capability, entries);
     areas.set(area, capabilities);
-    byRole.set(specification.requirementRole, areas);
+    byRole.set(specification.metadata.role, areas);
   }
 
   const bindingsByRequirement = new Map<string, CatalogExecutionBinding[]>();
@@ -799,21 +567,54 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
         lines.push(`#### ${groupLabel(capability)}`, "");
         const entries = capabilities.get(capability) ?? [];
         for (const entry of [...entries].sort((a, b) =>
-          a.requirement.localeCompare(b.requirement),
+          a.metadata.requirement.localeCompare(b.metadata.requirement),
         )) {
-          lines.push(`##### ${entry.title}`, "");
-          lines.push(`- Requirement: \`${entry.requirement}\``);
-          lines.push(`- Class: ${entry.requirementClass}`);
-          lines.push(`- Role: ${entry.requirementRole}`);
-          lines.push(`- Product goals: ${entry.goals.map((goal) => `\`${goal}\``).join(", ")}`);
-          lines.push(`- Boundary: ${entry.boundary}; selection: ${entry.selection}`);
-          if (entry.methods.length > 0) {
-            lines.push(`- Methods: ${entry.methods.join(", ")}`);
+          const { metadata } = entry;
+          lines.push(`##### ${metadata.title}`, "");
+          lines.push(`- Requirement: \`${metadata.requirement}\``);
+          lines.push(`- Status: ${metadata.status}`);
+          lines.push(`- Statement: ${metadata.statement}`);
+          lines.push(
+            `- Class: ${metadata.class}${
+              metadata.characteristic !== undefined ? ` (${metadata.characteristic})` : ""
+            }`,
+          );
+          lines.push(`- Role: ${metadata.role}`);
+          lines.push(`- Product goals: ${metadata.goals.map((goal) => `\`${goal}\``).join(", ")}`);
+          lines.push(
+            `- Boundary: ${metadata.boundary ?? "memory"}; selection: ${metadata.selection ?? "per-change"}`,
+          );
+          if (metadata.boundaryRationale !== undefined) {
+            lines.push(`- Boundary rationale: ${metadata.boundaryRationale}`);
+          }
+          lines.push(`- Methods: ${metadata.methods.join(", ")}`);
+          if (metadata.derivedFrom.length > 0) {
+            lines.push(
+              `- Derived from: ${metadata.derivedFrom.map((entry) => `\`${entry}\``).join(", ")}`,
+            );
+          }
+          if (metadata.supersedes.length > 0) {
+            lines.push(
+              `- Supersedes: ${metadata.supersedes.map((entry) => `\`${entry}\``).join(", ")}`,
+            );
+          }
+          const assumptions = renderStatedOrUnknown(metadata.assumptions);
+          if (assumptions !== undefined) {
+            lines.push(`- Assumptions: ${assumptions}`);
+          }
+          const openQuestions = renderStatedOrUnknown(metadata.openQuestions);
+          if (openQuestions !== undefined) {
+            lines.push(`- Open questions: ${openQuestions}`);
+          }
+          for (const limitation of metadata.limitations ?? []) {
+            lines.push(
+              `- Limitation: ${limitation.limitation} Retires when: ${limitation.retirementCondition}`,
+            );
           }
           for (const gateEvidence of entry.boundEvidence) {
             lines.push(`- Bound evidence: \`${gateEvidence.gate}\` — ${gateEvidence.verifies}`);
           }
-          const bindings = bindingsByRequirement.get(entry.requirement) ?? [];
+          const bindings = bindingsByRequirement.get(metadata.requirement) ?? [];
           for (const binding of bindings) {
             lines.push(
               `- Additional evidence: ${binding.boundary} via [\`${binding.source}\`](../${binding.source}) — ${binding.rationale}`,
@@ -827,11 +628,19 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
   }
 
   lines.push("## Product goals", "");
-  for (const goal of [...catalog.productGoals].sort((a, b) => a.id.localeCompare(b.id))) {
-    const suffix = goal.status === "retired" ? " (retired)" : "";
-    lines.push(`- \`${goal.id}\`${suffix} — ${goal.outcome}`);
+  for (const scope of ["shared", "local"] as const) {
+    lines.push(
+      `### ${scope === "shared" ? "Shared across AgentXM repositories" : "Local to AXM"}`,
+      "",
+    );
+    for (const goal of catalog.productGoals
+      .filter((entry) => entry.scope === scope)
+      .sort((a, b) => a.id.localeCompare(b.id))) {
+      const suffix = goal.status === "retired" ? " (retired)" : "";
+      lines.push(`- \`${goal.id}\`${suffix} — ${goal.outcome}`);
+    }
+    lines.push("");
   }
-  lines.push("");
   return lines.join("\n");
 };
 

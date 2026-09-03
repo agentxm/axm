@@ -5,16 +5,23 @@ import { afterEach } from "vitest";
 
 import { handleInstall, handleSkillsInstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/reinstall-is-idempotent",
   title: "Installing an already desired extension at the same constraint is a successful no-op",
+  statement:
+    "When a person reinstalls an extension the workspace already desires at the same constraint, through either the root command or the type command, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, or agent projections.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
+  status: "accepted",
   methods: ["decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 interface RepeatCase {

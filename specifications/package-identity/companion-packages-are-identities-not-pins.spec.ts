@@ -7,15 +7,22 @@ import {
   PackageIdentityPurlSchema,
 } from "@agentxm/extension-model/unstable/package-urls";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "package-identity/companion-packages-are-identities-not-pins",
   title: "A companion package names an ecosystem package identity, never a pinned version",
+  statement:
+    "A companion package shall be declared by a versionless package identity in a supported ecosystem, and a declaration that pins a version or names an unsupported ecosystem shall be refused with guidance toward the compatibility range or naming that ecosystem.",
   class: "functional",
   role: "interface",
   goals: ["authoring-and-creation", "trustworthy-distribution"],
+  status: "accepted",
   methods: ["example", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeIdentity = Schema.decodeUnknownEffect(PackageIdentityPurlSchema);

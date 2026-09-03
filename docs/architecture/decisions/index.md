@@ -13,6 +13,10 @@ specifications, never in these records.
   the resolved design decisions behind the specification infrastructure:
   identity, metadata carrier, project ownership, adapters, budget, selection,
   and governance controls
+- [Shared specification contract](shared-specification-contract.md) — the
+  metadata contract, classification lens, vocabularies, and shared product-goal
+  identities live once in `@agentxm/extension-model` and are consumed by every
+  AgentXM specification corpus
 - [Dual TypeScript alias toolchain](typescript-dual-alias.md) — type check on
   the native TypeScript 7 compiler while `typescript` resolves to the
   TypeScript 6 compatibility package, exiting at TypeScript 7.1

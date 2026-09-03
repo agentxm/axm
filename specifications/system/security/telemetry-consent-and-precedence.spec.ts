@@ -7,17 +7,27 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { resolveTelemetryMode } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 
 export const specification = defineSpecification({
   requirement: "system/security/telemetry-consent-and-precedence",
   title: "Telemetry collection follows only the operator's environment consent",
-  class: "security",
+  statement:
+    "Telemetry collection shall follow only the operator's environment, collecting by default, honoring the telemetry control to disable collection or limit it to errors, giving the do-not-track convention precedence over every other control, and reading no telemetry control from committed workspace configuration.",
+  class: "quality",
+  characteristic: "security",
   role: "experience",
   goals: ["privacy-and-consent"],
+  status: "accepted",
   methods: ["decision-table", "contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [
+    "One scenario reads the committed settings schema from the repository although no boundary beyond memory is declared, so the scope of the default execution is unclear.",
+  ],
 });
 
 interface ConsentCase {

@@ -14,17 +14,24 @@ import {
   handleSync,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 import { pinSpecUserHome, snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/settings-validity-gates-operations",
   title: "Workspace operations begin only after both settings sources validate",
+  statement:
+    "When a present project or user settings file is malformed, schema-invalid, or unreadable, every workspace operation shall stop before it begins with a validation error naming that file and a repair route, and shall change no workspace state.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["decision-table", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 /**

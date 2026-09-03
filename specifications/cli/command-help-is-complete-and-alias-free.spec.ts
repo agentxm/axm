@@ -10,15 +10,24 @@ import {
   rootCommand,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "cli/command-help-is-complete-and-alias-free",
   title: "Every supported command presents help and no alias routes exist",
+  statement:
+    "Every supported command shall present usable help, the rendered help tree shall list exactly the supported command paths, and no command shall be reachable through an alias route.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access"],
+  status: "accepted",
   methods: ["model"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [
+    "The alias prohibition is phrased as a pre-launch condition in its scenario; whether alias routes stay prohibited after public launch is unresolved.",
+  ],
 });
 
 interface RegisteredCommand {

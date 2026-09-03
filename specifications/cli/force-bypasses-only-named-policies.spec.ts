@@ -4,15 +4,22 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { collectHelpFiles } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "cli/force-bypasses-only-named-policies",
   title: "Force flags exist only for explicitly named forceable policies",
+  statement:
+    "No command shall expose a bare --force flag, and every override flag a command exposes shall name in its help text the one policy it bypasses.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 /**

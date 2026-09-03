@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 
 import { handleInstall, handleSkillsInstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeLintSpecWorkspace, runProjectLint } from "../../../support/lint-harness.js";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
 import { writeAuthoredSkill } from "../../../support/publish-harness.js";
@@ -17,10 +17,19 @@ import { makeSpecRegistry } from "../../../support/registry-fixture.js";
 export const specification = defineSpecification({
   requirement: "cli/skills/install/bundled-recovery-converges",
   title: "Bundled official-skill recovery converges without changing source authority",
+  statement:
+    "Installing the bundled official AXM skill shall record it as bundled workspace-owned content and retire its Registry resolution while leaving other resolutions intact and the workspace lint-clean, shall change nothing when repeated, and shall be blocked before any change when the workspace authors a skill of that name.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [
+    "The title says recovery converges without changing source authority, yet the recovery scenario rewrites the skill's axm.json entry from a Registry locator to a bundled workspace entry; which authority is meant to stay unchanged is unclear.",
+  ],
 });
 
 const bundledInstall = (preview: boolean, force = false) =>

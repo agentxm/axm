@@ -5,16 +5,27 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/process/release-preparation-validates-production-gates",
   title: "Release preparation validates production Registry gates without distribution",
+  statement:
+    "Release preparation shall preflight the production Registry before allocating candidate state and shall validate the exact generated candidate against the production Registry in preview-only mode, never applying a publication.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "trustworthy-distribution"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the committed release scripts show the preflight order, the production Registry address, and the preview-only publication arguments.",
   methods: ["contract", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.",
+  ],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

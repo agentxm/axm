@@ -5,16 +5,23 @@ import { afterEach } from "vitest";
 
 import { expectAppliedPlanResult, handleInstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/direct-intent-recorded-and-realized",
   title: "Install records direct workspace intent and realizes the extension",
+  statement:
+    "When a person installs an acquirable extension, the install command shall record it as directly desired workspace configuration, record its accepted resolution in the lockfile, materialize its canonical content, realize it for every configured agent, and report an applied outcome.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Install a directly desired extension", () => {

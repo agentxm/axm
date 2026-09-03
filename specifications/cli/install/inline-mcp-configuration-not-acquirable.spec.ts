@@ -5,16 +5,23 @@ import { afterEach } from "vitest";
 
 import { handleInstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/inline-mcp-configuration-not-acquirable",
   title: "Workspace install treats inline MCP configuration as sync-owned, not acquirable",
+  statement:
+    "When the workspace's declared extensions are installed and axm.json configures an MCP server inline, the install command shall report that entry as owned by sync rather than acquirable, shall not fail, and shall not record it in the lockfile.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Inline MCP configuration during workspace install", () => {

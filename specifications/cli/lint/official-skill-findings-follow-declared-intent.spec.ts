@@ -15,7 +15,7 @@ import {
   handleInstall,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";
 import { writeAuthoredSkill } from "../../support/publish-harness.js";
 import {
@@ -27,10 +27,19 @@ import {
 export const specification = defineSpecification({
   requirement: "cli/lint/official-skill-findings-follow-declared-intent",
   title: "Lint reports the official AXM skill against what the workspace declared",
+  statement:
+    "Lint shall report the official AXM skill as an informational finding when the workspace does not declare it, as a compatibility error with a reason and recovery action when the declared skill is missing, incompatible, skewed, authored, or unreadable, and as clean when compatible.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [
+    "The reason code reported for the authored and unreadable official-skill states is not pinned by the decision table, while every other error state pins one.",
+  ],
 });
 
 const officialSkillRuleIds = new Set([

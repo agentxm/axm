@@ -1,19 +1,18 @@
-import { defineProductGoals } from "./support/contract.js";
+import { defineProductGoals } from "@agentxm/extension-model/unstable/specifications";
 
 /**
- * The product-goal registry: the outcomes and capabilities AXM serves.
+ * The local product-goal registry: outcomes and capabilities only AXM serves.
  *
- * Specification metadata references these identities. The registry does not
- * restate, own, or rank the requirements that support a goal. Requirements
- * review walks this registry: a retired goal makes its referencing
- * specifications retirement candidates, and an active goal with no
- * referencing specification identifies missing coverage or a dead goal.
+ * Goals that more than one AgentXM repository serves are registered once in
+ * the shared contract (`sharedProductGoals` from
+ * `@agentxm/extension-model/unstable/specifications`) and referenced from
+ * here by identity; this registry must not redefine them. The registry does
+ * not restate, own, or rank the requirements that support a goal.
+ * Requirements review walks both registries: a retired goal makes its
+ * referencing specifications retirement candidates, and an active goal with
+ * no referencing specification identifies missing coverage or a dead goal.
  */
 export const productGoals = defineProductGoals({
-  "extension-adoption": {
-    outcome:
-      "People and agents can find, install, update, and remove reusable extensions across coding agents through one dependable command surface.",
-  },
   "workspace-intent-fidelity": {
     outcome:
       "Workspace state always reflects explicitly expressed intent, authority, and ownership — never inference, accident, or unauthorized adoption.",
@@ -26,14 +25,6 @@ export const productGoals = defineProductGoals({
     outcome:
       "Configured extensions realize correctly and completely for every configured coding agent's native surfaces.",
   },
-  "trustworthy-distribution": {
-    outcome:
-      "Publishing and acquiring extensions preserves integrity, provenance, and immutable accepted resolutions.",
-  },
-  "machine-automation": {
-    outcome:
-      "Machine consumers can drive AXM non-interactively with complete, schema-backed results separated from diagnostics.",
-  },
   "actionable-diagnostics": {
     outcome:
       "People and agents can understand invalid workspace state and recover it through ordinary commands without a repair workflow.",
@@ -42,19 +33,7 @@ export const productGoals = defineProductGoals({
     outcome:
       "Extension authors can create, evolve, and version workspace-authored extensions with explicit authority transitions.",
   },
-  "knowledge-access": {
-    outcome:
-      "Installed knowledge and help surfaces let people and agents discover concepts, commands, and contracts without leaving the CLI.",
-  },
-  "privacy-and-consent": {
-    outcome:
-      "Observation of CLI use stays within the documented data boundary and under the control of the person running the CLI.",
-  },
   "platform-reach": {
     outcome: "AXM works on every supported operating system, runtime, shell, and filesystem.",
-  },
-  "dependable-change-process": {
-    outcome:
-      "AXM changes and releases land through the governed repository process with required evidence and human approval.",
   },
 });

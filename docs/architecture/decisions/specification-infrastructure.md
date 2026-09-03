@@ -31,7 +31,9 @@ decision visible in the catalog diff.
 ## Metadata carrier and discovery
 
 Each `*.spec.ts` file exports one `specification` constant built with
-`defineSpecification` from `specifications/support/contract.ts`. Metadata is
+`defineSpecification` from `@agentxm/extension-model/unstable/specifications`,
+the shared contract every AgentXM corpus consumes
+([Shared specification contract](shared-specification-contract.md)). Metadata is
 literal-only data — the catalog generator
 (`scripts/specification-catalog.ts`) reads it statically with the TypeScript
 compiler API and rejects computed values, so discovery and the rendered
@@ -94,9 +96,12 @@ without running unrelated suites.
 
 ## Product-goal registry
 
-`specifications/product-goals.ts` registers product goals at outcome granularity
-— roughly one per durable product promise, not one per feature. Maintainers
-own it through the same review as specifications. Traceability gates run in
+`specifications/product-goals.ts` registers AXM-only product goals at outcome
+granularity — roughly one per durable product promise, not one per feature.
+Goals more than one AgentXM repository serves are registered once in the
+shared contract's `sharedProductGoals` and referenced by identity; the local
+registry may not redefine them. Maintainers own the local registry through
+the same review as specifications. Traceability gates run in
 the catalog generator: referencing a retired goal is an error; an active
 goal with no referencing specification is a standing warning until covered
 or retired.
@@ -151,12 +156,13 @@ commit's verdict is the durable record.
 
 ## Runners and cadences
 
-Functional and most installability specifications run in memory per change.
-Compatibility specifications run on the platform matrix (Windows workspace
-job and binary smoke matrix). Installability evidence at the installed
-boundary runs in the publish workflow's install verification. Performance,
-security, usability, architecture, process, and external-conformance
-specifications use purpose-fit runners selected by their metadata; today they
+Functional specifications and most installability-characteristic quality
+specifications run in memory per change. Compatibility-characteristic
+specifications run on the platform matrix (Windows workspace job and binary
+smoke matrix). Installability evidence at the installed boundary runs in the
+publish workflow's install verification. Other quality, constraint,
+human-factors, process, and external-conformance specifications use
+purpose-fit runners selected by their metadata; today they
 execute per change because every current runner is cheap and deterministic.
 A slower runner must declare a scheduled or release-candidate selection in
 its metadata rather than slowing the fast suite.

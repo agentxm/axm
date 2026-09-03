@@ -13,17 +13,26 @@ import {
   handleInstall,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 import { pinSpecUserHome } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/changes-do-not-interleave",
   title: "Concurrent changes to one workspace never interleave",
+  statement:
+    "When two changes contend for one workspace at the same time, each change shall either apply completely or terminate without applying anything, and a change serialized out shall succeed when rerun afterward.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "Contention between separate operating-system processes behaves like contention between concurrent invocations within one process.",
+  ],
+  openQuestions: [],
 });
 
 const userHome = pinSpecUserHome();

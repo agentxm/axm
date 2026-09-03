@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { SpecificationMetadata } from "@agentxm/extension-model/unstable/specifications";
+
 import type { CatalogSpecification } from "./specification-catalog-lib.js";
 import {
   computeVerdict,
@@ -9,21 +11,32 @@ import {
   type VerdictSource,
 } from "./specification-verdict-lib.js";
 
-const specification = (overrides: Partial<CatalogSpecification>): CatalogSpecification => ({
+const metadata = (overrides: Partial<SpecificationMetadata>): SpecificationMetadata => ({
   requirement: "cli/install/realizes-direct-intent",
   title: "Install realizes directly desired extensions",
-  requirementClass: "functional",
-  requirementRole: "experience",
+  statement: "When a person installs an extension directly, the workspace shall realize it.",
+  class: "functional",
+  role: "experience",
   goals: ["extension-adoption"],
-  boundary: "memory",
-  selection: "per-change",
-  methods: [],
-  boundEvidence: [],
-  source: "specifications/cli/install/realizes-direct-intent.spec.ts",
+  status: "accepted",
+  methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
   ...overrides,
 });
 
-const source = (content: string, overrides: Partial<CatalogSpecification> = {}): VerdictSource => ({
+const specification = (overrides: Partial<SpecificationMetadata>): CatalogSpecification => ({
+  metadata: metadata(overrides),
+  boundEvidence: [],
+  source: "specifications/cli/install/realizes-direct-intent.spec.ts",
+});
+
+const source = (
+  content: string,
+  overrides: Partial<SpecificationMetadata> = {},
+): VerdictSource => ({
   specification: specification(overrides),
   contentDigest: digestContent(content),
 });
@@ -33,10 +46,10 @@ const passingJunit = parseJunitOutcomes(
 );
 
 describe("computeVerdict", () => {
-  it("reports an added requirement with its evidence", () => {
-    const verdict = computeVerdict([], [source("a")], passingJunit);
+  it("reports an added requirement with its evidence and status", () => {
+    const verdict = computeVerdict([], [source("a", { status: "candidate" })], passingJunit);
     expect(verdict.affected).toEqual([
-      expect.objectContaining({ change: "added", evidence: "passed" }),
+      expect.objectContaining({ change: "added", evidence: "passed", status: "candidate" }),
     ]);
   });
 
@@ -61,6 +74,18 @@ describe("computeVerdict", () => {
     ]);
   });
 
+  it("treats a changed statement, status, or lineage as a contract revision", () => {
+    for (const overrides of [
+      { statement: "A different obligation." },
+      { status: "candidate" },
+      { derivedFrom: ["AXM-REQ-0001"] },
+      { assumptions: "unknown" },
+    ] satisfies readonly Partial<SpecificationMetadata>[]) {
+      const verdict = computeVerdict([source("a")], [source("a", overrides)], passingJunit);
+      expect(verdict.affected).toEqual([expect.objectContaining({ change: "revised-contract" })]);
+    }
+  });
+
   it("never rolls missing evidence up as a pass", () => {
     const verdict = computeVerdict([], [source("a")], new Map());
     expect(verdict.affected[0]?.evidence).toBe("missing");
@@ -78,11 +103,12 @@ describe("computeVerdict", () => {
 });
 
 describe("renderVerdictMarkdown", () => {
-  it("renders the requirement diff in product language", () => {
-    const verdict = computeVerdict([], [source("a")], new Map());
+  it("renders the requirement diff in product language with status", () => {
+    const verdict = computeVerdict([], [source("a", { status: "candidate" })], new Map());
     const markdown = renderVerdictMarkdown(verdict);
     expect(markdown).toContain("requirements");
     expect(markdown).toContain("Install realizes directly desired extensions");
+    expect(markdown).toContain("| candidate |");
     expect(markdown).toContain("missing");
   });
 });

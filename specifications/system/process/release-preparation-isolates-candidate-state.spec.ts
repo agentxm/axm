@@ -5,16 +5,25 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/process/release-preparation-isolates-candidate-state",
   title: "Release preparation isolates candidate state until delivery",
+  statement:
+    "Release preparation shall generate candidate state in a disposable detached worktree with a frozen lockfile, deliver it only in a real run after confirming the invoking checkout is unchanged, and clean up every allocated candidate even when a step fails.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "safe-repetition"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the committed release-preparation scripts and their tooling tests show how candidate state is allocated, delivered, and cleaned up.",
   methods: ["model", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

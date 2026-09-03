@@ -9,17 +9,24 @@ import { afterEach } from "vitest";
 
 import { LintResultDocumentSchema, handleInstall, handleLint } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";
 import { installBundledAxmSkill, makeLintSpecWorkspace } from "../../support/lint-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/findings-name-the-violated-invariant",
   title: "Lint findings identify the violated invariant and affected subject as facts",
+  statement:
+    "When lint reports a finding in machine output mode, the finding shall carry a stable rule identity, the affected subject, the deciding authority, the observed state, the expected invariant, and its location, and shall carry no advisory or suggestion content.",
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics", "machine-automation"],
+  status: "accepted",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(LintResultDocumentSchema);

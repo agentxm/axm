@@ -12,16 +12,23 @@ import {
   handleInstructionsStatus,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/instructions/management-is-explicit",
   title: "Instruction-file management is inspected, enabled, and disabled explicitly",
+  statement:
+    "AXM shall manage instruction-file aliases only when management has been explicitly enabled and recorded in axm.json, shall report management status without changing workspace state, and on disable shall remove only the aliases and regions it owns while preserving authored content.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Instruction-file management", () => {

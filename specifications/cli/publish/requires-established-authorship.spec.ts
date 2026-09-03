@@ -4,17 +4,24 @@ import { afterEach } from "vitest";
 
 import { getAppError, handleRootPublish } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 import { makeFileRegistry, makePublishLayer, publishArgs } from "../../support/publish-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/publish/requires-established-authorship",
   title: "Publish refuses extensions the workspace does not author",
+  statement:
+    "Publish shall distribute only extensions the workspace authors: an explicitly selected installed extension shall fail with a conflict that suggests adopting it, a bulk publish shall report it as not authored rather than selecting it, and nothing shall be uploaded either way.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["decision-table", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 /**

@@ -11,9 +11,9 @@ depends-on:
 ## Decision
 
 Executable specification source under `specifications/` is the sole local
-source of truth for every accepted AXM requirement — functional,
-installability, compatibility, performance, security, usability, architecture,
-process, and external-conformance. Specification execution supplies evidence;
+source of truth for every accepted AXM requirement across the shared review
+lens — functional, quality, constraint, external-conformance, human-factors,
+and process. Specification execution supplies evidence;
 it never changes the specification. Human review accepts specification
 additions, revisions, and retirements as requirements decisions.
 

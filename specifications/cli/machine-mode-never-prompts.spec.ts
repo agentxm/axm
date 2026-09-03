@@ -6,16 +6,23 @@ import { afterEach } from "vitest";
 
 import { SetupDocumentSchema, handleSetup } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSetupSpecContext } from "../support/setup-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/machine-mode-never-prompts",
   title: "Machine output mode terminates deterministically instead of prompting",
+  statement:
+    "When machine output mode is on, a command that needs interactive input shall terminate with an approval-required failure and shall not raise any prompt, while the same request with machine output off shall prompt and honor the answer.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(SetupDocumentSchema);

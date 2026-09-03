@@ -9,7 +9,7 @@ import { afterEach } from "vitest";
 import { extensionTypes } from "@agentxm/extension-model/unstable/extensions";
 import { handleInstall, handleUninstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import {
   writeLocalHookPackage,
   writeLocalKnowledgePackage,
@@ -22,10 +22,19 @@ import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-ha
 export const specification = defineSpecification({
   requirement: "cli/every-type-completes-the-shared-lifecycle",
   title: "Every extension type completes the shared install and removal lifecycle",
+  statement:
+    "Every extension type shall complete the shared lifecycle: installing shall record intent, an accepted resolution, canonical content, and realized agent surfaces, and uninstalling shall remove that whole footprint while preserving unrelated workspace files.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "agent-interoperability"],
+  status: "accepted",
   methods: ["decision-table", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "Process-boundary end-to-end executions supply the shared-lifecycle evidence for the MCP server and pack extension types.",
+  ],
+  openQuestions: [],
 });
 
 type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;

@@ -4,7 +4,7 @@ import { afterEach } from "vitest";
 
 import { getAppError, handleRootPublish } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 import {
   makeFileRegistry,
@@ -17,10 +17,17 @@ import {
 export const specification = defineSpecification({
   requirement: "cli/publish/preview-is-pure-and-gate-is-fixed",
   title: "Publish preview evaluates the fixed publication gate and distributes nothing",
+  statement:
+    "A publish preview shall report the admitted publication set without uploading anything or changing workspace state, and the fixed publication gate shall block an ineligible extension in preview and apply alike regardless of any locally relaxed lint rule.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "safe-repetition"],
+  status: "accepted",
   methods: ["example", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Publish preview purity and the fixed publication gate", () => {

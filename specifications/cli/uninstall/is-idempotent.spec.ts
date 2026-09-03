@@ -5,16 +5,23 @@ import { afterEach } from "vitest";
 
 import { handleInstall, handleUninstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/uninstall/is-idempotent",
   title: "Uninstalling an extension the workspace does not desire is a safe no-op",
+  statement:
+    "When uninstall targets an extension the workspace does not desire, whether never installed or already uninstalled, it shall report a no-op and shall change no configuration, resolution, canonical content, or agent projection.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
+  status: "accepted",
   methods: ["decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 interface AbsentCase {

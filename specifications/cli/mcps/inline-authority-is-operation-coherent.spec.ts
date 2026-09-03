@@ -5,16 +5,23 @@ import { afterEach } from "vitest";
 
 import { getAppError, handleMcpsAdd, handleSync } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/inline-authority-is-operation-coherent",
   title: "Inline MCP entries stay authoritative workspace configuration realized only by sync",
+  statement:
+    "An inline MCP entry in axm.json shall stay authoritative as authored, shall reach agent configuration only through sync and only while enabled without ever gaining an accepted resolution, and shall be rejected before any workspace change unless it declares exactly one of source, command, or url.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["example", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 /** Authored inline entries exactly as a person would write them in `axm.json`. */

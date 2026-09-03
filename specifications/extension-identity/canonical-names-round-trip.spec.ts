@@ -17,15 +17,22 @@ import {
   slugFromHandle,
 } from "@agentxm/extension-model/unstable/extensions/handle";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "extension-identity/canonical-names-round-trip",
   title: "A canonical extension name always parses back to the identity that produced it",
+  statement:
+    "A fully qualified name or owner handle produced from an extension identity shall parse back to exactly that identity, and appending a version constraint to the name shall not change which extension it identifies.",
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
+  status: "accepted",
   methods: ["property", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 // Generators draw from the published identifier grammar: handles are

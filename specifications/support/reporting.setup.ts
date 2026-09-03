@@ -10,37 +10,10 @@ import { epic, feature, label, labels, story } from "allure-js-commons";
 import { beforeEach } from "vitest";
 
 import {
-  EXECUTION_BOUNDARIES,
-  EXECUTION_SELECTIONS,
-  IDENTITY_SEGMENT_PATTERN,
-  REQUIREMENT_CLASSES,
-  REQUIREMENT_ROLES,
-  type ExecutionBoundary,
-  type ExecutionSelection,
-  type RequirementClass,
-  type RequirementRole,
+  decodeSpecificationMetadata,
   type SpecificationMetadata,
-} from "./contract.js";
-
-const isNonEmptyStringArray = (value: unknown): value is readonly [string, ...string[]] =>
-  Array.isArray(value) && value.length > 0 && value.every((entry) => typeof entry === "string");
-
-const isRequirementClass = (value: unknown): value is RequirementClass =>
-  typeof value === "string" && REQUIREMENT_CLASSES.some((entry) => entry === value);
-
-const isRequirementRole = (value: unknown): value is RequirementRole =>
-  typeof value === "string" && REQUIREMENT_ROLES.some((entry) => entry === value);
-
-const isExecutionBoundary = (value: unknown): value is ExecutionBoundary =>
-  typeof value === "string" && EXECUTION_BOUNDARIES.some((entry) => entry === value);
-
-const isExecutionSelection = (value: unknown): value is ExecutionSelection =>
-  typeof value === "string" && EXECUTION_SELECTIONS.some((entry) => entry === value);
-
-const isValidRequirementIdentity = (value: unknown): value is string =>
-  typeof value === "string" &&
-  value.split("/").length >= 2 &&
-  value.split("/").every((segment) => IDENTITY_SEGMENT_PATTERN.test(segment));
+  type SpecificationRole,
+} from "@agentxm/extension-model/unstable/specifications";
 
 const readSpecificationMetadata = (
   filepath: string,
@@ -54,53 +27,13 @@ const readSpecificationMetadata = (
       `Specification file must export a \`specification\` constant built with defineSpecification: ${filepath}`,
     );
   }
-  const candidate: unknown = moduleExports.specification;
-  if (typeof candidate !== "object" || candidate === null) {
-    throw new Error(`Exported \`specification\` must be a metadata object: ${filepath}`);
-  }
-  const record: Partial<Record<keyof SpecificationMetadata, unknown>> = candidate;
-  if (!isValidRequirementIdentity(record.requirement)) {
+  const decoded = decodeSpecificationMetadata(moduleExports.specification);
+  if (!decoded.ok) {
     throw new Error(
-      `Specification requirement identity must be two or more lowercase kebab segments joined by "/": ${filepath}`,
+      `Specification metadata does not satisfy the shared contract: ${filepath}\n${decoded.issues.join("\n")}`,
     );
   }
-  if (typeof record.title !== "string" || record.title.length === 0) {
-    throw new Error(`Specification title must be a non-empty string: ${filepath}`);
-  }
-  if (!isRequirementClass(record.class)) {
-    throw new Error(`Specification class is not a known requirement class: ${filepath}`);
-  }
-  if (!isRequirementRole(record.role)) {
-    throw new Error(`Specification role is not a known requirement role: ${filepath}`);
-  }
-  if (!isNonEmptyStringArray(record.goals)) {
-    throw new Error(
-      `Specification goals must name at least one registered product goal: ${filepath}`,
-    );
-  }
-  if (record.boundary !== undefined && !isExecutionBoundary(record.boundary)) {
-    throw new Error(`Specification boundary is not a known execution boundary: ${filepath}`);
-  }
-  if (record.selection !== undefined && !isExecutionSelection(record.selection)) {
-    throw new Error(`Specification selection is not a known selection policy: ${filepath}`);
-  }
-  if (record.methods !== undefined && !isNonEmptyStringArray(record.methods)) {
-    throw new Error(
-      `Specification methods must be a non-empty string array when present: ${filepath}`,
-    );
-  }
-  return {
-    requirement: record.requirement,
-    title: record.title,
-    class: record.class,
-    role: record.role,
-    goals: record.goals,
-    ...(record.boundary !== undefined ? { boundary: record.boundary } : {}),
-    ...(record.methods !== undefined && isNonEmptyStringArray(record.methods)
-      ? { methods: record.methods }
-      : {}),
-    ...(record.selection !== undefined ? { selection: record.selection } : {}),
-  };
+  return decoded.value;
 };
 
 const SUBJECT_DISPLAY: Readonly<Record<string, string>> = {
@@ -113,7 +46,7 @@ const SUBJECT_DISPLAY: Readonly<Record<string, string>> = {
   system: "System",
 };
 
-const ROLE_DISPLAY: Readonly<Record<RequirementRole, string>> = {
+const ROLE_DISPLAY: Readonly<Record<SpecificationRole, string>> = {
   experience: "Product behavior",
   interface: "Programmatic interfaces",
   supporting: "Supporting system behavior",
@@ -139,11 +72,15 @@ beforeEach(async (context) => {
   await label("requirement", specification.requirement);
   await label("requirement-class", specification.class);
   await label("requirement-role", specification.role);
+  await label("requirement-status", specification.status);
   await label("boundary", specification.boundary ?? "memory");
   await label("selection", specification.selection ?? "per-change");
+  if (specification.characteristic !== undefined) {
+    await label("characteristic", specification.characteristic);
+  }
   await labels(
     ...specification.goals.map((goal) => ({ name: "product-goal", value: goal })),
-    ...(specification.methods ?? []).map((method) => ({ name: "method", value: method })),
+    ...specification.methods.map((method) => ({ name: "method", value: method })),
   );
   await epic(ROLE_DISPLAY[specification.role]);
   await feature(`${displaySegment(area)} — ${displaySegment(capability)}`);

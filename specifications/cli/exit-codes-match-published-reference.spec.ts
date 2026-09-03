@@ -10,15 +10,22 @@ import {
   rootCommand,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "cli/exit-codes-match-published-reference",
   title: "The published exit-code reference matches the runtime exit codes",
+  statement:
+    "The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "knowledge-access"],
+  status: "accepted",
   methods: ["model"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeTopic = Schema.decodeUnknownEffect(HelpTopicResultSchema);

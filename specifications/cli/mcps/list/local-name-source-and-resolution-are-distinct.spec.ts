@@ -5,17 +5,24 @@ import { afterEach } from "vitest";
 
 import { handleInstallMcpServer, handleListMcpServers } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
 import { makeSpecRegistry } from "../../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/list/local-name-source-and-resolution-are-distinct",
   title: "MCP inventory distinguishes local connection identity from source resolution",
+  statement:
+    "When MCP servers are listed, AXM shall report each connection's local name, its source, and its accepted resolution as distinct fields in machine output and as separate columns in human output, so that connections sharing one source remain individually identifiable.",
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "agent-interoperability"],
+  status: "accepted",
   methods: ["golden-output", "contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("List locally named MCP connections", () => {

@@ -8,16 +8,25 @@ import type { Command } from "effect/unstable/cli";
 
 import { rootCommand } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/architecture/specification-folders-mirror-command-tree",
   title: "Specification layout mirrors the command tree and declared identities",
-  class: "architecture",
+  statement:
+    "Every specification directory under cli shall name a registered command path, every requirement identity shall equal its file path under specifications, and no symbolic link shall hide specification content from discovery.",
+  class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the specification tree on disk, compared with the registered command tree, can show that folders, identities, and file paths correspond.",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

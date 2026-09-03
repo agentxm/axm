@@ -5,16 +5,30 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineBoundEvidence, defineSpecification } from "../../support/contract.js";
+import {
+  defineBoundEvidence,
+  defineSpecification,
+} from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/architecture/live-composition-stays-in-application",
   title: "Environment-backed service composition happens only in the application composition root",
-  class: "architecture",
+  statement:
+    "Environment-backed and in-memory service implementations shall be composed only at the application composition root, and production source in any other package shall not import them directly.",
+  class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the committed lint configuration shows that the import restriction is armed and that its exception list is exactly the sanctioned one.",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "The lint gate declared as bound evidence runs on every change through the required aggregate check.",
+  ],
+  openQuestions: [],
 });
 
 /**

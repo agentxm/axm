@@ -260,7 +260,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "bun scripts/specification-verdict.ts",
+        "command": "bun --conditions=axm-source scripts/specification-verdict.ts",
         "cwd": "."
       }
     }

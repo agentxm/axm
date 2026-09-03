@@ -13,7 +13,7 @@ import {
   type GitDirectoryDifference,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 import {
   makeFileRegistry,
@@ -25,10 +25,19 @@ import {
 export const specification = defineSpecification({
   requirement: "cli/publish/requires-explicit-acceptance-for-non-head-source",
   title: "Publish requires explicit acceptance when archive content differs from Git HEAD",
+  statement:
+    "When an extension's archive differs from Git HEAD or the repository has no HEAD, publish shall report the difference and block the whole selection until --accept-warnings is given, while archives matching HEAD, outside Git, or differing only in excluded paths shall publish without acceptance.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["decision-table", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; every scenario substitutes the comparison outcome rather than running Git.",
+  ],
+  openQuestions: [],
 });
 
 const revision = "0123456789abcdef0123456789abcdef01234567";

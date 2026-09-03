@@ -50,14 +50,14 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 | `pnpm build:affected`                        | Build only packages changed since `main`                                                                                       |
 | `pnpm test`                                  | Run the fast required suite (specifications, internal, tooling)                                                                |
 | `pnpm test:affected`                         | Run tests only for packages changed since `main`                                                                               |
-| `pnpm test:spec`                             | Run executable specifications; `--requirement <id>` or `--class <c>`                                                           |
+| `pnpm test:spec`                             | Run executable specifications; `--requirement <id>`, `--class <lens>`, or `--characteristic <c>`                               |
 | `pnpm test:internal`                         | Run internal verification suites only                                                                                          |
 | `pnpm exec nx run axm:test`                  | Run repository tooling verification                                                                                            |
 | `pnpm exec nx run axm:lint-bundled-skill`    | Lint the bundled AXM skill (reproduces the CI `extension-lint` job)                                                            |
 | `pnpm exec nx run axm:specification-verdict` | Render the per-change specification verdict against the merge base with `main` (reproduces the CI `specification-verdict` job) |
 | `pnpm test:e2e`                              | Run E2E targets only                                                                                                           |
-| `pnpm test:compatibility`                    | Run compatibility-class specifications                                                                                         |
-| `pnpm test:performance`                      | Run performance-class specifications                                                                                           |
+| `pnpm test:compatibility`                    | Run quality specifications with the compatibility characteristic                                                               |
+| `pnpm test:performance`                      | Run quality specifications with the performance characteristic                                                                 |
 | `pnpm test:all`                              | Fast suite plus broadly executable slower boundaries                                                                           |
 | `pnpm verify:artifact`                       | Verify one identified binary artifact                                                                                          |
 | `pnpm verify:release`                        | Compose evidence for one exact release candidate                                                                               |
@@ -90,7 +90,8 @@ of checking custom registry sources into `axm.json`. `axm lint`
 reports workspace findings read-only; `axm lint --fix` performs only
 deterministic, meaning-preserving source or configuration normalization.
 
-`pnpm test:spec` consumes only `--requirement` and `--class`; every other flag
+`pnpm test:spec` consumes only `--requirement`, `--class`, and
+`--characteristic`; every other flag
 is forwarded verbatim to the `specifications:test` target, so runner flags such
 as `--skip-nx-cache` reach Nx. A forwarded flag that takes a value must use the
 `--flag=value` form, because a bare value is read as a requirement identity.
@@ -101,16 +102,24 @@ For a new version release, follow `contributing/guides/releasing.md` exactly. Do
 
 ## Requirements and executable specifications
 
-Executable specifications under `specifications/` are the sole local
-authority for accepted AXM requirements; use the generated
+Accepted executable specifications under `specifications/` are the sole local
+authority for AXM requirements; use the generated
 [specification catalog](specifications/catalog.md) as the reading path.
+Ordinary tests, prose, and implementation are witnesses; schemas and contracts
+keep only their declared interface authority; execution produces evidence,
+never acceptance. A specification with `status: "candidate"` is not authority
+until its subject batch is accepted and its predecessor retired in the same
+change. The metadata contract, vocabularies, and shared goal identities live in
+`@agentxm/extension-model/unstable/specifications` and are shared with the
+AgentXM platform; an obligation is allocated to one corpus and never restated
+in the other.
 
 For any task concerning supported behavior—including investigation,
 explanation, planning, design, implementation, or review—identify the affected
 specifications. When investigating or explaining an issue, inspect them and run
 the narrowest relevant specification when it can distinguish hypotheses. Report
-whether the issue violates an existing specification, exposes missing
-specification coverage, proposes a requirements change, or concerns
+whether the issue violates an accepted specification, exposes a
+candidate-specification gap, proposes a requirements change, or concerns
 non-normative implementation detail. Investigation alone does not authorize a
 specification change.
 

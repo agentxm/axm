@@ -6,16 +6,27 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import YAML from "yaml";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/process/merges-require-aggregate-verification",
   title: "Changes are verified by one aggregate required check before merge",
+  statement:
+    "Every pull request shall be verified by one always-run aggregate required check that gates on every other verification job, so that no skipped or failed check can disappear from the merge verdict.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the committed ci.yml workflow shows the pull-request trigger, the aggregate job, and the set of jobs it gates on.",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "GitHub branch protection requires the aggregate check to pass before merge outside the repository.",
+  ],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

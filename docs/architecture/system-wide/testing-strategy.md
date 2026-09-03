@@ -57,13 +57,17 @@ ratchet of accidental behavior.
 
 ## Authority
 
-Executable specification source under `specifications/` is the sole local
-source of truth for what AXM is required to do, achieve, preserve, prevent, or
-constrain. This includes accepted functional, installability, compatibility,
-performance, security, usability, architecture, and process requirements. Executing a
+Accepted executable specification source under `specifications/` is the sole
+local source of truth for what AXM is required to do, achieve, preserve,
+prevent, or constrain, across every review lens of the shared contract:
+functional, quality, constraint, external-conformance, human-factors, and
+process. A specification whose `status` is `candidate` records a proposed
+obligation and its sources; it becomes authority only when its subject batch
+is explicitly accepted, and the predecessor it supersedes is retired in the
+same change, so one obligation is never normative in two places. Executing a
 specification against an implementation produces evidence about whether the
 implementation satisfies it. A result or report never changes the
-specification.
+specification or its status.
 
 Consequently:
 
@@ -90,6 +94,14 @@ decision to adopt a named version, its applicability, and any deviations.
 Repository instructions and contributor procedures may govern how work is
 performed without becoming a second requirements corpus for AXM.
 
+The metadata contract, classification lens, controlled vocabularies, and
+shared product-goal identities are defined once in `@agentxm/extension-model`
+and consumed by every AgentXM specification corpus
+([Shared specification contract](../decisions/shared-specification-contract.md)).
+An obligation that more than one repository could claim is allocated to one
+corpus; the other side specifies only its own conformance to a named contract
+version and never restates the obligation.
+
 ## Product-goal registry
 
 Product goals are registered, not free text. A small product-goal registry
@@ -111,21 +123,22 @@ requirements.
 Tests and checks are classified on independent axes instead of one flat test
 taxonomy.
 
-| Axis      | Common values or examples                                                                                                            | Question answered                                             |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| Purpose   | `specification`, `architecture-verification`, `internal`, `tooling`, `artifact-verification`, `diagnostic`                           | What authority or claim does it support?                      |
-| Concern   | Functional behavior, installability, compatibility, performance, security, usability, architecture, process, or external conformance | What kind of property is assessed?                            |
-| Role      | `experience`, `interface`, `supporting`                                                                                              | How does the requirement participate in the product contract? |
-| Boundary  | `memory`, `process`, `binary`, `packed-artifact`, `installed`, `platform`, `published-artifact`, `deployed`                          | Where does the observation occur?                             |
-| Method    | Extensible; for example `example`, `property`, `model`, `contract`, `measurement`, `load`, or `smoke`                                | How is the claim assessed?                                    |
-| Subject   | Surface, capability, public contract, package, environment, or implementation unit                                                   | What does the assessment concern?                             |
-| Selection | Per change, platform matrix, scheduled, release candidate, or post-deployment                                                        | When is this evidence selected?                               |
+| Axis      | Common values or examples                                                                                                                                                                              | Question answered                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Purpose   | `specification`, `architecture-verification`, `internal`, `tooling`, `artifact-verification`, `diagnostic`                                                                                             | What authority or claim does it support?                      |
+| Concern   | The shared review lens: functional, quality (with a named characteristic such as installability, compatibility, performance, or security), constraint, external-conformance, human-factors, or process | What kind of property is assessed?                            |
+| Role      | `experience`, `interface`, `supporting`                                                                                                                                                                | How does the requirement participate in the product contract? |
+| Boundary  | `memory`, `process`, `binary`, `packed-artifact`, `installed`, `platform`, `published-artifact`, `deployed`                                                                                            | Where does the observation occur?                             |
+| Method    | Extensible; for example `example`, `property`, `model`, `contract`, `measurement`, `load`, or `smoke`                                                                                                  | How is the claim assessed?                                    |
+| Subject   | Surface, capability, public contract, package, environment, or implementation unit                                                                                                                     | What does the assessment concern?                             |
+| Selection | Per change, platform matrix, scheduled, release candidate, or post-deployment                                                                                                                          | When is this evidence selected?                               |
 
-These values are an extensible vocabulary, not closed allowlists. Method
-metadata describes the approach a test actually uses, and new or combined
-testing methods do not require a taxonomy change before they can be used.
-Common labels are normalized only when that improves filtering and reporting
-without erasing a meaningful distinction.
+Class, role, boundary, and selection are closed vocabularies owned by the
+shared contract. Method and characteristic are extensible: method metadata
+describes the approach a test actually uses, and new or combined testing
+methods do not require a contract change before they can be used. Common
+labels are normalized only when that improves filtering and reporting without
+erasing a meaningful distinction.
 
 Role is independent of concern. Experience requirements describe behavior
 meaningful to a person or agent completing an AXM task. Interface requirements
@@ -175,10 +188,13 @@ behavior more completely or expose different blind spots.
 
 ### Other requirement specifications
 
-Installability, compatibility, performance, security, usability, architecture,
-and process requirements use the same authoritative metadata contract and
-stable identity as functional behavior while retaining their native,
-purpose-fit test frameworks and methods. They may use performance measurement,
+Quality, constraint, external-conformance, human-factors, and process
+requirements use the same authoritative metadata contract and stable identity
+as functional behavior while retaining their native, purpose-fit test
+frameworks and methods. An obligation that cannot run — a human-factors or
+manually observed claim — is still a specification: it declares `manual` or
+`review` as its method, and the harness reports it as unverified rather than
+passing. They may use performance measurement,
 static analysis, schema checks,
 dependency analysis, security tooling, platform matrices, or other runners and
 may execute at a slower cadence. Their execution method does not move their
@@ -206,11 +222,11 @@ observation paths remain independently capable of exposing boundary defects.
 Architecture verification checks documented structural relationships and
 design decisions that are not themselves actor-visible functional behavior.
 When a structural constraint is required, its normative statement belongs to
-an architecture-class specification and the architecture check is its runner.
+a constraint-class specification and the architecture check is its runner.
 Other architecture checks are diagnostic evidence and do not create
 requirements. Examples include package dependency direction, entry-point
 composition, ownership-unit registration, generated contract coherence, and
-adapter participation. Architecture-class specifications report with the other
+adapter participation. Constraint-class specifications report with the other
 authoritative specifications; only diagnostic architecture checks report in
 the verification projection.
 
@@ -408,11 +424,14 @@ assertions.
 ## Specification metadata contract and native frameworks
 
 Specification tests use idiomatic constructs from their native test framework
-and any purpose-fit testing library. A small, typed, colocated metadata contract
-provides only the cross-method information that discovery and reporting need:
-a stable requirement identity, human-readable title, requirement class and
-role, scope, the product goals the requirement supports, and optional reporting
-labels.
+and any purpose-fit testing library. The shared metadata contract in
+`@agentxm/extension-model` provides only the cross-method information that
+discovery, conformance, and reporting need: a stable requirement identity, a
+human-readable title, the normative statement, class and role, status, the
+product goals the requirement supports, the observation boundary and its
+rationale, methods, lineage (`derivedFrom`, `supersedes`), stated assumptions
+and open questions, and declared limitations with retirement conditions.
+Unknown assumptions or open questions are stated as unknown, never omitted.
 
 The contract is data, not a specification DSL. It does not replace or wrap
 native suites, tests, assertions, hooks, fixtures, lifecycle, parameterization,
@@ -530,9 +549,8 @@ The default cadence is:
 
 Reporting provides separate projections for:
 
-1. authoritative specifications — functional, installability, compatibility,
-   performance, security, usability, architecture, and process — organized by
-   requirement role, with product behavior as the primary reading path and
+1. authoritative specifications — every class of the shared lens — organized
+   by requirement role, with product behavior as the primary reading path and
    filters for requirement concern and execution boundary;
 2. diagnostic architecture checks, internal, tooling, and static verification,
    visibly separated by purpose and method;

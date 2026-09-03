@@ -5,17 +5,26 @@ import { afterEach } from "vitest";
 
 import { handleInstall, handleUpdate } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 import { makeSpecRegistry } from "../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/update/advances-resolution-within-intent",
   title: "Update advances the accepted resolution within durable intent",
+  statement:
+    "Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within the durable constraint without changing axm.json or any other extension, shall be a no-op when already current, and shall be blocked for an extension the workspace does not desire.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "The version constraint recorded at install bounds which newer publications an update may accept; the evidence exercises only an unconstrained install.",
+  ],
+  openQuestions: [],
 });
 
 describe("Update a desired Registry extension", () => {

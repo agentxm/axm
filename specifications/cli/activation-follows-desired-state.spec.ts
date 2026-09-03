@@ -12,16 +12,23 @@ import {
   handleSkillsEnable,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
   title: "Activation commands change realized surfaces without touching content or resolutions",
+  statement:
+    "When an installed extension is disabled or enabled, the workspace shall record the new activation intent and change only that extension's realized agent surfaces, and shall not alter canonical content or accepted resolutions.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Activation follows desired state", () => {

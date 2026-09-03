@@ -5,16 +5,23 @@ import { afterEach } from "vitest";
 
 import { handleInstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/preview-is-pure",
   title: "Install preview describes the plan without changing any state",
+  statement:
+    "When the install command runs in preview mode, it shall report the planned closure with a previewed outcome, shall not change settings, the lockfile, canonical content, or agent projections, and a subsequent apply shall realize exactly the closure the preview described.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Install preview purity", () => {

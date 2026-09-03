@@ -8,17 +8,24 @@ import { afterAll, afterEach } from "vitest";
 
 import { getAppError, handleInstall, handleSync } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../support/install-harness.js";
 import { pinSpecUserHome, snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mutations-are-closure-atomic",
   title: "A failed workspace mutation leaves every authoritative state family unchanged",
+  statement:
+    "When a workspace change cannot complete, the command shall fail with a typed error, shall render no result document, and shall leave settings, lockfile, canonical content, projections, and temporary directories exactly as they were.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
+  status: "accepted",
   methods: ["decision-table", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const userHome = pinSpecUserHome();

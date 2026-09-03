@@ -8,17 +8,24 @@ import { afterEach } from "vitest";
 
 import { handleInstall, handleSync } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { writeLocalSubagentPackage } from "../support/extension-fixtures.js";
 import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/managed-projection-guidance-respects-authority",
   title: "Managed projections name editable sources only when the workspace owns them",
+  statement:
+    "A managed projection shall direct edits to its source only when the workspace authors that extension, and for an acquired extension shall mark the canonical content immutable and point to axm fork instead.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability", "knowledge-access"],
+  status: "accepted",
   methods: ["decision-table", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const writeAuthoredSubagentPackage = (workspaceRoot: string, name: string): void => {

@@ -5,17 +5,24 @@ import { afterEach } from "vitest";
 
 import { handleInstallMcpServer, handleWorkspaceUpdate } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
 import { makeSpecRegistry } from "../../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/update/shared-source-update-is-closure-wide",
   title: "Updating one locally named connection advances every connection sharing its source",
+  statement:
+    "When an update targets one locally named MCP connection, AXM shall advance the single accepted resolution of its shared source and refresh the agent configuration of every connection to that source, rather than advancing the named connection alone.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition", "agent-interoperability"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Update a shared MCP source closure", () => {

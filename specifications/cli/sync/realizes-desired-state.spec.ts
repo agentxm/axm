@@ -8,16 +8,23 @@ import { afterEach } from "vitest";
 
 import { handleInstall, handleSync } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/realizes-desired-state",
   title: "Sync converges AXM-owned outputs bidirectionally on desired state",
+  statement:
+    "Sync shall converge AXM-owned outputs on desired state, restoring missing projections from canonical content and missing canonical content from the exact accepted identity, removing owned outputs desired state no longer reaches, and reporting a no-op once managed state agrees with desired state.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "agent-interoperability"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Sync realizes desired workspace state", () => {

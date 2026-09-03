@@ -5,16 +5,30 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineBoundEvidence, defineSpecification } from "../../support/contract.js";
+import {
+  defineBoundEvidence,
+  defineSpecification,
+} from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/architecture/package-dependencies-point-inward",
   title: "Production package dependencies point inward, stay acyclic, and keep features isolated",
-  class: "architecture",
+  statement:
+    "Production package dependencies shall point only inward from the application through feature, kernel, integration, and contract levels, shall never form a cycle, and no feature package shall depend on another feature package.",
+  class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the committed Nx and lint configuration shows that the module-boundary and manifest-fidelity gates are armed with the intended level constraints and cycle detection.",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "The module-boundary and manifest-fidelity lint gates run on every change through the required aggregate check.",
+  ],
+  openQuestions: [],
 });
 
 /**

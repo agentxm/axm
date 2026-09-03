@@ -10,16 +10,23 @@ import { afterEach } from "vitest";
 
 import { getAppError, handleLint, LintResultDocumentSchema } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { installBundledAxmSkill, makeLintSpecWorkspace } from "../../support/lint-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/fix-repairs-only-determined-state",
   title: "Lint fix repairs only state determined by local authority",
+  statement:
+    "When lint runs with --fix, it shall repair only state that local authority fully determines, such as a missing instruction alias, and shall fail with a conflict without touching the workspace when a target is unowned or its desired content is ambiguous.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(LintResultDocumentSchema);

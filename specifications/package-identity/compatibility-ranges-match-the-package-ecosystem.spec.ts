@@ -7,16 +7,23 @@ import {
   VersRangeSchema,
 } from "@agentxm/extension-model/unstable/package-urls";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "package-identity/compatibility-ranges-match-the-package-ecosystem",
   title:
     "A companion compatibility range is a concrete ecosystem range matching its package identity",
+  statement:
+    "A companion compatibility range shall be a vers range carrying at least one plain constraint in the same concrete package ecosystem as its package identity, and any generic, empty, wildcard-only, encoded, or mismatched range shall be refused with guidance naming the flaw.",
   class: "functional",
   role: "interface",
   goals: ["authoring-and-creation", "trustworthy-distribution"],
+  status: "accepted",
   methods: ["example", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeRange = Schema.decodeUnknownEffect(VersRangeSchema);

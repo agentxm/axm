@@ -10,16 +10,23 @@ import { afterEach } from "vitest";
 
 import { handleLint, handleSync, LintResultDocumentSchema } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/projection-currency-follows-state-authority",
   title: "Generated document currency follows authoritative inputs, not rendered bytes",
+  statement:
+    "Reconciliation shall judge a generated document current by its authoritative inputs and generation record rather than its rendered bytes, preserving body rewrites while inputs are unchanged, regenerating when inputs change, and blocking on invalid ownership markers without altering the file.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity", "agent-interoperability"],
+  status: "accepted",
   methods: ["decision-table", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const writeAuthoredRule = (workspaceRoot: string, body: string): void => {

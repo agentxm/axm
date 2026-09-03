@@ -6,16 +6,27 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import YAML from "yaml";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/process/dual-typescript-alias-retained",
   title: "The dual TypeScript alias stays in place until its recorded exit condition",
+  statement:
+    "Until the recorded TypeScript 7.1 exit condition is met, the workspace shall resolve tsc to native TypeScript 7 and shall keep the typescript package resolving to the TypeScript 6 compatibility package.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the committed workspace catalog in pnpm-workspace.yaml shows which packages the two TypeScript aliases resolve to.",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [
+    "The exit condition is described as recorded, but the specification does not name where it is recorded or how meeting it is observed.",
+  ],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

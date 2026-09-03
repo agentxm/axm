@@ -13,16 +13,23 @@ import {
   handleUninstallMcpServer,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/inline-lifecycle-is-idempotent",
   title: "The inline MCP server lifecycle is explicit and safe to repeat",
+  statement:
+    "Adding an inline MCP server shall record it in axm.json and project it to agents without recording a resolution, uninstalling it shall remove only that configuration and its projections, and repeating either operation shall change nothing and report a no-op.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Inline MCP server lifecycle", () => {

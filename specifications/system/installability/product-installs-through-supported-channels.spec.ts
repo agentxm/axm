@@ -5,17 +5,27 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/installability/product-installs-through-supported-channels",
   title: "AXM installs through its supported channels with integrity verification",
-  class: "installability",
+  statement:
+    "AXM shall install through its supported bash, PowerShell, and cmd installers, each verifying artifact integrity by checksum, and a release shall not complete until installation has been verified on every supported shell.",
+  class: "quality",
+  characteristic: "installability",
   role: "experience",
   goals: ["platform-reach", "trustworthy-distribution"],
+  status: "accepted",
   boundary: "repository",
-  selection: "release-candidate",
+  boundaryRationale:
+    "Only the committed installer scripts and the publish.yml workflow show which channels exist, that they verify integrity, and that release completion waits on install verification.",
   methods: ["contract"],
+  selection: "release-candidate",
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

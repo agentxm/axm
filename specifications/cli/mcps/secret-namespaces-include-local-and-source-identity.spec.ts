@@ -2,15 +2,25 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { mcpSecretAccount } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/secret-namespaces-include-local-and-source-identity",
   title: "MCP secret accounts isolate workspace, local connection, source, and input identity",
-  class: "security",
+  statement:
+    "The account under which AXM stores an MCP secret shall be derived deterministically from the workspace root, the local connection name, the source identity, and the input name, so that changing any one of those yields a different account.",
+  class: "quality",
+  characteristic: "security",
   role: "supporting",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  status: "accepted",
   methods: ["property"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "The derivation encodes the four namespace components unambiguously, so distinct component combinations cannot collide except through the underlying hash.",
+  ],
+  openQuestions: [],
 });
 
 describe("MCP secret account identity", () => {

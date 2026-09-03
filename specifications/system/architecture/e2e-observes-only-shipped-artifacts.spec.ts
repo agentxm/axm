@@ -5,16 +5,27 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/architecture/e2e-observes-only-shipped-artifacts",
   title: "End-to-end suites reach the product only as a shipped artifact, never as imported code",
-  class: "architecture",
+  statement:
+    "End-to-end test projects shall exercise AXM only through its shipped artifacts and shall not declare a dependency on, or a project reference to, any product source package.",
+  class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the committed package manifests and TypeScript project references of the end-to-end projects show whether they reach product source directly.",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "Relative imports that cross project roots are rejected by the module-boundary lint rather than by this evidence.",
+  ],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

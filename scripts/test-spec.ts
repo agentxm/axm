@@ -3,9 +3,10 @@
  * identity, then enforce the fast-suite performance budget.
  *
  * Usage:
- *   bun test-spec.ts                                   # full specification suite
- *   bun test-spec.ts --requirement <id> [<id> ...]     # exactly the evidence for these requirements
- *   bun test-spec.ts --class <requirement-class>       # every specification of one concern
+ *   bun test-spec.ts                                     # full specification suite
+ *   bun test-spec.ts --requirement <id> [<id> ...]       # exactly the evidence for these requirements
+ *   bun test-spec.ts --class <class>                     # every specification of one review lens
+ *   bun test-spec.ts --characteristic <characteristic>   # every specification measuring one characteristic
  *
  * Selection arguments are consumed here; every other flag is forwarded verbatim
  * to the `specifications:test` target, so runner flags such as
@@ -29,6 +30,16 @@ const rawArguments = process.argv.slice(2);
 const requirementIds: string[] = [];
 const forwardedArguments: string[] = [];
 let selectedClass: string | undefined;
+let selectedCharacteristic: string | undefined;
+
+const readSelectionValue = (flag: string, index: number, example: string): string => {
+  const value = rawArguments[index];
+  if (value === undefined || value.startsWith("-")) {
+    console.error(`${flag} requires a value, for example ${flag} ${example}.`);
+    process.exit(1);
+  }
+  return value;
+};
 
 for (let index = 0; index < rawArguments.length; index += 1) {
   const argument = rawArguments[index];
@@ -37,12 +48,12 @@ for (let index = 0; index < rawArguments.length; index += 1) {
   }
   if (argument === "--class") {
     index += 1;
-    const value = rawArguments[index];
-    if (value === undefined || value.startsWith("-")) {
-      console.error("--class requires a requirement class, for example --class performance.");
-      process.exit(1);
-    }
-    selectedClass = value;
+    selectedClass = readSelectionValue(argument, index, "quality");
+    continue;
+  }
+  if (argument === "--characteristic") {
+    index += 1;
+    selectedCharacteristic = readSelectionValue(argument, index, "performance");
     continue;
   }
   if (argument === "--requirement") {
@@ -57,13 +68,24 @@ for (let index = 0; index < rawArguments.length; index += 1) {
 }
 
 const selectedSources: string[] = [];
-if (selectedClass !== undefined) {
+if (selectedClass !== undefined || selectedCharacteristic !== undefined) {
   const catalog = collectCatalog({ repoRoot });
   const matching = catalog.specifications.filter(
-    (entry) => entry.requirementClass === selectedClass,
+    (entry) =>
+      (selectedClass === undefined || entry.metadata.class === selectedClass) &&
+      (selectedCharacteristic === undefined ||
+        entry.metadata.characteristic === selectedCharacteristic),
   );
   if (matching.length === 0) {
-    console.log(`No specifications with class "${selectedClass}" are registered.`);
+    const selection = [
+      selectedClass !== undefined ? `class "${selectedClass}"` : undefined,
+      selectedCharacteristic !== undefined
+        ? `characteristic "${selectedCharacteristic}"`
+        : undefined,
+    ]
+      .filter((entry) => entry !== undefined)
+      .join(" and ");
+    console.log(`No specifications with ${selection} are registered.`);
     process.exit(0);
   }
   for (const specification of matching) {
@@ -73,7 +95,7 @@ if (selectedClass !== undefined) {
   const catalog = collectCatalog({ repoRoot });
   for (const requirementId of requirementIds) {
     const specification = catalog.specifications.find(
-      (entry) => entry.requirement === requirementId,
+      (entry) => entry.metadata.requirement === requirementId,
     );
     if (specification === undefined) {
       console.error(`Unknown requirement identity: ${requirementId}`);

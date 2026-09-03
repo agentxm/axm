@@ -8,16 +8,23 @@ import { afterEach } from "vitest";
 
 import { SettingsSchema, writeSettingsAtPath } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "settings-contract/saving-settings-preserves-authored-formatting",
   title: "Saving settings preserves authored formatting, ordering, and unrecognized content",
+  statement:
+    "When the product saves settings back to axm.json, it shall preserve the authored indentation, key order, and unrecognized content, and rewriting unchanged settings shall leave the file byte-identical.",
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  status: "accepted",
   methods: ["golden-output", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeSettings = Schema.decodeUnknownEffect(SettingsSchema);

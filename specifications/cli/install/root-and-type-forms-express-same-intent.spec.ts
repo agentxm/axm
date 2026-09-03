@@ -5,16 +5,23 @@ import { afterEach } from "vitest";
 
 import { handleInstall, handleSkillsInstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/root-and-type-forms-express-same-intent",
   title: "Root install and the type command express the same durable intent",
+  statement:
+    "When the same extension is installed through the root install command and through its type-specific install command, both forms shall produce identical workspace configuration, identical canonical content, and identical agent projections.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption"],
+  status: "accepted",
   methods: ["model"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Root and type-specific install parity", () => {

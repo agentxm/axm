@@ -5,17 +5,28 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/architecture/public-system-depends-only-on-published-contracts",
   title:
     "The public system depends on private platform responsibilities only through published contracts",
-  class: "architecture",
+  statement:
+    "The public AXM system shall depend on private platform responsibilities only through published packages and generated clients tracked in this repository, and no workspace package shall reference a private package or a filesystem path outside the repository.",
+  class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the committed package manifests and the tracked generated client directories show what the public system actually depends on.",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [
+    "Whether the registry client must be generated from a published contract is unresolved: the scenario accepts either a generated directory or any source directory, so it cannot fail for the registry client.",
+  ],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

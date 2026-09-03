@@ -8,16 +8,23 @@ import { afterEach } from "vitest";
 
 import { handleInstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/preserves-unrelated-and-unowned-state",
   title: "Install leaves unrelated configuration and unowned content untouched",
+  statement:
+    "When an extension is installed, the install command shall leave hand-authored content in agent directories and unrelated project files byte-for-byte intact and shall preserve every unrelated setting while adding the new declaration.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Install preserves surrounding state", () => {

@@ -5,17 +5,29 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/compatibility/supported-platform-matrix",
   title: "Every supported platform and shell receives release-blocking verification",
-  class: "compatibility",
+  statement:
+    "Every supported operating system, architecture, and installer shell shall receive release-blocking verification, and Windows workspace behavior shall be verified on a real Windows runner.",
+  class: "quality",
+  characteristic: "compatibility",
   role: "supporting",
   goals: ["platform-reach"],
+  status: "accepted",
   boundary: "repository",
-  selection: "platform-matrix",
+  boundaryRationale:
+    "Only the committed ci.yml and publish.yml workflow files show which platforms, shells, and runners the release-blocking verification covers.",
   methods: ["contract"],
+  selection: "platform-matrix",
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "A job named in the workflow files blocks its merge or release rather than running as an advisory check.",
+  ],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

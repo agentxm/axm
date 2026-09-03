@@ -7,15 +7,22 @@ import { afterEach, beforeEach } from "vitest";
 
 import { TelemetryClient, TelemetryClientLive } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/security/telemetry-failure-never-alters-outcomes",
   title: "Telemetry collection or delivery failure is invisible to the operation",
+  statement:
+    "When telemetry collection or delivery fails for any reason, the requested operation shall complete with the outcome it would have had without telemetry, and the failure shall neither fail nor alter that operation.",
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent", "safe-repetition"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const telemetryOver = (client: HttpClient.HttpClient) =>

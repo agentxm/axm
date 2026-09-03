@@ -13,16 +13,23 @@ import {
   handleInstall,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/agents/membership-changes-realize-affected-outputs",
   title: "Agent membership changes update the durable target set and its owned outputs together",
+  statement:
+    "When a coding agent is added to or removed from the workspace, AXM shall update the durable agent set and that agent's owned outputs in one operation, and shall not remove content it cannot prove it owns or that another configured agent still reaches.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Coding-agent membership changes", () => {

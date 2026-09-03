@@ -2,15 +2,22 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
 import { allCatalogRuleMetadata } from "axm.sh/specification-harness";
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/catalog-is-complete",
   title: "Every supported lint rule has a stable default and input scope",
+  statement:
+    "The lint rule catalog shall expose exactly the accepted rule identities in reporting order, and each rule shall declare its accepted default severity, its rule group, and the filesystem views (workspace, git-index) it observes.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["contract", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 type ExpectedRule = readonly [

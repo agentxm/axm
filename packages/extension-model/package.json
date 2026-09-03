@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/extension-model",
   "version": "0.28.4",
-  "description": "Shared AgentXM extension model: identities, manifests, version constraints, and agent capabilities. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "Shared AgentXM extension model: identities, manifests, version constraints, and agent capabilities. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -275,6 +275,11 @@
       "types": "./dist/src/unstable/sources/workspace.d.ts",
       "axm-source": "./src/unstable/sources/workspace.ts",
       "default": "./dist/src/unstable/sources/workspace.js"
+    },
+    "./unstable/specifications": {
+      "types": "./dist/src/unstable/specifications/index.d.ts",
+      "axm-source": "./src/unstable/specifications/index.ts",
+      "default": "./dist/src/unstable/specifications/index.js"
     },
     "./unstable/subagents/manifest-schema": {
       "types": "./dist/src/unstable/subagents/manifest-schema.d.ts",

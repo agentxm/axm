@@ -9,17 +9,24 @@ import YAML from "yaml";
 
 import { handleInstall, handleSync } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 import { makeSpecRegistry } from "../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/preserves-configuration-and-resolutions",
   title: "Sync never changes configuration and never advances a satisfying resolution",
+  statement:
+    "Sync shall never rewrite axm.json or alter an accepted resolution that still satisfies its constraint, shall restore realized content from the accepted resolution even when a newer version is available, and shall record a resolution only for a desired extension that has none.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Sync preserves configuration and accepted resolutions", () => {

@@ -6,16 +6,27 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import YAML from "yaml";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/process/releases-publish-through-canonical-workflow",
   title: "Releases publish only through the canonical automated workflow",
+  statement:
+    "Release artifacts shall be published only by the canonical publish.yml workflow, triggered by a published release or an explicit release tag and validating release assets before completion, and no other workflow shall publish release artifacts.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "trustworthy-distribution"],
+  status: "accepted",
   boundary: "repository",
+  boundaryRationale:
+    "Only the committed workflow files show which workflow publishes releases, what triggers it, and that no other workflow does.",
   methods: ["contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [
+    "Publishing credentials are available only to the canonical workflow, so no manual or external path can publish release artifacts.",
+  ],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

@@ -14,16 +14,23 @@ import {
   handleList,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lockfile-version-errors-expose-structured-problem",
   title: "Lockfile version errors expose a structured machine problem",
+  statement:
+    "When a machine-output invocation rejects a workspace lockfile whose version is unsupported, the error envelope shall carry a structured problem naming the file, the observed and supported versions, and the direction, plus direction-specific recovery commands.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["contract", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeEnvelope = Schema.decodeUnknownEffect(JsonErrorEnvelopeSchema);

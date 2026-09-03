@@ -10,17 +10,24 @@ import { afterEach } from "vitest";
 
 import { LintResultDocumentSchema, handleInstall, handleLint } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";
 import { installBundledAxmSkill, makeLintSpecWorkspace } from "../../support/lint-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/reports-facts-without-mutation",
   title: "Lint reports invariant violations without changing any workspace state",
+  statement:
+    "When lint runs without --fix, it shall report every invariant violation as findings and fail the run when errors exist, shall report clean and succeed when none exist, and shall not change any workspace state in either case.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(LintResultDocumentSchema);

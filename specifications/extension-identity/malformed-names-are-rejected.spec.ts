@@ -7,15 +7,22 @@ import { describe, expect, it } from "@effect/vitest";
 import { ExtensionSpecSchema } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "extension-identity/malformed-names-are-rejected",
   title: "A malformed extension name is rejected with a typed failure naming the input",
+  statement:
+    "A reference that does not match the extension name grammar, including any bare name, shall be rejected with a typed failure that preserves the offending input, and a malformed version constraint shall be rejected with guidance naming the version constraint.",
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  status: "accepted",
   methods: ["decision-table", "property", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 /** Bare names: plausible identifiers that are not fully qualified names. */

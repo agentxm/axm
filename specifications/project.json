@@ -13,11 +13,12 @@
         "{projectRoot}/**/*.ts",
         "{workspaceRoot}/scripts/specification-catalog.ts",
         "{workspaceRoot}/scripts/specification-catalog-lib.ts",
-        "{workspaceRoot}/packages/cli-e2e/src/**/*.ts"
+        "{workspaceRoot}/packages/cli-e2e/src/**/*.ts",
+        "{workspaceRoot}/packages/extension-model/src/unstable/specifications/**/*.ts"
       ],
       "outputs": ["{projectRoot}/catalog.md"],
       "options": {
-        "command": "bun scripts/specification-catalog.ts",
+        "command": "bun --conditions=axm-source scripts/specification-catalog.ts",
         "cwd": "."
       }
     }

@@ -12,17 +12,24 @@ import {
   handleUninstall,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 import { makeSpecRegistry } from "../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/packs/authored-packs-expand-membership",
   title: "Authored packs grow membership that stays reachable through the pack",
+  statement:
+    "Creating a workspace-authored pack shall record it in axm.json without an accepted resolution, adding an installed extension shall record it as a pack dependency, and a member reached only through the pack shall stay resolved and realized after its direct configuration is removed.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity", "extension-adoption"],
+  status: "accepted",
   methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 describe("Authored pack membership", () => {

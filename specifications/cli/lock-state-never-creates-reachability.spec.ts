@@ -6,17 +6,24 @@ import { afterAll, afterEach } from "vitest";
 
 import { ExtensionListDocumentSchema, handleList, handleSync } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../support/install-harness.js";
 import { pinSpecUserHome } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lock-state-never-creates-reachability",
   title: "A lockfile row alone never makes an extension desired or retained",
+  statement:
+    "An accepted-resolution row in the lockfile that no settings entry desires shall not cause the workspace to acquire, realize, or report that extension or pack as present.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "trustworthy-distribution"],
+  status: "accepted",
   methods: ["decision-table", "contract"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 const userHome = pinSpecUserHome();

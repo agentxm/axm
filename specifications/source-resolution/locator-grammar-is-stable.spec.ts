@@ -9,16 +9,23 @@ import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/par
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { getAppError } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "../support/contract.js";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "source-resolution/locator-grammar-is-stable",
   title: "Source locators resolve through a stable grammar and configured hosts",
+  statement:
+    "A source locator shall resolve through the published grammar to exactly the coordinates it names, a project-defined source shall override a built-in host of the same name, and a locator outside the grammar shall be refused with a typed failure that explains the rejection.",
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
+  status: "accepted",
   methods: ["decision-table", "property", "example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
 });
 
 /**

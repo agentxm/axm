@@ -96,7 +96,7 @@ describe("repository task interface", () => {
     );
   });
 
-  it("uses batch execution only for build phases", () => {
+  it("keeps verification output phases isolated", () => {
     const scripts = readObject("package.json")["scripts"];
     if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
 
@@ -104,10 +104,10 @@ describe("repository task interface", () => {
       const script = scripts[name];
       if (typeof script !== "string") throw new Error(`Missing ${name} script.`);
       const phases = script.split("&&");
-      expect(phases[1], name).toContain("-t build --batch");
+      expect(phases[1], name).toContain("-t build --parallel=1");
       expect(phases[2], name).toContain("-t test --excludeTaskDependencies");
       for (const [index, phase] of phases.entries()) {
-        if (index !== 1) expect(phase, `${name} phase ${index + 1}`).not.toContain("--batch");
+        expect(phase, `${name} phase ${index + 1}`).not.toContain("--batch");
       }
     }
   });

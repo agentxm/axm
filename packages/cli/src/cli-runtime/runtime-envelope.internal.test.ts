@@ -210,7 +210,8 @@ describe("writeDefect", () => {
 
         expect(stdoutWrites).toEqual([]);
         expect(stderrWrites).toHaveLength(1);
-        expect(stderrWrites[0]).toContain("✖ An unexpected error occurred");
+        expect(stderrWrites[0]).toMatch(/^✖ /);
+        expect(stderrWrites[0]).toContain("An unexpected error occurred");
         expect(stderrWrites[0]).not.toContain("✗");
         expect(stderrWrites[0]).toContain("boom");
       }),

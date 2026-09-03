@@ -566,17 +566,31 @@ programmatic interfaces, and supporting system behavior.
 
 #### Skills
 
-##### Bundled official-skill recovery converges without changing source authority
+##### Bundled official-skill recovery rewrites the settings entry to bundled ownership and retires the Registry resolution
 
-- Requirement: `cli/skills/install/bundled-recovery-converges`
-- Statement: Installing the bundled official AXM skill shall record it as bundled workspace-owned content and retire its Registry resolution while leaving other resolutions intact and the workspace lint-clean, shall change nothing when repeated, and shall be blocked before any change when the workspace authors a skill of that name.
+- Requirement: `cli/skills/install/bundled-recovery-rewrites-entry-and-retires-resolution`
+- Statement: When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content and retire its accepted Registry resolution, shall leave every other accepted resolution intact and the workspace lint-clean, and shall change nothing when repeated.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Open questions: The title says recovery converges without changing source authority, yet the recovery scenario rewrites the skill's axm.json entry from a Registry locator to a bundled workspace entry; which authority is meant to stay unchanged is unclear.
-- Source: [`specifications/cli/skills/install/bundled-recovery-converges.spec.ts`](../specifications/cli/skills/install/bundled-recovery-converges.spec.ts)
+- Derived from: `cli/skills/install/bundled-recovery-converges`
+- Supersedes: `cli/skills/install/bundled-recovery-converges`
+- Source: [`specifications/cli/skills/install/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts`](../specifications/cli/skills/install/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts)
+
+##### Bundled official-skill recovery never overwrites a workspace-authored official skill
+
+- Requirement: `cli/skills/install/preserves-authored-official-skill`
+- Statement: When the workspace authors a skill named axm, installing the bundled official AXM skill shall be blocked before any change in preview and in a forced apply, shall name the authored skill as the cause, and shall leave configuration, lock state, and the authored source byte-for-byte intact.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/install/bundled-recovery-converges`
+- Supersedes: `cli/skills/install/bundled-recovery-converges`
+- Source: [`specifications/cli/skills/install/preserves-authored-official-skill.spec.ts`](../specifications/cli/skills/install/preserves-authored-official-skill.spec.ts)
 
 ##### A new skill is scaffolded for the universal location and every configured agent
 
@@ -612,7 +626,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Sync never changes configuration and never advances a satisfying resolution
 
 - Requirement: `cli/sync/preserves-configuration-and-resolutions`
-- Statement: Sync shall never rewrite axm.json or alter an accepted resolution that still satisfies its constraint, shall restore realized content from the accepted resolution even when a newer version is available, and shall record a resolution only for a desired extension that has none.
+- Statement: Sync shall never rewrite axm.json or alter an accepted resolution that still satisfies its constraint, and shall restore realized content from the accepted resolution even when a newer version is available.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -631,15 +645,16 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/sync/preserves-unowned-agent-content.spec.ts`](../specifications/cli/sync/preserves-unowned-agent-content.spec.ts)
 
-##### Sync converges AXM-owned outputs bidirectionally on desired state
+##### Sync realizes desired additions and removes what desired state no longer includes
 
 - Requirement: `cli/sync/realizes-desired-state`
-- Statement: Sync shall converge AXM-owned outputs on desired state, restoring missing projections from canonical content and missing canonical content from the exact accepted identity, removing owned outputs desired state no longer reaches, and reporting a no-op once managed state agrees with desired state.
+- Statement: Sync shall realize each desired extension AXM owns, recording a first accepted resolution for one that has none and restoring missing agent projections from canonical content and missing canonical content from the exact accepted identity, shall remove owned outputs that desired state no longer includes, and shall report a no-op once managed state agrees with desired state.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
+- Derived from: `cli/sync/preserves-configuration-and-resolutions`
 - Source: [`specifications/cli/sync/realizes-desired-state.spec.ts`](../specifications/cli/sync/realizes-desired-state.spec.ts)
 
 #### Uninstall
@@ -700,13 +715,12 @@ programmatic interfaces, and supporting system behavior.
 ##### Update advances the accepted resolution within durable intent
 
 - Requirement: `cli/update/advances-resolution-within-intent`
-- Statement: Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within the durable constraint without changing axm.json or any other extension, shall be a no-op when already current, and shall be blocked for an extension the workspace does not desire.
+- Statement: Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within the durable constraint without changing axm.json or any other extension, and shall be a no-op when already current.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Assumptions: The version constraint recorded at install bounds which newer publications an update may accept; the evidence exercises only an unconstrained install.
 - Additional evidence: process via [`packages/cli-e2e/src/http-registry.e2e.test.ts`](../packages/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
 - Source: [`specifications/cli/update/advances-resolution-within-intent.spec.ts`](../specifications/cli/update/advances-resolution-within-intent.spec.ts)
@@ -721,6 +735,18 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/update/bundled-source-routes-to-recovery.spec.ts`](../specifications/cli/update/bundled-source-routes-to-recovery.spec.ts)
+
+##### Update is blocked for an extension the workspace does not desire
+
+- Requirement: `cli/update/refuses-undesired-extensions`
+- Statement: When an update names an extension the workspace does not desire, the update shall be blocked as an unmet precondition before any change and shall leave configuration, lock state, and acquired content untouched.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/update/advances-resolution-within-intent`
+- Source: [`specifications/cli/update/refuses-undesired-extensions.spec.ts`](../specifications/cli/update/refuses-undesired-extensions.spec.ts)
 
 #### Workspace Lockfile Rejections Name State And Recovery
 
@@ -938,6 +964,20 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: decision-table, contract, example
 - Source: [`specifications/cli/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../specifications/cli/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
+
+#### Update
+
+##### Machine update output names the bundled source as the blocker with every effect unchanged
+
+- Requirement: `cli/update/machine-result-names-bundled-source-blocker`
+- Statement: When a targeted update of a bundled-source extension is blocked in machine output mode, the result document shall satisfy the published plan-result schema and shall report the targeted-update context with direct-only ownership, enabled activation, blocked authority, a bundled direct source, the bundled-source blocker, and every effect unchanged, in preview and apply alike.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: contract
+- Derived from: `cli/update/bundled-source-routes-to-recovery`
+- Source: [`specifications/cli/update/machine-result-names-bundled-source-blocker.spec.ts`](../specifications/cli/update/machine-result-names-bundled-source-blocker.spec.ts)
 
 ### Extension identity
 

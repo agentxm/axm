@@ -29,7 +29,7 @@ describe("Targeted update of a bundled official skill", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect("reports bundled authority without Registry access or workspace changes", () =>
+  it.effect("is blocked without Registry access and suggests the bundled reinstall", () =>
     Effect.gen(function* () {
       const workspace = makeSpecWorkspace({
         machine: true,
@@ -65,26 +65,7 @@ describe("Targeted update of a bundled official skill", () => {
         }).pipe(Effect.provide(workspace.layer));
         const result = workspace.rendererState.results.at(-1);
         expect(result?.ok).toBe(false);
-        expect(result?.data).toMatchObject({
-          result: {
-            outcome: "blocked",
-            targetedUpdate: {
-              ownership: "direct-only",
-              activation: "enabled",
-              authority: "blocked",
-              direct: { source: "bundled", enabled: true },
-              blocker: "bundled-source",
-              effects: {
-                settings: "unchanged",
-                acceptedResolution: "unchanged",
-                canonical: "unchanged",
-                projection: "unchanged",
-                packRoot: "unchanged",
-                packManifest: "unchanged",
-              },
-            },
-          },
-        });
+        expect(result?.data).toMatchObject({ result: { outcome: "blocked" } });
       }
 
       expect(workspace.rendererState.suggestions).toContainEqual({

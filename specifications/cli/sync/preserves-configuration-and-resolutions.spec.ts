@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preserves-configuration-and-resolutions",
   title: "Sync never changes configuration and never advances a satisfying resolution",
   statement:
-    "Sync shall never rewrite axm.json or alter an accepted resolution that still satisfies its constraint, shall restore realized content from the accepted resolution even when a newer version is available, and shall record a resolution only for a desired extension that has none.",
+    "Sync shall never rewrite axm.json or alter an accepted resolution that still satisfies its constraint, and shall restore realized content from the accepted resolution even when a newer version is available.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -106,33 +106,6 @@ describe("Sync preserves configuration and accepted resolutions", () => {
         );
         expect(workspace.readLockfileText()).toBe(lockfileBefore);
         expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
-      }),
-  );
-
-  it.effect(
-    "resolves a desired extension without a resolution once, changing no configuration",
-    () =>
-      Effect.gen(function* () {
-        const workspace = makeSpecWorkspace({
-          machine: true,
-          flags: { json: true },
-          settings: { skills: { "code-review": "./vendor/code-review" } },
-        });
-        cleanups.push(workspace.cleanup);
-        writeLocalSkillPackage(workspace.root, { name: "code-review" });
-        const settingsBefore = JSON.stringify(workspace.readSettings());
-        expect(workspace.readLockfileText()).not.toContain("code-review");
-
-        yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
-
-        const lockfileAfter = workspace.readLockfileText();
-        expect(lockfileAfter).toContain("code-review");
-        expect(lockfileAfter).toContain("type: local");
-        expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
-        expect(workspace.exists("agent_extensions/local/vendor/code-review/src/SKILL.md")).toBe(
-          true,
-        );
-        expect(workspace.exists(".claude/skills/code-review")).toBe(true);
       }),
   );
 });

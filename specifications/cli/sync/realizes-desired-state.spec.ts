@@ -13,14 +13,14 @@ import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install
 
 export const specification = defineSpecification({
   requirement: "cli/sync/realizes-desired-state",
-  title: "Sync converges AXM-owned outputs bidirectionally on desired state",
+  title: "Sync realizes desired additions and removes what desired state no longer includes",
   statement:
-    "Sync shall converge AXM-owned outputs on desired state, restoring missing projections from canonical content and missing canonical content from the exact accepted identity, removing owned outputs desired state no longer reaches, and reporting a no-op once managed state agrees with desired state.",
+    "Sync shall realize each desired extension AXM owns, recording a first accepted resolution for one that has none and restoring missing agent projections from canonical content and missing canonical content from the exact accepted identity, shall remove owned outputs that desired state no longer includes, and shall report a no-op once managed state agrees with desired state.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "agent-interoperability"],
   methods: ["example"],
-  derivedFrom: [],
+  derivedFrom: ["cli/sync/preserves-configuration-and-resolutions"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -47,6 +47,33 @@ describe("Sync realizes desired workspace state", () => {
       }).pipe(Effect.provide(workspace.layer));
       return workspace;
     });
+
+  it.effect(
+    "records a first accepted resolution for a desired extension that has none and realizes it",
+    () =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace({
+          machine: true,
+          flags: { json: true },
+          settings: { skills: { "code-review": "./vendor/code-review" } },
+        });
+        cleanups.push(workspace.cleanup);
+        writeLocalSkillPackage(workspace.root, { name: "code-review" });
+        const settingsBefore = JSON.stringify(workspace.readSettings());
+        expect(workspace.readLockfileText()).not.toContain("code-review");
+
+        yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
+
+        const lockfileAfter = workspace.readLockfileText();
+        expect(lockfileAfter).toContain("code-review");
+        expect(lockfileAfter).toContain("type: local");
+        expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
+        expect(workspace.exists("agent_extensions/local/vendor/code-review/src/SKILL.md")).toBe(
+          true,
+        );
+        expect(workspace.exists(".claude/skills/code-review")).toBe(true);
+      }),
+  );
 
   it.effect("restores a deleted agent projection from canonical content", () =>
     Effect.gen(function* () {
@@ -105,7 +132,7 @@ describe("Sync realizes desired workspace state", () => {
   );
 
   it.effect(
-    "removes universal projections after a direct settings edit and then becomes a no-op",
+    "removes owned projections that desired state no longer includes and then reports a no-op",
     () =>
       Effect.gen(function* () {
         const workspace = yield* installedWorkspace();

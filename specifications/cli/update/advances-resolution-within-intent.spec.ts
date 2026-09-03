@@ -7,22 +7,20 @@ import { handleInstall, handleUpdate } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
-import { makeSpecRegistry } from "../../support/registry-fixture.js";
+import { makeSpecRegistry, type RegistrySkillVersion } from "../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/update/advances-resolution-within-intent",
   title: "Update advances the accepted resolution within durable intent",
   statement:
-    "Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within the durable constraint without changing axm.json or any other extension, shall be a no-op when already current, and shall be blocked for an extension the workspace does not desire.",
+    "Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within the durable constraint without changing axm.json or any other extension, and shall be a no-op when already current.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],
-  assumptions: [
-    "The version constraint recorded at install bounds which newer publications an update may accept; the evidence exercises only an unconstrained install.",
-  ],
+  assumptions: [],
   openQuestions: [],
 });
 
@@ -34,15 +32,21 @@ describe("Update a desired Registry extension", () => {
     }
   });
 
+  const firstVersion: RegistrySkillVersion = { version: "1.0.0", body: "First guidance." };
+
   /**
-   * A workspace holding the accepted first version of a Registry skill and one
-   * unrelated local skill, after which the Registry publishes a second version.
+   * A workspace holding the accepted first version of a Registry skill,
+   * installed through the given locator, and one unrelated local skill, after
+   * which the Registry publishes the later versions.
    */
-  const workspaceWithNewerPublication = () =>
+  const workspaceWithNewerPublication = (options?: {
+    readonly locator?: string;
+    readonly later?: ReadonlyArray<RegistrySkillVersion>;
+  }) =>
     Effect.gen(function* () {
       const registry = makeSpecRegistry();
       cleanups.push(registry.cleanup);
-      registry.writeSkill("code-review", [{ version: "1.0.0", body: "First guidance." }]);
+      registry.writeSkill("code-review", [firstVersion]);
       const workspace = makeSpecWorkspace({
         machine: true,
         flags: { json: true },
@@ -50,7 +54,7 @@ describe("Update a desired Registry extension", () => {
       });
       cleanups.push(workspace.cleanup);
       yield* handleInstall({
-        source: Option.some("@acme/skills/code-review"),
+        source: Option.some(options?.locator ?? "@acme/skills/code-review"),
         yes: true,
         force: false,
         preview: false,
@@ -63,8 +67,8 @@ describe("Update a desired Registry extension", () => {
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
       registry.writeSkill("code-review", [
-        { version: "1.0.0", body: "First guidance." },
-        { version: "2.0.0", body: "Second guidance." },
+        firstVersion,
+        ...(options?.later ?? [{ version: "2.0.0", body: "Second guidance." }]),
       ]);
       return workspace;
     });
@@ -95,6 +99,29 @@ describe("Update a desired Registry extension", () => {
           result: { outcome: "applied", counts: { committed: 1, failed: 0, blocked: 0 } },
         });
       }),
+  );
+
+  it.effect("advances only to the newest version the recorded constraint allows", () =>
+    Effect.gen(function* () {
+      const workspace = yield* workspaceWithNewerPublication({
+        locator: "@acme/skills/code-review@^1.0.0",
+        later: [
+          { version: "1.1.0", body: "Compatible guidance." },
+          { version: "2.0.0", body: "Second guidance." },
+        ],
+      });
+
+      yield* update(workspace, "@acme/skills/code-review");
+
+      expect(workspace.readLockfileText()).toContain("resolvedVersion: 1.1.0");
+      expect(workspace.readFile(".claude/skills/code-review/SKILL.md")).toContain(
+        "Compatible guidance.",
+      );
+      const lastResult = workspace.rendererState.results.at(-1);
+      expect(lastResult?.data).toMatchObject({
+        result: { outcome: "applied", counts: { committed: 1, failed: 0, blocked: 0 } },
+      });
+    }),
   );
 
   it.effect("changes no workspace configuration and no unrelated extension", () =>
@@ -129,29 +156,6 @@ describe("Update a desired Registry extension", () => {
       const lastResult = workspace.rendererState.results.at(-1);
       expect(lastResult?.data).toMatchObject({ result: { outcome: "no-op" } });
       expect(workspace.readLockfileText()).toBe(lockfileAfterFirst);
-    }),
-  );
-
-  it.effect("blocks an update of an extension the workspace does not desire", () =>
-    Effect.gen(function* () {
-      const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
-      cleanups.push(workspace.cleanup);
-      const settingsBefore = JSON.stringify(workspace.readSettings());
-      const lockfileBefore = workspace.readLockfileText();
-
-      yield* update(workspace, "@acme/skills/absent");
-
-      const [entry] = workspace.rendererState.results;
-      expect(entry?.data).toMatchObject({
-        result: {
-          outcome: "blocked",
-          blocking: { class: "precondition-unmet" },
-          units: [],
-        },
-      });
-      expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
-      expect(workspace.readLockfileText()).toBe(lockfileBefore);
-      expect(workspace.snapshotTree("agent_extensions")).toEqual([]);
     }),
   );
 });

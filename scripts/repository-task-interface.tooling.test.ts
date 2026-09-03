@@ -105,6 +105,7 @@ describe("repository task interface", () => {
       if (typeof script !== "string") throw new Error(`Missing ${name} script.`);
       const phases = script.split("&&");
       expect(phases[1], name).toContain("-t build --batch");
+      expect(phases[2], name).toContain("-t test --excludeTaskDependencies");
       for (const [index, phase] of phases.entries()) {
         if (index !== 1) expect(phase, `${name} phase ${index + 1}`).not.toContain("--batch");
       }

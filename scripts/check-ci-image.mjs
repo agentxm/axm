@@ -390,7 +390,7 @@ const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "
 for (const text of [
   "nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check",
   "nx run-many -t build --parallel=1 --skip-nx-cache",
-  "nx run-many -t test",
+  "nx run-many -t test --parallel=1",
   "--maxWorkers=2",
 ]) {
   requireText(
@@ -405,7 +405,7 @@ for (const text of [
   "nx affected -t lint typecheck",
   "verify-source-hygiene parity-ledger-check",
   "nx affected -t build --parallel=1 --skip-nx-cache",
-  "nx affected -t test",
+  "nx affected -t test --parallel=1",
   "--maxWorkers=2",
   "nx affected -t e2e",
 ]) {

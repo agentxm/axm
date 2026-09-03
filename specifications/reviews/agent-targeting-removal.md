@@ -52,7 +52,8 @@ decision; it is not authority.
 | `cli/skills/new/scaffolds-for-every-configured-agent`            | experience | Creation records manifest, content, and settings together; materializes for the universal location and every configured agent; preview and apply list the same targets; sync is then a no-op. |
 | `cli/subagents/new/scaffolds-for-every-configured-agent`         | experience | Creation records manifest, content, and settings together; renders for every configured agent; preview and apply agree; sync is then a no-op.                                                 |
 
-Every new specification is `status: "candidate"` with `supersedes: []`. No
+Every new specification was authored as `status: "candidate"` with
+`supersedes: []` and is accepted by this review (see Acceptance below). No
 accepted identity is retired.
 
 ## What this batch revises
@@ -146,10 +147,20 @@ Runs during the batch, with `pnpm test:spec --requirement <id>`:
 
 ## Acceptance
 
-- Candidates: awaiting maintainer acceptance. Until recorded here, the six new
-  specifications are not authority and the accepted specifications named above
-  remain the only obligations for their subjects.
-- Evidence revision of `cli/lint/catalog-is-complete`: awaiting maintainer
-  acceptance as an interface change to the published rule catalog.
-- Decision record: landed with this batch as explanation; it owns no
+- Candidates: accepted by the maintainer on 2026-09-03. The six specifications
+  listed under "What this batch adds" now carry `status: "accepted"` and are
+  the authority for their subjects; no predecessor is retired because none is
+  superseded.
+- Evidence revision of `cli/lint/catalog-is-complete`: accepted by the
+  maintainer on 2026-09-03 as an interface change to the published rule
+  catalog.
+- Decision record: stands as explanation of the choice; it owns no
   obligation.
+- Open question retained: whether subagent creation should list each agent
+  rendering as a plan target, as skill creation does, stays recorded on
+  `cli/subagents/new/scaffolds-for-every-configured-agent` and is tracked as a
+  follow-up change to preview reporting. It does not qualify the accepted
+  obligation.
+- Out-of-batch gaps: the two findings above (the `sync` plan listing MCP units
+  without artifact targets, and the drift reported on an adopted entry after
+  import) are tracked as follow-up work items outside this batch.

@@ -34,7 +34,7 @@ behavior.
 ##### Agent selection chooses workspace membership or filters a listing, never one extension
 
 - Requirement: `cli/agent-selection-is-membership-or-filter`
-- Status: candidate
+- Status: accepted
 - Statement: A command shall accept an agent selection only to choose the workspace's configured agents or to filter a listing, shall reject an unsupported agent identifier before any work begins, and no command shall accept an agent selection that narrows one extension.
 - Class: functional
 - Role: experience
@@ -324,7 +324,7 @@ behavior.
 ##### An imported MCP server is adopted once and reaches every configured agent
 
 - Requirement: `cli/mcps/import/adoption-reaches-every-configured-agent`
-- Status: candidate
+- Status: accepted
 - Statement: When an MCP server found in one agent's native configuration is imported, AXM shall record it once without an agent subset, shall project it to every configured agent that can represent it on the next reconciliation, and shall report every native target it will write in preview and apply.
 - Class: functional
 - Role: experience
@@ -375,7 +375,7 @@ behavior.
 ##### MCP servers reach every configured agent that can represent them
 
 - Requirement: `cli/mcps/projects-to-every-configured-agent`
-- Status: candidate
+- Status: accepted
 - Statement: When an MCP server is configured, enabled, or re-enabled, AXM shall write it to the native configuration of every configured agent that can represent it, shall report each agent that cannot as unsupported rather than omitting it, and disabling or uninstalling it shall remove it from every agent it reached.
 - Class: functional
 - Role: experience
@@ -528,7 +528,7 @@ behavior.
 ##### A new skill is scaffolded for the universal location and every configured agent
 
 - Requirement: `cli/skills/new/scaffolds-for-every-configured-agent`
-- Status: candidate
+- Status: accepted
 - Statement: When a skill is created, AXM shall create its manifest, content, and enabled settings entry together, shall materialize it for the universal location and every configured agent that can represent it, shall list the same targets in preview and apply, and a following reconciliation shall report no change.
 - Class: functional
 - Role: experience
@@ -544,7 +544,7 @@ behavior.
 ##### A new subagent is scaffolded and rendered for every configured agent
 
 - Requirement: `cli/subagents/new/scaffolds-for-every-configured-agent`
-- Status: candidate
+- Status: accepted
 - Statement: When a subagent is created, AXM shall create its manifest, content, and enabled settings entry together, shall render it for every configured agent that can represent it, shall list the same targets in preview and apply, and a following reconciliation shall report no change.
 - Class: functional
 - Role: experience
@@ -922,7 +922,7 @@ behavior.
 ##### Workspace settings select agents only through the workspace agent list
 
 - Requirement: `settings-contract/agent-membership-is-the-only-agent-selection`
-- Status: candidate
+- Status: accepted
 - Statement: Workspace settings shall express agent selection only through the workspace agent list, shall reject an extension entry that declares its own agent subset with an error naming that key, and the published settings schema shall admit no per-entry agent subset.
 - Class: functional
 - Role: interface

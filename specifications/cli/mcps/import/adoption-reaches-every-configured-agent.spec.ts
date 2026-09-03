@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
-  status: "candidate",
+  status: "accepted",
   methods: ["example"],
   derivedFrom: [
     "cli/mcps/inline-lifecycle-is-idempotent",

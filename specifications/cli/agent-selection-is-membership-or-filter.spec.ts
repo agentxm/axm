@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability", "actionable-diagnostics"],
-  status: "candidate",
+  status: "accepted",
   methods: ["contract", "example"],
   derivedFrom: [
     "axm setup --agent",

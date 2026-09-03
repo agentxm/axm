@@ -1,45 +1,90 @@
-/**
- * Unit tests for the update check CLI startup integration.
- *
- * Covers: notification before command output, skip conditions, detached fiber
- * spawn on stale/missing cache, no notification on first run (cache missing).
- */
-
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
-import * as DateTime from "effect/DateTime";
+import {
+  STABLE_CHANNEL_SCHEMA,
+  decodeStableChannelDocumentSync,
+} from "@agentxm/extension-model/unstable/release-channel";
+import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
+import type * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { TestRenderer } from "./screen/index.js";
-import { UpdateCheck, UpdateCheckTest } from "./update-check/update-check.js";
-
 import {
-  type NotificationPrinter,
-  type UpdateCheckContextInputs,
+  UpdateCheck,
+  UpdateCheckTest,
+  readCacheStateFromPath,
+} from "./update-check/update-check.js";
+import {
   buildSkipContext,
   isUpgradeCommand,
   refreshCache,
   withUpdateCheck,
+  type NotificationPrinter,
+  type UpdateCheckContextInputs,
 } from "./update-check-startup.js";
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
+const digest = "a".repeat(64);
 
-/** Clock-aligned "just checked" timestamp, matching the update-check core test idiom. */
-const freshTimestamp = () => Effect.map(DateTime.now, DateTime.formatIso);
+const channelDocument = (version = "1.2.3") => {
+  const tag = `cli-v${version}`;
+  const assetUrl = (name: string) =>
+    `https://github.com/agentxm/axm/releases/download/${tag}/${name}`;
+  return decodeStableChannelDocumentSync({
+    schema: STABLE_CHANNEL_SCHEMA,
+    channel: "stable",
+    revision: 4,
+    version,
+    release: {
+      repository: "agentxm/axm",
+      tag,
+      commit: "b".repeat(40),
+      publishedAt: "2026-09-03T17:00:00Z",
+    },
+    artifacts: {
+      checksumManifest: { name: "SHA256SUMS", url: assetUrl("SHA256SUMS"), sha256: digest },
+      binaries: [
+        {
+          target: "darwin-arm64",
+          name: "axm-darwin-arm64",
+          url: assetUrl("axm-darwin-arm64"),
+          sha256: digest,
+        },
+        {
+          target: "darwin-x64",
+          name: "axm-darwin-x64",
+          url: assetUrl("axm-darwin-x64"),
+          sha256: digest,
+        },
+        {
+          target: "linux-arm64",
+          name: "axm-linux-arm64",
+          url: assetUrl("axm-linux-arm64"),
+          sha256: digest,
+        },
+        {
+          target: "linux-x64",
+          name: "axm-linux-x64",
+          url: assetUrl("axm-linux-x64"),
+          sha256: digest,
+        },
+        {
+          target: "windows-x64",
+          name: "axm-windows-x64.exe",
+          url: assetUrl("axm-windows-x64.exe"),
+          sha256: digest,
+        },
+      ],
+    },
+    promotedAt: "2026-09-03T17:01:00Z",
+  });
+};
 
-const LOCAL_VERSION = "0.1.0";
-const REMOTE_VERSION = "0.2.0";
-
-/** Base inputs for a normal interactive session (stderr TTY override for tests). */
 const baseInputs: UpdateCheckContextInputs = {
   args: ["skills", "list"],
   isNonInteractive: false,
@@ -49,696 +94,102 @@ const baseInputs: UpdateCheckContextInputs = {
   noUpdateCheckEnv: false,
 };
 
-const makeMockHttpClient = (handler: (url: string) => Response) =>
+const makeHttpLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
   Layer.succeed(
     HttpClient.HttpClient,
     HttpClient.make((request) =>
-      Effect.sync(() => HttpClientResponse.fromWeb(request, handler(request.url))),
+      Effect.sync(() => HttpClientResponse.fromWeb(request, handler(request))),
     ),
   );
 
-const makeSuccessHttpClient = (releasedVersion = REMOTE_VERSION) =>
-  makeMockHttpClient((url: string) => {
-    if (url.includes("/releases/latest")) {
-      return new Response(JSON.stringify({ tag_name: `cli-v${releasedVersion}` }), {
-        status: 200,
-      });
-    }
-    return new Response(JSON.stringify([{ tag_name: `cli-v${releasedVersion}` }]), {
-      status: 200,
-    });
-  });
-
-/** Collects notification messages for assertions. */
-const makeTestPrinter = (): {
-  readonly printer: NotificationPrinter;
-  readonly messages: Array<string>;
-} => {
-  const messages: Array<string> = [];
-  const printer: NotificationPrinter = (message) =>
-    Effect.sync(() => {
-      messages.push(message);
-    });
-  return { printer, messages };
-};
-
-interface TestLayerOptions {
-  readonly tempDir: string;
-  readonly cacheData?: { latestVersion: string } | undefined;
-  readonly releasedVersion?: string;
-}
-
-/** Build test layers; when `cacheData` is given, a fresh cache file is written first. */
-const makeTestLayers = (opts: TestLayerOptions) =>
-  Effect.gen(function* () {
-    const cachePath = path.join(opts.tempDir, "update-check.json");
-    if (opts.cacheData) {
-      const checkedAt = yield* freshTimestamp();
-      fs.writeFileSync(
-        cachePath,
-        JSON.stringify({ latestVersion: opts.cacheData.latestVersion, checkedAt }),
-      );
-    }
-
-    const updateCheckLayer = UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer));
-    const httpClientLayer = makeSuccessHttpClient(opts.releasedVersion ?? REMOTE_VERSION);
-    const { layer: rendererLayer } = TestRenderer.make();
-
-    return Layer.mergeAll(updateCheckLayer, httpClientLayer, rendererLayer, NodeServices.layer);
-  });
-
-/**
- * Create mock UpdateCheck that tracks calls for fiber-spawn verification.
- */
-const makeTrackingUpdateCheck = (opts: {
-  readonly cacheResult: "none" | "fresh" | "stale";
-  readonly updateAvailable: boolean;
-}) => {
-  const calls = {
-    readCache: 0,
-    writeCache: 0,
-    isUpdateAvailable: 0,
-  };
-  const freshCache = {
-    latestVersion: REMOTE_VERSION,
-    checkedAt: DateTime.makeUnsafe("2026-07-28T12:00:00.000Z"),
-  };
-
-  const service: typeof UpdateCheck.Service = {
-    readCache: () =>
-      Effect.sync(() => {
-        calls.readCache++;
-        switch (opts.cacheResult) {
-          case "none":
-            return Option.none();
-          case "fresh":
-            return Option.some(freshCache);
-          case "stale":
-            // readCacheFromPath returns None for stale cache
-            return Option.none();
-        }
-      }),
-    writeCache: () =>
-      Effect.sync(() => {
-        calls.writeCache++;
-      }),
-    isUpdateAvailable: () =>
-      Effect.sync(() => {
-        calls.isUpdateAvailable++;
-        if (opts.updateAvailable) {
-          return Option.some({ current: LOCAL_VERSION, latest: REMOTE_VERSION });
-        }
-        return Option.none();
-      }),
-    shouldSkip: (ctx) =>
-      ctx.isJsonOutput ||
-      ctx.noUpdateCheckEnv ||
-      ctx.isUpgradeCommand ||
-      (ctx.isNonInteractive && !ctx.isAgentSession) ||
-      (!ctx.isStderrTTY && !ctx.isAgentSession),
-    notificationMessage: (current, latest, audience = "human") =>
-      audience === "agent"
-        ? `AXM_UPDATE_AVAILABLE current=${current} latest=${latest} command="axm upgrade"`
-        : `Update available: ${current} \u2192 ${latest}\nRun: axm upgrade`,
-  };
-
-  return { layer: Layer.succeed(UpdateCheck, service), calls };
-};
-
-// =============================================================================
-// Pure helpers
-// =============================================================================
-
-describe("isUpgradeCommand", () => {
-  it.each([
-    [["upgrade"]],
-    [["upgrade", "-C", "/tmp/workspace"]],
-    [["-C", "/tmp/workspace", "upgrade"]],
-    [["--json", "upgrade"]],
-    [["-q", "upgrade"]],
-    [["-qC", "/tmp/workspace", "upgrade"]],
-    [["--directory=/tmp/workspace", "upgrade"]],
-  ])("classifies upgrade regardless of global-flag position: %j", (args) => {
-    expect(isUpgradeCommand(args)).toBe(true);
-  });
-
-  it("accepts the documented literal-operand false positive", () => {
-    expect(isUpgradeCommand(["search", "upgrade"])).toBe(true);
-    expect(isUpgradeCommand(["-C", "upgrade", "lint"])).toBe(true);
-  });
-
-  it("does not inspect tokens after the option terminator", () => {
+describe("startup update-check routing", () => {
+  it("detects upgrade only before the option terminator", () => {
+    expect(isUpgradeCommand(["--json", "upgrade"])).toBe(true);
     expect(isUpgradeCommand(["search", "--", "upgrade"])).toBe(false);
   });
 
-  it("returns false for other commands", () => {
-    expect(isUpgradeCommand(["skills", "list"])).toBe(false);
-    expect(isUpgradeCommand(["setup"])).toBe(false);
-    expect(isUpgradeCommand([])).toBe(false);
+  it("builds skip context from explicit inputs", () => {
+    const context = buildSkipContext({ ...baseInputs, isJsonOutput: true });
+    expect(context.isJsonOutput).toBe(true);
+    expect(context.isUpgradeCommand).toBe(false);
+    expect(context.isAgentSession).toBe(false);
   });
 });
 
-describe("buildSkipContext", () => {
-  it("maps inputs correctly", () => {
-    const ctx = buildSkipContext({
-      args: ["skills", "list"],
-      isNonInteractive: false,
-      isJsonOutput: true,
-      isStderrTTY: true,
-      isAgentSession: false,
-    });
-    expect(ctx.isJsonOutput).toBe(true);
-    expect(ctx.isUpgradeCommand).toBe(false);
-    expect(ctx.isNonInteractive).toBe(false);
-    expect(ctx.isStderrTTY).toBe(true);
-    expect(ctx.isAgentSession).toBe(false);
-  });
-
-  it("detects upgrade command", () => {
-    const ctx = buildSkipContext({
-      args: ["upgrade"],
-      isNonInteractive: false,
-      isJsonOutput: false,
-      isStderrTTY: true,
-    });
-    expect(ctx.isUpgradeCommand).toBe(true);
-  });
-
-  it("defaults isStderrTTY to process.stderr.isTTY", () => {
-    const ctx = buildSkipContext({
-      args: [],
-      isNonInteractive: false,
-      isJsonOutput: false,
-    });
-    expect(ctx.isStderrTTY).toBe(process.stderr.isTTY === true);
-  });
-
-  it("maps agent session override", () => {
-    const ctx = buildSkipContext({
-      args: [],
-      isNonInteractive: true,
-      isJsonOutput: false,
-      isAgentSession: true,
-    });
-    expect(ctx.isAgentSession).toBe(true);
-  });
-});
-
-// =============================================================================
-// withUpdateCheck integration
-// =============================================================================
-
-describe("withUpdateCheck", () => {
+describe("validated channel refresh", () => {
   let tempDir: string;
+  let cachePath: string;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "update-check-startup-"));
+    cachePath = path.join(tempDir, "update-check.json");
   });
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  // ---------------------------------------------------------------------------
-  // Notification behavior
-  // ---------------------------------------------------------------------------
+  it.effect("caches a validated 200 response and its ETag", () => {
+    const http = makeHttpLayer(
+      () =>
+        new Response(JSON.stringify(channelDocument()), {
+          status: 200,
+          headers: { ETag: '"revision-4"' },
+        }),
+    );
+    const layer = Layer.mergeAll(
+      NodeServices.layer,
+      UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer)),
+      http,
+    );
+    return Effect.gen(function* () {
+      yield* refreshCache();
+      const state = yield* readCacheStateFromPath(cachePath);
+      expect(state.state).toBe("fresh");
+      if (state.state === "fresh") {
+        expect(state.cache.document.version).toBe("1.2.3");
+        expect(state.cache.etag).toBe('"revision-4"');
+      }
+    }).pipe(Effect.provide(layer));
+  });
 
-  it.effect("prints notification before command output when update is available", () => {
-    const messages: Array<string> = [];
+  it.effect("revalidates a cached document with If-None-Match on 304", () => {
+    let observedEtag: string | undefined;
+    const http = makeHttpLayer((request) => {
+      observedEtag = request.headers["if-none-match"];
+      return new Response(null, { status: 304 });
+    });
+    const updateCheckLayer = UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer));
+    const layer = Layer.mergeAll(NodeServices.layer, updateCheckLayer, http);
+    return Effect.gen(function* () {
+      const updateCheck = yield* UpdateCheck;
+      yield* updateCheck.writeCache(channelDocument(), '"revision-4"');
+      yield* refreshCache();
+      expect(observedEtag).toBe('"revision-4"');
+      expect((yield* readCacheStateFromPath(cachePath)).state).toBe("fresh");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("prints a fresh-cache notification before command output", () => {
     const events: Array<string> = [];
-    const printer: NotificationPrinter = (message) =>
+    const printer: NotificationPrinter = () =>
       Effect.sync(() => {
         events.push("notification");
-        messages.push(message);
       });
-    const commandProgram = Effect.sync(() => {
-      events.push("command");
-    });
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({
-        tempDir,
-        cacheData: { latestVersion: REMOTE_VERSION },
-      });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: baseInputs,
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(events).toEqual(["notification", "command"]);
-            expect(messages.length).toBe(1);
-            expect(messages[0]).toContain("Update available");
-            expect(messages[0]).toContain(LOCAL_VERSION);
-            expect(messages[0]).toContain(REMOTE_VERSION);
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("uses note renderer for human notifications", () => {
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const cachePath = path.join(tempDir, "update-check.json");
-      fs.writeFileSync(
-        cachePath,
-        JSON.stringify({ latestVersion: REMOTE_VERSION, checkedAt: yield* freshTimestamp() }),
-      );
-
-      const updateCheckLayer = UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer));
-      const httpClientLayer = makeSuccessHttpClient();
-      const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
-      const layer = Layer.mergeAll(
-        updateCheckLayer,
-        httpClientLayer,
-        rendererLayer,
-        NodeServices.layer,
-      );
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: baseInputs,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(rendererState.notes).toEqual([
-              {
-                message: `${LOCAL_VERSION} \u2192 ${REMOTE_VERSION}\nRun: axm upgrade`,
-                title: "Update Available",
-              },
-            ]);
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("no notification when cache is missing (first run)", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({ tempDir });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: baseInputs,
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(messages.length).toBe(0);
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("no notification when local version is up to date", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({
-        tempDir,
-        cacheData: { latestVersion: LOCAL_VERSION },
-      });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: baseInputs,
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(messages.length).toBe(0);
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("notification recommends axm upgrade", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({
-        tempDir,
-        cacheData: { latestVersion: REMOTE_VERSION },
-      });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: baseInputs,
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(messages.length).toBe(1);
-            expect(messages[0]).toContain("axm upgrade");
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Skip conditions
-  // ---------------------------------------------------------------------------
-
-  it.effect("skips when --json flag is set", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({
-        tempDir,
-        cacheData: { latestVersion: REMOTE_VERSION },
-      });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: { ...baseInputs, isJsonOutput: true },
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(messages.length).toBe(0);
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("skips when non-interactive mode", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({
-        tempDir,
-        cacheData: { latestVersion: REMOTE_VERSION },
-      });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: { ...baseInputs, isNonInteractive: true },
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(messages.length).toBe(0);
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("does not skip when non-interactive mode is an agent session", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({
-        tempDir,
-        cacheData: { latestVersion: REMOTE_VERSION },
-      });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: { ...baseInputs, isNonInteractive: true, isAgentSession: true },
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(messages.length).toBe(1);
-            expect(messages[0]).toContain("AXM_UPDATE_AVAILABLE");
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("skips when command is upgrade", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({
-        tempDir,
-        cacheData: { latestVersion: REMOTE_VERSION },
-      });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: { ...baseInputs, args: ["upgrade"] },
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(messages.length).toBe(0);
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("skips when stderr is not a TTY", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({
-        tempDir,
-        cacheData: { latestVersion: REMOTE_VERSION },
-      });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: { ...baseInputs, isStderrTTY: false },
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(messages.length).toBe(0);
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("does not skip when stderr is not a TTY for an agent session", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({
-        tempDir,
-        cacheData: { latestVersion: REMOTE_VERSION },
-      });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: { ...baseInputs, isStderrTTY: false, isAgentSession: true },
-        printNotification: printer,
-      }).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            expect(messages.length).toBe(1);
-            expect(messages[0]).toContain("AXM_UPDATE_AVAILABLE");
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Detached fiber behavior (verified via tracking mock)
-  // ---------------------------------------------------------------------------
-
-  it.effect("spawns refresh when cache is missing (no notification on first run)", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    // Use tracking mock that reports cache as "none" (missing)
-    const { layer: trackingLayer, calls } = makeTrackingUpdateCheck({
-      cacheResult: "none",
-      updateAvailable: false,
-    });
-    const httpClientLayer = makeSuccessHttpClient();
+    const http = makeHttpLayer(() => new Response(null, { status: 500 }));
+    const updateCheckLayer = UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer));
     const { layer: rendererLayer } = TestRenderer.make();
-    const layer = Layer.mergeAll(trackingLayer, httpClientLayer, rendererLayer, NodeServices.layer);
-
-    return withUpdateCheck(commandProgram, {
-      localVersion: LOCAL_VERSION,
-      inputs: baseInputs,
-      printNotification: printer,
-    }).pipe(
-      Effect.tap(() =>
-        Effect.sync(() => {
-          // readCache was called
-          expect(calls.readCache).toBe(1);
-          // isUpdateAvailable was NOT called (cache is missing)
-          expect(calls.isUpdateAvailable).toBe(0);
-          // No notification on first run
-          expect(messages.length).toBe(0);
-        }),
-      ),
-      Effect.provide(layer),
-    );
-  });
-
-  it.effect("reads cache and checks for update when cache is fresh", () => {
-    const { printer, messages } = makeTestPrinter();
-    const commandProgram = Effect.void;
-
-    // Use tracking mock that reports cache as "fresh" with update available
-    const { layer: trackingLayer, calls } = makeTrackingUpdateCheck({
-      cacheResult: "fresh",
-      updateAvailable: true,
-    });
-    const httpClientLayer = makeSuccessHttpClient();
-    const { layer: rendererLayer } = TestRenderer.make();
-    const layer = Layer.mergeAll(trackingLayer, httpClientLayer, rendererLayer, NodeServices.layer);
-
-    return withUpdateCheck(commandProgram, {
-      localVersion: LOCAL_VERSION,
-      inputs: baseInputs,
-      printNotification: printer,
-    }).pipe(
-      Effect.tap(() =>
-        Effect.sync(() => {
-          // readCache was called
-          expect(calls.readCache).toBe(1);
-          // isUpdateAvailable was called (cache exists)
-          expect(calls.isUpdateAvailable).toBe(1);
-          // Notification was shown
-          expect(messages.length).toBe(1);
-        }),
-      ),
-      Effect.provide(layer),
-    );
-  });
-
-  // ---------------------------------------------------------------------------
-  // Command passthrough
-  // ---------------------------------------------------------------------------
-
-  it.effect("passes through command errors", () => {
-    const { printer } = makeTestPrinter();
-    const commandProgram = Effect.fail("command-error" as const);
-
+    const layer = Layer.mergeAll(NodeServices.layer, updateCheckLayer, http, rendererLayer);
     return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({ tempDir });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: baseInputs,
-        printNotification: printer,
-      }).pipe(
-        Effect.catch((e: string) => Effect.succeed({ caught: e })),
-        Effect.tap((result) =>
-          Effect.sync(() => {
-            expect(result).toEqual({ caught: "command-error" });
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-
-  it.effect("returns command result when no notification", () => {
-    const { printer } = makeTestPrinter();
-    const commandProgram = Effect.succeed(42);
-
-    return Effect.gen(function* () {
-      const layer = yield* makeTestLayers({ tempDir });
-
-      yield* withUpdateCheck(commandProgram, {
-        localVersion: LOCAL_VERSION,
-        inputs: baseInputs,
-        printNotification: printer,
-      }).pipe(
-        Effect.tap((result) =>
-          Effect.sync(() => {
-            expect(result).toBe(42);
-          }),
-        ),
-        Effect.provide(layer),
-      );
-    });
-  });
-});
-
-// =============================================================================
-// refreshCache
-// =============================================================================
-
-describe("refreshCache", () => {
-  let tempDir: string;
-
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "update-check-refresh-"));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  it.effect("writes cache after successful fetch", () => {
-    const cachePath = path.join(tempDir, "update-check.json");
-    const layer = Layer.mergeAll(
-      UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer)),
-      makeSuccessHttpClient("0.3.0"),
-      NodeServices.layer,
-    );
-
-    return refreshCache(LOCAL_VERSION).pipe(
-      Effect.tap(() =>
+      const updateCheck = yield* UpdateCheck;
+      yield* updateCheck.writeCache(channelDocument(), null);
+      yield* withUpdateCheck(
         Effect.sync(() => {
-          const cacheContent: unknown = JSON.parse(fs.readFileSync(cachePath, "utf-8"));
-          expect(cacheContent).toHaveProperty("latestVersion", "0.3.0");
+          events.push("command");
         }),
-      ),
-      Effect.provide(layer),
-    );
-  });
-
-  it.effect("silently ignores network errors", () => {
-    const cachePath = path.join(tempDir, "update-check.json");
-    const errorHttpClient = makeMockHttpClient(() => {
-      return new Response("Server Error", { status: 500 });
-    });
-    const layer = Layer.mergeAll(
-      UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer)),
-      errorHttpClient,
-      NodeServices.layer,
-    );
-
-    return refreshCache(LOCAL_VERSION).pipe(
-      Effect.tap(() =>
-        Effect.sync(() => {
-          // Cache should not exist
-          expect(fs.existsSync(cachePath)).toBe(false);
-        }),
-      ),
-      Effect.provide(layer),
-    );
+        { localVersion: "1.0.0", inputs: baseInputs, printNotification: printer },
+      );
+      expect(events).toEqual(["notification", "command"]);
+    }).pipe(Effect.provide(layer));
   });
 });

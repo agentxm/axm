@@ -180,6 +180,20 @@ describe("findAxmEnvironmentContractViolations", () => {
     ]);
   });
 
+  it("treats installer environment controls as production literals", () => {
+    const repoRoot = createRepoFixture({
+      "packages/cli/site-content/install.sh": 'repo="${AXM_INSTALL_GITHUB_REPO:-agentxm/axm}"\n',
+      "packages/cli/help/topics/environment.md": [
+        "| Variable | Classification | Details |",
+        "| --- | --- | --- |",
+        "| `AXM_INSTALL_GITHUB_REPO` | internal | Installer override. |",
+        "",
+      ].join("\n"),
+    });
+
+    expect(findAxmEnvironmentContractViolations(repoRoot)).toEqual([]);
+  });
+
   it("finds no environment contract violations in this repository", () => {
     const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
     const repoRoot = path.resolve(scriptsRoot, "..");

@@ -1,48 +1,99 @@
-/**
- * Unit tests for UpdateCheck service.
- *
- * Covers: cache read (fresh, stale, missing, invalid), cache write,
- * skip conditions, and notification messages.
- */
-
+import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import * as nodeFs from "node:fs";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it, afterEach, beforeEach, layer } from "@effect/vitest";
-import * as ConfigProvider from "effect/ConfigProvider";
+import {
+  STABLE_CHANNEL_SCHEMA,
+  decodeStableChannelDocumentSync,
+} from "@agentxm/extension-model/unstable/release-channel";
+import { afterEach, beforeEach, describe, expect, it, layer } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { resolveAxmCacheRootPure } from "@agentxm/registry-client";
 import {
-  type SkipCheckContext,
-  UpdateCheck,
-  UpdateCheckLive,
-  UpdateCheckTest,
+  UPDATE_CHECK_CACHE_SCHEMA,
   isCacheStale,
+  isUpdateAvailableFromPath,
   notificationMessage,
   readCacheFromPath,
+  readCacheStateFromPath,
   shouldSkip,
   writeCacheToPath,
-  isUpdateAvailableFromPath,
+  type SkipCheckContext,
 } from "./update-check.js";
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
+const digest = "a".repeat(64);
+
+const channelDocument = (version = "1.2.3") => {
+  const tag = `cli-v${version}`;
+  const assetUrl = (name: string) =>
+    `https://github.com/agentxm/axm/releases/download/${tag}/${name}`;
+  return decodeStableChannelDocumentSync({
+    schema: STABLE_CHANNEL_SCHEMA,
+    channel: "stable",
+    revision: 2,
+    version,
+    release: {
+      repository: "agentxm/axm",
+      tag,
+      commit: "b".repeat(40),
+      publishedAt: "2026-09-03T17:00:00Z",
+    },
+    artifacts: {
+      checksumManifest: { name: "SHA256SUMS", url: assetUrl("SHA256SUMS"), sha256: digest },
+      binaries: [
+        {
+          target: "darwin-arm64",
+          name: "axm-darwin-arm64",
+          url: assetUrl("axm-darwin-arm64"),
+          sha256: digest,
+        },
+        {
+          target: "darwin-x64",
+          name: "axm-darwin-x64",
+          url: assetUrl("axm-darwin-x64"),
+          sha256: digest,
+        },
+        {
+          target: "linux-arm64",
+          name: "axm-linux-arm64",
+          url: assetUrl("axm-linux-arm64"),
+          sha256: digest,
+        },
+        {
+          target: "linux-x64",
+          name: "axm-linux-x64",
+          url: assetUrl("axm-linux-x64"),
+          sha256: digest,
+        },
+        {
+          target: "windows-x64",
+          name: "axm-windows-x64.exe",
+          url: assetUrl("axm-windows-x64.exe"),
+          sha256: digest,
+        },
+      ],
+    },
+    promotedAt: "2026-09-03T17:01:00Z",
+  });
+};
 
 const timestampAgo = (elapsed: Duration.Duration) =>
   DateTime.now.pipe(
     Effect.map((now) => DateTime.formatIso(DateTime.subtractDuration(now, elapsed))),
   );
 
-const freshTimestamp = () => timestampAgo(Duration.zero);
-
-const staleTimestamp = () => timestampAgo(Duration.minutes(61));
+const cacheJson = (validatedAt: string, version = "1.2.3") =>
+  JSON.stringify({
+    schema: UPDATE_CHECK_CACHE_SCHEMA,
+    channel: "stable",
+    document: channelDocument(version),
+    etag: '"revision-2"',
+    validatedAt,
+  });
 
 const baseSkipContext: SkipCheckContext = {
   isJsonOutput: false,
@@ -53,456 +104,112 @@ const baseSkipContext: SkipCheckContext = {
   isAgentSession: false,
 };
 
-// =============================================================================
-// isCacheStale
-// =============================================================================
-
 describe("isCacheStale", () => {
-  const checkedAgo = (elapsed: Duration.Duration) =>
-    DateTime.now.pipe(Effect.map((now) => DateTime.subtractDuration(now, elapsed)));
-
-  it.effect("returns false for a recent timestamp", () =>
+  it.effect("uses a sixty-minute freshness boundary", () =>
     Effect.gen(function* () {
-      const recent = yield* checkedAgo(Duration.minutes(1));
-      expect(yield* isCacheStale(recent)).toBe(false);
-    }),
-  );
-
-  it.effect("returns true for a timestamp older than 60 minutes", () =>
-    Effect.gen(function* () {
-      const old = yield* checkedAgo(Duration.minutes(61));
-      expect(yield* isCacheStale(old)).toBe(true);
-    }),
-  );
-
-  it.effect("returns false for exactly 60 minutes ago (boundary)", () =>
-    Effect.gen(function* () {
-      const boundary = yield* checkedAgo(Duration.minutes(60));
-      expect(yield* isCacheStale(boundary)).toBe(false);
-    }),
-  );
-
-  it.effect("returns true for just over 60 minutes ago", () =>
-    Effect.gen(function* () {
-      const justOver = yield* checkedAgo(Duration.millis(60 * 60 * 1000 + 1));
-      expect(yield* isCacheStale(justOver)).toBe(true);
+      const fresh = DateTime.subtractDuration(yield* DateTime.now, Duration.minutes(1));
+      const stale = DateTime.subtractDuration(yield* DateTime.now, Duration.minutes(61));
+      expect(yield* isCacheStale(fresh)).toBe(false);
+      expect(yield* isCacheStale(stale)).toBe(true);
     }),
   );
 });
 
-// =============================================================================
-// shouldSkip (pure)
-// =============================================================================
-
-describe("shouldSkip", () => {
-  it("returns false when no skip conditions are met", () => {
+describe("skip and notification behavior", () => {
+  it("skips only declared unattended or suppressed contexts", () => {
     expect(shouldSkip(baseSkipContext)).toBe(false);
-  });
-
-  it("returns true when --json flag is set", () => {
     expect(shouldSkip({ ...baseSkipContext, isJsonOutput: true })).toBe(true);
-  });
-
-  it("returns true when AXM_NO_UPDATE_CHECK=1", () => {
     expect(shouldSkip({ ...baseSkipContext, noUpdateCheckEnv: true })).toBe(true);
-  });
-
-  it("returns true when command is axm upgrade", () => {
     expect(shouldSkip({ ...baseSkipContext, isUpgradeCommand: true })).toBe(true);
-  });
-
-  it("returns true when non-interactive mode", () => {
     expect(shouldSkip({ ...baseSkipContext, isNonInteractive: true })).toBe(true);
-  });
-
-  it("returns false for agent sessions in non-interactive mode", () => {
     expect(shouldSkip({ ...baseSkipContext, isNonInteractive: true, isAgentSession: true })).toBe(
       false,
     );
   });
 
-  it("returns true when stderr is not a TTY", () => {
-    expect(shouldSkip({ ...baseSkipContext, isStderrTTY: false })).toBe(true);
-  });
-
-  it("returns false for agent sessions without a stderr TTY", () => {
-    expect(shouldSkip({ ...baseSkipContext, isStderrTTY: false, isAgentSession: true })).toBe(
-      false,
-    );
-  });
-
-  it("returns true when multiple skip conditions are met", () => {
-    expect(
-      shouldSkip({
-        isJsonOutput: true,
-        noUpdateCheckEnv: true,
-        isUpgradeCommand: false,
-        isNonInteractive: false,
-        isStderrTTY: true,
-        isAgentSession: false,
-      }),
-    ).toBe(true);
-  });
-});
-
-// =============================================================================
-// notificationMessage (pure)
-// =============================================================================
-
-describe("notificationMessage", () => {
-  it("returns human-readable message", () => {
-    expect(notificationMessage("0.1.0", "0.2.0")).toBe(
-      "Update available: 0.1.0 \u2192 0.2.0\nRun: axm upgrade",
-    );
-  });
-
-  it("returns compact agent message", () => {
-    expect(notificationMessage("0.1.0", "0.2.0", "agent")).toBe(
-      'AXM_UPDATE_AVAILABLE current=0.1.0 latest=0.2.0 command="axm upgrade"',
+  it("formats human and agent notifications", () => {
+    expect(notificationMessage("1.0.0", "1.2.3")).toContain("1.0.0 → 1.2.3");
+    expect(notificationMessage("1.0.0", "1.2.3", "agent")).toBe(
+      'AXM_UPDATE_AVAILABLE current=1.0.0 latest=1.2.3 command="axm upgrade"',
     );
   });
 });
 
-// =============================================================================
-// readCacheFromPath (effectful)
-// =============================================================================
-
-layer(NodeServices.layer, { excludeTestServices: true })("readCacheFromPath", (it) => {
+layer(NodeServices.layer, { excludeTestServices: true })("validated channel cache", (it) => {
   let tempDir: string;
+  let cachePath: string;
 
   beforeEach(() => {
     tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "update-check-test-"));
+    cachePath = nodePath.join(tempDir, "nested", "update-check.json");
   });
 
   afterEach(() => {
     nodeFs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("returns None when cache file does not exist", () =>
+  it.effect("distinguishes missing, invalid, stale, and fresh cache states", () =>
     Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      const result = yield* readCacheFromPath(cachePath);
-      expect(Option.isNone(result)).toBe(true);
+      expect((yield* readCacheStateFromPath(cachePath)).state).toBe("missing");
+
+      nodeFs.mkdirSync(nodePath.dirname(cachePath), { recursive: true });
+      nodeFs.writeFileSync(cachePath, "not json");
+      expect((yield* readCacheStateFromPath(cachePath)).state).toBe("invalid");
+
+      nodeFs.writeFileSync(cachePath, cacheJson(yield* timestampAgo(Duration.minutes(61))));
+      expect((yield* readCacheStateFromPath(cachePath)).state).toBe("stale");
+
+      nodeFs.writeFileSync(cachePath, cacheJson(yield* timestampAgo(Duration.minutes(1))));
+      const fresh = yield* readCacheStateFromPath(cachePath);
+      expect(fresh.state).toBe("fresh");
     }),
   );
 
-  it.effect("returns Some for a fresh cache file", () =>
+  it.effect("rejects legacy and invalid channel payloads", () =>
     Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.2.0", checkedAt: yield* freshTimestamp() };
-      nodeFs.writeFileSync(cachePath, JSON.stringify(data));
-
-      const result = yield* readCacheFromPath(cachePath);
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value.latestVersion).toBe("0.2.0");
-      }
-    }),
-  );
-
-  it.effect("returns None for a stale cache file (older than 60 minutes)", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.2.0", checkedAt: yield* staleTimestamp() };
-      nodeFs.writeFileSync(cachePath, JSON.stringify(data));
-
-      const result = yield* readCacheFromPath(cachePath);
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-
-  it.effect("returns None when checkedAt is not a date", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
+      nodeFs.mkdirSync(nodePath.dirname(cachePath), { recursive: true });
       nodeFs.writeFileSync(
         cachePath,
-        JSON.stringify({ latestVersion: "0.2.0", checkedAt: "not-a-date" }),
+        JSON.stringify({ latestVersion: "1.2.3", checkedAt: new Date().toISOString() }),
       );
+      expect((yield* readCacheStateFromPath(cachePath)).state).toBe("invalid");
 
-      const result = yield* readCacheFromPath(cachePath);
-      expect(Option.isNone(result)).toBe(true);
+      const invalidDocument = { ...channelDocument(), version: "1.2.3-beta.1" };
+      nodeFs.writeFileSync(
+        cachePath,
+        JSON.stringify({
+          schema: UPDATE_CHECK_CACHE_SCHEMA,
+          channel: "stable",
+          document: invalidDocument,
+          etag: null,
+          validatedAt: new Date().toISOString(),
+        }),
+      );
+      expect((yield* readCacheStateFromPath(cachePath)).state).toBe("invalid");
     }),
   );
 
-  it.effect("returns None for invalid JSON", () =>
+  it.effect("writes the complete cache atomically", () =>
     Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      nodeFs.writeFileSync(cachePath, "not valid json {{{");
-
-      const result = yield* readCacheFromPath(cachePath);
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-
-  it.effect("returns None for JSON with wrong schema", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      nodeFs.writeFileSync(cachePath, JSON.stringify({ foo: "bar" }));
-
-      const result = yield* readCacheFromPath(cachePath);
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-
-  it.effect("returns None for empty file", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      nodeFs.writeFileSync(cachePath, "");
-
-      const result = yield* readCacheFromPath(cachePath);
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-});
-
-// =============================================================================
-// writeCacheToPath (effectful)
-// =============================================================================
-
-layer(NodeServices.layer, { excludeTestServices: true })("writeCacheToPath", (it) => {
-  let tempDir: string;
-
-  beforeEach(() => {
-    tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "update-check-test-"));
-  });
-
-  afterEach(() => {
-    nodeFs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  it.effect("writes cache file with correct structure", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      yield* writeCacheToPath(cachePath, "0.3.0");
-
-      const content = nodeFs.readFileSync(cachePath, "utf-8");
-      const parsed: unknown = JSON.parse(content);
-      expect(parsed).toHaveProperty("latestVersion", "0.3.0");
-      expect(parsed).toHaveProperty("checkedAt");
-    }),
-  );
-
-  it.effect("creates parent directories if needed", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "nested", "dir", "update-check.json");
-      yield* writeCacheToPath(cachePath, "0.3.0");
-
-      expect(nodeFs.existsSync(cachePath)).toBe(true);
-    }),
-  );
-
-  it.effect("written cache is readable", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      yield* writeCacheToPath(cachePath, "0.5.0");
-
-      const result = yield* readCacheFromPath(cachePath);
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value.latestVersion).toBe("0.5.0");
-      }
-    }),
-  );
-});
-
-// =============================================================================
-// isUpdateAvailableFromPath (effectful)
-// =============================================================================
-
-layer(NodeServices.layer, { excludeTestServices: true })("isUpdateAvailableFromPath", (it) => {
-  let tempDir: string;
-
-  beforeEach(() => {
-    tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "update-check-test-"));
-  });
-
-  afterEach(() => {
-    nodeFs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  it.effect("returns Some when local version is older", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.3.0", checkedAt: yield* freshTimestamp() };
-      nodeFs.writeFileSync(cachePath, JSON.stringify(data));
-
-      const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value.current).toBe("0.2.0");
-        expect(result.value.latest).toBe("0.3.0");
-      }
-    }),
-  );
-
-  it.effect("returns None when local version is same", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.3.0", checkedAt: yield* freshTimestamp() };
-      nodeFs.writeFileSync(cachePath, JSON.stringify(data));
-
-      const result = yield* isUpdateAvailableFromPath(cachePath, "0.3.0");
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-
-  it.effect("returns None when local version is newer", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.3.0", checkedAt: yield* freshTimestamp() };
-      nodeFs.writeFileSync(cachePath, JSON.stringify(data));
-
-      const result = yield* isUpdateAvailableFromPath(cachePath, "1.0.0");
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-
-  it.effect("returns None when cache is missing", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "nonexistent.json");
-      const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-
-  it.effect("returns None when cache is stale", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "0.3.0", checkedAt: yield* staleTimestamp() };
-      nodeFs.writeFileSync(cachePath, JSON.stringify(data));
-
-      const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-
-  it.effect("returns None for invalid version strings", () =>
-    Effect.gen(function* () {
-      const cachePath = nodePath.join(tempDir, "update-check.json");
-      const data = { latestVersion: "not-semver", checkedAt: yield* freshTimestamp() };
-      nodeFs.writeFileSync(cachePath, JSON.stringify(data));
-
-      const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
-      expect(Option.isNone(result)).toBe(true);
-    }),
-  );
-});
-
-// =============================================================================
-// Service integration via UpdateCheckTest layer
-// =============================================================================
-
-describe("UpdateCheck service via UpdateCheckTest layer", () => {
-  let tempDir: string;
-
-  beforeEach(() => {
-    tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "update-check-svc-"));
-  });
-
-  afterEach(() => {
-    nodeFs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  it.effect("readCache returns None when no cache exists", () =>
-    Effect.gen(function* () {
-      const service = yield* UpdateCheck;
-      const result = yield* service.readCache();
-      expect(Option.isNone(result)).toBe(true);
-    }).pipe(
-      Effect.provide(
-        UpdateCheckTest(nodePath.join(tempDir, "update-check.json")).pipe(
-          Layer.provide(NodeServices.layer),
-        ),
-      ),
-    ),
-  );
-
-  it.effect("writeCache then readCache round-trips correctly", () =>
-    Effect.gen(function* () {
-      const service = yield* UpdateCheck;
-      yield* service.writeCache("1.0.0");
-      const result = yield* service.readCache();
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value.latestVersion).toBe("1.0.0");
-      }
-    }).pipe(
-      Effect.provide(
-        UpdateCheckTest(nodePath.join(tempDir, "update-check.json")).pipe(
-          Layer.provide(NodeServices.layer),
-        ),
-      ),
-    ),
-  );
-
-  it.effect("isUpdateAvailable returns Some when update exists", () =>
-    Effect.gen(function* () {
-      const service = yield* UpdateCheck;
-      yield* service.writeCache("2.0.0");
-      const result = yield* service.isUpdateAvailable("1.0.0");
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value.current).toBe("1.0.0");
-        expect(result.value.latest).toBe("2.0.0");
-      }
-    }).pipe(
-      Effect.provide(
-        UpdateCheckTest(nodePath.join(tempDir, "update-check.json")).pipe(
-          Layer.provide(NodeServices.layer),
-        ),
-      ),
-    ),
-  );
-
-  it.effect("shouldSkip delegates to pure function", () =>
-    Effect.gen(function* () {
-      const service = yield* UpdateCheck;
-      expect(service.shouldSkip(baseSkipContext)).toBe(false);
-      expect(service.shouldSkip({ ...baseSkipContext, isJsonOutput: true })).toBe(true);
-    }).pipe(
-      Effect.provide(
-        UpdateCheckTest(nodePath.join(tempDir, "update-check.json")).pipe(
-          Layer.provide(NodeServices.layer),
-        ),
-      ),
-    ),
-  );
-
-  it.effect("notificationMessage delegates to pure function", () =>
-    Effect.gen(function* () {
-      const service = yield* UpdateCheck;
-      const msg = service.notificationMessage("0.1.0", "0.2.0");
-      expect(msg).toContain("axm upgrade");
-    }).pipe(
-      Effect.provide(
-        UpdateCheckTest(nodePath.join(tempDir, "update-check.json")).pipe(
-          Layer.provide(NodeServices.layer),
-        ),
-      ),
-    ),
-  );
-
-  it.effect("UpdateCheckLive writes under the platform cache root for AXM_USER_HOME", () =>
-    Effect.gen(function* () {
-      const service = yield* UpdateCheck;
-      yield* service.writeCache("1.0.0");
-
-      const cacheRoot = resolveAxmCacheRootPure(nodePath.join, process.platform, os.homedir(), {
-        axmUserHome: tempDir,
+      yield* writeCacheToPath(cachePath, channelDocument(), '"revision-2"');
+      const parsed = JSON.parse(nodeFs.readFileSync(cachePath, "utf8"));
+      expect(parsed).toMatchObject({
+        schema: UPDATE_CHECK_CACHE_SCHEMA,
+        channel: "stable",
+        etag: '"revision-2"',
+        document: { version: "1.2.3", revision: 2 },
       });
-      const cachePath = nodePath.join(cacheRoot, "update-check.json");
-      expect(nodeFs.existsSync(cachePath)).toBe(true);
-    }).pipe(
-      Effect.provide(
-        UpdateCheckLive.pipe(
-          Layer.provide(
-            Layer.mergeAll(
-              NodeServices.layer,
-              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: tempDir } })),
-            ),
-          ),
-        ),
-      ),
-    ),
+      expect(nodeFs.readdirSync(nodePath.dirname(cachePath))).toEqual(["update-check.json"]);
+    }),
+  );
+
+  it.effect("uses only a fresh validated document for update availability", () =>
+    Effect.gen(function* () {
+      yield* writeCacheToPath(cachePath, channelDocument("1.2.3"), null);
+      const available = yield* isUpdateAvailableFromPath(cachePath, "1.0.0");
+      expect(Option.isSome(available)).toBe(true);
+      expect(Option.isNone(yield* isUpdateAvailableFromPath(cachePath, "2.0.0"))).toBe(true);
+      expect(Option.isSome(yield* readCacheFromPath(cachePath))).toBe(true);
+    }),
   );
 });

@@ -11,6 +11,8 @@ response.
 - [Install](install.md) — direct extension intent and initial realization
 - [Update](update.md) — resolution advancement, constraint changes, and
   reinstall
+- [Upgrade](upgrade.md) — promoted release selection, installer coordination,
+  verified self-replacement, and recovery
 - [Uninstall](uninstall.md) — direct-intent removal and reachability-based
   retention
 - [Lint](lint.md) — fact-only diagnostics and meaning-preserving normalization

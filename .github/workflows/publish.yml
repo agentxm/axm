@@ -77,6 +77,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ steps.release_meta.outputs.tag }}" release-assets/* --clobber
 
+      - name: Promote stable release channel
+        env:
+          AXM_RELEASE_CONTROL_TOKEN: ${{ secrets.AXM_RELEASE_CONTROL_TOKEN }}
+          AXM_CONTROL_ACCESS_CLIENT_ID: ${{ secrets.AXM_CONTROL_ACCESS_CLIENT_ID }}
+          AXM_CONTROL_ACCESS_CLIENT_SECRET: ${{ secrets.AXM_CONTROL_ACCESS_CLIENT_SECRET }}
+        run: >-
+          pnpm exec nx run axm:promote-release-channel --outputStyle=static --
+          "${{ steps.release_meta.outputs.version }}"
+          "${{ steps.release_meta.outputs.tag }}"
+          "${{ steps.release_meta.outputs.sha }}"
+
       - name: Build npm packages
         run: pnpm exec nx run-many -t build --projects tag:release:cli --outputStyle=static
 

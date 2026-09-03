@@ -53,7 +53,6 @@ const artifactNames = new Set([
 
 interface ServerContext {
   readonly baseUrl: string;
-  readonly apiBaseUrl: string;
   readonly close: () => Promise<void>;
 }
 
@@ -66,37 +65,6 @@ const createBinaryServer = async (): Promise<ServerContext> => {
 
   const server = http.createServer((request, response) => {
     const requestUrl = request.url ?? "/";
-    if (requestUrl.startsWith("/repos/agentxm/axm/releases")) {
-      const address = server.address();
-      if (address === null || typeof address === "string") {
-        response.statusCode = 500;
-        response.end("Server address unavailable");
-        return;
-      }
-      const origin = `http://127.0.0.1:${address.port}`;
-      response.setHeader("content-type", "application/json");
-      response.statusCode = 200;
-      response.end(
-        JSON.stringify([
-          {
-            tag_name: `cli-v${fixtureVersion}`,
-            draft: false,
-            prerelease: false,
-            assets: [
-              ...[...artifactNames].map((name) => ({
-                name,
-                browser_download_url: `${origin}/releases/download/cli-v${fixtureVersion}/${name}`,
-              })),
-              {
-                name: "SHA256SUMS",
-                browser_download_url: `${origin}/releases/download/cli-v${fixtureVersion}/SHA256SUMS`,
-              },
-            ],
-          },
-        ]),
-      );
-      return;
-    }
     const artifactName = path.basename(requestUrl);
 
     if (artifactName === "SHA256SUMS") {
@@ -152,7 +120,6 @@ const createBinaryServer = async (): Promise<ServerContext> => {
 
   return {
     baseUrl: `http://127.0.0.1:${address.port}/releases/latest/download`,
-    apiBaseUrl: `http://127.0.0.1:${address.port}`,
     close: async () => {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
@@ -223,7 +190,6 @@ const createBashEnv = (
         ? basePath
         : `${installDir}${pathSeparator}${basePath}`,
     AXM_INSTALL_BASE_URL: options.baseUrl ?? installBaseUrl,
-    AXM_UPGRADE_GITHUB_API_URL: serverContext.apiBaseUrl,
     npm_config_user_agent: "",
     ...(options.installDir === undefined ? {} : { AXM_INSTALL_DIR: options.installDir }),
     ...(version === undefined ? {} : { AXM_INSTALL_VERSION: version }),
@@ -247,7 +213,6 @@ const createWindowsEnv = (
         : `${installDir}${pathSeparator}${basePath}`,
     AXM_INSTALL_BASE_URL: options.baseUrl ?? installBaseUrl,
     AXM_INSTALL_PS1_PATH: path.join(repoRoot, "install.ps1"),
-    AXM_UPGRADE_GITHUB_API_URL: serverContext.apiBaseUrl,
     npm_config_user_agent: "",
     ...(options.installDir === undefined ? {} : { AXM_INSTALL_DIR: options.installDir }),
     ...(version === undefined ? {} : { AXM_INSTALL_VERSION: version }),
@@ -323,28 +288,32 @@ const expectProgressMessages = (
 
 const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<string, string>>) => {
   const runBinary = createBinaryRunner(binaryPath);
-  const jsonResult = await runBinary(["upgrade", "--json"], { env });
-  expectCommandSuccess("axm upgrade --json", jsonResult);
+  const jsonResult = await runBinary(["upgrade", fixtureVersion, "--json"], { env });
+  expectCommandSuccess(`axm upgrade ${fixtureVersion} --json`, jsonResult);
   expectProgressMessages(jsonResult.stderr, [
-    "Checking AXM releases",
     "Detecting AXM installation method",
+    `Resolving AXM ${fixtureVersion}`,
   ]);
   const jsonDocument = parseJsonObject(jsonResult.stdout);
   expect(jsonDocument["ok"]).toBe(true);
   const currentResult = expectJsonObject(jsonDocument["result"]);
-  expect(currentResult["resultStatus"]).toBe("already-up-to-date");
-  expect(currentResult["installMethod"], JSON.stringify(currentResult)).toBe("script");
-  expect(currentResult["blockedCount"]).toBe(0);
-  expect(currentResult["failedCount"]).toBe(0);
+  expect(currentResult["contract"]).toBe("axm.upgrade-assessment/v1");
+  expect(currentResult["disposition"]).toBe("already-current");
+  expect(expectJsonObject(currentResult["ownership"])["method"]).toBe("script");
+  expect(currentResult["outcome"]).toBe("no-op");
 
-  const quietResult = await runBinary(["upgrade", "--quiet", "--verbose"], { env });
-  expectCommandSuccess("axm upgrade --quiet --verbose", quietResult);
+  const quietResult = await runBinary(["upgrade", fixtureVersion, "--quiet", "--verbose"], {
+    env,
+  });
+  expectCommandSuccess(`axm upgrade ${fixtureVersion} --quiet --verbose`, quietResult);
   expect(getOutput(quietResult)).toContain("already up to date");
-  expect(getOutput(quietResult)).not.toContain("Checking AXM releases");
+  expect(getOutput(quietResult)).not.toContain(`Resolving AXM ${fixtureVersion}`);
   expect(getOutput(quietResult)).not.toContain("Detecting AXM installation method");
 
-  const noColorResult = await runBinary(["upgrade"], { env: { ...env, NO_COLOR: "1" } });
-  expectCommandSuccess("NO_COLOR=1 axm upgrade", noColorResult);
+  const noColorResult = await runBinary(["upgrade", fixtureVersion], {
+    env: { ...env, NO_COLOR: "1" },
+  });
+  expectCommandSuccess(`NO_COLOR=1 axm upgrade ${fixtureVersion}`, noColorResult);
   expect(getOutput(noColorResult)).not.toContain("\u001b");
 
   const lockPath = `${binaryPath}.upgrade.lock`;
@@ -353,22 +322,25 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
     JSON.stringify({ pid: process.pid, targetPath: binaryPath, backupPath: null }),
   );
   try {
-    const lockedResult = await runBinary(["upgrade", "--reinstall", "--json"], { env });
+    const lockedResult = await runBinary(["upgrade", fixtureVersion, "--reinstall", "--json"], {
+      env,
+    });
     if (lockedResult.exitCode !== 1) {
       throw new Error(
         `Locked upgrade exited ${lockedResult.exitCode}; stdout: ${lockedResult.stdout}; stderr: ${lockedResult.stderr}`,
       );
     }
     expectProgressMessages(lockedResult.stderr, [
-      "Checking AXM releases",
       "Detecting AXM installation method",
+      `Resolving AXM ${fixtureVersion}`,
       /^Upgrading AXM to /,
     ]);
     const lockedDocument = parseJsonObject(lockedResult.stdout);
     expect(lockedDocument["ok"]).toBe(false);
     const blockedResult = expectJsonObject(lockedDocument["result"]);
-    expect(blockedResult["resultStatus"]).toBe("manual-action-required");
-    expect(blockedResult["blockedCount"]).toBe(1);
+    expect(blockedResult["disposition"]).toBe("recovery-required");
+    expect(blockedResult["outcome"]).toBe("failed");
+    expect(expectJsonObject(blockedResult["mutation"])["state"]).toBe("not-attempted");
   } finally {
     fs.rmSync(lockPath, { force: true });
   }

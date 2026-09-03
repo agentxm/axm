@@ -32,10 +32,12 @@ import {
 import { InstallMeta, type InstallMetaData } from "../../install-meta/install-meta.js";
 import type { VersionRelation } from "../../version-resolution/version-resolution.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { STABLE_CHANNEL_SCHEMA } from "@agentxm/extension-model/unstable/release-channel";
 
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { expectRecord, property } from "../../test-helpers.js";
 import { loadVersion } from "../../version.js";
+import { UpdateCheck } from "../../update-check/update-check.js";
 import {
   decideUpgrade,
   handleUpgrade,
@@ -57,6 +59,14 @@ const executionDirectoryPath = decodeAbsolutePathSync(process.cwd());
 const executionDirectoryLayer = Layer.succeed(ExecutionDirectory, {
   path: executionDirectoryPath,
 });
+const updateCheckLayer = Layer.succeed(UpdateCheck, {
+  readCacheState: () => Effect.succeed({ state: "missing" }),
+  readCache: () => Effect.succeed(Option.none()),
+  writeCache: () => Effect.void,
+  isUpdateAvailable: () => Effect.succeed(Option.none()),
+  shouldSkip: () => false,
+  notificationMessage: () => "",
+} satisfies typeof UpdateCheck.Service);
 
 interface Invocation {
   readonly executable: string;
@@ -81,8 +91,10 @@ const homebrewInfo = (version: string) =>
   });
 
 const makeSubprocess = (
-  responder: (invocation: Invocation, index: number) => CommandResult | "never" = () =>
-    commandResult(),
+  responder: (invocation: Invocation, index: number) => CommandResult | "never" = (invocation) =>
+    invocation.args.includes("--json")
+      ? commandResult(JSON.stringify(TARGET_VERSION))
+      : commandResult(),
   resolveExecutable: (executable: string) => string | null = (executable) =>
     `/resolved/${executable}`,
 ) => {
@@ -95,7 +107,14 @@ const makeSubprocess = (
           const invocation = { executable, args: [...args], options };
           calls.push(invocation);
           const response = responder(invocation, calls.length - 1);
-          return response === "never" ? Effect.never : Effect.succeed(response);
+          if (response === "never") return Effect.never;
+          return Effect.succeed(
+            invocation.args.includes("--json") &&
+              response.exitCode === 0 &&
+              response.stdout.trim() === TARGET_VERSION
+              ? { ...response, stdout: JSON.stringify(TARGET_VERSION) }
+              : response,
+          );
         }),
       resolveExecutable: (executable) => Effect.succeed(resolveExecutable(executable)),
     }),
@@ -103,13 +122,35 @@ const makeSubprocess = (
 };
 
 const release = (version: string) => ({
-  tag_name: `cli-v${version}`,
-  draft: false,
-  prerelease: false,
-  assets: [
-    { name: platformBinary.binaryName, browser_download_url: "https://assets.test/binary" },
-    { name: "SHA256SUMS", browser_download_url: "https://assets.test/SHA256SUMS" },
-  ],
+  schema: STABLE_CHANNEL_SCHEMA,
+  channel: "stable",
+  revision: 1,
+  version,
+  release: {
+    repository: "agentxm/axm",
+    tag: `cli-v${version}`,
+    commit: "a".repeat(40),
+    publishedAt: "2026-09-03T17:00:00Z",
+  },
+  artifacts: {
+    checksumManifest: {
+      name: "SHA256SUMS",
+      url: `https://github.com/agentxm/axm/releases/download/cli-v${version}/SHA256SUMS`,
+      sha256: BINARY_HASH,
+    },
+    binaries: ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64", "windows-x64"].map(
+      (target) => {
+        const name = target === "windows-x64" ? "axm-windows-x64.exe" : `axm-${target}`;
+        return {
+          target,
+          name,
+          url: `https://github.com/agentxm/axm/releases/download/cli-v${version}/${name}`,
+          sha256: BINARY_HASH,
+        };
+      },
+    ),
+  },
+  promotedAt: "2026-09-03T17:01:00Z",
 });
 
 const makeHttpClient = (
@@ -122,7 +163,7 @@ const makeHttpClient = (
       if (overridden !== undefined) {
         return HttpClientResponse.fromWeb(request, overridden);
       }
-      if (request.url.endsWith("/binary")) {
+      if (request.url.endsWith(`/${platformBinary.binaryName}`)) {
         return HttpClientResponse.fromWeb(request, new Response(BINARY, { status: 200 }));
       }
       if (request.url.endsWith("/SHA256SUMS")) {
@@ -133,7 +174,7 @@ const makeHttpClient = (
       }
       return HttpClientResponse.fromWeb(
         request,
-        new Response(JSON.stringify([release(version)]), { status: 200 }),
+        new Response(JSON.stringify(release(version)), { status: 200 }),
       );
     }),
   );
@@ -155,6 +196,7 @@ const makeHarness = (
     renderer.layer,
     TestFlagsLayer(),
     executionDirectoryLayer,
+    updateCheckLayer,
     Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
     Layer.succeed(InstallMeta, {
       read: () => Effect.succeed(Option.none()),
@@ -171,9 +213,84 @@ const makeHarness = (
   return { layer, metadata, renderer: renderer.state, subprocess };
 };
 
+const legacyStatus = (result: Readonly<Record<string, unknown>>): ResultStatus => {
+  const disposition = property(result, "disposition");
+  const verification = expectRecord(property(result, "verification"));
+  const details = expectRecord(property(result, "details"));
+  switch (disposition) {
+    case "upgraded":
+    case "reinstalled":
+    case "local-newer":
+    case "downgrade-refused":
+    case "rolled-back":
+      return disposition;
+    case "already-current":
+      return "already-up-to-date";
+    case "verification-failed":
+      return property(verification, "state") === "unavailable"
+        ? "upgrade-unverified"
+        : "upgrade-incomplete";
+    case "mutation-failed":
+      return "upgrade-incomplete";
+    case "recovery-required":
+    case "installer-lagging":
+    case "installer-leading":
+      return details["homebrewFailure"] === null ? "manual-action-required" : "upgrade-incomplete";
+    case "installer-unavailable":
+    case "installer-indeterminate":
+      return "manual-action-required";
+    default:
+      return "upgrade-incomplete";
+  }
+};
+
 const resultFrom = (state: ReturnType<typeof TestMachineRenderer.make>["state"]) => {
   const document = expectRecord(state.results[0]?.data);
-  return expectRecord(property(document, "result"));
+  const result = expectRecord(property(document, "result"));
+  const verification = expectRecord(property(result, "verification"));
+  const mutation = expectRecord(property(result, "mutation"));
+  const ownership = expectRecord(property(result, "ownership"));
+  const local = expectRecord(property(result, "local"));
+  const target = expectRecord(property(result, "target"));
+  const recovery = expectRecord(property(result, "recovery"));
+  const details = expectRecord(property(result, "details"));
+  const status = legacyStatus(result);
+  const mutationState = property(mutation, "state");
+  const failed =
+    status === "upgrade-incomplete" || status === "upgrade-unverified" || status === "rolled-back";
+  const blocked = status === "manual-action-required" || status === "downgrade-refused";
+  const legacyOutcome =
+    status === "upgrade-unverified" ||
+    (status === "upgrade-incomplete" && mutationState === "unknown")
+      ? "indeterminate"
+      : status === "upgraded" || status === "reinstalled" || mutationState === "updated"
+        ? "applied"
+        : "no-op";
+  return {
+    ...result,
+    resultStatus: status,
+    outcome: legacyOutcome,
+    failedCount: failed ? 1 : 0,
+    blockedCount: blocked ? 1 : 0,
+    installMethod: property(ownership, "method"),
+    detectionSource: property(ownership, "source"),
+    detectionEvidence: property(ownership, "evidence"),
+    detectionConfidence: property(ownership, "confidence"),
+    executablePath: ownership["executablePath"],
+    versionRelation: property(local, "relation"),
+    localVersion: local["version"],
+    targetVersion: property(target, "version"),
+    reportedVersion: verification["reportedVersion"],
+    verification: property(verification, "state"),
+    verificationExecutables: property(verification, "executables"),
+    mutationState,
+    executedCommands: property(result, "commands"),
+    recommendedCommand: recovery["recommendedCommand"],
+    backupPath: recovery["backupPath"],
+    details: property(details, "messages"),
+    homebrewFailure: details["homebrewFailure"],
+    observedFormulaVersion: details["observedFormulaVersion"],
+  };
 };
 
 const okFrom = (state: ReturnType<typeof TestMachineRenderer.make>["state"]): boolean | undefined =>
@@ -191,6 +308,7 @@ const makeHumanHarness = (
       renderer.layer,
       TestFlagsLayer(flags),
       executionDirectoryLayer,
+      updateCheckLayer,
       Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
       Layer.succeed(InstallMeta, {
         read: () => Effect.succeed(Option.none()),
@@ -444,6 +562,52 @@ describe("delegated upgrades", () => {
       }).pipe(Effect.provide(harness.layer));
     },
   );
+
+  it.effect("bypasses channel discovery for an exact stable version", () => {
+    let requests = 0;
+    const httpClient = HttpClient.make((request) => {
+      requests += 1;
+      return Effect.sync(() =>
+        HttpClientResponse.fromWeb(request, new Response("unexpected", { status: 500 })),
+      );
+    });
+    const harness = makeHarness(
+      new Npm({ importUrl: "file:///npm/axm", managerOwnedExecutable: "/npm/bin/axm" }),
+      { httpClient },
+    );
+    return Effect.gen(function* () {
+      yield* handleUpgrade({ reinstall: false, requestedVersion: TARGET_VERSION });
+      const result = resultFrom(harness.renderer);
+      expect(requests).toBe(0);
+      expect(result).toMatchObject({
+        contract: "axm.upgrade-assessment/v1",
+        disposition: "upgraded",
+        intent: { mode: "exact", requestedVersion: TARGET_VERSION },
+        canonical: { source: "exact-version", channelRevision: null },
+      });
+    }).pipe(Effect.provide(harness.layer));
+  });
+
+  it.effect("refuses mutation while the owning package manager lags the canonical target", () => {
+    const subprocess = makeSubprocess((invocation) =>
+      invocation.args.includes("--json")
+        ? commandResult(JSON.stringify(LOCAL_VERSION))
+        : commandResult(),
+    );
+    const harness = makeHarness(new Npm({ importUrl: "file:///npm/axm" }), { subprocess });
+    return Effect.gen(function* () {
+      yield* handleUpgrade({ reinstall: false });
+      const result = resultFrom(harness.renderer);
+      expect(result).toMatchObject({
+        disposition: "installer-lagging",
+        installerAvailability: { state: "lagging", observedVersion: LOCAL_VERSION },
+        mutationState: "not-attempted",
+      });
+      expect(
+        subprocess.calls.some((call) => call.executable === "npm" && call.args[0] === "install"),
+      ).toBe(false);
+    }).pipe(Effect.provide(harness.layer));
+  });
 
   it.effect("uses bounded read-only queries to resolve an ambiguous npm layout", () =>
     Effect.gen(function* () {
@@ -884,7 +1048,7 @@ describe("delegated upgrades", () => {
 
       const failed = makeHarness(npm, {
         subprocess: makeSubprocess((invocation) =>
-          invocation.executable === "npm"
+          invocation.executable === "npm" && invocation.args[0] === "install"
             ? commandResult("", 1, "permission denied")
             : commandResult(),
         ),
@@ -898,27 +1062,40 @@ describe("delegated upgrades", () => {
         outcome: "indeterminate",
         failedCount: 1,
       });
-      expect(property(result, "executedCommands")).toEqual([
-        expect.objectContaining({ purpose: "delegation", executable: "npm", exitCode: 1 }),
-      ]);
+      expect(property(result, "executedCommands")).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ purpose: "delegation", executable: "npm", exitCode: 1 }),
+        ]),
+      );
     }),
   );
 
-  it.effect("does not mutate for current/unknown, local-newer/reinstall, or modern Yarn", () =>
-    Effect.gen(function* () {
-      const currentProcess = makeSubprocess();
-      const current = makeHarness(new Unknown({ reason: "ambiguous" }), {
-        version: LOCAL_VERSION,
-        subprocess: currentProcess,
+  it.effect("fails unresolved ownership before discovery or mutation", () => {
+    let requests = 0;
+    const httpClient = HttpClient.make((request) => {
+      requests += 1;
+      return Effect.sync(() =>
+        HttpClientResponse.fromWeb(request, new Response("unexpected", { status: 500 })),
+      );
+    });
+    const subprocess = makeSubprocess();
+    const harness = makeHarness(new Unknown({ reason: "ambiguous" }), {
+      subprocess,
+      httpClient,
+    });
+    return Effect.gen(function* () {
+      const error = yield* Effect.flip(handleUpgrade({ reinstall: false }));
+      expect(error).toMatchObject({
+        code: "validation",
+        detail: "Could not determine how AXM was installed",
       });
-      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(current.layer));
-      expect(resultFrom(current.renderer)).toMatchObject({
-        resultStatus: "already-up-to-date",
-        blockedCount: 0,
-      });
-      expect(okFrom(current.renderer)).toBe(true);
-      expect(currentProcess.calls).toEqual([]);
+      expect(requests).toBe(0);
+      expect(subprocess.calls).toEqual([]);
+    }).pipe(Effect.provide(harness.layer));
+  });
 
+  it.effect("does not mutate for local-newer/reinstall or modern Yarn", () =>
+    Effect.gen(function* () {
       const newer = semver.inc(TARGET_VERSION, "major") ?? "999.0.0";
       const refusedProcess = makeSubprocess();
       const refused = makeHarness(new Npm({ importUrl: "file:///npm/axm" }), {
@@ -965,10 +1142,14 @@ describe("delegated upgrades", () => {
       expect(verbose.logs.info.some((line) => line.startsWith("delegation: npm "))).toBe(true);
       expect(verbose.logs.info.some((line) => line.startsWith("Verification "))).toBe(true);
 
-      const quiet = makeHumanHarness(new Unknown({ reason: "ambiguous" }), {
-        quiet: true,
-        verbose: true,
-      });
+      const quiet = makeHumanHarness(
+        new Yarn({
+          importUrl: "file:///yarn/axm",
+          managerMajorVersion: 4,
+          supported: false,
+        }),
+        { quiet: true, verbose: true },
+      );
       yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(quiet.layer));
       expect(quiet.logs.info).toEqual([]);
       expect(quiet.logs.warn).toHaveLength(1);

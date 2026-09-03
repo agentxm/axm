@@ -226,6 +226,11 @@
       "axm-source": "./src/unstable/path-types.ts",
       "default": "./dist/src/unstable/path-types.js"
     },
+    "./unstable/release-channel": {
+      "types": "./dist/src/unstable/release-channel.d.ts",
+      "axm-source": "./src/unstable/release-channel.ts",
+      "default": "./dist/src/unstable/release-channel.js"
+    },
     "./unstable/rules/manifest-schema": {
       "types": "./dist/src/unstable/rules/manifest-schema.d.ts",
       "axm-source": "./src/unstable/rules/manifest-schema.ts",

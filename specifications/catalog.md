@@ -980,6 +980,42 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/update/advances-resolution-within-intent`
 - Source: [`specifications/cli/update/refuses-undesired-extensions.spec.ts`](../specifications/cli/update/refuses-undesired-extensions.spec.ts)
 
+#### Upgrade
+
+##### Exact upgrade bypasses release discovery
+
+- Requirement: `cli/upgrade/exact-version-bypasses-discovery`
+- Statement: An upgrade naming a normalized stable semantic version shall derive its immutable GitHub Release coordinate without discovery, and shall reject leading-v, prerelease, or non-normalized versions before mutation.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Source: [`specifications/cli/upgrade/exact-version-bypasses-discovery.spec.ts`](../specifications/cli/upgrade/exact-version-bypasses-discovery.spec.ts)
+
+##### Installer availability gates upgrade mutation
+
+- Requirement: `cli/upgrade/installer-availability-gates-mutation`
+- Statement: Before mutating an npm-, pnpm-, Yarn-, or Homebrew-owned installation, upgrade shall establish that the selected stable version is available through that installer; lagging, leading, unavailable, or indeterminate publication state shall leave the installation unchanged and report recovery guidance.
+- Class: constraint
+- Role: experience
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The committed upgrade orchestration shows that the availability decision precedes and gates every manager-owned mutation branch.
+- Methods: contract
+- Source: [`specifications/cli/upgrade/installer-availability-gates-mutation.spec.ts`](../specifications/cli/upgrade/installer-availability-gates-mutation.spec.ts)
+
+##### Latest upgrade uses the promoted stable channel
+
+- Requirement: `cli/upgrade/latest-uses-promoted-stable-channel`
+- Statement: An upgrade without an exact version shall select only the validated release coordinate in the fixed public stable-channel document using one bounded request, and shall not enumerate GitHub releases or infer stability from package-manager publication state.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts`](../specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts)
+
 ### System
 
 #### Installability
@@ -1230,6 +1266,19 @@ programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Derived from: `cli/update/bundled-source-routes-to-recovery`
 - Source: [`specifications/cli/update/machine-result-names-bundled-source-blocker.spec.ts`](../specifications/cli/update/machine-result-names-bundled-source-blocker.spec.ts)
+
+#### Upgrade
+
+##### Machine upgrade emits one complete assessment
+
+- Requirement: `cli/upgrade/machine-result-is-upgrade-assessment`
+- Statement: Machine-mode upgrade shall emit one axm.upgrade-assessment/v1 result that separately records intent, platform, ownership, canonical selection, installer availability, target, mutation, verification, recovery, command evidence, and disposition.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: contract
+- Source: [`specifications/cli/upgrade/machine-result-is-upgrade-assessment.spec.ts`](../specifications/cli/upgrade/machine-result-is-upgrade-assessment.spec.ts)
 
 ### Extension identity
 
@@ -1499,6 +1548,20 @@ programmatic interfaces, and supporting system behavior.
 - Limitation: In-memory execution cannot observe the system keychain, so the namespace under which each connection's secret is kept is not evidenced here; the derivation is verified by an internal test beside the deriving module. Retires when: The specification harness composes an observable secret store whose namespaces specifications can read.
 - Source: [`specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts`](../specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts)
 
+#### Upgrade
+
+##### Upgrade establishes ownership before release selection
+
+- Requirement: `cli/upgrade/ownership-precedes-release-selection`
+- Statement: Upgrade shall identify the installation owner before performing canonical release selection so unresolved ownership fails without an unnecessary release-authority request and every later availability and mutation decision is installer-specific.
+- Class: constraint
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `actionable-diagnostics`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The application orchestration order is the observable invariant: ownership detection must be composed before the latest or exact selection branch.
+- Methods: contract
+- Source: [`specifications/cli/upgrade/ownership-precedes-release-selection.spec.ts`](../specifications/cli/upgrade/ownership-precedes-release-selection.spec.ts)
+
 ### System
 
 #### Architecture
@@ -1717,6 +1780,19 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.; The tooling test gate declared as bound evidence runs on every change through the required aggregate check.
 - Bound evidence: `test: axm:test (scripts/release-prepare.tooling.test.ts)` — Drives release preparation against a fake host and checks that the production Registry preflight runs before any candidate state is allocated and stops preparation when it fails, that the exact generated candidate is previewed against the Registry only after versioning, changelog, and bundled-skill generation, and that the production preview publication targets the production Registry in verify-on-existing preview mode with no apply path.
 - Source: [`specifications/system/process/release-preparation-validates-production-gates.spec.ts`](../specifications/system/process/release-preparation-validates-production-gates.spec.ts)
+
+##### Stable promotion precedes independent distribution
+
+- Requirement: `system/process/release-promotion-precedes-independent-distribution`
+- Statement: The canonical release workflow shall upload and validate immutable GitHub assets, promote their release coordinate through the conditionally written stable channel, and only then publish npm packages or update Homebrew; a recovery rerun shall preserve any newer promoted channel.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The workflow and its Nx-owned promotion entry point are the committed ordering and recovery controls for public release distribution.
+- Methods: contract
+- Assumptions: The Control API validates the immutable GitHub asset set before changing the public channel object.
+- Source: [`specifications/system/process/release-promotion-precedes-independent-distribution.spec.ts`](../specifications/system/process/release-promotion-precedes-independent-distribution.spec.ts)
 
 ##### Releases publish only through the canonical automated workflow
 

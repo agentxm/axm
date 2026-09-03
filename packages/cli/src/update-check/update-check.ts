@@ -1,13 +1,16 @@
 /**
- * UpdateCheck service — manages cached version checks and notifications.
- *
- * Reads/writes a platform-cache `update-check.json` file, determines whether
- * the check should be skipped, and produces notification messages.
+ * UpdateCheck service — validated stable-channel caching and notifications.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
+import { resolveAxmCacheRoot } from "@agentxm/registry-client";
+import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
+import {
+  StableChannelDocumentV1Schema,
+  type StableChannelDocumentV1,
+} from "@agentxm/extension-model/unstable/release-channel";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -19,43 +22,34 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 import * as semver from "semver";
 
-import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import { resolveAxmCacheRoot } from "@agentxm/registry-client";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
+import { writeFileAtomic } from "../utils/index.js";
 
 const CACHE_FILENAME = "update-check.json";
 const CACHE_TTL = Duration.minutes(60);
 
-// -----------------------------------------------------------------------------
-// Cache schema
-// -----------------------------------------------------------------------------
+export const UPDATE_CHECK_CACHE_SCHEMA = "axm.update-check-cache/v2";
 
-/** Schema for the on-disk update check cache file. */
+/** Schema for the on-disk validated channel cache. */
 export const UpdateCheckCacheSchema = Schema.Struct({
-  latestVersion: Schema.String,
-  checkedAt: DateTimeUtcSchema,
+  schema: Schema.Literal(UPDATE_CHECK_CACHE_SCHEMA),
+  channel: Schema.Literal("stable"),
+  document: StableChannelDocumentV1Schema,
+  etag: Schema.NullOr(Schema.String),
+  validatedAt: DateTimeUtcSchema,
 });
 
-/** Decoded cache shape. */
 export type UpdateCheckCache = typeof UpdateCheckCacheSchema.Type;
 
+export type UpdateCheckCacheState =
+  | { readonly state: "missing" }
+  | { readonly state: "invalid" }
+  | { readonly state: "fresh"; readonly cache: UpdateCheckCache }
+  | { readonly state: "stale"; readonly cache: UpdateCheckCache };
+
 const UpdateCheckCacheJsonSchema = Schema.fromJsonString(UpdateCheckCacheSchema);
-
 const decodeUpdateCheckCacheFromJsonString = Schema.decodeUnknownEffect(UpdateCheckCacheJsonSchema);
-
 const encodeUpdateCheckCacheToJsonString = Schema.encodeEffect(UpdateCheckCacheJsonSchema);
 
-// -----------------------------------------------------------------------------
-// Skip-check context
-// -----------------------------------------------------------------------------
-
-/**
- * Context used to determine whether the update check should be skipped.
- * Accepts parameters rather than reading globals directly for testability.
- */
 export interface SkipCheckContext {
   readonly isJsonOutput: boolean;
   readonly noUpdateCheckEnv: boolean;
@@ -67,22 +61,17 @@ export interface SkipCheckContext {
 
 export type NotificationAudience = "human" | "agent";
 
-// -----------------------------------------------------------------------------
-// Service interface
-// -----------------------------------------------------------------------------
-
 export interface UpdateCheckService {
-  /** Read the cached update check, returning None if missing, invalid, or stale. */
+  readonly readCacheState: () => Effect.Effect<UpdateCheckCacheState>;
   readonly readCache: () => Effect.Effect<Option.Option<UpdateCheckCache>>;
-  /** Write the cache with the given version and current timestamp. */
-  readonly writeCache: (latestVersion: string) => Effect.Effect<void>;
-  /** Check if an update is available based on cached data. */
+  readonly writeCache: (
+    document: StableChannelDocumentV1,
+    etag: string | null,
+  ) => Effect.Effect<void>;
   readonly isUpdateAvailable: (
     localVersion: string,
   ) => Effect.Effect<Option.Option<{ readonly current: string; readonly latest: string }>>;
-  /** Determine if the update check should be skipped entirely. */
   readonly shouldSkip: (context: SkipCheckContext) => boolean;
-  /** Build a notification message. */
   readonly notificationMessage: (
     current: string,
     latest: string,
@@ -90,22 +79,10 @@ export interface UpdateCheckService {
   ) => string;
 }
 
-/**
- * Effect service tag for update check management.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export class UpdateCheck extends ServiceMap.Service<UpdateCheck, UpdateCheckService>()(
   "axm.sh/update-check/update-check/UpdateCheck",
 ) {}
 
-// -----------------------------------------------------------------------------
-// Pure helpers
-// -----------------------------------------------------------------------------
-
-/**
- * Determine if the update check should be skipped.
- */
 export const shouldSkip = (context: SkipCheckContext): boolean =>
   context.isJsonOutput ||
   context.noUpdateCheckEnv ||
@@ -115,9 +92,6 @@ export const shouldSkip = (context: SkipCheckContext): boolean =>
 
 const UPGRADE_COMMAND = "axm upgrade";
 
-/**
- * Build a notification message.
- */
 export const notificationMessage = (
   current: string,
   latest: string,
@@ -126,157 +100,111 @@ export const notificationMessage = (
   if (audience === "agent") {
     return `AXM_UPDATE_AVAILABLE current=${current} latest=${latest} command="${UPGRADE_COMMAND}"`;
   }
-
-  return `Update available: ${current} \u2192 ${latest}\nRun: ${UPGRADE_COMMAND}`;
+  return `Update available: ${current} → ${latest}\nRun: ${UPGRADE_COMMAND}`;
 };
 
-/**
- * Check whether the cache is stale (older than 60 minutes).
- */
-export const isCacheStale = (checkedAt: DateTime.Utc): Effect.Effect<boolean> =>
-  DateTime.isPast(DateTime.addDuration(checkedAt, CACHE_TTL));
+export const isCacheStale = (validatedAt: DateTime.Utc): Effect.Effect<boolean> =>
+  DateTime.isPast(DateTime.addDuration(validatedAt, CACHE_TTL));
 
-/**
- * Compare versions to determine if an update is available.
- * Returns true when remote version is greater than local.
- */
 const isNewer = (localVersion: string, latestVersion: string): boolean => {
   const local = semver.valid(localVersion);
   const remote = semver.valid(latestVersion);
-  if (local === null || remote === null) return false;
-  return semver.lt(local, remote);
+  return local !== null && remote !== null && semver.lt(local, remote);
 };
 
-// -----------------------------------------------------------------------------
-// Core effects
-// -----------------------------------------------------------------------------
-
-/**
- * Read and parse the cache file, returning None if missing, invalid, or stale.
- */
-export const readCacheFromPath = (cachePath: string) =>
+/** Read the cache without collapsing missing, invalid, stale, and fresh states. */
+export const readCacheStateFromPath = (cachePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-
     const exists = yield* fs.exists(cachePath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) return Option.none<UpdateCheckCache>();
+    if (!exists) return { state: "missing" } satisfies UpdateCheckCacheState;
 
     const content = yield* fs.readFileString(cachePath).pipe(Effect.option);
-    if (Option.isNone(content)) return Option.none<UpdateCheckCache>();
+    if (Option.isNone(content)) return { state: "invalid" } satisfies UpdateCheckCacheState;
 
     const decoded = yield* decodeUpdateCheckCacheFromJsonString(content.value).pipe(Effect.option);
-    if (Option.isNone(decoded)) return Option.none<UpdateCheckCache>();
+    if (Option.isNone(decoded)) return { state: "invalid" } satisfies UpdateCheckCacheState;
 
-    const stale = yield* isCacheStale(decoded.value.checkedAt);
-    if (stale) return Option.none<UpdateCheckCache>();
-
-    return Option.some(decoded.value);
+    return (yield* isCacheStale(decoded.value.validatedAt))
+      ? ({ state: "stale", cache: decoded.value } satisfies UpdateCheckCacheState)
+      : ({ state: "fresh", cache: decoded.value } satisfies UpdateCheckCacheState);
   });
 
-/**
- * Write the cache file with the given version and current timestamp.
- */
-export const writeCacheToPath = (cachePath: string, latestVersion: string) =>
+export const readCacheFromPath = (cachePath: string) =>
+  Effect.map(readCacheStateFromPath(cachePath), (state) =>
+    state.state === "fresh" ? Option.some(state.cache) : Option.none<UpdateCheckCache>(),
+  );
+
+/** Atomically replace the validated channel cache. */
+export const writeCacheToPath = (
+  cachePath: string,
+  document: StableChannelDocumentV1,
+  etag: string | null,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    yield* fs.makeDirectory(path.dirname(cachePath), { recursive: true }).pipe(Effect.ignore);
 
-    const dir = path.dirname(cachePath);
-    yield* fs.makeDirectory(dir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
-
-    const data: UpdateCheckCache = { latestVersion, checkedAt: yield* DateTime.now };
-    const content = yield* encodeUpdateCheckCacheToJsonString(data).pipe(Effect.option);
-    if (Option.isNone(content)) return;
-
-    yield* fs.writeFileString(cachePath, content.value).pipe(Effect.catch(() => Effect.void));
+    const data: UpdateCheckCache = {
+      schema: UPDATE_CHECK_CACHE_SCHEMA,
+      channel: "stable",
+      document,
+      etag,
+      validatedAt: yield* DateTime.now,
+    };
+    const encoded = yield* encodeUpdateCheckCacheToJsonString(data).pipe(Effect.option);
+    if (Option.isNone(encoded)) return;
+    yield* writeFileAtomic(fs, {
+      targetPath: cachePath,
+      content: encoded.value,
+      mapError: (failure) => failure.cause,
+    }).pipe(Effect.ignore);
   });
 
-/**
- * Check if an update is available by reading the cache and comparing versions.
- */
 export const isUpdateAvailableFromPath = (cachePath: string, localVersion: string) =>
   Effect.gen(function* () {
     const cache = yield* readCacheFromPath(cachePath);
-    if (Option.isNone(cache))
+    if (Option.isNone(cache) || !isNewer(localVersion, cache.value.document.version)) {
       return Option.none<{ readonly current: string; readonly latest: string }>();
-
-    if (isNewer(localVersion, cache.value.latestVersion)) {
-      return Option.some({ current: localVersion, latest: cache.value.latestVersion });
     }
-    return Option.none<{ readonly current: string; readonly latest: string }>();
+    return Option.some({ current: localVersion, latest: cache.value.document.version });
   });
 
-// -----------------------------------------------------------------------------
-// Live layer
-// -----------------------------------------------------------------------------
+const makeService = (cachePath: string, fs: FileSystem.FileSystem, path: Path.Path) => ({
+  readCacheState: () =>
+    readCacheStateFromPath(cachePath).pipe(Effect.provideService(FileSystem.FileSystem, fs)),
+  readCache: () =>
+    readCacheFromPath(cachePath).pipe(Effect.provideService(FileSystem.FileSystem, fs)),
+  writeCache: (document: StableChannelDocumentV1, etag: string | null) =>
+    writeCacheToPath(cachePath, document, etag).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    ),
+  isUpdateAvailable: (localVersion: string) =>
+    isUpdateAvailableFromPath(cachePath, localVersion).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+    ),
+  shouldSkip,
+  notificationMessage,
+});
 
 export const UpdateCheckLive = Layer.effect(
   UpdateCheck,
   Effect.gen(function* () {
-    const pathService = yield* Path.Path;
+    const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
-
     const cacheRoot = yield* resolveAxmCacheRoot();
-    const cachePath = pathService.join(cacheRoot, CACHE_FILENAME);
-
-    const readCache: UpdateCheckService["readCache"] = () =>
-      readCacheFromPath(cachePath).pipe(Effect.provideService(FileSystem.FileSystem, fs));
-
-    const writeCache: UpdateCheckService["writeCache"] = (latestVersion) =>
-      writeCacheToPath(cachePath, latestVersion).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, pathService),
-      );
-
-    const isUpdateAvailable: UpdateCheckService["isUpdateAvailable"] = (localVersion) =>
-      isUpdateAvailableFromPath(cachePath, localVersion).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-      );
-
-    return {
-      readCache,
-      writeCache,
-      isUpdateAvailable,
-      shouldSkip,
-      notificationMessage,
-    } satisfies UpdateCheckService;
+    return makeService(path.join(cacheRoot, CACHE_FILENAME), fs, path);
   }),
 );
 
-// -----------------------------------------------------------------------------
-// Test layer factory
-// -----------------------------------------------------------------------------
-
-/**
- * Create an UpdateCheck layer for testing with a configurable cache path.
- */
 export const UpdateCheckTest = (cachePath: string) =>
   Layer.effect(
     UpdateCheck,
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-
-      const readCache: UpdateCheckService["readCache"] = () =>
-        readCacheFromPath(cachePath).pipe(Effect.provideService(FileSystem.FileSystem, fs));
-
-      const writeCache: UpdateCheckService["writeCache"] = (latestVersion) =>
-        writeCacheToPath(cachePath, latestVersion).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, pathService),
-        );
-
-      const isUpdateAvailable: UpdateCheckService["isUpdateAvailable"] = (localVersion) =>
-        isUpdateAvailableFromPath(cachePath, localVersion).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-        );
-
-      return {
-        readCache,
-        writeCache,
-        isUpdateAvailable,
-        shouldSkip,
-        notificationMessage,
-      } satisfies UpdateCheckService;
+      const path = yield* Path.Path;
+      return makeService(cachePath, fs, path);
     }),
   );

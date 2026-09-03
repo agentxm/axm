@@ -35,6 +35,7 @@ the CLI easier to predict and invalid workspaces easier to recover.
 | Use type-specific capabilities | Type command groups                                                                                     | Knowledge retrieval, inline MCP configuration, and similar type-owned work.      |
 | Author extensions              | [`new`, fork, Skill/Subagent import, adopt, demote, version, and type authoring commands](authoring.md) | Workspace-authored canonical content and explicit authority changes.             |
 | Distribute authored extensions | [`publish`](publish.md)                                                                                 | Eligible authored content is validated and sent to the registry.                 |
+| Upgrade AXM                    | [`axm upgrade`](upgrade.md)                                                                             | The executable moves to a verified promoted or exact stable release.             |
 
 ## Non-responsibilities
 
@@ -51,6 +52,8 @@ No command is a fallback owner for work that lacks a clear home:
 - setup does not reconstruct intent from observed files or become a repair
   workflow;
 - inspection commands do not mutate the state they report; and
+- upgrade does not discover stability from package-manager publication state;
+  and
 - `--force` does not turn a command into a more general operation; the
   executable specification `cli/force-bypasses-only-named-policies`
   bounds what it may bypass.

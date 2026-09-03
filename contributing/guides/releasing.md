@@ -110,11 +110,20 @@ state in the [specification catalog](../../specifications/catalog.md).
 6. Let GitHub Actions finish the publish.
 
    The GitHub Release triggers `publish.yml`, which validates the tag, downloads
-   the matching CI artifacts, uploads release binaries, packs every
-   `release:cli` npm package with `pnpm`, publishes them in dependency order
-   with `npm publish --provenance`, and updates Homebrew when
-   `HOMEBREW_TAP_TOKEN` is configured. Existing package versions are skipped so
-   recovery runs are idempotent.
+   the matching CI artifacts, uploads release binaries, and then promotes the
+   validated release coordinate through the Control API. Promotion uses native
+   HTTP preconditions: the first revision uses `If-None-Match: *`; later
+   revisions use the strong ETag read from the public stable-channel object.
+   Only after promotion succeeds does the workflow pack and publish every
+   `release:cli` npm package in dependency order and update Homebrew when
+   `HOMEBREW_TAP_TOKEN` is configured.
+
+   This ordering makes the stable channel the release-selection authority while
+   npm and Homebrew converge independently. A recovery rerun is idempotent. If
+   the channel already names the requested coordinate, promotion returns the
+   verified current state. If a newer release is already promoted, the workflow
+   retains it and may continue repairing lagging distribution channels without
+   rolling the channel back.
 
    If a release needs recovery after the GitHub Release already exists, run
    `publish.yml` manually with `workflow_dispatch` and the existing release tag.
@@ -220,3 +229,8 @@ available from GitHub Actions).
   rollback.
 - Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in
   `agentxm/axm`.
+- Stable-channel promotion requires `AXM_RELEASE_CONTROL_TOKEN`,
+  `AXM_CONTROL_ACCESS_CLIENT_ID`, and `AXM_CONTROL_ACCESS_CLIENT_SECRET`. The
+  bearer token is a workflow-bound principal with only `releases.promote`; the
+  Cloudflare Access service token admits the workflow to the private Control
+  surface.

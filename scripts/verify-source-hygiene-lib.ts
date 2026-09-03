@@ -238,13 +238,15 @@ export const countUnboundedConcurrencySites = (repoRoot: string): number => {
 };
 
 const AXM_ENVIRONMENT_LITERAL = /["'](AXM_[A-Z0-9_]+)["']/g;
+const AXM_INSTALLER_ENVIRONMENT_REFERENCE = /\b(AXM_[A-Z0-9_]+)\b/g;
 const AXM_ENVIRONMENT_CONTRACT_ROW =
   /^\|\s*`(AXM_[A-Z0-9_]+)`\s*\|\s*(stable automation|internal)\s*\|/;
 
 /**
  * Keep production AXM environment reads and the public environment reference
  * in exact correspondence. An exact AXM-prefixed string literal in CLI or core
- * production code is treated as an environment control and must be classified.
+ * production code, or an AXM-prefixed reference in an installer, is treated as
+ * an environment control and must be classified.
  */
 export const findAxmEnvironmentContractViolations = (
   repoRoot: string,
@@ -253,11 +255,24 @@ export const findAxmEnvironmentContractViolations = (
   for (const root of productionPackageSourceRoots(repoRoot)) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
   }
+  for (const installer of [
+    path.join(repoRoot, "packages", "cli", "site-content", "install.sh"),
+    path.join(repoRoot, "packages", "cli", "site-content", "install.ps1"),
+  ]) {
+    if (fs.existsSync(installer)) sourceFiles.push(installer);
+  }
 
   const sourceLocations = new Map<string, { readonly filePath: string; readonly line: number }>();
-  for (const filePath of sourceFiles.filter(isProductionTypeScriptSource)) {
+  for (const filePath of sourceFiles.filter((candidate) => {
+    if (candidate.endsWith(".sh") || candidate.endsWith(".ps1")) return true;
+    return isProductionTypeScriptSource(candidate);
+  })) {
     const source = fs.readFileSync(filePath, "utf8");
-    for (const match of source.matchAll(AXM_ENVIRONMENT_LITERAL)) {
+    const pattern =
+      filePath.endsWith(".sh") || filePath.endsWith(".ps1")
+        ? AXM_INSTALLER_ENVIRONMENT_REFERENCE
+        : AXM_ENVIRONMENT_LITERAL;
+    for (const match of source.matchAll(pattern)) {
       const variable = match[1];
       if (variable === undefined || sourceLocations.has(variable)) continue;
       sourceLocations.set(variable, {

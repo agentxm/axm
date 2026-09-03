@@ -190,6 +190,15 @@
         "cwd": "."
       }
     },
+    "promote-release-channel": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["extension-model:build"],
+      "options": {
+        "command": "bun scripts/promote-release-channel.ts",
+        "cwd": "."
+      }
+    },
     "update-homebrew-formula": {
       "executor": "nx:run-commands",
       "cache": false,

@@ -1,10 +1,17 @@
 /**
- * GitHub release selection and version comparison for CLI self-upgrade.
+ * Stable-channel and exact-version resolution for CLI self-upgrade.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
+import {
+  STABLE_CHANNEL_REPOSITORY,
+  STABLE_CHANNEL_URL,
+  decodeStableChannelDocument,
+  type StableChannelDocumentV1,
+} from "@agentxm/extension-model/unstable/release-channel";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -13,12 +20,11 @@ import * as semver from "semver";
 import { makeAppError } from "../app-error/index.js";
 
 const CLI_TAG_PREFIX = "cli-v";
-const RELEASE_PAGE_SIZE = 100;
-const MAX_RELEASE_PAGES = 100;
 const CHECKSUM_ASSET_NAME = "SHA256SUMS";
+const CHANNEL_REQUEST_TIMEOUT = "10 seconds";
 
-/** Default GitHub repository for CLI releases. */
-export const DEFAULT_GITHUB_REPO = "agentxm/axm";
+/** Default GitHub repository used for immutable exact-version artifacts. */
+export const DEFAULT_GITHUB_REPO = STABLE_CHANNEL_REPOSITORY;
 
 export type VersionRelation = "upgrade-available" | "current" | "local-newer" | "unknown-local";
 
@@ -35,200 +41,13 @@ export interface VersionResolutionResult {
   readonly localVersion: string | null;
   readonly versionRelation: VersionRelation;
   readonly release: ResolvedRelease;
+  /** Validated channel document for latest-mode resolution. */
+  readonly channel: StableChannelDocumentV1 | null;
+  /** Time at which the channel response was validated. */
+  readonly validatedAt: string;
+  /** Validator supplied by the channel origin, when present. */
+  readonly etag: string | null;
 }
-
-const GitHubReleaseAssetSchema = Schema.Struct({
-  name: Schema.String,
-  browser_download_url: Schema.optional(Schema.String),
-});
-
-const GitHubReleaseSchema = Schema.Struct({
-  tag_name: Schema.String,
-  draft: Schema.optional(Schema.Boolean),
-  prerelease: Schema.optional(Schema.Boolean),
-  assets: Schema.optional(Schema.Array(GitHubReleaseAssetSchema)),
-});
-
-const GitHubReleaseArraySchema = Schema.Array(GitHubReleaseSchema);
-type GitHubRelease = typeof GitHubReleaseSchema.Type;
-
-const decodeReleaseArray = Schema.decodeUnknownEffect(GitHubReleaseArraySchema);
-
-const githubErrorForStatus = (status: number) => {
-  if (status === 403 || status === 429) {
-    return makeAppError({
-      code: "rate_limit",
-      detail: "GitHub API rate limit prevented release resolution",
-      suggestions: [{ description: "Wait for the rate limit to reset and try again." }],
-    });
-  }
-  if (status === 404) {
-    return makeAppError({
-      code: "not_found",
-      detail: "GitHub release repository was not found",
-      suggestions: [{ description: "Check the configured GitHub repository and try again." }],
-    });
-  }
-  if (status >= 500) {
-    return makeAppError({
-      code: "unavailable",
-      detail: `GitHub API is temporarily unavailable (status ${String(status)})`,
-      suggestions: [{ description: "Try again shortly." }],
-    });
-  }
-  return makeAppError({
-    code: "internal",
-    detail: `GitHub API returned unexpected status ${String(status)}`,
-    suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
-  });
-};
-
-const mapDecodeError = (cause: Schema.SchemaError) =>
-  makeAppError({
-    code: "validation",
-    detail: "GitHub API returned an unexpected release response",
-    suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
-    cause,
-  });
-
-const nextLink = (header: string | undefined): string | null => {
-  if (header === undefined) return null;
-  for (const part of header.split(",")) {
-    const match = /^\s*<([^>]+)>\s*;\s*rel="next"\s*$/u.exec(part);
-    if (match?.[1] !== undefined) return match[1];
-  }
-  return null;
-};
-
-interface ReleasePage {
-  readonly releases: ReadonlyArray<GitHubRelease>;
-  readonly next: string | null;
-}
-
-const fetchReleasePage = (httpClient: HttpClient.HttpClient, url: string) =>
-  Effect.gen(function* () {
-    const response = yield* httpClient
-      .get(url, {
-        headers: {
-          Accept: "application/vnd.github+json",
-          "User-Agent": "axm-cli",
-        },
-      })
-      .pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "network",
-            detail: "GitHub API is unreachable",
-            suggestions: [{ description: "Check your network connection and try again." }],
-            cause,
-          }),
-        ),
-      );
-
-    if (response.status !== 200) return yield* githubErrorForStatus(response.status);
-
-    const json = yield* response.json.pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: "GitHub API response was not valid JSON",
-          suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
-          cause,
-        }),
-      ),
-    );
-    const releases = yield* decodeReleaseArray(json).pipe(Effect.mapError(mapDecodeError));
-
-    return {
-      releases,
-      next: nextLink(response.headers["link"] ?? response.headers["Link"]),
-    } satisfies ReleasePage;
-  });
-
-const fetchAllReleases = (httpClient: HttpClient.HttpClient, repo: string, apiBaseUrl: string) =>
-  Effect.gen(function* () {
-    let url: string | null =
-      `${apiBaseUrl.replace(/\/$/u, "")}/repos/${repo}/releases?per_page=${String(RELEASE_PAGE_SIZE)}`;
-    const releases: Array<GitHubRelease> = [];
-    const visited = new Set<string>();
-
-    while (url !== null) {
-      if (visited.has(url) || visited.size >= MAX_RELEASE_PAGES) {
-        return yield* makeAppError({
-          code: "validation",
-          detail: "GitHub release pagination was cyclic or exceeded the safety limit",
-          suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
-        });
-      }
-      visited.add(url);
-      const page: ReleasePage = yield* fetchReleasePage(httpClient, url);
-      releases.push(...page.releases);
-      url = page.next;
-    }
-
-    return releases;
-  });
-
-interface StableCandidate {
-  readonly release: GitHubRelease;
-  readonly version: string;
-}
-
-const selectTarget = (releases: ReadonlyArray<GitHubRelease>) =>
-  Effect.gen(function* () {
-    const cliTagged = releases.filter((release) => release.tag_name.startsWith(CLI_TAG_PREFIX));
-    if (cliTagged.length === 0) {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: "No CLI-tagged GitHub release exists",
-        suggestions: [{ description: "Try again after a CLI release is published." }],
-      });
-    }
-
-    const stableSemver: Array<StableCandidate> = [];
-    for (const release of cliTagged) {
-      const rawVersion = release.tag_name.slice(CLI_TAG_PREFIX.length);
-      const validVersion = semver.valid(rawVersion);
-      if (validVersion === null || semver.prerelease(validVersion) !== null) continue;
-      stableSemver.push({ release, version: validVersion });
-    }
-
-    if (stableSemver.length === 0) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: "CLI-tagged releases exist, but none has a valid stable semantic version",
-        suggestions: [{ description: "Publish a stable release tagged cli-v<semver>." }],
-      });
-    }
-
-    const eligible = stableSemver.filter(
-      ({ release }) => release.draft !== true && release.prerelease !== true,
-    );
-    if (eligible.length === 0) {
-      return yield* makeAppError({
-        code: "unavailable",
-        detail: "No published stable CLI release is currently available",
-        suggestions: [{ description: "Try again after release publication completes." }],
-      });
-    }
-
-    eligible.sort((left, right) => semver.rcompare(left.version, right.version));
-    const selected = eligible[0];
-    if (selected === undefined) {
-      return yield* makeAppError({
-        code: "internal",
-        detail: "Release selection produced no target",
-      });
-    }
-    return selected;
-  });
-
-const singleAssetUrl = (release: GitHubRelease, assetName: string): string | null => {
-  const matches = (release.assets ?? []).filter((asset) => asset.name === assetName);
-  if (matches.length !== 1) return null;
-  const url = matches[0]?.browser_download_url;
-  return url === undefined || url.length === 0 ? null : url;
-};
 
 const classifyRelation = (
   localVersion: string | null,
@@ -246,43 +65,185 @@ const classifyRelation = (
   };
 };
 
+const channelErrorForStatus = (status: number, retryAfter: string | undefined) => {
+  if (status === 403 || status === 429) {
+    return makeAppError({
+      code: "rate_limit",
+      detail:
+        retryAfter === undefined
+          ? "Stable release discovery was rate limited"
+          : `Stable release discovery was rate limited; retry after ${retryAfter}`,
+      suggestions: [{ description: "Wait before trying again." }],
+    });
+  }
+  if (status === 404) {
+    return makeAppError({
+      code: "not_found",
+      detail: "The stable release channel does not exist",
+      suggestions: [{ description: "Try again after a stable CLI release is promoted." }],
+    });
+  }
+  if (status >= 500) {
+    return makeAppError({
+      code: "unavailable",
+      detail: `Stable release discovery is temporarily unavailable (status ${String(status)})`,
+      suggestions: [{ description: "Try again shortly." }],
+    });
+  }
+  return makeAppError({
+    code: "internal",
+    detail: `Stable release discovery returned unexpected status ${String(status)}`,
+    suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
+  });
+};
+
+const mapChannelDecodeError = (cause: Schema.SchemaError) =>
+  makeAppError({
+    code: "validation",
+    detail: "Stable release discovery returned an invalid channel document",
+    suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
+    cause,
+  });
+
+const releaseAsset = (document: StableChannelDocumentV1, requiredAsset: string | undefined) => {
+  if (requiredAsset === undefined) return null;
+  return document.artifacts.binaries.find((candidate) => candidate.name === requiredAsset) ?? null;
+};
+
 /**
- * Resolve the highest eligible stable CLI release and compare it with the
- * observed local version. When `requiredAsset` is provided, the selected
- * release must contain exactly one platform binary and one checksum manifest.
+ * Resolve the promoted stable CLI release with exactly one bounded channel
+ * request. GitHub release enumeration is deliberately not part of discovery.
  */
 export const resolveLatestVersion = (
   httpClient: HttpClient.HttpClient,
   localVersion: string | null,
-  repo: string = DEFAULT_GITHUB_REPO,
   requiredAsset?: string,
-  apiBaseUrl = "https://api.github.com",
+  channelUrl = STABLE_CHANNEL_URL,
 ) =>
   Effect.gen(function* () {
-    const releases = yield* fetchAllReleases(httpClient, repo, apiBaseUrl);
-    const selected = yield* selectTarget(releases);
-    const relation = classifyRelation(localVersion, selected.version);
-    const binaryAssetUrl =
-      requiredAsset === undefined ? null : singleAssetUrl(selected.release, requiredAsset);
-    const checksumAssetUrl =
-      requiredAsset === undefined ? null : singleAssetUrl(selected.release, CHECKSUM_ASSET_NAME);
+    const response = yield* httpClient
+      .get(channelUrl, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "axm-cli",
+        },
+      })
+      .pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "network",
+            detail: "Stable release discovery is unreachable",
+            suggestions: [{ description: "Check your network connection and try again." }],
+            cause,
+          }),
+        ),
+        Effect.timeoutOrElse({
+          duration: CHANNEL_REQUEST_TIMEOUT,
+          orElse: () =>
+            Effect.fail(
+              makeAppError({
+                code: "network",
+                detail: "Stable release discovery timed out",
+                suggestions: [{ description: "Check your network connection and try again." }],
+              }),
+            ),
+        }),
+      );
 
-    if (requiredAsset !== undefined && (binaryAssetUrl === null || checksumAssetUrl === null)) {
+    if (response.status !== 200) {
+      return yield* channelErrorForStatus(
+        response.status,
+        response.headers["retry-after"] ?? response.headers["Retry-After"],
+      );
+    }
+
+    const json = yield* response.json.pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "validation",
+          detail: "Stable release discovery returned invalid JSON",
+          suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
+          cause,
+        }),
+      ),
+    );
+    const channel = yield* decodeStableChannelDocument(json).pipe(
+      Effect.mapError(mapChannelDecodeError),
+    );
+    const binary = releaseAsset(channel, requiredAsset);
+
+    if (requiredAsset !== undefined && binary === null) {
       return yield* makeAppError({
         code: "unavailable",
-        detail: `CLI ${selected.version} is published, but required release assets are unavailable`,
-        suggestions: [{ description: "Try again after release publication completes." }],
+        detail: `CLI ${channel.version} is promoted, but ${requiredAsset} is unavailable`,
+        suggestions: [{ description: "Try again after release promotion is repaired." }],
       });
     }
 
+    const relation = classifyRelation(localVersion, channel.version);
     return {
-      targetVersion: selected.version,
+      targetVersion: channel.version,
       localVersion: relation.localVersion,
       versionRelation: relation.versionRelation,
       release: {
-        tagName: selected.release.tag_name,
-        binaryAssetUrl,
-        checksumAssetUrl,
+        tagName: channel.release.tag,
+        binaryAssetUrl: binary?.url ?? null,
+        checksumAssetUrl: channel.artifacts.checksumManifest.url,
       },
+      channel,
+      validatedAt: DateTime.formatIso(yield* DateTime.now),
+      etag: response.headers["etag"] ?? response.headers["ETag"] ?? null,
+    } satisfies VersionResolutionResult;
+  });
+
+const normalizeExactVersion = (requestedVersion: string) => {
+  if (requestedVersion.startsWith("v")) {
+    return null;
+  }
+  const normalized = semver.valid(requestedVersion);
+  if (
+    normalized === null ||
+    normalized !== requestedVersion ||
+    semver.prerelease(normalized) !== null
+  ) {
+    return null;
+  }
+  return normalized;
+};
+
+/** Resolve immutable GitHub coordinates without network discovery. */
+export const resolveExactVersion = (
+  requestedVersion: string,
+  localVersion: string | null,
+  requiredAsset?: string,
+  repository = DEFAULT_GITHUB_REPO,
+) =>
+  Effect.gen(function* () {
+    const targetVersion = normalizeExactVersion(requestedVersion);
+    if (targetVersion === null) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Invalid exact CLI version: ${requestedVersion}`,
+        suggestions: [{ description: "Use a stable semantic version without a leading v." }],
+      });
+    }
+
+    const tagName = `${CLI_TAG_PREFIX}${targetVersion}`;
+    const assetUrl = (name: string) =>
+      `https://github.com/${repository}/releases/download/${tagName}/${name}`;
+    const relation = classifyRelation(localVersion, targetVersion);
+
+    return {
+      targetVersion,
+      localVersion: relation.localVersion,
+      versionRelation: relation.versionRelation,
+      release: {
+        tagName,
+        binaryAssetUrl: requiredAsset === undefined ? null : assetUrl(requiredAsset),
+        checksumAssetUrl: assetUrl(CHECKSUM_ASSET_NAME),
+      },
+      channel: null,
+      validatedAt: DateTime.formatIso(yield* DateTime.now),
+      etag: null,
     } satisfies VersionResolutionResult;
   });

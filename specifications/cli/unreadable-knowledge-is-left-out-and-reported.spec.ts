@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
-  status: "candidate",
+  status: "accepted",
   methods: ["example"],
   derivedFrom: [
     "packages/extension-lifecycle/src/knowledge/manager.ts",

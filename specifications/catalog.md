@@ -627,7 +627,7 @@ behavior.
 ##### A Knowledge bundle AXM cannot read is left out of the instructions file and reported
 
 - Requirement: `cli/unreadable-knowledge-is-left-out-and-reported`
-- Status: candidate
+- Status: accepted
 - Statement: When a desired Knowledge bundle's package cannot be read, AXM shall leave that bundle out of the generated instructions file, shall report the omission with its reason and remedy on every command that writes or inspects that file, and shall not fail another extension's operation because of it.
 - Class: functional
 - Role: experience

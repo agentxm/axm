@@ -423,12 +423,45 @@ describe("main CLI help", () => {
     expect(getOutput(result)).toMatch(/Unknown (command|subcommand)/u);
   });
 
-  it("does not show the removed --agent flag on subagents install", async () => {
-    const result = await runCli(["subagents", "install", "--help"]);
+  it.each([
+    ["subagents", "install"],
+    ["skills", "install"],
+    ["skills", "uninstall"],
+    ["skills", "new"],
+    ["subagents", "new"],
+    ["skills", "update"],
+    ["subagents", "update"],
+    ["mcps", "add"],
+    ["mcps", "install"],
+  ])("does not show the removed --agent flag on %s %s", async (...path) => {
+    const result = await runCli([...path, "--help"]);
     const output = getOutput(result);
 
     expect(result.exitCode).toBe(0);
     expect(output).not.toContain("--agent");
+  });
+
+  it.each([
+    ["skills", "new", "example"],
+    ["subagents", "new", "example"],
+    ["skills", "update"],
+    ["subagents", "update"],
+  ])("rejects --agent on %s %s before any work begins", async (...path) => {
+    const result = await runCli([...path, "--agent", "claude-code"]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(getOutput(result)).toContain("--agent");
+  });
+
+  it.each([
+    ["setup", "--scope", "project", "--yes", "--non-interactive"],
+    ["skills", "list"],
+    ["subagents", "list"],
+  ])("rejects an unsupported agent identifier at parse time for %s", async (...path) => {
+    const result = await runCli([...path, "--agent", "not-an-agent"]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(getOutput(result)).toContain("not-an-agent");
   });
 
   it.each([

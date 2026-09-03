@@ -125,7 +125,7 @@ export const collectMcpImportSources = (
         Effect.map(
           Option.match({
             onNone: () => undefined,
-            onSome: (config) => sources.push({ filePath, serversKey, config, agents: [agentId] }),
+            onSome: (config) => sources.push({ filePath, serversKey, config }),
           }),
         ),
       );
@@ -278,13 +278,6 @@ const recordsEqual = (
   );
 };
 
-const arraysEqual = (
-  left: ReadonlyArray<string> | undefined,
-  right: ReadonlyArray<string> | undefined,
-): boolean =>
-  JSON.stringify([...(left ?? [])].sort((a, b) => a.localeCompare(b))) ===
-  JSON.stringify([...(right ?? [])].sort((a, b) => a.localeCompare(b)));
-
 const candidateMatchesSettings = (
   candidate: McpImportCandidate,
   entry: McpServerEntry | undefined,
@@ -301,8 +294,7 @@ const candidateMatchesSettings = (
     entry.headers,
     candidate.definition.type === "http" ? candidate.definition.headers : undefined,
   ) &&
-  recordsEqual(entry.env, candidate.env) &&
-  arraysEqual(entry.agents, candidate.agents);
+  recordsEqual(entry.env, candidate.env);
 
 const validateAdoption = (
   fs: FileSystem.FileSystem,
@@ -341,7 +333,6 @@ export const applyMcpImport = <HookError = never>(
       : { url: candidate.definition.url, headers: candidate.definition.headers }),
     env: candidate.env,
     enabled: true,
-    ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
   });
   return ws.runTransaction({
     targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),

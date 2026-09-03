@@ -12,7 +12,6 @@ import type {
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { mcpServerAgentDriftRule } from "../../mcps-agent-drift.js";
 import { mcpServerAgentOrphanedRule } from "../../mcps-agent-orphaned.js";
-import { mcpServerSharedTargetCompatibleRule } from "../../mcps-shared-target-compatible.js";
 import {
   contextFor,
   validLockfile,
@@ -29,32 +28,6 @@ const inlineDemo = {
   enabled: true,
   env: {},
 } satisfies McpServerEntry;
-
-const sharedTargetContext = (agents?: ReadonlyArray<"claude-code" | "github-copilot-cli">) =>
-  contextFor({
-    settings: validSettings({
-      agents: ["claude-code", "github-copilot-cli"],
-      mcpServers:
-        agents === undefined
-          ? { demo: { command: "node", args: ["server.js"] } }
-          : { demo: { command: "node", args: ["server.js"], agents } },
-    }),
-    lockfile: validLockfile,
-  });
-
-export const mcpSharedTargetCompatibleConformance: WorkspaceRuleConformanceCase = {
-  rule: mcpServerSharedTargetCompatibleRule,
-  satisfied: () => sharedTargetContext(),
-  violated: () => sharedTargetContext(["claude-code"]),
-  expectedFindings: [
-    {
-      message:
-        "MCP server 'demo' projects a value that another configured agent rejects in shared target '.mcp.json'. MCP target policy cannot be represented; targeted agents claude-code share it with untargeted agents github-copilot-cli. Update the configured agents or their MCP compatibility metadata before syncing.",
-      location: { file: "axm.json" },
-    },
-  ],
-  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
-};
 
 const managedDemoConfig = (command: string): Readonly<Record<string, unknown>> => ({
   "x-axm": {

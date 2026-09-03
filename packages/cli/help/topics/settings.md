@@ -191,12 +191,13 @@ defaults are `skills`, `mcps`, `subagents`, `rules`, `hooks`, `knowledge`, and
 
 Registry MCP servers use the same source-string form as other extensions. The
 map key is the local connection name, so multiple keys may reference one source
-while keeping separate inputs, activation, agent targeting, and projections.
+while keeping separate inputs, activation, and projections.
 They share one accepted source resolution. Inline
 MCP servers can be declared directly with either `command`/`args` for stdio or
 `url`/`headers` for a remote server. Use `axm mcps add` for both forms, `axm
 mcps import` to adopt unmanaged entries from existing agent config files, and
-`axm sync` to reconcile configured servers with their applicable agents.
+`axm sync` to reconcile configured servers with every configured agent that can
+represent them.
 
 ```jsonc
 {
@@ -207,7 +208,6 @@ mcps import` to adopt unmanaged entries from existing agent config files, and
       "command": "npx",
       "args": ["-y", "linear-mcp-server"],
       "env": ["LINEAR_API_KEY"],
-      "agents": ["claude-code", "codex"],
     },
     "sentry": {
       "url": "https://mcp.sentry.dev/sse",
@@ -220,16 +220,15 @@ mcps import` to adopt unmanaged entries from existing agent config files, and
 MCP `env` accepts either a map or an array of variable names. Array entries
 decode to `${VAR}` references. Keep secrets out of settings by storing
 `${VAR}` references in `env` and `headers`; AXM preserves those references when
-syncing agent config and blocks an applicable agent that cannot represent one.
+syncing agent config and reports a configured agent that cannot represent one
+as unsupported.
 
-An MCP entry's optional `agents` field is a non-empty inclusion list. Omit it
-to target every workspace-configured agent. Applicability also requires the
-agent to support the server transport and a native config target for the
-selected scope. `axm mcps add` and `axm mcps install` accept repeatable
-`--agent`; `axm mcps import` retains the native agent footprint where it found
-the unmanaged server. Removing an agent from the subset removes only AXM-owned
-native state. A subset that splits agents sharing one native config file is
-unsupported and blocks reconciliation.
+An MCP entry carries no agent list of its own. Every agent in the workspace
+`agents` list that supports the server transport and has a native config target
+for the selected scope receives the server; an agent that cannot represent it
+is reported as unsupported. `axm mcps import` records each adopted server once,
+and the next reconciliation writes it to every configured agent that can
+represent it.
 
 ## Authoring
 

@@ -29,7 +29,6 @@ import {
 import {
   mcpAgentDriftConformance,
   mcpAgentOrphanedConformance,
-  mcpSharedTargetCompatibleConformance,
 } from "./conformance/mcps/test-helpers.js";
 import {
   desiredStateReconcilableConformance,
@@ -79,7 +78,6 @@ const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   knowledgeStateValidConformance,
   mcpTransportExclusivityConformance,
   mcpNoSecretLiteralConformance,
-  mcpSharedTargetCompatibleConformance,
   mcpAgentDriftConformance,
   mcpAgentOrphanedConformance,
   skillsLockfileAlignedConformance,

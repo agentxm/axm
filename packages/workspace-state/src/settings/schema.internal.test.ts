@@ -78,6 +78,21 @@ describe("Settings schema", () => {
       ).toThrow();
     });
 
+    it("rejects a per-entry agent subset on MCP server entries and names the key", () => {
+      for (const entry of [
+        { command: "npx", args: ["-y", "example-mcp"], agents: ["claude-code"] },
+        { source: "@acme/mcps/context@^1.0.0", agents: ["claude-code"] },
+        { url: "https://mcp.example.dev/sse", agents: ["claude-code"] },
+      ]) {
+        expect(() =>
+          Schema.decodeUnknownSync(SettingsSchema)(
+            { agents: ["claude-code", "codex"], mcpServers: { example: entry } },
+            { onExcessProperty: "error" },
+          ),
+        ).toThrow(/agents/);
+      }
+    });
+
     it("accepts minimumReleaseAge duration strings", () => {
       const input = { minimumReleaseAge: "24h" };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
@@ -1025,33 +1040,6 @@ describe("Settings schema", () => {
         });
       });
 
-      it("decodes an MCP server agent target subset", () => {
-        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
-          command: "npx",
-          agents: ["claude-code", "codex"],
-        });
-
-        expect(result).toEqual({
-          kind: "inline",
-          command: "npx",
-          enabled: true,
-          env: {},
-          agents: ["claude-code", "codex"],
-        });
-      });
-
-      it("rejects empty or duplicate MCP server agent target subsets", () => {
-        expect(() =>
-          Schema.decodeUnknownSync(McpServerEntrySchema)({ command: "npx", agents: [] }),
-        ).toThrow();
-        expect(() =>
-          Schema.decodeUnknownSync(McpServerEntrySchema)({
-            command: "npx",
-            agents: ["codex", "codex"],
-          }),
-        ).toThrow();
-      });
-
       it("decodes an inline remote object", () => {
         const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
           url: "https://mcp.sentry.dev/sse",
@@ -1105,21 +1093,6 @@ describe("Settings schema", () => {
           command: "npx",
           args: ["-y", "linear-mcp-server"],
           env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
-        });
-      });
-
-      it("preserves MCP server agent targets in encoded settings", () => {
-        const result = Schema.encodeSync(McpServerEntrySchema)({
-          kind: "sourced",
-          source: "@wayne/mcps/batcomputer",
-          enabled: true,
-          env: {},
-          agents: ["codex"],
-        });
-
-        expect(result).toEqual({
-          source: "@wayne/mcps/batcomputer",
-          agents: ["codex"],
         });
       });
     });

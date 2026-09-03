@@ -234,11 +234,9 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
         status:
           inspection.status === "match"
             ? "current"
-            : inspection.status === "not-applicable"
-              ? "not-applicable"
-              : inspection.status === "unsupported"
-                ? "unsupported"
-                : "failed",
+            : inspection.status === "unsupported"
+              ? "unsupported"
+              : "failed",
         reasonCode: `mcp-${inspection.status}`,
         path: inspection.path,
         fields: [...inspection.fields],

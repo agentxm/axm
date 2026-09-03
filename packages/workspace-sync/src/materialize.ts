@@ -679,10 +679,7 @@ export const collectMaterializeSteps = <
             Effect.provideService(Path.Path, path),
           );
           const current = inspections.every(
-            (inspection) =>
-              inspection.status === "match" ||
-              inspection.status === "unsupported" ||
-              inspection.status === "not-applicable",
+            (inspection) => inspection.status === "match" || inspection.status === "unsupported",
           );
           if (current) return Option.none<PlannedJobStep<R | SyncStepRequirements>>();
           const conflicts = inspections.filter((inspection) => inspection.status === "unmanaged");

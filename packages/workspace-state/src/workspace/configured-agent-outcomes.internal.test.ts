@@ -28,7 +28,7 @@ describe("configuredAgentLifecycleOutcomes", () => {
     ]);
   });
 
-  it("distinguishes excluded, disabled, current, and missing projections", () => {
+  it("distinguishes disabled, current, and missing projections", () => {
     const base = {
       type: "mcp-server" as const,
       name: "docs",
@@ -43,11 +43,10 @@ describe("configuredAgentLifecycleOutcomes", () => {
         ...base,
         targetState: "enabled",
         observedAgentIds: ["claude-code"],
-        applicableAgentIds: ["claude-code"],
       }),
     ).toMatchObject([
       { agentId: "claude-code", outcome: "current" },
-      { agentId: "codex", outcome: "not-applicable", reasonCode: "target-policy-excluded" },
+      { agentId: "codex", outcome: "failed", reasonCode: "projection-missing" },
     ]);
 
     expect(configuredAgentLifecycleOutcomes({ ...base, targetState: "disabled" })).toMatchObject([

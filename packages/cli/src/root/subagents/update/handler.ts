@@ -54,7 +54,6 @@ import { lifecycleFailureToAppError } from "../../../feature-errors.js";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
-  readonly agents: readonly string[];
   readonly subagents: readonly string[];
   readonly force: boolean;
   readonly yes: boolean;
@@ -449,7 +448,6 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
       ["subagents", "update"],
       [
         recoverySwitch("--ignore-version-constraints", args.force),
-        ...args.agents.map((agent) => recoveryOption("--agent", publicRecoveryValue(agent))),
         ...args.subagents.map((subagent) =>
           recoveryOption("--name", publicRecoveryValue(subagent)),
         ),

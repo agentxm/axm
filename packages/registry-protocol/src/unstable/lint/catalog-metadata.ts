@@ -617,12 +617,6 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: bothViews,
   },
   {
-    id: "workspace/mcps-shared-target-compatible",
-    defaultSeverity: "error",
-    group: "workspace",
-    views: bothViews,
-  },
-  {
     id: "workspace/mcps-agent-drift",
     defaultSeverity: "warning",
     group: "workspace",

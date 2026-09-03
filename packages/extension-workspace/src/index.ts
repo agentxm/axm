@@ -329,13 +329,7 @@ export {
   type SharedMcpTargetResolution,
   type SharedMcpTransport,
 } from "./mcps/shared-target.js";
-export {
-  groupConfiguredMcpTargets,
-  MCP_NOT_APPLICABLE_REASON,
-  planMcpTargetGroups,
-  sharedMcpTargetPolicyConflict,
-  type McpTargetGroup,
-} from "./mcps/targeting.js";
+export { groupConfiguredMcpTargets, type McpTargetGroup } from "./mcps/targeting.js";
 
 // Subagent vocabulary
 export {

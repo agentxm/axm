@@ -21,7 +21,6 @@ import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
 } from "./command-actions.js";
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeAppError } from "../../../app-error/index.js";
 
 export interface InstallMcpServerFlags {
@@ -34,7 +33,6 @@ export interface McpServerInstallHandlerArgs {
   readonly source: Option.Option<string>;
   readonly localName?: Option.Option<string>;
   readonly env: ReadonlyArray<string>;
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 export const handleInstallMcpServer = (
@@ -63,12 +61,6 @@ const handleInstallMcpServerBody = (
           detail: "--as requires an MCP server source",
         });
       }
-      if (args.agents !== undefined) {
-        return yield* makeAppError({
-          code: "usage",
-          detail: "--agent requires an MCP server source",
-        });
-      }
       return yield* handleWorkspaceInstall({
         command: "mcps.install",
         type: Option.some("mcp-server"),
@@ -84,7 +76,6 @@ const handleInstallMcpServerBody = (
       ...(Option.isSome(localName) ? { localName: localName.value } : {}),
       env: args.env,
       force: flags.force,
-      ...(args.agents === undefined ? {} : { agents: args.agents }),
     };
     const execution = yield* makeInstallPlanExecution(
       flags,
@@ -96,9 +87,6 @@ const handleInstallMcpServerBody = (
           onSome: (name) => [recoveryOption("--as", publicRecoveryValue(name))],
         }),
         ...args.env.map(() => recoveryOption("--env", protectedRecoveryValue())),
-        ...(args.agents ?? []).map((agent) =>
-          recoveryOption("--agent", publicRecoveryValue(agent)),
-        ),
       ],
     );
     const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, {

@@ -40,8 +40,8 @@ flatten them into settings.
 For a sourced MCP entry, the `mcpServers` map key is the workspace-local
 connection name and the value identifies its package source. Several local
 names may deliberately reference the same source. Their per-connection
-activation, inputs, and agent targeting remain distinct, while their source
-constraints participate in one shared resolution closure. An inline MCP key is
+activation and inputs remain distinct, while their source constraints
+participate in one shared resolution closure. An inline MCP key is
 also a local connection name, but its definition is settings authority and
 does not join an external source closure.
 

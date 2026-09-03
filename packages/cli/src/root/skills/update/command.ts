@@ -15,10 +15,6 @@ const updateConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Update skills in project (default) or user-level configuration"),
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Update only skills installed for specific agents"),
-    Flag.atLeast(0),
-  ),
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific skills by name or glob pattern"),
   ),
@@ -34,10 +30,9 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, agent, name, yes, force, preview }) =>
+  ({ source, scope, name, yes, force, preview }) =>
     handleUpdate({
       source,
-      agents: agent,
       skills: name,
       yes,
       force,

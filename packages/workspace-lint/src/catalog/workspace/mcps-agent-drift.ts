@@ -14,7 +14,7 @@ import {
   inferInlineRemoteTransport,
   projectExpectedEntry,
   resolveSharedMcpTarget,
-  planMcpTargetGroups,
+  groupConfiguredMcpTargets,
 } from "@agentxm/extension-workspace";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import type { ActualMcpServer, InstalledMcpServer } from "@agentxm/workspace-state";
@@ -116,9 +116,8 @@ const checkActual = (args: {
   readonly configuredAgents: ReadonlySet<string>;
 }): DriftedAgentConfig | undefined => {
   if (args.actual.config === null || args.actual.configFile === null) return undefined;
-  const groups = planMcpTargetGroups({
-    configuredAgentIds: [...args.configuredAgents],
-    entry: args.entry,
+  const groups = groupConfiguredMcpTargets({
+    agentIds: [...args.configuredAgents],
     scope: args.row.key.scope,
   });
   const agentId =

@@ -35,8 +35,6 @@ export interface NewSkillOperationArgs {
   readonly name: string;
   /** Profile (e.g., "@myorg"). */
   readonly owner: Handle;
-  /** Agent IDs selected by the CLI. Install/materialization consumes workspace configuration. */
-  readonly agents: ReadonlyArray<string>;
 }
 
 /**

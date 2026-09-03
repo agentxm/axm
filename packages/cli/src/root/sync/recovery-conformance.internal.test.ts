@@ -256,11 +256,6 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
-  makeEntry("workspace/mcps-shared-target-compatible", {
-    owner: "manual-preservation",
-    field: "unownedContent",
-    evidence: workspaceEvidence,
-  }),
   makeEntry("workspace/skills-lockfile-aligned", {
     owner: "sync",
     field: "lockAuthority",

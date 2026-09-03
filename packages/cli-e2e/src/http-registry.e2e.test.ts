@@ -112,8 +112,8 @@ const isBlocked = (entry: ScaffoldPublish | BlockedPublish): entry is BlockedPub
  * coverage is decided rather than silently missing from the suite.
  */
 const HTTP_PUBLISH = {
-  skill: { newArgs: ["--agent", "claude-code"] },
-  subagent: { newArgs: ["--agent", "claude-code"] },
+  skill: { newArgs: [] },
+  subagent: { newArgs: [] },
   knowledge: { newArgs: [] },
   hook: { newArgs: [] },
   rule: { newArgs: [] },
@@ -235,10 +235,10 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(workspace.path, registry.url);
-      const created = await runCli(
-        ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(created.exitCode, created.stderr).toBe(0);
       const published = await runCli(
         ["skills", "publish", `${OWNER}/skills/${name}`, "--visibility", "private", "--yes"],
@@ -346,10 +346,10 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(publisher.path, registry.url);
-      const created = await runCli(
-        ["skills", "new", "review", "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: publisher.path, env },
-      );
+      const created = await runCli(["skills", "new", "review", "--owner", OWNER, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
       expect(created.exitCode, created.stderr).toBe(0);
       const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
         cwd: publisher.path,
@@ -452,10 +452,10 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(workspace.path, registry.url);
-      const createReview = await runCli(
-        ["skills", "new", "review", "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const createReview = await runCli(["skills", "new", "review", "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(createReview.exitCode, createReview.stderr).toBe(0);
       const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
         cwd: workspace.path,
@@ -463,10 +463,10 @@ describe("HTTP registry transport", () => {
       });
       expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
 
-      const createDeploy = await runCli(
-        ["skills", "new", "deploy", "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const createDeploy = await runCli(["skills", "new", "deploy", "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(createDeploy.exitCode, createDeploy.stderr).toBe(0);
       const bumpReview = await runCli(["version", `${OWNER}/skills/review`, "minor"], {
         cwd: workspace.path,
@@ -525,16 +525,7 @@ describe("HTTP registry transport", () => {
       try {
         await initWorkspace(workspace.path, registry.url);
         const created = await runCli(
-          [
-            "skills",
-            "new",
-            `blocked-${publishPreviewMode}`,
-            "--owner",
-            OWNER,
-            "--agent",
-            "claude-code",
-            "--yes",
-          ],
+          ["skills", "new", `blocked-${publishPreviewMode}`, "--owner", OWNER, "--yes"],
           { cwd: workspace.path, env: registryEnv(registry.url) },
         );
         expect(created.exitCode, created.stderr).toBe(0);
@@ -576,16 +567,7 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       const created = await runCli(
-        [
-          "skills",
-          "new",
-          "preview-service-unavailable",
-          "--owner",
-          OWNER,
-          "--agent",
-          "claude-code",
-          "--yes",
-        ],
+        ["skills", "new", "preview-service-unavailable", "--owner", OWNER, "--yes"],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(created.exitCode, created.stderr).toBe(0);
@@ -645,7 +627,7 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       const createdSkill = await runCli(
-        ["skills", "new", "pack-member", "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        ["skills", "new", "pack-member", "--owner", OWNER, "--yes"],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(createdSkill.exitCode, createdSkill.stderr).toBe(0);
@@ -690,10 +672,10 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       for (const name of ["retry-first", "retry-second"]) {
-        const created = await runCli(
-          ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-          { cwd: workspace.path, env: registryEnv(registry.url) },
-        );
+        const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+          cwd: workspace.path,
+          env: registryEnv(registry.url),
+        });
         expect(created.exitCode, created.stderr).toBe(0);
       }
 
@@ -772,10 +754,10 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(workspace.path, registry.url);
-      const created = await runCli(
-        ["skills", "new", "ambiguous", "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const created = await runCli(["skills", "new", "ambiguous", "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(created.exitCode, created.stderr).toBe(0);
 
       const hung = registry.nextHungPublish();
@@ -843,10 +825,10 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       for (const name of ["failing-member", "independent-member"]) {
-        const created = await runCli(
-          ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-          { cwd: workspace.path, env: registryEnv(registry.url) },
-        );
+        const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+          cwd: workspace.path,
+          env: registryEnv(registry.url),
+        });
         expect(created.exitCode, created.stderr).toBe(0);
       }
       const createdPack = await runCli(
@@ -963,10 +945,10 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(publisher.path, registry.url);
-      const created = await runCli(
-        ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: publisher.path, env },
-      );
+      const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
       expect(created.exitCode, created.stderr).toBe(0);
       const firstPublish = await runCli(
         ["skills", "publish", fqn, "--visibility", "private", "--yes"],

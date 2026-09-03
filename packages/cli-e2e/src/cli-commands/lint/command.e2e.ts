@@ -295,9 +295,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           const before = await runCli(["lint", "--json"], { cwd: temp.path, env });
           const beforeFindings = JSON.parse(before.stdout)?.result?.findings ?? [];
           const beforeSharedFinding = beforeFindings.find(
-            (finding: { ruleId: string }) =>
-              finding.ruleId === "workspace/mcps-agent-drift" ||
-              finding.ruleId === "workspace/mcps-shared-target-compatible",
+            (finding: { ruleId: string }) => finding.ruleId === "workspace/mcps-agent-drift",
           );
           expect(beforeSharedFinding).toBeDefined();
           expect(beforeSharedFinding.path).toBe("./.mcp.json");
@@ -319,9 +317,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           const after = await runCli(["lint", "--json"], { cwd: temp.path, env });
           const afterFindings = JSON.parse(after.stdout)?.result?.findings ?? [];
           const sharedMcpFindings = afterFindings.filter(
-            (finding: { ruleId: string }) =>
-              finding.ruleId === "workspace/mcps-agent-drift" ||
-              finding.ruleId === "workspace/mcps-shared-target-compatible",
+            (finding: { ruleId: string }) => finding.ruleId === "workspace/mcps-agent-drift",
           );
           expect(sharedMcpFindings).toEqual([]);
           expect(after.exitCode, `${after.stderr}\n${after.stdout}`).toBe(0);

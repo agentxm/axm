@@ -7,8 +7,6 @@ import {
   syncInlineMcpServerToAgents,
   type McpServerSyncTarget,
 } from "@agentxm/extension-workspace";
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeAppError } from "../../app-error/index.js";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -47,7 +45,6 @@ export interface McpsAddArgs {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 const syncStep = (
@@ -219,7 +216,6 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
       existing: configured[args.name],
       definition,
       env,
-      agents: args.agents,
     })
   ) {
     yield* emitNoOpOutcome("mcps.add", {
@@ -242,7 +238,6 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
             : { url: definition.url, headers: definition.headers }),
           env,
           enabled: true,
-          ...(args.agents === undefined ? {} : { agents: args.agents }),
         })
         .pipe(Effect.mapError(toAppError))
         .pipe(
@@ -282,11 +277,6 @@ const addConfig = {
     Flag.withDescription("Remote header as Name:Value; repeatable"),
     Flag.atLeast(0),
   ),
-  agent: Flag.choice("agent", CONFIGURABLE_AGENT_IDS).pipe(
-    Flag.withDescription("Coding agent to target; repeatable (default: all configured agents)"),
-    Flag.atLeast(1),
-    Flag.optional,
-  ),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
   force: acceptWarningsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
@@ -295,17 +285,13 @@ const addConfig = {
 export const addCommand = Command.make(
   "add",
   addConfig,
-  ({ name, scope, command, url, env, header, agent, yes, force, preview }) =>
+  ({ name, scope, command, url, env, header, yes, force, preview }) =>
     handleMcpsAdd({
       name,
       command,
       url,
       env,
       header,
-      ...Option.match(agent, {
-        onNone: () => ({}),
-        onSome: (value) => ({ agents: [...value] }),
-      }),
       yes,
       force,
       preview,

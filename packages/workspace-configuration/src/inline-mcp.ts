@@ -8,7 +8,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import { WorkspaceConfigurationFailed } from "./errors.js";
 import type { InlineMcpDefinition } from "./mcp-import-preflight.js";
@@ -144,7 +143,6 @@ export const matchesInlineMcpEntry = (args: {
   readonly existing: McpServerEntry | undefined;
   readonly definition: InlineMcpDefinition;
   readonly env: Readonly<Record<string, string>>;
-  readonly agents: ReadonlyArray<ConfigurableAgentId> | undefined;
 }): boolean =>
   args.existing !== undefined &&
   args.existing.kind === "inline" &&
@@ -160,8 +158,7 @@ export const matchesInlineMcpEntry = (args: {
     args.existing.headers,
     args.definition.type === "http" ? args.definition.headers : undefined,
   ) &&
-  recordsEqual(args.existing.env, args.env) &&
-  arraysEqual(args.existing.agents, args.agents);
+  recordsEqual(args.existing.env, args.env);
 
 /** Derive the inline definition from the add command's mutually exclusive inputs. */
 export const makeInlineMcpDefinition = (

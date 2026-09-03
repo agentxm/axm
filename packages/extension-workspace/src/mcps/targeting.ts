@@ -1,10 +1,9 @@
 /**
- * Portable MCP server target-policy helpers.
+ * Portable MCP server target grouping helpers.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { McpServerEntry } from "@agentxm/workspace-state";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
@@ -12,9 +11,6 @@ import {
   type McpConfig,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { SharedMcpTargetMember } from "./shared-target.js";
-import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
-
-export const MCP_NOT_APPLICABLE_REASON = "MCP server is not targeted to this agent";
 
 const isConfigurableAgentId = (agentId: string): agentId is ConfigurableAgentId =>
   Object.hasOwn(CONFIGURABLE_AGENTS_BY_ID, agentId);
@@ -58,38 +54,4 @@ export const groupConfiguredMcpTargets = (args: {
     path: group.path,
     members: group.members,
   }));
-};
-
-export const planMcpTargetGroups = (args: {
-  readonly configuredAgentIds: ReadonlyArray<string>;
-  readonly entry: McpServerEntry;
-  readonly scope: "project" | "user";
-}): ReadonlyArray<McpTargetGroup> =>
-  groupConfiguredMcpTargets({ agentIds: args.configuredAgentIds, scope: args.scope }).flatMap(
-    (group) => {
-      const members = group.members.filter((member) =>
-        isMcpServerApplicableToAgent(args.entry, member.agentId),
-      );
-      return members.length === 0 ? [] : [{ ...group, members }];
-    },
-  );
-
-export const sharedMcpTargetPolicyConflict = (args: {
-  readonly entry: McpServerEntry;
-  readonly agentIds: ReadonlyArray<string>;
-  readonly scope: "project" | "user";
-}): string | undefined => {
-  const conflict = groupConfiguredMcpTargets(args)
-    .map((group) => ({
-      group,
-      applicable: group.members
-        .filter((member) => isMcpServerApplicableToAgent(args.entry, member.agentId))
-        .map((member) => member.agentId),
-      notApplicable: group.members
-        .filter((member) => !isMcpServerApplicableToAgent(args.entry, member.agentId))
-        .map((member) => member.agentId),
-    }))
-    .find((candidate) => candidate.applicable.length > 0 && candidate.notApplicable.length > 0);
-  if (conflict === undefined) return undefined;
-  return `MCP target policy cannot be represented at shared native target ${conflict.group.key}; targeted agents ${conflict.applicable.join(", ")} share it with untargeted agents ${conflict.notApplicable.join(", ")}`;
 };

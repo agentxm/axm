@@ -36,7 +36,6 @@ import { configuredButNotInstalledRule } from "./workspace/configured-but-not-in
 import { mcpServerNoSecretLiteralRule } from "./workspace/mcps-no-secret-literal.js";
 import { mcpServerTransportExclusivityRule } from "./workspace/mcps-transport-exclusivity.js";
 import { mcpServerAgentDriftRule } from "./workspace/mcps-agent-drift.js";
-import { mcpServerSharedTargetCompatibleRule } from "./workspace/mcps-shared-target-compatible.js";
 import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
 import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
@@ -74,7 +73,6 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   knowledgeStateValidRule,
   mcpServerTransportExclusivityRule,
   mcpServerNoSecretLiteralRule,
-  mcpServerSharedTargetCompatibleRule,
   // Lockfile aligned (configured).
   skillsLockfileAlignedRule,
   // Integrity intact (configured + implicit).
@@ -128,7 +126,6 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   knowledgeStateValidRule,
   mcpServerTransportExclusivityRule,
   mcpServerNoSecretLiteralRule,
-  mcpServerSharedTargetCompatibleRule,
   mcpServerAgentDriftRule,
   mcpServerAgentOrphanedRule,
   skillsLockfileAlignedRule,

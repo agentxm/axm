@@ -1,9 +1,8 @@
 /**
  * Settings-semantics predicates for MCP server entries.
  *
- * Pure derivations over workspace-owned MCP entry shapes: per-agent targeting
- * of a configured settings entry, and AXM ownership/provenance metadata
- * embedded in agent-native MCP config entries.
+ * Pure derivations over workspace-owned MCP entry shapes: AXM
+ * ownership/provenance metadata embedded in agent-native MCP config entries.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -11,10 +10,6 @@
 
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type { McpServerEntry } from "../settings/schema.js";
-
-export const isMcpServerApplicableToAgent = (entry: McpServerEntry, agentId: string): boolean =>
-  entry.agents === undefined || entry.agents.some((candidate) => candidate === agentId);
 
 export const AXM_MCP_METADATA_KEY = "x-axm";
 

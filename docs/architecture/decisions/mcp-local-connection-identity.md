@@ -16,8 +16,9 @@ Treat the key of a sourced `mcpServers` settings entry as a local connection
 identity. Resolve and lock the package by source authority plus published
 package identity. Connections that reference the same source form one
 source-resolution closure: they share acquisition and accepted resolution, but
-each keeps its local name, inputs, activation, agent targeting, projection, and
-secret namespace.
+each keeps its local name, inputs, activation, projection, and secret
+namespace. Every connection reaches every configured agent that can represent
+it; see [Agent targeting is workspace membership](agent-targeting-is-workspace-membership.md).
 
 Keep the existing version-1 native ownership metadata. Published package
 identity remains in its provenance fields, while the containing native key or

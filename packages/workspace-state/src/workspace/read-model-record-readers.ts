@@ -13,7 +13,7 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { WorkspaceStateReadFailure } from "./service-interface.js";
-import { isAxmManagedMcpEntry, isMcpServerApplicableToAgent } from "./mcp-entry-semantics.js";
+import { isAxmManagedMcpEntry } from "./mcp-entry-semantics.js";
 import { createDefaultSettings } from "../settings/index.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
@@ -509,8 +509,6 @@ export const makeReadModelRecordReaders = (args: {
           const configuredAgents = settings.agents ?? [];
           const finalizeInventory = (inventory: ExtensionInventory): ExtensionInventory => {
             const withOutcomes = inventory.items.map((row) => {
-              const mcpEntry =
-                row.type === "mcp-server" ? settings.mcpServers?.[row.name] : undefined;
               return {
                 ...row,
                 agentOutcomes:
@@ -525,13 +523,6 @@ export const makeReadModelRecordReaders = (args: {
                         targetState: row.enabled === false ? "disabled" : "enabled",
                         installed: row.installed,
                         observedAgentIds: row.agents,
-                        ...(mcpEntry === undefined
-                          ? {}
-                          : {
-                              applicableAgentIds: configuredAgents.filter((agentId) =>
-                                isMcpServerApplicableToAgent(mcpEntry, agentId),
-                              ),
-                            }),
                       }),
               };
             });

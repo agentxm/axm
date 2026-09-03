@@ -598,15 +598,7 @@
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
             },
-            "env": { "$ref": "#/definitions/McpServerEnv" },
-            "agents": {
-              "type": "array",
-              "description": "Coding agents this MCP server applies to. Omit to target every configured agent.",
-              "examples": [["claude-code", "codex"]],
-              "minItems": 1,
-              "uniqueItems": true,
-              "items": { "$ref": "#/definitions/ConfigurableAgentId" }
-            }
+            "env": { "$ref": "#/definitions/McpServerEnv" }
           },
           "additionalProperties": false
         }
@@ -616,12 +608,7 @@
       "examples": [
         "@acme/mcps/context@^1.0.0",
         { "source": "github:acme/agent-extensions", "enabled": false },
-        {
-          "command": "npx",
-          "args": ["-y", "linear-mcp-server"],
-          "env": ["LINEAR_API_KEY"],
-          "agents": ["claude-code"]
-        },
+        { "command": "npx", "args": ["-y", "linear-mcp-server"], "env": ["LINEAR_API_KEY"] },
         {
           "url": "https://mcp.sentry.dev/sse",
           "headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" }
@@ -770,7 +757,6 @@
             "workspace/knowledge-state-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/mcps-transport-exclusivity": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/mcps-no-secret-literal": { "$ref": "#/definitions/LintRuleSeverity" },
-            "workspace/mcps-shared-target-compatible": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/mcps-agent-drift": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/mcps-agent-orphaned": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/skills-lockfile-aligned": { "$ref": "#/definitions/LintRuleSeverity" },

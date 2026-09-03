@@ -1,5 +1,6 @@
 import { Command, Flag } from "effect/unstable/cli";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { agentFlag } from "../../../cli-flags/index.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleListSubagents } from "./handler.js";
@@ -8,10 +9,7 @@ const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List subagents from project (default) or user-level configuration"),
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Show only subagents detected for specific agents"),
-    Flag.atLeast(0),
-  ),
+  agent: agentFlag.pipe(Flag.withDescription("Show only subagents detected for specific agents")),
 } as const;
 
 export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>

@@ -73,7 +73,6 @@ import {
   type PlanExecution,
 } from "./plan-execution.js";
 import { ConfiguredAgentOutcomesProvider } from "@agentxm/workspace-state";
-import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 import { configuredAgentLifecycleOutcomes } from "@agentxm/workspace-state";
 import type { ConfiguredAgentOutcome } from "@agentxm/workspace-state";
 import {
@@ -195,11 +194,6 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
 
   const operations = options.execution.configuredAgentOperations ?? [];
   const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
-  const configuredMcpServers = operations.some(
-    ({ extensionType }) => extensionType === "mcp-server",
-  )
-    ? yield* ws.getConfiguredMcpServerEntries()
-    : {};
   const outcomesProvider = yield* Effect.serviceOption(ConfiguredAgentOutcomesProvider);
   const outcomesOverrideFor = (extensionType: ConfiguredAgentOperation["extensionType"]) =>
     Option.isSome(outcomesProvider)
@@ -209,8 +203,6 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     operation: ConfiguredAgentOperation,
     state: "projected" | "current",
   ): Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>> => {
-    const mcpEntry =
-      operation.extensionType === "mcp-server" ? configuredMcpServers[operation.name] : undefined;
     const generic = configuredAgentLifecycleOutcomes({
       type: operation.extensionType,
       name: operation.name,
@@ -220,13 +212,6 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       targetState: operation.plannedState,
       installed: state === "projected",
       observedAgentIds: state === "projected" ? configuredAgents : [],
-      ...(mcpEntry === undefined
-        ? {}
-        : {
-            applicableAgentIds: configuredAgents.filter((agentId) =>
-              isMcpServerApplicableToAgent(mcpEntry, agentId),
-            ),
-          }),
     });
     const override = outcomesOverrideFor(operation.extensionType);
     if (operation.plannedState === "enabled" && override !== undefined) {

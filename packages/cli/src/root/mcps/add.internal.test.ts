@@ -173,33 +173,6 @@ describe("mcps add output", () => {
     );
   });
 
-  it.effect("persists and projects an explicit agent subset", () => {
-    const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
-    writeMultiAgentSettings();
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleMcpsAdd({
-          name: "demo",
-          command: Option.some("node server.js"),
-          url: Option.none(),
-          env: [],
-          header: [],
-          yes: true,
-          force: false,
-          preview: false,
-          agents: ["claude-code"],
-        });
-
-        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
-        expect(settings.mcpServers.demo.agents).toEqual(["claude-code"]);
-        expect(fs.existsSync(path.join(tempDir, ".mcp.json"))).toBe(true);
-        expect(fs.existsSync(path.join(tempDir, ".cursor", "mcp.json"))).toBe(false);
-        expect(fs.existsSync(path.join(tempDir, ".codex", "config.toml"))).toBe(false);
-      }),
-    );
-  });
-
   it.effect("rejects sensitive environment literals before mutation", () => {
     const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
     writeMultiAgentSettings();

@@ -77,7 +77,6 @@ import {
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
-  readonly agents: readonly string[];
   readonly skills: readonly string[];
   readonly force: boolean;
   readonly yes: boolean;
@@ -784,7 +783,6 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
       ["skills", "update"],
       [
         recoverySwitch("--ignore-version-constraints", args.force),
-        ...args.agents.map((agent) => recoveryOption("--agent", publicRecoveryValue(agent))),
         ...args.skills.map((skill) => recoveryOption("--name", publicRecoveryValue(skill))),
         ...Option.match(args.source, {
           onNone: () => [],

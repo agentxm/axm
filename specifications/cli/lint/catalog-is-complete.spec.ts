@@ -141,7 +141,6 @@ const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["workspace/knowledge-state-valid", "error", bothViews],
   ["workspace/mcps-transport-exclusivity", "warning", bothViews],
   ["workspace/mcps-no-secret-literal", "warning", bothViews],
-  ["workspace/mcps-shared-target-compatible", "error", bothViews],
   ["workspace/mcps-agent-drift", "warning", workspaceView],
   ["workspace/mcps-agent-orphaned", "warning", workspaceView],
   ["workspace/skills-lockfile-aligned", "error", bothViews],

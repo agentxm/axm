@@ -56,7 +56,6 @@ const defaultArgs = (
 ): SubagentsNewHandlerArgs => ({
   name: extensionName(name),
   owner: Option.none(),
-  agents: Option.none(),
   yes: false,
   preview: false,
   ...overrides,

@@ -364,7 +364,7 @@ describe("uninstall.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Partial uninstall via --agent
+  // Uninstall reaches every configured agent
   // ---------------------------------------------------------------------------
 
   describe("uninstall from all agents", () => {
@@ -389,7 +389,7 @@ describe("uninstall.handler", () => {
           // claude-code symlink should be removed
           expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "my-skill"))).toBe(false);
 
-          // cursor symlink should also be removed (--agent not supported in new workflow)
+          // cursor symlink should also be removed
           expect(fs.existsSync(path.join(tempDir, ".cursor", "skills", "my-skill"))).toBe(false);
 
           // Canonical should be removed

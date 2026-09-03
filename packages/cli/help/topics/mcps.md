@@ -5,9 +5,9 @@ Registry-only archive policy and effective preview.
 
 An MCP server extension registers a Model Context Protocol server that your
 coding agents connect to for extra tools and resources. AXM tracks the server
-once and writes it into its applicable configured agents' native MCP configs, so you do
-not hand-maintain `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, and
-friends in parallel.
+once and writes it into the native MCP config of every configured agent that
+can represent it, so you do not hand-maintain `.mcp.json`, `.cursor/mcp.json`,
+`.vscode/mcp.json`, and friends in parallel.
 
 AXM manages the connection definition and its lifecycle, including command or
 URL, arguments, environment-variable references, headers, installation,
@@ -74,14 +74,14 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
   `--as <local-name>` to install another locally named connection from the same
   package. Pass
   `--env KEY=VALUE` to supply declared inputs, or `--non-interactive` to use
-  defaults and placeholders instead of prompting. Repeat `--agent <id>` to
-  restrict the server to a reviewed agent subset.
+  defaults and placeholders instead of prompting.
 - `axm mcps add <name> --command "npx -y linear-mcp-server"` — add an inline
   stdio server you define yourself. Use `--url` for a remote server, plus
-  `--env` and `--header` for its inputs. It also accepts repeatable `--agent`.
+  `--env` and `--header` for its inputs.
 - `axm mcps import` — adopt MCP servers already present in your agent configs as
-  inline AXM entries. Import records the native agents where each server was
-  discovered; it does not silently widen the server to every configured agent.
+  inline AXM entries. Import records each server once; the next reconciliation
+  writes it to every configured agent that can represent it, and preview and
+  apply list every native file the import rewrites.
 - `axm mcps update` — update configured Registry servers to their latest
   eligible resolution. Use `--name <local-name-or-glob>` to select connections,
   or `--source @owner/mcps/<name>` to select an exact source. Every selected
@@ -119,17 +119,16 @@ The key and dialect vary per agent (`mcpServers`, `servers`, `mcp`,
 remote transports render as `url`/`headers`. AXM only edits entries whose
 ownership it can prove and preserves servers added by other tools. `axm sync`
 restores missing or stale AXM-owned entries and blocks the affected server on
-unowned or ambiguous collisions. Applicability is the intersection of the
-workspace's configured agents, the server's optional `agents` subset, and each
-agent's transport/config capability. A selected agent that cannot represent the
-transport or a required secret reference blocks that server with an explicit
-unsupported reason. An unselected agent is intentionally not applicable and is
-not unhealthy.
+unowned or ambiguous collisions. Every configured agent whose transport and
+config capability can represent the server receives it; there is no per-server
+agent list. A configured agent that cannot represent the transport or a
+required secret reference is reported as unsupported with an explicit reason,
+never silently skipped.
 
-Some agents share one native config file. A target policy that selects one
-agent but excludes another agent sharing that file cannot be represented; AXM
-blocks it instead of widening the policy. Removing an agent from a server's
-subset removes only stale AXM-owned state and preserves unmanaged collisions.
+Some agents share one native config file. AXM writes one entry that every
+sharing agent reads; a genuine dialect conflict between sharing agents blocks
+the server with an explicit reason. Reconciliation removes only stale AXM-owned
+state and preserves unmanaged collisions.
 
 ## Settings and lockfile
 
@@ -143,12 +142,11 @@ declares exactly one transport — `source`, `command`, or `url`:
   "mcpServers": {
     // Registry server, compact form
     "database": "@acme/mcps/database@^1.0.0",
-    // Registry server with inputs, an agent subset, and an opt-out
+    // Registry server with inputs and an opt-out
     "search": {
       "source": "@acme/mcps/search@^2.0.0",
       "enabled": false,
       "env": ["SEARCH_API_KEY"],
-      "agents": ["claude-code", "codex"],
     },
     // Inline stdio server
     "linear": { "command": "npx", "args": ["-y", "linear-mcp-server"], "env": ["LINEAR_API_KEY"] },
@@ -164,15 +162,12 @@ declares exactly one transport — `source`, `command`, or `url`:
 The settings key is the local connection name. For example, both
 `"work-github": "@acme/mcps/github"` and
 `"personal-github": "@acme/mcps/github"` are valid. They project as two native
-keys and keep separate inputs, targeting, activation, and keychain accounts,
+keys and keep separate inputs, activation, and keychain accounts,
 while the lockfile records one source resolution for the Registry authority and
 `@acme/mcps/github` package.
 
-- **`enabled: false`** keeps a server installed but deactivates its applicable
-  AXM-owned agent entries.
-- **`agents`** is a non-empty inclusion list. Omit it to target every configured
-  agent; setting it never configures an agent that is absent from the
-  workspace-level `agents` list.
+- **`enabled: false`** keeps a server installed but deactivates its AXM-owned
+  agent entries.
 - **`env`** accepts a `{ KEY: value }` map or an array of names; `["VAR"]`
   decodes to a `${VAR}` reference.
 - Agent-native entries without AXM ownership metadata remain unowned and are

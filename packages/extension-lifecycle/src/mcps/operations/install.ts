@@ -19,13 +19,9 @@ import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CodingAgent, McpServerSyncOutcome } from "@agentxm/extension-workspace";
 import {
   CodingAgentRepository,
-  McpSharedTargetConflict,
   applyProjectionPlansWithResults,
   planSingletonProjection,
-  inspectAgentMcpServer,
-  sharedMcpTargetPolicyConflict,
 } from "@agentxm/extension-workspace";
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { isPathSafe, mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -56,7 +52,6 @@ import {
   McpServerManifestSchema,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { McpServerEntry } from "@agentxm/workspace-state";
-import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 import {
   agentConfigTargets,
   mcpServerArtifact,
@@ -94,8 +89,6 @@ export type InstallMcpServerOperationArgs = {
    * The transport boundary resolves flag, CI, and TTY state.
    */
   readonly nonInteractive: boolean;
-  /** Restrict this server to a reviewed subset of configured agents. */
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 };
 
 /**
@@ -540,17 +533,6 @@ const syncConfiguredAgentsOnInstall = (args: {
     }
 
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
-    const sharedTargetConflict = sharedMcpTargetPolicyConflict({
-      entry: args.entry,
-      agentIds: configuredAgents.map((agent) => agent.id),
-      scope: args.scope,
-    });
-    if (sharedTargetConflict !== undefined) {
-      return yield* new ExtensionLifecycleFailed({
-        category: "conflict",
-        detail: sharedTargetConflict,
-      });
-    }
 
     let outcomes: ReadonlyArray<AgentOutcome>;
     if (args.nothingRunnable) {
@@ -580,29 +562,6 @@ const syncConfiguredAgentsOnInstall = (args: {
                 }),
               apply: () =>
                 Effect.gen(function* () {
-                  if (!isMcpServerApplicableToAgent(args.entry, agent.id)) {
-                    const inspection = yield* inspectAgentMcpServer({
-                      workspaceRoot: args.wsBaseDir,
-                      scope: args.scope,
-                      agentId: agent.id,
-                      serverName: args.serverName,
-                      entry: args.entry,
-                    });
-                    if (inspection.status === "unmanaged") {
-                      return yield* new McpSharedTargetConflict({
-                        reason: `${agent.id} has an unmanaged MCP server named ${args.serverName}; AXM will not remove it while applying the target policy`,
-                      });
-                    }
-                    const outcome =
-                      inspection.status === "drift"
-                        ? yield* agent.removeMcpServer({
-                            workspaceRoot: args.wsBaseDir,
-                            scope: args.scope,
-                            serverName: args.serverName,
-                          })
-                        : ({ _tag: "success", targets: [] } as const);
-                    return { agentId: agent.id, outcome };
-                  }
                   const outcome = yield* agent.addMcpServer({
                     workspaceRoot: args.wsBaseDir,
                     scope: args.scope,
@@ -835,13 +794,11 @@ export const installMcpServer: (
     }
     const persistedEnv = redactSettingsEnv(mergedEnv, secretNames);
     const enabled = currentEntry?.enabled ?? true;
-    const agents = op.args.agents ?? currentEntry?.agents;
     const settingsEntry: McpServerEntry = {
       kind: "sourced",
       source: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
       env: persistedEnv,
       enabled,
-      ...(agents === undefined ? {} : { agents }),
     };
     const writeEffect =
       op.args.skipStateWrites === true
@@ -866,7 +823,6 @@ export const installMcpServer: (
                 versionRange: op.args.versionRange,
                 env: persistedEnv,
                 enabled,
-                ...(agents === undefined ? {} : { agents }),
               });
     yield* writeEffect;
 

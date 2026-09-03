@@ -40,14 +40,9 @@ import {
   type McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { buildAxmMcpMetadata } from "../mcps/metadata.js";
-import {
-  AXM_MCP_METADATA_KEY,
-  isAxmManagedMcpEntry,
-  isMcpServerApplicableToAgent,
-} from "@agentxm/workspace-state";
+import { AXM_MCP_METADATA_KEY, isAxmManagedMcpEntry } from "@agentxm/workspace-state";
 import { inferInlineRemoteTransport, projectExpectedEntry } from "../mcps/projection.js";
-import { inspectAgentMcpServer } from "../mcps/inspection.js";
-import { planMcpTargetGroups, sharedMcpTargetPolicyConflict } from "../mcps/targeting.js";
+import { groupConfiguredMcpTargets } from "../mcps/targeting.js";
 import {
   resolveSharedMcpTarget,
   type SharedMcpTargetMember,
@@ -613,86 +608,27 @@ export const syncInlineMcpServerToAgents = (
     const scope = args.scope ?? "project";
     const terminalOutcomes = new Map<string, McpServerSyncOutcome>();
     const accumulators = new Map<string, SharedSyncAccumulator>();
-    const capableAgents: Array<{
-      readonly agentId: CapabilityAgentId;
-      readonly applicable: boolean;
-    }> = [];
 
     for (const agentId of agentIds) {
-      const applicable = isMcpServerApplicableToAgent(args.entry, agentId);
       if (!isCapabilityAgentId(agentId)) {
-        terminalOutcomes.set(
-          agentId,
-          applicable
-            ? {
-                _tag: "unsupported",
-                reason: agentId + " has no MCP capability catalog entry",
-              }
-            : { _tag: "success", targets: [] },
-        );
+        terminalOutcomes.set(agentId, {
+          _tag: "unsupported",
+          reason: agentId + " has no MCP capability catalog entry",
+        });
         continue;
       }
       const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
       if (!hasMcpConfig(capability)) {
-        terminalOutcomes.set(
-          agentId,
-          applicable
-            ? {
-                _tag: "unsupported",
-                reason: agentId + " does not have MCP config support",
-              }
-            : { _tag: "success", targets: [] },
-        );
-        continue;
-      }
-      capableAgents.push({ agentId, applicable });
-    }
-
-    const targetPolicyConflict = sharedMcpTargetPolicyConflict({
-      entry: args.entry,
-      agentIds,
-      scope,
-    });
-    if (targetPolicyConflict !== undefined) {
-      return yield* new McpSharedTargetConflict({ reason: targetPolicyConflict });
-    }
-
-    for (const { agentId, applicable } of capableAgents) {
-      if (!applicable) {
-        const inspection = yield* inspectAgentMcpServer({
-          workspaceRoot: args.workspaceRoot,
-          scope,
-          agentId,
-          serverName: args.serverName,
-          entry: args.entry,
+        terminalOutcomes.set(agentId, {
+          _tag: "unsupported",
+          reason: agentId + " does not have MCP config support",
         });
-        if (inspection.status === "unmanaged") {
-          return yield* new McpSharedTargetConflict({
-            reason: `${agentId} has an unmanaged MCP server named ${args.serverName}; AXM will not remove it while applying the target policy`,
-          });
-        }
-        if (inspection.status === "drift") {
-          terminalOutcomes.set(
-            agentId,
-            yield* removeMcpServerFromManifest(agentId, {
-              workspaceRoot: args.workspaceRoot,
-              scope,
-              serverName: args.serverName,
-            }),
-          );
-        } else {
-          terminalOutcomes.set(agentId, { _tag: "success", targets: [] });
-        }
         continue;
       }
       accumulators.set(agentId, { targets: [], warnings: [] });
     }
 
-    const groups = planMcpTargetGroups({
-      configuredAgentIds: agentIds,
-      entry: args.entry,
-      scope,
-    });
+    const groups = groupConfiguredMcpTargets({ agentIds, scope });
     for (const group of groups) {
       const members: ReadonlyArray<SharedSyncMember> = group.members.map((targetMember) => {
         if (!isCapabilityAgentId(targetMember.agentId)) {

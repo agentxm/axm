@@ -66,11 +66,6 @@ export {
   type InstallSkillOperationArgs,
 } from "./skills/operations/install.js";
 export type { InstallResult } from "./skills/operations/install-result.js";
-export {
-  uninstallSkill,
-  type UninstallSkillOperation,
-  type UninstallSkillOperationArgs,
-} from "./skills/operations/uninstall.js";
 export { enableSkill, type EnableSkillOperation } from "./skills/operations/enable.js";
 export { disableSkill, type DisableSkillOperation } from "./skills/operations/disable.js";
 

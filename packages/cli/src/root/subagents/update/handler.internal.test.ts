@@ -52,7 +52,6 @@ const initWorkspace = (
 
 const defaultArgs = (overrides: Partial<UpdateHandlerArgs> = {}): UpdateHandlerArgs => ({
   source: Option.none(),
-  agents: [],
   subagents: [],
   force: false,
   yes: false,

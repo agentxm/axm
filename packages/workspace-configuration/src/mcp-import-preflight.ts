@@ -1,7 +1,6 @@
 import * as DateTime from "effect/DateTime";
 
 import { isAxmManagedMcpEntry } from "@agentxm/workspace-state";
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 export type InlineMcpDefinition =
   | {
       readonly type: "stdio";
@@ -18,7 +17,6 @@ export interface McpImportSource {
   readonly filePath: string;
   readonly serversKey: string;
   readonly config: Readonly<Record<string, unknown>>;
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 export interface McpImportAdoption {
@@ -32,7 +30,6 @@ export interface McpImportCandidate {
   readonly definition: InlineMcpDefinition;
   readonly env: Readonly<Record<string, string>>;
   readonly adoptions: ReadonlyArray<McpImportAdoption>;
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 export interface McpImportFinding {
@@ -177,7 +174,6 @@ const normalizeServer = (args: {
   readonly config: Readonly<Record<string, unknown>>;
   readonly adoption: McpImportAdoption;
   readonly now: DateTime.Utc;
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }): NormalizedServer => {
   if (isAxmManagedMcpEntry(args.config)) {
     return { _tag: "skip", finding: { name: args.name, reason: "Already managed by AXM" } };
@@ -231,7 +227,6 @@ const normalizeServer = (args: {
         },
         env,
         adoptions: [args.adoption],
-        ...(args.agents === undefined ? {} : { agents: args.agents }),
       },
     };
   }
@@ -277,7 +272,6 @@ const normalizeServer = (args: {
       },
       env,
       adoptions: [args.adoption],
-      ...(args.agents === undefined ? {} : { agents: args.agents }),
     },
   };
 };
@@ -331,7 +325,6 @@ export const preflightMcpImports = (args: {
         config: value,
         adoption: { filePath: source.filePath, serversKey: source.serversKey, name },
         now: args.now,
-        ...(source.agents === undefined ? {} : { agents: source.agents }),
       });
       if (normalized._tag === "skip") {
         skipped.push(normalized.finding);
@@ -365,13 +358,6 @@ export const preflightMcpImports = (args: {
             ]),
           ).values(),
         ),
-        ...(existing.agents === undefined && normalized.candidate.agents === undefined
-          ? {}
-          : {
-              agents: Array.from(
-                new Set([...(existing.agents ?? []), ...(normalized.candidate.agents ?? [])]),
-              ).sort((left, right) => left.localeCompare(right)),
-            }),
       });
     }
   }

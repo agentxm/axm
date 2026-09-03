@@ -56,7 +56,6 @@ const defaultArgs = (
 ): SkillsNewHandlerArgs => ({
   name: extensionName(name),
   owner: Option.none(),
-  agents: Option.none(),
   yes: false,
   preview: false,
   ...overrides,
@@ -393,60 +392,6 @@ describe("skills-new.handler", () => {
           expect(fs.lstatSync(universalLink).isSymbolicLink()).toBe(true);
           expect(fs.existsSync(cursorLink)).toBe(true);
           expect(fs.lstatSync(cursorLink).isSymbolicLink()).toBe(true);
-        }),
-      );
-    });
-
-    it.effect("narrows manager materialization when --agent is provided", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), {
-        owner: "@acme",
-        agents: ["amp", "claude-code", "cursor"],
-      });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill", { agents: Option.some(["claude-code"]) }));
-
-          const claudeLink = path.join(tempDir, ".claude", "skills", "my-skill");
-          const universalLink = path.join(tempDir, ".agents", "skills", "my-skill");
-          const cursorLink = path.join(tempDir, ".cursor", "skills", "my-skill");
-
-          expect(fs.existsSync(claudeLink)).toBe(true);
-          expect(fs.lstatSync(claudeLink).isSymbolicLink()).toBe(true);
-          expect(fs.existsSync(universalLink)).toBe(false);
-          expect(fs.existsSync(cursorLink)).toBe(false);
-
-          const lockfile = YAML.parse(
-            fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8"),
-          );
-          expect(lockfile.skills?.["my-skill"]).toBeUndefined();
-        }),
-      );
-    });
-
-    it.effect("preserves a shared universal skill target requested by Codex", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), {
-        owner: "@acme",
-        agents: ["codex", "claude-code"],
-      });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleSkillsNew(
-            defaultArgs("my-skill", {
-              agents: Option.some(["codex", "claude-code"]),
-            }),
-          );
-
-          const codexLink = path.join(tempDir, ".agents", "skills", "my-skill");
-          const claudeLink = path.join(tempDir, ".claude", "skills", "my-skill");
-
-          expect(fs.existsSync(codexLink)).toBe(true);
-          expect(fs.lstatSync(codexLink).isSymbolicLink()).toBe(true);
-          expect(fs.existsSync(claudeLink)).toBe(true);
-          expect(fs.lstatSync(claudeLink).isSymbolicLink()).toBe(true);
         }),
       );
     });

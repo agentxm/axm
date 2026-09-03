@@ -11,11 +11,8 @@ import * as Option from "effect/Option";
 import {
   CodingAgentRepository,
   syncInlineMcpServerToAgents,
-  McpSharedTargetConflict,
   applyProjectionPlansWithResults,
   planSingletonProjection,
-  inspectAgentMcpServer,
-  sharedMcpTargetPolicyConflict,
 } from "@agentxm/extension-workspace";
 import {
   normalizeHandle,
@@ -33,7 +30,6 @@ import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { usableAcceptedCanonicalObservation } from "@agentxm/workspace-state";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
-import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 
@@ -166,17 +162,6 @@ export const enableMcpServer = (
     const resolvedVersion = accepted?.type === "registry" ? accepted.resolvedVersion : "0.0.0";
 
     const agents = yield* agentRepo.getConfiguredAgents();
-    const sharedTargetConflict = sharedMcpTargetPolicyConflict({
-      entry,
-      agentIds: agents.map((agent) => agent.id),
-      scope: ws.scope,
-    });
-    if (sharedTargetConflict !== undefined) {
-      return yield* new ExtensionLifecycleFailed({
-        category: "conflict",
-        detail: sharedTargetConflict,
-      });
-    }
     const outcomes = yield* ws.runTransaction({
       transition: Effect.gen(function* () {
         const synced = yield* applyProjectionPlansWithResults(
@@ -197,27 +182,6 @@ export const enableMcpServer = (
                   }),
                 apply: () =>
                   Effect.gen(function* () {
-                    if (!isMcpServerApplicableToAgent(entry, agent.id)) {
-                      const inspection = yield* inspectAgentMcpServer({
-                        workspaceRoot: ws.baseDir,
-                        scope: ws.scope,
-                        agentId: agent.id,
-                        serverName: op.args.serverName,
-                        entry,
-                      });
-                      if (inspection.status === "unmanaged") {
-                        return yield* new McpSharedTargetConflict({
-                          reason: `${agent.id} has an unmanaged MCP server named ${op.args.serverName}; AXM will not remove it while applying the target policy`,
-                        });
-                      }
-                      return inspection.status === "drift"
-                        ? yield* agent.removeMcpServer({
-                            workspaceRoot: ws.baseDir,
-                            scope: ws.scope,
-                            serverName: op.args.serverName,
-                          })
-                        : ({ _tag: "success", targets: [] } as const);
-                    }
                     return yield* agent.addMcpServer({
                       workspaceRoot: ws.baseDir,
                       scope: ws.scope,

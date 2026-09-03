@@ -24,17 +24,11 @@ import {
   artifactTargetAgentIds,
   groupInstallTargetsByDirectory,
 } from "@agentxm/extension-workspace";
-import { uninstallSkill } from "@agentxm/extension-lifecycle";
 import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
 import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import type {
-  JobStepArtifact,
-  JobStepArtifactTarget,
-  Plan,
-  PlannedJobStep,
-} from "@agentxm/workspace-operations";
+import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
@@ -50,15 +44,8 @@ import {
 } from "../shared/workspace-display-paths.js";
 import { SKILL_NAME_RULES } from "../suggested-actions.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  appErrorToStepFailure,
-  failureToStepFailure,
-  toAppError,
-} from "../../app-error/conversions.js";
-import {
-  provideAuthoringFailureAdapter,
-  provideLifecycleFailureAdapter,
-} from "../../feature-errors.js";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
+import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -66,7 +53,6 @@ const MAX_NAME_LENGTH = 64;
 export interface SkillsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<string>;
-  readonly agents: Option.Option<readonly string[]>;
   readonly yes: boolean;
   readonly preview: boolean;
 }
@@ -108,9 +94,6 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
   }
 
   const configuredSkills = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
-  const requestedAgents = Option.getOrUndefined(args.agents);
-  const agents =
-    requestedAgents ?? (yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError)));
 
   // 5. Capture services for run closure
   const fs = yield* FileSystem.FileSystem;
@@ -127,7 +110,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
   // 6. Build operation
   const op = {
     name: "new-skill",
-    args: { name: args.name, owner, agents: [...agents] },
+    args: { name: args.name, owner },
   } satisfies NewSkillOperation;
 
   // 7. Build plan with inline run closure
@@ -285,51 +268,6 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
       ),
   });
 
-  const steps: PlannedJobStep[] = [step];
-  if (requestedAgents !== undefined) {
-    const requestedAgentSet = new Set(requestedAgents);
-    steps.push({
-      key: `skill-agent-scope:${args.name}`,
-      label: `${fqn} agent scope`,
-      readiness: "ready",
-      run: Effect.gen(function* () {
-        const materializationAgentIds = (yield* agentRepo
-          .getMaterializationAgents()
-          .pipe(Effect.mapError(toAppError), Effect.provideService(WorkspaceMutations, ws))).map(
-          (agent) => agent.id,
-        );
-        const agentsToRemove = materializationAgentIds.filter(
-          (agent) => !requestedAgentSet.has(agent),
-        );
-        if (agentsToRemove.length === 0) {
-          return {
-            result: "success" as const,
-            message: `Scoped skill ${fqn}`,
-          };
-        }
-
-        yield* uninstallSkill({
-          name: "uninstall-skill",
-          args: { skillName: args.name, agents: agentsToRemove },
-        }).pipe(
-          provideLifecycleFailureAdapter,
-          Effect.provideService(WorkspaceMutations, ws),
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        );
-
-        return {
-          result: "success" as const,
-          message: `Scoped skill ${fqn}`,
-        };
-      }).pipe(
-        Effect.mapError((error) =>
-          error._tag === "AppError" ? appErrorToStepFailure(error) : error,
-        ),
-      ),
-    });
-  }
-
   const plan: Plan = {
     _tag: "Plan",
     name: "New skill",
@@ -338,7 +276,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
       { imperative: "create", past: "Created", gerund: "Creating" },
       "skill",
     ),
-    jobs: [{ concurrency: 1 as const, steps }],
+    jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
@@ -360,22 +298,16 @@ const newConfig = {
     Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Agent IDs to target (can be repeated)"),
-    Flag.atLeast(1),
-    Flag.optional,
-  ),
   yes: yesFlag.pipe(Flag.withDescription("Create the skill without confirmation")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what files would be created without creating them"),
   ),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, agent, yes, preview }) =>
+export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, preview }) =>
   handleSkillsNew({
     name: decodeExtensionNameSync(name),
     owner,
-    agents: Option.map(agent, (value) => [...value]),
     yes,
     preview,
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("skills new")),

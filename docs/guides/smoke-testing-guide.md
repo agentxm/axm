@@ -16,7 +16,7 @@ workspace.
 2. Add a local Registry source in project-root `axm.json`:
    `{"name":"test-registry","type":"registry","location":"file:///tmp/axm-registry"}` and set `owner` to `@test`.
 3. Publish one or more extensions, for example:
-   `axm skills new smoke-skill --owner @test --agent claude-code --yes`
+   `axm skills new smoke-skill --owner @test --yes`
    `axm skills publish @test/skills/smoke-skill --yes`
 4. In a fresh workspace with the same registry source:
    - Sourceful root install: `axm install test-registry:@test/skills/smoke-skill --yes`

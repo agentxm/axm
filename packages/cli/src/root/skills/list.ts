@@ -7,6 +7,7 @@ import {
   type ConfiguredAgentOutcome,
 } from "@agentxm/workspace-state";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { agentFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -82,10 +83,7 @@ const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List skills from project (default) or user-level configuration"),
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Show only skills detected for specific agents"),
-    Flag.atLeast(0),
-  ),
+  agent: agentFlag.pipe(Flag.withDescription("Show only skills detected for specific agents")),
 } as const;
 
 export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>

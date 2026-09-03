@@ -78,7 +78,6 @@ const makeOp = (overrides: Partial<NewSkillOperation["args"]> = {}): NewSkillOpe
   args: {
     name: overrides.name ?? "my-skill",
     owner: overrides.owner ?? handle("@myorg"),
-    agents: overrides.agents ?? ["claude-code"],
   },
 });
 
@@ -123,7 +122,7 @@ describe("newSkill", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newSkill(makeOp({ agents: ["claude-code", "cursor"] })).pipe(
+        const result = yield* newSkill(makeOp()).pipe(
           Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code", "cursor"] })),
         );
 

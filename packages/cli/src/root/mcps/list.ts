@@ -106,11 +106,9 @@ const inspectionOutcome = (
   outcome:
     inspection.status === "match"
       ? "current"
-      : inspection.status === "not-applicable"
-        ? "not-applicable"
-        : inspection.status === "unsupported"
-          ? "unsupported"
-          : "failed",
+      : inspection.status === "unsupported"
+        ? "unsupported"
+        : "failed",
   reasonCode:
     inspection.status === "absent"
       ? "projection-missing"

@@ -2,7 +2,14 @@ import { CodingAgentRepository, resolveInstructionTarget } from "@agentxm/extens
 import { bootstrapWorkspace, type SetupAgentCandidate } from "@agentxm/workspace-configuration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { isNonInteractive, jsonFlag, previewFlag, yesFlag, Verbosity } from "../cli-flags/index.js";
+import {
+  agentFlag,
+  isNonInteractive,
+  jsonFlag,
+  previewFlag,
+  yesFlag,
+  Verbosity,
+} from "../cli-flags/index.js";
 import { Screen, errorDoc, headlineDoc, successDoc, suggestionsDoc } from "../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -858,10 +865,7 @@ const setupConfig = {
     Flag.withDescription("Configuration scope: project or user (required for unattended apply)"),
     Flag.optional,
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Specify agents to configure (skips auto-detection)"),
-    Flag.atLeast(0),
-  ),
+  agent: agentFlag.pipe(Flag.withDescription("Specify agents to configure (skips auto-detection)")),
   yes: yesFlag,
   preview: previewFlag,
 } as const;

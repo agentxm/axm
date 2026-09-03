@@ -17,10 +17,6 @@ const updateConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Update subagents in project (default) or user-level configuration"),
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Update only subagents installed for specific agents"),
-    Flag.atLeast(0),
-  ),
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific subagents by name or glob pattern"),
   ),
@@ -36,10 +32,9 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, agent, name, yes, force, preview }) =>
+  ({ source, scope, name, yes, force, preview }) =>
     handleUpdate({
       source,
-      agents: agent,
       subagents: name,
       yes,
       force,

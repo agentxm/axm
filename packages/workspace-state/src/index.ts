@@ -95,7 +95,6 @@ export {
   AXM_MCP_METADATA_KEY,
   AxmMcpMetadataSchema,
   isAxmManagedMcpEntry,
-  isMcpServerApplicableToAgent,
   readAxmMcpMetadata,
   type AxmMcpMetadata,
 } from "./workspace/mcp-entry-semantics.js";

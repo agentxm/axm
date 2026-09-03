@@ -54,7 +54,6 @@ export interface InstallMcpServerHandlerArgs {
   readonly source: string;
   readonly localName?: string;
   readonly env?: ReadonlyArray<string>;
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
   readonly force?: boolean;
 }
 
@@ -70,7 +69,6 @@ export interface ParsedMcpServerInstallArgs {
   readonly resolvedInput: string;
   readonly force: boolean;
   readonly env: Readonly<Record<string, string>>;
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 // -----------------------------------------------------------------------------
@@ -186,7 +184,6 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
             resolvedInput: trimmed,
             force: args.force ?? false,
             env,
-            ...(args.agents === undefined ? {} : { agents: args.agents }),
           };
         }
 
@@ -233,7 +230,6 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
           resolvedInput: `${owner}/mcps/${parsed.success.name}`,
           force: args.force ?? false,
           env,
-          ...(args.agents === undefined ? {} : { agents: args.agents }),
         };
       }
 
@@ -426,7 +422,6 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
         versionRange: parsed.versionRange,
         force: parsed.force,
         env: parsed.env,
-        ...(parsed.agents === undefined ? {} : { agents: parsed.agents }),
       };
     });
 
@@ -477,7 +472,6 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
                       versionRange: intent.versionRange,
                       skipSettings: Option.none(),
                       env: Option.some(intent.env ?? {}),
-                      ...(intent.agents === undefined ? {} : { agents: intent.agents }),
                     },
                   }),
                 ),

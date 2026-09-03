@@ -1720,7 +1720,6 @@ export const makeWorkspaceMutations = (
         versionRange,
         env,
         enabled,
-        agents,
       }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
@@ -1729,7 +1728,6 @@ export const makeWorkspaceMutations = (
             const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
             const currentEnabled = currentMcpServers[name]?.enabled ?? true;
             const currentEnv = currentMcpServers[name]?.env ?? {};
-            const currentAgents = currentMcpServers[name]?.agents;
             const settingsEntry = {
               kind: "sourced" as const,
               source:
@@ -1748,9 +1746,6 @@ export const makeWorkspaceMutations = (
                   : printSourceParams(lockEntryToSourceParams(lockEntry)),
               enabled: enabled ?? currentEnabled,
               env: env ?? currentEnv,
-              ...((agents ?? currentAgents) === undefined
-                ? {}
-                : { agents: agents ?? currentAgents }),
             };
             const updatedSettings = {
               ...currentSettings,

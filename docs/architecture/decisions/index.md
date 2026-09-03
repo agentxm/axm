@@ -32,3 +32,7 @@ specifications, never in these records.
 - [MCP local names are connection identity, not source identity](mcp-local-connection-identity.md) —
   MCP local names identify connections and native projections, while source
   authority and published package identity define shared resolution.
+- [Agent targeting is workspace membership](agent-targeting-is-workspace-membership.md) —
+  agent selection chooses the workspace's configured agents or filters a
+  listing; an extension applies to every configured agent that can represent
+  it, never to a per-entry subset

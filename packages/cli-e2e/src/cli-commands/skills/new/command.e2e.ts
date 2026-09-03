@@ -1,7 +1,7 @@
 /**
  * E2E tests for the `axm skills new` command.
  *
- * Tests: scaffolding, owner override, already-exists error, agent narrowing.
+ * Tests: scaffolding, owner override, and the already-exists error.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -117,36 +117,6 @@ describe("axm skills new", () => {
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("already exists");
-    } finally {
-      temp.cleanup();
-    }
-  });
-
-  it("narrows agent symlinks with --agent flag", async () => {
-    const { temp, settingsPath } = setupWorkspace();
-    try {
-      // Init with multiple agents
-      await runCli(
-        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--agent", "amp"],
-        {
-          cwd: temp.path,
-        },
-      );
-      configureScope(settingsPath);
-
-      // Create skill targeting only claude-code via --agent
-      const result = await runCli(
-        ["skills", "new", "narrow-skill", "--agent", "claude-code", "--yes"],
-        { cwd: temp.path },
-      );
-      expect(result.exitCode).toBe(0);
-
-      // claude-code symlink should exist
-      const claudeSymlink = path.join(temp.path, ".claude", "skills", "narrow-skill");
-      expect(fs.existsSync(claudeSymlink)).toBe(true);
-
-      const universalSymlink = path.join(temp.path, ".agents", "skills", "narrow-skill");
-      expect(fs.existsSync(universalSymlink)).toBe(false);
     } finally {
       temp.cleanup();
     }

@@ -116,10 +116,9 @@ async function publishRegistrySkill(registryPath: string, name: string) {
     });
     configureRegistrySource(settingsPath, `file://${registryPath}`);
 
-    const createResult = await runCli(
-      ["skills", "new", name, "--owner", "@test", "--agent", "claude-code", "--yes"],
-      { cwd: workspace.path },
-    );
+    const createResult = await runCli(["skills", "new", name, "--owner", "@test", "--yes"], {
+      cwd: workspace.path,
+    });
     expect(createResult.exitCode).toBe(0);
 
     const publishResult = await runCli(["skills", "publish", `@test/skills/${name}`, "--yes"], {
@@ -351,16 +350,7 @@ describe("axm packs add/remove", () => {
       expect(registrySkill.exitCode, registrySkill.stderr).toBe(0);
 
       const workspaceSkill = await runCli(
-        [
-          "skills",
-          "new",
-          "workspace-member",
-          "--owner",
-          "@test",
-          "--agent",
-          "claude-code",
-          "--yes",
-        ],
+        ["skills", "new", "workspace-member", "--owner", "@test", "--yes"],
         { cwd: temp.path },
       );
       expect(workspaceSkill.exitCode, workspaceSkill.stderr).toBe(0);
@@ -607,10 +597,9 @@ describe("axm packs install", () => {
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
-      const created = await runCli(
-        ["skills", "new", skillName, "--owner", "@test", "--agent", "claude-code", "--yes"],
-        { cwd: temp.path },
-      );
+      const created = await runCli(["skills", "new", skillName, "--owner", "@test", "--yes"], {
+        cwd: temp.path,
+      });
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
       const canonical = path.join(temp.path, "skills", skillName);
       const beforeManifest = fs.readFileSync(path.join(canonical, "skill.json"), "utf8");

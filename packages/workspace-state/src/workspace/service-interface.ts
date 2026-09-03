@@ -87,7 +87,6 @@ import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 import type { DesiredStateGraph, ProspectivePackRef } from "./desired-state-graph.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { WorkspaceLayout } from "./layout.js";
 import type { ExtensionPathSource } from "./extension-paths.js";
 
@@ -345,7 +344,6 @@ export interface SetMcpServerArgs {
   readonly versionRange: Option.Option<string>;
   readonly env?: Readonly<Record<string, string>>;
   readonly enabled?: boolean;
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 /**

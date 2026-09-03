@@ -103,10 +103,9 @@ const publishSkillToRegistry = async (registryPath: string, name: string) => {
   try {
     await initWorkspace(workspace.path, registryPath);
 
-    const createResult = await runCli(
-      ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-      { cwd: workspace.path },
-    );
+    const createResult = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+      cwd: workspace.path,
+    });
     expect(
       createResult.exitCode,
       `stdout:\n${createResult.stdout}\n\nstderr:\n${createResult.stderr}`,
@@ -158,10 +157,9 @@ const publishSubagentToRegistry = async (registryPath: string, name: string) => 
   try {
     await initWorkspace(workspace.path, registryPath);
 
-    const createResult = await runCli(
-      ["subagents", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-      { cwd: workspace.path },
-    );
+    const createResult = await runCli(["subagents", "new", name, "--owner", OWNER, "--yes"], {
+      cwd: workspace.path,
+    });
     expect(
       createResult.exitCode,
       `stdout:\n${createResult.stdout}\n\nstderr:\n${createResult.stderr}`,

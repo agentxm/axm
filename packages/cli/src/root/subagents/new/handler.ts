@@ -45,7 +45,6 @@ const INITIAL_VERSION = decodeVersionSync("0.0.1");
 export interface SubagentsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<string>;
-  readonly agents: Option.Option<readonly string[]>;
   readonly yes: boolean;
   readonly preview: boolean;
 }

@@ -78,10 +78,9 @@ describe("installed-state scope consistency", () => {
         `${knowledgePublished.stderr}\n${knowledgePublished.stdout}`,
       ).toBe(0);
 
-      const skillCreated = await runCli(
-        ["skills", "new", SKILL, "--owner", OWNER, "--agent", "cursor", "--yes"],
-        { cwd: author.path },
-      );
+      const skillCreated = await runCli(["skills", "new", SKILL, "--owner", OWNER, "--yes"], {
+        cwd: author.path,
+      });
       expect(skillCreated.exitCode, `${skillCreated.stderr}\n${skillCreated.stdout}`).toBe(0);
       const skillRoot = path.join(author.path, "skills", SKILL);
       const skillManifestPath = path.join(skillRoot, "skill.json");

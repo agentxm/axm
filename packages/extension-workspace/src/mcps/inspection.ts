@@ -30,7 +30,7 @@ import type { McpServerEntry } from "@agentxm/workspace-state";
 import { parseTomlValue, stringifyTomlKey } from "../toml/index.js";
 import { managedYamlNames as readManagedYamlNames, readYamlEntry } from "../yaml/index.js";
 import { resolveAgentMcpConfigTargetPath } from "./config-writer.js";
-import { isAxmManagedMcpEntry, isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
+import { isAxmManagedMcpEntry } from "@agentxm/workspace-state";
 import {
   diffAgentEntry,
   inferInlineRemoteTransport,
@@ -38,11 +38,7 @@ import {
   type ExpectedAgentEntry,
 } from "./projection.js";
 import { resolveSharedMcpTarget, type SharedMcpTransport } from "./shared-target.js";
-import {
-  groupConfiguredMcpTargets,
-  MCP_NOT_APPLICABLE_REASON,
-  planMcpTargetGroups,
-} from "./targeting.js";
+import { groupConfiguredMcpTargets } from "./targeting.js";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 type ConfiguredMcpCapability = AgentMcpCapability & {
@@ -57,8 +53,7 @@ type ConfiguredMcpCapability = AgentMcpCapability & {
   };
 };
 
-export type AgentMcpInspectionStatus =
-  "not-applicable" | "unsupported" | "absent" | "match" | "drift" | "unmanaged";
+export type AgentMcpInspectionStatus = "unsupported" | "absent" | "match" | "drift" | "unmanaged";
 
 export interface AgentMcpServerInspection {
   readonly agentId: string;
@@ -244,7 +239,7 @@ const inspectActual = (args: {
   readonly expected: McpInspectionExpectation;
 }): Effect.Effect<
   {
-    readonly status: Exclude<AgentMcpInspectionStatus, "unsupported" | "not-applicable">;
+    readonly status: Exclude<AgentMcpInspectionStatus, "unsupported">;
     readonly fields: ReadonlyArray<string>;
     readonly actual?: Readonly<Record<string, unknown>>;
   },
@@ -354,27 +349,6 @@ const inspectAgentMcpServerInternal = (
       };
     }
 
-    if (!isMcpServerApplicableToAgent(args.entry, args.agentId)) {
-      const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
-      const actual = yield* inspectActual({
-        target,
-        configPath: absolutePath,
-        serversKey: config.serversKey,
-        serverName: args.serverName,
-        expected: { _tag: "unsupported", reason: MCP_NOT_APPLICABLE_REASON },
-      });
-      return {
-        agentId: args.agentId,
-        path: target.path,
-        absolutePath,
-        status: actual.status === "absent" ? "not-applicable" : actual.status,
-        fields: actual.status === "drift" ? ["agents"] : actual.fields,
-        warnings: [],
-        reason: MCP_NOT_APPLICABLE_REASON,
-        ...(actual.actual === undefined ? {} : { actual: actual.actual }),
-      };
-    }
-
     const projected: McpInspectionExpectation =
       args.entry.command === undefined && args.entry.url === undefined
         ? { _tag: "managed" }
@@ -470,11 +444,7 @@ export const inspectMcpServerAcrossAgents = (args: {
       );
     }
     const transport = yield* inspectionTransportForEntry(args.entry);
-    const groups = planMcpTargetGroups({
-      configuredAgentIds: args.agentIds,
-      entry: args.entry,
-      scope: args.scope,
-    });
+    const groups = groupConfiguredMcpTargets({ agentIds: args.agentIds, scope: args.scope });
 
     const byAgentId = new Map<string, AgentMcpServerInspection>();
     for (const group of groups) {

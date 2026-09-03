@@ -29,6 +29,22 @@ behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Source: [`specifications/cli/activation-follows-desired-state.spec.ts`](../specifications/cli/activation-follows-desired-state.spec.ts)
 
+#### Agent Selection Is Membership Or Filter
+
+##### Agent selection chooses workspace membership or filters a listing, never one extension
+
+- Requirement: `cli/agent-selection-is-membership-or-filter`
+- Status: candidate
+- Statement: A command shall accept an agent selection only to choose the workspace's configured agents or to filter a listing, shall reject an unsupported agent identifier before any work begins, and no command shall accept an agent selection that narrows one extension.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Derived from: `axm setup --agent`, `axm skills list --agent`, `axm subagents list --agent`, `cli/sync/realizes-desired-state`, `cli/agents/membership-changes-realize-affected-outputs`
+- Assumptions: The agent catalog shipped with the CLI is the only source of supported agent identifiers, so an identifier outside it can be refused without consulting the workspace.
+- Source: [`specifications/cli/agent-selection-is-membership-or-filter.spec.ts`](../specifications/cli/agent-selection-is-membership-or-filter.spec.ts)
+
 #### Agents
 
 ##### Agent membership changes update the durable target set and its owned outputs together
@@ -305,6 +321,20 @@ behavior.
 
 #### Mcps
 
+##### An imported MCP server is adopted once and reaches every configured agent
+
+- Requirement: `cli/mcps/import/adoption-reaches-every-configured-agent`
+- Status: candidate
+- Statement: When an MCP server found in one agent's native configuration is imported, AXM shall record it once without an agent subset, shall project it to every configured agent that can represent it on the next reconciliation, and shall report every native target it will write in preview and apply.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/sync/realizes-desired-state`, `packages/cli/src/root/mcps/import.internal.test.ts`
+- Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so a server present in one file and absent from the other observes adoption reaching a second agent.
+- Source: [`specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts`](../specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts)
+
 ##### Inline MCP entries stay authoritative workspace configuration realized only by sync
 
 - Requirement: `cli/mcps/inline-authority-is-operation-coherent`
@@ -341,6 +371,20 @@ behavior.
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Source: [`specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts`](../specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts)
+
+##### MCP servers reach every configured agent that can represent them
+
+- Requirement: `cli/mcps/projects-to-every-configured-agent`
+- Status: candidate
+- Statement: When an MCP server is configured, enabled, or re-enabled, AXM shall write it to the native configuration of every configured agent that can represent it, shall report each agent that cannot as unsupported rather than omitting it, and disabling or uninstalling it shall remove it from every agent it reached.
+- Class: functional
+- Role: experience
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/activation-follows-desired-state`, `packages/extension-workspace/src/mcps/shared-target-catalog.internal.test.ts`
+- Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.
+- Source: [`specifications/cli/mcps/projects-to-every-configured-agent.spec.ts`](../specifications/cli/mcps/projects-to-every-configured-agent.spec.ts)
 
 ##### Uninstall removes one local MCP connection and retains shared source state
 
@@ -480,6 +524,37 @@ behavior.
 - Methods: example
 - Open questions: The title says recovery converges without changing source authority, yet the recovery scenario rewrites the skill's axm.json entry from a Registry locator to a bundled workspace entry; which authority is meant to stay unchanged is unclear.
 - Source: [`specifications/cli/skills/install/bundled-recovery-converges.spec.ts`](../specifications/cli/skills/install/bundled-recovery-converges.spec.ts)
+
+##### A new skill is scaffolded for the universal location and every configured agent
+
+- Requirement: `cli/skills/new/scaffolds-for-every-configured-agent`
+- Status: candidate
+- Statement: When a skill is created, AXM shall create its manifest, content, and enabled settings entry together, shall materialize it for the universal location and every configured agent that can represent it, shall list the same targets in preview and apply, and a following reconciliation shall report no change.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/realizes-desired-state`, `cli/install/preview-is-pure`, `packages/cli/src/root/skills/new.internal.test.ts`, `packages/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
+- Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
+- Source: [`specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts)
+
+#### Subagents
+
+##### A new subagent is scaffolded and rendered for every configured agent
+
+- Requirement: `cli/subagents/new/scaffolds-for-every-configured-agent`
+- Status: candidate
+- Statement: When a subagent is created, AXM shall create its manifest, content, and enabled settings entry together, shall render it for every configured agent that can represent it, shall list the same targets in preview and apply, and a following reconciliation shall report no change.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/realizes-desired-state`, `cli/install/preview-is-pure`, `packages/cli/src/root/subagents/new/handler.internal.test.ts`
+- Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.
+- Open questions: Whether the creation result should list each agent's rendered file as a target, as skill creation lists agent locations, is unresolved; this specification requires only that preview and apply agree and that every configured agent receives its rendering.
+- Source: [`specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts)
 
 #### Sync
 
@@ -841,6 +916,22 @@ behavior.
 - Source: [`specifications/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts`](../specifications/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts)
 
 ### Settings contract
+
+#### Agent Membership Is The Only Agent Selection
+
+##### Workspace settings select agents only through the workspace agent list
+
+- Requirement: `settings-contract/agent-membership-is-the-only-agent-selection`
+- Status: candidate
+- Statement: Workspace settings shall express agent selection only through the workspace agent list, shall reject an extension entry that declares its own agent subset with an error naming that key, and the published settings schema shall admit no per-entry agent subset.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `settings-contract/published-schemas-agree-with-accepted-input`, `cli/settings-validity-gates-operations`, `packages/workspace-state/src/settings/schema.internal.test.ts`
+- Assumptions: The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.; The product reads settings with excess keys treated as errors, so decoding here with the same option observes the product's acceptance boundary.
+- Source: [`specifications/settings-contract/agent-membership-is-the-only-agent-selection.spec.ts`](../specifications/settings-contract/agent-membership-is-the-only-agent-selection.spec.ts)
 
 #### Published Schemas Agree With Accepted Input
 

@@ -106,6 +106,8 @@ export const previewFlag = Flag.boolean("preview").pipe(
   Flag.withDefault(false),
 );
 
+export { agentFlag } from "./agent-flag.js";
+
 // ---------------------------------------------------------------------------
 // Test helper
 // ---------------------------------------------------------------------------

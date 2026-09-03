@@ -315,7 +315,6 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
         source,
         enabled: true,
         env: candidate.env,
-        ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
       })
       .pipe(Effect.mapError(toAppError)),
     finalizeAuthored: args.ws
@@ -323,7 +322,6 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
         source,
         enabled: args.enable,
         env: candidate.env,
-        ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
       })
       .pipe(Effect.mapError(toAppError))
       .pipe(

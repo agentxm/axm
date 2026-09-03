@@ -57,12 +57,9 @@ export const configuredAgentLifecycleOutcomes = (args: {
   readonly targetState: "enabled" | "disabled" | "absent";
   readonly installed: boolean;
   readonly observedAgentIds?: ReadonlyArray<string>;
-  readonly applicableAgentIds?: ReadonlyArray<string>;
 }): ReadonlyArray<ConfiguredAgentOutcome> => {
   const policy = EXTENSION_CONFIGURED_AGENT_POLICY[args.type];
   const observed = new Set(args.observedAgentIds ?? []);
-  const applicable =
-    args.applicableAgentIds === undefined ? undefined : new Set(args.applicableAgentIds);
 
   if (policy.kind === "not-applicable") {
     return args.agentIds.map((agentId) => ({
@@ -93,16 +90,6 @@ export const configuredAgentLifecycleOutcomes = (args: {
           args.targetState === "absent"
             ? "The extension is absent, so no agent projection is expected."
             : "The extension is disabled, so no agent projection is expected.",
-      };
-    }
-    if (applicable !== undefined && !applicable.has(agentId)) {
-      return {
-        extensionType: args.type,
-        name: args.name,
-        agentId,
-        outcome: "not-applicable",
-        reasonCode: "target-policy-excluded",
-        reason: `${agentId} is excluded by the extension target policy.`,
       };
     }
 

@@ -130,7 +130,7 @@ describe("mcps import output", () => {
         });
         const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
         expect(settings.mcpServers.demo.env).toEqual({ DEMO_TOKEN: "${DEMO_TOKEN}" });
-        expect(settings.mcpServers.demo.agents).toEqual(["claude-code"]);
+        expect(settings.mcpServers.demo).not.toHaveProperty("agents");
         expect(JSON.stringify(settings)).not.toContain("secret-value");
       }),
     );

@@ -237,9 +237,8 @@ configured-agent outcome vocabulary:
 
 - `projected` — preview expects a supported agent projection.
 - `current` — inspection confirms the expected projection.
-- `not-applicable` — the extension is disabled, excluded by target policy, or
-  workspace/container-owned and therefore intentionally has no projection for
-  that agent.
+- `not-applicable` — the extension is disabled or workspace/container-owned and
+  therefore intentionally has no projection for that agent.
 - `unsupported` — the configured agent or selected scope has no supported AXM
   integration.
 - `blocked` — a required behavior cannot be preserved, so AXM performs no

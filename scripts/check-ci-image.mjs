@@ -389,7 +389,7 @@ requireText(
 const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "";
 for (const text of [
   "nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check",
-  "nx run-many -t build --batch",
+  "nx run-many -t build --parallel=1",
   "nx run-many -t test",
   "--maxWorkers=2",
 ]) {
@@ -404,7 +404,7 @@ const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
 for (const text of [
   "nx affected -t lint typecheck",
   "verify-source-hygiene parity-ledger-check",
-  "nx affected -t build --batch",
+  "nx affected -t build --parallel=1",
   "nx affected -t test",
   "--maxWorkers=2",
   "nx affected -t e2e",
@@ -431,8 +431,8 @@ for (const [name, source] of [
 
 if (
   affectedVerification.indexOf("nx affected -t lint typecheck") >=
-    affectedVerification.indexOf("nx affected -t build --batch") ||
-  affectedVerification.indexOf("nx affected -t build --batch") >=
+    affectedVerification.indexOf("nx affected -t build --parallel=1") ||
+  affectedVerification.indexOf("nx affected -t build --parallel=1") >=
     affectedVerification.indexOf("nx affected -t test") ||
   affectedVerification.indexOf("nx affected -t test") >=
     affectedVerification.indexOf("nx affected -t e2e")

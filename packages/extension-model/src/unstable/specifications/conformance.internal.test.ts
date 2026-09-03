@@ -81,8 +81,8 @@ describe("decodeSpecificationMetadata", () => {
     expect(decodeSpecificationMetadata({ ...accepted, role: "internal" }).ok).toBe(false);
   });
 
-  it("rejects a lifecycle status field; presence on main is the only authority", () => {
-    expect(decodeSpecificationMetadata({ ...accepted, status: "accepted" }).ok).toBe(false);
+  it("rejects a field the contract does not define", () => {
+    expect(decodeSpecificationMetadata({ ...accepted, priority: "high" }).ok).toBe(false);
   });
 
   it("rejects a requirement identity with fewer than two segments", () => {

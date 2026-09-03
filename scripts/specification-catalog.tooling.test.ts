@@ -88,7 +88,7 @@ describe("parseSpecificationFile", () => {
 
   it("rejects an omitted lineage field instead of defaulting it", () => {
     const parsed = parseSpecificationFile(
-      `export const specification = defineSpecification({ requirement: "cli/install/a", title: "t", statement: "s", class: "functional", role: "experience", goals: ["a"], status: "accepted", methods: ["example"] });`,
+      `export const specification = defineSpecification({ requirement: "cli/install/a", title: "t", statement: "s", class: "functional", role: "experience", goals: ["a"], methods: ["example"] });`,
       "specifications/cli/install/a.spec.ts",
     );
     expect(parsed.specification).toBeUndefined();

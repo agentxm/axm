@@ -72,9 +72,13 @@ preservation of unowned native entries covers the residual need.
   and agent overrides — is unaffected. It adapts content for a target; it does
   not select targets.
 
-The candidate specifications recorded in the agent-targeting-removal batch
-review under `specifications/reviews/` own these behaviors once accepted; this
-record explains the choice.
+The executable specifications `cli/agent-selection-is-membership-or-filter`,
+`settings-contract/agent-membership-is-the-only-agent-selection`,
+`cli/mcps/projects-to-every-configured-agent`,
+`cli/mcps/import/adoption-reaches-every-configured-agent`,
+`cli/skills/new/scaffolds-for-every-configured-agent`, and
+`cli/subagents/new/scaffolds-for-every-configured-agent` own these behaviors;
+this record explains the choice.
 
 ## Alternatives
 

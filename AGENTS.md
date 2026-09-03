@@ -105,9 +105,9 @@ For a new version release, follow `contributing/guides/releasing.md` exactly. Do
 Executable specifications under `specifications/` are the sole local authority
 for AXM requirements; use the generated
 [specification catalog](specifications/catalog.md) as the reading path. A
-specification on `main` is accepted; there is no other status. Ordinary tests,
-prose, and implementation are witnesses; schemas and contracts keep only their
-declared interface authority; execution produces evidence, never acceptance.
+specification on `main` is accepted. Ordinary tests, prose, and implementation
+are witnesses; schemas and contracts keep only their declared interface
+authority; execution produces evidence, never acceptance.
 The metadata contract, vocabularies, and shared goal identities live in
 `@agentxm/extension-model/unstable/specifications` and are shared with the
 AgentXM platform; an obligation is allocated to one corpus and never restated
@@ -122,8 +122,7 @@ concerns non-normative implementation detail.
 
 A change to behavior lands its specification changes in the same change,
 written as final. A decision the maintainer makes in the session or on the pull
-request is the acceptance; never author a candidate, and never defer a decided
-change to a later review. An obligation not yet decided is not written: record
+request is the acceptance. An obligation not yet decided is not written: record
 it as a work item or in `openQuestions` of the nearest specification.
 Implementation-only work preserves specifications and runs
 `pnpm test:spec --requirement <id>`; a bug fix with missing coverage adds or

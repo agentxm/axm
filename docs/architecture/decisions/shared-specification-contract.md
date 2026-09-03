@@ -28,14 +28,12 @@ The contract fixes these points:
   `performance`, `security`, and so on); selection by characteristic replaces
   the former per-characteristic classes. Former `architecture` specifications
   are `constraint`; former `usability` specifications are `human-factors`.
-- **Presence is authority.** The contract carries no lifecycle status, and
-  the metadata decoder rejects unknown fields, so a `status` cannot be
-  reintroduced by a single file. A specification on a corpus's `main` is
+- **Presence is authority.** A specification on a corpus's `main` is
   accepted; merging the change that adds, revises, or removes it is the
   acceptance decision, and the identities a successor `supersedes` are retired
-  in the same change. The conformance check rejects a successor whose
-  superseded predecessor is still present, so one obligation is never
-  normative in two places.
+  in the same change. The metadata decoder rejects unknown fields, and the
+  conformance check rejects a successor whose superseded predecessor is still
+  present, so one obligation is never normative in two places.
 - **The statement is the obligation.** Every specification carries a
   product-language `statement` (subject, condition, required or prohibited
   outcome) alongside its title; native tests remain the reportable scenarios.
@@ -86,10 +84,10 @@ established that specifications own AXM requirements.
   `pnpm test:spec --characteristic <characteristic>` selects a quality
   characteristic; `pnpm test:compatibility` and `pnpm test:performance`
   select by characteristic.
-- The catalog renders each specification's status, statement, lineage,
+- The catalog renders each specification's statement, lineage,
   assumptions, open questions, and limitations, and separates shared from
   local product goals. The per-change verdict digests the complete metadata,
-  so a changed statement, status, lineage entry, or assumption is a
+  so a changed statement, lineage entry, or assumption is a
   requirement-contract change.
 - The Allure adapter and catalog generator validate metadata through the
   shared decoders; a specification that does not satisfy the contract fails

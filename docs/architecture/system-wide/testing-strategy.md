@@ -426,8 +426,8 @@ Specification tests use idiomatic constructs from their native test framework
 and any purpose-fit testing library. The shared metadata contract in
 `@agentxm/extension-model` provides only the cross-method information that
 discovery, conformance, and reporting need: a stable requirement identity, a
-human-readable title, the normative statement, class and role, status, the
-product goals the requirement supports, the observation boundary and its
+human-readable title, the normative statement, class and role, the product
+goals the requirement supports, the observation boundary and its
 rationale, methods, lineage (`derivedFrom`, `supersedes`), stated assumptions
 and open questions, and declared limitations with retirement conditions.
 Unknown assumptions or open questions are stated as unknown, never omitted.

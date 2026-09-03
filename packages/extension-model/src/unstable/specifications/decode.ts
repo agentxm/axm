@@ -132,8 +132,8 @@ const toDecodeResult = <T>(result: Result.Result<T, Schema.SchemaError>): Decode
     : { ok: false, issues: formatSchemaIssuesToLines(result.failure.issue) };
 
 /**
- * Metadata is a closed literal: a field the contract does not define (for
- * example a lifecycle status) is a decoding failure, never ignored.
+ * Metadata is a closed literal: a field the contract does not define is a
+ * decoding failure, never ignored.
  */
 const decodeMetadata = Schema.decodeUnknownResult(SpecificationMetadataSchema, {
   onExcessProperty: "error",

@@ -2,19 +2,18 @@
 
 Every `*.spec.ts` states one requirement in the shared contract from
 `@agentxm/extension-model/unstable/specifications`. Directories are physical
-layout; requirement identity, statement, class, role, status, goals, and
-lineage carry the meaning.
+layout; requirement identity, statement, class, role, goals, and lineage
+carry the meaning.
 
 Use the installed `engineer-requirements` skill for elicitation, review,
 impact analysis, and requirement changes. Its acceptance policy for this
-repository is the one below: the maintainer is the acceptance authority, a
-decision the maintainer records in the session or on the pull request is the
-acceptance, and the skill never authors a candidate or defers a decided change.
+repository is the one below: the maintainer is the acceptance authority, and
+a decision the maintainer records in the session or on the pull request is
+the acceptance.
 
 ## Authority
 
-- A specification on `main` is accepted authority. There is no other status:
-  the contract has no lifecycle field, and the decoder rejects one.
+- A specification on `main` is accepted authority.
 - Merging the change that adds, revises, or removes a specification is the
   acceptance decision. A change to behavior lands its specification changes in
   the same change, written as final.
@@ -103,15 +102,6 @@ Cross-cutting views come from goal metadata, never duplicate directories.
 A specification whose decisive verification is a static gate declares
 literal-only `boundEvidence` beside its `specification` constant. Bound
 evidence supports the owning specification and never replaces it.
-
-## Set reviews
-
-A change that re-derives a subject's specifications from sources may record a
-set review under `reviews/`: boundary, baseline revision, source set,
-exclusions, and the orphans, duplicates, gaps, unverifiable claims, and
-reassessment notes found. A review record is evidence for the reader of the
-change; it is optional, it is not authority, and acceptance is never recorded
-in it. Existing records are history.
 
 ## Moves and identity
 

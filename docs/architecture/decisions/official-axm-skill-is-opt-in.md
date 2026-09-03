@@ -41,8 +41,10 @@ not turn the skill into a workspace invariant or add it while adopting existing
 desired state.
 
 Accepting authority: maintainer decision recorded on 2026-09-02. The binding
-outcome is owned by executable specification
-`cli/lint/official-skill-findings-follow-declared-intent` in the
+outcomes are owned by the executable specifications
+`cli/lint/undeclared-official-skill-is-informational`,
+`cli/lint/declared-official-skill-must-be-compatible`, and
+`cli/lint/compatibility-result-names-reason-and-recovery` in the
 [specification catalog](../../../specifications/catalog.md); this record owns
 the architectural choice and rationale.
 

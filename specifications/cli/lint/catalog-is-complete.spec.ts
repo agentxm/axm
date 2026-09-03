@@ -1,4 +1,7 @@
+import { createRequire } from "node:module";
+
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { allCatalogRuleMetadata } from "axm.sh/specification-harness";
@@ -8,14 +11,16 @@ export const specification = defineSpecification({
   requirement: "cli/lint/catalog-is-complete",
   title: "Every supported lint rule has a stable default and input scope",
   statement:
-    "The lint rule catalog shall expose exactly the accepted rule identities in reporting order, and each rule shall declare its accepted default severity, its rule group, and the filesystem views (workspace, git-index) it observes.",
+    "The lint rule catalog shall expose exactly the accepted rule identities, and each rule shall declare its accepted default severity and the filesystem views (workspace, git-index) it observes.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "workspace-intent-fidelity"],
   methods: ["contract", "decision-table"],
   derivedFrom: [],
   supersedes: [],
-  assumptions: [],
+  assumptions: [
+    "The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.",
+  ],
   openQuestions: [],
 });
 
@@ -32,6 +37,8 @@ const workspaceView = ["workspace"] as const;
  * Accepted lint-rule inventory. This is intentionally independent of the
  * implementation catalog: changing a rule id, default, or input scope is a
  * product-contract change that must update this specification deliberately.
+ * Rule grouping and reporting order are not contract facts and are verified
+ * internally.
  */
 const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["skill/skill-md-present", "error", bothViews],
@@ -149,26 +156,47 @@ const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["workspace/packs-dependencies-resolved", "error", bothViews],
 ];
 
+const requireFromSpec = createRequire(import.meta.url);
+const decodeJsonRecord = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown));
+
+const child = (parent: Record<string, unknown>, key: string): Record<string, unknown> =>
+  decodeJsonRecord(parent[key]);
+
+/**
+ * The rule identities the published settings schema accepts under
+ * `lint.rules`. The generated schema document is published package content,
+ * reachable through the public site-content export.
+ */
+const publishedRuleIds = (): ReadonlyArray<string> => {
+  const loaded: unknown = requireFromSpec(
+    "axm.sh/unstable/site-content/schemas/settings.schema.json",
+  );
+  const lintConfig = child(child(decodeJsonRecord(loaded), "definitions"), "LintConfig");
+  return Object.keys(child(child(child(lintConfig, "properties"), "rules"), "properties"));
+};
+
+const sorted = (values: ReadonlyArray<string>): ReadonlyArray<string> => [...values].sort();
+const acceptedRuleIds = sorted(expectedRules.map(([id]) => id));
+
 describe("Lint rule catalog", () => {
-  it.effect("contains exactly the accepted rule identities in reporting order", () =>
+  it.effect("the published settings schema accepts exactly the accepted rule identities", () =>
     Effect.sync(() => {
-      expect(allCatalogRuleMetadata.map((entry) => entry.id)).toEqual(
-        expectedRules.map(([id]) => id),
-      );
+      expect(sorted(publishedRuleIds())).toEqual(acceptedRuleIds);
+    }),
+  );
+
+  it.effect("the lint surface exposes exactly the accepted rule identities", () =>
+    Effect.sync(() => {
+      expect(sorted(allCatalogRuleMetadata.map((entry) => entry.id))).toEqual(acceptedRuleIds);
     }),
   );
 
   it.effect.each(expectedRules)("$0 has its accepted default severity and input scope", (row) =>
     Effect.sync(() => {
       const [id, defaultSeverity, views] = row;
-      const separator = id.indexOf("/");
-      const group = id.slice(0, separator);
-      expect(allCatalogRuleMetadata.find((entry) => entry.id === id)).toEqual({
-        id,
-        defaultSeverity,
-        group,
-        views,
-      });
+      const rule = allCatalogRuleMetadata.find((entry) => entry.id === id);
+      expect(rule?.defaultSeverity, `default severity of ${id}`).toBe(defaultSeverity);
+      expect(sorted(rule?.views ?? []), `filesystem views of ${id}`).toEqual(sorted(views));
     }),
   );
 });

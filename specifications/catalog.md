@@ -274,6 +274,19 @@ programmatic interfaces, and supporting system behavior.
 
 #### Lint
 
+##### Lint holds a declared official AXM skill to compatibility
+
+- Requirement: `cli/lint/declared-official-skill-must-be-compatible`
+- Statement: When the workspace declares the official AXM skill, lint shall report a compatibility error and fail when the declared skill is missing, incompatible, skewed, authored, or unreadable, and shall report clean and succeed when it is compatible.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `cli/lint/official-skill-findings-follow-declared-intent`
+- Supersedes: `cli/lint/official-skill-findings-follow-declared-intent`
+- Source: [`specifications/cli/lint/declared-official-skill-must-be-compatible.spec.ts`](../specifications/cli/lint/declared-official-skill-must-be-compatible.spec.ts)
+
 ##### Lint fix repairs only state determined by local authority
 
 - Requirement: `cli/lint/fix-repairs-only-determined-state`
@@ -288,7 +301,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Local lint honors configured rule severities
 
 - Requirement: `cli/lint/honors-configured-rule-severities`
-- Statement: For each lint rule, lint shall report findings at the severity axm.json configures, suppress the rule when configured off, apply the catalog default when unconfigured, fail a normal run only on errors, and fail a --strict run on warnings as well.
+- Statement: For each lint rule, lint shall report findings at the severity axm.json configures, suppress the rule when configured off, and apply the catalog default when unconfigured.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
@@ -297,6 +310,19 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/honors-configured-rule-severities.spec.ts`](../specifications/cli/lint/honors-configured-rule-severities.spec.ts)
 
+##### Lint fails a normal run on errors and a strict run on warnings as well
+
+- Requirement: `cli/lint/normal-and-strict-runs-fail-by-severity`
+- Statement: When lint finishes, a normal run shall fail only when an error finding exists, a --strict run shall fail when an error or warning finding exists, and both runs shall succeed on informational or no findings while reporting the same findings and summary.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `cli/lint/honors-configured-rule-severities`
+- Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
+- Source: [`specifications/cli/lint/normal-and-strict-runs-fail-by-severity.spec.ts`](../specifications/cli/lint/normal-and-strict-runs-fail-by-severity.spec.ts)
+
 ##### Lint observes only the selected filesystem view
 
 - Requirement: `cli/lint/observes-selected-filesystem-view`
@@ -304,22 +330,11 @@ programmatic interfaces, and supporting system behavior.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: process; selection: per-change
+- Boundary rationale: Only a real Git index and working tree, driven through the git executable, can hold staged content that differs from the working tree, yield the index fingerprint, and show afterwards that the index, status, and files were left untouched; an in-memory run has no Git index to observe.
 - Methods: example
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/observes-selected-filesystem-view.spec.ts`](../specifications/cli/lint/observes-selected-filesystem-view.spec.ts)
-
-##### Lint reports the official AXM skill against what the workspace declared
-
-- Requirement: `cli/lint/official-skill-findings-follow-declared-intent`
-- Statement: Lint shall report the official AXM skill as an informational finding when the workspace does not declare it, as a compatibility error with a reason and recovery action when the declared skill is missing, incompatible, skewed, authored, or unreadable, and as clean when compatible.
-- Class: functional
-- Role: experience
-- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: decision-table
-- Open questions: The reason code reported for the authored and unreadable official-skill states is not pinned by the decision table, while every other error state pins one.
-- Source: [`specifications/cli/lint/official-skill-findings-follow-declared-intent.spec.ts`](../specifications/cli/lint/official-skill-findings-follow-declared-intent.spec.ts)
 
 ##### Lint reports invariant violations without changing any workspace state
 
@@ -332,6 +347,19 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/reports-facts-without-mutation.spec.ts`](../specifications/cli/lint/reports-facts-without-mutation.spec.ts)
+
+##### Lint reports an undeclared official AXM skill as informational
+
+- Requirement: `cli/lint/undeclared-official-skill-is-informational`
+- Statement: When the workspace does not declare the official AXM skill, lint shall report one informational finding for the declared-skill rule, shall report no compatibility finding, and shall succeed.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `cli/lint/official-skill-findings-follow-declared-intent`
+- Supersedes: `cli/lint/official-skill-findings-follow-declared-intent`
+- Source: [`specifications/cli/lint/undeclared-official-skill-is-informational.spec.ts`](../specifications/cli/lint/undeclared-official-skill-is-informational.spec.ts)
 
 #### Lock State Never Creates Reachability
 
@@ -786,13 +814,28 @@ programmatic interfaces, and supporting system behavior.
 ##### Every supported lint rule has a stable default and input scope
 
 - Requirement: `cli/lint/catalog-is-complete`
-- Statement: The lint rule catalog shall expose exactly the accepted rule identities in reporting order, and each rule shall declare its accepted default severity, its rule group, and the filesystem views (workspace, git-index) it observes.
+- Statement: The lint rule catalog shall expose exactly the accepted rule identities, and each rule shall declare its accepted default severity and the filesystem views (workspace, git-index) it observes.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: contract, decision-table
+- Assumptions: The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.
 - Source: [`specifications/cli/lint/catalog-is-complete.spec.ts`](../specifications/cli/lint/catalog-is-complete.spec.ts)
+
+##### The machine lint result names the official skill's compatibility reason and recovery
+
+- Requirement: `cli/lint/compatibility-result-names-reason-and-recovery`
+- Statement: When lint runs in machine output mode, the result shall carry a compatibility result only when the workspace declares the official AXM skill, and that result shall name the reason the skill is incompatible and the recovery action with its next command, or no action when the skill is compatible.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `cli/lint/official-skill-findings-follow-declared-intent`
+- Supersedes: `cli/lint/official-skill-findings-follow-declared-intent`
+- Open questions: The reason code reported for the authored and unreadable official-skill states is not pinned by the decision table, while every other error state pins one.
+- Source: [`specifications/cli/lint/compatibility-result-names-reason-and-recovery.spec.ts`](../specifications/cli/lint/compatibility-result-names-reason-and-recovery.spec.ts)
 
 ##### Lint distinguishes AXM-owned residue from genuinely undeclared agents
 
@@ -808,7 +851,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Lint findings identify the violated invariant and affected subject as facts
 
 - Requirement: `cli/lint/findings-name-the-violated-invariant`
-- Statement: When lint reports a finding in machine output mode, the finding shall carry a stable rule identity, the affected subject, the deciding authority, the observed state, the expected invariant, and its location, and shall carry no advisory or suggestion content.
+- Statement: When lint reports a finding in machine output mode, the finding shall carry a stable rule identity, the affected subject, the deciding authority, the observed state, the expected invariant, and its location.
 - Class: functional
 - Role: interface
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -816,6 +859,18 @@ programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/findings-name-the-violated-invariant.spec.ts`](../specifications/cli/lint/findings-name-the-violated-invariant.spec.ts)
+
+##### Machine lint output carries facts and no advice
+
+- Requirement: `cli/lint/machine-findings-carry-only-facts`
+- Statement: When lint runs in machine output mode, each reported finding shall carry only fact fields, and the run shall emit no advisory or suggestion content on any channel.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: contract
+- Derived from: `cli/lint/findings-name-the-violated-invariant`
+- Source: [`specifications/cli/lint/machine-findings-carry-only-facts.spec.ts`](../specifications/cli/lint/machine-findings-carry-only-facts.spec.ts)
 
 #### Lockfile Version Errors Expose Structured Problem
 

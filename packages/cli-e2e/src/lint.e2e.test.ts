@@ -10,6 +10,7 @@ export const executionBinding = {
     "cli/lint/reports-facts-without-mutation",
     "cli/lint/findings-name-the-violated-invariant",
     "cli/lint/honors-configured-rule-severities",
+    "cli/lint/normal-and-strict-runs-fail-by-severity",
     "cli/lint/observes-selected-filesystem-view",
   ],
   boundary: "process",

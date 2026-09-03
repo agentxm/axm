@@ -26,6 +26,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity", "machine-automation"],
+  boundary: "process",
+  boundaryRationale:
+    "Only a real Git index and working tree, driven through the git executable, can hold staged content that differs from the working tree, yield the index fingerprint, and show afterwards that the index, status, and files were left untouched; an in-memory run has no Git index to observe.",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

@@ -12,7 +12,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/preview-is-pure",
   title: "Install preview describes the plan without changing any state",
   statement:
-    "When the install command runs in preview mode, it shall report the planned closure with a previewed outcome, shall not change settings, the lockfile, canonical content, or agent projections, and a subsequent apply shall realize exactly the closure the preview described.",
+    "When the install command runs in preview mode, it shall report the planned closure with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -52,33 +52,6 @@ describe("Install preview purity", () => {
 
       const [entry] = workspace.rendererState.results;
       expect(entry?.data).toMatchObject({ result: { outcome: "previewed" } });
-    }),
-  );
-
-  it.effect("preview then apply produces the same planned closure it described", () =>
-    Effect.gen(function* () {
-      const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
-      cleanups.push(workspace.cleanup);
-      const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
-      const run = (preview: boolean) =>
-        handleInstall({
-          source: Option.some(skillPackage),
-          yes: true,
-          force: false,
-          preview,
-        }).pipe(Effect.provide(workspace.layer));
-
-      yield* run(true);
-      yield* run(false);
-
-      expect(workspace.exists(".claude/skills/code-review")).toBe(true);
-      const [previewEntry, applyEntry] = workspace.rendererState.results;
-      expect(previewEntry?.data).toMatchObject({
-        result: { counts: { total: 1 } },
-      });
-      expect(applyEntry?.data).toMatchObject({
-        result: { counts: { total: 1, committed: 1 }, outcome: "applied" },
-      });
     }),
   );
 });

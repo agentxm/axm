@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { handleInstall, handleSkillsInstall } from "axm.sh/specification-harness";
+import { handleInstall } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
@@ -12,26 +12,16 @@ export const specification = defineSpecification({
   requirement: "cli/install/reinstall-is-idempotent",
   title: "Installing an already desired extension at the same constraint is a successful no-op",
   statement:
-    "When a person reinstalls an extension the workspace already desires at the same constraint, through either the root command or the type command, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, or agent projections.",
+    "When a person reinstalls an extension the workspace already desires at the same constraint, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, canonical content, or agent projections.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
-  methods: ["decision-table"],
+  methods: ["example"],
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
 });
-
-interface RepeatCase {
-  readonly label: string;
-  readonly form: "root" | "type";
-}
-
-const repeatCases: readonly RepeatCase[] = [
-  { label: "repeating a root install reports an unchanged no-op", form: "root" },
-  { label: "repeating a type-command install reports an unchanged no-op", form: "type" },
-];
 
 describe("Repeat installs are safe", () => {
   const cleanups: Array<() => void> = [];
@@ -41,27 +31,22 @@ describe("Repeat installs are safe", () => {
     }
   });
 
-  it.effect.each(repeatCases)("$label", (testCase) =>
+  it.effect("repeating an install reports an unchanged no-op", () =>
     Effect.gen(function* () {
       const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
       cleanups.push(workspace.cleanup);
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
-      const install =
-        testCase.form === "root"
-          ? handleInstall({
-              source: Option.some(skillPackage),
-              yes: true,
-              force: false,
-              preview: false,
-            }).pipe(Effect.provide(workspace.layer))
-          : handleSkillsInstall(
-              { source: Option.some(skillPackage), skills: [], all: true },
-              { yes: true, force: false, preview: false },
-            ).pipe(Effect.provide(workspace.layer));
+      const install = handleInstall({
+        source: Option.some(skillPackage),
+        yes: true,
+        force: false,
+        preview: false,
+      }).pipe(Effect.provide(workspace.layer));
 
       yield* install;
       const settingsAfterFirst = JSON.stringify(workspace.readSettings());
       const lockAfterFirst = workspace.readLockfileText();
+      const canonicalAfterFirst = workspace.snapshotTree("agent_extensions");
       const projectionAfterFirst = workspace.snapshotTree(".claude");
 
       yield* install;
@@ -72,6 +57,7 @@ describe("Repeat installs are safe", () => {
 
       expect(JSON.stringify(workspace.readSettings())).toBe(settingsAfterFirst);
       expect(workspace.readLockfileText()).toBe(lockAfterFirst);
+      expect(workspace.snapshotTree("agent_extensions")).toEqual(canonicalAfterFirst);
       expect(workspace.snapshotTree(".claude")).toEqual(projectionAfterFirst);
     }),
   );

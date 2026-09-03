@@ -21,7 +21,10 @@ const PUBLISH_ENV = { AXM_TOKEN: "e2e-test-token" };
  */
 export const executionBinding = {
   requirements: [
-    "cli/install/direct-intent-recorded-and-realized",
+    "cli/install/records-direct-intent",
+    "cli/install/records-accepted-resolution",
+    "cli/install/materializes-canonical-content",
+    "cli/install/realizes-for-every-configured-agent",
     "cli/install/reinstall-is-idempotent",
     "cli/every-type-completes-the-shared-lifecycle",
   ],

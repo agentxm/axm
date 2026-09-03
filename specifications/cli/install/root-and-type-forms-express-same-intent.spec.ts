@@ -12,16 +12,40 @@ export const specification = defineSpecification({
   requirement: "cli/install/root-and-type-forms-express-same-intent",
   title: "Root install and the type command express the same durable intent",
   statement:
-    "When the same extension is installed through the root install command and through its type-specific install command, both forms shall produce identical workspace configuration, identical canonical content, and identical agent projections.",
+    "When the same extension is installed, and then reinstalled at the same constraint, through the root install command and through its type-specific install command, both forms shall produce identical workspace configuration, identical canonical content, identical agent projections, and the same reported outcome.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption"],
   methods: ["model"],
-  derivedFrom: [],
+  derivedFrom: ["cli/install/reinstall-is-idempotent"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
 });
+
+type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
+
+const rootInstall = (workspace: SpecWorkspace, skillPackage: string) =>
+  handleInstall({
+    source: Option.some(skillPackage),
+    yes: true,
+    force: false,
+    preview: false,
+  }).pipe(Effect.provide(workspace.layer));
+
+const typeInstall = (workspace: SpecWorkspace, skillPackage: string) =>
+  handleSkillsInstall(
+    { source: Option.some(skillPackage), skills: [], all: true },
+    { yes: true, force: false, preview: false },
+  ).pipe(Effect.provide(workspace.layer));
+
+const expectSameRealizedState = (rootWorkspace: SpecWorkspace, typeWorkspace: SpecWorkspace) => {
+  expect(rootWorkspace.readSettings()).toEqual(typeWorkspace.readSettings());
+  expect(rootWorkspace.snapshotTree(".claude")).toEqual(typeWorkspace.snapshotTree(".claude"));
+  expect(rootWorkspace.snapshotTree("agent_extensions")).toEqual(
+    typeWorkspace.snapshotTree("agent_extensions"),
+  );
+};
 
 describe("Root and type-specific install parity", () => {
   const cleanups: Array<() => void> = [];
@@ -40,23 +64,33 @@ describe("Root and type-specific install parity", () => {
       const rootPackage = writeLocalSkillPackage(rootWorkspace.root, { name: "code-review" });
       const typePackage = writeLocalSkillPackage(typeWorkspace.root, { name: "code-review" });
 
-      yield* handleInstall({
-        source: Option.some(rootPackage),
-        yes: true,
-        force: false,
-        preview: false,
-      }).pipe(Effect.provide(rootWorkspace.layer));
+      yield* rootInstall(rootWorkspace, rootPackage);
+      yield* typeInstall(typeWorkspace, typePackage);
 
-      yield* handleSkillsInstall(
-        { source: Option.some(typePackage), skills: [], all: true },
-        { yes: true, force: false, preview: false },
-      ).pipe(Effect.provide(typeWorkspace.layer));
+      expectSameRealizedState(rootWorkspace, typeWorkspace);
+    }),
+  );
 
-      expect(rootWorkspace.readSettings()).toEqual(typeWorkspace.readSettings());
-      expect(rootWorkspace.snapshotTree(".claude")).toEqual(typeWorkspace.snapshotTree(".claude"));
-      expect(rootWorkspace.snapshotTree("agent_extensions")).toEqual(
-        typeWorkspace.snapshotTree("agent_extensions"),
-      );
+  it.effect("repeating the install through either form reports the same no-op and state", () =>
+    Effect.gen(function* () {
+      const rootWorkspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+      const typeWorkspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+      cleanups.push(rootWorkspace.cleanup, typeWorkspace.cleanup);
+
+      const rootPackage = writeLocalSkillPackage(rootWorkspace.root, { name: "code-review" });
+      const typePackage = writeLocalSkillPackage(typeWorkspace.root, { name: "code-review" });
+
+      yield* rootInstall(rootWorkspace, rootPackage);
+      yield* typeInstall(typeWorkspace, typePackage);
+      yield* rootInstall(rootWorkspace, rootPackage);
+      yield* typeInstall(typeWorkspace, typePackage);
+
+      const rootRepeat = rootWorkspace.rendererState.results.at(-1)?.data;
+      const typeRepeat = typeWorkspace.rendererState.results.at(-1)?.data;
+      expect(rootRepeat).toMatchObject({ result: { outcome: "no-op" } });
+      expect(typeRepeat).toMatchObject({ result: { outcome: "no-op" } });
+
+      expectSameRealizedState(rootWorkspace, typeWorkspace);
     }),
   );
 });

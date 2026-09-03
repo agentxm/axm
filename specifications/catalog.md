@@ -116,28 +116,46 @@ programmatic interfaces, and supporting system behavior.
 
 #### Install
 
-##### Install records direct workspace intent and realizes the extension
+##### Applying an install realizes exactly the closure its preview described
 
-- Requirement: `cli/install/direct-intent-recorded-and-realized`
-- Statement: When a person installs an acquirable extension, the install command shall record it as directly desired workspace configuration, record its accepted resolution in the lockfile, materialize its canonical content, realize it for every configured agent, and report an applied outcome.
+- Requirement: `cli/install/apply-realizes-the-previewed-closure`
+- Statement: When an install preview is followed by an apply of the same request against an unchanged workspace, the install command shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards.
 - Class: functional
 - Role: experience
-- Product goals: `extension-adoption`, `workspace-intent-fidelity`
+- Product goals: `workspace-intent-fidelity`, `extension-adoption`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Source: [`specifications/cli/install/direct-intent-recorded-and-realized.spec.ts`](../specifications/cli/install/direct-intent-recorded-and-realized.spec.ts)
+- Derived from: `cli/install/preview-is-pure`
+- Open questions: The install preview lists the closure's units and plan candidate but no artifact paths or target surfaces, while the apply lists both; whether a preview should describe target surfaces, as skill and subagent creation do, is unresolved, so this specification requires agreement on the plan candidate and unit set only.
+- Source: [`specifications/cli/install/apply-realizes-the-previewed-closure.spec.ts`](../specifications/cli/install/apply-realizes-the-previewed-closure.spec.ts)
 
-##### Workspace install treats inline MCP configuration as sync-owned, not acquirable
+##### Workspace install skips inline MCP configuration without failing
 
-- Requirement: `cli/install/inline-mcp-configuration-not-acquirable`
-- Statement: When the workspace's declared extensions are installed and axm.json configures an MCP server inline, the install command shall report that entry as owned by sync rather than acquirable, shall not fail, and shall not record it in the lockfile.
+- Requirement: `cli/install/inline-mcp-configuration-is-skipped`
+- Statement: When the workspace's configured extensions are installed and workspace settings configure an MCP server inline, the install command shall report that entry as a skipped unit carrying guidance, shall complete without failure, shall not record the entry in the lockfile, and shall leave the inline configuration unchanged.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`specifications/cli/install/inline-mcp-configuration-not-acquirable.spec.ts`](../specifications/cli/install/inline-mcp-configuration-not-acquirable.spec.ts)
+- Derived from: `cli/install/inline-mcp-configuration-not-acquirable`
+- Supersedes: `cli/install/inline-mcp-configuration-not-acquirable`
+- Open questions: The plan result names the entry's state (skipped) but carries the reason only as prose in the unit's message; no structured field says the entry is inline workspace configuration that sync reconciles. Until the plan-result contract names that reason, this specification asserts the skipped state and the presence of guidance and leaves the message wording non-normative.
+- Source: [`specifications/cli/install/inline-mcp-configuration-is-skipped.spec.ts`](../specifications/cli/install/inline-mcp-configuration-is-skipped.spec.ts)
+
+##### Install materializes the extension's canonical content inside the workspace
+
+- Requirement: `cli/install/materializes-canonical-content`
+- Statement: When a person installs an acquirable extension, the install command shall materialize the extension's canonical content inside the workspace's managed extension tree.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/direct-intent-recorded-and-realized`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
+- Source: [`specifications/cli/install/materializes-canonical-content.spec.ts`](../specifications/cli/install/materializes-canonical-content.spec.ts)
 
 ##### Install rejects a source it cannot install without changing the workspace
 
@@ -165,7 +183,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Install preview describes the plan without changing any state
 
 - Requirement: `cli/install/preview-is-pure`
-- Statement: When the install command runs in preview mode, it shall report the planned closure with a previewed outcome, shall not change settings, the lockfile, canonical content, or agent projections, and a subsequent apply shall realize exactly the closure the preview described.
+- Statement: When the install command runs in preview mode, it shall report the planned closure with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -173,15 +191,58 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/install/preview-is-pure.spec.ts`](../specifications/cli/install/preview-is-pure.spec.ts)
 
+##### Install realizes the extension for every configured agent
+
+- Requirement: `cli/install/realizes-for-every-configured-agent`
+- Statement: When a person installs an acquirable extension, the install command shall realize it on the native surface of every configured agent that can represent it and on the universal location.
+- Class: functional
+- Role: experience
+- Product goals: `agent-interoperability`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/direct-intent-recorded-and-realized`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
+- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
+- Source: [`specifications/cli/install/realizes-for-every-configured-agent.spec.ts`](../specifications/cli/install/realizes-for-every-configured-agent.spec.ts)
+
+##### Install records the accepted resolution in the lockfile
+
+- Requirement: `cli/install/records-accepted-resolution`
+- Statement: When a person installs an acquirable extension, the install command shall record the extension's accepted resolution, including its source and content identity, in the workspace lockfile.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/direct-intent-recorded-and-realized`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
+- Source: [`specifications/cli/install/records-accepted-resolution.spec.ts`](../specifications/cli/install/records-accepted-resolution.spec.ts)
+
+##### Install records the extension as directly desired workspace configuration
+
+- Requirement: `cli/install/records-direct-intent`
+- Statement: When a person installs an acquirable extension, the install command shall record it in workspace settings as directly desired configuration.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/direct-intent-recorded-and-realized`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
+- Source: [`specifications/cli/install/records-direct-intent.spec.ts`](../specifications/cli/install/records-direct-intent.spec.ts)
+
 ##### Installing an already desired extension at the same constraint is a successful no-op
 
 - Requirement: `cli/install/reinstall-is-idempotent`
-- Statement: When a person reinstalls an extension the workspace already desires at the same constraint, through either the root command or the type command, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, or agent projections.
+- Statement: When a person reinstalls an extension the workspace already desires at the same constraint, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, canonical content, or agent projections.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
 - Boundary: memory; selection: per-change
-- Methods: decision-table
+- Methods: example
 - Additional evidence: process via [`packages/cli-e2e/src/projection-currency.e2e.test.ts`](../packages/cli-e2e/src/projection-currency.e2e.test.ts) — Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/install/reinstall-is-idempotent.spec.ts`](../specifications/cli/install/reinstall-is-idempotent.spec.ts)
@@ -189,12 +250,13 @@ programmatic interfaces, and supporting system behavior.
 ##### Root install and the type command express the same durable intent
 
 - Requirement: `cli/install/root-and-type-forms-express-same-intent`
-- Statement: When the same extension is installed through the root install command and through its type-specific install command, both forms shall produce identical workspace configuration, identical canonical content, and identical agent projections.
+- Statement: When the same extension is installed, and then reinstalled at the same constraint, through the root install command and through its type-specific install command, both forms shall produce identical workspace configuration, identical canonical content, identical agent projections, and the same reported outcome.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`
 - Boundary: memory; selection: per-change
 - Methods: model
+- Derived from: `cli/install/reinstall-is-idempotent`
 - Source: [`specifications/cli/install/root-and-type-forms-express-same-intent.spec.ts`](../specifications/cli/install/root-and-type-forms-express-same-intent.spec.ts)
 
 #### Instructions

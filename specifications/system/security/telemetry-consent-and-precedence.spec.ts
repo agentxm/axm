@@ -20,7 +20,6 @@ export const specification = defineSpecification({
   characteristic: "security",
   role: "experience",
   goals: ["privacy-and-consent"],
-  status: "accepted",
   methods: ["decision-table", "contract"],
   derivedFrom: [],
   supersedes: [],

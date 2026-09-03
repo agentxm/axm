@@ -16,7 +16,6 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "machine-automation"],
-  status: "accepted",
   methods: ["example", "contract"],
   derivedFrom: [
     "settings-contract/published-schemas-agree-with-accepted-input",

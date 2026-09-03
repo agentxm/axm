@@ -18,7 +18,6 @@ export const specification = defineSpecification({
   class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the specification tree on disk, compared with the registered command tree, can show that folders, identities, and file paths correspond.",

@@ -19,7 +19,6 @@ const metadataLiteral = (overrides = ""): string => `{
   class: "functional",
   role: "experience",
   goals: ["extension-adoption"],
-  status: "accepted",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],
@@ -49,7 +48,6 @@ describe("parseSpecificationFile", () => {
       class: "functional",
       role: "experience",
       goals: ["extension-adoption"],
-      status: "accepted",
       methods: ["example"],
     });
   });
@@ -77,7 +75,6 @@ describe("parseSpecificationFile", () => {
       ["identity", `requirement: "Install",`],
       ["role", `role: "technical",`],
       ["class", `class: "usability",`],
-      ["status", `status: "proposed",`],
       ["boundary rationale", `boundary: "repository",`],
     ] as const) {
       const parsed = parseSpecificationFile(
@@ -308,12 +305,12 @@ describe("collectCatalog", () => {
     ).toBe(true);
   });
 
-  it("renders a product-shaped catalog listing every specification with its statement and status", () => {
+  it("renders a product-shaped catalog listing every specification with its statement", () => {
     writeSpec(
       "cli/install/a.spec.ts",
       "cli/install/a",
       "extension-adoption",
-      `status: "candidate", derivedFrom: ["AXM-REQ-0001"], assumptions: "unknown", limitations: [{ limitation: "Does not observe the real registry.", retirementCondition: "A registry boundary execution binds evidence to this identity." }],`,
+      `derivedFrom: ["AXM-REQ-0001"], assumptions: "unknown", limitations: [{ limitation: "Does not observe the real registry.", retirementCondition: "A registry boundary execution binds evidence to this identity." }],`,
     );
     const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
     const markdown = renderCatalogMarkdown(catalog);
@@ -321,7 +318,7 @@ describe("collectCatalog", () => {
     expect(markdown).toContain("### CLI");
     expect(markdown).toContain("#### Install");
     expect(markdown).toContain("`cli/install/a`");
-    expect(markdown).toContain("- Status: candidate");
+    expect(markdown).not.toContain("- Status:");
     expect(markdown).toContain("- Statement: When a person installs an extension directly");
     expect(markdown).toContain("- Derived from: `AXM-REQ-0001`");
     expect(markdown).toContain("- Assumptions: unknown (not yet assessed)");

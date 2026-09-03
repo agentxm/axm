@@ -62,16 +62,6 @@ export const SPECIFICATION_ROLES: readonly SpecificationRole[] = [
 ];
 
 /**
- * Whether the obligation is normative. A `candidate` records a proposed
- * obligation with its sources and is never authority; `accepted` records an
- * obligation the declared acceptance authority has explicitly accepted.
- * Execution evidence never changes status.
- */
-export type SpecificationStatus = "candidate" | "accepted";
-
-export const SPECIFICATION_STATUSES: readonly SpecificationStatus[] = ["candidate", "accepted"];
-
-/**
  * Where the specification's default execution observes the system.
  * Additional boundary-specific executions bind their own evidence to the
  * same requirement identity.
@@ -208,8 +198,6 @@ export interface SpecificationMetadata {
    * local registry.
    */
   readonly goals: readonly [string, ...string[]];
-  /** Whether the obligation is a candidate or accepted authority. */
-  readonly status: SpecificationStatus;
   /** Observation boundary of the default execution. Defaults to `memory`. */
   readonly boundary?: ExecutionBoundary;
   /**
@@ -231,7 +219,7 @@ export interface SpecificationMetadata {
   readonly derivedFrom: readonly string[];
   /**
    * Identities this specification replaces as authority. A superseded
-   * identity is retired in the same change that accepts its successor and
+   * identity is retired in the same change that lands its successor and
    * must not remain present in the corpus.
    */
   readonly supersedes: readonly string[];

@@ -16,7 +16,6 @@ export const specification = defineSpecification({
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the tracked file set reported by git and the committed text content can show whether public artifacts reference private context.",

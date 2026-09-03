@@ -6,23 +6,42 @@ layout; requirement identity, statement, class, role, status, goals, and
 lineage carry the meaning.
 
 Use the installed `engineer-requirements` skill for elicitation, review,
-impact analysis, and requirement changes. Maintainer review is the acceptance
-authority; the skill grants none.
+impact analysis, and requirement changes. Its acceptance policy for this
+repository is the one below: the maintainer is the acceptance authority, a
+decision the maintainer records in the session or on the pull request is the
+acceptance, and the skill never authors a candidate or defers a decided change.
 
-## Authority and status
+## Authority
 
-- `status: "accepted"` is normative. `status: "candidate"` records a proposed
-  obligation with its sources and is never authority; ordinary tests, prose,
-  and implementation are witnesses.
-- A candidate becomes accepted only through explicit subject-batch acceptance
-  recorded under `reviews/`. The same change retires every identity the
-  successor `supersedes`; the conformance check rejects a successor whose
-  predecessor is still present.
+- A specification on `main` is accepted authority. There is no other status:
+  the contract has no lifecycle field, and the decoder rejects one.
+- Merging the change that adds, revises, or removes a specification is the
+  acceptance decision. A change to behavior lands its specification changes in
+  the same change, written as final.
+- An obligation not yet decided is not written. Record it as a work item or in
+  the `openQuestions` of the nearest specification; never park it as a
+  half-authoritative file.
+- A successor retires every identity it `supersedes` in the same change; the
+  conformance check rejects a successor whose predecessor is still present, so
+  one obligation is never normative in two places.
 - Execution produces evidence, never acceptance. A failing specification
-  identifies disagreement between required and realized behavior.
+  identifies disagreement between required and realized behavior; ordinary
+  tests, prose, and implementation are witnesses.
 - Obligations shared with the AgentXM platform are allocated to one corpus.
   Specify AXM's own conformance to a named contract version; never restate
   the other side's obligations. Keep private context out of this tree.
+
+## Specification impact
+
+Every change report and pull request ends with the specification impact
+rendered by the verdict target: the added, removed, and revised requirement
+identities, or the rendered "no requirement contract changes" line. The
+verdict is computed against the merge base, so "none" is a result, not a
+claim.
+
+```bash
+pnpm exec nx run axm:specification-verdict -- --base "$(git merge-base main HEAD)"
+```
 
 ## Metadata
 
@@ -38,12 +57,11 @@ shared contract. Fields, in this order:
 | `characteristic` | Required for `quality` (for example `installability`, `compatibility`, `performance`, `security`); optional otherwise                                                      |
 | `role`           | `experience`, `interface`, or `supporting`                                                                                                                                 |
 | `goals`          | Shared identities from `sharedProductGoals` or local identities from `product-goals.ts`; never redefine a shared goal locally                                              |
-| `status`         | `accepted` or `candidate`                                                                                                                                                  |
 | `boundary`       | Defaults to `memory`; any other value requires `boundaryRationale` naming the evidence that boundary supplies                                                              |
 | `methods`        | What the tests actually use (`example`, `property`, `contract`, `static`, `measurement`, …); `manual` or `review` for obligations that cannot run — reported as unverified |
 | `selection`      | Defaults to `per-change`                                                                                                                                                   |
 | `derivedFrom`    | Predecessor requirements, prior specification identities, witnessing tests, or surfaces; `[]` for an original                                                              |
-| `supersedes`     | Identities this specification retires on acceptance                                                                                                                        |
+| `supersedes`     | Identities this specification retires in the same change                                                                                                                   |
 | `assumptions`    | Material presumptions the evidence does not establish, `[]` when none were found, or `"unknown"` when not assessed                                                         |
 | `openQuestions`  | Unresolved meaning or scope, `[]` when none remain, or `"unknown"` when not reviewed                                                                                       |
 | `limitations`    | Declared blind spots, each with a `retirementCondition`                                                                                                                    |
@@ -86,20 +104,21 @@ A specification whose decisive verification is a static gate declares
 literal-only `boundEvidence` beside its `specification` constant. Bound
 evidence supports the owning specification and never replaces it.
 
-## Batch reviews
+## Set reviews
 
-Each subject batch that adds candidates, accepts them, or re-derives existing
-specifications records a set review under `reviews/`: boundary, baseline
-revision, source set, exclusions, and the orphans, duplicates, gaps,
-unverifiable claims, and reassessment notes found. Acceptance is recorded
-there by the maintainer, not inferred from a merge.
+A change that re-derives a subject's specifications from sources may record a
+set review under `reviews/`: boundary, baseline revision, source set,
+exclusions, and the orphans, duplicates, gaps, unverifiable claims, and
+reassessment notes found. A review record is evidence for the reader of the
+change; it is optional, it is not authority, and acceptance is never recorded
+in it. Existing records are history.
 
 ## Moves and identity
 
 The `requirement` identity must equal the file's path under `specifications/`.
-Moving a file therefore changes its identity: a requirements decision needing
-maintainer review, landed as one coherent break with `catalog.md` regenerated
-in the same change.
+Moving a file therefore changes its identity: a requirements decision, landed
+as one coherent break with `catalog.md` regenerated in the same change and
+shown in the verdict as a removal and an addition.
 
 ## Validate
 

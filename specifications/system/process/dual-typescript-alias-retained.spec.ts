@@ -16,7 +16,6 @@ export const specification = defineSpecification({
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed workspace catalog in pnpm-workspace.yaml shows which packages the two TypeScript aliases resolve to.",

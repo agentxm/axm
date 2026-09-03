@@ -72,7 +72,6 @@ beforeEach(async (context) => {
   await label("requirement", specification.requirement);
   await label("requirement-class", specification.class);
   await label("requirement-role", specification.role);
-  await label("requirement-status", specification.status);
   await label("boundary", specification.boundary ?? "memory");
   await label("selection", specification.selection ?? "per-change");
   if (specification.characteristic !== undefined) {

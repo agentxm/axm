@@ -18,7 +18,6 @@ export const specification = defineSpecification({
   class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed Nx and lint configuration shows that the module-boundary and manifest-fidelity gates are armed with the intended level constraints and cycle detection.",

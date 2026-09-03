@@ -19,7 +19,6 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
-  status: "accepted",
   methods: ["golden-output", "example"],
   derivedFrom: [],
   supersedes: [],

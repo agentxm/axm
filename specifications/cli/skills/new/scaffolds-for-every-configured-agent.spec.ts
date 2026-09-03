@@ -24,7 +24,6 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "agent-interoperability", "safe-repetition"],
-  status: "accepted",
   methods: ["example"],
   derivedFrom: [
     "cli/sync/realizes-desired-state",

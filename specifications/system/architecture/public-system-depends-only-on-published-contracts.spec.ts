@@ -16,7 +16,6 @@ export const specification = defineSpecification({
   class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed package manifests and the tracked generated client directories show what the public system actually depends on.",

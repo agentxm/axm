@@ -18,7 +18,6 @@ export const specification = defineSpecification({
   class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed lint configuration shows that the import restriction is armed and that its exception list is exactly the sanctioned one.",

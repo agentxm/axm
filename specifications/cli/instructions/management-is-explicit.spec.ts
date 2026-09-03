@@ -23,7 +23,6 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
-  status: "accepted",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

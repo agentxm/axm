@@ -24,7 +24,6 @@ export interface AffectedRequirement {
   readonly title: string;
   readonly requirementClass: string;
   readonly requirementRole: string;
-  readonly status: string;
   readonly change: "added" | "removed" | "revised-contract" | "revised-evidence";
   readonly evidence: EvidenceStatus;
 }
@@ -39,7 +38,7 @@ export const digestContent = (content: string): string =>
 
 /**
  * The contract digest covers every metadata field: a changed statement,
- * status, class, goal, lineage entry, assumption, or limitation is a
+ * class, goal, lineage entry, assumption, or limitation is a
  * requirement-contract change, never test maintenance.
  */
 const metadataDigest = (specification: CatalogSpecification): string =>
@@ -107,7 +106,6 @@ const affected = (
   title: entry.specification.metadata.title,
   requirementClass: entry.specification.metadata.class,
   requirementRole: entry.specification.metadata.role,
-  status: entry.specification.metadata.status,
   change,
   evidence,
 });
@@ -172,15 +170,14 @@ export const renderVerdictMarkdown = (verdict: Verdict): string => {
   }
   lines.push(
     "This change affects the requirement contract. Review it as a requirements",
-    "decision, not test maintenance. A candidate is not authority until its",
-    "subject batch is accepted.",
+    "decision, not test maintenance. Merging it accepts every listed change.",
     "",
-    "| Requirement | Change | Status | Class | Role | Evidence |",
-    "| --- | --- | --- | --- | --- | --- |",
+    "| Requirement | Change | Class | Role | Evidence |",
+    "| --- | --- | --- | --- | --- |",
   );
   for (const entry of verdict.affected) {
     lines.push(
-      `| \`${entry.requirement}\` — ${entry.title} | ${CHANGE_LABEL[entry.change]} | ${entry.status} | ${entry.requirementClass} | ${entry.requirementRole} | ${entry.evidence} |`,
+      `| \`${entry.requirement}\` — ${entry.title} | ${CHANGE_LABEL[entry.change]} | ${entry.requirementClass} | ${entry.requirementRole} | ${entry.evidence} |`,
     );
   }
   lines.push("", `${verdict.unchangedCount} requirement(s) unchanged.`, "");

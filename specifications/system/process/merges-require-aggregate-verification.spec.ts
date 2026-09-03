@@ -16,7 +16,6 @@ export const specification = defineSpecification({
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed ci.yml workflow shows the pull-request trigger, the aggregate job, and the set of jobs it gates on.",

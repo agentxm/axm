@@ -15,7 +15,6 @@ export const specification = defineSpecification({
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "safe-repetition"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed release-preparation scripts and their tooling tests show how candidate state is allocated, delivered, and cleaned up.",

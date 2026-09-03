@@ -15,7 +15,6 @@ export const specification = defineSpecification({
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "The obligation is review-enforced; the repository supplies its declaration in the committed agent instructions from which every change is directed.",

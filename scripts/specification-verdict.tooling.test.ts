@@ -18,7 +18,6 @@ const metadata = (overrides: Partial<SpecificationMetadata>): SpecificationMetad
   class: "functional",
   role: "experience",
   goals: ["extension-adoption"],
-  status: "accepted",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],
@@ -46,10 +45,10 @@ const passingJunit = parseJunitOutcomes(
 );
 
 describe("computeVerdict", () => {
-  it("reports an added requirement with its evidence and status", () => {
-    const verdict = computeVerdict([], [source("a", { status: "candidate" })], passingJunit);
+  it("reports an added requirement with its evidence", () => {
+    const verdict = computeVerdict([], [source("a")], passingJunit);
     expect(verdict.affected).toEqual([
-      expect.objectContaining({ change: "added", evidence: "passed", status: "candidate" }),
+      expect.objectContaining({ change: "added", evidence: "passed" }),
     ]);
   });
 
@@ -74,10 +73,10 @@ describe("computeVerdict", () => {
     ]);
   });
 
-  it("treats a changed statement, status, or lineage as a contract revision", () => {
+  it("treats a changed statement, goal, or lineage as a contract revision", () => {
     for (const overrides of [
       { statement: "A different obligation." },
-      { status: "candidate" },
+      { goals: ["trustworthy-distribution"] },
       { derivedFrom: ["AXM-REQ-0001"] },
       { assumptions: "unknown" },
     ] satisfies readonly Partial<SpecificationMetadata>[]) {
@@ -103,12 +102,12 @@ describe("computeVerdict", () => {
 });
 
 describe("renderVerdictMarkdown", () => {
-  it("renders the requirement diff in product language with status", () => {
-    const verdict = computeVerdict([], [source("a", { status: "candidate" })], new Map());
+  it("renders the requirement diff in product language", () => {
+    const verdict = computeVerdict([], [source("a")], new Map());
     const markdown = renderVerdictMarkdown(verdict);
     expect(markdown).toContain("requirements");
     expect(markdown).toContain("Install realizes directly desired extensions");
-    expect(markdown).toContain("| candidate |");
+    expect(markdown).toContain("Merging it accepts every listed change.");
     expect(markdown).toContain("missing");
   });
 });

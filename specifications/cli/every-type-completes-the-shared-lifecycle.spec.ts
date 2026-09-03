@@ -27,7 +27,6 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "agent-interoperability"],
-  status: "accepted",
   methods: ["decision-table", "example"],
   derivedFrom: [],
   supersedes: [],

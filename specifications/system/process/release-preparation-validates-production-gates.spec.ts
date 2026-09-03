@@ -15,7 +15,6 @@ export const specification = defineSpecification({
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "trustworthy-distribution"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed release scripts show the preflight order, the production Registry address, and the preview-only publication arguments.",

@@ -18,7 +18,6 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["authoring-and-creation", "trustworthy-distribution"],
-  status: "accepted",
   methods: ["example", "decision-table"],
   derivedFrom: [],
   supersedes: [],

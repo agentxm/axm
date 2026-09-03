@@ -57,17 +57,16 @@ ratchet of accidental behavior.
 
 ## Authority
 
-Accepted executable specification source under `specifications/` is the sole
-local source of truth for what AXM is required to do, achieve, preserve,
-prevent, or constrain, across every review lens of the shared contract:
-functional, quality, constraint, external-conformance, human-factors, and
-process. A specification whose `status` is `candidate` records a proposed
-obligation and its sources; it becomes authority only when its subject batch
-is explicitly accepted, and the predecessor it supersedes is retired in the
-same change, so one obligation is never normative in two places. Executing a
-specification against an implementation produces evidence about whether the
-implementation satisfies it. A result or report never changes the
-specification or its status.
+Executable specification source under `specifications/` is the sole local
+source of truth for what AXM is required to do, achieve, preserve, prevent, or
+constrain, across every review lens of the shared contract: functional,
+quality, constraint, external-conformance, human-factors, and process. A
+specification on `main` is accepted; merging the change that adds, revises, or
+removes it is the acceptance decision, and the predecessor it supersedes is
+retired in the same change, so one obligation is never normative in two
+places. Executing a specification against an implementation produces evidence
+about whether the implementation satisfies it. A result or report never
+changes the specification.
 
 Consequently:
 

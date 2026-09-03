@@ -518,11 +518,11 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     "Do not edit by hand: run `pnpm run generate` after a specification change.",
     "This catalog lists every requirement specification whether or not its",
     "implementation currently passes; execution evidence lives in test results,",
-    "never here. An accepted specification is normative; a candidate records a",
-    "proposed obligation and its sources and is not authority until its subject",
-    "batch is accepted. Requirements are organized by their role in the product",
-    "contract: product behavior, programmatic interfaces, and supporting system",
-    "behavior.",
+    "never here. Every specification in this catalog is normative: a",
+    "specification on `main` is accepted authority, and merging the change that",
+    "adds, revises, or removes one is the acceptance decision. Requirements are",
+    "organized by their role in the product contract: product behavior,",
+    "programmatic interfaces, and supporting system behavior.",
     "",
   ];
 
@@ -572,7 +572,6 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
           const { metadata } = entry;
           lines.push(`##### ${metadata.title}`, "");
           lines.push(`- Requirement: \`${metadata.requirement}\``);
-          lines.push(`- Status: ${metadata.status}`);
           lines.push(`- Statement: ${metadata.statement}`);
           lines.push(
             `- Class: ${metadata.class}${

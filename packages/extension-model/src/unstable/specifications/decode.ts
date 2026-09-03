@@ -20,7 +20,6 @@ import {
   type ProductGoalRegistry,
   SPECIFICATION_CLASSES,
   SPECIFICATION_ROLES,
-  SPECIFICATION_STATUSES,
   type BoundEvidenceGate,
   type SpecificationMetadata,
 } from "./contract.js";
@@ -57,7 +56,6 @@ const StatedOrUnknownSchema = Schema.Union([
 
 const specificationClasses = SPECIFICATION_CLASSES.map((entry) => entry);
 const specificationRoles = SPECIFICATION_ROLES.map((entry) => entry);
-const specificationStatuses = SPECIFICATION_STATUSES.map((entry) => entry);
 const executionBoundaries = EXECUTION_BOUNDARIES.map((entry) => entry);
 const executionSelections = EXECUTION_SELECTIONS.map((entry) => entry);
 
@@ -69,7 +67,6 @@ export const SpecificationMetadataSchema = Schema.Struct({
   characteristic: Schema.optionalKey(IdentifierSchema),
   role: Schema.Literals(specificationRoles),
   goals: Schema.NonEmptyArray(IdentifierSchema),
-  status: Schema.Literals(specificationStatuses),
   boundary: Schema.optionalKey(Schema.Literals(executionBoundaries)),
   boundaryRationale: Schema.optionalKey(Schema.NonEmptyString),
   methods: Schema.NonEmptyArray(IdentifierSchema),
@@ -134,7 +131,13 @@ const toDecodeResult = <T>(result: Result.Result<T, Schema.SchemaError>): Decode
     ? { ok: true, value: result.success }
     : { ok: false, issues: formatSchemaIssuesToLines(result.failure.issue) };
 
-const decodeMetadata = Schema.decodeUnknownResult(SpecificationMetadataSchema);
+/**
+ * Metadata is a closed literal: a field the contract does not define (for
+ * example a lifecycle status) is a decoding failure, never ignored.
+ */
+const decodeMetadata = Schema.decodeUnknownResult(SpecificationMetadataSchema, {
+  onExcessProperty: "error",
+});
 const decodeRegistry = Schema.decodeUnknownResult(ProductGoalRegistrySchema);
 const decodeBinding = Schema.decodeUnknownResult(ExecutionBindingSchema);
 const decodeEvidence = Schema.decodeUnknownResult(BoundEvidenceSchema);

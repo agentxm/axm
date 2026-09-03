@@ -16,7 +16,6 @@ export const specification = defineSpecification({
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "trustworthy-distribution"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed workflow files show which workflow publishes releases, what triggers it, and that no other workflow does.",

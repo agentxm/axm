@@ -15,7 +15,6 @@ export const specification = defineSpecification({
   class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed package manifests and TypeScript project references of the end-to-end projects show whether they reach product source directly.",

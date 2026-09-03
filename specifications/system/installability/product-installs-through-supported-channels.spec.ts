@@ -16,7 +16,6 @@ export const specification = defineSpecification({
   characteristic: "installability",
   role: "experience",
   goals: ["platform-reach", "trustworthy-distribution"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed installer scripts and the publish.yml workflow show which channels exist, that they verify integrity, and that release completion waits on install verification.",

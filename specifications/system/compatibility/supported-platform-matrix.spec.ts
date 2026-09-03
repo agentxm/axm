@@ -16,7 +16,6 @@ export const specification = defineSpecification({
   characteristic: "compatibility",
   role: "supporting",
   goals: ["platform-reach"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "Only the committed ci.yml and publish.yml workflow files show which platforms, shells, and runners the release-blocking verification covers.",

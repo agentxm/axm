@@ -13,7 +13,6 @@ export const specification = defineSpecification({
   characteristic: "security",
   role: "supporting",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
-  status: "accepted",
   methods: ["property"],
   derivedFrom: [],
   supersedes: [],

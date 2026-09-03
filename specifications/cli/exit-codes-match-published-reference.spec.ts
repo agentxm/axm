@@ -20,7 +20,6 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "knowledge-access"],
-  status: "accepted",
   methods: ["model"],
   derivedFrom: [],
   supersedes: [],

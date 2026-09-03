@@ -102,14 +102,13 @@ For a new version release, follow `contributing/guides/releasing.md` exactly. Do
 
 ## Requirements and executable specifications
 
-Accepted executable specifications under `specifications/` are the sole local
-authority for AXM requirements; use the generated
-[specification catalog](specifications/catalog.md) as the reading path.
-Ordinary tests, prose, and implementation are witnesses; schemas and contracts
-keep only their declared interface authority; execution produces evidence,
-never acceptance. A specification with `status: "candidate"` is not authority
-until its subject batch is accepted and its predecessor retired in the same
-change. The metadata contract, vocabularies, and shared goal identities live in
+Executable specifications under `specifications/` are the sole local authority
+for AXM requirements; use the generated
+[specification catalog](specifications/catalog.md) as the reading path. A
+specification on `main` is accepted; there is no other status. Ordinary tests,
+prose, and implementation are witnesses; schemas and contracts keep only their
+declared interface authority; execution produces evidence, never acceptance.
+The metadata contract, vocabularies, and shared goal identities live in
 `@agentxm/extension-model/unstable/specifications` and are shared with the
 AgentXM platform; an obligation is allocated to one corpus and never restated
 in the other.
@@ -118,21 +117,27 @@ For any task concerning supported behavior—including investigation,
 explanation, planning, design, implementation, or review—identify the affected
 specifications. When investigating or explaining an issue, inspect them and run
 the narrowest relevant specification when it can distinguish hypotheses. Report
-whether the issue violates an accepted specification, exposes a
-candidate-specification gap, proposes a requirements change, or concerns
-non-normative implementation detail. Investigation alone does not authorize a
-specification change.
+whether the issue violates a specification, exposes a specification gap, or
+concerns non-normative implementation detail.
 
+A change to behavior lands its specification changes in the same change,
+written as final. A decision the maintainer makes in the session or on the pull
+request is the acceptance; never author a candidate, and never defer a decided
+change to a later review. An obligation not yet decided is not written: record
+it as a work item or in `openQuestions` of the nearest specification.
 Implementation-only work preserves specifications and runs
-`pnpm test:spec --requirement <id>`. A bug fix with missing coverage normally
-adds or strengthens a specification before implementation. Adding, changing, or
-removing an expectation is a requirements decision requiring maintainer review.
+`pnpm test:spec --requirement <id>`; a bug fix with missing coverage adds or
+strengthens a specification before implementation.
+
+Every change report and pull request ends with the specification impact
+rendered by `pnpm exec nx run axm:specification-verdict`: added, removed, or
+revised requirement identities, or its "no requirement contract changes" line.
 
 For requirement elicitation, review, impact analysis, or revision, use the
-installed `engineer-requirements` skill and the local mapping in
-[specifications/AGENTS.md](specifications/AGENTS.md). The skill does not grant
-acceptance authority. Design specifications from intended observable
-obligations, not the current implementation; follow the
+installed `engineer-requirements` skill with the repository policy in
+[specifications/AGENTS.md](specifications/AGENTS.md). Design specifications
+from intended observable obligations, not the current implementation; follow
+the
 [requirements-engineering guidance](agent_extensions/agentxm/@craigsmitham/knowledge/requirements-engineering/src/index.md)
 and [testing strategy](docs/architecture/system-wide/testing-strategy.md).
 

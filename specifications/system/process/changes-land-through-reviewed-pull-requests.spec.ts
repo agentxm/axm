@@ -16,7 +16,6 @@ export const specification = defineSpecification({
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
-  status: "accepted",
   boundary: "repository",
   boundaryRationale:
     "The committed code-owner rules and contributor guidance are the repository-side declaration of the review route, which no in-memory run can observe.",

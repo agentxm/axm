@@ -17,7 +17,6 @@ const accepted = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["extension-adoption"],
-  status: "accepted",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],
@@ -77,10 +76,13 @@ describe("decodeSpecificationMetadata", () => {
     expect(decodeSpecificationMetadata({ ...accepted, assumptions: "unknown" }).ok).toBe(true);
   });
 
-  it("rejects an unknown class, role, or status", () => {
+  it("rejects an unknown class or role", () => {
     expect(decodeSpecificationMetadata({ ...accepted, class: "usability" }).ok).toBe(false);
     expect(decodeSpecificationMetadata({ ...accepted, role: "internal" }).ok).toBe(false);
-    expect(decodeSpecificationMetadata({ ...accepted, status: "proposed" }).ok).toBe(false);
+  });
+
+  it("rejects a lifecycle status field; presence on main is the only authority", () => {
+    expect(decodeSpecificationMetadata({ ...accepted, status: "accepted" }).ok).toBe(false);
   });
 
   it("rejects a requirement identity with fewer than two segments", () => {

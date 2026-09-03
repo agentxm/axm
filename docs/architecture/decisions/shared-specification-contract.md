@@ -28,13 +28,14 @@ The contract fixes these points:
   `performance`, `security`, and so on); selection by characteristic replaces
   the former per-characteristic classes. Former `architecture` specifications
   are `constraint`; former `usability` specifications are `human-factors`.
-- **Status separates candidates from authority.** `status: "accepted"` marks
-  a normative obligation; `status: "candidate"` marks a proposed obligation
-  with its sources. A candidate becomes authority only through explicit
-  subject-batch acceptance, and the identities it `supersedes` are retired in
-  the same change. The conformance check rejects a successor whose superseded
-  predecessor is still present, so one obligation is never normative in two
-  places.
+- **Presence is authority.** The contract carries no lifecycle status, and
+  the metadata decoder rejects unknown fields, so a `status` cannot be
+  reintroduced by a single file. A specification on a corpus's `main` is
+  accepted; merging the change that adds, revises, or removes it is the
+  acceptance decision, and the identities a successor `supersedes` are retired
+  in the same change. The conformance check rejects a successor whose
+  superseded predecessor is still present, so one obligation is never
+  normative in two places.
 - **The statement is the obligation.** Every specification carries a
   product-language `statement` (subject, condition, required or prohibited
   outcome) alongside its title; native tests remain the reportable scenarios.
@@ -101,5 +102,5 @@ established that specifications own AXM requirements.
 
 Reconsider when a third specification corpus needs the contract with
 materially different vocabularies, when the shared kernel stops shipping as
-one fixed cohort, or when subject-batch acceptance proves too coarse for
-candidate promotion in practice.
+one fixed cohort, or when a corpus needs an obligation to exist on `main`
+without being authority, which presence-as-authority cannot express.

@@ -142,8 +142,9 @@ Specification paths are governed asymmetrically:
 
 - `.github/CODEOWNERS` routes every `specifications/` change to maintainer
   review as a requirements decision.
-- Repository instructions direct implementation-scoped agent tasks to treat
-  `specifications/` as read-only.
+- Repository instructions direct a behavior change to land its specification
+  changes in the same change, written as final, and implementation-only work
+  to leave `specifications/` untouched.
 - The per-change verdict renders in CI for every pull request, so a change
   touching both specifications and implementation is visible and reviewed as
   a requirements change.

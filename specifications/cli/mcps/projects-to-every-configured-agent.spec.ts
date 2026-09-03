@@ -12,6 +12,7 @@ import {
   handleEnableMcpServer,
   handleListMcpServers,
   handleMcpsAdd,
+  handleSync,
   handleUninstallMcpServer,
 } from "axm.sh/specification-harness";
 
@@ -22,13 +23,14 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/projects-to-every-configured-agent",
   title: "MCP servers reach every configured agent that can represent them",
   statement:
-    "When an MCP server is configured, enabled, or re-enabled, AXM shall write it to the native configuration of every configured agent that can represent it, shall report each agent that cannot as unsupported rather than omitting it, and disabling or uninstalling it shall remove it from every agent it reached.",
+    "When an MCP server is configured and enabled, or re-enabled, AXM shall write it to the native configuration of every configured agent that can represent it, shall report each agent that cannot as unsupported rather than omitting it, shall write no server that is configured as disabled, and disabling or uninstalling it shall remove it from every agent it reached.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
     "cli/mcps/inline-lifecycle-is-idempotent",
+    "cli/mcps/inline-authority-is-operation-coherent",
     "cli/activation-follows-desired-state",
     "packages/extension-workspace/src/mcps/shared-target-catalog.internal.test.ts",
   ],
@@ -42,6 +44,14 @@ export const specification = defineSpecification({
 
 const CLAUDE_CODE_CONFIG = ".mcp.json";
 const CURSOR_CONFIG = ".cursor/mcp.json";
+const NATIVE_CONFIGS = [CLAUDE_CODE_CONFIG, CURSOR_CONFIG] as const;
+
+/** Inline entries authored directly in `axm.json`, reaching agents only through sync. */
+const authoredInlineEntries = {
+  "local-tool": { command: "echo", args: ["local-tool"] },
+  "remote-tool": { url: "https://example.test/mcp" },
+  "muted-tool": { command: "echo muted", enabled: false },
+} as const;
 
 const InventoryOutcomesSchema = Schema.Struct({
   items: Schema.Array(
@@ -94,11 +104,11 @@ describe("MCP servers project to every configured agent", () => {
     }
   });
 
-  const workspaceWithAgents = (agents: ReadonlyArray<string>) => {
+  const workspaceWithAgents = (agents: ReadonlyArray<string>, mcps?: Record<string, unknown>) => {
     const workspace = makeSpecWorkspace({
       machine: true,
       flags: { json: true },
-      settings: { agents },
+      settings: { agents, ...(mcps === undefined ? {} : { mcps }) },
     });
     cleanups.push(workspace.cleanup);
     return workspace;
@@ -122,10 +132,45 @@ describe("MCP servers project to every configured agent", () => {
 
       yield* addDemo(workspace);
 
-      for (const file of [CLAUDE_CODE_CONFIG, CURSOR_CONFIG]) {
+      for (const file of NATIVE_CONFIGS) {
         expect(nativeServer(workspace, file), file).toMatchObject({
           mcpServers: { demo: expect.objectContaining({ command: "node", args: ["server.js"] }) },
         });
+      }
+    }),
+  );
+
+  it.effect(
+    "sync writes an entry authored in axm.json to every configured agent's native configuration",
+    () =>
+      Effect.gen(function* () {
+        const workspace = workspaceWithAgents(["claude-code", "cursor"], {
+          ...authoredInlineEntries,
+        });
+
+        yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
+
+        for (const file of NATIVE_CONFIGS) {
+          expect(nativeServer(workspace, file), file).toMatchObject({
+            mcpServers: {
+              "local-tool": expect.objectContaining({ command: "echo", args: ["local-tool"] }),
+              "remote-tool": expect.objectContaining({ url: "https://example.test/mcp" }),
+            },
+          });
+        }
+      }),
+  );
+
+  it.effect("sync writes no entry that is configured as disabled", () =>
+    Effect.gen(function* () {
+      const workspace = workspaceWithAgents(["claude-code", "cursor"], {
+        ...authoredInlineEntries,
+      });
+
+      yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
+
+      for (const file of NATIVE_CONFIGS) {
+        expect(nativeHasServer(workspace, file, "muted-tool"), file).toBe(false);
       }
     }),
   );

@@ -473,6 +473,19 @@ programmatic interfaces, and supporting system behavior.
 
 #### Mcps
 
+##### Adding an inline MCP server records it as authored configuration and realizes it
+
+- Requirement: `cli/mcps/add/records-and-realizes-inline-configuration`
+- Statement: When an inline MCP server is added by command or url, AXM shall record it in axm.json as authored configuration, realize it in the native configuration of configured agents, report the applied change, and shall record no accepted resolution.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`
+- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
+- Source: [`specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts`](../specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts)
+
 ##### An imported MCP server is adopted once and reaches every configured agent
 
 - Requirement: `cli/mcps/import/adoption-reaches-every-configured-agent`
@@ -486,21 +499,23 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so a server present in one file and absent from the other observes adoption reaching a second agent.
 - Source: [`specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts`](../specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts)
 
-##### Inline MCP entries stay authoritative workspace configuration realized only by sync
+##### Inline MCP entries stay authoritative exactly as authored
 
-- Requirement: `cli/mcps/inline-authority-is-operation-coherent`
-- Statement: An inline MCP entry in axm.json shall stay authoritative as authored, shall reach agent configuration only through sync and only while enabled without ever gaining an accepted resolution, and shall be rejected before any workspace change unless it declares exactly one of source, command, or url.
+- Requirement: `cli/mcps/inline-entries-are-authoritative-as-authored`
+- Statement: An inline MCP entry authored in axm.json shall remain the authoritative configuration exactly as written through MCP operations and sync, and shall never gain an accepted resolution.
 - Class: functional
 - Role: experience
-- Product goals: `workspace-intent-fidelity`, `agent-interoperability`, `actionable-diagnostics`
+- Product goals: `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
-- Methods: example, decision-table
-- Source: [`specifications/cli/mcps/inline-authority-is-operation-coherent.spec.ts`](../specifications/cli/mcps/inline-authority-is-operation-coherent.spec.ts)
+- Methods: example
+- Derived from: `cli/mcps/inline-authority-is-operation-coherent`
+- Supersedes: `cli/mcps/inline-authority-is-operation-coherent`
+- Source: [`specifications/cli/mcps/inline-entries-are-authoritative-as-authored.spec.ts`](../specifications/cli/mcps/inline-entries-are-authoritative-as-authored.spec.ts)
 
-##### The inline MCP server lifecycle is explicit and safe to repeat
+##### Inline MCP server add and uninstall are safe to repeat
 
 - Requirement: `cli/mcps/inline-lifecycle-is-idempotent`
-- Statement: Adding an inline MCP server shall record it in axm.json and project it to agents without recording a resolution, uninstalling it shall remove only that configuration and its projections, and repeating either operation shall change nothing and report a no-op.
+- Statement: Repeating an identical inline MCP server add, or repeating its uninstall, shall change no workspace configuration or agent projection and shall report a no-op.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -512,26 +527,51 @@ programmatic interfaces, and supporting system behavior.
 ##### One registry MCP source supports multiple independently named local connections
 
 - Requirement: `cli/mcps/install/local-connection-names-share-source-resolution`
-- Statement: Installing a Registry MCP server under a local name with --as shall add one connection per name sharing one accepted resolution per source, and shall reject before any change an invalid name, a name owned by another source, a non-intersecting version constraint, or --as without a source.
+- Statement: Installing a Registry MCP server under a local name with --as shall add one connection per name, sharing one accepted resolution per source, and shall use each local name verbatim as the agent-native key.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `agent-interoperability`
 - Boundary: memory; selection: per-change
-- Methods: example, decision-table
+- Methods: example
 - Source: [`specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts`](../specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts)
+
+##### The human MCP inventory shows local name and source as separate columns
+
+- Requirement: `cli/mcps/list/human-inventory-separates-local-name-and-source`
+- Statement: When MCP servers are listed in human output, AXM shall present each connection's local name, its source, and its resolved version as separate columns, so that connections sharing one source remain individually identifiable.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
+- Source: [`specifications/cli/mcps/list/human-inventory-separates-local-name-and-source.spec.ts`](../specifications/cli/mcps/list/human-inventory-separates-local-name-and-source.spec.ts)
 
 ##### MCP servers reach every configured agent that can represent them
 
 - Requirement: `cli/mcps/projects-to-every-configured-agent`
-- Statement: When an MCP server is configured, enabled, or re-enabled, AXM shall write it to the native configuration of every configured agent that can represent it, shall report each agent that cannot as unsupported rather than omitting it, and disabling or uninstalling it shall remove it from every agent it reached.
+- Statement: When an MCP server is configured and enabled, or re-enabled, AXM shall write it to the native configuration of every configured agent that can represent it, shall report each agent that cannot as unsupported rather than omitting it, shall write no server that is configured as disabled, and disabling or uninstalling it shall remove it from every agent it reached.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/activation-follows-desired-state`, `packages/extension-workspace/src/mcps/shared-target-catalog.internal.test.ts`
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/inline-authority-is-operation-coherent`, `cli/activation-follows-desired-state`, `packages/extension-workspace/src/mcps/shared-target-catalog.internal.test.ts`
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.
 - Source: [`specifications/cli/mcps/projects-to-every-configured-agent.spec.ts`](../specifications/cli/mcps/projects-to-every-configured-agent.spec.ts)
+
+##### Uninstalling an MCP server preserves native entries AXM does not own
+
+- Requirement: `cli/mcps/uninstall/preserves-unowned-native-entries`
+- Statement: When an MCP server is uninstalled, AXM shall remove that server's configuration from axm.json and its projection from every agent's native configuration, and shall preserve every native entry it does not own.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`
+- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
+- Source: [`specifications/cli/mcps/uninstall/preserves-unowned-native-entries.spec.ts`](../specifications/cli/mcps/uninstall/preserves-unowned-native-entries.spec.ts)
 
 ##### Uninstall removes one local MCP connection and retains shared source state
 
@@ -1072,15 +1112,41 @@ programmatic interfaces, and supporting system behavior.
 
 #### Mcps
 
-##### MCP inventory distinguishes local connection identity from source resolution
+##### MCP entries declare exactly one of source, command, or url
+
+- Requirement: `cli/mcps/entries-declare-exactly-one-transport`
+- Statement: An MCP server entry in axm.json shall declare exactly one of source, command, or url, and a workspace operation that reads an entry declaring none or more than one shall reject it before any workspace change with an error naming that rule.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `cli/mcps/inline-authority-is-operation-coherent`
+- Supersedes: `cli/mcps/inline-authority-is-operation-coherent`
+- Assumptions: Sync stands for every workspace operation that reads MCP entries, because settings are validated once before any operation begins.
+- Source: [`specifications/cli/mcps/entries-declare-exactly-one-transport.spec.ts`](../specifications/cli/mcps/entries-declare-exactly-one-transport.spec.ts)
+
+##### Locally named MCP install requests are validated before any workspace change
+
+- Requirement: `cli/mcps/install/local-name-requests-are-validated-before-any-change`
+- Statement: When an MCP install names a local connection with --as, AXM shall reject the request before any workspace change, with an error naming the violated rule, if the local name is invalid, the name is owned by a different source, the version constraint does not intersect the source's existing constraints, or --as is given without a source.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `cli/mcps/install/local-connection-names-share-source-resolution`
+- Source: [`specifications/cli/mcps/install/local-name-requests-are-validated-before-any-change.spec.ts`](../specifications/cli/mcps/install/local-name-requests-are-validated-before-any-change.spec.ts)
+
+##### The machine MCP inventory distinguishes local connection identity from source resolution
 
 - Requirement: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
-- Statement: When MCP servers are listed, AXM shall report each connection's local name, its source, and its accepted resolution as distinct fields in machine output and as separate columns in human output, so that connections sharing one source remain individually identifiable.
+- Statement: When MCP servers are listed in machine output, AXM shall report each connection's local name, its source, and its accepted resolution as distinct fields, so that connections sharing one source remain individually identifiable.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `agent-interoperability`
 - Boundary: memory; selection: per-change
-- Methods: golden-output, contract
+- Methods: example, contract
 - Source: [`specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts`](../specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts)
 
 #### Publish
@@ -1381,16 +1447,17 @@ programmatic interfaces, and supporting system behavior.
 
 #### Mcps
 
-##### MCP secret accounts isolate workspace, local connection, source, and input identity
+##### MCP secrets stay in a per-connection keychain namespace and out of workspace files
 
 - Requirement: `cli/mcps/secret-namespaces-include-local-and-source-identity`
-- Statement: The account under which AXM stores an MCP secret shall be derived deterministically from the workspace root, the local connection name, the source identity, and the input name, so that changing any one of those yields a different account.
+- Statement: When a locally named MCP connection is installed with a secret input, AXM shall keep the secret in the system keychain under a namespace unique to the workspace, the local connection name, the source, and the input name, and shall write the secret value into neither axm.json, any agent's native configuration, nor the reported result.
 - Class: quality (security)
 - Role: supporting
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
-- Methods: property
-- Assumptions: The derivation encodes the four namespace components unambiguously, so distinct component combinations cannot collide except through the underlying hash.
+- Methods: example
+- Assumptions: The specification runtime has no system keychain, so the keychain write is reported as failed while the workspace files and the reported result remain observable.
+- Limitation: In-memory execution cannot observe the system keychain, so the namespace under which each connection's secret is kept is not evidenced here; the derivation is verified by an internal test beside the deriving module. Retires when: The specification harness composes an observable secret store whose namespaces specifications can read.
 - Source: [`specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts`](../specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts)
 
 ### System

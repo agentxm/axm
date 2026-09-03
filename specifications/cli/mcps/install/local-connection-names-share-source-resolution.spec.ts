@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import YAML from "yaml";
 
-import { getAppError, handleInstallMcpServer } from "axm.sh/specification-harness";
+import { handleInstallMcpServer } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
@@ -14,11 +14,11 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/install/local-connection-names-share-source-resolution",
   title: "One registry MCP source supports multiple independently named local connections",
   statement:
-    "Installing a Registry MCP server under a local name with --as shall add one connection per name sharing one accepted resolution per source, and shall reject before any change an invalid name, a name owned by another source, a non-intersecting version constraint, or --as without a source.",
+    "Installing a Registry MCP server under a local name with --as shall add one connection per name, sharing one accepted resolution per source, and shall use each local name verbatim as the agent-native key.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "agent-interoperability"],
-  methods: ["example", "decision-table"],
+  methods: ["example"],
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
@@ -89,90 +89,6 @@ describe("Install locally named MCP connections", () => {
           "personal-context": expect.anything(),
         },
       });
-    }),
-  );
-
-  it.effect.each(["Uppercase", "-leading", "trailing-", "space name"])(
-    "rejects invalid local name %s without mutating workspace state",
-    (localName) =>
-      Effect.gen(function* () {
-        const { workspace } = setup();
-        const settingsBefore = workspace.readFile("axm.json");
-        const lockBefore = workspace.readLockfileText();
-
-        const failure = yield* install(workspace, "@acme/mcps/context", localName).pipe(
-          Effect.flip,
-        );
-
-        expect(getAppError(failure).detail).toContain("Local MCP names");
-        expect(workspace.readFile("axm.json")).toBe(settingsBefore);
-        expect(workspace.readLockfileText()).toBe(lockBefore);
-      }),
-  );
-
-  it.effect("rejects reusing a local name for a different source without mutation", () =>
-    Effect.gen(function* () {
-      const registry = makeSpecRegistry();
-      registry.writeMcp("context", [{ version: "1.0.0" }]);
-      registry.writeMcp("search", [{ version: "1.0.0" }]);
-      const workspace = makeSpecWorkspace({ settings: { sources: [registry.source] } });
-      cleanups.push(workspace.cleanup, registry.cleanup);
-
-      yield* install(workspace, "@acme/mcps/context", "work-tools");
-      const settingsBefore = workspace.readFile("axm.json");
-      const lockBefore = workspace.readLockfileText();
-
-      const failure = yield* install(workspace, "@acme/mcps/search", "work-tools").pipe(
-        Effect.flip,
-      );
-
-      expect(getAppError(failure).detail).toContain("already owned by a different source");
-      expect(workspace.readFile("axm.json")).toBe(settingsBefore);
-      expect(workspace.readLockfileText()).toBe(lockBefore);
-    }),
-  );
-
-  it.effect("rejects --as without a source before mutation", () =>
-    Effect.gen(function* () {
-      const { workspace } = setup();
-      const settingsBefore = workspace.readFile("axm.json");
-      const lockBefore = workspace.readLockfileText();
-
-      const failure = yield* handleInstallMcpServer(
-        {
-          source: Option.none(),
-          localName: Option.some("work-context"),
-          env: [],
-        },
-        { yes: true, force: false, preview: false },
-      ).pipe(Effect.provide(workspace.layer), Effect.flip);
-
-      expect(getAppError(failure).detail).toContain("--as requires an MCP server source");
-      expect(workspace.readFile("axm.json")).toBe(settingsBefore);
-      expect(workspace.readLockfileText()).toBe(lockBefore);
-    }),
-  );
-
-  it.effect("rejects non-intersecting version constraints for one shared source closure", () =>
-    Effect.gen(function* () {
-      const registry = makeSpecRegistry();
-      registry.writeMcp("context", [{ version: "1.0.0" }, { version: "2.0.0" }]);
-      const workspace = makeSpecWorkspace({ settings: { sources: [registry.source] } });
-      cleanups.push(workspace.cleanup, registry.cleanup);
-
-      yield* install(workspace, "@acme/mcps/context@^1.0.0", "work-context");
-      const settingsBefore = workspace.readFile("axm.json");
-      const lockBefore = workspace.readLockfileText();
-
-      const failure = yield* install(
-        workspace,
-        "@acme/mcps/context@^2.0.0",
-        "personal-context",
-      ).pipe(Effect.flip);
-
-      expect(getAppError(failure).detail).toContain("constraints do not intersect");
-      expect(workspace.readFile("axm.json")).toBe(settingsBefore);
-      expect(workspace.readLockfileText()).toBe(lockBefore);
     }),
   );
 });

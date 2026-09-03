@@ -10,21 +10,21 @@ import { makeSpecWorkspace } from "../../../support/install-harness.js";
 import { makeSpecRegistry } from "../../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/mcps/list/local-name-source-and-resolution-are-distinct",
-  title: "The machine MCP inventory distinguishes local connection identity from source resolution",
+  requirement: "cli/mcps/list/human-inventory-separates-local-name-and-source",
+  title: "The human MCP inventory shows local name and source as separate columns",
   statement:
-    "When MCP servers are listed in machine output, AXM shall report each connection's local name, its source, and its accepted resolution as distinct fields, so that connections sharing one source remain individually identifiable.",
+    "When MCP servers are listed in human output, AXM shall present each connection's local name, its source, and its resolved version as separate columns, so that connections sharing one source remain individually identifiable.",
   class: "functional",
-  role: "interface",
-  goals: ["workspace-intent-fidelity", "actionable-diagnostics", "agent-interoperability"],
-  methods: ["example", "contract"],
-  derivedFrom: [],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  methods: ["example"],
+  derivedFrom: ["cli/mcps/list/local-name-source-and-resolution-are-distinct"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
 });
 
-describe("List locally named MCP connections as a machine document", () => {
+describe("List locally named MCP connections for a person", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
@@ -34,11 +34,7 @@ describe("List locally named MCP connections as a machine document", () => {
     Effect.gen(function* () {
       const registry = makeSpecRegistry();
       registry.writeMcp("context", [{ version: "1.0.0" }]);
-      const workspace = makeSpecWorkspace({
-        machine: true,
-        flags: { json: true },
-        settings: { sources: [registry.source] },
-      });
+      const workspace = makeSpecWorkspace({ settings: { sources: [registry.source] } });
       cleanups.push(workspace.cleanup, registry.cleanup);
       for (const localName of ["work-context", "personal-context"]) {
         yield* handleInstallMcpServer(
@@ -50,24 +46,30 @@ describe("List locally named MCP connections as a machine document", () => {
           { yes: true, force: false, preview: false },
         ).pipe(Effect.provide(workspace.layer));
       }
-      workspace.rendererState.results.length = 0;
+      workspace.rendererState.tables.length = 0;
       return workspace;
     });
 
-  it.effect("emits discriminated local, source, and resolution fields", () =>
+  it.effect("shows local name, source, and version as separate table columns", () =>
     Effect.gen(function* () {
       const workspace = yield* setup();
 
       yield* handleListMcpServers().pipe(Effect.provide(workspace.layer));
 
-      const output = JSON.stringify(workspace.rendererState.results[0]?.data);
-      expect(output).toContain('"count":2');
-      expect(output).toContain('"localName":"work-context"');
-      expect(output).toContain('"source":{"kind":"registry"');
-      expect(output).toContain('"locator":"agentxm:@acme/mcps/context"');
-      expect(output).toContain("@acme/mcps/context");
-      expect(output).toContain('"resolution":{"kind":"registry","version":"1.0.0"');
-      expect(output).toContain('"integrity":"sha512-');
+      expect(workspace.rendererState.tables[0]?.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            localName: "work-context",
+            source: "agentxm:@acme/mcps/context",
+            version: "1.0.0",
+          }),
+          expect.objectContaining({
+            localName: "personal-context",
+            source: "agentxm:@acme/mcps/context",
+            version: "1.0.0",
+          }),
+        ]),
+      );
     }),
   );
 });

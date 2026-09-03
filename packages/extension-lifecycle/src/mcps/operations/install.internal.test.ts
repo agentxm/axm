@@ -36,7 +36,7 @@ import {
   makeCodingAgentStub,
 } from "../../test-helpers.js";
 import type { InstallMcpServerOperation } from "./install.js";
-import { installMcpServer } from "./install.js";
+import { installMcpServer, mcpSecretAccount } from "./install.js";
 
 vi.mock("@napi-rs/keyring", () => {
   const store = new Map<string, string>();
@@ -1119,5 +1119,29 @@ describe("installMcpServer", () => {
           });
         }),
     );
+  });
+});
+
+describe("mcpSecretAccount", () => {
+  const base = {
+    scopeRoot: "/workspace/project",
+    localName: "work-context",
+    sourceIdentity: "registry:https%3A%2F%2Fregistry.example:@acme/mcps/context",
+    inputName: "API_TOKEN",
+  } as const;
+
+  it("derives a deterministic hexadecimal account", () => {
+    const account = mcpSecretAccount(base);
+    expect(account).toMatch(/^[0-9a-f]{64}$/u);
+    expect(mcpSecretAccount(base)).toBe(account);
+  });
+
+  it.each([
+    ["workspace root", { ...base, scopeRoot: "/workspace/other" }],
+    ["local connection name", { ...base, localName: "personal-context" }],
+    ["source identity", { ...base, sourceIdentity: `${base.sourceIdentity}-other` }],
+    ["input name", { ...base, inputName: "OTHER_TOKEN" }],
+  ])("changes the account when the %s changes", (_component, variant) => {
+    expect(mcpSecretAccount(variant)).not.toBe(mcpSecretAccount(base));
   });
 });

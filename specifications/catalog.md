@@ -45,17 +45,60 @@ programmatic interfaces, and supporting system behavior.
 
 #### Agents
 
-##### Agent membership changes update the durable target set and its owned outputs together
+##### Adding an already configured coding agent is a successful no-op
 
-- Requirement: `cli/agents/membership-changes-realize-affected-outputs`
-- Statement: When a coding agent is added to or removed from the workspace, AXM shall update the durable agent set and that agent's owned outputs in one operation, and shall not remove content it cannot prove it owns or that another configured agent still reaches.
+- Requirement: `cli/agents/add/add-is-idempotent`
+- Statement: When a coding agent the workspace already configures is added again, AXM shall report a no-op outcome and shall not change the agent set or that agent's realized outputs.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/agents/membership-changes-realize-affected-outputs`
+- Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
+- Source: [`specifications/cli/agents/add/add-is-idempotent.spec.ts`](../specifications/cli/agents/add/add-is-idempotent.spec.ts)
+
+##### Adding a coding agent records it durably and realizes installed extensions for it
+
+- Requirement: `cli/agents/add/records-membership-and-realizes-outputs`
+- Statement: When a coding agent is added to the workspace, AXM shall record it in the durable agent set and realize every installed extension for that agent's native surfaces in one operation.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
+- Derived from: `cli/agents/membership-changes-realize-affected-outputs`
+- Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
 - Additional evidence: process via [`packages/cli-e2e/src/agent-membership.e2e.test.ts`](../packages/cli-e2e/src/agent-membership.e2e.test.ts) — Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.
-- Source: [`specifications/cli/agents/membership-changes-realize-affected-outputs.spec.ts`](../specifications/cli/agents/membership-changes-realize-affected-outputs.spec.ts)
+- Source: [`specifications/cli/agents/add/records-membership-and-realizes-outputs.spec.ts`](../specifications/cli/agents/add/records-membership-and-realizes-outputs.spec.ts)
+
+##### Removing a coding agent never removes agent-native content without AXM ownership proof
+
+- Requirement: `cli/agents/remove/preserves-unowned-agent-content`
+- Statement: When a coding agent is removed from the workspace, AXM shall remove only agent-native content it can prove it owns and shall leave hand-authored content in the same agent directory untouched.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/agents/membership-changes-realize-affected-outputs`
+- Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
+- Additional evidence: process via [`packages/cli-e2e/src/agent-membership.e2e.test.ts`](../packages/cli-e2e/src/agent-membership.e2e.test.ts) — Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.
+- Source: [`specifications/cli/agents/remove/preserves-unowned-agent-content.spec.ts`](../specifications/cli/agents/remove/preserves-unowned-agent-content.spec.ts)
+
+##### Removing a coding agent retires it together with the outputs only it reached
+
+- Requirement: `cli/agents/remove/removes-membership-and-owned-outputs`
+- Statement: When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned outputs no remaining configured agent reaches in one operation, and shall leave every remaining agent's realization untouched.
+- Class: functional
+- Role: experience
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/agents/membership-changes-realize-affected-outputs`
+- Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
+- Additional evidence: process via [`packages/cli-e2e/src/agent-membership.e2e.test.ts`](../packages/cli-e2e/src/agent-membership.e2e.test.ts) — Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.
+- Source: [`specifications/cli/agents/remove/removes-membership-and-owned-outputs.spec.ts`](../specifications/cli/agents/remove/removes-membership-and-owned-outputs.spec.ts)
 
 #### Changes Do Not Interleave
 
@@ -261,16 +304,57 @@ programmatic interfaces, and supporting system behavior.
 
 #### Instructions
 
-##### Instruction-file management is inspected, enabled, and disabled explicitly
+##### Disabling already disabled instruction-file management is a successful no-op
 
-- Requirement: `cli/instructions/management-is-explicit`
-- Statement: AXM shall manage instruction-file aliases only when management has been explicitly enabled and recorded in axm.json, shall report management status without changing workspace state, and on disable shall remove only the aliases and regions it owns while preserving authored content.
+- Requirement: `cli/instructions/disable/disable-is-idempotent`
+- Statement: When instruction-file management is disabled while already disabled, AXM shall report a no-op outcome and shall not change settings.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/instructions/management-is-explicit`
+- Supersedes: `cli/instructions/management-is-explicit`
+- Source: [`specifications/cli/instructions/disable/disable-is-idempotent.spec.ts`](../specifications/cli/instructions/disable/disable-is-idempotent.spec.ts)
+
+##### Disabling instruction-file management removes only what AXM owns
+
+- Requirement: `cli/instructions/disable/removes-only-owned-aliases`
+- Statement: When instruction-file management is disabled, AXM shall record the choice in axm.json and remove only the alias files and ignore regions it owns, and shall preserve authored instruction content and unrelated ignore entries.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/instructions/management-is-explicit`
+- Supersedes: `cli/instructions/management-is-explicit`
+- Source: [`specifications/cli/instructions/disable/removes-only-owned-aliases.spec.ts`](../specifications/cli/instructions/disable/removes-only-owned-aliases.spec.ts)
+
+##### Enabling instruction-file management records the explicit choice and reconciles aliases together
+
+- Requirement: `cli/instructions/enable/records-choice-and-reconciles-aliases`
+- Statement: When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`specifications/cli/instructions/management-is-explicit.spec.ts`](../specifications/cli/instructions/management-is-explicit.spec.ts)
+- Derived from: `cli/instructions/management-is-explicit`
+- Supersedes: `cli/instructions/management-is-explicit`
+- Source: [`specifications/cli/instructions/enable/records-choice-and-reconciles-aliases.spec.ts`](../specifications/cli/instructions/enable/records-choice-and-reconciles-aliases.spec.ts)
+
+##### Instruction-file status is inspected without changing workspace state
+
+- Requirement: `cli/instructions/status-reports-without-changing-state`
+- Statement: When instruction-file management status is inspected, AXM shall report whether management is enabled and, when it is, the source file and the managed target for each configured agent, and shall not change settings or instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/instructions/management-is-explicit`
+- Supersedes: `cli/instructions/management-is-explicit`
+- Source: [`specifications/cli/instructions/status-reports-without-changing-state.spec.ts`](../specifications/cli/instructions/status-reports-without-changing-state.spec.ts)
 
 #### Lint
 
@@ -486,17 +570,33 @@ programmatic interfaces, and supporting system behavior.
 
 #### Packs
 
-##### Authored packs grow membership that stays reachable through the pack
+##### Adding an installed extension to an authored pack records it as a pack dependency
 
-- Requirement: `cli/packs/authored-packs-expand-membership`
-- Statement: Creating a workspace-authored pack shall record it in axm.json without an accepted resolution, adding an installed extension shall record it as a pack dependency, and a member reached only through the pack shall stay resolved and realized after its direct configuration is removed.
+- Requirement: `cli/packs/add/records-member-as-pack-dependency`
+- Statement: When a person adds an installed extension to a workspace-authored pack, AXM shall record the extension in the pack manifest as a dependency constrained to at least its accepted version.
 - Class: functional
 - Role: experience
-- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`, `extension-adoption`
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
+- Derived from: `cli/packs/authored-packs-expand-membership`
+- Supersedes: `cli/packs/authored-packs-expand-membership`
 - Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
-- Source: [`specifications/cli/packs/authored-packs-expand-membership.spec.ts`](../specifications/cli/packs/authored-packs-expand-membership.spec.ts)
+- Source: [`specifications/cli/packs/add/records-member-as-pack-dependency.spec.ts`](../specifications/cli/packs/add/records-member-as-pack-dependency.spec.ts)
+
+##### Creating a pack records workspace authorship with an empty dependency graph
+
+- Requirement: `cli/packs/new/records-workspace-authorship`
+- Statement: When a person creates a workspace-authored pack, AXM shall record it in axm.json as workspace authored, write its manifest with an empty dependency graph, and shall not record an accepted resolution for it.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/packs/authored-packs-expand-membership`
+- Supersedes: `cli/packs/authored-packs-expand-membership`
+- Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
+- Source: [`specifications/cli/packs/new/records-workspace-authorship.spec.ts`](../specifications/cli/packs/new/records-workspace-authorship.spec.ts)
 
 #### Projection Currency Follows State Authority
 
@@ -514,17 +614,45 @@ programmatic interfaces, and supporting system behavior.
 
 #### Publish
 
-##### Publish preview evaluates the fixed publication gate and distributes nothing
+##### One failed publish preflight blocks the whole selection
 
-- Requirement: `cli/publish/preview-is-pure-and-gate-is-fixed`
-- Statement: A publish preview shall report the admitted publication set without uploading anything or changing workspace state, and the fixed publication gate shall block an ineligible extension in preview and apply alike regardless of any locally relaxed lint rule.
+- Requirement: `cli/publish/preflight-blocks-the-whole-selection`
+- Statement: When any selected extension fails publish preflight, publish shall upload nothing for the selection and shall report every other publishable extension as blocked by preflight, naming the extension that failed.
 - Class: functional
 - Role: experience
-- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
-- Methods: example, decision-table
+- Methods: example
+- Derived from: `cli/publish/requires-explicit-acceptance-for-non-head-source`
+- Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; the source-state scenario substitutes the comparison outcome rather than running Git.
+- Source: [`specifications/cli/publish/preflight-blocks-the-whole-selection.spec.ts`](../specifications/cli/publish/preflight-blocks-the-whole-selection.spec.ts)
+
+##### Publish preview reports the admitted publication set without distributing anything
+
+- Requirement: `cli/publish/preview-is-pure`
+- Statement: When publish runs in preview mode, it shall report the admitted publication set with no execution and shall not upload anything or change settings or the lockfile.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure-and-gate-is-fixed`
+- Supersedes: `cli/publish/preview-is-pure-and-gate-is-fixed`
 - Additional evidence: process via [`packages/cli-e2e/src/http-registry.e2e.test.ts`](../packages/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
-- Source: [`specifications/cli/publish/preview-is-pure-and-gate-is-fixed.spec.ts`](../specifications/cli/publish/preview-is-pure-and-gate-is-fixed.spec.ts)
+- Source: [`specifications/cli/publish/preview-is-pure.spec.ts`](../specifications/cli/publish/preview-is-pure.spec.ts)
+
+##### The publication gate is fixed and ignores locally relaxed lint rules
+
+- Requirement: `cli/publish/publication-gate-is-fixed`
+- Statement: When a selected extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall name the violated rule, and shall upload nothing, regardless of any lint rule relaxed in axm.json.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `cli/publish/preview-is-pure-and-gate-is-fixed`
+- Supersedes: `cli/publish/preview-is-pure-and-gate-is-fixed`
+- Source: [`specifications/cli/publish/publication-gate-is-fixed.spec.ts`](../specifications/cli/publish/publication-gate-is-fixed.spec.ts)
 
 ##### Publish refuses extensions the workspace does not author
 
@@ -540,7 +668,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Publish requires explicit acceptance when archive content differs from Git HEAD
 
 - Requirement: `cli/publish/requires-explicit-acceptance-for-non-head-source`
-- Statement: When an extension's archive differs from Git HEAD or the repository has no HEAD, publish shall report the difference and block the whole selection until --accept-warnings is given, while archives matching HEAD, outside Git, or differing only in excluded paths shall publish without acceptance.
+- Statement: When an extension's archive differs from Git HEAD or the repository has no HEAD, publish shall block that extension and name --accept-warnings as the required override until it is given, while an archive matching HEAD, outside Git, or differing only in excluded paths shall publish without acceptance.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
@@ -954,6 +1082,22 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: golden-output, contract
 - Source: [`specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts`](../specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts)
+
+#### Publish
+
+##### Machine publish outcomes report source state against Git HEAD
+
+- Requirement: `cli/publish/outcomes-report-source-state`
+- Statement: When publish compares an extension's archive with Git, each machine outcome for that extension shall carry a schema-backed source-state report naming its basis, whether it matches HEAD, differs from HEAD, or has no HEAD, the HEAD revision when one exists, and the list and count of material differences, and an outcome for an extension outside Git shall carry no source-state report.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: contract
+- Derived from: `cli/publish/requires-explicit-acceptance-for-non-head-source`
+- Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; every scenario substitutes the comparison outcome rather than running Git.
+- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
+- Source: [`specifications/cli/publish/outcomes-report-source-state.spec.ts`](../specifications/cli/publish/outcomes-report-source-state.spec.ts)
 
 #### Sync
 

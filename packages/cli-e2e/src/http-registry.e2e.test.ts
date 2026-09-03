@@ -29,7 +29,7 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 export const executionBinding = {
   requirements: [
     "cli/update/advances-resolution-within-intent",
-    "cli/publish/preview-is-pure-and-gate-is-fixed",
+    "cli/publish/preview-is-pure",
     "source-resolution/locator-grammar-is-stable",
   ],
   boundary: "process",

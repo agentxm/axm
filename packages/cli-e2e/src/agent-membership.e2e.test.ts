@@ -9,7 +9,11 @@ import { createTempDir, runCli } from "./e2e/utils.js";
  * cli-e2e deliberately has no code dependency on the specifications package.
  */
 export const executionBinding = {
-  requirements: ["cli/agents/membership-changes-realize-affected-outputs"],
+  requirements: [
+    "cli/agents/add/records-membership-and-realizes-outputs",
+    "cli/agents/remove/removes-membership-and-owned-outputs",
+    "cli/agents/remove/preserves-unowned-agent-content",
+  ],
   boundary: "process",
   rationale:
     "Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.",

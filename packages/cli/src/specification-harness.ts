@@ -96,6 +96,9 @@ export { handlePacksShow } from "./root/packs/show.js";
 export { handleUninstallPack } from "./root/packs/uninstall/handler.js";
 export { handlePackActivation } from "./root/packs/activation.js";
 export { handleRootPublish } from "./root/publish/command.js";
+// The published publish-result contract, so interface specifications can
+// decode the rendered document against the schema machine consumers read.
+export { PublishResultSchema } from "./root/publish/result.js";
 export { makeAxmFormatter } from "./formatter.js";
 export { ExecutionDirectory, type ExecutionDirectoryService } from "./execution-directory.js";
 export {

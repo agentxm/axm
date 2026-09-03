@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/requires-explicit-acceptance-for-non-head-source",
   title: "Publish requires explicit acceptance when archive content differs from Git HEAD",
   statement:
-    "When an extension's archive differs from Git HEAD or the repository has no HEAD, publish shall report the difference and block the whole selection until --accept-warnings is given, while archives matching HEAD, outside Git, or differing only in excluded paths shall publish without acceptance.",
+    "When an extension's archive differs from Git HEAD or the repository has no HEAD, publish shall block that extension and name --accept-warnings as the required override until it is given, while an archive matching HEAD, outside Git, or differing only in excluded paths shall publish without acceptance.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
@@ -59,6 +59,12 @@ const gitComparison =
 const readPublishDocument = (workspace: ReturnType<typeof makeSpecWorkspace>): unknown =>
   workspace.rendererState.results.at(-1)?.data;
 
+/** The risk condition that names --accept-warnings as the required override. */
+const overrideRequiredCondition = expect.objectContaining({
+  level: "override-required",
+  requiredFlag: "--accept-warnings",
+});
+
 describe("Publishing archive content not represented by Git HEAD", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
@@ -79,86 +85,24 @@ describe("Publishing archive content not represented by Git HEAD", () => {
     return { workspace, registry: makeFileRegistry(workspace.root) };
   };
 
-  it.effect("reports a clean filtered archive as represented by HEAD", () =>
+  it.effect("names the required override in preview and uploads nothing", () =>
     Effect.gen(function* () {
       const { workspace, registry } = setup();
 
       yield* handleRootPublish(
         publishArgs(registry.url, { selectors: ["@acme/skills/review"] }),
-      ).pipe(Effect.provide(makePublishLayer(workspace, gitComparison([]))));
+      ).pipe(
+        Effect.provide(
+          makePublishLayer(
+            workspace,
+            gitComparison([{ path: "src/SKILL.md", change: "modified" }]),
+          ),
+        ),
+      );
 
       expect(readPublishDocument(workspace)).toMatchObject({
         mode: "preview",
-        execution: {
-          outcomes: [
-            {
-              sourceState: {
-                basis: "git-head",
-                status: "matches-head",
-                revision,
-                differences: [],
-                differenceCount: 0,
-              },
-            },
-          ],
-        },
-      });
-    }),
-  );
-
-  it.effect("publishes outside Git without inventing source-state evidence", () =>
-    Effect.gen(function* () {
-      const { workspace, registry } = setup();
-
-      yield* handleRootPublish(
-        publishArgs(registry.url, {
-          selectors: ["@acme/skills/review"],
-          preview: false,
-        }),
-      ).pipe(Effect.provide(makePublishLayer(workspace)));
-
-      expect(registry.storedFiles()).not.toEqual([]);
-      expect(readPublishDocument(workspace)).toMatchObject({
-        execution: { status: "completed", outcomes: [{ status: "success" }] },
-      });
-      expect(JSON.stringify(readPublishDocument(workspace))).not.toContain("sourceState");
-    }),
-  );
-
-  it.effect("reports material paths and requires the named override in preview", () =>
-    Effect.gen(function* () {
-      const { workspace, registry } = setup();
-      const differences: ReadonlyArray<GitDirectoryDifference> = [
-        { path: "notes.md", change: "added" },
-        { path: "old.md", change: "deleted" },
-        { path: "src/SKILL.md", change: "modified" },
-      ];
-
-      yield* handleRootPublish(
-        publishArgs(registry.url, { selectors: ["@acme/skills/review"] }),
-      ).pipe(Effect.provide(makePublishLayer(workspace, gitComparison(differences))));
-
-      expect(readPublishDocument(workspace)).toMatchObject({
-        mode: "preview",
-        execution: {
-          status: "not-run",
-          riskConditions: [
-            {
-              level: "override-required",
-              policy: "accept-warnings",
-              requiredFlag: "--accept-warnings",
-            },
-          ],
-          outcomes: [
-            {
-              sourceState: {
-                status: "differs-from-head",
-                differences,
-                differenceCount: 3,
-              },
-            },
-          ],
-        },
+        execution: { status: "not-run", riskConditions: [overrideRequiredCondition] },
       });
       expect(registry.storedFiles()).toEqual([]);
     }),
@@ -191,63 +135,13 @@ describe("Publishing archive content not represented by Git HEAD", () => {
       expect(readPublishDocument(workspace)).toMatchObject({
         execution: {
           status: "failed",
-          outcomes: [
-            {
-              status: "blocked",
-              reason: "source_state_not_accepted",
-            },
-          ],
+          outcomes: [{ status: "blocked", reason: "source_state_not_accepted" }],
         },
       });
     }),
   );
 
-  it.effect("blocks the complete selection when one archive needs acceptance", () =>
-    Effect.gen(function* () {
-      const workspace = makeSpecWorkspace({
-        machine: true,
-        flags: { json: true },
-        settings: { skills: { clean: "workspace", review: "workspace" } },
-      });
-      cleanups.push(workspace.cleanup);
-      writeAuthoredSkill(workspace.root, { name: "clean" });
-      writeAuthoredSkill(workspace.root, { name: "review" });
-      const registry = makeFileRegistry(workspace.root);
-      const compare: GitDirectoryComparisonService["compare"] = (input) =>
-        gitComparison(
-          path.basename(input.directory) === "review"
-            ? [{ path: "src/SKILL.md", change: "modified" }]
-            : [],
-        )(input);
-
-      const exit = yield* handleRootPublish(publishArgs(registry.url, { preview: false })).pipe(
-        Effect.provide(makePublishLayer(workspace, compare)),
-        Effect.exit,
-      );
-
-      expect(Exit.isFailure(exit)).toBe(true);
-      expect(registry.storedFiles()).toEqual([]);
-      expect(readPublishDocument(workspace)).toMatchObject({
-        execution: {
-          outcomes: expect.arrayContaining([
-            expect.objectContaining({
-              id: "@acme/skills/review",
-              status: "blocked",
-              reason: "source_state_not_accepted",
-            }),
-            expect.objectContaining({
-              id: "@acme/skills/clean",
-              status: "blocked",
-              reason: "blocked_by_preflight",
-              blockedBy: ["@acme/skills/review"],
-            }),
-          ]),
-        },
-      });
-    }),
-  );
-
-  it.effect("publishes the fixed archive after --accept-warnings", () =>
+  it.effect("publishes the differing archive after --accept-warnings", () =>
     Effect.gen(function* () {
       const { workspace, registry } = setup();
 
@@ -273,74 +167,6 @@ describe("Publishing archive content not represented by Git HEAD", () => {
     }),
   );
 
-  it.effect("does not require acceptance when every difference is excluded from the archive", () =>
-    Effect.gen(function* () {
-      const { workspace, registry } = setup(["evals/*"]);
-      fs.mkdirSync(path.join(workspace.root, "skills", "review", "evals"), { recursive: true });
-      fs.writeFileSync(path.join(workspace.root, "skills", "review", "evals", "case.json"), "{}\n");
-
-      yield* handleRootPublish(
-        publishArgs(registry.url, {
-          selectors: ["@acme/skills/review"],
-          preview: false,
-        }),
-      ).pipe(
-        Effect.provide(
-          makePublishLayer(
-            workspace,
-            gitComparison([{ path: "evals/case.json", change: "modified" }]),
-          ),
-        ),
-      );
-
-      expect(registry.storedFiles()).not.toEqual([]);
-      expect(readPublishDocument(workspace)).toMatchObject({
-        execution: {
-          status: "completed",
-          outcomes: [{ status: "success", sourceState: { status: "matches-head" } }],
-        },
-      });
-    }),
-  );
-
-  it.effect("does not compare an existing version verified as an exact archive match", () =>
-    Effect.gen(function* () {
-      const { workspace, registry } = setup();
-      yield* handleRootPublish(
-        publishArgs(registry.url, {
-          selectors: ["@acme/skills/review"],
-          preview: false,
-        }),
-      ).pipe(Effect.provide(makePublishLayer(workspace)));
-
-      let comparisonCount = 0;
-      const compare: GitDirectoryComparisonService["compare"] = () =>
-        Effect.sync(() => {
-          comparisonCount += 1;
-          return Option.none();
-        });
-      yield* handleRootPublish(
-        publishArgs(registry.url, {
-          selectors: ["@acme/skills/review"],
-          onExisting: Option.some("verify"),
-        }),
-      ).pipe(Effect.provide(makePublishLayer(workspace, compare)));
-
-      expect(comparisonCount).toBe(0);
-      expect(readPublishDocument(workspace)).toMatchObject({
-        execution: {
-          outcomes: [
-            {
-              action: "skip",
-              reason: "version_already_published",
-              status: "success",
-            },
-          ],
-        },
-      });
-    }),
-  );
-
   it.effect("treats a Git worktree without HEAD as requiring explicit acceptance", () =>
     Effect.gen(function* () {
       const { workspace, registry } = setup();
@@ -354,46 +180,62 @@ describe("Publishing archive content not represented by Git HEAD", () => {
       );
 
       expect(readPublishDocument(workspace)).toMatchObject({
-        execution: {
-          riskConditions: [{ requiredFlag: "--accept-warnings" }],
-          outcomes: [{ sourceState: { status: "no-head" } }],
-        },
+        execution: { riskConditions: [overrideRequiredCondition] },
+      });
+      expect(registry.storedFiles()).toEqual([]);
+    }),
+  );
+
+  it.effect("publishes an archive represented by HEAD without acceptance", () =>
+    Effect.gen(function* () {
+      const { workspace, registry } = setup();
+
+      yield* handleRootPublish(
+        publishArgs(registry.url, { selectors: ["@acme/skills/review"], preview: false }),
+      ).pipe(Effect.provide(makePublishLayer(workspace, gitComparison([]))));
+
+      expect(registry.storedFiles()).not.toEqual([]);
+      expect(readPublishDocument(workspace)).toMatchObject({
+        execution: { status: "completed", outcomes: [{ status: "success" }] },
       });
     }),
   );
 
-  it.effect("rejects apply when source evidence changes after planning", () =>
+  it.effect("publishes outside Git without acceptance", () =>
     Effect.gen(function* () {
       const { workspace, registry } = setup();
-      let comparisonCount = 0;
-      const compare: GitDirectoryComparisonService["compare"] = (input) => {
-        comparisonCount += 1;
-        return gitComparison(
-          comparisonCount === 1
-            ? [{ path: "src/SKILL.md", change: "modified" }]
-            : [
-                { path: "notes.md", change: "added" },
-                { path: "src/SKILL.md", change: "modified" },
-              ],
-        )(input);
-      };
 
-      const exit = yield* handleRootPublish(
-        publishArgs(registry.url, {
-          selectors: ["@acme/skills/review"],
-          preview: false,
-          acceptWarnings: true,
-        }),
-      ).pipe(Effect.provide(makePublishLayer(workspace, compare)), Effect.exit);
+      yield* handleRootPublish(
+        publishArgs(registry.url, { selectors: ["@acme/skills/review"], preview: false }),
+      ).pipe(Effect.provide(makePublishLayer(workspace)));
 
-      expect(Exit.isFailure(exit)).toBe(true);
-      expect(comparisonCount).toBe(2);
-      expect(registry.storedFiles()).toEqual([]);
+      expect(registry.storedFiles()).not.toEqual([]);
       expect(readPublishDocument(workspace)).toMatchObject({
-        execution: {
-          failure: { code: "conflict", message: expect.stringContaining("changed after planning") },
-          outcomes: [{ status: "blocked", reason: "stale_material" }],
-        },
+        execution: { status: "completed", outcomes: [{ status: "success" }] },
+      });
+    }),
+  );
+
+  it.effect("does not require acceptance when every difference is excluded from the archive", () =>
+    Effect.gen(function* () {
+      const { workspace, registry } = setup(["evals/*"]);
+      fs.mkdirSync(path.join(workspace.root, "skills", "review", "evals"), { recursive: true });
+      fs.writeFileSync(path.join(workspace.root, "skills", "review", "evals", "case.json"), "{}\n");
+
+      yield* handleRootPublish(
+        publishArgs(registry.url, { selectors: ["@acme/skills/review"], preview: false }),
+      ).pipe(
+        Effect.provide(
+          makePublishLayer(
+            workspace,
+            gitComparison([{ path: "evals/case.json", change: "modified" }]),
+          ),
+        ),
+      );
+
+      expect(registry.storedFiles()).not.toEqual([]);
+      expect(readPublishDocument(workspace)).toMatchObject({
+        execution: { status: "completed", outcomes: [{ status: "success" }] },
       });
     }),
   );

@@ -20,6 +20,7 @@ export const executionBinding = {
   requirements: [
     "cli/update/advances-resolution-within-intent",
     "cli/publish/requires-explicit-acceptance-for-non-head-source",
+    "cli/publish/outcomes-report-source-state",
   ],
   boundary: "process",
   rationale:

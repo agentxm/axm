@@ -15,60 +15,27 @@ import {
 } from "../../support/publish-harness.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/publish/preview-is-pure-and-gate-is-fixed",
-  title: "Publish preview evaluates the fixed publication gate and distributes nothing",
+  requirement: "cli/publish/publication-gate-is-fixed",
+  title: "The publication gate is fixed and ignores locally relaxed lint rules",
   statement:
-    "A publish preview shall report the admitted publication set without uploading anything or changing workspace state, and the fixed publication gate shall block an ineligible extension in preview and apply alike regardless of any locally relaxed lint rule.",
+    "When a selected extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall name the violated rule, and shall upload nothing, regardless of any lint rule relaxed in axm.json.",
   class: "functional",
   role: "experience",
-  goals: ["trustworthy-distribution", "safe-repetition"],
-  methods: ["example", "decision-table"],
-  derivedFrom: [],
-  supersedes: [],
+  goals: ["trustworthy-distribution"],
+  methods: ["decision-table"],
+  derivedFrom: ["cli/publish/preview-is-pure-and-gate-is-fixed"],
+  supersedes: ["cli/publish/preview-is-pure-and-gate-is-fixed"],
   assumptions: [],
   openQuestions: [],
 });
 
-describe("Publish preview purity and the fixed publication gate", () => {
+describe("The fixed publication gate", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) {
       cleanup();
     }
   });
-
-  it.effect(
-    "a preview reports the admitted publication set without uploading or changing state",
-    () =>
-      Effect.gen(function* () {
-        const workspace = makeSpecWorkspace({
-          machine: true,
-          flags: { json: true },
-          settings: { skills: { review: "workspace" } },
-        });
-        cleanups.push(workspace.cleanup);
-        writeAuthoredSkill(workspace.root, { name: "review" });
-        const registry = makeFileRegistry(workspace.root);
-        const settingsBefore = JSON.stringify(workspace.readSettings());
-        const lockBefore = workspace.readLockfileText();
-
-        yield* handleRootPublish(
-          publishArgs(registry.url, { selectors: ["@acme/skills/review"], preview: true }),
-        ).pipe(Effect.provide(makePublishLayer(workspace)));
-
-        expect(registry.storedFiles()).toEqual([]);
-        expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
-        expect(workspace.readLockfileText()).toBe(lockBefore);
-        const [entry] = workspace.rendererState.results;
-        expect(entry?.data).toMatchObject({
-          contract: "publish-result-v3",
-          mode: "preview",
-          publicationSet: { status: "admitted" },
-          execution: { status: "not-run" },
-          counts: { selected: 1, published: 0 },
-        });
-      }),
-  );
 
   /**
    * The fixed gate evaluates in preview and apply alike, and configurable

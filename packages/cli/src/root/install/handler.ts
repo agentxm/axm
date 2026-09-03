@@ -61,13 +61,14 @@ const runRegistryInstallIntent = (
   intent: RegistryExtensionRootInstallIntent,
   execution: PlanExecution,
   actions: InstallCommandActions,
+  force: boolean,
 ) =>
   Effect.gen(function* () {
     const transformPlan = withInstallPresentation(intent.type);
     switch (intent.type) {
       case "skill": {
         return yield* runInstallCommandWorkflow(
-          { source: intent.source, skills: [], all: false },
+          { source: intent.source, skills: [], all: false, force },
           actions.skill,
           { execution, transformPlan },
         );
@@ -141,12 +142,13 @@ const runLocatorInstallIntent = (
   source: string,
   execution: PlanExecution,
   actions: InstallCommandActions,
+  force: boolean,
 ) =>
   Effect.gen(function* () {
     const attempts = [
       yield* runLocatorWorkflow(
         "skill",
-        runInstallCommandWorkflow({ source, skills: [], all: true }, actions.skill, {
+        runInstallCommandWorkflow({ source, skills: [], all: true, force }, actions.skill, {
           execution,
           transformPlan: withInstallPresentation("skill"),
         }),
@@ -262,10 +264,10 @@ const handleInstallBody = (args: RootInstallHandlerArgs, actions: InstallCommand
         );
         const intent = yield* resolveRootInstallIntent(source);
         if (intent.type === "locator") {
-          yield* runLocatorInstallIntent(intent.source, execution, actions);
+          yield* runLocatorInstallIntent(intent.source, execution, actions, args.force);
           return;
         }
-        const resolution = yield* runRegistryInstallIntent(intent, execution, actions);
+        const resolution = yield* runRegistryInstallIntent(intent, execution, actions, args.force);
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
             operationResolutionSummary(resolution, {

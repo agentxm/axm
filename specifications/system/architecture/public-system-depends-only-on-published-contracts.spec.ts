@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,20 +13,18 @@ export const specification = defineSpecification({
   title:
     "The public system depends on private platform responsibilities only through published contracts",
   statement:
-    "The public AXM system shall depend on private platform responsibilities only through published packages and generated clients tracked in this repository, and no workspace package shall reference a private package or a filesystem path outside the repository.",
+    "The public AXM system shall depend on private platform responsibilities only through published packages and through clients generated from contract documents tracked in this repository, and no workspace package shall reference a private package or a filesystem path outside the repository.",
   class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
   boundary: "repository",
   boundaryRationale:
-    "Only the committed package manifests and the tracked generated client directories show what the public system actually depends on.",
+    "Only the committed package manifests, the tracked contract documents, and the tracked generated clients show what the public system actually depends on.",
   methods: ["contract"],
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "Whether the registry client must be generated from a published contract is unresolved: the scenario accepts either a generated directory or any source directory, so it cannot fail for the registry client.",
-  ],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
@@ -63,6 +62,30 @@ const DEPENDENCY_FIELDS = [
   "optionalDependencies",
 ] as const;
 
+/**
+ * Every private platform interaction reaches the public system through a
+ * client generated from a contract document tracked in this repository.
+ */
+const GENERATED_CLIENTS = [
+  {
+    client: "registry",
+    contract: "packages/registry-client/specs/registry-openapi.json",
+    generated: "packages/registry-client/src/__generated__/registry-client.ts",
+  },
+  {
+    client: "telemetry",
+    contract: "packages/cli/specs/telemetry-openapi.json",
+    generated: "packages/cli/src/telemetry/__generated__/telemetry-client.ts",
+  },
+] as const;
+
+const trackedFiles = (paths: ReadonlyArray<string>): ReadonlySet<string> =>
+  new Set(
+    execFileSync("git", ["ls-files", "--", ...paths], { cwd: repoRoot, encoding: "utf8" })
+      .split("\n")
+      .filter((file) => file.length > 0),
+  );
+
 describe("Public and private boundary", () => {
   it.effect("no workspace package depends on private repository source or paths", () =>
     Effect.sync(() => {
@@ -94,17 +117,37 @@ describe("Public and private boundary", () => {
     }),
   );
 
-  it.effect("registry and telemetry integration is generated from published contracts", () =>
-    Effect.sync(() => {
-      expect(
-        fs.existsSync(path.join(repoRoot, "packages/registry-client/src/__generated__")) ||
-          fs.existsSync(path.join(repoRoot, "packages/registry-client/src")),
-      ).toBe(true);
-      // The generated clients and their source specs are tracked inside this
-      // repository, so the public system builds without private context.
-      expect(fs.existsSync(path.join(repoRoot, "packages/cli/src/telemetry/__generated__"))).toBe(
-        true,
-      );
-    }),
+  it.effect.each([...GENERATED_CLIENTS])(
+    "the $client client is generated from a contract document tracked in this repository",
+    ({ contract, generated }) =>
+      Effect.sync(() => {
+        const tracked = trackedFiles([contract, generated]);
+        expect(tracked.has(contract), contract).toBe(true);
+        expect(tracked.has(generated), generated).toBe(true);
+
+        // The contract is a published API document, not private source.
+        const document: unknown = JSON.parse(
+          fs.readFileSync(path.join(repoRoot, contract), "utf8"),
+        );
+        if (typeof document !== "object" || document === null) {
+          throw new Error(`${contract} must be a JSON object`);
+        }
+        const record: Partial<Record<string, unknown>> = { ...document };
+        expect(
+          typeof record["openapi"] === "string" || typeof record["swagger"] === "string",
+          contract,
+        ).toBe(true);
+
+        // The generated client declares the tracked contract it was generated
+        // from, so the public system builds without private context.
+        const header = fs
+          .readFileSync(path.join(repoRoot, generated), "utf8")
+          .split("\n")
+          .slice(0, 8)
+          .join("\n")
+          .replace(/\s+/g, " ");
+        expect(header).toContain("@generated");
+        expect(header).toContain(`Source: ${contract}`);
+      }),
   );
 });

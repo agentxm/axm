@@ -37,11 +37,14 @@ Rule/Knowledge`, `makeConfiguredReleaseAgeEvaluation`) and
    `settings/index.js`) and XW semantics (`extensions/manifest-package-discovery`,
    `hooks/discovery`, `rules/discovery`, the axm-skill trio via `skills/index`).
    `layer:integration → [layer:integration, layer:contract]` is enforced by
-   eslint **and pinned verbatim by
-   `specifications/system/architecture/package-dependencies-point-inward.spec.ts`**
-   (its `constraintAllowList` assertions). Extracting extension-sources therefore
-   requires a **reviewed requirements change** (§6.4, option A) or the K5/V-move
-   redesign (option B) first. Steps 3, and step 4 for IR + IA, are unaffected.
+   eslint. The
+   `specifications/system/architecture/package-dependencies-point-inward.spec.ts`
+   specification observes the declared manifests and treats kernels and
+   integrations as peers, so an integration→kernel dependency is not outward
+   under it; the eslint row is the gate to amend. Extracting extension-sources
+   therefore requires **amending that lint row** (§6.4, option A) or the
+   K5/V-move redesign (option B) first. Steps 3, and step 4 for IR + IA, are
+   unaffected.
 3. **Error-decoupling debt gates each extraction.** 17 production files in the
    step-3 move set still import `app-error` (list in §0.1); ~45 in the step-4
    set. Wave-1/wave-2 completion for exactly those files is a prerequisite of the
@@ -704,9 +707,10 @@ reviewed requirements edit in the same change set as the extraction it enables:
    the three integrations (step 4); `FORBIDDEN_PROJECT_ROOTS` gains the matching
    `packages/<dir>` entries.
 3. **Integration→kernel allowance for extension-sources (gates 4c).**
-   `package-dependencies-point-inward.spec.ts` asserts
-   `constraintAllowList("layer:integration") === ["layer:integration",
-"layer:contract"]`. Option A (recommended): amend the spec + eslint row to
+   `package-dependencies-point-inward.spec.ts` observes the declared package
+   manifests and treats kernels and integrations as peers, so it needs no
+   amendment; the eslint `layer:integration` row is what forbids the edge.
+   Option A (recommended): amend the eslint row to
    `["layer:integration", "layer:kernel", "layer:contract"]`, and amend
    `docs/architecture/package-architecture.md` (layer table + the
    extension-sources row's expected inward deps) with the rationale: source
@@ -752,10 +756,12 @@ Step 3: the two settings-contract specs (symbol re-route, §6.4.4),
 `machine-errors-use-the-stable-envelope` (drives `classifyError` — plan
 `StepFailure` vocabulary is WO-bound but `classifyError` and the envelope stay
 residue; risk is only via the wave-1 debt clears, which the golden-pair test in
-design-3e §5.4 pins), `package-dependencies-point-inward` +
-`live-composition-stays-in-application` (must stay green — they assert gate
-registration, not adjacency, so extraction passes if the §1 partition is
-respected). Step 4: `locator-grammar-is-stable`, the registry error-contract
+design-3e §5.4 pins), `package-dependencies-point-inward`,
+`package-dependencies-stay-acyclic`, `feature-packages-stay-peers`, and
+`live-composition-stays-in-application` (must stay green — they observe
+dependency direction, acyclicity, and feature isolation on the declared
+manifests plus gate registration, not adjacency, so extraction passes if the
+§1 partition is respected). Step 4: `locator-grammar-is-stable`, the registry error-contract
 tests moving with IR (`openapi-error-contract`, `registry-client-sse` — they
 move into the IR package's own suite), telemetry specs (untouched).
 

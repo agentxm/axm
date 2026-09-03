@@ -769,14 +769,14 @@ programmatic interfaces, and supporting system behavior.
 ##### AXM installs through its supported channels with integrity verification
 
 - Requirement: `system/installability/product-installs-through-supported-channels`
-- Statement: AXM shall install through its supported bash, PowerShell, and cmd installers, each verifying artifact integrity by checksum, and a release shall not complete until installation has been verified on every supported shell.
+- Statement: AXM shall install through its supported bash, PowerShell, and cmd installers, each verifying artifact integrity by checksum.
 - Class: quality (installability)
 - Role: experience
 - Product goals: `platform-reach`, `trustworthy-distribution`
-- Boundary: repository; selection: release-candidate
-- Boundary rationale: Only the committed installer scripts and the publish.yml workflow show which channels exist, that they verify integrity, and that release completion waits on install verification.
+- Boundary: repository; selection: per-change
+- Boundary rationale: Only the committed installer scripts show which install channels exist and that each verifies artifact integrity by checksum; the installed execution bound to this requirement shows that they install a working product.
 - Methods: contract
-- Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout, proving checksum verification, PATH guidance, and a working installed product.
+- Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum verification, PATH guidance, and a working installed product on that shell.
 - Source: [`specifications/system/installability/product-installs-through-supported-channels.spec.ts`](../specifications/system/installability/product-installs-through-supported-channels.spec.ts)
 
 #### Reliability
@@ -1257,14 +1257,30 @@ programmatic interfaces, and supporting system behavior.
 
 - Requirement: `system/architecture/e2e-observes-only-shipped-artifacts`
 - Statement: End-to-end test projects shall exercise AXM only through its shipped artifacts and shall not declare a dependency on, or a project reference to, any product source package.
-- Class: constraint
+- Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: Only the committed package manifests and TypeScript project references of the end-to-end projects show whether they reach product source directly.
 - Methods: contract
-- Assumptions: Relative imports that cross project roots are rejected by the module-boundary lint rather than by this evidence.
+- Assumptions: The module-boundary lint gate declared as bound evidence runs on every change through the required aggregate check.
+- Bound evidence: `lint: @nx/enforce-module-boundaries` — Rejects workspace imports from end-to-end and test-support projects into product source packages, and relative imports that cross a project root, leaving the built CLI output path as the only sanctioned way to reach the shipped surface.
 - Source: [`specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts`](../specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts)
+
+##### Feature packages stay peers and never depend on one another
+
+- Requirement: `system/architecture/feature-packages-stay-peers`
+- Statement: No feature package shall declare a dependency on another feature package, so that features remain peers composed only from kernel, integration, and contract packages.
+- Class: constraint
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Only the committed package manifests and project declarations show which packages are features and which production packages each feature depends on.
+- Methods: contract
+- Derived from: `system/architecture/package-dependencies-point-inward`
+- Assumptions: Package manifests declare every production dependency; the manifest-fidelity lint gate bound as evidence keeps them truthful.; The module-boundary lint gate runs on every change through the required aggregate check.
+- Bound evidence: `lint: @nx/enforce-module-boundaries` — Rejects any workspace import from one feature package into another feature package on every change.
+- Source: [`specifications/system/architecture/feature-packages-stay-peers.spec.ts`](../specifications/system/architecture/feature-packages-stay-peers.spec.ts)
 
 ##### Environment-backed service composition happens only in the application composition root
 
@@ -1274,45 +1290,59 @@ programmatic interfaces, and supporting system behavior.
 - Role: supporting
 - Product goals: `dependable-change-process`
 - Boundary: repository; selection: per-change
-- Boundary rationale: Only the committed lint configuration shows that the import restriction is armed and that its exception list is exactly the sanctioned one.
+- Boundary rationale: Only the committed lint configuration shows that the import restriction on environment-backed and in-memory implementation entries is armed for production source.
 - Methods: contract
-- Assumptions: The lint gate declared as bound evidence runs on every change through the required aggregate check.
-- Bound evidence: `lint: no-restricted-imports (@agentxm/*/live, @agentxm/*/testing)` — Rejects concrete environment-backed Layer imports and in-memory port imports from production source outside the application composition root, while tests and specifications keep their sanctioned exceptions.
+- Assumptions: The lint gate declared as bound evidence runs on every change through the required aggregate check.; Which non-test modules are exempt from the restriction is realization detail pinned by repository tooling tests, not by this specification.
+- Bound evidence: `lint: no-restricted-imports (@agentxm/*/live, @agentxm/*/testing)` — Rejects imports of environment-backed implementations and in-memory ports from production source outside the application composition root, while tests and specifications keep their sanctioned exceptions.
 - Source: [`specifications/system/architecture/live-composition-stays-in-application.spec.ts`](../specifications/system/architecture/live-composition-stays-in-application.spec.ts)
 
-##### Production package dependencies point inward, stay acyclic, and keep features isolated
+##### Production package dependencies point inward from the application
 
 - Requirement: `system/architecture/package-dependencies-point-inward`
-- Statement: Production package dependencies shall point only inward from the application through feature, kernel, integration, and contract levels, shall never form a cycle, and no feature package shall depend on another feature package.
+- Statement: Every dependency between production packages shall point inward, from the application through the feature level and the peer kernel and integration levels to the contract level, and shall never point toward a level nearer the application.
 - Class: constraint
 - Role: supporting
 - Product goals: `dependable-change-process`
 - Boundary: repository; selection: per-change
-- Boundary rationale: Only the committed Nx and lint configuration shows that the module-boundary and manifest-fidelity gates are armed with the intended level constraints and cycle detection.
+- Boundary rationale: Only the committed package manifests and project declarations show which production packages exist, which level each declares, and which production packages each depends on.
 - Methods: contract
-- Assumptions: The module-boundary and manifest-fidelity lint gates run on every change through the required aggregate check.
-- Bound evidence: `lint: @nx/enforce-module-boundaries` — Rejects outward or feature-to-feature workspace imports, undeclared transitive dependencies, external imports outside a constrained package's budget, and dependency cycles across every production project.
-- Bound evidence: `lint: @nx/dependency-checks` — Keeps each buildable package manifest aligned with its actual imports so the graph Nx derives is truthful.
+- Assumptions: Package manifests declare every production dependency; the manifest-fidelity lint gate bound as evidence keeps them truthful.; The module-boundary and manifest-fidelity lint gates run on every change through the required aggregate check.
+- Bound evidence: `lint: @nx/enforce-module-boundaries` — Rejects any workspace import from a production package toward a level nearer the application, and any undeclared transitive dependency, on every change.
+- Bound evidence: `lint: @nx/dependency-checks` — Keeps each production package manifest aligned with its actual imports so the dependency structure this specification observes is truthful.
 - Source: [`specifications/system/architecture/package-dependencies-point-inward.spec.ts`](../specifications/system/architecture/package-dependencies-point-inward.spec.ts)
+
+##### Production package dependencies never form a cycle
+
+- Requirement: `system/architecture/package-dependencies-stay-acyclic`
+- Statement: The dependencies declared between production packages shall never form a cycle, so that every production package can be built and released before the packages that depend on it.
+- Class: constraint
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Only the committed package manifests show which production packages each production package depends on, so a dependency cycle is observable there and nowhere in memory.
+- Methods: contract
+- Derived from: `system/architecture/package-dependencies-point-inward`
+- Assumptions: Package manifests declare every production dependency; the manifest-fidelity lint gate bound as evidence keeps them truthful.; The module-boundary lint gate runs on every change through the required aggregate check.
+- Bound evidence: `lint: @nx/enforce-module-boundaries` — Rejects circular workspace imports across every production project on every change, with no ignored project pairs and no self-dependency allowance.
+- Source: [`specifications/system/architecture/package-dependencies-stay-acyclic.spec.ts`](../specifications/system/architecture/package-dependencies-stay-acyclic.spec.ts)
 
 ##### The public system depends on private platform responsibilities only through published contracts
 
 - Requirement: `system/architecture/public-system-depends-only-on-published-contracts`
-- Statement: The public AXM system shall depend on private platform responsibilities only through published packages and generated clients tracked in this repository, and no workspace package shall reference a private package or a filesystem path outside the repository.
+- Statement: The public AXM system shall depend on private platform responsibilities only through published packages and through clients generated from contract documents tracked in this repository, and no workspace package shall reference a private package or a filesystem path outside the repository.
 - Class: constraint
 - Role: supporting
 - Product goals: `dependable-change-process`
 - Boundary: repository; selection: per-change
-- Boundary rationale: Only the committed package manifests and the tracked generated client directories show what the public system actually depends on.
+- Boundary rationale: Only the committed package manifests, the tracked contract documents, and the tracked generated clients show what the public system actually depends on.
 - Methods: contract
-- Open questions: Whether the registry client must be generated from a published contract is unresolved: the scenario accepts either a generated directory or any source directory, so it cannot fail for the registry client.
 - Source: [`specifications/system/architecture/public-system-depends-only-on-published-contracts.spec.ts`](../specifications/system/architecture/public-system-depends-only-on-published-contracts.spec.ts)
 
 ##### Specification layout mirrors the command tree and declared identities
 
 - Requirement: `system/architecture/specification-folders-mirror-command-tree`
 - Statement: Every specification directory under cli shall name a registered command path, every requirement identity shall equal its file path under specifications, and no symbolic link shall hide specification content from discovery.
-- Class: constraint
+- Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`
 - Boundary: repository; selection: per-change
@@ -1325,15 +1355,20 @@ programmatic interfaces, and supporting system behavior.
 ##### Every supported platform and shell receives release-blocking verification
 
 - Requirement: `system/compatibility/supported-platform-matrix`
-- Statement: Every supported operating system, architecture, and installer shell shall receive release-blocking verification, and Windows workspace behavior shall be verified on a real Windows runner.
+- Statement: Every supported operating system and architecture shall receive release-blocking verification of the compiled binary, every supported installer shell shall receive release-blocking verification of the installed product, and Windows workspace behavior shall be verified on a real Windows runner.
 - Class: quality (compatibility)
 - Role: supporting
 - Product goals: `platform-reach`
 - Boundary: repository; selection: platform-matrix
-- Boundary rationale: Only the committed ci.yml and publish.yml workflow files show which platforms, shells, and runners the release-blocking verification covers.
+- Boundary rationale: The committed ci.yml and publish.yml workflow files are read only as a coverage check showing which supported platforms, shells, and runners the bound matrix jobs cover; the compatibility evidence itself comes from the binary, platform, and installed executions those jobs run on each platform.
 - Methods: contract
+- Derived from: `system/installability/product-installs-through-supported-channels`
 - Assumptions: A job named in the workflow files blocks its merge or release rather than running as an advisory check.
+- Bound evidence: `ci: binary-smoke` — Runs the compiled-binary smoke execution on every supported operating system and architecture for every change that reaches the main branch, producing the binaries a release attaches.
+- Bound evidence: `ci: windows-workspace` — Runs the Windows workspace mutation execution on a real Windows runner for every change.
+- Bound evidence: `publish: install-verify` — Runs the installer verification execution against the real release assets on every supported installer shell before the release workflow completes.
 - Additional evidence: binary via [`packages/cli-e2e/src/binary-smoke.e2e.test.ts`](../packages/cli-e2e/src/binary-smoke.e2e.test.ts) — Executes the compiled platform binary, proving the shipped artifact starts and answers on the target operating system and architecture.
+- Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum verification, PATH guidance, and a working installed product on that shell.
 - Additional evidence: platform via [`packages/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../packages/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
 - Source: [`specifications/system/compatibility/supported-platform-matrix.spec.ts`](../specifications/system/compatibility/supported-platform-matrix.spec.ts)
 

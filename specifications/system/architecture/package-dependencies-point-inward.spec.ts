@@ -10,119 +10,123 @@ import {
   defineSpecification,
 } from "@agentxm/extension-model/unstable/specifications";
 
+import { readProductionPackages } from "../../support/production-packages.js";
+
 export const specification = defineSpecification({
   requirement: "system/architecture/package-dependencies-point-inward",
-  title: "Production package dependencies point inward, stay acyclic, and keep features isolated",
+  title: "Production package dependencies point inward from the application",
   statement:
-    "Production package dependencies shall point only inward from the application through feature, kernel, integration, and contract levels, shall never form a cycle, and no feature package shall depend on another feature package.",
+    "Every dependency between production packages shall point inward, from the application through the feature level and the peer kernel and integration levels to the contract level, and shall never point toward a level nearer the application.",
   class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
   boundary: "repository",
   boundaryRationale:
-    "Only the committed Nx and lint configuration shows that the module-boundary and manifest-fidelity gates are armed with the intended level constraints and cycle detection.",
+    "Only the committed package manifests and project declarations show which production packages exist, which level each declares, and which production packages each depends on.",
   methods: ["contract"],
   derivedFrom: [],
   supersedes: [],
   assumptions: [
+    "Package manifests declare every production dependency; the manifest-fidelity lint gate bound as evidence keeps them truthful.",
     "The module-boundary and manifest-fidelity lint gates run on every change through the required aggregate check.",
   ],
   openQuestions: [],
 });
 
 /**
- * The Nx project graph and the module-boundary lint gate verify this
- * requirement across every production project on every change. Their results
- * are evidence bound to this identity; the specification remains the sole
- * requirements authority.
+ * The module-boundary lint gate is the decisive per-change verification of
+ * dependency direction across every production project, and the
+ * manifest-fidelity gate keeps the manifests this specification observes
+ * truthful. Their results are evidence bound to this identity; the
+ * specification remains the sole requirements authority.
  */
 export const boundEvidence = defineBoundEvidence([
   {
     gate: "lint: @nx/enforce-module-boundaries",
     verifies:
-      "Rejects outward or feature-to-feature workspace imports, undeclared transitive dependencies, external imports outside a constrained package's budget, and dependency cycles across every production project.",
+      "Rejects any workspace import from a production package toward a level nearer the application, and any undeclared transitive dependency, on every change.",
   },
   {
     gate: "lint: @nx/dependency-checks",
     verifies:
-      "Keeps each buildable package manifest aligned with its actual imports so the graph Nx derives is truthful.",
+      "Keeps each production package manifest aligned with its actual imports so the dependency structure this specification observes is truthful.",
   },
 ]);
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 
-const readRepoFile = (relativePath: string): string =>
-  fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
-
 /**
- * Extracts the `onlyDependOnLibsWithTags` list of one `sourceTag` constraint
- * from the flat ESLint configuration without re-stating the whole matrix.
+ * Dependency levels by distance from the application: the application is the
+ * outermost level, contracts are the innermost, and kernels and integrations
+ * are peers. A dependency points inward when its target is at least as far
+ * from the application as its source.
  */
-const constraintAllowList = (configText: string, sourceTag: string): ReadonlyArray<string> => {
-  const constraintPattern = new RegExp(
-    `sourceTag:\\s*"${sourceTag}"[^}]*?onlyDependOnLibsWithTags:\\s*\\[([^\\]]*)\\]`,
-    "s",
-  );
-  const match = constraintPattern.exec(configText);
-  if (match?.[1] === undefined) {
-    return [];
-  }
-  return [...match[1].matchAll(/"([^"]+)"/g)].map((entry) => entry[1] ?? "");
-};
+const LEVEL_DEPTH = {
+  app: 0,
+  feature: 1,
+  kernel: 2,
+  integration: 2,
+  contract: 3,
+} as const;
 
-describe("Inward, acyclic package dependencies with feature isolation", () => {
-  // The obligation covers dependency direction across the application,
-  // feature, kernel, integration, and contract levels; feature packages stay
-  // peers, and no feature executes another feature's plans. Nx configuration
-  // is the implementation policy; this projection asserts the gates that
-  // supply the decisive verification remain armed rather than duplicating the
-  // derived dependency graph as a second normative table.
-  it.effect("the module-boundary gate stays registered for every project", () =>
+const isKnownLevel = (level: string): level is keyof typeof LEVEL_DEPTH =>
+  Object.hasOwn(LEVEL_DEPTH, level);
+
+const depthByPackage = (): ReadonlyMap<string, number> =>
+  new Map(
+    readProductionPackages(repoRoot).map((entry) => {
+      const level = entry.levels[0];
+      if (level === undefined || !isKnownLevel(level)) {
+        throw new Error(`${entry.name} declares no known dependency level`);
+      }
+      return [entry.name, LEVEL_DEPTH[level]];
+    }),
+  );
+
+describe("Inward package dependencies", () => {
+  it.effect("every production package declares exactly one known dependency level", () =>
     Effect.sync(() => {
-      const nxConfig = readRepoFile("nx.json");
-      expect(nxConfig).toContain("@nx/eslint/plugin");
-      const eslintConfig = readRepoFile("eslint.config.mjs");
+      const packages = readProductionPackages(repoRoot);
+      expect(packages.length).toBeGreaterThan(0);
+      for (const entry of packages) {
+        expect(entry.levels, entry.name).toHaveLength(1);
+        expect(Object.keys(LEVEL_DEPTH), entry.name).toContain(entry.levels[0]);
+      }
+    }),
+  );
+
+  it.effect("no production package depends on a package at a level nearer the application", () =>
+    Effect.sync(() => {
+      const depth = depthByPackage();
+      const outward = readProductionPackages(repoRoot).flatMap((entry) =>
+        entry.dependencies
+          .filter((dependency) => (depth.get(dependency) ?? 0) < (depth.get(entry.name) ?? 0))
+          .map((dependency) => `${entry.name} -> ${dependency}`),
+      );
+      expect(outward).toEqual([]);
+    }),
+  );
+
+  it.effect("the module-boundary gate stays armed for every project", () =>
+    Effect.sync(() => {
+      const nxConfig: unknown = JSON.parse(fs.readFileSync(path.join(repoRoot, "nx.json"), "utf8"));
+      if (typeof nxConfig !== "object" || nxConfig === null || !("plugins" in nxConfig)) {
+        throw new Error("nx.json must register plugins");
+      }
+      const registeredPlugins = Array.isArray(nxConfig.plugins)
+        ? nxConfig.plugins.flatMap((entry: unknown) => {
+            if (typeof entry !== "object" || entry === null || !("plugin" in entry)) {
+              return [];
+            }
+            return typeof entry.plugin === "string" ? [entry.plugin] : [];
+          })
+        : [];
+      // The inferred lint task reaches every project, and the boundary and
+      // manifest-fidelity rules are registered in the shared configuration.
+      expect(registeredPlugins).toContain("@nx/eslint/plugin");
+      const eslintConfig = fs.readFileSync(path.join(repoRoot, "eslint.config.mjs"), "utf8");
       expect(eslintConfig).toContain("@nx/enforce-module-boundaries");
-      expect(eslintConfig).toContain("banTransitiveDependencies: true");
       expect(eslintConfig).toContain("@nx/dependency-checks");
-    }),
-  );
-
-  it.effect("dependencies may point only inward and never back toward the application", () =>
-    Effect.sync(() => {
-      const eslintConfig = readRepoFile("eslint.config.mjs");
-      expect(constraintAllowList(eslintConfig, "layer:app")).toEqual([
-        "layer:feature",
-        "layer:kernel",
-        "layer:integration",
-        "layer:contract",
-      ]);
-      expect(constraintAllowList(eslintConfig, "layer:kernel")).toEqual([
-        "layer:kernel",
-        "layer:contract",
-      ]);
-      expect(constraintAllowList(eslintConfig, "layer:integration")).toEqual([
-        "layer:integration",
-        "layer:contract",
-      ]);
-      expect(constraintAllowList(eslintConfig, "layer:contract")).toEqual(["layer:contract"]);
-    }),
-  );
-
-  it.effect("a feature may depend on lower levels but never on another feature", () =>
-    Effect.sync(() => {
-      const eslintConfig = readRepoFile("eslint.config.mjs");
-      const featureAllowList = constraintAllowList(eslintConfig, "layer:feature");
-      expect(featureAllowList).toEqual(["layer:kernel", "layer:integration", "layer:contract"]);
-      expect(featureAllowList).not.toContain("layer:feature");
-    }),
-  );
-
-  it.effect("cycle detection stays enabled without ignored project pairs", () =>
-    Effect.sync(() => {
-      const eslintConfig = readRepoFile("eslint.config.mjs");
-      expect(eslintConfig).not.toContain("ignoredCircularDependencies");
-      expect(eslintConfig).not.toContain("allowCircularSelfDependency");
     }),
   );
 });

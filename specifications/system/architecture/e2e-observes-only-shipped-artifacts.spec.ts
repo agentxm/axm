@@ -5,14 +5,17 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import {
+  defineBoundEvidence,
+  defineSpecification,
+} from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/architecture/e2e-observes-only-shipped-artifacts",
   title: "End-to-end suites reach the product only as a shipped artifact, never as imported code",
   statement:
     "End-to-end test projects shall exercise AXM only through its shipped artifacts and shall not declare a dependency on, or a project reference to, any product source package.",
-  class: "constraint",
+  class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
   boundary: "repository",
@@ -22,10 +25,24 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [
-    "Relative imports that cross project roots are rejected by the module-boundary lint rather than by this evidence.",
+    "The module-boundary lint gate declared as bound evidence runs on every change through the required aggregate check.",
   ],
   openQuestions: [],
 });
+
+/**
+ * The module-boundary lint gate is the decisive verification for imports the
+ * committed manifests and project references cannot show: relative imports
+ * that cross a project root. Its result is evidence bound to this identity;
+ * the specification remains the sole requirements authority.
+ */
+export const boundEvidence = defineBoundEvidence([
+  {
+    gate: "lint: @nx/enforce-module-boundaries",
+    verifies:
+      "Rejects workspace imports from end-to-end and test-support projects into product source packages, and relative imports that cross a project root, leaving the built CLI output path as the only sanctioned way to reach the shipped surface.",
+  },
+]);
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 

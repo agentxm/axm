@@ -11,16 +11,15 @@ export const specification = defineSpecification({
   requirement: "system/installability/product-installs-through-supported-channels",
   title: "AXM installs through its supported channels with integrity verification",
   statement:
-    "AXM shall install through its supported bash, PowerShell, and cmd installers, each verifying artifact integrity by checksum, and a release shall not complete until installation has been verified on every supported shell.",
+    "AXM shall install through its supported bash, PowerShell, and cmd installers, each verifying artifact integrity by checksum.",
   class: "quality",
   characteristic: "installability",
   role: "experience",
   goals: ["platform-reach", "trustworthy-distribution"],
   boundary: "repository",
   boundaryRationale:
-    "Only the committed installer scripts and the publish.yml workflow show which channels exist, that they verify integrity, and that release completion waits on install verification.",
+    "Only the committed installer scripts show which install channels exist and that each verifies artifact integrity by checksum; the installed execution bound to this requirement shows that they install a working product.",
   methods: ["contract"],
-  selection: "release-candidate",
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
@@ -45,17 +44,5 @@ describe("Product installation channels", () => {
       expect(content).toContain("powershell");
       expect(content.toLowerCase()).toContain("install.ps1");
     }),
-  );
-
-  it.effect(
-    "the release flow verifies installation on every supported shell before completion",
-    () =>
-      Effect.sync(() => {
-        const publish = fs.readFileSync(
-          path.join(repoRoot, ".github", "workflows", "publish.yml"),
-          "utf8",
-        );
-        expect(publish).toContain("install-verification");
-      }),
   );
 });

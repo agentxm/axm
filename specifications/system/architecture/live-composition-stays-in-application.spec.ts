@@ -20,12 +20,13 @@ export const specification = defineSpecification({
   goals: ["dependable-change-process"],
   boundary: "repository",
   boundaryRationale:
-    "Only the committed lint configuration shows that the import restriction is armed and that its exception list is exactly the sanctioned one.",
+    "Only the committed lint configuration shows that the import restriction on environment-backed and in-memory implementation entries is armed for production source.",
   methods: ["contract"],
   derivedFrom: [],
   supersedes: [],
   assumptions: [
     "The lint gate declared as bound evidence runs on every change through the required aggregate check.",
+    "Which non-test modules are exempt from the restriction is realization detail pinned by repository tooling tests, not by this specification.",
   ],
   openQuestions: [],
 });
@@ -39,7 +40,7 @@ export const boundEvidence = defineBoundEvidence([
   {
     gate: "lint: no-restricted-imports (@agentxm/*/live, @agentxm/*/testing)",
     verifies:
-      "Rejects concrete environment-backed Layer imports and in-memory port imports from production source outside the application composition root, while tests and specifications keep their sanctioned exceptions.",
+      "Rejects imports of environment-backed implementations and in-memory ports from production source outside the application composition root, while tests and specifications keep their sanctioned exceptions.",
   },
 ]);
 
@@ -48,31 +49,16 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."
 describe("Application-only composition of concrete implementations", () => {
   // Production packages expose environment-backed implementations behind
   // explicit `./live` exports and deterministic in-memory ports behind
-  // `./testing`. Only application composition imports `*/live` in production
-  // source; a package's own tests may import its own `./live`, integration
-  // tests may compose a lower package's live Layer, and tests and
-  // specifications may import `*/testing`. This projection asserts the
-  // restriction stays armed with exactly those exceptions.
-  it.effect("production source may not import another package's live composition", () =>
-    Effect.sync(() => {
-      const eslintConfig = fs.readFileSync(path.join(repoRoot, "eslint.config.mjs"), "utf8");
-      expect(eslintConfig).toContain('"@agentxm/*/live"');
-      expect(eslintConfig).toContain('"@agentxm/*/testing"');
-    }),
-  );
-
-  it.effect("the composition root and test exceptions stay bounded", () =>
-    Effect.sync(() => {
-      const eslintConfig = fs.readFileSync(path.join(repoRoot, "eslint.config.mjs"), "utf8");
-      expect(eslintConfig).toContain(
-        `ignores: [
-      "packages/cli/src/runtime.ts",
-      "packages/cli/src/test-helpers.ts",
-      "packages/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
-      "**/*.test.ts",
-      "**/*.spec.ts",
-    ],`,
-      );
-    }),
+  // `./testing`. This coverage check asserts the restriction on both entries
+  // stays armed; the exact exception list is realization detail verified
+  // outside the specification corpus.
+  it.effect(
+    "the import restriction stays armed for environment-backed and in-memory implementation entries",
+    () =>
+      Effect.sync(() => {
+        const eslintConfig = fs.readFileSync(path.join(repoRoot, "eslint.config.mjs"), "utf8");
+        expect(eslintConfig).toContain('group: ["@agentxm/*/live"]');
+        expect(eslintConfig).toContain('group: ["@agentxm/*/testing"]');
+      }),
   );
 });

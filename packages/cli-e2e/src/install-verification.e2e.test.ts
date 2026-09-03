@@ -17,10 +17,13 @@ import {
  * literal shape is read by the specification catalog.
  */
 export const executionBinding = {
-  requirements: ["system/installability/product-installs-through-supported-channels"],
+  requirements: [
+    "system/installability/product-installs-through-supported-channels",
+    "system/compatibility/supported-platform-matrix",
+  ],
   boundary: "installed",
   rationale:
-    "Runs the published installer scripts end to end against a served release layout, proving checksum verification, PATH guidance, and a working installed product.",
+    "Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum verification, PATH guidance, and a working installed product on that shell.",
 } as const;
 
 const installMode = resolveInstallMode();

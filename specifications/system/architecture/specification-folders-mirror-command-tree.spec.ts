@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   title: "Specification layout mirrors the command tree and declared identities",
   statement:
     "Every specification directory under cli shall name a registered command path, every requirement identity shall equal its file path under specifications, and no symbolic link shall hide specification content from discovery.",
-  class: "constraint",
+  class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
   boundary: "repository",

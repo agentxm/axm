@@ -19,7 +19,7 @@ import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { KnowledgeManager } from "@agentxm/extension-workspace";
+import { applyPlannedProjections, KnowledgeManager } from "@agentxm/extension-workspace";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 export const activationConfig = {
@@ -94,15 +94,15 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
                   enabled: false,
                 }))
                 .pipe(Effect.mapError(toAppError));
-              yield* manager.materializeDeactivate({
-                target: { type: "knowledge", name },
-              });
+              // Rendering the discovery region is what deactivation means for
+              // a Knowledge bundle, so this step carries its exclusion report.
+              return yield* applyPlannedProjections(manager);
             }),
             validate: () => Effect.void,
           })
           .pipe(
             Effect.mapError(failureToStepFailure),
-            Effect.as({
+            Effect.map((warnings): JobStepResult => ({
               result: "success",
               message: `Disabled knowledge bundle ${name}`,
               artifact: {
@@ -111,7 +111,8 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
                 change: "updated",
                 targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated" }],
               },
-            } satisfies JobStepResult),
+              ...(warnings.length === 0 ? {} : { warnings }),
+            })),
           ),
       };
   const resolution = yield* previewOrApplyLocalPlan(

@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect";
 import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
 import type { DesiredStateGraph } from "@agentxm/workspace-state";
 import { requireCompleteGraph } from "./contributors.js";
+import { formatProjectionExclusions, type ProjectionContributorExclusion } from "./exclusions.js";
 import type {
   AggregateOwnershipUnitId,
   OwnershipUnitId,
@@ -54,6 +55,16 @@ export interface ProjectionRenderInput<Contributor> {
   readonly [ProjectionRenderInputTypeId]: typeof ProjectionRenderInputTypeId;
 }
 
+/**
+ * A selector's answer: the contributors that can be rendered, and the desired
+ * contributors that cannot. Excluding a contributor is a rendering decision,
+ * so the selector reports it rather than failing the whole unit.
+ */
+export interface ProjectionSelection<Contributor> {
+  readonly contributors: ReadonlyArray<Contributor>;
+  readonly exclusions: ReadonlyArray<ProjectionContributorExclusion>;
+}
+
 export interface ProjectionAdapter<Contributor, ApplyResult = void> {
   readonly observe: (
     input: ProjectionRenderInput<Contributor>,
@@ -67,6 +78,8 @@ export interface ProjectionAdapter<Contributor, ApplyResult = void> {
 export interface ProjectionPlan<ApplyResult = void> {
   readonly unitId: OwnershipUnitId;
   readonly targetFile: string;
+  /** Desired contributors this plan cannot render. Informational; read freely. */
+  readonly exclusions: ReadonlyArray<ProjectionContributorExclusion>;
   readonly [ProjectionPlanTypeId]: {
     readonly observe: Effect.Effect<ProjectionUnitObservation, ExtensionManagerFailure>;
     readonly apply: Effect.Effect<ApplyResult, ExtensionManagerFailure>;
@@ -84,14 +97,26 @@ const makePlan = <Contributor, ApplyResult>(args: {
   readonly unitId: OwnershipUnitId;
   readonly targetFile: string;
   readonly contributors: ReadonlyArray<Contributor>;
+  readonly exclusions: ReadonlyArray<ProjectionContributorExclusion>;
   readonly adapter: ProjectionAdapter<Contributor, ApplyResult>;
 }): ProjectionPlan<ApplyResult> => {
   const input = makeRenderInput(args.contributors);
   return {
     unitId: args.unitId,
     targetFile: args.targetFile,
+    exclusions: args.exclusions,
     [ProjectionPlanTypeId]: {
-      observe: args.adapter.observe(input),
+      // Observation carries the same exclusions the plan reports, so lint and
+      // sync read them from the fact without re-deriving the contributor set.
+      observe: args.adapter
+        .observe(input)
+        .pipe(
+          Effect.map((observation) =>
+            args.exclusions.length === 0
+              ? observation
+              : { ...observation, exclusions: args.exclusions },
+          ),
+        ),
       apply: args.adapter.apply(input),
     },
   };
@@ -104,12 +129,12 @@ export const planAggregateProjection = <Contributor, ApplyResult>(args: {
   readonly graph: DesiredStateGraph;
   readonly select: (
     graph: DesiredStateGraph,
-  ) => Effect.Effect<ReadonlyArray<Contributor>, ExtensionManagerFailure>;
+  ) => Effect.Effect<ProjectionSelection<Contributor>, ExtensionManagerFailure>;
   readonly adapter: ProjectionAdapter<Contributor, ApplyResult>;
 }): Effect.Effect<ProjectionPlan<ApplyResult>, ExtensionManagerFailure> =>
   requireCompleteGraph(args.graph).pipe(
     Effect.flatMap(args.select),
-    Effect.map((contributors) => makePlan({ ...args, contributors })),
+    Effect.map((selection) => makePlan({ ...args, ...selection })),
   );
 
 /** Construct a single-contributor plan through the same opaque input contract. */
@@ -118,7 +143,16 @@ export const planSingletonProjection = <Contributor, ApplyResult>(args: {
   readonly targetFile: string;
   readonly contributor: Contributor;
   readonly adapter: ProjectionAdapter<Contributor, ApplyResult>;
-}): ProjectionPlan<ApplyResult> => makePlan({ ...args, contributors: [args.contributor] });
+}): ProjectionPlan<ApplyResult> =>
+  makePlan({ ...args, contributors: [args.contributor], exclusions: [] });
+
+/** Operator-facing reports for every contributor the given plans cannot render. */
+export const projectionPlanExclusionWarnings = <ApplyResult>(
+  plans: ReadonlyArray<ProjectionPlan<ApplyResult>>,
+): ReadonlyArray<string> =>
+  plans.flatMap((plan) =>
+    formatProjectionExclusions({ exclusions: plan.exclusions, targetFile: plan.targetFile }),
+  );
 
 /** Observe planned units without applying their writes. */
 export const observeProjectionPlans = (
@@ -179,5 +213,11 @@ export const applyPlannedProjections = (participant: {
     ReadonlyArray<ProjectionPlan>,
     ExtensionManagerFailure
   >;
-}): Effect.Effect<void, ExtensionManagerFailure> =>
-  participant.projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
+}): Effect.Effect<ReadonlyArray<string>, ExtensionManagerFailure> =>
+  participant
+    .projectionPlans()
+    .pipe(
+      Effect.flatMap((plans) =>
+        applyProjectionPlans(plans).pipe(Effect.as(projectionPlanExclusionWarnings(plans))),
+      ),
+    );

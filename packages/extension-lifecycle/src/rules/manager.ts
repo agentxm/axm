@@ -568,7 +568,12 @@ export const RuleManagerLive = Layer.effect(
           unitId: "rule:instructions-region",
           targetFile: target.absolute,
           graph,
-          select: (completeGraph) => selectRuleContributors({ graph: completeGraph, locked }),
+          // Rule contributors are decided from desired state alone, so the
+          // instructions region never excludes one.
+          select: (completeGraph) =>
+            selectRuleContributors({ graph: completeGraph, locked }).pipe(
+              Effect.map((contributors) => ({ contributors, exclusions: [] })),
+            ),
           adapter: {
             observe: (input) =>
               reconcileRulesRegion({ input, target, instructions, dryRun: true }).pipe(

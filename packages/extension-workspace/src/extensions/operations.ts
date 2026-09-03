@@ -14,7 +14,7 @@ import {
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
 } from "./errors.js";
-import { applyProjectionPlans } from "../projection/planning.js";
+import { applyProjectionPlans, projectionPlanExclusionWarnings } from "../projection/planning.js";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -150,12 +150,25 @@ export interface StepFailureAdapter<F = never> {
   readonly toStepFailure: (failure: CallerStepFailure<F>) => StepFailure;
 }
 
+const NO_PROJECTION_WARNINGS: ReadonlyArray<string> = [];
+
+/**
+ * Render the manager's shared aggregate units and return the operator-facing
+ * report for every desired contributor those units could not render. The
+ * report travels with the step that performed the render.
+ */
 const applyManagerProjectionPlans = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
-): Effect.Effect<void, ExtensionManagerFailure> =>
+): Effect.Effect<ReadonlyArray<string>, ExtensionManagerFailure> =>
   manager.projectionPlans === undefined
-    ? Effect.void
-    : manager.projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
+    ? Effect.succeed(NO_PROJECTION_WARNINGS)
+    : manager
+        .projectionPlans()
+        .pipe(
+          Effect.flatMap((plans) =>
+            applyProjectionPlans(plans).pipe(Effect.as(projectionPlanExclusionWarnings(plans))),
+          ),
+        );
 
 // -----------------------------------------------------------------------------
 // Install Operation
@@ -289,7 +302,7 @@ const runInstallOperation = <TRef extends ExtensionRef, F>(
     }
     const installedBefore =
       args.installedBefore === undefined ? false : yield* args.installedBefore;
-    yield* manager.runTransaction({
+    const transaction = yield* manager.runTransaction({
       transition: Effect.gen(function* () {
         const cleanupSupersededCanonical =
           manager.prepareSourceTransition === undefined
@@ -309,8 +322,11 @@ const runInstallOperation = <TRef extends ExtensionRef, F>(
         yield* cleanupSupersededCanonical;
         // Desired state and canonical content are committed; render every
         // shared aggregate unit once from the complete contributor set.
-        if (args.skipProjections !== true) yield* applyManagerProjectionPlans(manager);
-        return installedBefore;
+        const projectionWarnings =
+          args.skipProjections !== true
+            ? yield* applyManagerProjectionPlans(manager)
+            : NO_PROJECTION_WARNINGS;
+        return { installedBefore, projectionWarnings };
       }),
       validate: () =>
         Effect.gen(function* () {
@@ -351,6 +367,9 @@ const runInstallOperation = <TRef extends ExtensionRef, F>(
       result: "success" as const,
       message: args.message ?? "Applied install operation",
       ...(artifactWithLifecycle === undefined ? {} : { artifact: artifactWithLifecycle }),
+      ...(transaction.projectionWarnings.length === 0
+        ? {}
+        : { warnings: transaction.projectionWarnings }),
     } satisfies JobStepResult;
   }).pipe(Effect.mapError(args.toStepFailure));
 
@@ -441,9 +460,13 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef, F = never>
             } else if (args.enabled !== false) {
               // Desired state is committed; render shared aggregate units once
               // from the complete contributor set.
-              yield* applyManagerProjectionPlans(manager);
+              return {
+                ref,
+                installedBefore,
+                projectionWarnings: yield* applyManagerProjectionPlans(manager),
+              };
             }
-            return { ref, installedBefore };
+            return { ref, installedBefore, projectionWarnings: NO_PROJECTION_WARNINGS };
           }),
           validate: () =>
             Effect.gen(function* () {
@@ -648,7 +671,9 @@ const runUninstallOperation = <TRef extends ExtensionRef, F>(
     const configured = yield* isConfigured(manager, args.target);
     const transition = Effect.gen(function* () {
       const applyProjections = () =>
-        args.skipProjections !== true ? applyManagerProjectionPlans(manager) : Effect.void;
+        args.skipProjections !== true
+          ? applyManagerProjectionPlans(manager)
+          : Effect.succeed(NO_PROJECTION_WARNINGS);
 
       const isInstalled = yield* manager.isInstalled({ target: args.target });
       if (!isInstalled) {
@@ -658,15 +683,16 @@ const runUninstallOperation = <TRef extends ExtensionRef, F>(
           yield* manager.materializeUninstall({ target: args.target });
           yield* manager.removeSettingsEntry({ target: args.target });
           yield* manager.removeLockfileEntry({ target: args.target });
-          yield* applyProjections();
           return {
             settlement: { declaration: "removed", canonical: "absent" } as const,
             expectedInstalled: false,
+            projectionWarnings: yield* applyProjections(),
           };
         }
         return {
           settlement: { declaration: "absent", canonical: "absent" } as const,
           expectedInstalled: false,
+          projectionWarnings: NO_PROJECTION_WARNINGS,
         };
       }
 
@@ -675,10 +701,10 @@ const runUninstallOperation = <TRef extends ExtensionRef, F>(
       });
       if (stillRequiredByPack) {
         yield* manager.removeSettingsEntry({ target: args.target });
-        yield* applyProjections();
         return {
           settlement: { declaration: "removed", canonical: "retained-by-pack" } as const,
           expectedInstalled: true,
+          projectionWarnings: yield* applyProjections(),
         };
       }
 
@@ -687,8 +713,9 @@ const runUninstallOperation = <TRef extends ExtensionRef, F>(
       yield* manager.removeLockfileEntry({ target: args.target });
       // The target has left the desired-state graph; re-render every shared
       // aggregate unit once so only reachable contributors remain.
-      yield* applyProjections();
+      const projectionWarnings = yield* applyProjections();
       return {
+        projectionWarnings,
         settlement: {
           declaration: "removed" as const,
           canonical: Option.match(configuredSource, {
@@ -734,6 +761,7 @@ const runUninstallOperation = <TRef extends ExtensionRef, F>(
       result: "success",
       message: uninstallSettlementMessage(args.target, result.settlement),
       ...(result.settlement.declaration === "absent" ? { disposition: "unchanged" as const } : {}),
+      ...(result.projectionWarnings.length === 0 ? {} : { warnings: result.projectionWarnings }),
     } satisfies JobStepResult;
   }).pipe(Effect.mapError(args.toStepFailure));
 

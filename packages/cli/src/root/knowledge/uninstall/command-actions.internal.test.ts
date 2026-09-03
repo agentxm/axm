@@ -310,6 +310,111 @@ describe("Knowledge uninstall ownership", () => {
     );
   });
 
+  it.effect("excludes an unreadable sibling, reports it, and still commits the uninstall", () => {
+    const axmDir = path.join(tempDir, ".axm");
+    const targetRoot = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "knowledge",
+      "handbook",
+    );
+    const siblingRoot = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "knowledge",
+      "sibling",
+    );
+    writeWorkspaceFiles(axmDir, {
+      knowledge: {
+        handbook: "@acme/knowledge/handbook",
+        sibling: "@acme/knowledge/sibling",
+      },
+      lockfileKnowledge: {
+        handbook: registryLock("@acme", "handbook"),
+        sibling: registryLock("@acme", "sibling"),
+      },
+    });
+    writeKnowledgePackage(targetRoot, "@acme", "handbook");
+    writeKnowledgePackage(siblingRoot, "@acme", "sibling");
+    // The sibling's bundle no longer declares its format version, so it
+    // cannot contribute a discovery row.
+    fs.writeFileSync(path.join(siblingRoot, "src", "index.md"), "# Sibling\n");
+    enableManagedInstructions(axmDir);
+    const { provide } = makeActions();
+
+    return provide(
+      Effect.gen(function* () {
+        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
+        const parsed = yield* actions.parseArgs({ name: "handbook" });
+        const intent = yield* actions.finalizeIntent(parsed);
+        const plan = yield* actions.buildUninstallPlan(intent, { execution: previewPlanExecution });
+        const resolution = yield* previewOrApplyPlan(plan, {
+          execution: preapprovedPlanExecution,
+        });
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
+        expect(toPlanResolutionResult(resolution)).toMatchObject({
+          units: [
+            {
+              label: "handbook",
+              state: "committed",
+              warnings: [
+                expect.stringContaining(
+                  "sibling was left out of AGENTS.md because its package is invalid",
+                ),
+              ],
+            },
+          ],
+        });
+        expect(fs.existsSync(targetRoot)).toBe(false);
+        expect(fs.existsSync(siblingRoot)).toBe(true);
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).not.toContain("handbook");
+      }),
+    );
+  });
+
+  it.effect("still fails closed when a desired sibling has no accepted resolution", () => {
+    const axmDir = path.join(tempDir, ".axm");
+    const targetRoot = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "knowledge",
+      "handbook",
+    );
+    writeWorkspaceFiles(axmDir, {
+      knowledge: {
+        handbook: "@acme/knowledge/handbook",
+        sibling: "@acme/knowledge/sibling",
+      },
+      // The sibling is desired but never resolved: an AXM state problem, not
+      // a bundle-content problem, so tolerance does not apply.
+      lockfileKnowledge: { handbook: registryLock("@acme", "handbook") },
+    });
+    writeKnowledgePackage(targetRoot, "@acme", "handbook");
+    enableManagedInstructions(axmDir);
+    const { provide } = makeActions();
+
+    return provide(
+      Effect.gen(function* () {
+        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
+        const parsed = yield* actions.parseArgs({ name: "handbook" });
+        const intent = yield* actions.finalizeIntent(parsed);
+        const plan = yield* actions.buildUninstallPlan(intent, { execution: previewPlanExecution });
+        const resolution = yield* previewOrApplyPlan(plan, {
+          execution: preapprovedPlanExecution,
+        });
+        expect(deriveOperationOutcome(resolution)).not.toBe("applied");
+        expect(fs.existsSync(targetRoot)).toBe(true);
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toContain("handbook");
+      }),
+    );
+  });
+
   it.effect("rolls back canonical, settings, lock, and instructions when projection fails", () => {
     const axmDir = path.join(tempDir, ".axm");
     const targetRoot = path.join(

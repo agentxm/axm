@@ -11,6 +11,7 @@
  */
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import type { ProjectionContributorExclusion } from "./exclusions.js";
 
 export interface OwnershipUnitDeclaration {
   /** Stable unit identifier used by planning, facts, and conformance. */
@@ -107,4 +108,9 @@ export interface ProjectionUnitObservation {
    * contributor caused a mismatch, so opaque generated units omit this field.
    */
   readonly observedContributors?: ReadonlyArray<string>;
+  /**
+   * Desired contributors the unit could not render. Present only when the
+   * selector excluded at least one, so an observation stays silent by default.
+   */
+  readonly exclusions?: ReadonlyArray<ProjectionContributorExclusion>;
 }

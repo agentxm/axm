@@ -569,6 +569,12 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: workspaceView,
   },
   {
+    id: "workspace/projection-contributors-rendered",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: workspaceView,
+  },
+  {
     id: "workspace/hook-ownership-ambiguous",
     defaultSeverity: "warning",
     group: "workspace",

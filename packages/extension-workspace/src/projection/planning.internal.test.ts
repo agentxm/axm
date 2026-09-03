@@ -3,8 +3,10 @@ import * as Effect from "effect/Effect";
 import type { DesiredStateGraph } from "@agentxm/workspace-state";
 import {
   applyProjectionPlans,
+  observeProjectionPlans,
   planAggregateProjection,
   planSingletonProjection,
+  projectionPlanExclusionWarnings,
 } from "./planning.js";
 
 const completeGraph: DesiredStateGraph = {
@@ -36,7 +38,7 @@ describe("shared projection planning", () => {
         graph: incompleteGraph,
         select: () => {
           selected = true;
-          return Effect.succeed(["partial"]);
+          return Effect.succeed({ contributors: ["partial"], exclusions: [] });
         },
         adapter: {
           apply: () => Effect.void,
@@ -77,7 +79,7 @@ describe("shared projection planning", () => {
         unitId: "rule:instructions-region",
         targetFile: "AGENTS.md",
         graph: completeGraph,
-        select: () => Effect.succeed(["a", "b"]),
+        select: () => Effect.succeed({ contributors: ["a", "b"], exclusions: [] }),
         adapter,
       });
       const singleton = planSingletonProjection({
@@ -100,6 +102,51 @@ describe("shared projection planning", () => {
 
       yield* applyProjectionPlans([aggregate, singleton]);
       expect(seen).toEqual([["a", "b"], ["a"]]);
+    }),
+  );
+
+  it.effect("carries excluded contributors on the plan, its observation, and its report", () =>
+    Effect.gen(function* () {
+      const plan = yield* planAggregateProjection({
+        unitId: "knowledge:discovery-region",
+        targetFile: "/workspace/AGENTS.md",
+        graph: completeGraph,
+        select: () =>
+          Effect.succeed({
+            contributors: ["alpha-notes"],
+            exclusions: [
+              { contributor: "other-notes", reason: "package-missing" as const },
+              {
+                contributor: "broken-notes",
+                reason: "package-invalid" as const,
+                detail: "src/index.md requires okf_version: 0.2 in YAML frontmatter.",
+              },
+            ],
+          }),
+        adapter: {
+          apply: () => Effect.void,
+          observe: (input) =>
+            Effect.succeed({
+              unitId: "knowledge:discovery-region" as const,
+              path: "/workspace/AGENTS.md#knowledge",
+              present: true,
+              current: true,
+              expectedContributors: [...input.contributors],
+            }),
+        },
+      });
+
+      const [observation] = yield* observeProjectionPlans([plan]);
+
+      expect(plan.exclusions.map(({ contributor }) => contributor)).toEqual([
+        "other-notes",
+        "broken-notes",
+      ]);
+      expect(observation?.exclusions).toEqual(plan.exclusions);
+      expect(projectionPlanExclusionWarnings([plan])).toEqual([
+        "other-notes was left out of AGENTS.md because its package is missing. Remove it with `axm knowledge uninstall other-notes`, or restore its files and run `axm sync`.",
+        "broken-notes was left out of AGENTS.md because its package is invalid: src/index.md requires okf_version: 0.2 in YAML frontmatter. Fix the file and run `axm sync`.",
+      ]);
     }),
   );
 

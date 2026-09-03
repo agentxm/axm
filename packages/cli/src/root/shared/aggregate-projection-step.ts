@@ -5,6 +5,7 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import {
   applyProjectionPlans,
+  projectionPlanExclusionWarnings,
   type ProjectionPlan,
   HookManager,
   KnowledgeManager,
@@ -40,7 +41,7 @@ export const buildAggregateProjectionStep = (args: {
       : Option.none<ServiceMap.Service.Shape<typeof KnowledgeManager>>();
     return Option.some<PlannedJobStep>({
       key: "projection:aggregate-units",
-      label: "shared projections",
+      label: "instruction files",
       readiness: "ready",
       run: Effect.gen(function* () {
         const plans: Array<ProjectionPlan> = [];
@@ -54,12 +55,14 @@ export const buildAggregateProjectionStep = (args: {
           plans.push(...(yield* knowledgeManager.value.projectionPlans()));
         }
         yield* applyProjectionPlans(plans);
+        return projectionPlanExclusionWarnings(plans);
       }).pipe(
         Effect.mapError(failureToStepFailure),
-        Effect.as({
+        Effect.map((warnings): JobStepResult => ({
           result: "success",
           message: "Rendered shared aggregate units from the complete contributor set",
-        } satisfies JobStepResult),
+          ...(warnings.length === 0 ? {} : { warnings }),
+        })),
       ),
     });
   });

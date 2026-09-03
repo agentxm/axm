@@ -199,11 +199,19 @@ export {
   planAggregateProjection,
   planDesiredStateGraph,
   planSingletonProjection,
+  projectionPlanExclusionWarnings,
   type DesiredStateGraphPlanningDecision,
   type ProjectionAdapter,
   type ProjectionPlan,
   type ProjectionRenderInput,
+  type ProjectionSelection,
 } from "./projection/planning.js";
+export {
+  formatProjectionExclusion,
+  formatProjectionExclusions,
+  type ProjectionContributorExclusion,
+  type ProjectionExclusionReason,
+} from "./projection/exclusions.js";
 export {
   managedKeyedBlockNames,
   reconcileKeyedBlock,

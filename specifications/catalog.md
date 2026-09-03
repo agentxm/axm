@@ -622,6 +622,21 @@ behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/root-uninstall.e2e.test.ts`](../packages/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
 - Source: [`specifications/cli/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts`](../specifications/cli/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts)
 
+#### Unreadable Knowledge Is Left Out And Reported
+
+##### A Knowledge bundle AXM cannot read is left out of the instructions file and reported
+
+- Requirement: `cli/unreadable-knowledge-is-left-out-and-reported`
+- Status: candidate
+- Statement: When a desired Knowledge bundle's package cannot be read, AXM shall leave that bundle out of the generated instructions file, shall report the omission with its reason and remedy on every command that writes or inspects that file, and shall not fail another extension's operation because of it.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/extension-lifecycle/src/knowledge/manager.ts`, `packages/extension-workspace/src/projection/planning.ts`
+- Source: [`specifications/cli/unreadable-knowledge-is-left-out-and-reported.spec.ts`](../specifications/cli/unreadable-knowledge-is-left-out-and-reported.spec.ts)
+
 #### Update
 
 ##### Update advances the accepted resolution within durable intent

@@ -37,7 +37,11 @@ import {
   type JobStepResult,
   type Plan,
 } from "@agentxm/workspace-operations";
-import { applyProjectionPlans, type ProjectionPlan } from "@agentxm/extension-workspace";
+import {
+  applyProjectionPlans,
+  projectionPlanExclusionWarnings,
+  type ProjectionPlan,
+} from "@agentxm/extension-workspace";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
@@ -191,6 +195,7 @@ const reconcileAggregateProjections = Effect.fn("PacksActivation.reconcileAggreg
       plans.push(...(yield* manager.projectionPlans()));
     }
     yield* applyProjectionPlans(plans);
+    return projectionPlanExclusionWarnings(plans);
   },
 );
 
@@ -337,7 +342,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
             label: packIdentity,
             artifact: activationArtifact,
             run: Effect.gen(function* () {
-              yield* ws.runTransaction({
+              const projectionWarnings = yield* ws.runTransaction({
                 transition: Effect.gen(function* () {
                   yield* ws
                     .setPackEntry(args.name, { ...entry, enabled: args.enabled })
@@ -362,7 +367,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
                       { concurrency: 1 },
                     );
                   }
-                  yield* reconcileAggregateProjections(memberTypes);
+                  return yield* reconcileAggregateProjections(memberTypes);
                 }).pipe(Effect.provide(runServices)),
                 validate: () =>
                   validatePackGraphPostcondition({
@@ -387,6 +392,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
                 result: "success",
                 message: `${titleVerb}d ${packIdentity}`,
                 artifact: activationArtifact,
+                ...(projectionWarnings.length === 0 ? {} : { warnings: projectionWarnings }),
               } satisfies JobStepResult;
             }).pipe(Effect.provide(runServices), Effect.mapError(lifecycleFailureToStepFailure)),
           },

@@ -30,6 +30,7 @@ import { acceptedResolutionRef } from "@agentxm/workspace-state";
 import { resolveWorkspaceExtensionRef } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { OwnershipUnitId, ProjectionUnitObservation } from "./units.js";
+import type { ProjectionContributorExclusion } from "./exclusions.js";
 
 export const PROJECTION_INVARIANT_PREDICATE = "workspace/projection-current" as const;
 
@@ -55,6 +56,11 @@ export interface ProjectionInvariantFact {
     readonly contributors?: ReadonlyArray<string>;
     readonly reasonCode?: string;
     readonly message?: string;
+    /**
+     * Desired contributors the unit could not render. Lint and sync report
+     * these so an omission never passes as a complete rendering.
+     */
+    readonly exclusions?: ReadonlyArray<ProjectionContributorExclusion>;
   };
   readonly expectation: {
     readonly status: "current";
@@ -142,6 +148,9 @@ export const makeProjectionInvariantFact = (
     observation: {
       status,
       ...(observedContributors === undefined ? {} : { contributors: observedContributors }),
+      ...(unit.exclusions === undefined || unit.exclusions.length === 0
+        ? {}
+        : { exclusions: unit.exclusions }),
     },
     expectation: { status: "current", contributors: expectedContributors },
   };

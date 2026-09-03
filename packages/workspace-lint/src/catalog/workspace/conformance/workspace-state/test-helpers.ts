@@ -17,6 +17,7 @@ import { hookOwnershipAmbiguousRule } from "../../hook-ownership-ambiguous.js";
 import { knowledgeStateValidRule } from "../../knowledge-state-valid.js";
 import { managedFileUnownedRule } from "../../managed-file-unowned.js";
 import { projectionOwnershipValidRule } from "../../projection-ownership-valid.js";
+import { projectionContributorsRenderedRule } from "../../projection-contributors-rendered.js";
 import { settingsKeysRecognizedRule } from "../../settings-keys-recognized.js";
 import {
   contextFor,
@@ -231,6 +232,61 @@ export const projectionOwnershipValidConformance: WorkspaceRuleConformanceCase =
   expectedFindings: [
     {
       message: "AXM managed region AGENTS.md has malformed ownership markers.",
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
+const exclusionContext = (excluded: boolean) =>
+  contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          projections: {
+            facts: Effect.succeed([
+              {
+                predicate: "workspace/projection-current",
+                subject: {
+                  unitId: "knowledge:discovery-region",
+                  path: "AGENTS.md#knowledge",
+                  scope: "project",
+                  owner: "@agentxm/knowledge/discovery",
+                },
+                authority: {
+                  source: "desired-state-graph",
+                  contributors: ["@acme/knowledge/alpha"],
+                },
+                observation: {
+                  status: "current",
+                  ...(excluded
+                    ? {
+                        exclusions: [
+                          {
+                            contributor: "@acme/other-notes",
+                            reason: "package-invalid",
+                            detail: "src/index.md requires okf_version: 0.2 in YAML frontmatter",
+                          },
+                        ],
+                      }
+                    : {}),
+                },
+                expectation: { status: "current", contributors: ["@acme/knowledge/alpha"] },
+              } satisfies ProjectionInvariantFact,
+            ]),
+          },
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const projectionContributorsRenderedConformance: WorkspaceRuleConformanceCase = {
+  rule: projectionContributorsRenderedRule,
+  satisfied: () => exclusionContext(false),
+  violated: () => exclusionContext(true),
+  expectedFindings: [
+    {
+      message:
+        "@acme/other-notes was left out of AGENTS.md because its package is invalid: src/index.md requires okf_version: 0.2 in YAML frontmatter. Fix the file and run `axm sync`.",
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),

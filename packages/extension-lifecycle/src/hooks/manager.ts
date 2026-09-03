@@ -897,9 +897,11 @@ export const HookManagerLive = Layer.effect(
             return fallbackAgentIds.length === 0 ? [] : [{ ...contributor, fallbackAgentIds }];
           },
         );
+        // Every reachable Hook contributor is decided from desired state
+        // alone, so hook units never exclude one.
         const selectNative = (agentId: string) => () =>
-          Effect.succeed(
-            contributors.filter((contributor) =>
+          Effect.succeed({
+            contributors: contributors.filter((contributor) =>
               outcomes.some(
                 (outcome) =>
                   outcome.name === contributor.name &&
@@ -908,8 +910,10 @@ export const HookManagerLive = Layer.effect(
                   (outcome.outcome === "projected" || outcome.outcome === "current"),
               ),
             ),
-          );
-        const selectFallback = () => Effect.succeed(fallbackContributors);
+            exclusions: [],
+          });
+        const selectFallback = () =>
+          Effect.succeed({ contributors: fallbackContributors, exclusions: [] });
         const fallbackAgentIds = Array.from(
           new Set(fallbackContributors.flatMap(({ fallbackAgentIds }) => fallbackAgentIds)),
         );

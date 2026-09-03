@@ -21,8 +21,11 @@ import {
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
   applyProjectionPlans,
+  formatProjectionExclusions,
   planAggregateProjection,
+  type ProjectionContributorExclusion,
   type ProjectionPlan,
+  type ProjectionSelection,
   requireCompleteGraph,
   KNOWLEDGE_REGION_OWNER,
   reconcileKnowledgeDiscovery,
@@ -530,32 +533,84 @@ export const KnowledgeManagerLive = Layer.effect(
           ),
         );
 
+    /**
+     * Classify a bundle whose package could not be inspected. Only the
+     * bundle's own content is in question here: resolution facts have already
+     * succeeded, so the two truthful answers are that the package is gone or
+     * that its content is invalid.
+     */
+    const excludedContributor = (
+      name: string,
+      root: string,
+      failure: ExtensionManagerFailure,
+    ): Effect.Effect<ProjectionContributorExclusion> =>
+      Effect.gen(function* () {
+        const probe = yield* Effect.result(fs.exists(path.join(root, KNOWLEDGE_MANIFEST_FILENAME)));
+        const manifestPresent = Result.isSuccess(probe) && probe.success;
+        if (!manifestPresent) return { contributor: name, reason: "package-missing" };
+        return {
+          contributor: name,
+          reason: "package-invalid",
+          detail:
+            failure._tag === "KnowledgeDefinitionInvalid"
+              ? failure.detail
+              : adapter.describeFailure(failure),
+        };
+      });
+
+    /**
+     * Resolve the contributor set for the discovery region. A bundle that
+     * fails inspection cannot supply a row, so it is excluded and reported
+     * rather than failing every other bundle's command with it. Resolution
+     * failures — a missing lock entry, an unsupported workspace-authored
+     * bundle — remain fail-closed: they are AXM state problems, not bundle
+     * content problems.
+     */
     const selectKnowledgeBundles = (
       graph: DesiredStateGraph,
       locked: Readonly<Record<string, KnowledgeLockEntry>>,
       configured: KnowledgeMap,
       config: ResolvedKnowledgeDiscoveryConfig,
       instructionFilesEnabled: boolean,
-    ) =>
+    ): Effect.Effect<ProjectionSelection<KnowledgeDiscoveryBundle>, ExtensionManagerFailure> =>
       Effect.forEach(
         graph.nodes.filter((node) => node.type === "knowledge" && node.enabled),
         (node) =>
           Effect.gen(function* () {
             const root = yield* desiredCanonicalRoot(node, locked[node.name]);
-            const inspected = yield* inspectPackage(root);
             const workspaceInstructionEntry = configured[node.name]?.instructionEntry;
-            const resolution = resolveKnowledgeInstructionEntry({
-              bundleEnabled: node.enabled,
-              instructionFilesEnabled,
-              knowledgeInstructionsEnabled: config.instructions,
-              ...(workspaceInstructionEntry === undefined ? {} : { workspaceInstructionEntry }),
-              ...(inspected.manifest.instructionEntry === undefined
-                ? {}
-                : { manifestInstructionEntry: inspected.manifest.instructionEntry }),
-            });
-            return resolution.included ? [toProjectionBundle(root, inspected)] : [];
+            const resolveInclusion = (manifestInstructionEntry?: boolean) =>
+              resolveKnowledgeInstructionEntry({
+                bundleEnabled: node.enabled,
+                instructionFilesEnabled,
+                knowledgeInstructionsEnabled: config.instructions,
+                ...(workspaceInstructionEntry === undefined ? {} : { workspaceInstructionEntry }),
+                ...(manifestInstructionEntry === undefined ? {} : { manifestInstructionEntry }),
+              });
+            const inspection = yield* Effect.result(inspectPackage(root));
+            if (Result.isFailure(inspection)) {
+              // A bundle the workspace would not publish anyway is simply
+              // absent from the region; reporting it would be noise.
+              return resolveInclusion().included
+                ? {
+                    contributors: [],
+                    exclusions: [yield* excludedContributor(node.name, root, inspection.failure)],
+                  }
+                : { contributors: [], exclusions: [] };
+            }
+            const inspected = inspection.success;
+            const resolution = resolveInclusion(inspected.manifest.instructionEntry);
+            return {
+              contributors: resolution.included ? [toProjectionBundle(root, inspected)] : [],
+              exclusions: [],
+            };
           }),
-      ).pipe(Effect.map((bundles) => bundles.flat()));
+      ).pipe(
+        Effect.map((selections) => ({
+          contributors: selections.flatMap(({ contributors }) => contributors),
+          exclusions: selections.flatMap(({ exclusions }) => exclusions),
+        })),
+      );
 
     const resolveKnowledgeProjection = () =>
       Effect.gen(function* () {
@@ -654,13 +709,21 @@ export const KnowledgeManagerLive = Layer.effect(
                 instructionsTarget.enabled,
               ),
             ),
-            Effect.flatMap((bundles) =>
+            Effect.flatMap(({ contributors, exclusions }) =>
               runKnowledgeProjectionAdapter({
-                bundles,
+                bundles: contributors,
                 config,
                 instructionsTarget,
                 ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
-              }),
+              }).pipe(
+                Effect.map((result) => ({
+                  ...result,
+                  warnings: formatProjectionExclusions({
+                    exclusions,
+                    targetFile: instructionsTarget.path,
+                  }),
+                })),
+              ),
             ),
           ),
         ),
@@ -809,7 +872,7 @@ export const KnowledgeManagerLive = Layer.effect(
         const discovery = discovered.success;
         return {
           changed: prepared.length > 0 || discovery.changed,
-          warnings: [],
+          warnings: discovery.warnings,
           artifacts: discovery.artifacts,
         };
       });

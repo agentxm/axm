@@ -42,6 +42,7 @@ import {
   hookOwnershipAmbiguousConformance,
   knowledgeStateValidConformance,
   managedFileUnownedConformance,
+  projectionContributorsRenderedConformance,
   projectionOwnershipValidConformance,
   settingsKeysRecognizedConformance,
 } from "./conformance/workspace-state/test-helpers.js";
@@ -70,6 +71,7 @@ const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   instructionsAgentSupportedConformance,
   instructionsGitignoreCurrentConformance,
   projectionOwnershipValidConformance,
+  projectionContributorsRenderedConformance,
   hookOwnershipAmbiguousConformance,
   managedFileUnownedConformance,
   skillsDeclarationsValidConformance,

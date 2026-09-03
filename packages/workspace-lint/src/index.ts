@@ -26,6 +26,7 @@ export {
   type LintJsonFinding,
 } from "./json-schema.js";
 export { findingsForProjectionOwnership } from "./catalog/workspace/projection-ownership-valid.js";
+export { findingsForProjectionExclusions } from "./catalog/workspace/projection-contributors-rendered.js";
 
 // Lint runner (Phase 5) — reusable primitives the `axm lint` CLI composes
 // over. Keeps the CLI command file a thin surface over flag parsing and

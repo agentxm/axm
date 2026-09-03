@@ -385,7 +385,7 @@ describe("root install handler", () => {
         { id: "knowledge", label: "knowledge", state: "committed" },
         {
           id: "projection:aggregate-units",
-          label: "shared projections",
+          label: "instruction files",
           state: "committed",
         },
       ]);
@@ -436,7 +436,7 @@ describe("root install handler", () => {
         { id: "pack", label: "pack", state: "ready" },
         {
           id: "projection:aggregate-units",
-          label: "shared projections",
+          label: "instruction files",
           state: "ready",
         },
       ]);
@@ -486,7 +486,7 @@ describe("root install handler", () => {
         { id: "pack", label: "pack", state: "committed" },
         {
           id: "projection:aggregate-units",
-          label: "shared projections",
+          label: "instruction files",
           state: "committed",
         },
       ]);

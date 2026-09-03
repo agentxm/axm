@@ -133,6 +133,7 @@ const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["workspace/instructions-agent-supported", "warning", bothViews],
   ["workspace/instructions-gitignore-current", "info", bothViews],
   ["workspace/projection-ownership-valid", "error", workspaceView],
+  ["workspace/projection-contributors-rendered", "warning", workspaceView],
   ["workspace/hook-ownership-ambiguous", "warning", workspaceView],
   ["workspace/managed-file-unowned", "warning", workspaceView],
   ["workspace/skills-declarations-valid", "error", bothViews],

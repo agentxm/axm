@@ -24,6 +24,7 @@ import { instructionsTargetCurrentRule } from "./workspace/instructions-target-c
 import { instructionsTargetUnownedRule } from "./workspace/instructions-target-unowned.js";
 import { instructionsTargetStaleRule } from "./workspace/instructions-target-stale.js";
 import { projectionOwnershipValidRule } from "./workspace/projection-ownership-valid.js";
+import { projectionContributorsRenderedRule } from "./workspace/projection-contributors-rendered.js";
 import { instructionsAgentSupportedRule } from "./workspace/instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "./workspace/instructions-gitignore-current.js";
 import { skillsDeclarationsValidRule } from "./workspace/skills-declarations-valid.js";
@@ -91,6 +92,7 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext
   instructionsTargetUnownedRule,
   instructionsTargetStaleRule,
   projectionOwnershipValidRule,
+  projectionContributorsRenderedRule,
   hookOwnershipAmbiguousRule,
   managedFileUnownedRule,
   mcpServerAgentDriftRule,
@@ -118,6 +120,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   instructionsAgentSupportedRule,
   instructionsGitignoreCurrentRule,
   projectionOwnershipValidRule,
+  projectionContributorsRenderedRule,
   hookOwnershipAmbiguousRule,
   managedFileUnownedRule,
   skillsDeclarationsValidRule,

@@ -13,7 +13,7 @@ export const specification = defineSpecification({
   requirement: "package-identity/companion-packages-are-identities-not-pins",
   title: "A companion package names an ecosystem package identity, never a pinned version",
   statement:
-    "A companion package shall be declared by a versionless package identity in a supported ecosystem, and a declaration that pins a version or names an unsupported ecosystem shall be refused with guidance toward the compatibility range or naming that ecosystem.",
+    "A companion package shall be declared by a versionless package identity, and a declaration that pins a version shall be refused with guidance toward the compatibility range.",
   class: "functional",
   role: "interface",
   goals: ["authoring-and-creation", "trustworthy-distribution"],
@@ -59,18 +59,6 @@ describe("Companion package identities", () => {
       );
       expect(String(failure)).toContain("identities, not pins");
     }),
-  );
-
-  it.effect.each([
-    { purl: "pkg:generic/cran/tinyflags", ecosystem: "generic" },
-    { purl: "pkg:bogus/example", ecosystem: "bogus" },
-  ] as const)(
-    "refuses the unsupported package ecosystem $ecosystem by name",
-    ({ purl, ecosystem }) =>
-      Effect.gen(function* () {
-        const failure = yield* decodeCompanion({ purl }).pipe(Effect.flip);
-        expect(String(failure)).toContain(ecosystem);
-      }),
   );
 
   it.effect("an identity-only declaration carries no compatibility range", () =>

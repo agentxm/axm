@@ -5,15 +5,12 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   decodeExtensionNameSync,
   extensionTypes,
-  parseExtensionFqnParts,
-  parseExtensionSpecParts,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   decodeHandleSync,
   decodeSlugSync,
   handleFromSlug,
-  normalizeHandle,
   slugFromHandle,
 } from "@agentxm/extension-model/unstable/extensions/handle";
 
@@ -23,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "extension-identity/canonical-names-round-trip",
   title: "A canonical extension name always parses back to the identity that produced it",
   statement:
-    "A fully qualified name or owner handle produced from an extension identity shall parse back to exactly that identity, and appending a version constraint to the name shall not change which extension it identifies.",
+    "A fully qualified name or owner handle produced from an extension identity shall parse back to exactly that identity.",
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
@@ -91,20 +88,6 @@ describe("Canonical extension names round-trip", () => {
       const parsed = yield* Effect.fromResult(parseFqn(fqn));
       expect(parsed).toEqual({ owner, type, name });
       expect(formatFqn(parsed)).toBe(fqn);
-    }),
-  );
-
-  it.effect("a version-constrained reference identifies the same extension as its plain name", () =>
-    Effect.sync(() => {
-      const plain = parseExtensionFqnParts("@acme/skills/code-review");
-      expect(plain).toBeDefined();
-      expect(parseExtensionSpecParts("@acme/skills/code-review@^1.0.0")).toEqual(plain);
-    }),
-  );
-
-  it.effect("padded or upper-cased owner input normalizes to the canonical handle", () =>
-    Effect.sync(() => {
-      expect(normalizeHandle("  @ACME ")).toBe("@acme");
     }),
   );
 });

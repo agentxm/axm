@@ -723,10 +723,12 @@ reviewed requirements edit in the same change set as the extraction it enables:
    which is app code and may compose anything, or another reviewed shape):
    - Step 3: `support/reachability-fixture.ts`
      (`computePackManifestContentIdentity` → WS root);
-     `settings-contract/published-schemas-agree-with-accepted-input.spec.ts`
-     (`SettingsSchema`, `SETTINGS_KEY_ORDER`, `LockfileSchema`,
-     `LOCKFILE_VERSION` → WS root; its `allCatalogRuleIds` from lint is residue,
-     fine); `settings-contract/saving-settings-preserves-authored-formatting.spec.ts`
+     `settings-contract/published-settings-schema-agrees-with-accepted-input.spec.ts`
+     (`SettingsSchema` → WS root; its `allCatalogRuleIds` from lint is residue,
+     fine);
+     `settings-contract/published-lockfile-schema-agrees-with-accepted-input.spec.ts`
+     (`LockfileSchema`, `LOCKFILE_VERSION` → WS root);
+     `settings-contract/saving-settings-preserves-authored-formatting.spec.ts`
      (`SettingsSchema`, `writeSettingsAtPath` → WS root);
      `support/install-harness.ts` (`CodingAgentRepositoryLive` → XW `/live`).
    - Step 4: `support/install-harness.ts` (`SourceHostProvidersLive` → IS

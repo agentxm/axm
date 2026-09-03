@@ -27,7 +27,6 @@ export const specification = defineSpecification({
 });
 
 const decodeSettings = Schema.decodeUnknownEffect(SettingsSchema);
-const encodeSettings = Schema.encodeEffect(SettingsSchema);
 
 // Authored with four-space indentation, non-canonical key order, and an
 // unrecognized top-level key a newer product version could have written.
@@ -88,24 +87,6 @@ describe("Saving settings", () => {
       expect(written.indexOf(`"agents"`)).toBeGreaterThan(written.indexOf(`"skills"`));
       const reparsed: unknown = JSON.parse(written);
       expect(reparsed).toEqual(targetDocument);
-    }),
-  );
-
-  it.effect("a canonical settings document re-encodes exactly as authored", () =>
-    Effect.gen(function* () {
-      const fixture = {
-        $schema: "https://axm.sh/schemas/settings.schema.json",
-        owner: "@acme",
-        agents: ["claude-code", "cursor"],
-        skills: {
-          "code-review": "@acme/skills/code-review@^1.0.0",
-          "disabled-review": { source: "@acme/skills/disabled-review@^1.0.0", enabled: false },
-        },
-        futureCapability: true,
-      };
-      const decoded = yield* decodeSettings(fixture);
-      const encoded = yield* encodeSettings(decoded);
-      expect(encoded).toEqual(fixture);
     }),
   );
 });

@@ -3,6 +3,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { allLintCatalogRuleIds } from "@agentxm/registry-protocol/unstable/lint/catalog-metadata";
+
+import { SETTINGS_KEY_ORDER } from "./schema.js";
+
 const generatedSchemasDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../../cli/site-content/__generated__/schemas",
@@ -231,11 +235,33 @@ describe("generated schemas", () => {
 
   it("publishes only the canonical lockfile version", () => {
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
-    const lockfileVersion = getProperty(getDefinition(lockSchema, "Lockfile"), "lockfileVersion");
+    const lockfile = getDefinition(lockSchema, "Lockfile");
+    const lockfileVersion = getProperty(lockfile, "lockfileVersion");
 
+    expect(lockSchema["$ref"]).toBe("#/definitions/Lockfile");
     expect(lockfileVersion["type"]).toBe("number");
     expect(lockfileVersion["enum"]).toEqual([7]);
     expect(lockfileVersion["default"]).toBe(7);
+    expect(lockfile["required"]).toEqual(["lockfileVersion", "skills"]);
+  });
+
+  it("publishes exactly the canonical settings keys at the top level", () => {
+    const settings = getDefinition(readGeneratedSettingsSchema(), "AxmSettings");
+
+    expect(Object.keys(getRecord(settings, "properties")).sort()).toEqual(
+      [...SETTINGS_KEY_ORDER].sort(),
+    );
+  });
+
+  it("publishes one severity property per catalog lint rule and admits no other keys", () => {
+    const rules = getProperty(getDefinition(readGeneratedSettingsSchema(), "LintConfig"), "rules");
+    const properties = getRecord(rules, "properties");
+
+    expect(Object.keys(properties)).toEqual([...allLintCatalogRuleIds]);
+    expect(rules["additionalProperties"]).toBe(false);
+    for (const ruleId of allLintCatalogRuleIds) {
+      expect(properties[ruleId]).toEqual({ $ref: "#/definitions/LintRuleSeverity" });
+    }
   });
 
   it("publishes common manifest field annotations", () => {

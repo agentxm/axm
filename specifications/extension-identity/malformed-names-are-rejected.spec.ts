@@ -1,10 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as FastCheck from "effect/testing/FastCheck";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-import { ExtensionSpecSchema } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
@@ -13,7 +11,7 @@ export const specification = defineSpecification({
   requirement: "extension-identity/malformed-names-are-rejected",
   title: "A malformed extension name is rejected with a typed failure naming the input",
   statement:
-    "A reference that does not match the extension name grammar, including any bare name, shall be rejected with a typed failure that preserves the offending input, and a malformed version constraint shall be rejected with guidance naming the version constraint.",
+    "A reference that does not match the extension name grammar, including any bare name, shall be rejected with a typed failure that preserves the offending input.",
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -26,8 +24,6 @@ export const specification = defineSpecification({
 
 /** Bare names: plausible identifiers that are not fully qualified names. */
 const bareNameArbitrary = FastCheck.stringMatching(/^[a-z][a-z0-9-]{0,30}$/);
-
-const decodeSpec = Schema.decodeUnknownEffect(ExtensionSpecSchema);
 
 describe("Malformed extension names", () => {
   it.effect.each([
@@ -68,12 +64,5 @@ describe("Malformed extension names", () => {
         expect(Result.isFailure(parseFqn(name))).toBe(true);
       }),
     { fastCheck: { numRuns: 100 } },
-  );
-
-  it.effect("a reference with an invalid version constraint is rejected with guidance", () =>
-    Effect.gen(function* () {
-      const failure = yield* decodeSpec("@acme/skills/code-review@banana").pipe(Effect.flip);
-      expect(String(failure)).toContain("version constraint");
-    }),
   );
 });

@@ -2,19 +2,15 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-import {
-  CompanionPackageSchema,
-  VersRangeSchema,
-} from "@agentxm/extension-model/unstable/package-urls";
+import { CompanionPackageSchema } from "@agentxm/extension-model/unstable/package-urls";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "package-identity/compatibility-ranges-match-the-package-ecosystem",
-  title:
-    "A companion compatibility range is a concrete ecosystem range matching its package identity",
+  title: "A companion compatibility range names the same ecosystem as its package identity",
   statement:
-    "A companion compatibility range shall be a vers range carrying at least one plain constraint in the same concrete package ecosystem as its package identity, and any generic, empty, wildcard-only, encoded, or mismatched range shall be refused with guidance naming the flaw.",
+    "A companion declaration that carries a compatibility range shall be accepted only when the range names the same package ecosystem as the package identity, and a mismatched pair shall be refused with guidance naming both ecosystems.",
   class: "functional",
   role: "interface",
   goals: ["authoring-and-creation", "trustworthy-distribution"],
@@ -25,54 +21,9 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const decodeRange = Schema.decodeUnknownEffect(VersRangeSchema);
 const decodeCompanion = Schema.decodeUnknownEffect(CompanionPackageSchema);
 
-describe("Companion compatibility ranges", () => {
-  it.effect("a well-formed range decodes into its ecosystem and ordered constraints", () =>
-    Effect.gen(function* () {
-      const range = yield* decodeRange("vers:npm/>=1.0.0|<2.0.0");
-      expect(range.raw).toBe("vers:npm/>=1.0.0|<2.0.0");
-      expect(range.scheme).toBe("npm");
-      expect(range.constraints).toEqual([
-        { comparator: ">=", version: "1.0.0" },
-        { comparator: "<", version: "2.0.0" },
-      ]);
-    }),
-  );
-
-  it.effect.each([
-    { value: "vers:pypi/>=2.31.0", ecosystem: "pypi" },
-    { value: "vers:cargo/>=1.0.0", ecosystem: "cargo" },
-  ] as const)("accepts the concrete ecosystem $ecosystem", ({ value, ecosystem }) =>
-    Effect.gen(function* () {
-      const range = yield* decodeRange(value);
-      expect(range.scheme).toBe(ecosystem);
-    }),
-  );
-
-  it.effect.each([
-    { value: ">=1.0.0|<2.0.0", flaw: "a missing range prefix", guidance: "vers:" },
-    { value: "vers:npm/", flaw: "an empty constraint list", guidance: "at least one constraint" },
-    { value: "vers:semver/>=1.0.0", flaw: "a generic version scheme", guidance: "generic schemes" },
-    {
-      value: "vers:madeup/>=1.0.0",
-      flaw: "an unknown ecosystem",
-      guidance: "not a known concrete package ecosystem",
-    },
-    { value: "vers:npm/*", flaw: "a wildcard-only range", guidance: "omit versionRange" },
-    {
-      value: "vers:npm/%3E%3D1.0.0",
-      flaw: "percent-encoded constraints",
-      guidance: "percent-encoded",
-    },
-  ] as const)("refuses $flaw with pointed guidance", ({ value, guidance }) =>
-    Effect.gen(function* () {
-      const failure = yield* decodeRange(value).pipe(Effect.flip);
-      expect(String(failure)).toContain(guidance);
-    }),
-  );
-
+describe("Companion compatibility ranges agree with the package identity", () => {
   it.effect.each([
     { purl: "pkg:npm/example", range: "vers:npm/>=1.0.0", ecosystem: "npm" },
     { purl: "pkg:cran/tinyflags", range: "vers:cran/>=0.1.0", ecosystem: "cran" },

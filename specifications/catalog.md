@@ -829,7 +829,7 @@ programmatic interfaces, and supporting system behavior.
 ##### A canonical extension name always parses back to the identity that produced it
 
 - Requirement: `extension-identity/canonical-names-round-trip`
-- Statement: A fully qualified name or owner handle produced from an extension identity shall parse back to exactly that identity, and appending a version constraint to the name shall not change which extension it identifies.
+- Statement: A fully qualified name or owner handle produced from an extension identity shall parse back to exactly that identity.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
@@ -842,13 +842,41 @@ programmatic interfaces, and supporting system behavior.
 ##### A malformed extension name is rejected with a typed failure naming the input
 
 - Requirement: `extension-identity/malformed-names-are-rejected`
-- Statement: A reference that does not match the extension name grammar, including any bare name, shall be rejected with a typed failure that preserves the offending input, and a malformed version constraint shall be rejected with guidance naming the version constraint.
+- Statement: A reference that does not match the extension name grammar, including any bare name, shall be rejected with a typed failure that preserves the offending input.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, property, example
 - Source: [`specifications/extension-identity/malformed-names-are-rejected.spec.ts`](../specifications/extension-identity/malformed-names-are-rejected.spec.ts)
+
+#### Owner Input Normalizes To The Canonical Handle
+
+##### Owner input that differs only by whitespace or letter case normalizes to the canonical handle
+
+- Requirement: `extension-identity/owner-input-normalizes-to-the-canonical-handle`
+- Statement: Owner input that differs from a canonical owner handle only by surrounding whitespace or letter case shall normalize to that canonical lower-case handle.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: property, example
+- Derived from: `extension-identity/canonical-names-round-trip`
+- Source: [`specifications/extension-identity/owner-input-normalizes-to-the-canonical-handle.spec.ts`](../specifications/extension-identity/owner-input-normalizes-to-the-canonical-handle.spec.ts)
+
+#### References Are A Name With An Optional Constraint
+
+##### An extension reference is a fully qualified name with an optional version constraint
+
+- Requirement: `extension-identity/references-are-a-name-with-an-optional-constraint`
+- Statement: An extension reference shall identify exactly the extension its fully qualified name identifies regardless of any appended version constraint, and a reference whose appended constraint is not a valid version constraint shall be rejected with guidance naming the version constraint.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: property, example
+- Derived from: `extension-identity/canonical-names-round-trip`, `extension-identity/malformed-names-are-rejected`
+- Source: [`specifications/extension-identity/references-are-a-name-with-an-optional-constraint.spec.ts`](../specifications/extension-identity/references-are-a-name-with-an-optional-constraint.spec.ts)
 
 ### Package identity
 
@@ -857,7 +885,7 @@ programmatic interfaces, and supporting system behavior.
 ##### A companion package names an ecosystem package identity, never a pinned version
 
 - Requirement: `package-identity/companion-packages-are-identities-not-pins`
-- Statement: A companion package shall be declared by a versionless package identity in a supported ecosystem, and a declaration that pins a version or names an unsupported ecosystem shall be refused with guidance toward the compatibility range or naming that ecosystem.
+- Statement: A companion package shall be declared by a versionless package identity, and a declaration that pins a version shall be refused with guidance toward the compatibility range.
 - Class: functional
 - Role: interface
 - Product goals: `authoring-and-creation`, `trustworthy-distribution`
@@ -865,12 +893,40 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example, decision-table
 - Source: [`specifications/package-identity/companion-packages-are-identities-not-pins.spec.ts`](../specifications/package-identity/companion-packages-are-identities-not-pins.spec.ts)
 
+#### Companion Packages Use A Supported Ecosystem
+
+##### Companion packages and their compatibility ranges name a supported package ecosystem
+
+- Requirement: `package-identity/companion-packages-use-a-supported-ecosystem`
+- Statement: A companion package identity and its compatibility range shall each name a supported concrete package ecosystem, and a declaration naming a generic version scheme or an ecosystem the product does not support shall be refused with guidance naming that ecosystem.
+- Class: functional
+- Role: interface
+- Product goals: `authoring-and-creation`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `package-identity/companion-packages-are-identities-not-pins`, `package-identity/compatibility-ranges-match-the-package-ecosystem`
+- Source: [`specifications/package-identity/companion-packages-use-a-supported-ecosystem.spec.ts`](../specifications/package-identity/companion-packages-use-a-supported-ecosystem.spec.ts)
+
+#### Compatibility Ranges Are Well Formed
+
+##### A companion compatibility range is a well-formed vers range with at least one plain constraint
+
+- Requirement: `package-identity/compatibility-ranges-are-well-formed`
+- Statement: A companion compatibility range shall be a vers range with the vers prefix, an ecosystem scheme, and at least one plain constraint, and a range that omits the prefix, carries no constraint, is wildcard-only, or percent-encodes its constraints shall be refused with guidance naming the flaw.
+- Class: functional
+- Role: interface
+- Product goals: `authoring-and-creation`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `package-identity/compatibility-ranges-match-the-package-ecosystem`
+- Source: [`specifications/package-identity/compatibility-ranges-are-well-formed.spec.ts`](../specifications/package-identity/compatibility-ranges-are-well-formed.spec.ts)
+
 #### Compatibility Ranges Match The Package Ecosystem
 
-##### A companion compatibility range is a concrete ecosystem range matching its package identity
+##### A companion compatibility range names the same ecosystem as its package identity
 
 - Requirement: `package-identity/compatibility-ranges-match-the-package-ecosystem`
-- Statement: A companion compatibility range shall be a vers range carrying at least one plain constraint in the same concrete package ecosystem as its package identity, and any generic, empty, wildcard-only, encoded, or mismatched range shall be refused with guidance naming the flaw.
+- Statement: A companion declaration that carries a compatibility range shall be accepted only when the range names the same package ecosystem as the package identity, and a mismatched pair shall be refused with guidance naming both ecosystems.
 - Class: functional
 - Role: interface
 - Product goals: `authoring-and-creation`, `trustworthy-distribution`
@@ -879,6 +935,20 @@ programmatic interfaces, and supporting system behavior.
 - Source: [`specifications/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts`](../specifications/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts)
 
 ### Settings contract
+
+#### Accepted Settings Round Trip Losslessly
+
+##### An accepted settings document re-encodes exactly as it was authored
+
+- Requirement: `settings-contract/accepted-settings-round-trip-losslessly`
+- Statement: A settings document the product accepts shall re-encode to exactly the authored document, including entries in object form and content the product does not recognize.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `settings-contract/saving-settings-preserves-authored-formatting`
+- Source: [`specifications/settings-contract/accepted-settings-round-trip-losslessly.spec.ts`](../specifications/settings-contract/accepted-settings-round-trip-losslessly.spec.ts)
 
 #### Agent Membership Is The Only Agent Selection
 
@@ -895,19 +965,37 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.; The product reads settings with excess keys treated as errors, so decoding here with the same option observes the product's acceptance boundary.
 - Source: [`specifications/settings-contract/agent-membership-is-the-only-agent-selection.spec.ts`](../specifications/settings-contract/agent-membership-is-the-only-agent-selection.spec.ts)
 
-#### Published Schemas Agree With Accepted Input
+#### Published Lockfile Schema Agrees With Accepted Input
 
-##### The published settings and lockfile schemas describe what the product accepts
+##### The published lockfile schema describes what the product accepts
 
-- Requirement: `settings-contract/published-schemas-agree-with-accepted-input`
-- Statement: The published settings and lockfile schemas shall agree with the product on every example document, top-level key, lint rule identity, severity value, and lockfile version, and shall not admit an unregistered rule, wildcard rule, misspelled severity, or other lockfile version.
+- Requirement: `settings-contract/published-lockfile-schema-agrees-with-accepted-input`
+- Statement: The published lockfile schema shall admit exactly the lockfile version and required fields the product accepts, and a lockfile at any other version or missing a required field shall be refused.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Derived from: `settings-contract/published-schemas-agree-with-accepted-input`
+- Supersedes: `settings-contract/published-schemas-agree-with-accepted-input`
+- Assumptions: The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.
+- Source: [`specifications/settings-contract/published-lockfile-schema-agrees-with-accepted-input.spec.ts`](../specifications/settings-contract/published-lockfile-schema-agrees-with-accepted-input.spec.ts)
+
+#### Published Settings Schema Agrees With Accepted Input
+
+##### The published settings schema describes what the product accepts
+
+- Requirement: `settings-contract/published-settings-schema-agrees-with-accepted-input`
+- Statement: The published settings schema shall agree with the product on every example document, lint rule identity, and severity value it admits, and shall not admit an unregistered rule, wildcard rule, or misspelled severity.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: contract, example
+- Derived from: `settings-contract/published-schemas-agree-with-accepted-input`
+- Supersedes: `settings-contract/published-schemas-agree-with-accepted-input`
 - Assumptions: The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.
-- Source: [`specifications/settings-contract/published-schemas-agree-with-accepted-input.spec.ts`](../specifications/settings-contract/published-schemas-agree-with-accepted-input.spec.ts)
+- Source: [`specifications/settings-contract/published-settings-schema-agrees-with-accepted-input.spec.ts`](../specifications/settings-contract/published-settings-schema-agrees-with-accepted-input.spec.ts)
 
 #### Saving Settings Preserves Authored Formatting
 

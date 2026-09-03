@@ -12,6 +12,7 @@ export const executionBinding = {
     "cli/lint/honors-configured-rule-severities",
     "cli/lint/normal-and-strict-runs-fail-by-severity",
     "cli/lint/observes-selected-filesystem-view",
+    "cli/lint/undeclared-official-skill-is-informational",
   ],
   boundary: "process",
   rationale:

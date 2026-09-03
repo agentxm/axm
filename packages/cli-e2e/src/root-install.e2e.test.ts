@@ -25,7 +25,6 @@ export const executionBinding = {
     "cli/install/records-accepted-resolution",
     "cli/install/materializes-canonical-content",
     "cli/install/realizes-for-every-configured-agent",
-    "cli/install/reinstall-is-idempotent",
     "cli/every-type-completes-the-shared-lifecycle",
   ],
   boundary: "process",

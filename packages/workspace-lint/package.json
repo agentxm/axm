@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/workspace-lint",
-  "version": "0.28.4",
+  "version": "0.28.5",
   "description": "AXM workspace-lint feature: workspace facts, lint rules, findings, normalization, and bounded fix planning for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

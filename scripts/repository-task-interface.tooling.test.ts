@@ -104,7 +104,7 @@ describe("repository task interface", () => {
       const script = scripts[name];
       if (typeof script !== "string") throw new Error(`Missing ${name} script.`);
       const phases = script.split("&&");
-      expect(phases[1], name).toContain("-t build --parallel=1");
+      expect(phases[1], name).toContain("-t build --parallel=1 --skip-nx-cache");
       expect(phases[2], name).toContain("-t test --excludeTaskDependencies");
       for (const [index, phase] of phases.entries()) {
         expect(phase, `${name} phase ${index + 1}`).not.toContain("--batch");

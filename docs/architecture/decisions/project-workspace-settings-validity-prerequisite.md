@@ -44,7 +44,7 @@ fact or handled operation fails.
 
 Accepting authority: maintainer approval through the repository pull-request
 workflow. The binding outcome is owned by the executable specification
-`cli/settings-validity-gates-operations` in the
+`cli/invalid-workspace-state-gates-operations` in the
 [specification catalog](../../../specifications/catalog.md); this record owns
 the architectural response and tradeoff.
 

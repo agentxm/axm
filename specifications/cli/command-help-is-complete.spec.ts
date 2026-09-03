@@ -4,7 +4,6 @@ import type { Command } from "effect/unstable/cli";
 
 import {
   captureHelpDoc,
-  collectCommandAliases,
   collectCommandPaths,
   formatCommandPath,
   rootCommand,
@@ -13,20 +12,18 @@ import {
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
-  requirement: "cli/command-help-is-complete-and-alias-free",
-  title: "Every supported command presents help and no alias routes exist",
+  requirement: "cli/command-help-is-complete",
+  title: "Every supported command presents complete help",
   statement:
-    "Every supported command shall present usable help, the rendered help tree shall list exactly the supported command paths, and no command shall be reachable through an alias route.",
+    "Every supported command shall present usable help, and the rendered help tree shall list exactly the supported command paths.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access"],
   methods: ["model"],
-  derivedFrom: [],
-  supersedes: [],
+  derivedFrom: ["cli/command-help-is-complete-and-alias-free"],
+  supersedes: ["cli/command-help-is-complete-and-alias-free"],
   assumptions: [],
-  openQuestions: [
-    "The alias prohibition is phrased as a pre-launch condition in its scenario; whether alias routes stay prohibited after public launch is unresolved.",
-  ],
+  openQuestions: [],
 });
 
 interface RegisteredCommand {
@@ -68,13 +65,6 @@ describe("Command help completeness", () => {
           .map((command) => formatCommandPath(command.path)),
       );
       expect(new Set(rendered)).toEqual(listed);
-    }),
-  );
-
-  it.effect("no registered command carries an alias route before launch", () =>
-    Effect.gen(function* () {
-      const aliases = yield* collectCommandAliases();
-      expect(aliases).toEqual(new Map());
     }),
   );
 });

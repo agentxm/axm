@@ -6,7 +6,6 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { extensionTypes } from "@agentxm/extension-model/unstable/extensions";
 import { handleInstall, handleUninstall } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
@@ -41,9 +40,15 @@ type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 /**
  * One conformance row per extension type the root locator install can acquire
  * from a local directory. MCP servers (Registry package or inline settings
- * authority) and packs (Registry or workspace authorship, no local package source) cannot be
- * driven through this route; the catalog-completeness case below binds them to
- * the process-boundary executions that carry their lifecycle evidence.
+ * authority) and packs (Registry or workspace authorship, no local package
+ * source) cannot be driven through this route; their shared-lifecycle evidence
+ * is bound at the process boundary by the `executionBinding` exports on
+ * `packages/cli-e2e/src/root-install.e2e.test.ts` (registry install, pack graph
+ * lifecycle) and `packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`
+ * (authored lifecycle for every catalog type). That the locator route and the
+ * registry-only types together account for every catalog type is an
+ * implementation inventory, checked by the root install handler's internal
+ * tests rather than here.
  */
 interface ConformanceRow {
   readonly label: string;
@@ -157,16 +162,6 @@ const conformanceRows: ReadonlyArray<ConformanceRow> = [
   },
 ];
 
-/**
- * Extension types whose local-source lifecycle cannot run in memory. Their
- * shared-lifecycle evidence is bound at the process boundary by the
- * `executionBinding` exports on `packages/cli-e2e/src/root-install.e2e.test.ts`
- * (registry install, pack graph lifecycle) and
- * `packages/cli-e2e/src/activation-lifecycle.e2e.test.ts` (authored lifecycle
- * for every catalog type).
- */
-const processBoundTypes = ["mcp-server", "pack"] as const;
-
 describe("Every extension type completes the shared lifecycle", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
@@ -243,12 +238,5 @@ describe("Every extension type completes the shared lifecycle", () => {
         expect(workspace.readFile(unrelatedFile)).toBe("unrelated project file\n");
         expect(workspace.exists(`vendor/${name}`)).toBe(true);
       }),
-  );
-
-  it.effect("every catalog type is proven here or carried by process-boundary evidence", () =>
-    Effect.sync(() => {
-      const covered = [...conformanceRows.map((row) => row.type), ...processBoundTypes];
-      expect([...covered].sort()).toEqual([...extensionTypes].sort());
-    }),
   );
 });

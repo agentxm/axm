@@ -114,19 +114,37 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: Contention between separate operating-system processes behaves like contention between concurrent invocations within one process.
 - Source: [`specifications/cli/changes-do-not-interleave.spec.ts`](../specifications/cli/changes-do-not-interleave.spec.ts)
 
-#### Command Help Is Complete And Alias Free
+#### Command Help Is Complete
 
-##### Every supported command presents help and no alias routes exist
+##### Every supported command presents complete help
 
-- Requirement: `cli/command-help-is-complete-and-alias-free`
-- Statement: Every supported command shall present usable help, the rendered help tree shall list exactly the supported command paths, and no command shall be reachable through an alias route.
+- Requirement: `cli/command-help-is-complete`
+- Statement: Every supported command shall present usable help, and the rendered help tree shall list exactly the supported command paths.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`
 - Boundary: memory; selection: per-change
 - Methods: model
+- Derived from: `cli/command-help-is-complete-and-alias-free`
+- Supersedes: `cli/command-help-is-complete-and-alias-free`
+- Source: [`specifications/cli/command-help-is-complete.spec.ts`](../specifications/cli/command-help-is-complete.spec.ts)
+
+#### Commands Have No Alias Routes
+
+##### No command is reachable through an alias route
+
+- Requirement: `cli/commands-have-no-alias-routes`
+- Statement: Before public launch, no supported command shall be reachable through an alias route; each command shall answer to exactly one invocation path.
+- Class: constraint
+- Role: experience
+- Product goals: `knowledge-access`
+- Boundary: memory; selection: per-change
+- Methods: model
+- Derived from: `cli/command-help-is-complete-and-alias-free`
+- Supersedes: `cli/command-help-is-complete-and-alias-free`
 - Open questions: The alias prohibition is phrased as a pre-launch condition in its scenario; whether alias routes stay prohibited after public launch is unresolved.
-- Source: [`specifications/cli/command-help-is-complete-and-alias-free.spec.ts`](../specifications/cli/command-help-is-complete-and-alias-free.spec.ts)
+- Limitation: The evidence establishes the pre-launch command surface only; it cannot establish whether alias routes remain prohibited after public launch. Retires when: Public launch, when the alias-route policy is decided and this specification is revised or retired.
+- Source: [`specifications/cli/commands-have-no-alias-routes.spec.ts`](../specifications/cli/commands-have-no-alias-routes.spec.ts)
 
 #### Every Type Completes The Shared Lifecycle
 
@@ -146,15 +164,15 @@ programmatic interfaces, and supporting system behavior.
 
 #### Force Bypasses Only Named Policies
 
-##### Force flags exist only for explicitly named forceable policies
+##### Override flags bypass only the one policy they name
 
 - Requirement: `cli/force-bypasses-only-named-policies`
-- Statement: No command shall expose a bare --force flag, and every override flag a command exposes shall name in its help text the one policy it bypasses.
+- Statement: No command shall expose a bare --force flag; every override flag a command exposes shall name in its help text the one policy it bypasses, and a request carrying that flag shall bypass that policy while remaining subject to every other policy.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
-- Methods: contract
+- Methods: contract, decision-table
 - Source: [`specifications/cli/force-bypasses-only-named-policies.spec.ts`](../specifications/cli/force-bypasses-only-named-policies.spec.ts)
 
 #### Install
@@ -356,6 +374,37 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/instructions/management-is-explicit`
 - Source: [`specifications/cli/instructions/status-reports-without-changing-state.spec.ts`](../specifications/cli/instructions/status-reports-without-changing-state.spec.ts)
 
+#### Invalid Ownership Markers Block Reconciliation
+
+##### Invalid ownership markers block reconciliation without altering the document
+
+- Requirement: `cli/invalid-ownership-markers-block-reconciliation`
+- Statement: When a generated document carries an ownership marker AXM cannot validate, lint shall report the invalid ownership and reconciliation shall report a blocked outcome, and neither shall alter the document.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/projection-currency-follows-state-authority`
+- Source: [`specifications/cli/invalid-ownership-markers-block-reconciliation.spec.ts`](../specifications/cli/invalid-ownership-markers-block-reconciliation.spec.ts)
+
+#### Invalid Workspace State Gates Operations
+
+##### Invalid workspace settings or lockfile state gates every operation
+
+- Requirement: `cli/invalid-workspace-state-gates-operations`
+- Statement: When a present project or user settings file, or a present workspace lockfile in the selected scope, is malformed, schema-invalid, unreadable, or of an unsupported version, every read, diagnose, preview, and mutate operation shall stop before it begins with a validation error naming the file, the observed fault, and a non-destructive recovery route, and shall change no workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `cli/settings-validity-gates-operations`, `cli/workspace-lockfile-rejections-name-state-and-recovery`, `cli/lockfile-version-errors-expose-structured-problem`
+- Supersedes: `cli/settings-validity-gates-operations`, `cli/workspace-lockfile-rejections-name-state-and-recovery`, `cli/lockfile-version-errors-expose-structured-problem`
+- Additional evidence: process via [`packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
+- Additional evidence: process via [`packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
+- Source: [`specifications/cli/invalid-workspace-state-gates-operations.spec.ts`](../specifications/cli/invalid-workspace-state-gates-operations.spec.ts)
+
 #### Lint
 
 ##### Lint holds a declared official AXM skill to compatibility
@@ -457,6 +506,21 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: decision-table, contract
 - Source: [`specifications/cli/lock-state-never-creates-reachability.spec.ts`](../specifications/cli/lock-state-never-creates-reachability.spec.ts)
+
+#### Lockfile Rejections Name Recovery Routes
+
+##### Lockfile rejections name a recovery route that re-accepts desired state
+
+- Requirement: `cli/lockfile-rejections-name-recovery-routes`
+- Statement: When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, and a workspace holding only workspace-authored content shall finish that route without a lockfile.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/workspace-lockfile-rejections-name-state-and-recovery`
+- Supersedes: `cli/workspace-lockfile-rejections-name-state-and-recovery`
+- Source: [`specifications/cli/lockfile-rejections-name-recovery-routes.spec.ts`](../specifications/cli/lockfile-rejections-name-recovery-routes.spec.ts)
 
 #### Managed Projection Guidance Respects Authority
 
@@ -608,6 +672,20 @@ programmatic interfaces, and supporting system behavior.
 - Methods: decision-table, example
 - Source: [`specifications/cli/mutations-are-closure-atomic.spec.ts`](../specifications/cli/mutations-are-closure-atomic.spec.ts)
 
+#### Native Projections Compare By Decoded Value
+
+##### Structured native projections are compared by decoded value
+
+- Requirement: `cli/native-projections-compare-by-decoded-value`
+- Statement: When a structured native projection is re-serialized with an equivalent decoded value, reconciliation shall report it current and preserve the file, and when its decoded value diverges from the desired configuration, reconciliation shall report the divergence in preview and restore the desired value on apply.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/projection-currency-follows-state-authority`
+- Source: [`specifications/cli/native-projections-compare-by-decoded-value.spec.ts`](../specifications/cli/native-projections-compare-by-decoded-value.spec.ts)
+
 #### Packs
 
 ##### Adding an installed extension to an authored pack records it as a pack dependency
@@ -643,7 +721,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Generated document currency follows authoritative inputs, not rendered bytes
 
 - Requirement: `cli/projection-currency-follows-state-authority`
-- Statement: Reconciliation shall judge a generated document current by its authoritative inputs and generation record rather than its rendered bytes, preserving body rewrites while inputs are unchanged, regenerating when inputs change, and blocking on invalid ownership markers without altering the file.
+- Statement: Reconciliation shall judge a generated document current by its authoritative inputs and generation record rather than its rendered bytes, preserving body rewrites while inputs are unchanged and regenerating when inputs change or the generated document is missing.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`, `agent-interoperability`
@@ -717,20 +795,6 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; every scenario substitutes the comparison outcome rather than running Git.
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
 - Source: [`specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts`](../specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts)
-
-#### Settings Validity Gates Operations
-
-##### Workspace operations begin only after both settings sources validate
-
-- Requirement: `cli/settings-validity-gates-operations`
-- Statement: When a present project or user settings file is malformed, schema-invalid, or unreadable, every workspace operation shall stop before it begins with a validation error naming that file and a repair route, and shall change no workspace state.
-- Class: functional
-- Role: experience
-- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Additional evidence: process via [`packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
-- Source: [`specifications/cli/settings-validity-gates-operations.spec.ts`](../specifications/cli/settings-validity-gates-operations.spec.ts)
 
 #### Skills
 
@@ -916,20 +980,6 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/update/advances-resolution-within-intent`
 - Source: [`specifications/cli/update/refuses-undesired-extensions.spec.ts`](../specifications/cli/update/refuses-undesired-extensions.spec.ts)
 
-#### Workspace Lockfile Rejections Name State And Recovery
-
-##### Workspace lockfile rejections name the observed state and a safe recovery route
-
-- Requirement: `cli/workspace-lockfile-rejections-name-state-and-recovery`
-- Statement: When a present workspace lockfile in either scope is unsupported, unreadable, or invalid, every operation shall stop before it begins with a validation error naming the file, the observed state, and a non-destructive recovery route, and shall change no workspace state.
-- Class: functional
-- Role: experience
-- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `machine-automation`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example, invariant
-- Additional evidence: process via [`packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
-- Source: [`specifications/cli/workspace-lockfile-rejections-name-state-and-recovery.spec.ts`](../specifications/cli/workspace-lockfile-rejections-name-state-and-recovery.spec.ts)
-
 ### System
 
 #### Installability
@@ -1069,32 +1119,20 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/lint/findings-name-the-violated-invariant`
 - Source: [`specifications/cli/lint/machine-findings-carry-only-facts.spec.ts`](../specifications/cli/lint/machine-findings-carry-only-facts.spec.ts)
 
-#### Lockfile Version Errors Expose Structured Problem
-
-##### Lockfile version errors expose a structured machine problem
-
-- Requirement: `cli/lockfile-version-errors-expose-structured-problem`
-- Statement: When a machine-output invocation rejects a workspace lockfile whose version is unsupported, the error envelope shall carry a structured problem naming the file, the observed and supported versions, and the direction, plus direction-specific recovery commands.
-- Class: functional
-- Role: interface
-- Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: contract, decision-table
-- Additional evidence: process via [`packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
-- Source: [`specifications/cli/lockfile-version-errors-expose-structured-problem.spec.ts`](../specifications/cli/lockfile-version-errors-expose-structured-problem.spec.ts)
-
 #### Machine Errors Use The Stable Envelope
 
 ##### A failed machine invocation still emits the stable error envelope
 
 - Requirement: `cli/machine-errors-use-the-stable-envelope`
-- Statement: When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output, keeping every diagnostic line on standard error as a structured event.
+- Statement: When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output that carries any structured problem the failure names, keeping every diagnostic line on standard error as a structured event.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: contract, decision-table
+- Derived from: `cli/lockfile-version-errors-expose-structured-problem`
 - Additional evidence: process via [`packages/cli-e2e/src/smoke.e2e.test.ts`](../packages/cli-e2e/src/smoke.e2e.test.ts) — Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.
+- Additional evidence: process via [`packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
 - Source: [`specifications/cli/machine-errors-use-the-stable-envelope.spec.ts`](../specifications/cli/machine-errors-use-the-stable-envelope.spec.ts)
 
 #### Machine Mode Never Prompts
@@ -1102,12 +1140,13 @@ programmatic interfaces, and supporting system behavior.
 ##### Machine output mode terminates deterministically instead of prompting
 
 - Requirement: `cli/machine-mode-never-prompts`
-- Statement: When machine output mode is on, a command that needs interactive input shall terminate with an approval-required failure and shall not raise any prompt, while the same request with machine output off shall prompt and honor the answer.
+- Statement: When machine output mode is on, a command that needs interactive input shall terminate with a usage failure naming the required input, shall raise no prompt, and shall change no workspace state, while the same request with machine output off shall prompt and honor the answer.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example
+- Limitation: The skill-selection prompt has no in-memory interaction port, so the evidence that the same request prompts and honors the answer when machine output is off is carried by the setup command only. Retires when: An in-memory interaction port for the skill-selection prompt lets the harness record that prompt and its answer for install.
 - Source: [`specifications/cli/machine-mode-never-prompts.spec.ts`](../specifications/cli/machine-mode-never-prompts.spec.ts)
 
 #### Mcps

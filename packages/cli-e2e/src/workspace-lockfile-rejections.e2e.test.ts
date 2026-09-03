@@ -7,8 +7,8 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 
 export const executionBinding = {
   requirements: [
-    "cli/workspace-lockfile-rejections-name-state-and-recovery",
-    "cli/lockfile-version-errors-expose-structured-problem",
+    "cli/invalid-workspace-state-gates-operations",
+    "cli/machine-errors-use-the-stable-envelope",
   ],
   boundary: "process",
   rationale:

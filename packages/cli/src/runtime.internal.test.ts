@@ -125,7 +125,7 @@ describe("makeCliLoggerLayer", () => {
 describe("withWorkspace settings gate", () => {
   /**
    * Internal evidence for the executable specification
-   * `cli/settings-validity-gates-operations`, including its
+   * `cli/invalid-workspace-state-gates-operations`, including its
    * workspace-construction-gate claims.
    */
   let tempDir: string;

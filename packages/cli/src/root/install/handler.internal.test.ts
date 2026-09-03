@@ -23,6 +23,7 @@ import {
   planResultUnits,
 } from "../../test-helpers.js";
 import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
+import { extensionTypes } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
 import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
@@ -284,6 +285,35 @@ describe("root install handler", () => {
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);
+    }),
+  );
+
+  it.effect("the locator route and the registry-only types account for every catalog type", () =>
+    Effect.gen(function* () {
+      // Inventory guard for the in-memory shared-lifecycle specification: the
+      // types the locator route can source from a local directory, plus the
+      // types that install only through a registry FQN (their lifecycle
+      // evidence is bound at the process boundary), must partition the
+      // catalog so a new type cannot go unclassified.
+      const calls: Array<InstallCall> = [];
+      const { provide, handleInstall } = makeLayers(calls);
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+      });
+
+      yield* provide(
+        handleInstall({
+          source: Option.some("./local-source"),
+          yes: true,
+          force: false,
+          preview: true,
+        }),
+      ).pipe(Effect.exit);
+
+      const locatorTypes = [...new Set(calls.map((call) => call.type))];
+      const registryOnlyTypes = ["mcp-server", "pack"];
+      expect([...locatorTypes, ...registryOnlyTypes].sort()).toEqual([...extensionTypes].sort());
     }),
   );
 

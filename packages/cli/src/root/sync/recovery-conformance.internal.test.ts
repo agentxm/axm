@@ -393,11 +393,11 @@ const adversarialContracts = [
   ],
   [
     "older-lockfile-gate-names-reacceptance",
-    "specifications/cli/workspace-lockfile-rejections-name-state-and-recovery.spec.ts",
+    "specifications/cli/lockfile-rejections-name-recovery-routes.spec.ts",
   ],
   [
     "newer-lockfile-gate-names-upgrade",
-    "specifications/cli/workspace-lockfile-rejections-name-state-and-recovery.spec.ts",
+    "specifications/cli/invalid-workspace-state-gates-operations.spec.ts",
   ],
   ["mutable-source-identity-is-stable", "packages/cli/src/root/update/handler.internal.test.ts"],
   [

@@ -135,9 +135,9 @@ Executable definitions and tests own exact interface contracts.
 
 ## Specifications
 
-The command-help specification `cli/command-help-is-complete-and-alias-free`
-owns help's binding obligations — complete, alias-free command help and
-consistent resolution; the
-[specification catalog](../../../specifications/catalog.md) indexes it.
+The command-help specifications `cli/command-help-is-complete` and
+`cli/commands-have-no-alias-routes` own help's binding obligations — complete
+command help, consistent resolution, and the absence of alias routes; the
+[specification catalog](../../../specifications/catalog.md) indexes them.
 Coverage compares generated and rendered surfaces with the real command tree
 and topic registry rather than reproducing those inventories manually.

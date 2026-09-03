@@ -19,6 +19,11 @@ export interface RegistrySkillVersion {
   readonly version: string;
   /** Body text of the skill document, so versions are observably distinct. */
   readonly body: string;
+  /**
+   * Publication instant. Defaults to one that predates the minimum release
+   * age; pass a recent instant to model a release the age policy still holds.
+   */
+  readonly published?: string;
 }
 
 export interface RegistryMcpVersion {
@@ -53,7 +58,7 @@ export const makeSpecRegistry = (): SpecRegistry => {
 
   const writeSkill = (name: string, versions: ReadonlyArray<RegistrySkillVersion>): void => {
     const skillDir = path.join(root, "extensions", OWNER, "skills", name);
-    const entries = versions.map(({ version, body }) => {
+    const entries = versions.map(({ version, body, published }) => {
       const stagingDir = path.join(skillDir, `staging-${version}`);
       fs.mkdirSync(path.join(stagingDir, "src"), { recursive: true });
       fs.writeFileSync(
@@ -74,7 +79,7 @@ export const makeSpecRegistry = (): SpecRegistry => {
       const archive = fs.readFileSync(archivePath);
       return {
         version,
-        published: PUBLISHED_AT,
+        published: published ?? PUBLISHED_AT,
         integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
       };
     });

@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "cli/projection-currency-follows-state-authority",
   title: "Generated document currency follows authoritative inputs, not rendered bytes",
   statement:
-    "Reconciliation shall judge a generated document current by its authoritative inputs and generation record rather than its rendered bytes, preserving body rewrites while inputs are unchanged, regenerating when inputs change, and blocking on invalid ownership markers without altering the file.",
+    "Reconciliation shall judge a generated document current by its authoritative inputs and generation record rather than its rendered bytes, preserving body rewrites while inputs are unchanged and regenerating when inputs change or the generated document is missing.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity", "agent-interoperability"],
@@ -73,29 +73,6 @@ const replaceRegionBody = (content: string, body: string): string => {
   const end = lines.findIndex((line) => line.includes("axm:end") && line.includes("region=rules"));
   if (start < 0 || end <= start) throw new Error("Expected a complete managed Rules region");
   return [...lines.slice(0, start + 1), body, ...lines.slice(end)].join("\n");
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const replaceManagedMcpCommand = (content: string, command: string): string => {
-  const config: unknown = JSON.parse(content);
-  if (!isRecord(config) || !isRecord(config["mcpServers"])) {
-    throw new Error("Expected a native MCP configuration map");
-  }
-  const demo = config["mcpServers"]["demo"];
-  if (!isRecord(demo)) throw new Error("Expected a managed demo MCP entry");
-  return `${JSON.stringify(
-    {
-      ...config,
-      mcpServers: {
-        ...config["mcpServers"],
-        demo: { ...demo, command },
-      },
-    },
-    null,
-    4,
-  )}\n`;
 };
 
 const lintWorkspace = (root: string) =>
@@ -336,93 +313,6 @@ describe("Generated document projection currency", () => {
 
       yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
       expect(workspace.readFile("AGENTS.md")).toContain("Required guidance.");
-    }),
-  );
-
-  it.effect("compares structured native projections by decoded value", () =>
-    Effect.gen(function* () {
-      const workspace = makeSpecWorkspace({
-        machine: true,
-        flags: { json: true },
-        settings: { agents: ["claude-code"] },
-      });
-      cleanups.push(workspace.cleanup);
-      workspace.writeSettings({
-        agents: ["claude-code"],
-        mcpServers: { demo: { command: "node", args: ["server.js"] } },
-      });
-      yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
-
-      const nativePath = path.join(workspace.root, ".mcp.json");
-      const generated = fs.readFileSync(nativePath, "utf8");
-      const equivalent = `${JSON.stringify(JSON.parse(generated), null, 4)}\n`;
-      expect(equivalent).not.toBe(generated);
-      fs.writeFileSync(nativePath, equivalent);
-
-      const equivalentPreview = yield* handleSync({ preview: true, failOnChange: true }).pipe(
-        Effect.provide(workspace.layer),
-        Effect.exit,
-      );
-      expect(Exit.isSuccess(equivalentPreview)).toBe(true);
-      yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
-      expect(fs.readFileSync(nativePath, "utf8")).toBe(equivalent);
-
-      const changed = replaceManagedMcpCommand(equivalent, "python");
-      fs.writeFileSync(nativePath, changed);
-      yield* handleSync({ preview: true, failOnChange: true }).pipe(
-        Effect.provide(workspace.layer),
-      );
-      expectReconciliationPreview(workspace);
-      expect(fs.readFileSync(nativePath, "utf8")).toBe(changed);
-
-      yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
-      expect(JSON.parse(fs.readFileSync(nativePath, "utf8"))).toMatchObject({
-        mcpServers: { demo: { command: "node", args: ["server.js"] } },
-      });
-    }),
-  );
-
-  it.effect("reports invalid ownership and blocks reconciliation without changing bytes", () =>
-    Effect.gen(function* () {
-      const workspace = makeSpecWorkspace({
-        machine: true,
-        flags: { json: true },
-        settings: {
-          owner: "@acme",
-          agents: [],
-          instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
-          rules: { review: "workspace" },
-        },
-      });
-      cleanups.push(workspace.cleanup);
-      writeAuthoredRule(workspace.root, "Required guidance.\n");
-      yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
-
-      const invalid = workspace
-        .readFile("AGENTS.md")
-        .replace("axm:start v=1 region=rules", "axm:start v=2 region=rules")
-        .replace("axm:end v=1 region=rules", "axm:end v=2 region=rules");
-      fs.writeFileSync(path.join(workspace.root, "AGENTS.md"), invalid);
-
-      const lintExit = yield* lintWorkspace(workspace.root).pipe(
-        Effect.provide(workspace.layer),
-        Effect.exit,
-      );
-      expect(Exit.isFailure(lintExit)).toBe(true);
-      const lintDocument = yield* decodeLintDocument(workspace.rendererState.results.at(-1)?.data);
-      expect(lintDocument.result.findings).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ ruleId: "workspace/projection-ownership-valid" }),
-        ]),
-      );
-      expect(workspace.readFile("AGENTS.md")).toBe(invalid);
-
-      yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
-      expect(workspace.rendererState.results.at(-1)).toMatchObject({
-        ok: false,
-        data: { result: { outcome: "blocked" } },
-      });
-      expect(workspace.readFile("AGENTS.md")).toBe(invalid);
     }),
   );
 });

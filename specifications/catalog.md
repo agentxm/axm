@@ -779,30 +779,33 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout, proving checksum verification, PATH guidance, and a working installed product.
 - Source: [`specifications/system/installability/product-installs-through-supported-channels.spec.ts`](../specifications/system/installability/product-installs-through-supported-channels.spec.ts)
 
+#### Reliability
+
+##### Telemetry collection or delivery failure is invisible to the operation
+
+- Requirement: `system/reliability/telemetry-failure-never-alters-outcomes`
+- Statement: When telemetry collection or delivery fails for any reason, the requested operation shall complete with the outcome it would have had without telemetry, and the failure shall neither fail nor alter that operation.
+- Class: quality (reliability)
+- Role: experience
+- Product goals: `privacy-and-consent`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `system/security/telemetry-failure-never-alters-outcomes`
+- Supersedes: `system/security/telemetry-failure-never-alters-outcomes`
+- Source: [`specifications/system/reliability/telemetry-failure-never-alters-outcomes.spec.ts`](../specifications/system/reliability/telemetry-failure-never-alters-outcomes.spec.ts)
+
 #### Security
 
 ##### Telemetry collection follows only the operator's environment consent
 
 - Requirement: `system/security/telemetry-consent-and-precedence`
 - Statement: Telemetry collection shall follow only the operator's environment, collecting by default, honoring the telemetry control to disable collection or limit it to errors, giving the do-not-track convention precedence over every other control, and reading no telemetry control from committed workspace configuration.
-- Class: quality (security)
+- Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`
 - Boundary: memory; selection: per-change
-- Methods: decision-table, contract
-- Open questions: One scenario reads the committed settings schema from the repository although no boundary beyond memory is declared, so the scope of the default execution is unclear.
+- Methods: decision-table, example
 - Source: [`specifications/system/security/telemetry-consent-and-precedence.spec.ts`](../specifications/system/security/telemetry-consent-and-precedence.spec.ts)
-
-##### Telemetry collection or delivery failure is invisible to the operation
-
-- Requirement: `system/security/telemetry-failure-never-alters-outcomes`
-- Statement: When telemetry collection or delivery fails for any reason, the requested operation shall complete with the outcome it would have had without telemetry, and the failure shall neither fail nor alter that operation.
-- Class: functional
-- Role: experience
-- Product goals: `privacy-and-consent`, `safe-repetition`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Source: [`specifications/system/security/telemetry-failure-never-alters-outcomes.spec.ts`](../specifications/system/security/telemetry-failure-never-alters-outcomes.spec.ts)
 
 ## Programmatic interfaces
 
@@ -1187,17 +1190,16 @@ programmatic interfaces, and supporting system behavior.
 
 #### Security
 
-##### Telemetry payloads carry only the documented observation fields
+##### Telemetry payloads carry only the fields the published telemetry contract declares
 
 - Requirement: `system/security/telemetry-payloads-respect-data-boundary`
-- Statement: Every telemetry event AXM sends shall carry only the documented observation fields for identity, timing, and command context, so that extension content, authored instructions and knowledge, credentials, and resolved secret values have no field in which to travel.
-- Class: quality (security)
+- Statement: Every telemetry event AXM sends shall carry only the observation fields for identity, timing, and command context that the published telemetry contract declares, so that extension content, authored instructions and knowledge, credentials, and resolved secret values have no field in which to travel.
+- Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`
 - Boundary: memory; selection: per-change
-- Methods: golden-output
-- Assumptions: Values inside the properties field carry only documented observation data; the evidence bounds only top-level field names.
-- Open questions: The allowed field list is declared inside the specification rather than read from a published telemetry contract, so which document is authoritative for the data boundary is unresolved.
+- Methods: contract, example
+- Assumptions: Values inside the free-form properties field carry only documented observation data; the evidence bounds field names at every level the published contract closes, not the values inside properties.; The telemetry contract snapshot generated into the CLI is the contract the production telemetry service publishes.
 - Source: [`specifications/system/security/telemetry-payloads-respect-data-boundary.spec.ts`](../specifications/system/security/telemetry-payloads-respect-data-boundary.spec.ts)
 
 ### Version constraints
@@ -1354,13 +1356,13 @@ programmatic interfaces, and supporting system behavior.
 
 - Requirement: `system/process/dual-typescript-alias-retained`
 - Statement: Until the recorded TypeScript 7.1 exit condition is met, the workspace shall resolve tsc to native TypeScript 7 and shall keep the typescript package resolving to the TypeScript 6 compatibility package.
-- Class: process
+- Class: constraint
 - Role: supporting
 - Product goals: `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: Only the committed workspace catalog in pnpm-workspace.yaml shows which packages the two TypeScript aliases resolve to.
 - Methods: contract
-- Open questions: The exit condition is described as recorded, but the specification does not name where it is recorded or how meeting it is observed.
+- Limitation: The evidence establishes only that the committed workspace catalog declares the two aliases; it cannot observe whether the exit condition recorded in the dual TypeScript alias decision (docs/architecture/decisions/typescript-dual-alias.md) has been reached. Retires when: TypeScript 7.1 or a later release removes the need for the compatibility split, the dual TypeScript alias decision record is superseded, and the workspace collapses to a single TypeScript dependency, retiring this constraint in the same change.
 - Source: [`specifications/system/process/dual-typescript-alias-retained.spec.ts`](../specifications/system/process/dual-typescript-alias-retained.spec.ts)
 
 ##### Changes are verified by one aggregate required check before merge
@@ -1387,19 +1389,20 @@ programmatic interfaces, and supporting system behavior.
 - Boundary rationale: The obligation is review-enforced; the repository supplies its declaration in the committed agent instructions from which every change is directed.
 - Methods: contract
 - Assumptions: Human and agent reviewers enforce the clean-break policy on each change; the evidence establishes only that the policy is declared.
+- Limitation: The obligation is time-boxed to the pre-launch period and its evidence establishes only that the clean-break policy is declared in the committed agent instructions; it cannot observe whether an individual change honored the policy. Retires when: Public launch of AXM, when backward compatibility returns to scope and this obligation is retired or superseded by the launch compatibility policy in the same change.
 - Source: [`specifications/system/process/pre-launch-changes-stay-coherent.spec.ts`](../specifications/system/process/pre-launch-changes-stay-coherent.spec.ts)
 
-##### Tracked repository content references no private coordination context
+##### Repository-authored tracked content references no private coordination context
 
 - Requirement: `system/process/public-artifacts-protect-private-context`
-- Statement: Tracked text content in the public AXM repository shall not reference the private work tracker or the private platform repository, so public artifacts carry no private coordination context.
+- Statement: Repository-authored tracked text content in the public AXM repository shall not reference the private work tracker or the private platform repository, so public artifacts carry no private coordination context.
 - Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: Only the tracked file set reported by git and the committed text content can show whether public artifacts reference private context.
 - Methods: contract
-- Open questions: Tracked content under agent_extensions is exempt from the check without a recorded reason for the exemption.
+- Assumptions: Installed extension content under agent_extensions/ is published extension content that AXM manages and the Registry governs, not a repository-authored artifact; the obligation and its scan cover repository-authored content only.
 - Source: [`specifications/system/process/public-artifacts-protect-private-context.spec.ts`](../specifications/system/process/public-artifacts-protect-private-context.spec.ts)
 
 ##### Release preparation isolates candidate state until delivery
@@ -1410,8 +1413,10 @@ programmatic interfaces, and supporting system behavior.
 - Role: supporting
 - Product goals: `dependable-change-process`, `safe-repetition`
 - Boundary: repository; selection: per-change
-- Boundary rationale: Only the committed release-preparation scripts and their tooling tests show how candidate state is allocated, delivered, and cleaned up.
-- Methods: model, decision-table
+- Boundary rationale: Only the committed task interface and the contributor-facing release guide show what the release-preparation entry point promises about candidate isolation, delivery, and cleanup; the orchestration itself is driven against a fake host by the bound tooling gate.
+- Methods: contract
+- Assumptions: The tooling test gate declared as bound evidence runs on every change through the required aggregate check.
+- Bound evidence: `test: axm:test (scripts/release-prepare.tooling.test.ts)` — Drives release preparation against a fake host and checks that candidate state is allocated and initialized from the preflighted source commit, that a dry run prepares the candidate and never commits, pushes, or opens a pull request, that a real run commits and confirms the invoking checkout is unchanged before pushing, that every allocated candidate is cleaned up when any later step fails, that a cleanup failure never hides the primary failure, and that the entry point allocates a temporary detached worktree installed with a frozen lockfile.
 - Source: [`specifications/system/process/release-preparation-isolates-candidate-state.spec.ts`](../specifications/system/process/release-preparation-isolates-candidate-state.spec.ts)
 
 ##### Release preparation validates production Registry gates without distribution
@@ -1422,9 +1427,10 @@ programmatic interfaces, and supporting system behavior.
 - Role: supporting
 - Product goals: `dependable-change-process`, `trustworthy-distribution`
 - Boundary: repository; selection: per-change
-- Boundary rationale: Only the committed release scripts show the preflight order, the production Registry address, and the preview-only publication arguments.
-- Methods: contract, decision-table
-- Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.
+- Boundary rationale: Only the committed task interface and the contributor-facing release guide show what the release-preparation entry point promises about the production Registry preflight and preview; the orchestration order and the preview publication contract are driven against a fake host by the bound tooling gate.
+- Methods: contract
+- Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.; The tooling test gate declared as bound evidence runs on every change through the required aggregate check.
+- Bound evidence: `test: axm:test (scripts/release-prepare.tooling.test.ts)` — Drives release preparation against a fake host and checks that the production Registry preflight runs before any candidate state is allocated and stops preparation when it fails, that the exact generated candidate is previewed against the Registry only after versioning, changelog, and bundled-skill generation, and that the production preview publication targets the production Registry in verify-on-existing preview mode with no apply path.
 - Source: [`specifications/system/process/release-preparation-validates-production-gates.spec.ts`](../specifications/system/process/release-preparation-validates-production-gates.spec.ts)
 
 ##### Releases publish only through the canonical automated workflow

@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -81,6 +85,10 @@ const makeHost = (failurePoint?: FailurePoint) => {
 };
 
 describe("release preparation orchestration", () => {
+  it("previews against the production Registry", () => {
+    expect(PRODUCTION_REGISTRY_URL).toBe("https://registry.agentxm.ai");
+  });
+
   it("uses the authenticated production preview contract", () => {
     expect(PRODUCTION_REGISTRY_PREVIEW_ARGS).toEqual([
       "axm:local",
@@ -265,5 +273,23 @@ describe("release candidate phase orchestration", () => {
 
     await expect(runReleaseCandidatePreparation(host)).rejects.toThrow(`${failurePoint} failed`);
     expect(events.at(-1)).toBe(failurePoint);
+  });
+});
+
+describe("release preparation host", () => {
+  const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
+  const readScript = (name: string): string => readFileSync(join(scriptsRoot, name), "utf8");
+
+  it("allocates candidate state in a temporary detached worktree with a frozen lockfile", () => {
+    const entrypoint = readScript("release-prepare.ts");
+    expect(entrypoint).toContain('mkdtempSync(join(tmpdir(), "axm-release-prepare-"))');
+    expect(entrypoint).toContain('["worktree", "add", "--detach"');
+    expect(entrypoint).toContain('["install", "--frozen-lockfile"]');
+    expect(entrypoint).not.toContain('["switch", "--create"');
+  });
+
+  it("applies real candidate mutations inside the isolated checkout in both modes", () => {
+    const candidate = readScript("release-prepare-candidate.ts");
+    expect(candidate).toContain("dryRun: false");
   });
 });

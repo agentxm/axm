@@ -10,9 +10,9 @@ import { defineSpecification } from "@agentxm/extension-model/unstable/specifica
 
 export const specification = defineSpecification({
   requirement: "system/process/public-artifacts-protect-private-context",
-  title: "Tracked repository content references no private coordination context",
+  title: "Repository-authored tracked content references no private coordination context",
   statement:
-    "Tracked text content in the public AXM repository shall not reference the private work tracker or the private platform repository, so public artifacts carry no private coordination context.",
+    "Repository-authored tracked text content in the public AXM repository shall not reference the private work tracker or the private platform repository, so public artifacts carry no private coordination context.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
@@ -22,10 +22,10 @@ export const specification = defineSpecification({
   methods: ["contract"],
   derivedFrom: [],
   supersedes: [],
-  assumptions: [],
-  openQuestions: [
-    "Tracked content under agent_extensions is exempt from the check without a recorded reason for the exemption.",
+  assumptions: [
+    "Installed extension content under agent_extensions/ is published extension content that AXM manages and the Registry governs, not a repository-authored artifact; the obligation and its scan cover repository-authored content only.",
   ],
+  openQuestions: [],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
@@ -40,6 +40,17 @@ const PRIVATE_CONTEXT_MARKERS = [
   ["linear.app", "agentxm"].join("/"),
   ["github.com", "agentxm", "agentxm-internal"].join("/"),
 ];
+
+/**
+ * The one tracked subtree outside the obligation: installed extension content
+ * that AXM manages and the Registry governs. It is published extension
+ * content, not a repository-authored artifact, so the scan names and excludes
+ * it explicitly.
+ */
+const INSTALLED_EXTENSION_CONTENT_PREFIX = "agent_extensions/";
+
+const isRepositoryAuthored = (file: string): boolean =>
+  !file.startsWith(INSTALLED_EXTENSION_CONTENT_PREFIX);
 
 const TEXT_EXTENSIONS = new Set([
   ".cjs",
@@ -60,31 +71,33 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 
 describe("Private context stays out of public artifacts", () => {
-  it.effect("no tracked text file references private tracker or private repository context", () =>
-    Effect.sync(() => {
-      const tracked = execFileSync("git", ["ls-files"], { cwd: repoRoot, encoding: "utf8" })
-        .split("\n")
-        .filter(
-          (file) =>
-            file.length > 0 &&
-            TEXT_EXTENSIONS.has(path.extname(file)) &&
-            !file.startsWith("agent_extensions/"),
-        );
+  it.effect(
+    "no repository-authored tracked text file references private tracker or private repository context",
+    () =>
+      Effect.sync(() => {
+        const tracked = execFileSync("git", ["ls-files"], { cwd: repoRoot, encoding: "utf8" })
+          .split("\n")
+          .filter(
+            (file) =>
+              file.length > 0 &&
+              TEXT_EXTENSIONS.has(path.extname(file)) &&
+              isRepositoryAuthored(file),
+          );
 
-      const findings: string[] = [];
-      for (const file of tracked) {
-        const filePath = path.join(repoRoot, file);
-        if (!fs.existsSync(filePath)) {
-          continue;
-        }
-        const content = fs.readFileSync(filePath, "utf8");
-        for (const marker of PRIVATE_CONTEXT_MARKERS) {
-          if (content.includes(marker)) {
-            findings.push(`${file}: ${marker}`);
+        const findings: string[] = [];
+        for (const file of tracked) {
+          const filePath = path.join(repoRoot, file);
+          if (!fs.existsSync(filePath)) {
+            continue;
+          }
+          const content = fs.readFileSync(filePath, "utf8");
+          for (const marker of PRIVATE_CONTEXT_MARKERS) {
+            if (content.includes(marker)) {
+              findings.push(`${file}: ${marker}`);
+            }
           }
         }
-      }
-      expect(findings).toEqual([]);
-    }),
+        expect(findings).toEqual([]);
+      }),
   );
 });

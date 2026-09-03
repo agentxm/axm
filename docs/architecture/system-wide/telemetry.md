@@ -66,7 +66,7 @@ without failing the requested command.
 - Disabled mode emits neither usage nor error events.
 - Telemetry failure never alters command output, state changes, or exit status
   (the executable specification
-  `system/security/telemetry-failure-never-alters-outcomes` owns the
+  `system/reliability/telemetry-failure-never-alters-outcomes` owns the
   obligation).
 - Telemetry payloads remain within the documented data boundary (the
   executable specification
@@ -78,7 +78,8 @@ without failing the requested command.
 ## Specifications
 
 The telemetry specifications under `specifications/system/security/` own the
-binding consent, precedence, failure-isolation, and data-boundary obligations;
-the [specification catalog](../../../specifications/catalog.md) indexes them.
+binding consent, precedence, and data-boundary obligations, and the one under
+`specifications/system/reliability/` owns failure isolation; the
+[specification catalog](../../../specifications/catalog.md) indexes them.
 The exact event schema remains an executable contract owned by code and its
 internal tests.

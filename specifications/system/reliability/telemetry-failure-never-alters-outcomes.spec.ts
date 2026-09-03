@@ -10,16 +10,17 @@ import { TelemetryClient, TelemetryClientLive } from "axm.sh/specification-harne
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
-  requirement: "system/security/telemetry-failure-never-alters-outcomes",
+  requirement: "system/reliability/telemetry-failure-never-alters-outcomes",
   title: "Telemetry collection or delivery failure is invisible to the operation",
   statement:
     "When telemetry collection or delivery fails for any reason, the requested operation shall complete with the outcome it would have had without telemetry, and the failure shall neither fail nor alter that operation.",
-  class: "functional",
+  class: "quality",
+  characteristic: "reliability",
   role: "experience",
   goals: ["privacy-and-consent", "safe-repetition"],
   methods: ["example"],
-  derivedFrom: [],
-  supersedes: [],
+  derivedFrom: ["system/security/telemetry-failure-never-alters-outcomes"],
+  supersedes: ["system/security/telemetry-failure-never-alters-outcomes"],
   assumptions: [],
   openQuestions: [],
 });

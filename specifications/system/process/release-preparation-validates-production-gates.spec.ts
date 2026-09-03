@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import {
+  defineBoundEvidence,
+  defineSpecification,
+} from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/process/release-preparation-validates-production-gates",
@@ -17,53 +20,75 @@ export const specification = defineSpecification({
   goals: ["dependable-change-process", "trustworthy-distribution"],
   boundary: "repository",
   boundaryRationale:
-    "Only the committed release scripts show the preflight order, the production Registry address, and the preview-only publication arguments.",
-  methods: ["contract", "decision-table"],
+    "Only the committed task interface and the contributor-facing release guide show what the release-preparation entry point promises about the production Registry preflight and preview; the orchestration order and the preview publication contract are driven against a fake host by the bound tooling gate.",
+  methods: ["contract"],
   derivedFrom: [],
   supersedes: [],
   assumptions: [
     "A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.",
+    "The tooling test gate declared as bound evidence runs on every change through the required aggregate check.",
   ],
   openQuestions: [],
 });
 
+/**
+ * The release-preparation and candidate orchestrations accept an injected
+ * host, and the repository tooling tests drive them against fake ones,
+ * asserting the observable order of effects and the preview publication
+ * contract. Their results are evidence bound to this identity; the
+ * specification remains the sole requirements authority.
+ */
+export const boundEvidence = defineBoundEvidence([
+  {
+    gate: "test: axm:test (scripts/release-prepare.tooling.test.ts)",
+    verifies:
+      "Drives release preparation against a fake host and checks that the production Registry preflight runs before any candidate state is allocated and stops preparation when it fails, that the exact generated candidate is previewed against the Registry only after versioning, changelog, and bundled-skill generation, and that the production preview publication targets the production Registry in verify-on-existing preview mode with no apply path.",
+  },
+]);
+
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 
+const readJsonRecord = (relativePath: string): Record<string, unknown> => {
+  const parsed: unknown = JSON.parse(fs.readFileSync(path.join(repoRoot, relativePath), "utf8"));
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`${relativePath} must contain a JSON object`);
+  }
+  return { ...parsed };
+};
+
+const child = (parent: Record<string, unknown>, key: string): Record<string, unknown> => {
+  const value = parent[key];
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`expected an object at ${key}`);
+  }
+  return { ...value };
+};
+
 describe("Release preparation Registry gates", () => {
-  it.effect("preflights the production Registry before allocating candidate state", () =>
+  it.effect("the preflight and the exact preview never replay a cached result", () =>
     Effect.sync(() => {
-      const orchestration = fs.readFileSync(
-        path.join(repoRoot, "scripts", "release-prepare-orchestration.ts"),
-        "utf8",
-      );
-      expect(orchestration.indexOf("host.preflightRegistry()")).toBeGreaterThan(-1);
-      expect(orchestration.indexOf("host.preflightRegistry()")).toBeLessThan(
-        orchestration.indexOf("host.allocateCandidateWorkspace()"),
-      );
+      const targets = child(readJsonRecord("project.json"), "targets");
+      // A cached task result would skip the production Registry preflight or
+      // the exact candidate preview; both targets are declared uncacheable.
+      expect(child(targets, "release-prepare")["cache"]).toBe(false);
+      expect(child(targets, "release-prepare-candidate")["cache"]).toBe(false);
     }),
   );
 
-  it.effect("uses preview-only publication against the production Registry", () =>
-    Effect.sync(() => {
-      const shared = fs.readFileSync(path.join(repoRoot, "scripts", "release-shared.ts"), "utf8");
-      expect(shared).toContain('PRODUCTION_REGISTRY_URL = "https://registry.agentxm.ai"');
-      expect(shared).toContain('"--on-existing"');
-      expect(shared).toContain('"verify"');
-      expect(shared).toContain('"--preview"');
-      expect(shared).not.toContain('"--apply"');
-    }),
-  );
-
-  it.effect("previews the exact generated candidate before delivery", () =>
-    Effect.sync(() => {
-      const candidate = fs.readFileSync(
-        path.join(repoRoot, "scripts", "release-prepare-candidate.ts"),
-        "utf8",
-      );
-      expect(candidate.indexOf("writeSkillVersion(version)")).toBeGreaterThan(-1);
-      expect(candidate.lastIndexOf("PRODUCTION_REGISTRY_PREVIEW_ARGS")).toBeGreaterThan(
-        candidate.indexOf("writeSkillVersion(version)"),
-      );
-    }),
+  it.effect(
+    "the release guide promises a production Registry preflight before candidate state and an exact preview without publication",
+    () =>
+      Effect.sync(() => {
+        const guide = fs
+          .readFileSync(path.join(repoRoot, "contributing", "guides", "releasing.md"), "utf8")
+          .replace(/\s+/g, " ")
+          .toLowerCase();
+        expect(guide).toContain("verify production registry authentication");
+        expect(guide).toContain("no candidate state exists yet");
+        expect(guide).toContain("exact production registry preview");
+        expect(guide).toContain(
+          "removes it without committing, pushing, opening a pull request, or publishing",
+        );
+      }),
   );
 });

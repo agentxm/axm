@@ -13,7 +13,7 @@ export const specification = defineSpecification({
   title: "The dual TypeScript alias stays in place until its recorded exit condition",
   statement:
     "Until the recorded TypeScript 7.1 exit condition is met, the workspace shall resolve tsc to native TypeScript 7 and shall keep the typescript package resolving to the TypeScript 6 compatibility package.",
-  class: "process",
+  class: "constraint",
   role: "supporting",
   goals: ["dependable-change-process"],
   boundary: "repository",
@@ -23,8 +23,14 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "The exit condition is described as recorded, but the specification does not name where it is recorded or how meeting it is observed.",
+  openQuestions: [],
+  limitations: [
+    {
+      limitation:
+        "The evidence establishes only that the committed workspace catalog declares the two aliases; it cannot observe whether the exit condition recorded in the dual TypeScript alias decision (docs/architecture/decisions/typescript-dual-alias.md) has been reached.",
+      retirementCondition:
+        "TypeScript 7.1 or a later release removes the need for the compatibility split, the dual TypeScript alias decision record is superseded, and the workspace collapses to a single TypeScript dependency, retiring this constraint in the same change.",
+    },
   ],
 });
 

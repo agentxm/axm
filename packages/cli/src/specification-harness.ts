@@ -144,9 +144,10 @@ export {
 export { mcpSecretAccount } from "@agentxm/extension-lifecycle";
 export { SourceHostProvidersLive } from "./test-helpers.js";
 // Application-boundary vocabulary the specifications assert against: exit
-// codes, the machine error envelope, telemetry mode and client, and the
-// captured renderer and flag layers. These modules are CLI-internal, so the
-// harness is their sanctioned specification entry point.
+// codes, the machine error envelope, telemetry mode, client, and published
+// ingest contract schemas, and the captured renderer and flag layers. These
+// modules are CLI-internal, so the harness is their sanctioned specification
+// entry point.
 export { AppError, ExitCodeDefinitions } from "./app-error/index.js";
 export { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
 export { TestFlagsLayer, Verbosity } from "./cli-flags/index.js";
@@ -157,7 +158,13 @@ export {
   type TestRendererState,
 } from "./screen/index.js";
 export { PromptCancelled } from "./prompt/prompt-cancelled.js";
-export { TelemetryClient, TelemetryClientLive, resolveTelemetryMode } from "./telemetry/index.js";
+export {
+  TelemetryClient,
+  TelemetryClientLive,
+  TelemetryErrorsRequest,
+  TelemetryEventsRequest,
+  resolveTelemetryMode,
+} from "./telemetry/index.js";
 export {
   HookConfiguredAgentOutcomesProviderLive,
   HookManagerLive,

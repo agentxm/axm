@@ -25,6 +25,14 @@ export const specification = defineSpecification({
     "Human and agent reviewers enforce the clean-break policy on each change; the evidence establishes only that the policy is declared.",
   ],
   openQuestions: [],
+  limitations: [
+    {
+      limitation:
+        "The obligation is time-boxed to the pre-launch period and its evidence establishes only that the clean-break policy is declared in the committed agent instructions; it cannot observe whether an individual change honored the policy.",
+      retirementCondition:
+        "Public launch of AXM, when backward compatibility returns to scope and this obligation is retired or superseded by the launch compatibility policy in the same change.",
+    },
+  ],
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

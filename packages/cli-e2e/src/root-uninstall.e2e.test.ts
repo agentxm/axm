@@ -14,6 +14,7 @@ export const executionBinding = {
   requirements: [
     "cli/uninstall/removes-direct-route-and-recomputes-reachability",
     "cli/uninstall/is-idempotent",
+    "cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable",
   ],
   boundary: "process",
   rationale:
@@ -504,6 +505,71 @@ describe("axm uninstall", () => {
       }
     },
   );
+
+  it("retires a pack whose package manifest is missing, through both routes", async () => {
+    const registryDir = createTempDir("axm-registry-");
+    const rootWorkspace = createTempDir();
+    const typedWorkspace = createTempDir();
+    const name = "root-uninstall-unreadable-pack";
+
+    try {
+      await publishPackToRegistry(registryDir.path, name);
+      await initWorkspace(rootWorkspace.path, registryDir.path);
+      await initWorkspace(typedWorkspace.path, registryDir.path);
+      await installRegistryExtension(rootWorkspace.path, "packs", registryFqn("packs", name));
+      await installRegistryExtension(typedWorkspace.path, "packs", registryFqn("packs", name));
+
+      // Retirement after the package content is already gone is the reported
+      // case: the manifest the graph gate reads no longer exists.
+      const packDirs = [rootWorkspace.path, typedWorkspace.path].map((workspacePath) =>
+        extensionDirForSurface(workspacePath, "packs", name),
+      );
+      for (const packDir of packDirs) {
+        fs.rmSync(path.join(packDir, "pack.json"));
+      }
+
+      const rootResult = await runJsonCommand(rootWorkspace.path, [
+        "uninstall",
+        registryFqn("packs", name),
+      ]);
+      const typedResult = await runJsonCommand(typedWorkspace.path, ["packs", "uninstall", name]);
+
+      expect(rootResult.exitCode, `${rootResult.stderr}`).toBe(0);
+      expect(typedResult.exitCode, `${typedResult.stderr}`).toBe(0);
+      expectAppliedUninstallDocument(rootResult);
+      expectAppliedUninstallDocument(typedResult);
+      expectUninstallFootprint(rootResult);
+      expect(rootResult.stdout).toEqual(typedResult.stdout);
+      expectWorkspaceStateEquivalent(rootWorkspace.path, typedWorkspace.path);
+
+      // The result names the unreadable manifest and says what survived, so no
+      // consumer reads it as a content removal that did not occur.
+      const reported = JSON.stringify(rootResult.result);
+      expect(reported).toContain("pack.json");
+      expect(reported).toContain("left its package content in place");
+
+      for (const [index, workspacePath] of [rootWorkspace.path, typedWorkspace.path].entries()) {
+        const settings = JSON.parse(fs.readFileSync(path.join(workspacePath, "axm.json"), "utf-8"));
+        const lockfile = YAML.parse(
+          fs.readFileSync(path.join(workspacePath, "axm-lock.yaml"), "utf-8"),
+        );
+        expect(settings.packs?.[name]).toBeUndefined();
+        expect(lockfile.packs?.[name]).toBeUndefined();
+        // Content whose manifest could not be read survives the uninstall.
+        expect(fs.existsSync(packDirs[index] ?? "")).toBe(true);
+      }
+
+      const rootSecondPass = await runJsonCommand(rootWorkspace.path, [
+        "uninstall",
+        registryFqn("packs", name),
+      ]);
+      expect(rootSecondPass.result).toMatchObject({ outcome: "no-op" });
+    } finally {
+      registryDir.cleanup();
+      rootWorkspace.cleanup();
+      typedWorkspace.cleanup();
+    }
+  });
 
   it("matches per-type uninstall at user scope", async () => {
     const registryDir = createTempDir("axm-registry-");

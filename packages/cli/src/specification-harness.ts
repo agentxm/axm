@@ -93,6 +93,7 @@ export { handlePacksAdd } from "./root/packs/add.js";
 export { handlePacksRemove } from "./root/packs/remove.js";
 export { handlePacksNew } from "./root/packs/new.js";
 export { handlePacksShow } from "./root/packs/show.js";
+export { handleUninstallPack } from "./root/packs/uninstall/handler.js";
 export { handlePackActivation } from "./root/packs/activation.js";
 export { handleRootPublish } from "./root/publish/command.js";
 export { makeAxmFormatter } from "./formatter.js";

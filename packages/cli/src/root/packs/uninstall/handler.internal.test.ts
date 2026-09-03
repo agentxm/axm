@@ -383,17 +383,96 @@ describe("packs uninstall handler", () => {
       );
     });
 
-    it.effect("blocks preview and apply on the same incomplete Pack graph facts", () => {
+    it.effect("retires a workspace pack whose manifest is missing, in preview and apply", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = initializeWorkspacePack();
       const manifestPath = path.join(axmDir, "packs", "toolkit", "pack.json");
       fs.rmSync(manifestPath);
+      const packSentinel = path.join(axmDir, "packs", "toolkit", "README.md");
+      fs.writeFileSync(packSentinel, "authored pack content\n");
       const projectionPath = path.join(tempDir, "AGENTS.md");
       fs.writeFileSync(projectionPath, "authored projection sentinel\n");
       const before = {
         settings: fs.readFileSync(path.join(axmDir, "axm.json"), "utf8"),
         lockfile: fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
         projection: fs.readFileSync(projectionPath, "utf8"),
+        packSentinel: fs.readFileSync(packSentinel, "utf8"),
+      };
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("toolkit"), {
+            yes: false,
+            preview: true,
+          });
+
+          // Preview reaches the decision without touching workspace state.
+          const preview = property(rendererState.results[0]?.data, "result");
+          expect(preview).toMatchObject({ outcome: "previewed" });
+          expect(fs.readFileSync(path.join(axmDir, "axm.json"), "utf8")).toBe(before.settings);
+          expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
+
+          yield* handleUninstallPack(defaultArgs("toolkit"), {
+            yes: true,
+            preview: false,
+          });
+
+          const apply = property(rendererState.results[1]?.data, "result");
+          expect(apply).toMatchObject({
+            outcome: "applied",
+            units: [
+              expect.objectContaining({
+                warnings: [expect.stringContaining("packs/toolkit/pack.json")],
+              }),
+            ],
+          });
+          expect(JSON.stringify(apply)).toContain("left its package content in place");
+
+          const settings = JSON.parse(fs.readFileSync(path.join(axmDir, "axm.json"), "utf8"));
+          const lockfile = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+          expect(settings.packs?.toolkit).toBeUndefined();
+          expect(lockfile.packs?.toolkit).toBeUndefined();
+          // Nothing AXM could not verify was deleted.
+          expect(fs.readFileSync(packSentinel, "utf8")).toBe(before.packSentinel);
+          expect(fs.readFileSync(projectionPath, "utf8")).toBe(before.projection);
+          expect(fs.existsSync(manifestPath)).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("names the unreadable manifest in human output", () => {
+      const { provide, logs } = makeLayers();
+      const axmDir = initializeWorkspacePack();
+      fs.rmSync(path.join(axmDir, "packs", "toolkit", "pack.json"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("toolkit"), {
+            yes: true,
+            preview: false,
+          });
+
+          const output = [...logs.error, ...logs.warn, ...logs.info, ...logs.success].join("\n");
+          expect(output).toContain("packs/toolkit/pack.json");
+          expect(output).toContain("left its package content in place");
+        }),
+      );
+    });
+
+    it.effect("keeps failing closed when a pack other than the target is unreadable", () => {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      initWorkspace(axmDir, {
+        settingsPacks: { toolkit: "workspace", sibling: "workspace" },
+        lockfilePacks: {
+          toolkit: makeWorkspacePackLockEntry("@acme", "toolkit"),
+          sibling: makeWorkspacePackLockEntry("@acme", "sibling"),
+        },
+      });
+      fs.rmSync(path.join(tempDir, "packs", "sibling", "pack.json"));
+      const before = {
+        settings: fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),
+        lockfile: fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8"),
       };
 
       return provide(
@@ -407,57 +486,59 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          const preview = property(rendererState.results[0]?.data, "result");
-          const apply = property(rendererState.results[1]?.data, "result");
           const decision = {
             outcome: "blocked",
-            blocking: expect.objectContaining({
-              class: "precondition-unmet",
-              phase: "planning",
-              causeCode: "conflict",
-            }),
-            counts: expect.objectContaining({ total: 1, ready: 0, blocked: 1 }),
-            units: [
-              expect.objectContaining({
-                state: "blocked",
-                message: expect.stringContaining("pack-manifest-unavailable"),
-              }),
-            ],
             riskConditions: [
               expect.objectContaining({
                 level: "blocked",
                 id: PACK_UNINSTALL_GRAPH_BLOCKER_ID,
-                detail: expect.stringContaining("packs/toolkit/pack.json"),
+                detail: expect.stringContaining("restore or uninstall @acme/packs/sibling first"),
               }),
             ],
           };
-          expect(preview).toMatchObject(decision);
-          expect(apply).toMatchObject(decision);
-          expect(JSON.stringify(preview)).toContain("@acme/packs/toolkit");
-          expect(fs.readFileSync(path.join(axmDir, "axm.json"), "utf8")).toBe(before.settings);
-          expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
-          expect(fs.existsSync(manifestPath)).toBe(false);
-          expect(fs.readFileSync(projectionPath, "utf8")).toBe(before.projection);
+          expect(property(rendererState.results[0]?.data, "result")).toMatchObject(decision);
+          expect(property(rendererState.results[1]?.data, "result")).toMatchObject(decision);
+          expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(before.settings);
+          expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
+            before.lockfile,
+          );
         }),
       );
     });
 
-    it.effect("reports incomplete Pack facts in human output", () => {
-      const { provide, logs } = makeLayers();
+    it.effect("returns a stale candidate when the missing manifest reappears before apply", () => {
+      const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = initializeWorkspacePack();
-      fs.rmSync(path.join(axmDir, "packs", "toolkit", "pack.json"));
+      const manifestPath = path.join(axmDir, "packs", "toolkit", "pack.json");
+      const restoredManifest = fs.readFileSync(manifestPath, "utf8");
+      fs.rmSync(manifestPath);
+      const before = {
+        settings: fs.readFileSync(path.join(axmDir, "axm.json"), "utf8"),
+        lockfile: fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
+      };
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallPack(defaultArgs("toolkit"), {
-            yes: false,
-            preview: true,
-          });
+          yield* handleUninstallPack(
+            defaultArgs("toolkit"),
+            { yes: true, preview: false },
+            {
+              beforeApply: () =>
+                Effect.sync(() => {
+                  fs.writeFileSync(manifestPath, restoredManifest);
+                }),
+            },
+          );
 
-          const output = [...logs.error, ...logs.warn, ...logs.info, ...logs.success].join("\n");
-          expect(output).toContain("@acme/packs/toolkit");
-          expect(output).toContain("pack-manifest-unavailable");
-          expect(output).toContain("packs/toolkit/pack.json");
+          expect(property(rendererState.results[0]?.data, "result")).toMatchObject({
+            outcome: "blocked",
+            blocking: expect.objectContaining({
+              class: "stale-candidate",
+              phase: "validation",
+            }),
+          });
+          expect(fs.readFileSync(path.join(axmDir, "axm.json"), "utf8")).toBe(before.settings);
+          expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
         }),
       );
     });

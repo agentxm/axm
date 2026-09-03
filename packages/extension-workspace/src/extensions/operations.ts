@@ -617,12 +617,30 @@ export interface UninstallOperationArgs<
    * dependency steps, whose closure runs one projection write at the end).
    */
   readonly skipProjections?: boolean;
+  /**
+   * Declares that the target's canonical package could not be read. Uninstall
+   * then removes the target's configuration and accepted resolution only, and
+   * preserves canonical content it cannot verify.
+   */
+  readonly retirement?: UnreadablePackageRetirement;
+}
+
+/** Why an uninstall target's canonical package could not be read. */
+export interface UnreadablePackageRetirement {
+  /** Workspace path where the unreadable manifest was looked for. */
+  readonly manifestPath: string;
+  readonly reason: "missing" | "invalid";
 }
 
 type UninstallSettlement = {
   readonly declaration: "removed" | "absent";
   readonly canonical:
-    "removed" | "absent" | "retained-by-pack" | "preserved-authored" | "preserved-unowned";
+    | "removed"
+    | "absent"
+    | "retained-by-pack"
+    | "preserved-authored"
+    | "preserved-unowned"
+    | "preserved-unreadable";
 };
 
 const uninstallSettlementMessage = (
@@ -644,8 +662,21 @@ const uninstallSettlementMessage = (
       return `Unconfigured ${label}; preserved its workspace-authored source`;
     case "preserved-unowned":
       return `Unconfigured ${label}; preserved canonical content without an accepted source owner`;
+    case "preserved-unreadable":
+      return `Unconfigured ${label}; preserved its package because its manifest could not be read`;
   }
 };
+
+/**
+ * Plain-language account of a registration-only removal: what was retired, why
+ * its content could not be verified, what was left in place, and what the
+ * operator can do about the remainder.
+ */
+const unreadablePackageWarning = (
+  target: ExtensionTarget,
+  retirement: UnreadablePackageRetirement,
+): string =>
+  `${toLabel(target)}: its package manifest ${retirement.reason === "missing" ? "is missing" : "cannot be read"} at ${retirement.manifestPath}, so AXM removed its configuration entry and accepted resolution and left its package content in place. Delete that content yourself once you no longer need it.`;
 
 /**
  * Execute the uninstall sequence with retention check.
@@ -674,6 +705,18 @@ const runUninstallOperation = <TRef extends ExtensionRef, F>(
         args.skipProjections !== true
           ? applyManagerProjectionPlans(manager)
           : Effect.succeed(NO_PROJECTION_WARNINGS);
+
+      if (args.retirement !== undefined) {
+        // Nothing about the package can be verified, so only the registration
+        // AXM itself wrote is removable. Canonical content stays untouched.
+        yield* manager.removeSettingsEntry({ target: args.target });
+        yield* manager.removeLockfileEntry({ target: args.target });
+        return {
+          settlement: { declaration: "removed", canonical: "preserved-unreadable" } as const,
+          expectedInstalled: undefined,
+          projectionWarnings: yield* applyProjections(),
+        };
+      }
 
       const isInstalled = yield* manager.isInstalled({ target: args.target });
       if (!isInstalled) {
@@ -757,11 +800,17 @@ const runUninstallOperation = <TRef extends ExtensionRef, F>(
           }
         }),
     });
+    const warnings = [
+      ...(args.retirement === undefined
+        ? []
+        : [unreadablePackageWarning(args.target, args.retirement)]),
+      ...result.projectionWarnings,
+    ];
     return {
       result: "success",
       message: uninstallSettlementMessage(args.target, result.settlement),
       ...(result.settlement.declaration === "absent" ? { disposition: "unchanged" as const } : {}),
-      ...(result.projectionWarnings.length === 0 ? {} : { warnings: result.projectionWarnings }),
+      ...(warnings.length === 0 ? {} : { warnings }),
     } satisfies JobStepResult;
   }).pipe(Effect.mapError(args.toStepFailure));
 

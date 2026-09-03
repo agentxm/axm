@@ -5,6 +5,7 @@ import { decodeDesiredExtensionIdentity } from "@agentxm/extension-authoring";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 
 import {
+  validatePackRetirementFacts,
   validateResolvedPackUninstallTargets,
   type ResolvedPackUninstallTarget,
 } from "./command-actions.js";
@@ -116,20 +117,154 @@ describe("pack uninstall target precondition", () => {
 });
 
 describe("pack uninstall graph readiness", () => {
-  it("returns structured Pack and authority facts for an incomplete graph", () => {
+  const incompleteGraph = (problems: DesiredStateGraph["problems"]): DesiredStateGraph => ({
+    complete: false,
+    nodes: [],
+    mcpSourceClosures: [],
+    problems,
+  });
+
+  const manifestPath = "packs/toolkit/pack.json";
+
+  it("retires a selected pack whose own manifest is missing", () => {
     const decision = planPackUninstallGraphReadiness(
-      {
-        complete: false,
-        nodes: [],
-        mcpSourceClosures: [],
-        problems: [
-          {
-            type: "pack-manifest-unavailable",
-            pack: "@acme/packs/toolkit",
-            path: "agent_extensions/agentxm/@acme/packs/toolkit/pack.json",
-          },
-        ],
-      },
+      incompleteGraph([
+        { type: "pack-manifest-unavailable", pack: "@acme/packs/toolkit", path: manifestPath },
+      ]),
+      ["workspace:@acme/packs/toolkit"],
+      "project",
+    );
+
+    expect(decision).toMatchObject({
+      readiness: "ready",
+      retirements: [{ pack: "@acme/packs/toolkit", manifestPath, reason: "missing" }],
+    });
+  });
+
+  it("retires a selected pack whose own manifest cannot be decoded", () => {
+    const decision = planPackUninstallGraphReadiness(
+      incompleteGraph([
+        { type: "pack-manifest-invalid", pack: "@acme/packs/toolkit", path: manifestPath },
+      ]),
+      ["@acme/packs/toolkit"],
+      "project",
+    );
+
+    expect(decision).toMatchObject({
+      readiness: "ready",
+      retirements: [{ pack: "@acme/packs/toolkit", manifestPath, reason: "invalid" }],
+    });
+  });
+
+  it("retires past the lock problems an unreadable manifest causes for the same pack", () => {
+    const decision = planPackUninstallGraphReadiness(
+      incompleteGraph([
+        { type: "pack-manifest-unavailable", pack: "@acme/packs/toolkit", path: manifestPath },
+        {
+          type: "pack-manifest-content-mismatch",
+          pack: "@acme/packs/toolkit",
+          path: manifestPath,
+          status: "missing",
+          acceptedVersion: "1.0.0",
+          acceptedContentIdentity: "sha256-accepted",
+        },
+        {
+          type: "pack-resolution-unavailable",
+          pack: "@acme/packs/toolkit",
+          detail: "The configured external Pack has no matching accepted resolution.",
+        },
+      ]),
+      ["@acme/packs/toolkit"],
+      "project",
+    );
+
+    expect(decision).toMatchObject({ readiness: "ready", retirements: [{ reason: "missing" }] });
+  });
+
+  it("stays blocked when a pack other than the target is incomplete", () => {
+    const decision = planPackUninstallGraphReadiness(
+      incompleteGraph([
+        { type: "pack-manifest-unavailable", pack: "@acme/packs/toolkit", path: manifestPath },
+        {
+          type: "pack-manifest-unavailable",
+          pack: "@acme/packs/sibling",
+          path: "packs/sibling/pack.json",
+        },
+      ]),
+      ["workspace:@acme/packs/toolkit"],
+      "project",
+    );
+
+    expect(decision).toMatchObject({ readiness: "blocked", id: PACK_UNINSTALL_GRAPH_BLOCKER_ID });
+    if (decision.readiness === "blocked") {
+      expect(decision.detail).toContain("restore or uninstall @acme/packs/sibling first");
+    }
+  });
+
+  it("stays blocked on a graph problem that belongs to no pack", () => {
+    const decision = planPackUninstallGraphReadiness(
+      incompleteGraph([
+        { type: "pack-manifest-unavailable", pack: "@acme/packs/toolkit", path: manifestPath },
+        { type: "workspace-owner-missing", extensionType: "skill", name: "orphan" },
+      ]),
+      ["workspace:@acme/packs/toolkit"],
+      "project",
+    );
+
+    expect(decision).toMatchObject({ readiness: "blocked" });
+  });
+
+  it("stays blocked when the target's readable manifest declares another identity", () => {
+    const decision = planPackUninstallGraphReadiness(
+      incompleteGraph([
+        {
+          type: "pack-identity-mismatch",
+          pack: "@acme/packs/toolkit",
+          path: manifestPath,
+          detail: "Expected @acme/packs/toolkit, found @other/packs/toolkit@1.0.0.",
+        },
+      ]),
+      ["workspace:@acme/packs/toolkit"],
+      "project",
+    );
+
+    expect(decision).toMatchObject({
+      readiness: "blocked",
+      id: PACK_UNINSTALL_GRAPH_BLOCKER_ID,
+      facts: [{ problemType: "pack-identity-mismatch", packs: ["@acme/packs/toolkit"] }],
+    });
+  });
+
+  it("stays blocked when the target only disagrees with its accepted resolution", () => {
+    const decision = planPackUninstallGraphReadiness(
+      incompleteGraph([
+        {
+          type: "pack-manifest-content-mismatch",
+          pack: "@acme/packs/toolkit",
+          path: manifestPath,
+          status: "changed",
+          acceptedVersion: "1.0.0",
+          acceptedContentIdentity: "sha256-accepted",
+          observedVersion: "2.0.0",
+          observedContentIdentity: "sha256-observed",
+        },
+      ]),
+      ["@acme/packs/toolkit"],
+      "project",
+    );
+
+    expect(decision).toMatchObject({ readiness: "blocked" });
+  });
+
+  it("reports structured Pack and authority facts when it stays blocked", () => {
+    const decision = planPackUninstallGraphReadiness(
+      incompleteGraph([
+        {
+          type: "pack-manifest-unavailable",
+          pack: "@acme/packs/sibling",
+          path: "agent_extensions/agentxm/@acme/packs/sibling/pack.json",
+        },
+      ]),
       ["@acme/packs/toolkit"],
       "project",
     );
@@ -140,21 +275,84 @@ describe("pack uninstall graph readiness", () => {
       facts: [
         {
           problemType: "pack-manifest-unavailable",
-          packs: ["@acme/packs/toolkit"],
-          authoritativeLocations: ["agent_extensions/agentxm/@acme/packs/toolkit/pack.json"],
+          packs: ["@acme/packs/sibling"],
+          authoritativeLocations: ["agent_extensions/agentxm/@acme/packs/sibling/pack.json"],
         },
       ],
     });
     if (decision.readiness === "blocked") {
-      expect(decision.detail).toContain("@acme/packs/toolkit");
+      expect(decision.detail).toContain("@acme/packs/sibling");
       expect(decision.detail).toContain("pack-manifest-unavailable");
-      expect(decision.detail).toContain("agent_extensions/agentxm/@acme/packs/toolkit/pack.json");
     }
   });
 
-  it("returns the complete graph as ready", () => {
+  it("stays blocked on an incomplete graph that reported no problem", () => {
+    expect(
+      planPackUninstallGraphReadiness(incompleteGraph([]), ["@acme/packs/toolkit"], "project"),
+    ).toMatchObject({ readiness: "blocked", facts: [{ problemType: "unknown" }] });
+  });
+
+  it("returns the complete graph as ready with nothing to retire", () => {
     expect(planPackUninstallGraphReadiness(completeGraph([]), [], "project")).toMatchObject({
       readiness: "ready",
+      retirements: [],
     });
   });
+});
+
+describe("pack retirement staleness", () => {
+  const retirement = {
+    pack: "@acme/packs/toolkit",
+    manifestPath: "packs/toolkit/pack.json",
+    reason: "missing",
+  } as const;
+
+  it.effect("accepts unchanged retirement facts", () =>
+    validatePackRetirementFacts({ planned: [retirement], observed: [retirement] }),
+  );
+
+  it.effect("accepts a plan that retires nothing against an intact graph", () =>
+    validatePackRetirementFacts({ planned: [], observed: [] }),
+  );
+
+  it.effect("conflicts when the target's package became readable before apply", () =>
+    Effect.gen(function* () {
+      const error = yield* validatePackRetirementFacts({
+        planned: [retirement],
+        observed: [],
+      }).pipe(Effect.flip);
+      expect(error.code).toBe("conflict");
+      expect(error.detail).toContain("@acme/packs/toolkit");
+    }),
+  );
+
+  it.effect("conflicts when the target's package became unreadable before apply", () =>
+    Effect.gen(function* () {
+      const error = yield* validatePackRetirementFacts({
+        planned: [],
+        observed: [retirement],
+      }).pipe(Effect.flip);
+      expect(error.code).toBe("conflict");
+    }),
+  );
+
+  it.effect("conflicts when the reason for the target's unreadability changed", () =>
+    Effect.gen(function* () {
+      const error = yield* validatePackRetirementFacts({
+        planned: [retirement],
+        observed: [{ ...retirement, reason: "invalid" }],
+      }).pipe(Effect.flip);
+      expect(error.code).toBe("conflict");
+    }),
+  );
+
+  it.effect("conflicts when the graph no longer supports any retirement decision", () =>
+    Effect.gen(function* () {
+      const error = yield* validatePackRetirementFacts({
+        planned: [retirement],
+        observed: undefined,
+      }).pipe(Effect.flip);
+      expect(error.code).toBe("conflict");
+    }),
+  );
 });

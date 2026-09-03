@@ -779,6 +779,103 @@ describe("buildUninstallOperation", () => {
     }),
   );
 
+  it.effect("removes only the registration of a target whose package cannot be read", () =>
+    Effect.gen(function* () {
+      const materializeUninstall = vi.fn(() => Effect.void);
+      let configured = true;
+      let locked = true;
+      const manager = {
+        type: "skill",
+        runTransaction,
+        // A target whose manifest is gone still has canonical content on disk.
+        isInstalled: () => Effect.succeed(true),
+        materializeInstall: () => Effect.void,
+        getConfiguredSource: () =>
+          Effect.succeed(configured ? Option.some("@acme/packs/toolkit") : Option.none()),
+        listMaterializable: () => Effect.succeed([]),
+        materializeUninstall,
+        materializeDeactivate: () => Effect.void,
+        upsertSettingsEntry: () => Effect.void,
+        removeSettingsEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+        upsertLockfileEntry: () => Effect.void,
+        removeLockfileEntry: () =>
+          Effect.sync(() => {
+            locked = false;
+          }),
+      } satisfies ExtensionManager<SkillExtensionRef>;
+      const operation = buildUninstallOperation<SkillExtensionRef>(
+        manager,
+        { isRequiredByInstalledPack: () => Effect.succeed(false) },
+        {
+          target: { type: "skill", name: "toolkit" },
+          toStepFailure,
+          retirement: { manifestPath: "packs/toolkit/pack.json", reason: "missing" },
+        },
+      );
+      if (operation.readiness === "error") {
+        throw new Error(operation.errorMessage);
+      }
+
+      const result = yield* operation.run;
+
+      expect(configured).toBe(false);
+      expect(locked).toBe(false);
+      // Content AXM cannot verify is never deleted.
+      expect(materializeUninstall).not.toHaveBeenCalled();
+      expect(result.message).toBe(
+        "Unconfigured toolkit; preserved its package because its manifest could not be read",
+      );
+      if (result.result !== "success") throw new Error(result.message);
+      expect(result.warnings).toEqual([
+        "toolkit: its package manifest is missing at packs/toolkit/pack.json, so AXM removed its configuration entry and accepted resolution and left its package content in place. Delete that content yourself once you no longer need it.",
+      ]);
+    }),
+  );
+
+  it.effect("distinguishes an undecodable package manifest from a missing one", () =>
+    Effect.gen(function* () {
+      let configured = true;
+      const manager = {
+        type: "skill",
+        runTransaction,
+        isInstalled: () => Effect.succeed(true),
+        materializeInstall: () => Effect.void,
+        getConfiguredSource: () =>
+          Effect.succeed(configured ? Option.some("@acme/packs/toolkit") : Option.none()),
+        listMaterializable: () => Effect.succeed([]),
+        materializeUninstall: () => Effect.void,
+        materializeDeactivate: () => Effect.void,
+        upsertSettingsEntry: () => Effect.void,
+        removeSettingsEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+        upsertLockfileEntry: () => Effect.void,
+        removeLockfileEntry: () => Effect.void,
+      } satisfies ExtensionManager<SkillExtensionRef>;
+      const operation = buildUninstallOperation<SkillExtensionRef>(
+        manager,
+        { isRequiredByInstalledPack: () => Effect.succeed(false) },
+        {
+          target: { type: "skill", name: "toolkit" },
+          toStepFailure,
+          retirement: { manifestPath: "packs/toolkit/pack.json", reason: "invalid" },
+        },
+      );
+      if (operation.readiness === "error") {
+        throw new Error(operation.errorMessage);
+      }
+
+      const result = yield* operation.run;
+
+      if (result.result !== "success") throw new Error(result.message);
+      expect(result.warnings?.[0]).toContain("cannot be read at packs/toolkit/pack.json");
+    }),
+  );
+
   it.effect("removes configured projections without canonical artifacts", () =>
     Effect.gen(function* () {
       let configured = true;

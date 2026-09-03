@@ -49,7 +49,11 @@ import {
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
-import { PACK_UNINSTALL_GRAPH_BLOCKER_ID, planPackUninstallGraphReadiness } from "./readiness.js";
+import {
+  PACK_UNINSTALL_GRAPH_BLOCKER_ID,
+  planPackUninstallGraphReadiness,
+  type PackRetirement,
+} from "./readiness.js";
 import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
 import {
   SkillManager,
@@ -107,6 +111,9 @@ export interface UninstallPackCommandIntent {
   readonly packsToUninstall: ReadonlyArray<ResolvedPackUninstallTarget>;
 }
 
+const normalizedPackIdentity = (identity: string): string =>
+  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+
 const identityValidationError = (identity: string) =>
   makeAppError({
     code: "validation",
@@ -151,6 +158,39 @@ export const validateResolvedPackUninstallTargets = (
       }
     }
   });
+
+const retirementKey = (retirement: PackRetirement): string =>
+  `${retirement.pack}\u0000${retirement.reason}\u0000${retirement.manifestPath}`;
+
+const retirementSetKey = (retirements: ReadonlyArray<PackRetirement>): string =>
+  [...retirements].map(retirementKey).sort().join("\u0001");
+
+/**
+ * Preview and apply must reach one decision from unchanged inputs. A target
+ * whose package became readable — or unreadable — between the two phases is a
+ * different decision, so the candidate is stale rather than applicable.
+ */
+export const validatePackRetirementFacts = (args: {
+  readonly planned: ReadonlyArray<PackRetirement>;
+  readonly observed: ReadonlyArray<PackRetirement> | undefined;
+}): Effect.Effect<void, ReturnType<typeof makeAppError>> => {
+  if (
+    args.observed !== undefined &&
+    retirementSetKey(args.observed) === retirementSetKey(args.planned)
+  ) {
+    return Effect.void;
+  }
+  const packs = [...new Set([...args.planned].map((retirement) => retirement.pack))];
+  return makeAppError({
+    code: "conflict",
+    detail:
+      packs.length === 0
+        ? "The pack graph changed before uninstall"
+        : `Pack package readability for ${packs.join(", ")} changed before uninstall`,
+    recover: "Inspect the current pack state, then retry the uninstall.",
+    cmd: "axm packs list",
+  });
+};
 
 const uninstallPresentation = operationPresentation(
   { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
@@ -291,6 +331,18 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
         } satisfies Plan;
       }
       const graph = graphReadiness.graph;
+      const plannedRetirements = graphReadiness.retirements;
+      const retirementByIdentity = new Map(
+        plannedRetirements.map((retirement) => [retirement.pack, retirement]),
+      );
+      // Only a selected pack can be retired, and members are never read from an
+      // unreadable manifest, so the lookup is keyed by the selected pack's name.
+      const retirementByPackName = new Map<string, PackRetirement>(
+        intent.packsToUninstall.flatMap((pack) => {
+          const retirement = retirementByIdentity.get(normalizedPackIdentity(pack.desiredIdentity));
+          return retirement === undefined ? [] : [[pack.name, retirement] as const];
+        }),
+      );
 
       if (intent.packsToUninstall.length === 0) {
         return {
@@ -346,9 +398,20 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
 
       const steps = orderedTargets.map((target): PlannedJobStep => {
         if (target.type === "pack") {
+          const retirement = retirementByPackName.get(target.name);
           return buildUninstallOperation<PackRef, AppError>(packMgr, retentionPolicy, {
             target,
             toStepFailure: failureToStepFailure,
+            ...(retirement === undefined
+              ? {}
+              : {
+                  retirement: {
+                    // Results name workspace-relative paths, so the same
+                    // retirement reads identically from any workspace.
+                    manifestPath: path.relative(ws.baseDir, retirement.manifestPath),
+                    reason: retirement.reason,
+                  },
+                }),
           });
         }
 
@@ -435,9 +498,13 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
           ),
         ),
       );
+      const registrationOnly =
+        plannedRetirements.length === 0
+          ? ""
+          : ` (${count(plannedRetirements.length, "pack")} unregistered without removing package content)`;
       const graphStep = yield* buildAtomicPackGraphStep({
         label: count(intent.packsToUninstall.length, "pack"),
-        message: `Uninstalled ${count(intent.packsToUninstall.length, "pack")} and ${count(depTargets.length, "exclusive member")}`,
+        message: `Uninstalled ${count(intent.packsToUninstall.length, "pack")} and ${count(depTargets.length, "exclusive member")}${registrationOnly}`,
         artifact: {
           path: "pack graph",
           scope: ws.scope,
@@ -445,7 +512,12 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
           fileCount: orderedTargets.length,
           targets: orderedTargets.map((target) => ({
             path: sourcePathByTarget.get(`${target.type}:${target.name}`) ?? toLabel(target),
-            change: "removed",
+            // Content AXM could not verify is preserved, so its canonical path
+            // is never reported as removed.
+            change:
+              target.type === "pack" && retirementByPackName.has(target.name)
+                ? "unchanged"
+                : "removed",
           })),
         },
         children: [
@@ -458,6 +530,16 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
         preTransition: Effect.gen(function* () {
           const currentGraph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
           yield* validateResolvedPackUninstallTargets(currentGraph, intent.packsToUninstall);
+          const currentReadiness = planPackUninstallGraphReadiness(
+            currentGraph,
+            intent.packsToUninstall.map((pack) => pack.desiredIdentity),
+            ws.scope,
+          );
+          yield* validatePackRetirementFacts({
+            planned: plannedRetirements,
+            observed:
+              currentReadiness.readiness === "ready" ? currentReadiness.retirements : undefined,
+          });
         }),
         validate: validatePackGraphPostcondition({ absent: orderedTargets }),
       }).pipe(Effect.provideService(WorkspaceMutations, ws));

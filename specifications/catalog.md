@@ -578,6 +578,19 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/root-uninstall.e2e.test.ts`](../packages/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
 - Source: [`specifications/cli/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts`](../specifications/cli/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts)
 
+##### Uninstall retires a desired pack whose package cannot be read
+
+- Requirement: `cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable`
+- Statement: When uninstall targets a desired pack whose package manifest is missing or cannot be decoded, and every other desired pack is intact, AXM shall remove the pack's configuration and accepted resolution, shall delete no content it could not verify, shall report the removal as registration-only naming the unreadable manifest, and shall reach the same decision in preview and apply; when any other desired pack is incomplete, AXM shall remain blocked and shall change nothing.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Assumptions: A pack's member list is not persisted outside its package manifest; neither axm.json nor axm-lock.yaml carries one, so an unreadable manifest leaves members computable only from the remaining desired state.
+- Additional evidence: process via [`packages/cli-e2e/src/root-uninstall.e2e.test.ts`](../packages/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
+- Source: [`specifications/cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts`](../specifications/cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts)
+
 #### Unreadable Knowledge Is Left Out And Reported
 
 ##### A Knowledge bundle AXM cannot read is left out of the instructions file and reported

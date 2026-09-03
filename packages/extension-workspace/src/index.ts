@@ -680,6 +680,7 @@ export {
   type StepFailureAdapter,
   type UninstallOperationArgs,
   type UninstallRetentionPolicy,
+  type UnreadablePackageRetirement,
 } from "./extensions/operations.js";
 export {
   resolveKnowledgeInstructionEntry,

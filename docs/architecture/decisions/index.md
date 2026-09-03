@@ -36,3 +36,7 @@ specifications, never in these records.
   agent selection chooses the workspace's configured agents or filters a
   listing; an extension applies to every configured agent that can represent
   it, never to a per-entry subset
+- [Pack retirement when the package cannot be read](pack-retirement-when-the-package-cannot-be-read.md) —
+  uninstall distinguishes the removal target from the desired-state graph, so a
+  pack whose own package cannot be read is retired by registration while its
+  unverifiable content is preserved and reported

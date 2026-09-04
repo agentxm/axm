@@ -1897,7 +1897,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Stable promotion precedes independent distribution
 
 - Requirement: `system/process/release-promotion-precedes-independent-distribution`
-- Statement: The canonical release workflow shall upload and validate immutable GitHub assets, promote their release coordinate through the conditionally written stable channel, and only then publish npm packages or update Homebrew; a recovery rerun shall preserve any newer promoted channel.
+- Statement: The canonical release workflow shall upload and validate immutable GitHub assets, then either promote their release coordinate through the conditionally written stable channel or, only during an explicit recovery rerun, verify that the strong-ETag stable channel already names that exact coordinate, and only then publish npm packages or update Homebrew; a normal recovery rerun shall preserve any newer promoted channel.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`

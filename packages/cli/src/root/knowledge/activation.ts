@@ -17,6 +17,7 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { applyPlannedProjections, KnowledgeManager } from "@agentxm/extension-workspace";
@@ -26,6 +27,7 @@ export const activationConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Configured knowledge bundle name")),
   ...scopeConfig,
   preview: mutationFlags.preview,
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const setKnowledgeEnabled = (name: string, enabled: boolean, preview: boolean) =>
@@ -69,7 +71,7 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
         ...(yield* resolveConfiguredKnowledge(
           name,
           entry.source,
-          yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+          yield* makeConfiguredReleaseAgeEvaluation().pipe(
             Effect.mapError(lifecycleFailureToAppError),
           ),
         ).pipe(Effect.mapError(lifecycleFailureToAppError))),

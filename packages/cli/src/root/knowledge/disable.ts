@@ -2,14 +2,15 @@ import { Command } from "effect/unstable/cli";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { activationConfig, setKnowledgeEnabled } from "./activation.js";
 
 export const disableCommand = Command.make(
   "disable",
   activationConfig,
-  ({ name, scope, preview }) =>
+  ({ name, scope, preview, ignoreReleaseAge }) =>
     setKnowledgeEnabled(name, false, preview).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("knowledge disable"),
     ),

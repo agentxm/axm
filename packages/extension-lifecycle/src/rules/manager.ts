@@ -62,11 +62,7 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import type { ExtensionManager, MaterializationObservation } from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredRule,
-} from "../configured-entry-resolution.js";
-import { coupleLifecycleDependencyFailure } from "../errors.js";
+import { usableAcceptedCanonicalRef } from "@agentxm/workspace-state";
 import { LifecycleFailureAdapter } from "../failure-adapter.js";
 import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
@@ -701,23 +697,26 @@ export const RuleManagerLive = Layer.effect(
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
 
+      /**
+       * Every enabled entry's accepted canonical package, read from accepted
+       * resolution rather than re-resolved from source. Materialization
+       * realizes what the workspace already accepted; going back to the
+       * source would put an unrelated configured entry's release age between
+       * an operator and the extension they are authoring.
+       */
       listMaterializable: Effect.fn("RuleManager.listMaterializable")(function* () {
         const configured = yield* ws.getConfiguredRuleEntries();
-        const releaseAgeEvaluation = yield* provide(
-          makeConfiguredReleaseAgeEvaluation("enforce"),
-        ).pipe(Effect.mapError(coupleLifecycleDependencyFailure));
-        const refs = yield* Effect.scoped(
-          Effect.forEach(
-            enabledConfiguredEntries(configured),
-            ([name, entry]) =>
-              provide(resolveConfiguredRule(name, entry.source, releaseAgeEvaluation)).pipe(
-                Effect.mapError(coupleLifecycleDependencyFailure),
-                Effect.map(({ ref }) => ref),
+        const refs = yield* Effect.forEach(
+          enabledConfiguredEntries(configured),
+          ([name]) =>
+            provide(
+              usableAcceptedCanonicalRef({ workspace: ws, type: "rule", name }).pipe(
+                Effect.map(Option.filter((ref): ref is RuleExtensionRef => ref.type === "rule")),
               ),
-            { concurrency: "unbounded" },
-          ),
+            ),
+          { concurrency: "unbounded" },
         );
-        return refs;
+        return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
       }),
 
       materializeUninstall,

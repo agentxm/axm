@@ -70,10 +70,7 @@ import {
   makeWorkspaceRelativePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
-} from "../configured-entry-resolution.js";
+import { usableAcceptedCanonicalRef } from "@agentxm/workspace-state";
 import { coupleLifecycleDependencyFailure } from "../errors.js";
 import { LifecycleFailureAdapter } from "../failure-adapter.js";
 import type { ExtensionManager, MaterializationObservation } from "@agentxm/extension-workspace";
@@ -1141,23 +1138,26 @@ export const HookManagerLive = Layer.effect(
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
 
+      /**
+       * Every enabled entry's accepted canonical package, read from accepted
+       * resolution rather than re-resolved from source. Materialization
+       * realizes what the workspace already accepted; going back to the
+       * source would put an unrelated configured entry's release age between
+       * an operator and the extension they are authoring.
+       */
       listMaterializable: Effect.fn("HookManager.listMaterializable")(function* () {
         const configured = yield* ws.getConfiguredHookEntries();
-        const releaseAgeEvaluation = yield* provide(
-          makeConfiguredReleaseAgeEvaluation("enforce"),
-        ).pipe(Effect.mapError(coupleLifecycleDependencyFailure));
-        const refs = yield* Effect.scoped(
-          Effect.forEach(
-            enabledConfiguredEntries(configured),
-            ([name, entry]) =>
-              provide(resolveConfiguredHook(name, entry.source, releaseAgeEvaluation)).pipe(
-                Effect.mapError(coupleLifecycleDependencyFailure),
-                Effect.map(({ ref }) => ref),
+        const refs = yield* Effect.forEach(
+          enabledConfiguredEntries(configured),
+          ([name]) =>
+            provide(
+              usableAcceptedCanonicalRef({ workspace: ws, type: "hook", name }).pipe(
+                Effect.map(Option.filter((ref): ref is HookExtensionRef => ref.type === "hook")),
               ),
-            { concurrency: "unbounded" },
-          ),
+            ),
+          { concurrency: "unbounded" },
         );
-        return refs;
+        return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
       }),
 
       materializeUninstall,

@@ -56,10 +56,7 @@ import { recordFootprint } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredKnowledge,
-} from "../configured-entry-resolution.js";
+import { usableAcceptedCanonicalRef } from "@agentxm/workspace-state";
 import { getKnowledgeLockEntries } from "@agentxm/workspace-state";
 import type { ExtensionManager, ExtensionManagerFailure } from "@agentxm/extension-workspace";
 import {
@@ -1058,25 +1055,33 @@ export const KnowledgeManagerLive = Layer.effect(
           .getConfiguredKnowledgeEntries()
 
           .pipe(Effect.map((entries) => Option.fromUndefinedOr(entries[target.name]?.source))),
+      /**
+       * Every enabled entry's accepted canonical package, read from accepted
+       * resolution rather than re-resolved from source. Materialization
+       * realizes what the workspace already accepted; going back to the
+       * source would put an unrelated configured entry's release age between
+       * an operator and the extension they are authoring.
+       */
       listMaterializable: () =>
         Effect.gen(function* () {
           const nodes = yield* activeKnowledgeNodes();
-          const releaseAgeEvaluation = yield* provide(
-            makeConfiguredReleaseAgeEvaluation("enforce"),
-          ).pipe(Effect.mapError(coupleLifecycleDependencyFailure));
-          return yield* Effect.scoped(
-            Effect.forEach(
-              nodes,
-              (node) =>
-                provide(
-                  resolveConfiguredKnowledge(node.name, node.source, releaseAgeEvaluation),
-                ).pipe(
-                  Effect.mapError(coupleLifecycleDependencyFailure),
-                  Effect.map(({ ref }) => ref),
+          const refs = yield* Effect.forEach(
+            nodes,
+            (node) =>
+              provide(
+                usableAcceptedCanonicalRef({
+                  workspace: ws,
+                  type: "knowledge",
+                  name: node.name,
+                }).pipe(
+                  Effect.map(
+                    Option.filter((ref): ref is KnowledgeExtensionRef => ref.type === "knowledge"),
+                  ),
                 ),
-              { concurrency: "unbounded" },
-            ),
+              ),
+            { concurrency: "unbounded" },
           );
+          return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
         }),
       materializeUninstall,
       materializeDeactivate,

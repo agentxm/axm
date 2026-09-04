@@ -804,12 +804,11 @@ export const buildConfiguredPackInstallPlan = (args: {
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
   readonly packNames: ReadonlySet<string>;
-  readonly ignoreReleaseAge?: boolean;
 }) =>
   Effect.gen(function* () {
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
-      args.ignoreReleaseAge === true ? "ignore" : "enforce",
-    ).pipe(Effect.mapError(lifecycleFailureToAppError));
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+      Effect.mapError(lifecycleFailureToAppError),
+    );
     // Recovery only runs for Packs whose observed tree already diverged from the
     // accepted resolution, so the installed tree must never be reused.
     const actions = yield* InstallPackCommandWorkflowActions;
@@ -854,14 +853,13 @@ export const buildWorkspaceInstallPlan = (
     readonly type: Option.Option<WorkspaceInstallableType>;
     readonly planName: string;
     readonly planDescription: Option.Option<string>;
-    readonly ignoreReleaseAge?: boolean;
   },
   actions: InstallCommandActions,
 ) =>
   Effect.gen(function* () {
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
-      args.ignoreReleaseAge === true ? "ignore" : "enforce",
-    ).pipe(Effect.mapError(lifecycleFailureToAppError));
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+      Effect.mapError(lifecycleFailureToAppError),
+    );
     const selectedCollectors = makeWorkspaceInstallCollectors(actions).filter(({ type }) =>
       matchesRequestedType(args.type, type),
     );

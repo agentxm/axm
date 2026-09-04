@@ -10,6 +10,7 @@
  */
 
 export { ExtensionLifecycleFailed } from "./errors.js";
+export { ReleaseAgePosture, type ReleaseAgePostureValue } from "./release-age-posture.js";
 export {
   LifecycleFailureAdapter,
   withAdaptedStepFailures,

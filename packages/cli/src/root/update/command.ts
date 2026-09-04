@@ -1,10 +1,10 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, refreshFlag, yesFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, previewFlag, refreshFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { handleUpdate } from "./handler.js";
 
 const updateConfig = {
@@ -24,17 +24,15 @@ const updateConfig = {
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be updated without making changes"),
   ),
-  ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
-    Flag.withDescription("Allow Registry releases newer than minimumReleaseAge for this update"),
-    Flag.withDefault(false),
-  ),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
   ({ source, scope, yes, force, preview, ignoreReleaseAge }) =>
-    handleUpdate({ source, yes, force, preview, ignoreReleaseAge }).pipe(
+    handleUpdate({ source, yes, force, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("update"),
     ),

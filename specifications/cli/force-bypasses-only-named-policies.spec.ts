@@ -4,6 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import {
+  NAMED_OVERRIDE_POLICIES,
   collectHelpFiles,
   getAppError,
   handleInstall,
@@ -28,16 +29,6 @@ export const specification = defineSpecification({
   assumptions: [],
   openQuestions: [],
 });
-
-/**
- * Every override flag the CLI exposes and the exact policy its help names.
- * Adding an override means naming its policy here — a generic "force it"
- * flag cannot enter the surface silently.
- */
-const NAMED_OVERRIDE_FLAGS: Readonly<Record<string, string>> = {
-  "--reinstall": "reinstall",
-  "--ignore-release-age": "release",
-};
 
 type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 
@@ -81,10 +72,7 @@ const heldReleaseWorkspace = (cleanups: Array<() => void>) => {
   return workspace;
 };
 
-const configuredInstall = (
-  workspace: SpecWorkspace,
-  flags: { readonly force: boolean; readonly ignoreReleaseAge: boolean },
-) =>
+const configuredInstall = (workspace: SpecWorkspace, flags: { readonly force: boolean }) =>
   handleInstall({ source: Option.none(), yes: true, preview: false, ...flags }).pipe(
     Effect.provide(workspace.layer),
   );
@@ -108,6 +96,10 @@ describe("Override flags", () => {
     Effect.gen(function* () {
       const helpFiles = yield* collectHelpFiles();
       const undocumented: string[] = [];
+      // Every registered override is declared with its policy at the one place
+      // override flags are built, so a new one cannot reach the surface
+      // unchecked; this walk reads that registry rather than a copy of it.
+      const checked = new Set<string>();
       for (const [commandPath, doc] of helpFiles) {
         for (const flag of doc.flags) {
           const rendered = `--${flag.name}`;
@@ -115,16 +107,19 @@ describe("Override flags", () => {
             undocumented.push(`${commandPath}: bare --force flag`);
             continue;
           }
-          if (rendered in NAMED_OVERRIDE_FLAGS) {
-            const policyWord = NAMED_OVERRIDE_FLAGS[rendered] ?? "";
-            const description = Option.getOrElse(flag.description, () => "").toLowerCase();
-            if (!description.includes(policyWord)) {
-              undocumented.push(`${commandPath}: ${rendered} does not name its policy`);
-            }
+          const policy = NAMED_OVERRIDE_POLICIES[rendered];
+          if (policy === undefined) continue;
+          checked.add(rendered);
+          const description = Option.getOrElse(flag.description, () => "").toLowerCase();
+          if (!description.includes(policy)) {
+            undocumented.push(`${commandPath}: ${rendered} does not name its policy`);
           }
         }
       }
       expect(undocumented).toEqual([]);
+      // Every declared override is reachable: a row that no command registers
+      // is a policy nobody can name.
+      expect([...checked].sort()).toEqual(Object.keys(NAMED_OVERRIDE_POLICIES).sort());
     }),
   );
 
@@ -155,16 +150,11 @@ describe("Override flags", () => {
       }),
   );
 
-  it.effect.each([
-    { override: "no override flag", force: false },
-    { override: "--reinstall, which names a different policy", force: true },
-  ])("a configured install stays held by the minimum release age with $override", ({ force }) =>
+  it.effect("--reinstall does not lift the minimum release age it does not name", () =>
     Effect.gen(function* () {
       const workspace = heldReleaseWorkspace(cleanups);
 
-      const failure = yield* configuredInstall(workspace, { force, ignoreReleaseAge: false }).pipe(
-        Effect.flip,
-      );
+      const failure = yield* configuredInstall(workspace, { force: true }).pipe(Effect.flip);
 
       const error = getAppError(failure);
       expect(error.title).toBe("Release held by minimum release age");
@@ -173,49 +163,28 @@ describe("Override flags", () => {
     }),
   );
 
-  it.effect("--ignore-release-age lifts the minimum release age hold it names", () =>
+  it.effect("--ignore-release-age does not lift the version constraint it does not name", () =>
     Effect.gen(function* () {
-      const workspace = heldReleaseWorkspace(cleanups);
+      const registry = makeSpecRegistry();
+      cleanups.push(registry.cleanup);
+      registry.writeSkill("stable", [{ version: "1.0.0", body: "Stable guidance." }]);
+      const workspace = makeSpecWorkspace({
+        machine: true,
+        flags: { json: true },
+        releaseAgePosture: "ignore",
+        settings: {
+          sources: [registry.source],
+          skills: { stable: "@acme/skills/stable@^2.0.0" },
+        },
+      });
+      cleanups.push(workspace.cleanup);
 
-      yield* configuredInstall(workspace, { force: false, ignoreReleaseAge: true });
+      const failure = yield* configuredInstall(workspace, { force: false }).pipe(Effect.flip);
 
-      const document = workspace.rendererState.results.at(-1)?.data;
-      expect(document).toMatchObject({ result: { outcome: "applied" } });
-      expect(JSON.stringify(document)).toContain("ignore-flag");
-      expect(workspace.readLockfileText()).toContain("resolvedVersion: 1.0.0");
-      expect(workspace.readFile(".claude/skills/fresh/SKILL.md")).toContain("Fresh guidance.");
+      const error = getAppError(failure);
+      expect(error.title).toBe("No compatible version");
+      expect(error.detail).toContain("^2.0.0");
+      expectNothingInstalled(workspace, "stable");
     }),
-  );
-
-  it.effect.each([
-    { override: "no override flag", ignoreReleaseAge: false },
-    { override: "--ignore-release-age, which names a different policy", ignoreReleaseAge: true },
-  ])(
-    "a configured version constraint no release satisfies stays unsatisfied with $override",
-    ({ ignoreReleaseAge }) =>
-      Effect.gen(function* () {
-        const registry = makeSpecRegistry();
-        cleanups.push(registry.cleanup);
-        registry.writeSkill("stable", [{ version: "1.0.0", body: "Stable guidance." }]);
-        const workspace = makeSpecWorkspace({
-          machine: true,
-          flags: { json: true },
-          settings: {
-            sources: [registry.source],
-            skills: { stable: "@acme/skills/stable@^2.0.0" },
-          },
-        });
-        cleanups.push(workspace.cleanup);
-
-        const failure = yield* configuredInstall(workspace, {
-          force: false,
-          ignoreReleaseAge,
-        }).pipe(Effect.flip);
-
-        const error = getAppError(failure);
-        expect(error.title).toBe("No compatible version");
-        expect(error.detail).toContain("^2.0.0");
-        expectNothingInstalled(workspace, "stable");
-      }),
   );
 });

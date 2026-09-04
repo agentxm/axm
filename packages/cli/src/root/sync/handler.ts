@@ -83,7 +83,6 @@ export interface HandleSyncArgs {
   readonly type?: Option.Option<Exclude<ExtensionType, "pack">>;
   readonly preview: boolean;
   readonly failOnChange?: boolean;
-  readonly ignoreReleaseAge?: boolean;
 }
 
 export interface SyncTestHooks {
@@ -100,7 +99,7 @@ type SyncPlanRequirements =
   | Screen
   | CodingAgentRepository;
 const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecovery")(
-  function* (args: { readonly selection: SyncSelection; readonly ignoreReleaseAge: boolean }) {
+  function* (args: { readonly selection: SyncSelection }) {
     const ws = yield* WorkspaceMutations;
     const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     const recoveryProblems = scopedProblems(graph, args.selection).filter(
@@ -117,7 +116,6 @@ const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecov
       planName: "Recover configured packs",
       planDescription: Option.some("Restore accepted Pack graphs from configured sources"),
       packNames,
-      ignoreReleaseAge: args.ignoreReleaseAge,
     });
     if (result._tag === "NoConfiguredExtensions") return undefined;
     return {
@@ -158,6 +156,9 @@ const resolveDesiredExtensionRef = (
             constraintDetail === undefined
               ? `${node.type} ${node.name}: ${cause.detail} (canonical status: ${canonicalStatus})`
               : `${constraintDetail}; decision=blocked; reason=no-satisfying-version; ${cause.detail}`,
+          // Annotation adds the node and its canonical status; it must not
+          // cost the operator the recovery the cause already named.
+          ...(cause.suggestions === undefined ? {} : { suggestions: cause.suggestions }),
           cause,
         }),
       ),
@@ -190,12 +191,11 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   readonly retainedOnly?: boolean;
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
-  readonly ignoreReleaseAge?: boolean;
   readonly packRecovery?: ConfiguredPackRecovery<SyncPlanRequirements>;
 }) {
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
-    args?.ignoreReleaseAge === true ? "ignore" : "enforce",
-  ).pipe(Effect.mapError(lifecycleFailureToAppError));
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+    Effect.mapError(lifecycleFailureToAppError),
+  );
   return yield* collectSyncMaterializeSteps({
     ...(args?.selection === undefined ? {} : { selection: args.selection }),
     ...(args?.retainedOnly === undefined ? {} : { retainedOnly: args.retainedOnly }),
@@ -281,10 +281,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
   const preflight = yield* observeUnit(
     { id: "sync-preflight", label: `${scopeLabel} sync plan` },
     Effect.gen(function* () {
-      const packRecovery = yield* collectConfiguredPackRecovery({
-        selection,
-        ignoreReleaseAge: args.ignoreReleaseAge === true,
-      });
+      const packRecovery = yield* collectConfiguredPackRecovery({ selection });
       const {
         steps,
         cleanupSafe,
@@ -297,7 +294,6 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
         releaseAge,
       } = yield* collectMaterializeSteps({
         selection,
-        ignoreReleaseAge: args.ignoreReleaseAge === true,
         ...(packRecovery === undefined ? {} : { packRecovery }),
       });
       const selectionTouches = (unitType: "rule" | "hook"): boolean => {

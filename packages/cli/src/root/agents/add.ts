@@ -3,7 +3,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { detectAgentsForScope } from "@agentxm/agent-integration";
 import { makeAppError } from "../../app-error/index.js";
-import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import {
+  acceptWarningsFlag,
+  ignoreReleaseAgeFlag,
+  previewFlag,
+  yesFlag,
+} from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
 import {
@@ -17,7 +22,7 @@ import {
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
@@ -344,13 +349,15 @@ const addConfig = {
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
   force: acceptWarningsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const addCommand = Command.make(
   "add",
   addConfig,
-  ({ ids, scope, detected, yes, force, preview }) =>
+  ({ ids, scope, detected, yes, force, preview, ignoreReleaseAge }) =>
     handleAgentsAdd({ ids: [...ids], detected, yes, force, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("agents add"),
     ),

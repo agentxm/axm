@@ -32,6 +32,7 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { ExtensionLifecycleFailed } from "./errors.js";
+import { ReleaseAgePosture } from "./release-age-posture.js";
 import { LifecycleFailureAdapter } from "./failure-adapter.js";
 import { acceptedResolutionRef } from "@agentxm/workspace-state";
 import type { AcceptedCanonicalRefError } from "@agentxm/workspace-state";
@@ -41,8 +42,9 @@ import type {
   ResolvedConfiguredEntry,
 } from "@agentxm/workspace-state";
 
-export const makeConfiguredReleaseAgeEvaluation = (mode: "enforce" | "ignore") =>
+export const makeConfiguredReleaseAgeEvaluation = () =>
   Effect.gen(function* () {
+    const mode = yield* ReleaseAgePosture;
     const ws = yield* WorkspaceMutations;
     const configured = yield* ws.getMinimumReleaseAge();
     const minimumReleaseAge = parseMinimumReleaseAge(configured);
@@ -106,6 +108,9 @@ const configuredRegistryResolution = (resolution: ConfiguredRegistryResolution) 
         category: "conflict",
         title: "Release held by minimum release age",
         detail: `${resolution.target}@${resolution.candidate.version} is held by the minimum release age until ${resolution.candidate.eligibleAt}`,
+        // Both routes are reachable from wherever the operator is standing:
+        // the exemption is declared once, the flag lasts one run.
+        recover: `Declare ${resolution.target} in minimumReleaseAgeExclude, or rerun this command with --ignore-release-age to take it for this run only.`,
       });
     }
 

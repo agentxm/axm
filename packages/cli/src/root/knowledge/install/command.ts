@@ -6,7 +6,8 @@ import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { ignoreReleaseAgeFlag } from "../../../cli-flags/index.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
@@ -21,12 +22,13 @@ const installConfig = {
   ),
   ...scopeConfig,
   ...mutationFlags,
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, preview }) =>
+  ({ source, scope, yes, preview, ignoreReleaseAge }) =>
     withOperationLifecycle(
       {
         command: "knowledge.install",
@@ -68,7 +70,11 @@ export const installCommand = Command.make(
             });
           }),
       }),
-    ).pipe(withWorkspace(scope), withRuntime("knowledge install")),
+    ).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("knowledge install"),
+    ),
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription("Install or restore Knowledge bundles"),

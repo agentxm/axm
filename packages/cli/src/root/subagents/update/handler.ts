@@ -147,7 +147,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) =>
 const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: UpdateHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
     Effect.mapError(lifecycleFailureToAppError),
   );
 

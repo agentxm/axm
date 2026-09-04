@@ -2,7 +2,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { failureToStepFailure } from "../../app-error/conversions.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
@@ -22,7 +22,7 @@ import {
   type Plan,
 } from "@agentxm/workspace-operations";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
@@ -116,7 +116,7 @@ const handleEnableHookBody = Effect.fn("EnableHook.handle")(function* (args: {
     return;
   }
 
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
     Effect.mapError(lifecycleFailureToAppError),
   );
   const resolved = yield* resolveConfiguredHook(args.name, entry.source, releaseAgeEvaluation).pipe(
@@ -187,10 +187,18 @@ const enableConfig = {
   ),
   yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
-export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
-  handleEnableHook({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("hooks enable")),
+export const enableCommand = Command.make(
+  "enable",
+  enableConfig,
+  ({ name, scope, yes, preview, ignoreReleaseAge }) =>
+    handleEnableHook({ name, yes, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("hooks enable"),
+    ),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a hooks package"),

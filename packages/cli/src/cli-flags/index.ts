@@ -81,25 +81,68 @@ export const yesFlag = Flag.boolean("yes").pipe(
   Flag.withDefault(false),
 );
 
-export const reinstallFlag = Flag.boolean("reinstall").pipe(
-  Flag.withDescription("Reinstall content that is already installed"),
-  Flag.withDefault(false),
+/**
+ * Every override flag the CLI exposes, declared with the one policy it
+ * bypasses. This object is the definition site: an override flag is built
+ * from a row here, so a new one cannot enter the surface without naming its
+ * policy, and the conformance specification reads these rows rather than a
+ * hand-copied table. `policy` is the lowercase phrase every rendered help
+ * description for that flag must contain.
+ */
+const OVERRIDE_FLAG_DECLARATIONS = {
+  reinstall: {
+    policy: "reinstall",
+    description: "Reinstall content that is already installed",
+  },
+  refresh: {
+    policy: "current",
+    description: "Run update even when the installed version is already current",
+  },
+  "ignore-version-constraints": {
+    policy: "constraint",
+    description: "Update even when the configured version constraint excludes the result",
+  },
+  "accept-warnings": {
+    policy: "warning",
+    description: "Apply the plan even when preflight reports unresolved warnings",
+  },
+  "ignore-release-age": {
+    policy: "release age",
+    description:
+      "Take a release younger than the configured minimum release age, for this run only",
+  },
+} as const satisfies Record<string, { readonly policy: string; readonly description: string }>;
+
+type OverrideFlagName = keyof typeof OVERRIDE_FLAG_DECLARATIONS;
+
+/** Rendered flag spelling mapped to the policy phrase its help must name. */
+export const NAMED_OVERRIDE_POLICIES: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(OVERRIDE_FLAG_DECLARATIONS).map(([name, declaration]) => [
+    `--${name}`,
+    declaration.policy,
+  ]),
 );
 
-export const refreshFlag = Flag.boolean("refresh").pipe(
-  Flag.withDescription("Run update even when the installed version is already current"),
-  Flag.withDefault(false),
-);
+const makeOverrideFlag = (name: OverrideFlagName) =>
+  Flag.boolean(name).pipe(
+    Flag.withDescription(OVERRIDE_FLAG_DECLARATIONS[name].description),
+    Flag.withDefault(false),
+  );
 
-export const ignoreVersionConstraintsFlag = Flag.boolean("ignore-version-constraints").pipe(
-  Flag.withDescription("Update even when the configured version constraint excludes the result"),
-  Flag.withDefault(false),
-);
+export const reinstallFlag = makeOverrideFlag("reinstall");
 
-export const acceptWarningsFlag = Flag.boolean("accept-warnings").pipe(
-  Flag.withDescription("Apply the plan even when preflight reports unresolved warnings"),
-  Flag.withDefault(false),
-);
+export const refreshFlag = makeOverrideFlag("refresh");
+
+export const ignoreVersionConstraintsFlag = makeOverrideFlag("ignore-version-constraints");
+
+/**
+ * The one-shot minimum-release-age override. Every command whose outcome the
+ * gate can change registers this exact definition, so the flag carries one
+ * meaning across the surface and no other flag grants the bypass.
+ */
+export const ignoreReleaseAgeFlag = makeOverrideFlag("ignore-release-age");
+
+export const acceptWarningsFlag = makeOverrideFlag("accept-warnings");
 
 export const previewFlag = Flag.boolean("preview").pipe(
   Flag.withDescription("Display plan without applying"),

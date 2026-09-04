@@ -42,6 +42,7 @@ import {
   directoryFlag,
 } from "./cli-flags/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 import {
   HookConfiguredAgentOutcomesProviderLive,
   HookManagerLive,
@@ -357,6 +358,20 @@ export const withWorkspace =
         ),
       );
     });
+
+/**
+ * Discharge the minimum-release-age posture at a command boundary.
+ *
+ * Every gated handler carries `ReleaseAgePosture` in `R` up to its command, so
+ * a command the gate can block does not compile until it calls this helper —
+ * and the argument is always its own parsed `--ignore-release-age` flag, never
+ * a decision written here. A leaf can no longer settle a policy its command
+ * never surfaced, and a newly gated command cannot ship without the override.
+ */
+export const withReleaseAgePosture =
+  (ignoreReleaseAge: boolean) =>
+  <A, E, R>(program: Effect.Effect<A, E, R>) =>
+    Effect.provideService(program, ReleaseAgePosture, ignoreReleaseAge ? "ignore" : "enforce");
 
 export const withRuntime =
   (command?: string) =>

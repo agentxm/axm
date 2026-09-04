@@ -150,7 +150,11 @@ export {
   type GitDirectoryComparisonService,
   type GitDirectoryDifference,
 } from "@agentxm/extension-sources";
-export { mcpSecretAccount } from "@agentxm/extension-lifecycle";
+export {
+  ReleaseAgePosture,
+  mcpSecretAccount,
+  type ReleaseAgePostureValue,
+} from "@agentxm/extension-lifecycle";
 export { SourceHostProvidersLive } from "./test-helpers.js";
 // Application-boundary vocabulary the specifications assert against: exit
 // codes, the machine error envelope, telemetry mode, client, and published
@@ -159,7 +163,7 @@ export { SourceHostProvidersLive } from "./test-helpers.js";
 // entry point.
 export { AppError, ExitCodeDefinitions } from "./app-error/index.js";
 export { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
-export { TestFlagsLayer, Verbosity } from "./cli-flags/index.js";
+export { NAMED_OVERRIDE_POLICIES, TestFlagsLayer, Verbosity } from "./cli-flags/index.js";
 export {
   FrameLive,
   OutputStreams,

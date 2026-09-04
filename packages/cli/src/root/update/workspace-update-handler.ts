@@ -23,6 +23,7 @@ import {
   makeInstallCommandActions,
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>): SubjectType =>
   Option.match(type, {
@@ -34,7 +35,6 @@ export interface WorkspaceUpdateFlags {
   readonly yes: boolean;
   readonly preview: boolean;
   readonly force?: boolean;
-  readonly ignoreReleaseAge?: boolean;
 }
 
 const workspaceUpdateCommand = (
@@ -108,7 +108,6 @@ const handleWorkspaceUpdateBody = (
         type: args.type,
         planName: args.planName,
         planDescription: args.planDescription,
-        ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
         ...(args.names === undefined ? {} : { names: args.names }),
       },
       actions,
@@ -147,7 +146,7 @@ const handleWorkspaceUpdateBody = (
       args.flags,
       makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
         recoverySwitch("--refresh", args.flags.force === true),
-        recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
+        recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
         ...(args.names ?? []).map((name) => recoveryOption("--name", publicRecoveryValue(name))),
       ]),
       [],

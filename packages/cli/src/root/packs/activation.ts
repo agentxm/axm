@@ -20,7 +20,7 @@ import {
 } from "@agentxm/extension-workspace";
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   RenderedFilePathSchema,
@@ -45,7 +45,7 @@ import {
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
@@ -58,7 +58,7 @@ import { collectMaterializeSteps } from "../sync/handler.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
 import { toAppError } from "../../app-error/conversions.js";
 import { lifecycleFailureToStepFailure } from "../../feature-errors.js";
-import { LifecycleFailureAdapter } from "@agentxm/extension-lifecycle";
+import { LifecycleFailureAdapter, ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
@@ -251,6 +251,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
   const path = yield* Path.Path;
   const runServices = yield* Effect.context<
     | LifecycleFailureAdapter
+    | ReleaseAgePosture
     | Scope.Scope
     | HttpClient.HttpClient
     | Screen
@@ -416,12 +417,14 @@ const activationConfig = {
   scope: scopeFlag.pipe(Flag.withDescription("Use project (default) or user-level configuration")),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 const makeActivationCommand = (enabled: boolean) => {
   const verb = enabled ? "enable" : "disable";
-  return Command.make(verb, activationConfig, ({ name, scope, yes, preview }) =>
+  return Command.make(verb, activationConfig, ({ name, scope, yes, preview, ignoreReleaseAge }) =>
     handlePackActivation({ name, enabled, yes, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime(`packs ${verb}`),
     ),

@@ -1,9 +1,9 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { previewFlag, refreshFlag, yesFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, previewFlag, refreshFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { resolveWorkspaceUpdateSelection, updateNameFilterFlag } from "../shared/update-targets.js";
 import { handleWorkspaceUpdate } from "../update/workspace-update-handler.js";
 import * as Option from "effect/Option";
@@ -26,12 +26,13 @@ const updateConfig = {
   yes: yesFlag,
   force: refreshFlag,
   preview: previewFlag,
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, name, yes, force, preview }) =>
+  ({ source, scope, name, yes, force, preview, ignoreReleaseAge }) =>
     Effect.gen(function* () {
       const selection = yield* resolveWorkspaceUpdateSelection({
         command: COMMAND,
@@ -54,7 +55,11 @@ export const updateCommand = Command.make(
         flags: { yes, preview, force },
         ...(selection.type === "names" ? { names: selection.names } : {}),
       });
-    }).pipe(withWorkspace(scope), withRuntime("mcps update")),
+    }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("mcps update"),
+    ),
 ).pipe(
   withArgvTracking(updateConfig),
   Command.withDescription("Update MCP servers"),

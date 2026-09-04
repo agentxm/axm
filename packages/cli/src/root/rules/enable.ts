@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
@@ -19,7 +19,7 @@ import {
   resolveConfiguredRule,
 } from "@agentxm/extension-lifecycle";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
@@ -79,7 +79,7 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
     return;
   }
 
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
     Effect.mapError(lifecycleFailureToAppError),
   );
   const { ref, versionRange } = yield* resolveConfiguredRule(
@@ -187,10 +187,18 @@ const enableConfig = {
   ),
   yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
-export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
-  handleEnableRule({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("rules enable")),
+export const enableCommand = Command.make(
+  "enable",
+  enableConfig,
+  ({ name, scope, yes, preview, ignoreReleaseAge }) =>
+    handleEnableRule({ name, yes, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("rules enable"),
+    ),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a rule"),

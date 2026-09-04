@@ -6,7 +6,7 @@ import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
@@ -42,7 +42,7 @@ import {
 } from "@agentxm/extension-lifecycle";
 
 import { emitOperationResolution } from "../../operation-output.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import {
@@ -145,7 +145,7 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
   }
 
   const operation = yield* Effect.gen(function* () {
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
       Effect.mapError(lifecycleFailureToAppError),
     );
     switch (parsed.type) {
@@ -329,10 +329,15 @@ const config = {
   ),
   yes: yesFlag,
   preview: previewFlag,
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const demoteCommand = Command.make("demote", config, (parsed) =>
-  handleDemote(parsed).pipe(withWorkspace("project"), withRuntime("demote")),
+  handleDemote(parsed).pipe(
+    withReleaseAgePosture(parsed.ignoreReleaseAge),
+    withWorkspace("project"),
+    withRuntime("demote"),
+  ),
 ).pipe(
   withArgvTracking(config),
   Command.withDescription("Explicitly remove project-workspace source authority"),

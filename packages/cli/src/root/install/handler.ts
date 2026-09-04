@@ -29,12 +29,12 @@ import {
   makeInstallCommandActions,
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 export interface RootInstallFlags {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
-  readonly ignoreReleaseAge?: boolean;
 }
 
 export interface RootInstallHandlerArgs extends RootInstallFlags {
@@ -246,7 +246,7 @@ const handleInstallBody = (args: RootInstallHandlerArgs, actions: InstallCommand
             ["install"],
             [
               recoverySwitch("--reinstall", args.force),
-              recoverySwitch("--ignore-release-age", args.ignoreReleaseAge === true),
+              recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
               recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
             ],
           ),

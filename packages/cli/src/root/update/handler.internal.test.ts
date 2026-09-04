@@ -39,6 +39,7 @@ import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
 import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
 import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
 
+import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/extension-lifecycle";
 import { handleUpdateWithActions, type RootUpdateFlags } from "./handler.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";
 
@@ -353,8 +354,13 @@ describe("root update handler", () => {
 
     return {
       provide: makeEffectProvide(fullLayer),
-      handleUpdate: (args: Parameters<typeof handleUpdateWithActions>[0]) =>
-        handleUpdateWithActions(args, actions),
+      handleUpdate: (
+        args: Parameters<typeof handleUpdateWithActions>[0],
+        releaseAgePosture: ReleaseAgePostureValue = "enforce",
+      ) =>
+        handleUpdateWithActions(args, actions).pipe(
+          Effect.provideService(ReleaseAgePosture, releaseAgePosture),
+        ),
       logs: ctx.logs,
       packPlanCount: () => packPlanCount,
       rendererState: ctx.rendererState,
@@ -442,13 +448,7 @@ describe("root update handler", () => {
       });
 
       yield* provide(
-        handleUpdate({
-          source: Option.none(),
-          yes: false,
-          force: false,
-          preview: true,
-          ignoreReleaseAge: true,
-        }),
+        handleUpdate({ source: Option.none(), yes: false, force: false, preview: true }, "ignore"),
       );
 
       expect(calls).toEqual([]);
@@ -968,13 +968,10 @@ describe("root update handler", () => {
       });
 
       yield* provide(
-        handleUpdate({
-          source: Option.some("@acme/skills/reviewer"),
-          yes: true,
-          force: false,
-          preview: false,
-          ignoreReleaseAge: true,
-        }),
+        handleUpdate(
+          { source: Option.some("@acme/skills/reviewer"), yes: true, force: false, preview: false },
+          "ignore",
+        ),
       );
 
       expect(rendererState.results[0]?.data).toMatchObject({
@@ -1165,13 +1162,7 @@ describe("root update handler", () => {
       const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
 
       yield* provide(
-        handleUpdate({
-          source: Option.none(),
-          yes: true,
-          force: false,
-          preview: false,
-          ignoreReleaseAge: true,
-        }),
+        handleUpdate({ source: Option.none(), yes: true, force: false, preview: false }, "ignore"),
       );
 
       expect(packPlanCount()).toBe(0);

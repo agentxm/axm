@@ -31,10 +31,11 @@ Run `axm help settings-schema` to print the raw JSON Schema.
 
 `owner` is the default handle AXM uses when creating or resolving workspace-owned extensions.
 
-`minimumReleaseAge` controls unattended Registry resolution for bare `axm
-install`, `axm sync`, and update commands. It defaults to `"24h"` so brand-new
-versions are held until they have aged for 24 hours; use `"0s"` to disable the
-holdback.
+`minimumReleaseAge` controls unattended Registry resolution wherever AXM
+selects a release without an explicit version request — bare `axm install`,
+`axm sync`, every update command, activation, materialization, and `axm
+demote`. It defaults to `"24h"` so brand-new versions are held until they have
+aged for 24 hours; use `"0s"` to disable the holdback.
 
 `minimumReleaseAgeExclude` declares reviewed Registry exemptions. Each entry is
 an exact FQN (`@owner/skills/name`), an owner/type pattern
@@ -50,13 +51,19 @@ matching version is too new, a workspace-wide `axm update` leaves that target
 unchanged and continues with other targets. A targeted update preserves already
 accepted and usable desired state; otherwise it stops without writing.
 
-Use `--ignore-release-age` on bare `axm install`, `axm sync`, or `axm update`
-for a reviewed, one-shot workspace bypass. A targeted Registry update also
-accepts the flag; attended named installs accept it but already select the
-requested release without the unattended gate. The flag does not change
-settings. JSON and NDJSON results report the evaluation time, holdbacks,
-dependency paths, eligibility times, and each bypass cause and exemption
-scope.
+`--ignore-release-age` is the reviewed, one-shot bypass. Every command the
+minimum release age can block accepts it with the same meaning: take the
+withheld release for this invocation only. It does not change settings, and a
+declared `minimumReleaseAgeExclude` entry takes precedence over it. Attended
+named installs accept the flag but already select the requested release
+without the unattended gate. No other flag grants this bypass — in particular
+`--yes` does not. JSON and NDJSON results report the evaluation time,
+holdbacks, dependency paths, eligibility times, and each bypass cause and
+exemption scope.
+
+Choose the route that matches the decision: `--ignore-release-age` for one
+reviewed release now, `minimumReleaseAgeExclude` for an identity that should
+stay exempt, and `minimumReleaseAge` only to change the window itself.
 
 `agents` lists the coding agents AXM syncs into. Use `axm agents list`,
 `axm agents add <id>`, and `axm agents remove <id>` instead of hand-editing

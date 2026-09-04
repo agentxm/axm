@@ -982,14 +982,13 @@ export const buildWorkspaceUpdatePlan = (
     readonly planDescription: Option.Option<string>;
     /** Installed names the caller's selector resolved to; omit to update all. */
     readonly names?: ReadonlyArray<string>;
-    readonly ignoreReleaseAge?: boolean;
   },
   actions: InstallCommandActions,
 ) =>
   Effect.gen(function* () {
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
-      args.ignoreReleaseAge === true ? "ignore" : "enforce",
-    ).pipe(Effect.mapError(lifecycleFailureToAppError));
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+      Effect.mapError(lifecycleFailureToAppError),
+    );
     const selection: WorkspaceUpdateCollectionRequest = {
       names: args.names === undefined ? undefined : new Set(args.names),
       releaseAgeEvaluation,

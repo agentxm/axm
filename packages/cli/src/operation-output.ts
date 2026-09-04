@@ -640,12 +640,31 @@ const releaseAgeHoldbackLine = (record: ReleaseAgeRecordView): string => {
 const releaseAgeBypassLine = (record: ReleaseAgeRecordView): string =>
   `Selected ${record.target} ${record.candidateVersion}${releaseAgeRequiredBy(record)} ahead of its eligibility at ${record.eligibleAt} (published ${record.publishedAt}) — ${releaseAgeExemption(record)}`;
 
-const releaseAgeDoc = (result: PlanResolutionResult): Doc => {
-  const holdbacks = result.holdbacks ?? [];
-  const bypasses = result.releaseAgeBypasses ?? [];
+/**
+ * The invocation an operator would repeat, derived from the command that
+ * emitted this result. Recovery guidance names this command and no other.
+ */
+const emittingInvocation = (command: string): string => `axm ${command.replaceAll(".", " ")}`;
+
+const releaseAgeRecoveryText = (
+  command: string,
+  holdbacks: ReadonlyArray<ReleaseAgeRecordView>,
+): string => {
   const targets = Array.from(
     new Set(holdbacks.map((holdback) => holdback.dependencyPath[0] ?? holdback.target)),
   );
+  const exemption =
+    targets.length === 1
+      ? `declare ${targets[0]} in minimumReleaseAgeExclude`
+      : "declare them in minimumReleaseAgeExclude";
+  return `Wait for the eligible time, pin an eligible version, or ${exemption}. To take ${
+    targets.length === 1 ? "it" : "them"
+  } now for this run only, rerun ${emittingInvocation(command)} --ignore-release-age.`;
+};
+
+const releaseAgeDoc = (command: string, result: PlanResolutionResult): Doc => {
+  const holdbacks = result.holdbacks ?? [];
+  const bypasses = result.releaseAgeBypasses ?? [];
   return [
     ...(holdbacks.length === 0
       ? []
@@ -664,11 +683,7 @@ const releaseAgeDoc = (result: PlanResolutionResult): Doc => {
               ),
               {
                 _tag: "paragraph",
-                text: `Wait for the eligible time, pin an eligible version, or change minimumReleaseAge in settings.${
-                  targets.length === 1
-                    ? ` To take it now for this run only, run axm update ${targets[0]} --ignore-release-age.`
-                    : " To take one now for this run only, run axm update <extension[@version]> --ignore-release-age."
-                }`,
+                text: releaseAgeRecoveryText(command, holdbacks),
               },
             ],
           } as const,
@@ -727,7 +742,6 @@ export const emitOperationResolution = (
   options?: EmitOperationResolutionOptions,
 ) =>
   Effect.gen(function* () {
-    void command;
     const screen = yield* Screen;
     const verbosity = yield* Verbosity;
     const outcome = deriveOperationOutcome(resolution);
@@ -787,7 +801,7 @@ export const emitOperationResolution = (
           ...(suggestions === undefined ? {} : { suggestions }),
           ...(options?.message === undefined ? {} : { message: options.message }),
         }),
-        ...releaseAgeDoc(result),
+        ...releaseAgeDoc(command, result),
       ]);
     }
     return { outcome, exitCode, emitted };

@@ -44,6 +44,7 @@ import { InspectionFailureAdapterLive, LifecycleFailureAdapterLive } from "./fea
 export { InspectionFailureAdapterLive, LifecycleFailureAdapterLive };
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { ExecutionDirectory } from "./execution-directory.js";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 const testHttpClient = HttpClient.make((request) =>
   Effect.succeed(
@@ -466,6 +467,10 @@ export const makeCliTestContext = (opts?: {
     Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
     Layer.succeed(RegistryUrl, "https://registry.example.com"),
     CredentialStoreTest(),
+    // The posture a command boundary discharges when it registers no
+    // override. A test that wants the one-shot bypass provides "ignore"
+    // closer to the handler it drives.
+    Layer.succeed(ReleaseAgePosture, "enforce"),
   );
 
   return {

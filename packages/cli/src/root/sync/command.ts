@@ -1,9 +1,10 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { handleSync } from "./handler.js";
 
 const syncConfig = {
@@ -27,19 +28,15 @@ const syncConfig = {
     Flag.withDescription("Exit 1 when preview finds reconciliation work"),
     Flag.withDefault(false),
   ),
-  ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
-    Flag.withDescription(
-      "Allow configured Registry releases newer than minimumReleaseAge for this sync",
-    ),
-    Flag.withDefault(false),
-  ),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const syncCommand = Command.make(
   "sync",
   syncConfig,
   ({ target, type, scope, preview, failOnChange, ignoreReleaseAge }) =>
-    handleSync({ target, type, preview, failOnChange, ignoreReleaseAge }).pipe(
+    handleSync({ target, type, preview, failOnChange }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("sync"),
     ),

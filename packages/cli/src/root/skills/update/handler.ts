@@ -167,7 +167,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
   const sources = yield* SourceHostProviders;
   const screen = yield* Screen;
   const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
     Effect.mapError(lifecycleFailureToAppError),
   );
 

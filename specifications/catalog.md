@@ -716,6 +716,22 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/packs/new/records-workspace-authorship.spec.ts`](../specifications/cli/packs/new/records-workspace-authorship.spec.ts)
 
+#### Policy Overrides Reach Every Blocked Command
+
+##### The one-shot release-age override reaches every command the gate can block
+
+- Requirement: `cli/policy-overrides-reach-every-blocked-command`
+- Statement: Every command whose outcome the minimum release age can change shall accept --ignore-release-age; that flag shall carry the same one-shot meaning on every command that accepts it; and no other flag shall grant that bypass.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: contract, decision-table, static
+- Derived from: `cli/force-bypasses-only-named-policies`
+- Open questions: Whether enabling an already-installed extension should resolve from source at all, or should read only the accepted resolution and never reach the gate. Activation accepts the override today because the gate can block it today; deciding that question may remove activation from the gated inventory instead.
+- Limitation: The one-shot meaning is exercised through each handler the flag reaches — root install, root update, sync, the shared workspace install, and the shared workspace update — rather than once per registered command path. Commands routing into the same handler share its behavior by construction, and the registration and parser checks below do cover every path. Retires when: The specification harness exports a driver for every gate-blockable command path, letting the decision table run per path.
+- Source: [`specifications/cli/policy-overrides-reach-every-blocked-command.spec.ts`](../specifications/cli/policy-overrides-reach-every-blocked-command.spec.ts)
+
 #### Projection Currency Follows State Authority
 
 ##### Generated document currency follows authoritative inputs, not rendered bytes
@@ -1015,6 +1031,34 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts`](../specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts)
+
+#### Withheld Releases Name Recovery From The Emitting Command
+
+##### A withheld release names recovery from the command that withheld it
+
+- Requirement: `cli/withheld-releases-name-recovery-from-the-emitting-command`
+- Statement: When a command withholds or refuses a release under the minimum release age, its diagnostic shall name the recovery routes reachable from that command, including the override flag that command accepts and the declared-exemption route, and shall not name a command the operator did not run.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/withheld-releases-name-recovery-from-the-emitting-command.spec.ts`](../specifications/cli/withheld-releases-name-recovery-from-the-emitting-command.spec.ts)
+
+### Source resolution
+
+#### Minimum Release Age Withholds Unaged Releases
+
+##### Resolution withholds a release that has not aged, unless it is exempt
+
+- Requirement: `source-resolution/minimum-release-age-withholds-unaged-releases`
+- Statement: When a resolution selects a release without an explicit version request, the resolution shall withhold a candidate that has not reached the configured minimum release age unless that candidate's identity matches a declared exemption, and every withheld and every exempted candidate shall be reported with its eligibility time and, when exempted, its exemption cause and scope.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`specifications/source-resolution/minimum-release-age-withholds-unaged-releases.spec.ts`](../specifications/source-resolution/minimum-release-age-withholds-unaged-releases.spec.ts)
 
 ### System
 

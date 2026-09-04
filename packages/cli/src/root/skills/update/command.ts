@@ -1,11 +1,16 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ignoreVersionConstraintsFlag, previewFlag, yesFlag } from "../../../cli-flags/index.js";
+import {
+  ignoreReleaseAgeFlag,
+  ignoreVersionConstraintsFlag,
+  previewFlag,
+  yesFlag,
+} from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { updateNameFilterFlag } from "../../shared/update-targets.js";
 import { handleUpdate } from "./handler.js";
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const updateConfig = {
   source: Argument.string("source").pipe(
@@ -25,19 +30,24 @@ const updateConfig = {
   ),
   force: ignoreVersionConstraintsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, name, yes, force, preview }) =>
+  ({ source, scope, name, yes, force, preview, ignoreReleaseAge }) =>
     handleUpdate({
       source,
       skills: name,
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(scope), withRuntime("skills update")),
+    }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("skills update"),
+    ),
 ).pipe(
   withArgvTracking(updateConfig),
   Command.withDescription("Update installed skills to latest versions"),

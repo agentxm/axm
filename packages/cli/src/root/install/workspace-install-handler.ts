@@ -18,6 +18,7 @@ import {
   makeInstallCommandActions,
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableType>): SubjectType =>
   Option.match(type, {
@@ -54,7 +55,6 @@ export interface WorkspaceInstallFlags {
   readonly yes: boolean;
   readonly preview: boolean;
   readonly force?: boolean;
-  readonly ignoreReleaseAge?: boolean;
 }
 
 export interface WorkspaceInstallHandlerArgs {
@@ -100,7 +100,6 @@ const handleWorkspaceInstallBody = (
         type: args.type,
         planName: args.planName,
         planDescription: args.planDescription,
-        ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
       },
       actions,
     );
@@ -128,7 +127,7 @@ const handleWorkspaceInstallBody = (
       args.flags,
       makeConfirmationRecovery(workspaceInstallCommand(args.type), [
         recoverySwitch("--reinstall", args.flags.force === true),
-        recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
+        recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
       ]),
       [],
       planResult.configuredAgentOperations,

@@ -13,6 +13,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
 
 import * as Effect from "effect/Effect";
@@ -42,6 +43,8 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
+  ReleaseAgePosture,
+  type ReleaseAgePostureValue,
 } from "axm.sh/specification-harness";
 
 export interface SpecWorkspaceOptions {
@@ -69,11 +72,33 @@ export interface SpecWorkspaceOptions {
   };
   /** Initial `axm.json` content beyond the defaults. */
   readonly settings?: Parameters<typeof writeWorkspaceFiles>[1];
+  /**
+   * The minimum-release-age posture the command boundary discharges. Defaults
+   * to `"enforce"`, which is what every command without the one-shot override
+   * provides.
+   */
+  readonly releaseAgePosture?: ReleaseAgePostureValue;
+  /**
+   * User-scope `axm.json` content, written to a hermetic user home for the
+   * lifetime of this workspace. Present only when a specification needs to
+   * observe how project scope and user scope combine.
+   */
+  readonly userSettings?: Parameters<typeof writeWorkspaceFiles>[1];
 }
 
 export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-spec-")));
   writeWorkspaceFiles(root, options.settings ?? {});
+
+  // A hermetic user home, so user-scope settings are this workspace's and the
+  // machine's real home is never read or written.
+  const userHome =
+    options.userSettings === undefined
+      ? undefined
+      : fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-spec-home-")));
+  if (userHome !== undefined) {
+    writeWorkspaceFiles(path.join(userHome, ".axm"), { ...options.userSettings, scope: "user" });
+  }
 
   const streams: RecordingStreams | undefined =
     options.screen === undefined
@@ -124,7 +149,30 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
   const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
   const invariantFactsLayer = Layer.provide(workspaceInvariantFactsLive, fullLayer);
-  const layer = Layer.merge(fullLayer, invariantFactsLayer);
+  const composed = Layer.mergeAll(
+    fullLayer,
+    invariantFactsLayer,
+    Layer.succeed(ReleaseAgePosture, options.releaseAgePosture ?? "enforce"),
+  );
+  // The user home is read through configuration, whose provider snapshots the
+  // environment; relocating it therefore means supplying the provider, not
+  // mutating `process.env` after the fact.
+  const layer =
+    userHome === undefined
+      ? composed
+      : Layer.provide(
+          composed,
+          ConfigProvider.layer(
+            ConfigProvider.fromEnv({
+              env: Object.fromEntries([
+                ...Object.entries(process.env).flatMap(([key, value]) =>
+                  value === undefined ? [] : [[key, value] as const],
+                ),
+                ["AXM_USER_HOME", userHome] as const,
+              ]),
+            }),
+          ),
+        );
 
   return {
     /** Absolute project root of the temporary workspace. */
@@ -170,6 +218,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     },
     cleanup: (): void => {
       fs.rmSync(root, { recursive: true, force: true });
+      if (userHome !== undefined) fs.rmSync(userHome, { recursive: true, force: true });
     },
   };
 };

@@ -64,12 +64,12 @@ import {
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
-  readonly ignoreReleaseAge?: boolean;
 }
 
 export interface RootUpdateHandlerArgs extends RootUpdateFlags {
@@ -355,7 +355,7 @@ const heldTargetResolution = (args: {
       },
       suggestions: [
         {
-          description: `Wait until ${args.evidence.eligibleAt}, request an eligible older version, or retry with --ignore-release-age.`,
+          description: `Wait until ${args.evidence.eligibleAt}, request an eligible older version, declare ${args.intent.target} in minimumReleaseAgeExclude, or rerun this command with --ignore-release-age.`,
         },
       ],
     });
@@ -537,7 +537,6 @@ const contextForResolution = (
 const resolveTargetedUpdate = (
   intent: RootUpdateIntent,
   execution: PlanExecution,
-  ignoreReleaseAge: boolean,
   actions: InstallCommandActions,
 ) =>
   Effect.gen(function* () {
@@ -555,9 +554,9 @@ const resolveTargetedUpdate = (
       }
     }
 
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
-      ignoreReleaseAge ? "ignore" : "enforce",
-    ).pipe(Effect.mapError(lifecycleFailureToAppError));
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+      Effect.mapError(lifecycleFailureToAppError),
+    );
     const source = yield* resolveSource(intent.source);
     if (source.type !== "registry") {
       return yield* makeAppError({ code: "usage", detail: "Root update requires a Registry FQN" });
@@ -754,17 +753,12 @@ const handleUpdateBody = (args: RootUpdateHandlerArgs, actions: InstallCommandAc
       args,
       makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
         recoverySwitch("--refresh", args.force),
-        recoverySwitch("--ignore-release-age", args.ignoreReleaseAge === true),
+        recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
         recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
       ]),
     );
     const intent = yield* resolveRootUpdateIntent(source);
-    const resolved = yield* resolveTargetedUpdate(
-      intent,
-      execution,
-      args.ignoreReleaseAge === true,
-      actions,
-    );
+    const resolved = yield* resolveTargetedUpdate(intent, execution, actions);
     const outputResolution = resolved.resolution;
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(

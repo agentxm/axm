@@ -84,6 +84,24 @@ describe("evaluateAxmSkillCompatibility", () => {
     });
   });
 
+  it("accepts prerelease skill and CLI versions within the declared bounded range", () => {
+    const version = "1.2.4-preview.1";
+
+    expect(
+      evaluateAxmSkillCompatibility({
+        cliVersion: version,
+        skill: {
+          manifestVersion: version,
+          source: "bundled:@agentxm/skills/axm",
+          metadata: {
+            [AXM_SKILL_CLI_VERSION_METADATA_KEY]: version,
+            [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
+          },
+        },
+      }),
+    ).toMatchObject({ status: "compatible", reasonCode: null });
+  });
+
   it("upgrades an older CLI before re-evaluating the unchanged official skill", () => {
     const result = evaluateAxmSkillCompatibility(
       compatibleInput({

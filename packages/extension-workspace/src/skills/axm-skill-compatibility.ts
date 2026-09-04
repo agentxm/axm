@@ -100,6 +100,8 @@ export type AxmSkillCliVersionRangeValidation =
   { readonly valid: true } | { readonly valid: false };
 
 const wildcardRangePattern = /(?:^|[.\s])(?:[xX*])(?:$|[.\s])/u;
+const compatibilitySatisfies = (version: string, range: string): boolean =>
+  semver.satisfies(version, range, { includePrerelease: true });
 
 const comparatorSetIsBounded = (comparators: ReadonlyArray<semver.Comparator>): boolean => {
   let hasLowerBound = false;
@@ -344,14 +346,14 @@ export const evaluateAxmSkillCompatibility = (
       `The AXM skill manifest reports ${validSkillVersion}, but ${AXM_SKILL_CLI_VERSION_METADATA_KEY} reports ${declaredCliVersion}.`,
     );
   }
-  if (!semver.satisfies(declaredCliVersion, declaredCliVersionRange)) {
+  if (!compatibilitySatisfies(declaredCliVersion, declaredCliVersionRange)) {
     return incompatible(
       fields,
       "skill-release-range-mismatch",
       `The AXM skill release ${declaredCliVersion} is outside its declared CLI range ${declaredCliVersionRange}.`,
     );
   }
-  if (!semver.satisfies(cliVersion, declaredCliVersionRange)) {
+  if (!compatibilitySatisfies(cliVersion, declaredCliVersionRange)) {
     return incompatible(
       fields,
       "cli-version-incompatible",

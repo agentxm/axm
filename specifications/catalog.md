@@ -409,7 +409,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Lint holds a declared official AXM skill to compatibility
 
 - Requirement: `cli/lint/declared-official-skill-must-be-compatible`
-- Statement: When the workspace declares the official AXM skill, lint shall report a compatibility error and fail when the declared skill is missing, incompatible, skewed, authored, or unreadable, and shall report clean and succeed when it is compatible.
+- Statement: When the workspace declares the official AXM skill, lint shall report a compatibility error and fail when the declared skill is missing, incompatible, skewed, authored, or unreadable, and shall report clean and succeed when the skill and CLI satisfy the declared bounded compatibility range, including prerelease versions within that range.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`

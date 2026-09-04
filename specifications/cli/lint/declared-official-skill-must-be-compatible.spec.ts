@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/declared-official-skill-must-be-compatible",
   title: "Lint holds a declared official AXM skill to compatibility",
   statement:
-    "When the workspace declares the official AXM skill, lint shall report a compatibility error and fail when the declared skill is missing, incompatible, skewed, authored, or unreadable, and shall report clean and succeed when it is compatible.",
+    "When the workspace declares the official AXM skill, lint shall report a compatibility error and fail when the declared skill is missing, incompatible, skewed, authored, or unreadable, and shall report clean and succeed when the skill and CLI satisfy the declared bounded compatibility range, including prerelease versions within that range.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -37,6 +37,7 @@ const cases: ReadonlyArray<{
   { state: "official-skewed", findings: compatibilityError, succeeds: false },
   { state: "official-authored", findings: compatibilityError, succeeds: false },
   { state: "official-compatible", findings: [], succeeds: true },
+  { state: "official-compatible-prerelease", findings: [], succeeds: true },
   { state: "official-unreadable", findings: compatibilityError, succeeds: false },
 ];
 

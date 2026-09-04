@@ -41,9 +41,12 @@ export const installBundledAxmSkill = handleSkillsInstall(
   { yes: true, force: false, preview: false },
 );
 
-export const makeLintSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
+export const makeLintSpecWorkspace = (
+  options: SpecWorkspaceOptions = {},
+  cliVersion = loadVersion(),
+) => {
   const workspace = makeSpecWorkspace(options);
-  const layer = Layer.merge(workspace.layer, makeAxmSkillCompatibilityPolicyLayer(loadVersion()));
+  const layer = Layer.merge(workspace.layer, makeAxmSkillCompatibilityPolicyLayer(cliVersion));
   return {
     ...workspace,
     layer,
@@ -102,6 +105,7 @@ export type OfficialSkillWorkspaceState =
   | "official-skewed"
   | "official-authored"
   | "official-compatible"
+  | "official-compatible-prerelease"
   | "official-unreadable";
 
 const officialSkillRuleIds = new Set([
@@ -128,6 +132,7 @@ const officialSkillSettings = (state: OfficialSkillWorkspaceState) => {
     case "non-official":
     case "official-skewed":
     case "official-compatible":
+    case "official-compatible-prerelease":
     case "official-unreadable":
       return {};
   }
@@ -186,17 +191,38 @@ const skewBundledOfficialSkill = (officialSkillRoot: string) =>
     fs.writeFileSync(manifestPath, `${JSON.stringify({ ...manifest, version: "0.0.1" })}\n`);
   });
 
+const rewriteBundledOfficialSkillRelease = (officialSkillRoot: string, version: string): void => {
+  const manifestPath = path.join(officialSkillRoot, "skill.json");
+  const manifest: unknown = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
+    throw new Error("Expected the bundled AXM skill manifest to be an object");
+  }
+  fs.writeFileSync(manifestPath, `${JSON.stringify({ ...manifest, version })}\n`);
+
+  const skillPath = path.join(officialSkillRoot, "src", "SKILL.md");
+  const skill = fs.readFileSync(skillPath, "utf8");
+  fs.writeFileSync(
+    skillPath,
+    skill.replace(/axm\.sh\/cli-version: "[^"]+"/u, `axm.sh/cli-version: "${version}"`),
+  );
+};
+
 /**
  * Create a machine-mode lint workspace with only the official-skill rules
  * enabled and its official AXM skill arranged in the named state.
  */
 export const makeOfficialSkillWorkspace = (state: OfficialSkillWorkspaceState) =>
   Effect.gen(function* () {
-    const workspace = makeLintSpecWorkspace({
-      machine: true,
-      flags: { json: true },
-      settings: { lint: { rules: isolateOfficialSkillRules() }, ...officialSkillSettings(state) },
-    });
+    const cliVersion =
+      state === "official-compatible-prerelease" ? "0.28.7-preview.1" : loadVersion();
+    const workspace = makeLintSpecWorkspace(
+      {
+        machine: true,
+        flags: { json: true },
+        settings: { lint: { rules: isolateOfficialSkillRules() }, ...officialSkillSettings(state) },
+      },
+      cliVersion,
+    );
     const officialSkillRoot = path.join(
       workspace.root,
       "agent_extensions",
@@ -222,6 +248,10 @@ export const makeOfficialSkillWorkspace = (state: OfficialSkillWorkspaceState) =
       }
       case "official-compatible":
         yield* installBundledAxmSkill.pipe(Effect.provide(workspace.layer));
+        break;
+      case "official-compatible-prerelease":
+        yield* installBundledAxmSkill.pipe(Effect.provide(workspace.layer));
+        rewriteBundledOfficialSkillRelease(officialSkillRoot, cliVersion);
         break;
       case "official-skewed":
         yield* installBundledAxmSkill.pipe(Effect.provide(workspace.layer));

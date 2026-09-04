@@ -110,6 +110,7 @@ export {
   lifecycleEvents,
   makeOperationLifecycle,
   makeThrottledUnitProgress,
+  observeChildUnit,
   observeUnit,
   publishOperationEvent,
   publishPhaseStarted,

@@ -13,6 +13,7 @@ import {
   lifecycleEvents,
   makeOperationLifecycle,
   makeThrottledUnitProgress,
+  observeChildUnit,
   observeUnit,
   publishOperationEvent,
   publishPhaseStarted,
@@ -255,6 +256,119 @@ describe("operation lifecycle events", () => {
         const wire: unknown = JSON.parse(JSON.stringify(encode(event)));
         expect(decode(wire)).toEqual(event);
       }
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe("resolved unit labels", () => {
+  it.effect("settles with the fact the unit resolved, not the label it started with", () =>
+    Effect.gen(function* () {
+      const lifecycle = yield* makeOperationLifecycle({ name: "Upgrade AXM", mode: "apply" });
+      const observed: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
+
+      yield* observeUnit(
+        {
+          id: "detect",
+          label: "installation method",
+          resolvedLabel: (method: string) => `installed with ${method}`,
+        },
+        Effect.succeed("Homebrew"),
+      ).pipe(Effect.provideService(OperationLifecycle, lifecycle));
+      yield* lifecycle.settle("completed");
+      yield* lifecycle.drained.await;
+
+      expect(observed[0]).toMatchObject({ _tag: "UnitStarted", label: "installation method" });
+      expect(observed[1]).toMatchObject({
+        _tag: "UnitResolved",
+        label: "installed with Homebrew",
+        state: "committed",
+      });
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("keeps the starting label when the unit had no outcome to report", () =>
+    Effect.gen(function* () {
+      const lifecycle = yield* makeOperationLifecycle({ name: "Upgrade AXM", mode: "apply" });
+      const observed: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
+
+      yield* observeUnit(
+        {
+          id: "detect",
+          label: "installation method",
+          resolvedLabel: (method: string) => `installed with ${method}`,
+        },
+        Effect.fail("no method"),
+      ).pipe(
+        Effect.provideService(OperationLifecycle, lifecycle),
+        Effect.catch(() => Effect.void),
+      );
+      yield* lifecycle.settle("failed");
+      yield* lifecycle.drained.await;
+
+      expect(observed[1]).toMatchObject({
+        _tag: "UnitResolved",
+        label: "installation method",
+        state: "failed",
+      });
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe("child units", () => {
+  it.effect("nests under the unit in progress", () =>
+    Effect.gen(function* () {
+      const lifecycle = yield* makeOperationLifecycle({ name: "Upgrade AXM", mode: "apply" });
+      const observed: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
+
+      yield* observeUnit(
+        { id: "parent", label: "parent" },
+        observeChildUnit({ id: "child", label: "child" }, Effect.void),
+      ).pipe(Effect.provideService(OperationLifecycle, lifecycle));
+      yield* lifecycle.settle("completed");
+      yield* lifecycle.drained.await;
+
+      const started = observed.filter((event) => event._tag === "UnitStarted");
+      expect(started.map((event) => [event.unitId, event.parentUnitId])).toEqual([
+        ["parent", undefined],
+        ["child", "parent"],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("states no parent when no unit is in progress", () =>
+    Effect.gen(function* () {
+      const lifecycle = yield* makeOperationLifecycle({ name: "Upgrade AXM", mode: "apply" });
+      const observed: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
+
+      yield* observeChildUnit({ id: "only", label: "only" }, Effect.void).pipe(
+        Effect.provideService(OperationLifecycle, lifecycle),
+      );
+      yield* lifecycle.settle("completed");
+      yield* lifecycle.drained.await;
+
+      expect(observed[0]).toMatchObject({ _tag: "UnitStarted", unitId: "only" });
+      expect(observed[0]).not.toHaveProperty("parentUnitId");
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("keeps a parent the caller stated", () =>
+    Effect.gen(function* () {
+      const lifecycle = yield* makeOperationLifecycle({ name: "Upgrade AXM", mode: "apply" });
+      const observed: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
+
+      yield* observeUnit(
+        { id: "parent", label: "parent" },
+        observeChildUnit({ id: "child", label: "child", parentUnitId: "elsewhere" }, Effect.void),
+      ).pipe(Effect.provideService(OperationLifecycle, lifecycle));
+      yield* lifecycle.settle("completed");
+      yield* lifecycle.drained.await;
+
+      expect(observed[1]).toMatchObject({ _tag: "UnitStarted", parentUnitId: "elsewhere" });
     }).pipe(Effect.scoped),
   );
 });

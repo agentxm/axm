@@ -350,13 +350,21 @@ export const makeThrottledUnitProgress = (options: {
       }),
   );
 
-export interface ObservedUnit {
+export interface ObservedUnit<A = never> {
   readonly id: string;
   readonly label: string;
   /** Planned position; assigned by the service when the caller has none. */
   readonly index?: number | undefined;
   readonly total?: number | undefined;
   readonly parentUnitId?: string | undefined;
+  /**
+   * The label the unit settles with, read from the value it produced. A unit
+   * that exists to resolve a fact reports that fact here, so its settlement
+   * names the answer instead of repeating the question. Only a successful
+   * exit has a value to read; a failed or interrupted unit settles with the
+   * label it started with.
+   */
+  readonly resolvedLabel?: (value: A) => string;
 }
 
 const unitStateForExit = (exit: Exit.Exit<unknown, unknown>): UnitState =>
@@ -369,11 +377,12 @@ const unitStateForExit = (exit: Exit.Exit<unknown, unknown>): UnitState =>
 /**
  * Run one unit of work under the lifecycle: `UnitStarted` before, then
  * `UnitResolved` with the state the exit proves (`committed`, `failed`, or
- * `interrupted`). The unit identity is provided to the run so nested producers
- * can publish progress. No-op wrapper without a broadcast.
+ * `interrupted`) and the label the unit settles with. The unit identity is
+ * provided to the run so nested producers can publish progress. No-op wrapper
+ * without a broadcast.
  */
 export const observeUnit = <A, E, R>(
-  unit: ObservedUnit,
+  unit: ObservedUnit<A>,
   effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> =>
   Effect.flatMap(Effect.serviceOption(OperationLifecycle), (service) => {
@@ -400,7 +409,10 @@ export const observeUnit = <A, E, R>(
             seq,
             atMs,
             unitId: unit.id,
-            label: unit.label,
+            label:
+              Exit.isSuccess(exit) && unit.resolvedLabel !== undefined
+                ? unit.resolvedLabel(exit.value)
+                : unit.label,
             state: unitStateForExit(exit),
             index,
             ...total,
@@ -409,6 +421,25 @@ export const observeUnit = <A, E, R>(
       );
     });
   });
+
+/**
+ * Run a unit as a child of the unit currently in progress, so work a step
+ * delegates nests under the step that delegated it. Identical to
+ * `observeUnit` when no unit is in progress, and when the caller states its
+ * own parent that statement wins.
+ */
+export const observeChildUnit = <A, E, R>(
+  unit: ObservedUnit<A>,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> =>
+  Effect.flatMap(Effect.serviceOption(CurrentOperationUnit), (parent) =>
+    observeUnit(
+      unit.parentUnitId !== undefined || Option.isNone(parent)
+        ? unit
+        : { ...unit, parentUnitId: parent.value.unitId },
+      effect,
+    ),
+  );
 
 /** Publish the terminal event once. No-op without a broadcast. */
 export const settleOperation = (outcome: SettledOutcome): Effect.Effect<void> =>

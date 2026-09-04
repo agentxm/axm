@@ -61,7 +61,11 @@ export const tableViewDoc = <T extends object>(
     : [
         {
           _tag: "table",
-          columns: columns.map((column) => ({ header: column.header, align: column.align })),
+          columns: columns.map((column) => ({
+            header: column.header,
+            align: column.align,
+            ...(typeof column.width === "number" ? { width: column.width } : {}),
+          })),
           rows: items.map((item) => columns.map((column) => column.render(item))),
           ...(caption === undefined ? {} : { caption }),
         },

@@ -51,12 +51,16 @@ export const AgentsListOutputSchema = Schema.Struct({
 export type AgentsListOutput = typeof AgentsListOutputSchema.Type;
 
 const AgentListColumns = [
-  { header: "ID", value: (row: AgentListItem) => row.id },
+  { header: "ID", priority: "required", value: (row: AgentListItem) => row.id },
   { header: "Agent", value: (row: AgentListItem) => row.name },
   { header: "Configured", value: (row: AgentListItem) => (row.configured ? "yes" : "no") },
   { header: "Detected", value: (row: AgentListItem) => (row.detected ? "yes" : "no") },
-  { header: "Rules", value: (row: AgentListItem) => row.instructions },
-  { header: "Lifecycle", value: (row: AgentListItem) => lifecycleCell(row.id) },
+  { header: "Rules", priority: "optional", value: (row: AgentListItem) => row.instructions },
+  {
+    header: "Lifecycle",
+    priority: "optional",
+    value: (row: AgentListItem) => lifecycleCell(row.id),
+  },
 ] satisfies ReadonlyArray<ViewColumn<AgentListItem>>;
 
 export const handleAgentsList = Effect.fn("Agents.list")(function* (args: AgentsListArgs) {

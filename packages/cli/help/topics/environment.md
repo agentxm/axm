@@ -76,10 +76,19 @@ optional detail. Quiet wins over `--verbose`, `--debug`, `AXM_VERBOSE`, and
 credentials, tokens, secret environment values, sensitive causes, stacks,
 suggestions, and telemetry payloads are never intentionally rendered.
 
-Human output uses color and interactive activity only when stdout is a capable
-TTY. `NO_COLOR`, `FORCE_COLOR=0`, CI, a non-TTY stdout, and `TERM=dumb` each
-force plain output without ANSI styling or terminal hyperlinks on stdout or
-stderr.
+Human output styles a stream only when that stream is itself a capable TTY:
+a piped stdout stays plain even while stderr is attached to a terminal, and
+the live progress frame animates only on a TTY stderr. `NO_COLOR`,
+`FORCE_COLOR=0`, CI, and `TERM=dumb` each force plain output without ANSI
+styling or terminal hyperlinks on both streams; `FORCE_COLOR` opts a pipe into
+styling without enabling animation. A stream that is not a TTY is never
+wrapped, truncated, or padded to a terminal width.
+
+Human output draws status glyphs, change markers, tree connectors, and
+separators with Unicode symbols. `AXM_ASCII=1`, `TERM=dumb`, or a locale
+(`LC_ALL`, `LC_CTYPE`, or `LANG`) that does not name UTF-8 switches every
+painter symbol to seven-bit ASCII; content such as extension names is never
+transliterated.
 
 ## Variable reference
 
@@ -94,6 +103,7 @@ stderr.
 | `AXM_TELEMETRY`                | stable automation | `0`, `false`, `errors`, `1`, or `true`; all telemetry by default | Controls telemetry for the current process. `DO_NOT_TRACK=1` wins. Unrecognized values use the default.                                                                            |
 | `AXM_VERBOSE`                  | stable automation | `1` or `true` enables; disabled otherwise                        | Enables verbose diagnostics unless quiet mode is selected. Debug mode takes precedence.                                                                                            |
 | `AXM_DEBUG`                    | stable automation | `1` or `true` enables; disabled otherwise                        | Enables debug diagnostics unless quiet mode is selected; takes precedence over verbose mode.                                                                                       |
+| `AXM_ASCII`                    | stable automation | Non-empty enables; Unicode glyphs otherwise                      | Forces seven-bit ASCII painter glyphs in human output. `TERM=dumb` and a non-UTF-8 locale select ASCII as well; JSON mode is unaffected.                                           |
 | `AXM_INSTALL_DIR`              | stable automation | Absolute directory path; `$AXM_USER_HOME/.axm/bin`               | Selects the destination directory used by the public shell and PowerShell installers.                                                                                              |
 | `AXM_INSTALL_VERSION`          | stable automation | Exact unprefixed semantic version; latest stable when unset      | Selects one immutable release for the public installers without stable-channel discovery.                                                                                          |
 | `AXM_CLAUDE_SKILLS_DIR`        | internal          | Directory path; agent default when unset                         | Test/development override for Claude Code's skill directory. An empty override is invalid.                                                                                         |

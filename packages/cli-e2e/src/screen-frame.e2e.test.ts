@@ -19,6 +19,6 @@ describe("interactive screen frame", () => {
     expect(result.stderr.indexOf("warning stayed whole\n")).toBeLessThan(
       result.stderr.lastIndexOf("Running frame task"),
     );
-    expect(result.stderr).toContain("✔ Finished frame task\n");
+    expect(result.stderr).toMatch(/✔ Frame task {2}\d+ms\n/u);
   });
 });

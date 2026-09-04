@@ -1,3 +1,4 @@
+import { startedUnits } from "../../screen/index.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -229,11 +230,8 @@ describe("agents add.handler", () => {
         });
 
         expect(rendererState.suggestions).toEqual([cursorSuggestion]);
-        expect(rendererState.spinnerMessages).toEqual(
-          expect.arrayContaining([
-            "Resolving installed extension materialization",
-            "Resolved installed extension materialization",
-          ]),
+        expect(startedUnits(rendererState)).toEqual(
+          expect.arrayContaining(["installed extension materialization"]),
         );
       }),
     );

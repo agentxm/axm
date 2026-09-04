@@ -27,13 +27,18 @@ interface RuleListItem {
 }
 
 const RuleListColumns = [
-  { header: "Name", value: (row: RuleListItem) => row.name },
+  { header: "Name", priority: "required", value: (row: RuleListItem) => row.name },
   { header: "State", value: (row: RuleListItem) => row.state },
   { header: "Activation", value: (row: RuleListItem) => row.activation },
   { header: "Source", value: (row: RuleListItem) => row.source },
-  { header: "Locked", value: (row: RuleListItem) => (row.locked ? "yes" : "no") },
+  {
+    header: "Locked",
+    priority: "optional",
+    value: (row: RuleListItem) => (row.locked ? "yes" : "no"),
+  },
   {
     header: "Agent outcomes",
+    priority: "optional",
     value: (row: RuleListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
 ] satisfies ReadonlyArray<ViewColumn<RuleListItem>>;

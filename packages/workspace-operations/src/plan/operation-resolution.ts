@@ -63,6 +63,8 @@ export type UnitState = typeof UnitStateSchema.Type;
 
 /** Lifecycle phase in which an operation event (blocking, waiting) occurred. */
 export const OperationPhaseSchema = Schema.Literals([
+  // Resolving requested sources into concrete packages, before planning.
+  "resolution",
   "planning",
   "preview",
   "confirmation",

@@ -85,6 +85,12 @@ export interface GetExtensionsByOwnerArgs {
  * - `name`: extension name
  * - `version`: specific version to fetch, or `None` for latest
  */
+/** Bytes received so far and the declared total when the transport reports one. */
+export interface ArchiveDownloadProgress {
+  readonly done: number;
+  readonly total?: number | undefined;
+}
+
 export interface GetExtensionPackageArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -92,6 +98,11 @@ export interface GetExtensionPackageArgs {
   readonly version: Option.Option<Version | VersionRange>;
   /** Marks an archive read used only to verify compatibility before selection. */
   readonly usagePurpose?: "verification";
+  /**
+   * Observes archive bytes as they arrive. Called once per received chunk;
+   * callers throttle before publishing. Never called for a cache hit.
+   */
+  readonly onProgress?: (progress: ArchiveDownloadProgress) => Effect.Effect<void>;
 }
 
 // -----------------------------------------------------------------------------

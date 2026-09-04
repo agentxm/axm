@@ -73,8 +73,10 @@ export default [
             // through its published harness entry points.
             "^axm\\.sh/(app|runtime|specification-harness)$",
             // Subprocess e2e fixtures observe the CLI package's built shipped
-            // surface by path.
+            // surface by path, and drive it through the built lifecycle
+            // contract it observes.
             "^\\.\\./\\.\\./\\.\\./cli/dist/",
+            "^\\.\\./\\.\\./\\.\\./workspace-operations/dist/",
           ],
           depConstraints: [
             {

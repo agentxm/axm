@@ -30,13 +30,14 @@ interface PackListItem {
 }
 
 const PackListColumns = [
-  { header: "Name", value: (row: PackListItem) => row.name },
+  { header: "Name", priority: "required", value: (row: PackListItem) => row.name },
   { header: "State", value: (row: PackListItem) => row.state },
   { header: "Owner", value: (row: PackListItem) => row.owner },
   { header: "Version", value: (row: PackListItem) => row.version },
   { header: "Source", value: (row: PackListItem) => row.source },
   {
     header: "Agent outcomes",
+    priority: "optional",
     value: (row: PackListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
 ] satisfies ReadonlyArray<ViewColumn<PackListItem>>;

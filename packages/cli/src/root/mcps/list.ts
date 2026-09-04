@@ -33,14 +33,15 @@ interface McpServerListItem {
 }
 
 const McpServerListColumns = [
-  { header: "Local name", value: (row: McpServerListItem) => row.localName },
+  { header: "Local name", priority: "required", value: (row: McpServerListItem) => row.localName },
   { header: "Source", value: (row: McpServerListItem) => row.source },
   { header: "State", value: (row: McpServerListItem) => row.state },
-  { header: "Version", value: (row: McpServerListItem) => row.version },
+  { header: "Version", priority: "optional", value: (row: McpServerListItem) => row.version },
   { header: "Transport", value: (row: McpServerListItem) => row.transport },
   { header: "Status", value: (row: McpServerListItem) => row.status },
   {
     header: "Agent outcomes",
+    priority: "optional",
     value: (row: McpServerListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
 ] satisfies ReadonlyArray<ViewColumn<McpServerListItem>>;

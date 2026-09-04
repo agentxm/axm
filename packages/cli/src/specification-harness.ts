@@ -161,11 +161,25 @@ export { AppError, ExitCodeDefinitions } from "./app-error/index.js";
 export { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
 export { TestFlagsLayer, Verbosity } from "./cli-flags/index.js";
 export {
+  FrameLive,
+  OutputStreams,
+  ProgressEventSchema,
   Screen,
+  ScreenLive,
+  ScreenMachine,
   TestMachineRenderer,
   TestRenderer,
+  asciiGlyphs,
+  displayWidth,
+  resolveCliOutputPolicy,
+  stripTerminalFormatting,
+  unicodeGlyphs,
   type TestRendererState,
 } from "./screen/index.js";
+// The published lifecycle event contract the machine progress channel carries;
+// specs may not import the kernel root, so the harness re-exports it.
+export { OperationEventSchema } from "@agentxm/workspace-operations";
+export { handleList as handleSkillsList } from "./root/skills/list.js";
 export { PromptCancelled } from "./prompt/prompt-cancelled.js";
 export {
   TelemetryClient,
@@ -181,7 +195,6 @@ export {
   KnowledgeIndexLive,
   KnowledgeManagerLive,
   LifecycleFailureAdapterLive,
-  LifecycleResolutionProgressLive,
   McpServerManagerLive,
   PackManagerLive,
   RuleManagerLive,

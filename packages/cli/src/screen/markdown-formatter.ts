@@ -1,16 +1,15 @@
 import { lexer, type MarkedToken, type Token, type Tokens } from "marked";
 
-import type { ResolvedTableColumn } from "./output.js";
 import { ANSI_BOLD, ANSI_CYAN, ANSI_DIM, Symbols } from "./terminal-style.js";
 import { annotate, repeat } from "./presenter-helpers.js";
-import { formatTable } from "./table-formatter.js";
+import { joinGridLine, layoutTable, type LayoutColumn } from "./table-layout.js";
+import { displayWidth, padDisplay, stripTerminalFormatting, wrapDisplay } from "./width.js";
+import { longestWordWidth } from "./wrap-text.js";
 
-type MarkdownTableRow = { [key: string]: string };
-
-const ANSI_PATTERN = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`, "g");
 const MIN_WRAP_WIDTH = 24;
+const TABLE_GAP = 2;
 
-const visibleLength = (text: string): number => text.replace(ANSI_PATTERN, "").length;
+const visibleLength = (text: string): number => displayWidth(text);
 
 const isMarkedToken = (token: Token): token is MarkedToken => {
   switch (token.type) {
@@ -217,43 +216,56 @@ const renderListItem = (
 };
 
 const tableCellText = (cell: Tokens.TableCell): string =>
-  cell.tokens.length === 0 ? cell.text : renderInlineTokens(cell.tokens).replace(ANSI_PATTERN, "");
+  cell.tokens.length === 0 ? cell.text : stripTerminalFormatting(renderInlineTokens(cell.tokens));
 
 const tableAlign = (align: "center" | "left" | "right" | null): "left" | "right" =>
   align === "right" ? "right" : "left";
 
 const renderTable = (token: Tokens.Table, width: number): string => {
-  const keys = token.header.map((_cell, index) => `c${index}`);
-  const rows: Array<MarkdownTableRow> = [];
-
-  for (const sourceRow of token.rows) {
-    const row: MarkdownTableRow = {};
-    for (let index = 0; index < keys.length; index++) {
-      const key = keys[index];
+  const headers = token.header.map(tableCellText);
+  const rows = token.rows.map((sourceRow) =>
+    headers.map((_, index) => {
       const cell = sourceRow[index];
-      if (key !== undefined) {
-        row[key] = cell === undefined ? "" : tableCellText(cell);
-      }
-    }
-    rows.push(row);
+      return cell === undefined ? "" : tableCellText(cell);
+    }),
+  );
+  const columns: ReadonlyArray<LayoutColumn> = headers.map((header, index) => {
+    const values = [header, ...rows.map((row) => row[index] ?? "")];
+    return {
+      headerWidth: displayWidth(header),
+      naturalWidth: Math.max(0, ...values.map(displayWidth)),
+      wordWidth: Math.max(0, ...values.map(longestWordWidth)),
+      priority: "preferred",
+      align: tableAlign(token.align[index] ?? null),
+    };
+  });
+  const layout = layoutTable({ columns, available: width, gap: TABLE_GAP });
+  if (layout._tag === "stacked") {
+    return rows
+      .map((row) => headers.map((header, index) => `${header}: ${row[index] ?? ""}`).join("\n"))
+      .join("\n\n");
   }
-
-  const columns: Array<ResolvedTableColumn<MarkdownTableRow>> = [];
-  for (let index = 0; index < token.header.length; index++) {
-    const cell = token.header[index];
-    const key = keys[index];
-    if (cell !== undefined && key !== undefined) {
-      columns.push({
-        key,
-        header: tableCellText(cell),
-        render: (row) => row[key] ?? "",
-        align: tableAlign(token.align[index] ?? null),
-        width: "auto",
-      });
-    }
-  }
-
-  return formatTable(rows, columns, undefined, width);
+  const gridLines = (cells: ReadonlyArray<string>): ReadonlyArray<string> => {
+    const wrapped = layout.columns.map((column) =>
+      wrapDisplay(cells[column.index] ?? "", column.width),
+    );
+    const height = Math.max(1, ...wrapped.map((lines) => lines.length));
+    return Array.from({ length: height }, (_, lineIndex) =>
+      joinGridLine(
+        layout.columns.map((column, position) => ({
+          text: wrapped[position]?.[lineIndex] ?? "",
+          width: column.width,
+          align: column.align,
+        })),
+        TABLE_GAP,
+        padDisplay,
+      ),
+    );
+  };
+  const separator = layout.columns
+    .map((column) => "\u2500".repeat(column.width))
+    .join(" ".repeat(TABLE_GAP));
+  return [...gridLines(headers), separator, ...rows.flatMap(gridLines)].join("\n");
 };
 
 const renderBlockToken = (token: MarkedToken, width: number, depth = 0): string => {

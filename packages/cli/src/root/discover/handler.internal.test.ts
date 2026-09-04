@@ -1,3 +1,4 @@
+import { startedUnits } from "../../screen/index.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -136,10 +137,7 @@ describe("discover handler", () => {
               ]),
             }),
           );
-          expect(rendererState.spinnerMessages).toEqual([
-            "Scanning project dependencies",
-            "Scanned project dependencies",
-          ]);
+          expect(startedUnits(rendererState)).toEqual(["project dependencies"]);
         }),
       ),
     );

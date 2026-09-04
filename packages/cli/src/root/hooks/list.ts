@@ -29,13 +29,18 @@ interface HookListItem {
 }
 
 const HookListColumns = [
-  { header: "Name", value: (row: HookListItem) => row.name },
+  { header: "Name", priority: "required", value: (row: HookListItem) => row.name },
   { header: "State", value: (row: HookListItem) => row.state },
   { header: "Activation", value: (row: HookListItem) => row.activation },
   { header: "Source", value: (row: HookListItem) => row.source },
-  { header: "Locked", value: (row: HookListItem) => (row.locked ? "yes" : "no") },
+  {
+    header: "Locked",
+    priority: "optional",
+    value: (row: HookListItem) => (row.locked ? "yes" : "no"),
+  },
   {
     header: "Agent outcomes",
+    priority: "optional",
     value: (row: HookListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
 ] satisfies ReadonlyArray<ViewColumn<HookListItem>>;

@@ -62,7 +62,7 @@ describe("makeFoundationLayer", () => {
       const screen = yield* Screen.pipe(Effect.provide(testLayer("text")));
       expect(screen).toBeDefined();
       expect(screen.result).toBeDefined();
-      expect(screen.task).toBeDefined();
+      expect(screen.observe).toBeDefined();
     }),
   );
 

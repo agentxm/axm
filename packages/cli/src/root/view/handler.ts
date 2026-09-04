@@ -7,6 +7,8 @@ import { RegistryUrl } from "@agentxm/registry-client";
 import { makeAppError } from "../../app-error/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { Screen, rawDoc, tableViewDoc, type TableView } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
@@ -356,9 +358,10 @@ const handleResolvedView = (args: {
     const screen = yield* Screen;
     const client = yield* createRegistryClient(args.targetRegistry.registryUrl);
     const subject = `${args.handle} from ${args.targetRegistry.registryName}`;
-    const index = yield* screen.task(
-      `Loading ${subject}`,
-      () =>
+    const index = yield* withLiveOperation(
+      { command: "view", name: `View ${args.handle}`, mode: "preview" },
+      observeUnit(
+        { id: "index", label: subject },
         client.getExtensionIndex(args.parts).pipe(
           Effect.flatMap(
             Option.match({
@@ -377,7 +380,7 @@ const handleResolvedView = (args: {
             }),
           ),
         ),
-      { successMessage: `Loaded ${subject}` },
+      ),
     );
 
     // Public index responses already carry the visibility the caller is

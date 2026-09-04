@@ -35,6 +35,12 @@ import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-c
 import { deriveOperationOutcome } from "./operation-resolution.js";
 import { workspaceTransactionFailureToStepFailure } from "./step-failure-conversions.js";
 import { previewOrApplyPlan } from "./resolve-plan.js";
+import {
+  OperationLifecycle,
+  makeOperationLifecycle,
+  subscribeLossless,
+  type OperationEvent,
+} from "./operation-events.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
 const releaseAge = {
@@ -117,7 +123,7 @@ describe("previewOrApplyPlan", () => {
     }).pipe(Effect.provide(context.layer));
   });
 
-  it.effect("narrates plan resolution and apply phases with the plan subject", () => {
+  it.effect("publishes the planning and apply lifecycle as typed events", () => {
     const context = makeTestContext();
     const plan: Plan = {
       _tag: "Plan",
@@ -139,14 +145,36 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
+      const lifecycle = yield* makeOperationLifecycle({ name: plan.name, mode: "apply" });
+      const observed: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
       yield* previewOrApplyPlan(plan, {
         execution: preapprovedPlanExecution,
-      });
+      }).pipe(Effect.provideService(OperationLifecycle, lifecycle));
+      yield* lifecycle.settle("applied");
+      yield* lifecycle.drained.await;
 
-      expect(context.interactionState.planningProgress).toEqual(["Install skill"]);
-      expect(context.interactionState.applyProgress).toEqual(["Install skill"]);
+      expect(
+        observed.map((event) =>
+          event._tag === "PhaseStarted"
+            ? `${event._tag}:${event.phase}`
+            : event._tag === "UnitStarted" || event._tag === "UnitResolved"
+              ? `${event._tag}:${event.unitId}`
+              : event._tag,
+        ),
+      ).toEqual([
+        "PhaseStarted:planning",
+        "UnitStarted:lockfile-reconciliation",
+        "UnitResolved:lockfile-reconciliation",
+        "PhaseStarted:validation",
+        "PhaseStarted:apply",
+        "UnitStarted:code-review",
+        "UnitResolved:code-review",
+        "OperationSettled",
+      ]);
+      expect(observed.map((event) => event.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
-    }).pipe(Effect.provide(context.layer));
+    }).pipe(Effect.provide(context.layer), Effect.scoped);
   });
 
   it.effect("presents the candidate to the interaction for an apply without risk", () => {

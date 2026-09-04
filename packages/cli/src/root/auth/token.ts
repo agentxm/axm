@@ -22,6 +22,8 @@ import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 import { runWithStepUp } from "../step-up.js";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { observeUnit } from "@agentxm/workspace-operations";
 
 export const TokenDataSchema = Schema.Struct({
   token: Schema.String,
@@ -115,11 +117,11 @@ interface TokenTableItem {
 }
 
 const TokenListColumns = [
-  { header: "ID", value: (row: TokenTableItem) => row.id },
+  { header: "ID", priority: "required", value: (row: TokenTableItem) => row.id },
   { header: "Name", value: (row: TokenTableItem) => row.name },
   { header: "Type", value: (row: TokenTableItem) => row.type },
   { header: "Expires", value: (row: TokenTableItem) => row.expiresAt },
-  { header: "Last used", value: (row: TokenTableItem) => row.lastUsedAt },
+  { header: "Last used", priority: "optional", value: (row: TokenTableItem) => row.lastUsedAt },
 ] satisfies ReadonlyArray<ViewColumn<TokenTableItem>>;
 
 export interface CreateTokenHandlerArgs {
@@ -226,12 +228,9 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
           stepUpRequestId === undefined ? undefined : { stepUpRequestId },
         ),
       {
-        initial: `Creating registry token "${args.name}"`,
-        success: `Created registry token "${args.name}"`,
-        failure: `Failed to create registry token "${args.name}"`,
-        cancelled: `Cancelled registry token "${args.name}" creation`,
-        waiting: `Waiting for verification to create registry token "${args.name}"`,
-        authorized: `Authorized registry token "${args.name}" creation`,
+        command: "auth.token.create",
+        name: `Create registry token "${args.name}"`,
+        waiting: `verification to create registry token "${args.name}"`,
       },
     );
     const created = createResult.value;
@@ -288,10 +287,9 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
       missingTokenError: authLoginRequired("Not authenticated"),
     });
 
-    const result = yield* screen.task(
-      "Loading registry tokens",
-      () => authClient.listTokens(token.token),
-      { successMessage: "Loaded registry tokens" },
+    const result = yield* withLiveOperation(
+      { command: "auth.token.list", name: "List registry tokens", mode: "preview" },
+      observeUnit({ id: "tokens", label: "registry tokens" }, authClient.listTokens(token.token)),
     );
 
     if (
@@ -365,12 +363,9 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
           stepUpRequestId === undefined ? undefined : { stepUpRequestId },
         ),
       {
-        initial: `Revoking registry token ${tokenId}`,
-        success: `Revoked registry token ${tokenId}`,
-        failure: `Failed to revoke registry token ${tokenId}`,
-        cancelled: `Cancelled registry token ${tokenId} revocation`,
-        waiting: `Waiting for verification to revoke token ${tokenId}`,
-        authorized: `Authorized token ${tokenId} revocation`,
+        command: "auth.token.revoke",
+        name: `Revoke registry token ${tokenId}`,
+        waiting: `verification to revoke token ${tokenId}`,
       },
     );
 

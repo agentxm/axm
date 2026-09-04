@@ -220,12 +220,9 @@ export const handleVisibilitySet = (target: string, visibility: ExtensionVisibil
           })
           .pipe(Effect.mapError(toAppError)),
       {
-        initial: `Updating ${target}`,
-        success: `Updated ${target}`,
-        failure: `Failed to update ${target}`,
-        cancelled: `Cancelled update for ${target}`,
-        waiting: `Waiting for verification to update ${target}`,
-        authorized: `Authorized update for ${target}`,
+        command: "visibility.set",
+        name: `Update ${target}`,
+        waiting: `verification to update ${target}`,
       },
     );
     yield* emitMutation(mutation.value);
@@ -269,12 +266,9 @@ export const handleVisibilityReconcile = (target: string) =>
           })
           .pipe(Effect.mapError(toAppError)),
       {
-        initial: `Reconciling ${target}`,
-        success: `Reconciled ${target}`,
-        failure: `Failed to reconcile ${target}`,
-        cancelled: `Cancelled reconciliation for ${target}`,
-        waiting: `Waiting for verification to reconcile ${target}`,
-        authorized: `Authorized reconciliation for ${target}`,
+        command: "visibility.reconcile",
+        name: `Reconcile ${target}`,
+        waiting: `verification to reconcile ${target}`,
       },
     );
     yield* emitMutation(mutation.value);

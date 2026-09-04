@@ -5,6 +5,8 @@ import * as Schema from "effect/Schema";
 
 import { RegistryUrl } from "@agentxm/registry-client";
 import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import {
   discover,
   type DiscoverPackageResult,
@@ -60,10 +62,10 @@ interface DiscoverTableRow {
 }
 
 const DiscoverColumns = [
-  { header: "Package", value: (row: DiscoverTableRow) => row.package },
+  { header: "Package", priority: "required", value: (row: DiscoverTableRow) => row.package },
   { header: "Extension", value: (row: DiscoverTableRow) => row.extension },
-  { header: "Attested", value: (row: DiscoverTableRow) => row.attestedBy },
-  { header: "Official", value: (row: DiscoverTableRow) => row.official },
+  { header: "Attested", priority: "optional", value: (row: DiscoverTableRow) => row.attestedBy },
+  { header: "Official", priority: "optional", value: (row: DiscoverTableRow) => row.official },
   { header: "Install", value: (row: DiscoverTableRow) => row.installVersion },
 ] satisfies ReadonlyArray<ViewColumn<DiscoverTableRow>>;
 
@@ -161,10 +163,9 @@ export const handleDiscoverWith = <E, R>(
     const executionDirectory = yield* ExecutionDirectory;
     const path = yield* Path.Path;
     const projectDir = resolveDiscoverProjectDir(args.path, executionDirectory, path);
-    const result = yield* screen.task(
-      "Scanning project dependencies",
-      () => runDiscover(projectDir),
-      { successMessage: "Scanned project dependencies" },
+    const result = yield* withLiveOperation(
+      { command: "discover", name: "Discover companion extensions", mode: "preview" },
+      observeUnit({ id: "dependencies", label: "project dependencies" }, runDiscover(projectDir)),
     );
     const output = toDiscoverOutput(result);
 

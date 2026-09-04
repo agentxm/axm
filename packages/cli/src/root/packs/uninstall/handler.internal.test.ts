@@ -44,7 +44,6 @@ import {
 import { PACK_UNINSTALL_GRAPH_BLOCKER_ID } from "./readiness.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
-import { LifecycleResolutionProgressLive } from "../../../lifecycle-interaction.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -257,7 +256,6 @@ describe("packs uninstall handler", () => {
       SPLayer,
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
-      Layer.provide(LifecycleResolutionProgressLive, BaseLayer),
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const FullLayer = Layer.merge(CoreLayer, MgrLayer);

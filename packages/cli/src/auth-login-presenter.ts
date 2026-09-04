@@ -1,13 +1,14 @@
 /**
  * CLI implementation of the auth login presentation seam.
  *
- * Owns all sign-in wording, suggestion sets, spinner labels, and machine-mode
- * document emission for the device, loopback, and publish-authorization
- * flows.
+ * Owns all sign-in wording, suggestion sets, lifecycle unit labels, and
+ * machine-mode document emission for the device, loopback, and
+ * publish-authorization flows.
  */
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { observeUnit } from "@agentxm/workspace-operations";
 
 import {
   AuthLoginPresenter,
@@ -18,7 +19,7 @@ import {
 } from "@agentxm/registry-auth";
 import { Screen } from "./screen/index.js";
 import {
-  authProgressMessages,
+  authProgressLabel,
   deviceFlowView,
   loginSuccessDoc,
   loginSuccessSuggestions,
@@ -34,10 +35,8 @@ export const AuthLoginPresenterLive = Layer.effect(
   Effect.gen(function* () {
     const screen = yield* Screen;
     return {
-      withProgress: <A, E, R>(progress: AuthLoginProgress, run: () => Effect.Effect<A, E, R>) => {
-        const { message, successMessage } = authProgressMessages(progress);
-        return screen.task(message, () => run(), { successMessage });
-      },
+      withProgress: <A, E, R>(progress: AuthLoginProgress, run: () => Effect.Effect<A, E, R>) =>
+        observeUnit({ id: progress._tag, label: authProgressLabel(progress) }, run()),
       tryEmitPendingDeviceLogin: (result) =>
         Effect.gen(function* () {
           return yield* screen.document({ result }, DeviceLoginPendingDocumentSchema, {

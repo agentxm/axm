@@ -14,6 +14,7 @@ import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { makeAppError } from "../../app-error/index.js";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
+  observeUnit,
   previewOrApplyPlan,
   preapprovedPlanExecution,
   previewPlanExecution,
@@ -277,92 +278,91 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
   const upToDateMessage = scoped
     ? `${scopeLabel} materialization is up to date`
     : "Workspace materialization is up to date";
-  const preflight = yield* screen.task(
-    `Resolving ${scopeLabel} sync`,
-    () =>
-      Effect.gen(function* () {
-        const packRecovery = yield* collectConfiguredPackRecovery({
-          selection,
-          ignoreReleaseAge: args.ignoreReleaseAge === true,
-        });
-        const {
-          steps,
-          cleanupSafe,
-          knowledgeMayChange,
-          serialMaterialization,
-          expectedSkillNames,
-          expectedSubagentNames,
-          expectedMcpServerNames,
-          expectedHookNames,
-          releaseAge,
-        } = yield* collectMaterializeSteps({
-          selection,
-          ignoreReleaseAge: args.ignoreReleaseAge === true,
-          ...(packRecovery === undefined ? {} : { packRecovery }),
-        });
-        const selectionTouches = (unitType: "rule" | "hook"): boolean => {
-          if (!scoped) return true;
-          if (Option.isSome(type) && type.value === unitType) return true;
-          if (Option.isSome(target)) {
-            const parsedType = parseExtensionFqnParts(target.value)?.type;
-            return parsedType === unitType || parsedType === "pack";
-          }
-          return false;
-        };
-        const projectionFacts = yield* invariantFacts.projectionFacts;
-        const hookProjectionFacts = projectionFacts.filter(({ subject }) =>
-          subject.unitId.startsWith("hook:"),
-        );
-        const ruleProjectionFacts = projectionFacts.filter(
-          ({ subject }) => subject.unitId === "rule:instructions-region",
-        );
-        const knowledgeProjectionFacts = projectionFacts.filter(
-          ({ subject }) => subject.unitId === "knowledge:discovery-region",
-        );
-        const knowledgeStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
-          scoped || !cleanupSafe
-            ? Option.none<PlannedJobStep<SyncPlanRequirements>>()
-            : yield* collectKnowledgeStep({
-                adapter: syncStepFailureAdapter,
-                deferPreview: knowledgeMayChange,
-                facts: knowledgeProjectionFacts,
-              }).pipe(Effect.mapError(syncFailureToAppError));
-        const hooksStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> = selectionTouches(
-          "hook",
-        )
-          ? yield* collectHooksStep({
-              facts: hookProjectionFacts,
+  const preflight = yield* observeUnit(
+    { id: "sync-preflight", label: `${scopeLabel} sync plan` },
+    Effect.gen(function* () {
+      const packRecovery = yield* collectConfiguredPackRecovery({
+        selection,
+        ignoreReleaseAge: args.ignoreReleaseAge === true,
+      });
+      const {
+        steps,
+        cleanupSafe,
+        knowledgeMayChange,
+        serialMaterialization,
+        expectedSkillNames,
+        expectedSubagentNames,
+        expectedMcpServerNames,
+        expectedHookNames,
+        releaseAge,
+      } = yield* collectMaterializeSteps({
+        selection,
+        ignoreReleaseAge: args.ignoreReleaseAge === true,
+        ...(packRecovery === undefined ? {} : { packRecovery }),
+      });
+      const selectionTouches = (unitType: "rule" | "hook"): boolean => {
+        if (!scoped) return true;
+        if (Option.isSome(type) && type.value === unitType) return true;
+        if (Option.isSome(target)) {
+          const parsedType = parseExtensionFqnParts(target.value)?.type;
+          return parsedType === unitType || parsedType === "pack";
+        }
+        return false;
+      };
+      const projectionFacts = yield* invariantFacts.projectionFacts;
+      const hookProjectionFacts = projectionFacts.filter(({ subject }) =>
+        subject.unitId.startsWith("hook:"),
+      );
+      const ruleProjectionFacts = projectionFacts.filter(
+        ({ subject }) => subject.unitId === "rule:instructions-region",
+      );
+      const knowledgeProjectionFacts = projectionFacts.filter(
+        ({ subject }) => subject.unitId === "knowledge:discovery-region",
+      );
+      const knowledgeStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
+        scoped || !cleanupSafe
+          ? Option.none<PlannedJobStep<SyncPlanRequirements>>()
+          : yield* collectKnowledgeStep({
               adapter: syncStepFailureAdapter,
-            }).pipe(Effect.mapError(syncFailureToAppError))
-          : Option.none<PlannedJobStep<SyncPlanRequirements>>();
-        const cleanupStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
-          scoped || !cleanupSafe
-            ? Option.none<PlannedJobStep<SyncPlanRequirements>>()
-            : yield* collectCleanupStep({
-                expectedSkillNames,
-                expectedSubagentNames,
-                expectedMcpServerNames,
-                expectedHookNames,
-                adapter: syncStepFailureAdapter,
-              }).pipe(Effect.mapError(syncFailureToAppError));
-        const instructionStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
-          selectionTouches("rule")
-            ? yield* collectInstructionStep({
-                projectionFacts: ruleProjectionFacts,
-                adapter: syncStepFailureAdapter,
-              }).pipe(Effect.mapError(syncFailureToAppError))
-            : Option.none<PlannedJobStep<SyncPlanRequirements>>();
-        return {
-          steps,
-          knowledgeStep,
-          hooksStep,
-          cleanupStep,
-          instructionStep,
-          releaseAge,
-          serialMaterialization,
-        };
-      }),
-    { successMessage: `Resolved ${scopeLabel} sync` },
+              deferPreview: knowledgeMayChange,
+              facts: knowledgeProjectionFacts,
+            }).pipe(Effect.mapError(syncFailureToAppError));
+      const hooksStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> = selectionTouches(
+        "hook",
+      )
+        ? yield* collectHooksStep({
+            facts: hookProjectionFacts,
+            adapter: syncStepFailureAdapter,
+          }).pipe(Effect.mapError(syncFailureToAppError))
+        : Option.none<PlannedJobStep<SyncPlanRequirements>>();
+      const cleanupStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
+        scoped || !cleanupSafe
+          ? Option.none<PlannedJobStep<SyncPlanRequirements>>()
+          : yield* collectCleanupStep({
+              expectedSkillNames,
+              expectedSubagentNames,
+              expectedMcpServerNames,
+              expectedHookNames,
+              adapter: syncStepFailureAdapter,
+            }).pipe(Effect.mapError(syncFailureToAppError));
+      const instructionStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> = selectionTouches(
+        "rule",
+      )
+        ? yield* collectInstructionStep({
+            projectionFacts: ruleProjectionFacts,
+            adapter: syncStepFailureAdapter,
+          }).pipe(Effect.mapError(syncFailureToAppError))
+        : Option.none<PlannedJobStep<SyncPlanRequirements>>();
+      return {
+        steps,
+        knowledgeStep,
+        hooksStep,
+        cleanupStep,
+        instructionStep,
+        releaseAge,
+        serialMaterialization,
+      };
+    }),
   );
   const {
     steps,

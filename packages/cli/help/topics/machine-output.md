@@ -1,7 +1,7 @@
 # Machine output
 
 Pass `--json` to receive one complete machine-readable document on stdout.
-Warnings, errors, suggestions, progress, and task logs use one JSON object per
+Warnings, errors, suggestions, and lifecycle progress use one JSON object per
 line (NDJSON) on stderr. Human text never shares the machine stdout channel.
 
 ## Success documents
@@ -192,6 +192,41 @@ and the request's replay-safety class. Use those typed fields with the stable
 `code`, request metadata, response request ID, and problem code for
 diagnostics. Debug stderr records attempt evidence without changing the stdout
 contract.
+
+## Progress events
+
+Every long-running operation publishes its lifecycle to stderr as it happens,
+one event per line, wrapped in the `progress` envelope:
+
+```json
+{
+  "type": "progress",
+  "event": {
+    "_tag": "UnitStarted",
+    "seq": 4,
+    "atMs": 1756900000123,
+    "unitId": "skill:code-review",
+    "label": "code-review",
+    "index": 0,
+    "total": 2
+  }
+}
+```
+
+`event` is one typed lifecycle event discriminated by `_tag`:
+`OperationStarted` (`operationId`, `name`, `mode`), `PhaseStarted` (`phase`:
+`resolution`, `planning`, `preview`, `confirmation`, `validation`, `apply`, or
+`restoration`), `UnitStarted` and `UnitResolved` (`unitId`, `label`, `index`,
+optional `total`; the resolved event carries the unit `state`), `UnitProgress`
+(`unitId`, `done`, optional `total`, `unit` of `bytes`, `files`, or `items`),
+`Waiting` and `WaitEnded` (`subject`, with the waiting event's `blockingClass`
+and `detail`), and `OperationSettled` (`outcome`). Events carry identifiers,
+labels, counts, and states, never presentation wording.
+
+Within one operation `seq` increases strictly from 1 and `atMs` is wall-clock
+milliseconds. Exactly one `OperationSettled` event ends the operation, and it
+is written before the stdout result document. `--quiet` suppresses progress
+events and nothing else on stderr.
 
 ## Consumption
 

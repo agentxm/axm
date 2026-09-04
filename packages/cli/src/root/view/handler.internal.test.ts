@@ -1,3 +1,4 @@
+import { resolvedUnits, startedUnits } from "../../screen/index.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -120,9 +121,8 @@ describe("view handler", () => {
         });
 
         expect(logs.message).toContain("1.2.3\n");
-        expect(rendererState.spinnerMessages).toEqual([
-          "Loading @test/skills/code-review from test-registry",
-          "Loaded @test/skills/code-review from test-registry",
+        expect(startedUnits(rendererState)).toEqual([
+          "@test/skills/code-review from test-registry",
         ]);
       }),
     );
@@ -383,12 +383,13 @@ describe("view handler", () => {
             }).pipe(Effect.flip);
 
             expect(getAppError(error).code).toBe("not_found");
-            expect(rendererState.spinnerMessages).toContain(
-              "Loading @test/skills/missing from test-registry",
+            expect(startedUnits(rendererState)).toContain(
+              "@test/skills/missing from test-registry",
             );
-            expect(rendererState.spinnerMessages).not.toContain(
-              "Loaded @test/skills/missing from test-registry",
-            );
+            expect(resolvedUnits(rendererState)).toContainEqual({
+              label: "@test/skills/missing from test-registry",
+              state: "failed",
+            });
           }),
         );
       },

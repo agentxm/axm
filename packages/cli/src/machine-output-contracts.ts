@@ -65,6 +65,8 @@ const planFamily = {
   humanOutputKind: "mutation",
   liveness: "progress",
   livenessCoverage: [
+    "specifications/cli/machine-progress-events-follow-the-lifecycle-schema.spec.ts",
+    "specifications/cli/long-running-operations-emit-lifecycle-events.spec.ts",
     "packages/workspace-operations/src/plan/resolve-plan.internal.test.ts",
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],

@@ -31,7 +31,6 @@ import {
 import { handlePackActivation } from "./activation.js";
 import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
 import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
-import { LifecycleResolutionProgressLive } from "../../lifecycle-interaction.js";
 
 const initializePack = (root: string) => {
   const axmDir = path.join(root, ".axm");
@@ -166,7 +165,6 @@ describe("packs activation", () => {
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
           LifecycleFailureAdapterLive,
-          Layer.provide(LifecycleResolutionProgressLive, context.baseLayer),
           managersLayer,
         ),
       ),

@@ -10,8 +10,13 @@
  * @packageDocumentation
  */
 
+import * as Headers from "effect/unstable/http/Headers";
 import * as HttpClient from "effect/unstable/http/HttpClient";
+import type * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import type * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as MutableRef from "effect/MutableRef";
+import * as Stream from "effect/Stream";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -288,6 +293,48 @@ const extensionDeclarationToDiscoveryRef = (value: PackageExtensionDeclaration) 
   };
 };
 
+const contentLength = (response: HttpClientResponse.HttpClientResponse): number | undefined =>
+  Option.match(Headers.get(response.headers, "content-length"), {
+    onNone: () => undefined,
+    onSome: (value) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+    },
+  });
+
+/**
+ * Stream one archive body into memory, reporting received bytes per chunk.
+ * Non-2xx statuses fail as `HttpClientError` so the caller's mapping keeps
+ * the response evidence.
+ */
+const downloadArchive = (
+  http: HttpClient.HttpClient,
+  path: string,
+  onProgress: GetExtensionPackageArgs["onProgress"],
+): Effect.Effect<Uint8Array, HttpClientError.HttpClientError> =>
+  Effect.gen(function* () {
+    const response = yield* HttpClient.filterStatusOk(http).execute(HttpClientRequest.get(path));
+    const total = contentLength(response);
+    const received = MutableRef.make(0);
+    const report = onProgress ?? (() => Effect.void);
+    const chunks = yield* response.stream.pipe(
+      Stream.tap((chunk) =>
+        report({
+          done: MutableRef.updateAndGet(received, (done) => done + chunk.byteLength),
+          ...(total === undefined ? {} : { total }),
+        }),
+      ),
+      Stream.runCollect,
+    );
+    const archive = new Uint8Array(MutableRef.get(received));
+    let offset = 0;
+    for (const chunk of chunks) {
+      archive.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return archive;
+  });
+
 const registryRequestMetadata = (method: string, url: string): RegistryRequestMetadata => ({
   service: "registry",
   method,
@@ -315,16 +362,9 @@ export const createRemoteRegistryClient = (
     httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))),
   );
   const client = GeneratedRegistryClient.make(remoteHttpClient);
-  const verificationArchiveClient = GeneratedRegistryClient.make(remoteHttpClient, {
-    transformClient: (baseClient) =>
-      Effect.succeed(
-        baseClient.pipe(
-          HttpClient.mapRequest(
-            HttpClientRequest.setHeader("x-agentxm-usage-purpose", "verification"),
-          ),
-        ),
-      ),
-  });
+  const verificationHttpClient = remoteHttpClient.pipe(
+    HttpClient.mapRequest(HttpClientRequest.setHeader("x-agentxm-usage-purpose", "verification")),
+  );
   const executeRemoteRequest = <A, E>(
     effect: Effect.Effect<A, E>,
     args: {
@@ -696,21 +736,19 @@ export const createRemoteRegistryClient = (
         }
       }
 
-      // Step 3: Download archive
-      const archiveClient =
-        args.usagePurpose === "verification" ? verificationArchiveClient : client;
+      // Step 3: Download archive, streaming the body so the caller observes
+      // progress as bytes arrive; the transport never decides how often.
+      const archivePath = `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${resolvedEntry.value.version}/archive`;
       const archive = yield* executeRemoteRequest(
-        archiveClient.ExtensionsDownloadArchive(
-          args.owner,
-          pluralizeType(args.type),
-          args.name,
-          resolvedEntry.value.version,
-          undefined,
+        downloadArchive(
+          args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient,
+          archivePath,
+          args.onProgress,
         ),
         {
           operation: "download package archive",
           method: "GET",
-          path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${resolvedEntry.value.version}/archive`,
+          path: archivePath,
           replaySafety: safe,
           mapError: mapArchiveFetchError,
         },

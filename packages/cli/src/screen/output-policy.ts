@@ -5,10 +5,17 @@ export interface CliOutputEnvironment {
 }
 
 export interface CliOutputPolicy {
+  /** Whether any stream is styled; per-stream truth lives in `stdoutColors` and `stderrColors`. */
   readonly colors: boolean;
+  /** ANSI styling on stdout: only when stdout is itself a terminal or color is forced. */
+  readonly stdoutColors: boolean;
+  /** ANSI styling on stderr: only when stderr is itself a terminal or color is forced. */
+  readonly stderrColors: boolean;
   readonly animate: boolean;
   readonly interactiveActivity: boolean;
   readonly quiet: boolean;
+  /** Symbol set the painter uses: Unicode glyphs, or seven-bit ASCII where the terminal or locale cannot show them. */
+  readonly glyphs: "unicode" | "ascii";
 }
 
 const terminalFormattingPattern =
@@ -39,6 +46,20 @@ const hasDisabledForceColor = (env: NodeJS.ProcessEnv): boolean => {
 
 const hasDumbTerminal = (env: NodeJS.ProcessEnv): boolean => env["TERM"] === "dumb";
 
+const LOCALE_VARIABLES = ["LC_ALL", "LC_CTYPE", "LANG"] as const;
+
+const localeLacksUnicode = (env: NodeJS.ProcessEnv): boolean => {
+  const declared = LOCALE_VARIABLES.map((name) => env[name]).filter(
+    (value): value is string => value !== undefined && value !== "",
+  );
+  return declared.length > 0 && !declared.some((value) => /utf-?8/iu.test(value));
+};
+
+const resolveGlyphs = (env: NodeJS.ProcessEnv): CliOutputPolicy["glyphs"] =>
+  hasNonEmptyEnv(env, "AXM_ASCII") || hasDumbTerminal(env) || localeLacksUnicode(env)
+    ? "ascii"
+    : "unicode";
+
 export const resolveCliOutputPolicy = (
   environment?: Partial<CliOutputEnvironment> & { readonly quiet?: boolean },
 ): CliOutputPolicy => {
@@ -52,17 +73,24 @@ export const resolveCliOutputPolicy = (
     !hasNoColor(env) &&
     !hasDisabledForceColor(env) &&
     !hasDumbTerminal(env);
-  const colors =
+  // Color is decided per stream: a piped stdout stays plain even when stderr
+  // is attached to a terminal, so agents never receive escapes they did not
+  // ask for. FORCE_COLOR opts a pipe in.
+  const colorCapable =
     (!hasCi(env) || hasForceColor(env)) &&
     !hasNoColor(env) &&
     !hasDisabledForceColor(env) &&
-    !hasDumbTerminal(env) &&
-    (stdoutIsTTY === true || stderrIsTTY === true || hasForceColor(env));
+    !hasDumbTerminal(env);
+  const stdoutColors = colorCapable && (stdoutIsTTY === true || hasForceColor(env));
+  const stderrColors = colorCapable && (stderrIsTTY === true || hasForceColor(env));
 
   return {
-    colors,
+    colors: stdoutColors || stderrColors,
+    stdoutColors,
+    stderrColors,
     animate,
     interactiveActivity: animate,
     quiet: environment?.quiet ?? false,
+    glyphs: resolveGlyphs(env),
   };
 };

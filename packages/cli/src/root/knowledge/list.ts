@@ -64,16 +64,18 @@ const renderInstructionEntry = (
     : `${resolution.included ? "included" : "excluded"} (${resolution.reason})`;
 
 const BundleColumns = [
-  { header: "Bundle", value: (row: BundleRow) => row.name },
-  { header: "Concepts", value: (row: BundleRow) => String(row.concepts) },
-  { header: "Diagnostics", value: (row: BundleRow) => String(row.diagnostics) },
-  { header: "Source", value: (row: BundleRow) => row.sourceRoot },
+  { header: "Bundle", priority: "required", value: (row: BundleRow) => row.name },
+  { header: "Concepts", align: "right", value: (row: BundleRow) => String(row.concepts) },
+  { header: "Diagnostics", align: "right", value: (row: BundleRow) => String(row.diagnostics) },
+  { header: "Source", priority: "optional", value: (row: BundleRow) => row.sourceRoot },
   {
     header: "Instruction entry",
+    priority: "optional",
     value: (row: BundleRow) => renderInstructionEntry(row.instructionEntry),
   },
   {
     header: "Agent outcomes",
+    priority: "optional",
     value: (row: BundleRow) => inventoryAgentOutcomes(row.agentOutcomes),
   },
 ] satisfies ReadonlyArray<ViewColumn<BundleRow>>;

@@ -16,80 +16,119 @@ describe("resolveCliOutputPolicy", () => {
   it("enables colors and interactive activity for a TTY without suppressing env", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: {} })).toEqual({
       colors: true,
+      stdoutColors: true,
+      stderrColors: true,
       animate: true,
       interactiveActivity: true,
       quiet: false,
+      glyphs: "unicode",
     });
   });
 
   it("disables colors and interactive activity when stdout is not a TTY", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: false, env: {} })).toEqual({
       colors: false,
+      stdoutColors: false,
+      stderrColors: false,
       animate: false,
       interactiveActivity: false,
       quiet: false,
+      glyphs: "unicode",
     });
   });
 
   it("disables colors and interactive activity when NO_COLOR is set", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { NO_COLOR: "1" } })).toEqual({
       colors: false,
+      stdoutColors: false,
+      stderrColors: false,
       animate: false,
       interactiveActivity: false,
       quiet: false,
+      glyphs: "unicode",
     });
   });
 
   it("disables colors and interactive activity when FORCE_COLOR is disabled", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { FORCE_COLOR: "0" } })).toEqual({
       colors: false,
+      stdoutColors: false,
+      stderrColors: false,
       animate: false,
       interactiveActivity: false,
       quiet: false,
+      glyphs: "unicode",
     });
 
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { FORCE_COLOR: "" } })).toEqual({
       colors: false,
+      stdoutColors: false,
+      stderrColors: false,
       animate: false,
       interactiveActivity: false,
       quiet: false,
+      glyphs: "unicode",
     });
   });
 
   it("disables colors and interactive activity in CI", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { CI: "true" } })).toEqual({
       colors: false,
+      stdoutColors: false,
+      stderrColors: false,
       animate: false,
       interactiveActivity: false,
       quiet: false,
+      glyphs: "unicode",
     });
   });
 
   it("disables colors and interactive activity for a dumb terminal", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { TERM: "dumb" } })).toEqual({
       colors: false,
+      stdoutColors: false,
+      stderrColors: false,
       animate: false,
       interactiveActivity: false,
       quiet: false,
+      glyphs: "ascii",
     });
   });
 
   it("records quiet output preference independently of color policy", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: {}, quiet: true })).toEqual({
       colors: true,
+      stdoutColors: true,
+      stderrColors: true,
       animate: true,
       interactiveActivity: true,
       quiet: true,
+      glyphs: "unicode",
     });
   });
 
   it("allows FORCE_COLOR on a pipe without enabling animation", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: false, env: { FORCE_COLOR: "1" } })).toEqual({
       colors: true,
+      stdoutColors: true,
+      stderrColors: true,
       animate: false,
       interactiveActivity: false,
       quiet: false,
+      glyphs: "unicode",
     });
+  });
+
+  it("styles each stream only when that stream is a TTY", () => {
+    expect(
+      resolveCliOutputPolicy({ stdoutIsTTY: false, stderrIsTTY: true, env: {} }),
+    ).toMatchObject({ colors: true, stdoutColors: false, stderrColors: true });
+    expect(
+      resolveCliOutputPolicy({ stdoutIsTTY: true, stderrIsTTY: false, env: {} }),
+    ).toMatchObject({ colors: true, stdoutColors: true, stderrColors: false });
+    expect(
+      resolveCliOutputPolicy({ stdoutIsTTY: false, stderrIsTTY: true, env: { FORCE_COLOR: "1" } }),
+    ).toMatchObject({ stdoutColors: true, stderrColors: true, animate: true });
   });
 
   it("keys live-frame animation to its stderr target", () => {
@@ -99,5 +138,26 @@ describe("resolveCliOutputPolicy", () => {
     expect(
       resolveCliOutputPolicy({ stdoutIsTTY: false, stderrIsTTY: true, env: {} }),
     ).toMatchObject({ colors: true, animate: true, interactiveActivity: true });
+  });
+
+  it("selects ASCII glyphs only when the terminal or locale cannot show Unicode", () => {
+    expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: {} }).glyphs).toBe("unicode");
+    expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { LANG: "en_US.UTF-8" } }).glyphs).toBe(
+      "unicode",
+    );
+    expect(
+      resolveCliOutputPolicy({ stdoutIsTTY: true, env: { LC_ALL: "C", LANG: "en_US.utf8" } })
+        .glyphs,
+    ).toBe("unicode");
+    expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { LANG: "C" } }).glyphs).toBe("ascii");
+    expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { LC_CTYPE: "POSIX" } }).glyphs).toBe(
+      "ascii",
+    );
+    expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { AXM_ASCII: "1" } }).glyphs).toBe(
+      "ascii",
+    );
+    expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { AXM_ASCII: "" } }).glyphs).toBe(
+      "unicode",
+    );
   });
 });

@@ -78,8 +78,9 @@ describe("axm skills publish", () => {
         );
         expect(publishResult.exitCode).toBe(0);
         expect(publishResult.stdout).toContain("Published @test/skills/my-publish-skill@1.0.0");
-        expect(publishResult.stderr).toContain("Resolving publish registry");
-        expect(publishResult.stderr).toContain("Preparing publish candidates");
+        // Plain mode narrates the operation start and its settlement.
+        expect(publishResult.stderr).toContain("Publish extensions");
+        expect(publishResult.stderr).toMatch(/Publish extensions\s+\d+(?:\.\d+)?(?:ms|s)/u);
         expect(publishResult.stderr).not.toContain("\u001b");
 
         // Verify index.json in registry
@@ -333,7 +334,9 @@ describe("axm skills publish", () => {
         expect(publishResult.exitCode).toBe(0);
         expect(JSON.parse(publishResult.stdout).result.execution.outcomes).toEqual([]);
         expect(publishResult.stderr).toContain('"type":"progress"');
-        expect(publishResult.stderr).toContain('"message":"Resolving publish registry"');
+        expect(publishResult.stderr).toContain('"_tag":"UnitStarted"');
+        expect(publishResult.stderr).toContain('"label":"publish registry"');
+        expect(publishResult.stderr).toContain('"_tag":"OperationSettled"');
       } finally {
         temp.cleanup();
         registryDir.cleanup();

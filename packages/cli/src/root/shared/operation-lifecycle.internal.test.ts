@@ -15,7 +15,14 @@ import * as Option from "effect/Option";
 
 import { makeBaseWorkspaceMock } from "../../test-stubs.js";
 import { operationExitCode } from "../../operation-exit-code.js";
-import { interruptionResolution, withOperationLifecycle } from "./operation-lifecycle.js";
+import {
+  interruptionResolution,
+  withLiveOperation,
+  withOperationLifecycle,
+} from "./operation-lifecycle.js";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
+import { OperationLifecycle, observeUnit } from "@agentxm/workspace-operations";
 
 let tempDir: string;
 
@@ -245,6 +252,45 @@ describe("withOperationLifecycle", () => {
     expect(resolution.interruption).toEqual({ signal: "SIGINT", disposition: "none" });
     expect(resolution.atomicity.applied).toBe("closure-atomic");
   });
+
+  it.effect("an interrupted operation settles exactly once for every observer", () =>
+    Effect.gen(function* () {
+      const renderer = TestRenderer.make();
+      const started = yield* Deferred.make<void>();
+      const fiber = yield* withLiveOperation(
+        { command: "install", name: "Install skill", mode: "apply" },
+        observeUnit(
+          { id: "skill:one", label: "one", total: 1 },
+          Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
+        ),
+      ).pipe(Effect.provide(renderer.layer), Effect.forkChild);
+      yield* Deferred.await(started);
+      yield* Fiber.interrupt(fiber);
+
+      const tags = renderer.state.events.map((event) => event._tag);
+      expect(tags).toEqual(["OperationStarted", "UnitStarted", "UnitResolved", "OperationSettled"]);
+      expect(renderer.state.events.filter((event) => event._tag === "OperationSettled")).toEqual([
+        expect.objectContaining({ outcome: "interrupted", seq: 4 }),
+      ]);
+      expect(renderer.state.events[2]).toMatchObject({ state: "interrupted" });
+    }),
+  );
+
+  it.effect("provides the lifecycle to the body and settles success as completed", () =>
+    Effect.gen(function* () {
+      const renderer = TestRenderer.make();
+      const seen = yield* withLiveOperation(
+        { command: "cache.status", name: "Inspect archive cache", mode: "preview" },
+        Effect.map(Effect.serviceOption(OperationLifecycle), (service) => service._tag === "Some"),
+      ).pipe(Effect.provide(renderer.layer));
+      expect(seen).toBe(true);
+      expect(renderer.state.events.map((event) => event._tag)).toEqual([
+        "OperationStarted",
+        "OperationSettled",
+      ]);
+      expect(renderer.state.events.at(-1)).toMatchObject({ outcome: "completed" });
+    }),
+  );
 
   // Lock lifetime is a design invariant, not a contract obligation, so this
   // test carries no obligation ID.

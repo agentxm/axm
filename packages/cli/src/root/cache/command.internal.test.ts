@@ -1,3 +1,4 @@
+import { startedUnits } from "../../screen/index.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -35,10 +36,11 @@ describe("cache commands", () => {
       Effect.gen(function* () {
         yield* handleCacheStatus();
 
-        expect(rendererState.spinnerMessages).toEqual([
-          "Loading archive cache status",
-          "Loaded archive cache status",
-        ]);
+        expect(startedUnits(rendererState)).toEqual(["archive cache status"]);
+        expect(rendererState.events.at(-1)).toMatchObject({
+          _tag: "OperationSettled",
+          outcome: "completed",
+        });
         expect(logs.message.join("")).toContain("Archive cache");
       }),
     );
@@ -54,11 +56,9 @@ describe("cache commands", () => {
         yield* handleCacheVerify();
         yield* handleCachePrune();
 
-        expect(rendererState.spinnerMessages).toEqual([
-          "Verifying archive cache",
-          "Verified archive cache",
-          "Pruning archive cache",
-          "Pruned archive cache",
+        expect(startedUnits(rendererState)).toEqual([
+          "cached archives",
+          "expired and excess archives",
         ]);
         expect(rendererState.results).toHaveLength(2);
       }),

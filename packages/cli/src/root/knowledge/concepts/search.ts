@@ -15,6 +15,8 @@ import { parseKnowledgeSearchQuery } from "@agentxm/registry-protocol/unstable/k
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../../shared/operation-lifecycle.js";
 import { scopeConfig } from "../flags.js";
 import { captureInstalledKnowledgeIndex } from "../inspect.js";
 import { KnowledgeConceptQueryPageSchema, type KnowledgeConceptQueryPage } from "./schemas.js";
@@ -74,10 +76,9 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
 
   const screen = yield* Screen;
   const index = yield* KnowledgeIndex;
-  const captured = yield* screen.task(
-    "Searching installed knowledge",
-    () => captureInstalledKnowledgeIndex(),
-    { successMessage: "Searched installed knowledge" },
+  const captured = yield* withLiveOperation(
+    { command: "knowledge.concepts.search", name: "Search installed knowledge", mode: "preview" },
+    observeUnit({ id: "index", label: "installed knowledge" }, captureInstalledKnowledgeIndex()),
   );
   if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const { snapshot } = captured;

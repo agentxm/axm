@@ -79,6 +79,7 @@ export {
   reportCliError,
   setCommandSemanticProperties,
   getCommandSemanticProperties,
+  observeLifecycleForTelemetry,
   CommandSemanticProperties,
   CommandSemanticPropertiesLive,
   type CliCommandTelemetryOptions,

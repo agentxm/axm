@@ -98,14 +98,34 @@ export {
 
 // Apply plan + operation handler registry
 export { applyPlan, type ApplyPlanOptions, type OperationHandler } from "./plan/apply-plan.js";
+// Operation lifecycle events — the live contract every observer subscribes to.
 export {
+  CurrentOperationUnit,
+  OperationEventSchema,
   OperationLifecycle,
+  OperationModeSchema,
+  ProgressUnitSchema,
+  SettledOutcomeSchema,
+  awaitDrained,
+  lifecycleEvents,
   makeOperationLifecycle,
-  publishLifecycleEvent,
+  makeThrottledUnitProgress,
+  observeUnit,
+  publishOperationEvent,
   publishPhaseStarted,
-  subscribeToLifecycle,
-  type OperationLifecycleEvent,
+  publishUnitProgress,
+  publishWaitEnded,
+  publishWaiting,
+  settleOperation,
+  subscribeLossless,
+  type ObservedUnit,
+  type OperationEvent,
+  type OperationEventEncoded,
+  type OperationEventInput,
   type OperationLifecycleService,
+  type OperationMode,
+  type ProgressUnit,
+  type SettledOutcome,
 } from "./plan/operation-events.js";
 
 // Serialized error vocabulary and the plan-family tagged errors.

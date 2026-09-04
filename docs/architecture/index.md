@@ -29,7 +29,7 @@ Navigation for the accepted product and system architecture of AXM.
 
 - [Command architecture](commands/index.md) — responsibility boundaries across
   lifecycle, authoring, workspace configuration, inspection, lint, sync,
-  output, and type-specific commands
+  output, terminal design, interaction, and type-specific commands
 
 ## Extensions
 

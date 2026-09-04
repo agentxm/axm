@@ -19,7 +19,7 @@ import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "./cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "./screen/index.js";
+import { TestMachineRenderer, TestRenderer, logsByTag, type Screen } from "./screen/index.js";
 import { presentPlan } from "./operation-view.js";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
@@ -42,8 +42,6 @@ export {
 } from "@agentxm/extension-lifecycle/live";
 import { InspectionFailureAdapterLive, LifecycleFailureAdapterLive } from "./feature-errors.js";
 export { InspectionFailureAdapterLive, LifecycleFailureAdapterLive };
-import { LifecycleResolutionProgressLive } from "./lifecycle-interaction.js";
-export { LifecycleResolutionProgressLive };
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { ExecutionDirectory } from "./execution-directory.js";
 
@@ -393,9 +391,15 @@ export const makeCliTestContext = (opts?: {
     | undefined;
   readonly machine?: boolean | undefined;
   readonly httpClient?: HttpClient.HttpClient | undefined;
+  /**
+   * A real `Screen` layer (over recording output streams) used in place of
+   * the captured test renderer, so a specification can observe the bytes the
+   * application writes to each stream. `rendererState` stays empty.
+   */
+  readonly screenLayer?: Layer.Layer<Screen> | undefined;
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
-  const rendererLayer = renderer.layer;
+  const rendererLayer = opts?.screenLayer ?? renderer.layer;
   const rendererState = renderer.state;
   const promptState: TestPromptState = {
     confirmCalls: [],
@@ -508,6 +512,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     | undefined;
   readonly machine?: boolean | undefined;
   readonly httpClient?: HttpClient.HttpClient | undefined;
+  readonly screenLayer?: Layer.Layer<Screen> | undefined;
   readonly wsOptions?:
     | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
         readonly projectRoot?: string;
@@ -549,7 +554,6 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     wsLayer,
     KnowledgeIndexLive,
     LifecycleFailureAdapterLive,
-    Layer.provide(LifecycleResolutionProgressLive, cliTestContext.baseLayer),
   );
 
   return {

@@ -17,11 +17,16 @@ import {
   type ConfirmationRecovery,
 } from "@agentxm/workspace-operations";
 import type { Plan } from "@agentxm/workspace-operations";
+import {
+  OperationLifecycle,
+  makeOperationLifecycle,
+  subscribeLossless,
+  type OperationEvent,
+} from "@agentxm/workspace-operations";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {
-  LifecycleResolutionProgress,
   type InstallExtensionCommandWorkflowActions,
   runInstallCommandWorkflow,
 } from "../../index.js";
@@ -60,40 +65,28 @@ const testRecovery: ConfirmationRecovery = {
 
 const makeMockWorkspace = () => makeBaseWorkspaceMock("/tmp/test/.axm");
 
-/** Recording implementation of the workflow's resolution-progress port. */
-const makeProgressProbe = () => {
-  const events: string[] = [];
-  return {
-    events,
-    layer: Layer.succeed(LifecycleResolutionProgress, {
-      withSourceResolution: (effect) =>
-        Effect.suspend(() => {
-          events.push("source-resolution:start");
-          return effect;
-        }).pipe(
-          Effect.tap(() =>
-            Effect.sync(() => {
-              events.push("source-resolution:end");
-            }),
-          ),
-        ),
-    }),
-  };
-};
-
 const makeTestContext = () => {
-  const progress = makeProgressProbe();
   const interaction = ResolvePlanInteractionTest();
   return {
     layer: Layer.mergeAll(
       NodeServices.layer,
-      progress.layer,
       WorkspaceMutations.layer(makeMockWorkspace()),
       interaction.layer,
     ),
-    progressEvents: progress.events,
   };
 };
+
+/** Run a workflow under a recording lifecycle broadcast. */
+const observing = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    const lifecycle = yield* makeOperationLifecycle({ name: "Install", mode: "apply" });
+    const events: Array<OperationEvent> = [];
+    yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void events.push(event)));
+    const value = yield* effect.pipe(Effect.provideService(OperationLifecycle, lifecycle));
+    yield* lifecycle.settle("applied");
+    yield* lifecycle.drained.await;
+    return { value, events };
+  }).pipe(Effect.scoped);
 
 const makeTestLayer = () => {
   const { layer } = makeTestContext();
@@ -105,7 +98,7 @@ const makeTestLayer = () => {
 // -----------------------------------------------------------------------------
 
 describe("runInstallCommandWorkflow", () => {
-  it.effect("surrounds source resolution with the progress port before applying", () => {
+  it.effect("publishes source resolution as the first lifecycle phase and unit", () => {
     const context = makeTestContext();
     const actions: TestActions = {
       parseArgs: () => Effect.succeed({ parsedName: "review" }),
@@ -122,11 +115,28 @@ describe("runInstallCommandWorkflow", () => {
     };
 
     return Effect.gen(function* () {
-      yield* runInstallCommandWorkflow({ name: "review" }, actions, {
-        execution: preapprovedPlanExecution,
-      });
+      const { events } = yield* observing(
+        runInstallCommandWorkflow({ name: "review" }, actions, {
+          execution: preapprovedPlanExecution,
+        }),
+      );
 
-      expect(context.progressEvents).toEqual(["source-resolution:start", "source-resolution:end"]);
+      expect(
+        events
+          .slice(0, 4)
+          .map((event) =>
+            event._tag === "PhaseStarted"
+              ? `${event._tag}:${event.phase}`
+              : "unitId" in event
+                ? `${event._tag}:${event.unitId}`
+                : event._tag,
+          ),
+      ).toEqual([
+        "PhaseStarted:resolution",
+        "UnitStarted:extension-sources",
+        "UnitResolved:extension-sources",
+        "PhaseStarted:planning",
+      ]);
     }).pipe(Effect.provide(context.layer));
   });
 

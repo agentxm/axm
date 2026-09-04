@@ -1,9 +1,17 @@
 import * as Cause from "effect/Cause";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
+import * as Stream from "effect/Stream";
+import {
+  lifecycleEvents,
+  type OperationEvent,
+  type OperationLifecycleService,
+} from "@agentxm/workspace-operations";
 import {
   collectSensitiveStrings,
   errorClassForAppErrorCode,
@@ -172,6 +180,77 @@ export const CommandSemanticPropertiesLive: Layer.Layer<CommandSemanticPropertie
   CommandSemanticProperties,
   Ref.make(emptyProperties).pipe(Effect.map((ref) => ({ ref }))),
 );
+
+// ---------------------------------------------------------------------------
+// Lifecycle observation
+// ---------------------------------------------------------------------------
+
+interface LifecycleSummary {
+  readonly events: number;
+  readonly unitsStarted: number;
+  readonly unitsResolved: number;
+  readonly waits: number;
+  readonly startedAtMs?: number;
+}
+
+const foldLifecycleSummary = (
+  summary: LifecycleSummary,
+  event: OperationEvent,
+): LifecycleSummary => {
+  const counted = { ...summary, events: summary.events + 1 };
+  switch (event._tag) {
+    case "OperationStarted":
+      return { ...counted, startedAtMs: event.atMs };
+    case "UnitStarted":
+      return { ...counted, unitsStarted: counted.unitsStarted + 1 };
+    case "UnitResolved":
+      return { ...counted, unitsResolved: counted.unitsResolved + 1 };
+    case "Waiting":
+      return { ...counted, waits: counted.waits + 1 };
+    case "PhaseStarted":
+    case "UnitProgress":
+    case "WaitEnded":
+    case "OperationSettled":
+      return counted;
+  }
+};
+
+/**
+ * Fold an operation's lifecycle into `cli.lifecycle.*` semantic properties at
+ * settlement. Telemetry is an independent, lossy observer: it buffers with a
+ * sliding window so it can never hold the frame or the machine writer back,
+ * and it does not register as lossless.
+ */
+export const observeLifecycleForTelemetry = (
+  lifecycle: OperationLifecycleService,
+): Effect.Effect<void, never, Scope.Scope> =>
+  Effect.gen(function* () {
+    const events = yield* lifecycleEvents(lifecycle);
+    yield* events.pipe(
+      Stream.buffer({ capacity: 256, strategy: "sliding" }),
+      Stream.runFold(
+        (): LifecycleSummary => ({ events: 0, unitsStarted: 0, unitsResolved: 0, waits: 0 }),
+        foldLifecycleSummary,
+      ),
+      Effect.flatMap((summary) =>
+        Effect.gen(function* () {
+          const settledAtMs = yield* Clock.currentTimeMillis;
+          const existing = yield* getCommandSemanticProperties;
+          yield* setCommandSemanticProperties({
+            ...existing,
+            "cli.lifecycle.events": summary.events,
+            "cli.lifecycle.units_started": summary.unitsStarted,
+            "cli.lifecycle.units_resolved": summary.unitsResolved,
+            "cli.lifecycle.waits": summary.waits,
+            ...(summary.startedAtMs === undefined
+              ? {}
+              : { "cli.lifecycle.duration_ms": Math.max(0, settledAtMs - summary.startedAtMs) }),
+          });
+        }),
+      ),
+      Effect.forkScoped,
+    );
+  });
 
 // ---------------------------------------------------------------------------
 // Defect reporting

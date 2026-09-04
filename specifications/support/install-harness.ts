@@ -18,6 +18,13 @@ import * as Layer from "effect/Layer";
 import * as Effect from "effect/Effect";
 
 import {
+  humanScreenLayer,
+  machineScreenLayer,
+  makeRecordingStreams,
+  type RecordingStreams,
+} from "./screen-harness.js";
+
+import {
   KnowledgeIndexLive,
   makeWorkspaceHandlerTestContext,
   writeWorkspaceFiles,
@@ -42,6 +49,17 @@ export interface SpecWorkspaceOptions {
   readonly scope?: "project" | "user";
   /** Render through the machine (JSON) renderer instead of the human one. */
   readonly machine?: boolean;
+  /**
+   * Render through the real `Screen` of the named mode over recording output
+   * streams, so a specification can observe the bytes each stream receives.
+   * The terminal facts default to two non-terminal streams at 80 columns.
+   */
+  readonly screen?: {
+    readonly kind: "machine" | "human";
+    readonly stdoutIsTTY?: boolean;
+    readonly stderrIsTTY?: boolean;
+    readonly columns?: number;
+  };
   readonly prompt?: TestPromptConfig;
   readonly flags?: {
     readonly verbose?: boolean;
@@ -57,8 +75,28 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-spec-")));
   writeWorkspaceFiles(root, options.settings ?? {});
 
+  const streams: RecordingStreams | undefined =
+    options.screen === undefined
+      ? undefined
+      : makeRecordingStreams({
+          ...(options.screen.stdoutIsTTY === undefined
+            ? {}
+            : { stdoutIsTTY: options.screen.stdoutIsTTY }),
+          ...(options.screen.stderrIsTTY === undefined
+            ? {}
+            : { stderrIsTTY: options.screen.stderrIsTTY }),
+          ...(options.screen.columns === undefined ? {} : { columns: options.screen.columns }),
+        });
+  const screenLayer =
+    streams === undefined || options.screen === undefined
+      ? undefined
+      : options.screen.kind === "machine"
+        ? machineScreenLayer(streams, { quiet: options.flags?.quiet === true })
+        : humanScreenLayer(streams);
+
   const context = makeWorkspaceHandlerTestContext({
     ...(options.machine !== undefined ? { machine: options.machine } : {}),
+    ...(screenLayer === undefined ? {} : { screenLayer }),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
     flags: { nonInteractive: true, ...options.flags },
     wsOptions: { projectRoot: root, scope: options.scope ?? "project" },
@@ -94,6 +132,8 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     layer,
     provide: Effect.provide(layer),
     rendererState: context.rendererState,
+    /** The recording output streams when `screen` was requested. */
+    streams,
     logs: context.logs,
     readSettings: (): unknown => JSON.parse(fs.readFileSync(path.join(root, "axm.json"), "utf8")),
     writeSettings: (settings: unknown): void => {

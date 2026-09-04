@@ -32,11 +32,12 @@ import {
 } from "@agentxm/registry-protocol/unstable/registry";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 
-import { makeOperationResolution } from "@agentxm/workspace-operations";
+import { makeOperationResolution, observeUnit } from "@agentxm/workspace-operations";
 
 import { withRuntime } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { runWithStepUp } from "../step-up.js";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 
 const categoryValues = ["broken", "security", "accidental", "other"] as const;
 const decodeVersion = Schema.decodeUnknownResult(VersionSchema);
@@ -154,12 +155,9 @@ export const handleYank = (input: {
             stepUpRequestId === undefined ? undefined : { stepUpRequestId },
           ).pipe(Effect.mapError(toAppError)),
         {
-          initial: `Updating ${input.ref}`,
-          success: `Updated ${input.ref}`,
-          failure: `Failed to update ${input.ref}`,
-          cancelled: `Cancelled update for ${input.ref}`,
-          waiting: `Waiting for verification to update ${input.ref}`,
-          authorized: `Authorized update for ${input.ref}`,
+          command: "yank",
+          name: `Yank ${input.ref}`,
+          waiting: `verification to update ${input.ref}`,
         },
       );
       const extension = `${ref.owner}/${ref.type}/${ref.name}`;
@@ -184,12 +182,9 @@ export const handleYank = (input: {
           stepUpRequestId === undefined ? undefined : { stepUpRequestId },
         ).pipe(Effect.mapError(toAppError)),
       {
-        initial: `Updating ${input.ref}`,
-        success: `Updated ${input.ref}`,
-        failure: `Failed to update ${input.ref}`,
-        cancelled: `Cancelled update for ${input.ref}`,
-        waiting: `Waiting for verification to update ${input.ref}`,
-        authorized: `Authorized update for ${input.ref}`,
+        command: "yank",
+        name: `Yank ${input.ref}`,
+        waiting: `verification to update ${input.ref}`,
       },
     );
     yield* emitLifecycleOutput({
@@ -211,12 +206,9 @@ export const handleUnyank = (input: string) =>
           stepUpRequestId === undefined ? undefined : { stepUpRequestId },
         ).pipe(Effect.mapError(toAppError)),
       {
-        initial: `Updating ${input}`,
-        success: `Updated ${input}`,
-        failure: `Failed to update ${input}`,
-        cancelled: `Cancelled update for ${input}`,
-        waiting: `Waiting for verification to update ${input}`,
-        authorized: `Authorized update for ${input}`,
+        command: "unyank",
+        name: `Un-yank ${input}`,
+        waiting: `verification to update ${input}`,
       },
     );
     yield* emitLifecycleOutput({
@@ -282,11 +274,12 @@ export const handleDeprecate = (input: {
         detail: "--replacement and --clear-replacement cannot be combined.",
       });
     }
-    const screen = yield* Screen;
-    const current = yield* screen.task(
-      `Reading deprecation for ${input.ref}`,
-      () => getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
-      { successMessage: `Read deprecation for ${input.ref}` },
+    const current = yield* withLiveOperation(
+      { command: "deprecate", name: `Read deprecation for ${input.ref}`, mode: "preview" },
+      observeUnit(
+        { id: "deprecation", label: `deprecation for ${input.ref}` },
+        getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
+      ),
     );
     const suppliedMessage = Option.getOrUndefined(input.message)?.trim();
     const message = input.clearMessage
@@ -316,13 +309,14 @@ export const handleDeprecate = (input: {
         ],
       });
     }
-    const transition = yield* screen.task(
-      `Deprecating ${input.ref}`,
-      () =>
+    const transition = yield* withLiveOperation(
+      { command: "deprecate", name: `Deprecate ${input.ref}`, mode: "apply" },
+      observeUnit(
+        { id: "transition", label: `deprecation of ${input.ref}` },
         deprecateExtension(ref, { revision: current.revision, message, replacement }).pipe(
           Effect.mapError(toAppError),
         ),
-      { successMessage: `Deprecated ${input.ref}` },
+      ),
     );
     yield* emitDeprecationTransition(transition);
   });
@@ -330,16 +324,18 @@ export const handleDeprecate = (input: {
 export const handleUndeprecate = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input);
-    const screen = yield* Screen;
-    const current = yield* screen.task(
-      `Reading deprecation for ${input}`,
-      () => getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
-      { successMessage: `Read deprecation for ${input}` },
-    );
-    const transition = yield* screen.task(
-      `Removing deprecation from ${input}`,
-      () => undeprecateExtension(ref, current.revision).pipe(Effect.mapError(toAppError)),
-      { successMessage: `Removed deprecation from ${input}` },
+    const transition = yield* withLiveOperation(
+      { command: "undeprecate", name: `Remove deprecation from ${input}`, mode: "apply" },
+      Effect.gen(function* () {
+        const current = yield* observeUnit(
+          { id: "deprecation", label: `deprecation for ${input}` },
+          getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
+        );
+        return yield* observeUnit(
+          { id: "transition", label: `deprecation removal from ${input}` },
+          undeprecateExtension(ref, current.revision).pipe(Effect.mapError(toAppError)),
+        );
+      }),
     );
     yield* emitDeprecationTransition(transition);
   });

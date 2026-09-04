@@ -51,12 +51,16 @@ export const AgentCapabilitiesOutputSchema = Schema.Struct({
 export type AgentCapabilitiesOutput = typeof AgentCapabilitiesOutputSchema.Type;
 
 const AgentCapabilityColumns = [
-  { header: "Type", value: (row: AgentCapabilityItem) => row.type },
-  { header: "Capability", value: (row: AgentCapabilityItem) => row.capabilityKey },
+  { header: "Type", priority: "required", value: (row: AgentCapabilityItem) => row.type },
+  {
+    header: "Capability",
+    priority: "required",
+    value: (row: AgentCapabilityItem) => row.capabilityKey,
+  },
   { header: "Native", value: (row: AgentCapabilityItem) => row.native },
   { header: "AXM", value: (row: AgentCapabilityItem) => row.axm },
-  { header: "Directory", value: (row: AgentCapabilityItem) => row.directory },
-  { header: "Scopes", value: (row: AgentCapabilityItem) => row.scopes },
+  { header: "Directory", priority: "optional", value: (row: AgentCapabilityItem) => row.directory },
+  { header: "Scopes", priority: "optional", value: (row: AgentCapabilityItem) => row.scopes },
 ] satisfies ReadonlyArray<ViewColumn<AgentCapabilityItem>>;
 
 const capabilityRows = (agent: Agent): ReadonlyArray<AgentCapabilityItem> =>

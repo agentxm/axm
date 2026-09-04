@@ -11,9 +11,12 @@ import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 import type { Plan } from "@agentxm/workspace-operations";
 import type { OperationResolution } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/workspace-operations";
+import {
+  observeUnit,
+  previewOrApplyPlan,
+  publishPhaseStarted,
+} from "@agentxm/workspace-operations";
 import type { PlanExecution } from "@agentxm/workspace-operations";
-import { LifecycleResolutionProgress } from "../../resolution-progress.js";
 
 // -----------------------------------------------------------------------------
 // Install Command Workflow Actions Interface
@@ -96,8 +99,15 @@ export const buildInstallCommandPlan = <
 ) =>
   Effect.gen(function* () {
     const parsed = yield* actions.parseArgs(args);
-    const sourceRequests = yield* actions.resolveSourceRequests(parsed);
-    const refs = yield* actions.discoverRefs(sourceRequests);
+    // Source resolution is the first lifecycle phase: requested sources become
+    // concrete refs, observed as one unit under `resolution`.
+    yield* publishPhaseStarted("resolution");
+    const refs = yield* observeUnit(
+      { id: "extension-sources", label: "extension sources" },
+      Effect.flatMap(actions.resolveSourceRequests(parsed), (sourceRequests) =>
+        actions.discoverRefs(sourceRequests),
+      ),
+    );
     const finalizedIntent = yield* actions.finalizeIntent(parsed, refs);
     const intent = options?.transformIntent?.(finalizedIntent) ?? finalizedIntent;
     const plan = yield* actions.buildPlan(intent);
@@ -140,10 +150,7 @@ export const runInstallCommandWorkflow = <
   },
 ) =>
   Effect.gen(function* () {
-    const progress = yield* LifecycleResolutionProgress;
-    const plan = yield* progress.withSourceResolution(
-      buildInstallCommandPlan(args, actions, options),
-    );
+    const plan = yield* buildInstallCommandPlan(args, actions, options);
     return yield* previewOrApplyPlan(plan, { execution: options.execution });
   }).pipe(
     Effect.scoped,

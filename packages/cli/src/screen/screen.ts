@@ -1,16 +1,17 @@
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { subscribeLossless, type OperationLifecycleService } from "@agentxm/workspace-operations";
 
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
 import type { Doc, DocNode } from "./doc.js";
 import { plain } from "./doc.js";
-import { Frame, taskEndForCause, type FrameTaskHandle } from "./frame.js";
+import { Frame } from "./frame.js";
 import {
   encodeMachineEvent,
   instructionEvent,
@@ -18,27 +19,9 @@ import {
   progressEvent,
   suggestionEvent,
 } from "./machine-events.js";
-import { paintText } from "./paint-text.js";
+import { paintText, type Glyphs } from "./paint-text.js";
+import { initialProgress, reduceProgress } from "./progress.js";
 import { OutputStreams } from "./streams.js";
-
-export interface TaskDetail {
-  readonly unit?: string;
-  readonly state?: string;
-  readonly reason?: string;
-  readonly atMs?: number;
-}
-
-export interface TaskHandle {
-  readonly update: (label: string, detail?: TaskDetail) => Effect.Effect<void>;
-  readonly progress: (done: number, total: number) => Effect.Effect<void>;
-  readonly child: (label: string) => Effect.Effect<TaskHandle>;
-}
-
-export interface TaskOptions<A> {
-  readonly phase?: string;
-  readonly successMessage?: string | ((value: A) => string);
-  readonly failureMessage?: string;
-}
 
 export interface ResultOptions {
   readonly ok?: boolean;
@@ -54,10 +37,17 @@ export interface ScreenLogRecord {
 
 export interface ScreenFacts {
   readonly columns: number;
+  /** Whether the primary result stream is styled. */
   readonly colors: boolean;
   readonly animate: boolean;
 }
 
+/**
+ * The application-owned terminal. Settled output crosses as a typed `Doc`;
+ * live output reaches it only through `observe`, which subscribes the
+ * mode's observer (live frame or machine writer) to an operation's
+ * lifecycle broadcast within the caller's scope.
+ */
 export class Screen extends ServiceMap.Service<
   Screen,
   {
@@ -68,11 +58,9 @@ export class Screen extends ServiceMap.Service<
       schema: S,
       options?: ResultOptions,
     ) => Effect.Effect<boolean, never, S["EncodingServices"]>;
-    readonly task: <A, E, R>(
-      label: string,
-      body: (handle: TaskHandle) => Effect.Effect<A, E, R>,
-      options?: TaskOptions<A>,
-    ) => Effect.Effect<A, E, R>;
+    readonly observe: (
+      lifecycle: OperationLifecycleService,
+    ) => Effect.Effect<void, never, Scope.Scope>;
     readonly log: (record: ScreenLogRecord) => Effect.Effect<void>;
     readonly prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
     readonly facts: Effect.Effect<ScreenFacts>;
@@ -92,38 +80,37 @@ const encodeJson = <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S
   // eslint-disable-next-line no-restricted-syntax -- schema/type mismatch is a defect.
   Schema.encodeEffect(schema)(data).pipe(Effect.orDie);
 
-const successMessage = <A>(label: string, value: A, options?: TaskOptions<A>): string => {
-  if (typeof options?.successMessage === "function") return options.successMessage(value);
-  return options?.successMessage ?? label;
-};
-
-export const ScreenLive = (options: {
-  readonly colors: boolean;
+export interface ScreenLiveOptions {
+  /** ANSI styling per stream: only a stream that is itself a terminal is styled. */
+  readonly colors: { readonly stdout: boolean; readonly stderr: boolean };
   readonly animate: boolean;
-}): Layer.Layer<Screen, never, Frame | OutputStreams> =>
+  /** Symbol set for every painted document; defaults to the Unicode glyphs. */
+  readonly glyphs?: Glyphs;
+}
+
+export const ScreenLive = (
+  options: ScreenLiveOptions,
+): Layer.Layer<Screen, never, Frame | OutputStreams> =>
   Layer.effect(
     Screen,
     Effect.gen(function* () {
       const frame = yield* Frame;
       const streams = yield* OutputStreams;
 
-      const render = (doc: Doc) =>
-        Effect.flatMap(streams.facts, (facts) =>
-          Effect.succeed(
-            ensureNewline(
-              paintText(doc, {
-                width: facts.columns,
-                colors: options.colors,
-              }).join("\n"),
-            ),
-          ),
-        );
-
-      const makeTaskHandle = (task: FrameTaskHandle): TaskHandle => ({
-        update: (label) => task.update(label),
-        progress: task.progress,
-        child: (label) => Effect.map(task.child(label), makeTaskHandle),
-      });
+      // A stream that is not a terminal is unbounded: nothing written to it is
+      // wrapped, truncated, or padded to a terminal width, and it carries no
+      // styling unless color was forced for that stream.
+      const render = (doc: Doc, stream: "stdout" | "stderr") =>
+        Effect.map(streams.facts, (facts) => {
+          const isTTY = stream === "stdout" ? facts.stdoutIsTTY : facts.stderrIsTTY;
+          return ensureNewline(
+            paintText(doc, {
+              width: isTTY ? facts.columns : "unbounded",
+              colors: options.colors[stream],
+              ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
+            }).join("\n"),
+          );
+        });
 
       return {
         result: (doc) => {
@@ -132,42 +119,33 @@ export const ScreenLive = (options: {
               ? doc[0].content
               : undefined;
           return literal === undefined
-            ? Effect.flatMap(render(doc), frame.stdout)
+            ? Effect.flatMap(render(doc, "stdout"), frame.stdout)
             : frame.stdout(literal);
         },
-        note: (doc) => Effect.flatMap(render(doc), frame.stderr),
+        note: (doc) => Effect.flatMap(render(doc, "stderr"), frame.stderr),
         document: () => Effect.succeed(false),
-        task: <A, E, R>(
-          label: string,
-          body: (handle: TaskHandle) => Effect.Effect<A, E, R>,
-          taskOptions?: TaskOptions<A>,
-        ) =>
-          frame.task(label).pipe(
-            Effect.flatMap((task) =>
-              Effect.interruptible(body(makeTaskHandle(task))).pipe(
-                Effect.matchCauseEffect({
-                  onFailure: (cause) =>
-                    task
-                      .end(taskEndForCause(cause), taskOptions?.failureMessage ?? label)
-                      .pipe(Effect.andThen(Effect.failCause(cause))),
-                  onSuccess: (value) =>
-                    task
-                      .end("success", successMessage(label, value, taskOptions))
-                      .pipe(Effect.as(value)),
-                }),
-                Effect.uninterruptible,
+        // One projector folds the stream into progress state; the frame reads
+        // the latest state and collapses it at settlement. The projector holds
+        // the drain latch so the settled document prints after the collapse.
+        observe: (lifecycle) =>
+          Effect.gen(function* () {
+            const state = yield* Ref.make(initialProgress);
+            yield* subscribeLossless(lifecycle, (event) =>
+              Effect.flatMap(
+                Ref.updateAndGet(state, (current) => reduceProgress(current, event)),
+                frame.present,
               ),
-            ),
-          ),
+            );
+          }),
         log: (record) =>
           Effect.flatMap(
-            render([{ _tag: "paragraph", tone: "dim", text: record.message }]),
+            render([{ _tag: "paragraph", tone: "dim", text: record.message }], "stderr"),
             frame.stderr,
           ),
         prompt: frame.prompt,
         facts: Effect.map(streams.facts, (facts) => ({
           columns: facts.columns,
-          colors: options.colors,
+          colors: options.colors.stdout,
           animate: options.animate,
         })),
         settle: frame.settle,
@@ -244,24 +222,6 @@ export const ScreenMachine = (options?: {
         return Effect.void;
       };
 
-      const machineHandle = (phase: string, labelRef: { value: string }): TaskHandle => ({
-        update: (label, detail) => {
-          labelRef.value = label;
-          return quiet ? Effect.void : emit(progressEvent(phase, -1, label, detail));
-        },
-        progress: (done, total) =>
-          quiet
-            ? Effect.void
-            : emit(
-                progressEvent(
-                  phase,
-                  total <= 0 ? 0 : Math.round((Math.max(0, done) / total) * 100),
-                  labelRef.value,
-                ),
-              ),
-        child: (label) => Effect.succeed(machineHandle(phase, { value: label })),
-      });
-
       return {
         result: (doc) => {
           const literal = doc
@@ -308,40 +268,13 @@ export const ScreenMachine = (options?: {
             ),
             Effect.as(true),
           ),
-        task: <A, E, R>(
-          label: string,
-          body: (handle: TaskHandle) => Effect.Effect<A, E, R>,
-          taskOptions?: TaskOptions<A>,
-        ) => {
-          const phase = taskOptions?.phase ?? "work";
-          const labelRef = { value: label };
-          const start = quiet ? Effect.void : emit(progressEvent(phase, 0, label));
-          return start.pipe(
-            Effect.andThen(body(machineHandle(phase, labelRef))),
-            Effect.matchCauseEffect({
-              onFailure: (cause) =>
-                (quiet
-                  ? Effect.void
-                  : emit(
-                      progressEvent(
-                        phase,
-                        -1,
-                        Cause.hasInterruptsOnly(cause)
-                          ? "Cancelled"
-                          : (taskOptions?.failureMessage ?? labelRef.value),
-                      ),
-                    )
-                ).pipe(Effect.andThen(Effect.failCause(cause))),
-              onSuccess: (value) =>
-                (quiet
-                  ? Effect.void
-                  : emit(
-                      progressEvent(phase, 100, successMessage(labelRef.value, value, taskOptions)),
-                    )
-                ).pipe(Effect.as(value)),
-            }),
-          );
-        },
+        // The machine writer is lossless: every lifecycle event lands on
+        // stderr, in order, before the result document. Quiet suppresses only
+        // progress; the subscription still drains so ordering holds.
+        observe: (lifecycle) =>
+          subscribeLossless(lifecycle, (event) =>
+            quiet ? Effect.void : emit(progressEvent(event)),
+          ),
         log: (record) => emit(logEvent(logLevel(record.level), record.message)),
         prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
         facts: Effect.succeed({ columns: 80, colors: false, animate: false }),

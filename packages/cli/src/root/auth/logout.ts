@@ -6,6 +6,8 @@ import { AuthClient, CredentialStore } from "@agentxm/registry-auth";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { Screen, successDoc } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import * as Schema from "effect/Schema";
@@ -61,10 +63,12 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
     const optionalHandle = handle !== "@unknown" ? { handle } : {};
 
     // Step 2: Attempt remote revoke (tolerate failure)
-    const revokeResult = yield* screen.task(
-      `Revoking registry session on ${registryHost}`,
-      () => authClient.revokeToken(existing.value.refresh_token).pipe(Effect.option),
-      { successMessage: `Checked registry session revocation on ${registryHost}` },
+    const revokeResult = yield* withLiveOperation(
+      { command: "auth.logout", name: `Sign out of ${registryHost}`, mode: "apply" },
+      observeUnit(
+        { id: "revoke", label: `registry session on ${registryHost}` },
+        authClient.revokeToken(existing.value.refresh_token).pipe(Effect.option),
+      ),
     );
 
     // Step 3: Clear local credentials

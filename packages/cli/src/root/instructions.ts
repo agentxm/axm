@@ -81,11 +81,15 @@ export const InstructionsStatusOutputSchema = Schema.Struct({
 export type InstructionsStatusOutput = typeof InstructionsStatusOutputSchema.Type;
 
 const InstructionsColumns = [
-  { header: "Agent", value: (row: InstructionTableItem) => row.agentId },
+  { header: "Agent", priority: "required", value: (row: InstructionTableItem) => row.agentId },
   { header: "Mode", value: (row: InstructionTableItem) => row.mechanism },
   { header: "Status", value: (row: InstructionTableItem) => row.health },
-  { header: "Ownership", value: (row: InstructionTableItem) => row.ownership },
-  { header: "Source", value: (row: InstructionTableItem) => row.sourceFile },
+  {
+    header: "Ownership",
+    priority: "optional",
+    value: (row: InstructionTableItem) => row.ownership,
+  },
+  { header: "Source", priority: "optional", value: (row: InstructionTableItem) => row.sourceFile },
   { header: "Target", value: (row: InstructionTableItem) => row.targetFile },
 ] satisfies ReadonlyArray<ViewColumn<InstructionTableItem>>;
 

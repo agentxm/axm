@@ -714,7 +714,10 @@ describe("getExtensionPackage", () => {
         problemCode: "version_not_found",
         body: { detail: "Archive not found" },
       });
-      expect(error.cause).toMatchObject({ _tag: "ExtensionsDownloadArchive404" });
+      expect(error.cause).toMatchObject({
+        _tag: "HttpClientError",
+        reason: { _tag: "StatusCodeError" },
+      });
     }),
   );
 

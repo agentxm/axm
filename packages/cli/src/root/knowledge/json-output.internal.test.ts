@@ -1,3 +1,4 @@
+import { startedUnits } from "../../screen/index.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -306,10 +307,7 @@ describe("knowledge JSON output", () => {
       Effect.gen(function* () {
         yield* handleKnowledgeConceptSearch("Authentication", "project");
 
-        expect(rendererState.spinnerMessages).toEqual([
-          "Searching installed knowledge",
-          "Searched installed knowledge",
-        ]);
+        expect(startedUnits(rendererState)).toEqual(["installed knowledge"]);
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
           query: { version: "axm-knowledge-query-v1", scope: "project" },

@@ -25,7 +25,7 @@ interface SubagentListItem {
 }
 
 const SubagentListColumns = [
-  { header: "Name", value: (row: SubagentListItem) => row.name },
+  { header: "Name", priority: "required", value: (row: SubagentListItem) => row.name },
   { header: "State", value: (row: SubagentListItem) => row.state },
   { header: "Activation", value: (row: SubagentListItem) => row.activation },
   {
@@ -35,6 +35,7 @@ const SubagentListColumns = [
   },
   {
     header: "Agent outcomes",
+    priority: "optional",
     value: (row: SubagentListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
 ] satisfies ReadonlyArray<ViewColumn<SubagentListItem>>;

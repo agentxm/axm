@@ -6,6 +6,7 @@
  * failures still produce INVALID_SOURCE.
  */
 
+import { resolvedUnits } from "../../../screen/index.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -32,7 +33,6 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../../test-helpers.js";
 import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
-import { LifecycleResolutionProgressLive } from "../../../lifecycle-interaction.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -119,7 +119,6 @@ describe("subagents install handler — error propagation", () => {
       SMLayer,
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
-      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
     );
     const provide = makeEffectProvide(FullLayer);
 
@@ -159,7 +158,6 @@ describe("subagents install handler — error propagation", () => {
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       LifecycleFailureAdapterLive,
-      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
     );
     const provide = makeEffectProvide(fullLayer);
     const handleTestInstall = (
@@ -232,7 +230,6 @@ describe("subagents install handler — error propagation", () => {
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       LifecycleFailureAdapterLive,
-      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
     );
     const provide = makeEffectProvide(fullLayer);
     const handleTestInstall = (
@@ -284,7 +281,13 @@ describe("subagents install handler — error propagation", () => {
         }).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
-        expect(rendererState.spinnerMessages).toEqual(["Resolving extension sources", "Failed"]);
+        // Argument parsing fails before any source resolution unit starts; the
+        // operation still settles as failed for every observer.
+        expect(resolvedUnits(rendererState)).toEqual([]);
+        expect(rendererState.events.at(-1)).toMatchObject({
+          _tag: "OperationSettled",
+          outcome: "failed",
+        });
       }),
     );
   });

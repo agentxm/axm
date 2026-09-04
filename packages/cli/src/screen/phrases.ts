@@ -1,7 +1,9 @@
 import type {
   BlockingClass,
   OperationOutcome,
+  OperationPhase,
   OperationPresentation,
+  SettledOutcome,
   UnitDisposition,
   UnitState,
   UnitStateCounts,
@@ -379,6 +381,46 @@ export const outcomeHeadline = (
       return "Cancelled — no changes applied";
     case "interrupted":
       return "Interrupted";
+    default:
+      return unreachable(outcome);
+  }
+};
+
+export const phaseLabel = (phase: OperationPhase): string => {
+  switch (phase) {
+    case "resolution":
+      return "resolving sources";
+    case "planning":
+      return "planning";
+    case "preview":
+      return "previewing";
+    case "confirmation":
+      return "awaiting confirmation";
+    case "validation":
+      return "validating";
+    case "apply":
+      return "applying";
+    case "restoration":
+      return "rolling back";
+    default:
+      return unreachable(phase);
+  }
+};
+
+export const settledOutcomeTone = (outcome: SettledOutcome): Tone => {
+  switch (outcome) {
+    case "previewed":
+    case "applied":
+    case "no-op":
+    case "completed":
+      return "ok";
+    case "partial":
+    case "blocked":
+    case "cancelled":
+      return "warn";
+    case "failed":
+    case "interrupted":
+      return "error";
     default:
       return unreachable(outcome);
   }

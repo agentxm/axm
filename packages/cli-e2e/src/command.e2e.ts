@@ -299,15 +299,9 @@ describe("axm instructions", () => {
           items: expect.arrayContaining([expect.objectContaining({ agentId: "claude-code" })]),
         },
       });
-      expect(
-        result.stderr
-          .trim()
-          .split("\n")
-          .map((line) => JSON.parse(line)),
-      ).toEqual([
-        expect.objectContaining({ type: "progress", phase: "work", percent: 0 }),
-        expect.objectContaining({ type: "progress", phase: "work", percent: 100 }),
-      ]);
+      // Inspection runs no observed operation, so machine stderr carries no
+      // lifecycle events; only long-running operations publish progress.
+      expect(result.stderr.trim()).toBe("");
     } finally {
       workspace.cleanup();
     }

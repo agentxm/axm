@@ -12,18 +12,20 @@ import {
   type StepUpRequest,
 } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
+import { observeUnit } from "@agentxm/workspace-operations";
 import { AppError } from "../app-error/index.js";
 import { isNonInteractive, jsonFlag } from "../cli-flags/index.js";
 import { Screen, paragraphDoc } from "../screen/index.js";
 import { coerceAuthFailure } from "../feature-errors.js";
+import { withLiveOperation } from "./shared/operation-lifecycle.js";
 
-export interface StepUpOperationMessages {
-  readonly initial: string;
-  readonly success: string;
-  readonly failure: string;
-  readonly cancelled: string;
+export interface StepUpOperation {
+  /** Command identity, dot-separated as elsewhere (e.g. "auth.token.create"). */
+  readonly command: string;
+  /** Operation name observers render. */
+  readonly name: string;
+  /** Label of the verification wait unit. */
   readonly waiting: string;
-  readonly authorized: string;
 }
 
 const failureStepUpRequest = (failure: unknown): StepUpRequest | null =>
@@ -35,19 +37,23 @@ const failureStepUpRequest = (failure: unknown): StepUpRequest | null =>
 
 export const runWithStepUp = <A, E, R>(
   operation: (stepUpRequestId?: string) => Effect.Effect<A, E, R>,
-  messages: StepUpOperationMessages,
+  messages: StepUpOperation,
+) =>
+  withLiveOperation(
+    { command: messages.command, name: messages.name, mode: "apply" },
+    runStepUpBody(operation, messages),
+  );
+
+const runStepUpBody = <A, E, R>(
+  operation: (stepUpRequestId?: string) => Effect.Effect<A, E, R>,
+  messages: StepUpOperation,
 ) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const initial = yield* screen.task(messages.initial, () => Effect.result(operation()), {
-      failureMessage: messages.cancelled,
-      successMessage: (result) => {
-        if (Result.isSuccess(result)) return messages.success;
-        return failureStepUpRequest(result.failure) === null
-          ? messages.failure
-          : "Additional verification required";
-      },
-    });
+    const initial = yield* observeUnit(
+      { id: "operation", label: messages.name },
+      Effect.result(operation()),
+    );
     if (Result.isSuccess(initial)) {
       return { value: initial.success, stepUpCompleted: false };
     }
@@ -81,16 +87,15 @@ export const runWithStepUp = <A, E, R>(
       yield* screen.note(paragraphDoc(instruction), { persistent: true });
     }
 
-    yield* screen.task(
-      messages.waiting,
-      () =>
-        authClient
-          .waitForStepUpRequest(token.token, stepUp.statusUrl, stepUp.intervalSeconds)
-          .pipe(Effect.mapError(coerceAuthFailure)),
-      { successMessage: messages.authorized },
+    yield* observeUnit(
+      { id: "step-up-verification", label: messages.waiting },
+      authClient
+        .waitForStepUpRequest(token.token, stepUp.statusUrl, stepUp.intervalSeconds)
+        .pipe(Effect.mapError(coerceAuthFailure)),
     );
-    const value = yield* screen.task(messages.initial, () => operation(stepUp.requestId), {
-      successMessage: messages.success,
-    });
+    const value = yield* observeUnit(
+      { id: "operation-retry", label: messages.name },
+      operation(stepUp.requestId),
+    );
     return { value, stepUpCompleted: true };
   });

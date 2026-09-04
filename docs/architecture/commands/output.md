@@ -5,6 +5,7 @@ description: Human and machine output responsibilities, channel boundaries, and 
 depends-on:
   - ../principles.md
   - ../decisions/cli-output-view-model-and-terminal-ownership.md
+  - ../decisions/cli-live-event-contract.md
 ---
 
 # CLI output
@@ -26,6 +27,24 @@ behavior tests own those exact contracts.
 [CLI help](help.md) owns discovery and the relationship among root help,
 command help, topics, and contextual navigation. This document owns how those
 surfaces use human and machine output channels, not how help requests resolve.
+[Terminal design](terminal-design.md) owns how the human document is chosen
+and painted, and [Interaction](interaction.md) owns when a prompt may open.
+
+## Two feature-to-output contracts
+
+Features reach output through exactly two typed contracts. The settled result
+crosses as a `Doc` tree, the typed document a feature-owned view builds from
+the operation result. Live progress crosses as the lifecycle event stream, a
+schema-backed sequence of operation, phase, unit, waiting, and settled events
+that every long-running operation publishes to an invocation-scoped broadcast
+([CLI live-event contract](../decisions/cli-live-event-contract.md)). Neither
+contract carries terminal escapes, padding, or wording; the painter and the
+phrase layer beside it own those.
+
+The two contracts do not overlap in time. The live frame renders the event
+stream while an operation runs and collapses into the transcript when the
+operation settles; the settled document prints only after every lossless
+subscriber of the stream has drained.
 
 ## Channel boundaries
 
@@ -41,7 +60,11 @@ them, and this document owns the remaining channel-semantics detail.
 - Machine stdout emits one complete schema-backed document for a successful
   non-streaming invocation.
 - Diagnostics, progress, warnings, and logs use stderr and never corrupt the
-  primary stdout result.
+  primary stdout result. Machine progress on stderr is the encoded lifecycle
+  event, one event per line, in the order core published it; the executable
+  specification `cli/machine-progress-events-follow-the-lifecycle-schema` owns
+  that contract and `cli/long-running-operations-emit-lifecycle-events` owns
+  which operations must publish.
 - Unexpected failure still produces a stable machine error envelope while
   retaining diagnostics on stderr. Recognized errors may add a schema-backed
   `problem` discriminant whose fields expose structured facts beyond the stable
@@ -60,7 +83,9 @@ Interactive and plain modes paint the same human document. Interactive mode
 may add color and animate the live frame only when the target stream is a TTY;
 plain mode emits static text without cursor movement. Color capability and
 animation capability are separate so forced color does not imply a live
-terminal.
+terminal. A stream that is not a terminal receives no styling and is never
+wrapped, truncated, or padded to a terminal width; the executable
+specification `cli/non-tty-output-is-plain-and-unpadded` owns that property.
 
 Workspace mutations report the plan and artifacts AXM applied locally. A
 Registry administration command instead reports the authoritative remote
@@ -86,7 +111,8 @@ maintained here.
 
 Preview, confirmation, execution, and rendering refer to one operation
 candidate. Machine mode never prompts (the executable specification
-`cli/machine-mode-never-prompts` owns the obligation). Cancellation,
+`cli/machine-mode-never-prompts` owns the obligation); the conditions under
+which a prompt may open belong to [Interaction](interaction.md). Cancellation,
 blocked work, partial progress, rollback, and
 interruption remain distinct outcomes when the underlying operation
 distinguishes them.

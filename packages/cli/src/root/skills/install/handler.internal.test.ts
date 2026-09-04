@@ -6,6 +6,7 @@
  * failures still produce INVALID_SOURCE.
  */
 
+import { resolvedUnits, startedUnits } from "../../../screen/index.js";
 import { createServer, type Server } from "node:http";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -36,7 +37,6 @@ import {
 } from "../../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
-import { LifecycleResolutionProgressLive } from "../../../lifecycle-interaction.js";
 
 const unsupportedRegistryHttpClient = HttpClient.make((request) =>
   Effect.succeed(
@@ -232,7 +232,6 @@ describe("skills install handler — error propagation", () => {
       SPLayer,
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
-      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
       SMLayer,
     );
     const provide = makeEffectProvide(FullLayer);
@@ -275,7 +274,6 @@ describe("skills install handler — error propagation", () => {
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       LifecycleFailureAdapterLive,
-      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
     );
     const provide = makeEffectProvide(fullLayer);
     const handleTestInstall = (
@@ -331,7 +329,13 @@ describe("skills install handler — error propagation", () => {
         }).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
-        expect(rendererState.spinnerMessages).toEqual(["Resolving extension sources", "Failed"]);
+        // Argument parsing fails before any source resolution unit starts; the
+        // operation still settles as failed for every observer.
+        expect(resolvedUnits(rendererState)).toEqual([]);
+        expect(rendererState.events.at(-1)).toMatchObject({
+          _tag: "OperationSettled",
+          outcome: "failed",
+        });
       }),
     );
   });
@@ -423,8 +427,11 @@ describe("skills install handler — error propagation", () => {
           preview: false,
         });
 
-        expect(rendererState.spinnerMessages).toContain("Resolving extension sources");
-        expect(rendererState.spinnerMessages).toContain("Resolved extension sources");
+        expect(startedUnits(rendererState)).toContain("extension sources");
+        expect(resolvedUnits(rendererState)).toContainEqual({
+          label: "extension sources",
+          state: "committed",
+        });
         expect(logs.info.some((line) => line.includes("Source:"))).toBe(true);
         expect(logs.info.some((line) => line.includes("Resolution:"))).toBe(true);
       }),

@@ -189,6 +189,15 @@
     },
     "nx-release-publish": {
       "executor": "@nx/js:release-publish"
+    },
+    "gallery": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun --conditions=axm-source scripts/paint-gallery.ts",
+        "cwd": "packages/cli",
+        "forwardAllArgs": true
+      }
     }
   }
 }

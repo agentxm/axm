@@ -91,7 +91,7 @@ const formatCause = (
           (line) =>
             ({
               _tag: "paragraph",
-              text: `Stack: ${line}`,
+              text: `Stack: ${line.trim()}`,
             }) satisfies DocNode,
         ),
       ];

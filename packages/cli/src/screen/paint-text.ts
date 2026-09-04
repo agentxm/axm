@@ -1,14 +1,38 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-import type { Change, Doc, DocNode, RowNode, Span, Text, Tone, TreeItem } from "./doc.js";
-import { displayWidth, padDisplay, truncateDisplay, wrapDisplay } from "./width.js";
+import type {
+  Change,
+  Doc,
+  DocNode,
+  RowNode,
+  Span,
+  TableColumn,
+  Text,
+  Tone,
+  TreeItem,
+} from "./doc.js";
+import { joinGridLine, layoutTable, type LayoutColumn, type TableLayout } from "./table-layout.js";
+import { displayWidth, padDisplay } from "./width.js";
+import { longestWordWidth, visibleText, wrapText } from "./wrap-text.js";
 
 const ESC = "\u001b[";
 const RESET = `${ESC}0m`;
+const COLUMN_GAP = 3;
+const MIN_FIELD_VALUE_WIDTH = 12;
+/** Narrowest inline width a change row's last cell accepts before taking its own line. */
+const FLEX_MIN_WIDTH = 16;
 
 export interface Glyphs {
   readonly status: Readonly<Record<Exclude<Tone, "neutral" | "dim">, string>>;
   readonly change: Readonly<Record<Change, string>>;
+  readonly tree: {
+    readonly branch: string;
+    readonly last: string;
+    readonly pipe: string;
+    readonly space: string;
+  };
+  /** Separator between parts of one line (summary parts, action targets). */
+  readonly separator: string;
 }
 
 export const unicodeGlyphs: Glyphs = {
@@ -22,12 +46,39 @@ export const unicodeGlyphs: Glyphs = {
     failed: "×",
     "rolled-back": "↶",
   },
+  tree: { branch: "├─ ", last: "└─ ", pipe: "│  ", space: "   " },
+  separator: " · ",
 };
 
+/** Seven-bit glyphs for terminals and locales without Unicode symbol support. */
+export const asciiGlyphs: Glyphs = {
+  status: { ok: "+", warn: "!", error: "x", info: "*" },
+  change: {
+    create: "+",
+    update: "~",
+    remove: "-",
+    unchanged: "=",
+    blocked: "!",
+    failed: "x",
+    "rolled-back": "<",
+  },
+  tree: { branch: "|- ", last: "`- ", pipe: "|  ", space: "   " },
+  separator: " - ",
+};
+
+/** `"unbounded"` paints natural widths: no wrapping, truncation, or padding to a terminal width. */
+export type PaintWidth = number | "unbounded";
+
 export interface PaintStyle {
-  readonly width: number;
+  readonly width: PaintWidth;
   readonly colors: boolean;
   readonly glyphs?: Glyphs;
+}
+
+interface ResolvedStyle {
+  readonly width: PaintWidth;
+  readonly colors: boolean;
+  readonly glyphs: Glyphs;
 }
 
 const toneCodes: Readonly<Record<Tone, string>> = {
@@ -49,188 +100,442 @@ const styleSpan = (span: Span, colors: boolean): string => {
   return prefix.length === 0 ? linked : `${prefix}${linked}${RESET}`;
 };
 
-const paintTextValue = (value: Text, style: PaintStyle, inherited?: Tone): string => {
-  const spans: ReadonlyArray<Span> = typeof value === "string" ? [{ text: value }] : value;
-  return spans
+const paintSpans = (spans: ReadonlyArray<Span>, style: ResolvedStyle, inherited?: Tone): string =>
+  spans
     .map((span) => {
       const tone = span.tone ?? inherited;
       return styleSpan(tone === undefined ? span : { ...span, tone }, style.colors);
     })
     .join("");
+
+const paintValue = (value: Text, style: ResolvedStyle, inherited?: Tone): string =>
+  paintSpans(typeof value === "string" ? [{ text: value }] : value, style, inherited);
+
+/** Width left for content after `used` cells, never below one cell. */
+const remaining = (width: PaintWidth, used: number): PaintWidth =>
+  width === "unbounded" ? "unbounded" : Math.max(1, width - used);
+
+const fits = (width: PaintWidth, line: string): boolean =>
+  width === "unbounded" || displayWidth(line) <= width;
+
+/** Wrap and paint a value into lines without any indentation. */
+const paintLines = (
+  value: Text,
+  width: PaintWidth,
+  style: ResolvedStyle,
+  tone?: Tone,
+): ReadonlyArray<string> => wrapText(value, width).map((line) => paintSpans(line, style, tone));
+
+const spaces = (count: number): string => " ".repeat(Math.max(0, count));
+
+/**
+ * Paint a value behind a first-line prefix, continuation lines behind `rest`
+ * (defaulting to blank space as wide as `first`).
+ */
+const paintPrefixed = (
+  value: Text,
+  style: ResolvedStyle,
+  options: {
+    readonly indent: number;
+    readonly first: string;
+    readonly rest?: string;
+    readonly tone?: Tone;
+  },
+): ReadonlyArray<string> => {
+  const rest = options.rest ?? spaces(displayWidth(options.first));
+  const used = options.indent + Math.max(displayWidth(options.first), displayWidth(rest));
+  const lines = paintLines(value, remaining(style.width, used), style, options.tone);
+  const indent = spaces(options.indent);
+  return (lines.length === 0 ? [""] : lines).map(
+    (line, index) => `${indent}${index === 0 ? options.first : rest}${line}`,
+  );
 };
 
-const visibleTextValue = (value: Text): string =>
-  typeof value === "string" ? value : value.map((span) => span.text).join("");
+const dim = (value: string, style: ResolvedStyle): string =>
+  paintSpans([{ text: value, tone: "dim" }], style);
 
 const statusGlyph = (tone: Tone, glyphs: Glyphs): string =>
   tone === "neutral" || tone === "dim" ? " " : glyphs.status[tone];
 
-const paintWrapped = (
-  value: Text,
-  style: PaintStyle,
-  options?: { readonly indent?: number; readonly hanging?: number; readonly tone?: Tone },
+/**
+ * Append a dim aside to the last line when it fits, else paint it wrapped on
+ * lines of its own at `ownLineIndent`.
+ */
+const withTrailing = (
+  lines: ReadonlyArray<string>,
+  trailing: Text,
+  style: ResolvedStyle,
+  ownLineIndent: number,
+  options?: { readonly gap?: string; readonly ownLine?: Text },
 ): ReadonlyArray<string> => {
-  const indent = options?.indent ?? 0;
-  const hanging = options?.hanging ?? indent;
-  const text = visibleTextValue(value);
-  const lines = wrapDisplay(text, style.width - hanging);
-  return lines.map((line, index) => {
-    const padding = " ".repeat(index === 0 ? indent : hanging);
-    return `${padding}${paintTextValue(line, style, options?.tone)}`;
+  const painted = paintValue(trailing, style, "dim");
+  if (painted.length === 0) return lines;
+  const last = lines[lines.length - 1];
+  const joined = last === undefined ? undefined : `${last}${options?.gap ?? "  "}${painted}`;
+  if (joined !== undefined && fits(style.width, joined)) return [...lines.slice(0, -1), joined];
+  return [
+    ...lines,
+    ...paintPrefixed(options?.ownLine ?? trailing, style, {
+      indent: ownLineIndent,
+      first: "",
+      tone: "dim",
+    }),
+  ];
+};
+
+// ---------------------------------------------------------------------------
+// Tables and change rows
+// ---------------------------------------------------------------------------
+
+interface GridSource {
+  readonly columns: ReadonlyArray<LayoutColumn>;
+  readonly headers: ReadonlyArray<Text>;
+  readonly rows: ReadonlyArray<ReadonlyArray<Text>>;
+}
+
+const layoutColumn = (
+  column: TableColumn | undefined,
+  header: Text,
+  cells: ReadonlyArray<Text>,
+): LayoutColumn => {
+  const values = [header, ...cells];
+  return {
+    headerWidth: displayWidth(visibleText(header)),
+    naturalWidth: Math.max(0, ...values.map((value) => displayWidth(visibleText(value)))),
+    wordWidth: Math.max(0, ...values.map(longestWordWidth)),
+    ...(column?.width === undefined ? {} : { width: column.width }),
+    ...(column?.minWidth === undefined ? {} : { minWidth: column.minWidth }),
+    priority: column?.priority ?? "preferred",
+    align: column?.align ?? "left",
+  };
+};
+
+const cellAt = (row: ReadonlyArray<Text>, index: number): Text => row[index] ?? "";
+
+interface PaintedCell {
+  readonly text: Text;
+  readonly width: PaintWidth;
+  readonly align: "left" | "right";
+}
+
+/** Paint one row of cells (possibly several lines) behind a first-line prefix. */
+const paintCells = (
+  cells: ReadonlyArray<PaintedCell>,
+  style: ResolvedStyle,
+  options: { readonly indent: number; readonly first: string; readonly tone?: Tone },
+): ReadonlyArray<string> => {
+  const painted = cells.map((cell) => paintLines(cell.text, cell.width, style, options.tone));
+  const height = Math.max(1, ...painted.map((lines) => lines.length));
+  const rest = spaces(displayWidth(options.first));
+  return Array.from({ length: height }, (_, lineIndex) => {
+    const line = joinGridLine(
+      cells.map((cell, position) => ({
+        text: painted[position]?.[lineIndex] ?? "",
+        width: cell.width === "unbounded" ? 0 : cell.width,
+        align: cell.align,
+      })),
+      COLUMN_GAP,
+      padDisplay,
+    );
+    return `${spaces(options.indent)}${lineIndex === 0 ? options.first : rest}${line}`;
   });
 };
 
-const paintRowCells = (
+const gridCells = (
+  layout: Extract<TableLayout, { _tag: "grid" }>,
+  cells: ReadonlyArray<Text>,
+): ReadonlyArray<PaintedCell> =>
+  layout.columns.map((column) => ({
+    text: cellAt(cells, column.index),
+    width: column.width,
+    align: column.align,
+  }));
+
+const hiddenColumnsNote = (
+  source: GridSource,
+  layout: Extract<TableLayout, { _tag: "grid" }>,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  if (layout.hidden.length === 0) return [];
+  const names = layout.hidden.map((index) => visibleText(source.headers[index] ?? "")).join(", ");
+  return paintPrefixed(`Not shown at this width: ${names}`, style, {
+    indent,
+    first: "",
+    tone: "dim",
+  });
+};
+
+const paintTable = (
+  columns: ReadonlyArray<TableColumn>,
+  rows: ReadonlyArray<ReadonlyArray<Text>>,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  const headers = columns.map((column) => column.header);
+  const source: GridSource = {
+    headers,
+    rows,
+    columns: columns.map((column, index) =>
+      layoutColumn(
+        column,
+        column.header,
+        rows.map((row) => cellAt(row, index)),
+      ),
+    ),
+  };
+  const layout = layoutTable({
+    columns: source.columns,
+    available: remaining(style.width, indent),
+    gap: COLUMN_GAP,
+  });
+  if (layout._tag === "stacked") {
+    return rows.flatMap((row, rowIndex) => [
+      ...(rowIndex === 0 ? [] : [""]),
+      ...paintFields(
+        columns.map((column, index) => ({ label: column.header, value: cellAt(row, index) })),
+        style,
+        indent,
+      ),
+    ]);
+  }
+  return [
+    ...paintCells(gridCells(layout, headers), style, { indent, first: "", tone: "dim" }),
+    ...rows.flatMap((row) => paintCells(gridCells(layout, row), style, { indent, first: "" })),
+    ...hiddenColumnsNote(source, layout, style, indent),
+  ];
+};
+
+/**
+ * Change rows align every cell but each row's last across the block; the last
+ * cell flexes: it paints inline in the width left on its line when that holds
+ * its longest word, and otherwise on continuation lines of its own. Below the
+ * stacked threshold, or when the aligned cells cannot fit, every cell takes a
+ * line.
+ */
+const paintRows = (
   rows: ReadonlyArray<RowNode>,
-  style: PaintStyle,
+  style: ResolvedStyle,
   indent: number,
 ): ReadonlyArray<string> => {
   if (rows.length === 0) return [];
-  const glyphs = style.glyphs ?? unicodeGlyphs;
-  const columnCount = Math.max(...rows.map((row) => row.cells.length));
-  const widths = Array.from({ length: columnCount }, (_, index) =>
-    Math.max(0, ...rows.map((row) => displayWidth(visibleTextValue(row.cells[index] ?? "")))),
+  const glyphs = style.glyphs;
+  const columnCount = Math.max(0, ...rows.map((row) => row.cells.length));
+  const available = remaining(style.width, indent + 2);
+  const columns = Array.from({ length: Math.max(0, columnCount - 1) }, (_, index) =>
+    layoutColumn(
+      { header: "", priority: "required" },
+      "",
+      rows.flatMap((row) => (index < row.cells.length - 1 ? [cellAt(row.cells, index)] : [])),
+    ),
   );
-  const gutter = indent + 2;
-  const gapWidth = Math.max(0, columnCount - 1) * 3;
-  const natural = widths.reduce((sum, width) => sum + width, 0) + gapWidth;
-  if (natural > style.width - gutter && widths.length > 0) {
-    const last = widths.length - 1;
-    const fixed = widths.slice(0, last).reduce((sum, width) => sum + width, 0) + gapWidth;
-    widths[last] = Math.max(4, style.width - gutter - fixed);
-  }
-
-  const lines: Array<string> = [];
-  for (const row of rows) {
-    const cells = row.cells.map((cell, index) => {
-      const rendered = paintTextValue(cell, style);
-      const width = widths[index] ?? displayWidth(rendered);
-      const value = truncateDisplay(rendered, width);
-      return index === row.cells.length - 1 ? value : padDisplay(value, width);
+  const layout = layoutTable({ columns, available, gap: COLUMN_GAP });
+  const tailWidth = (row: RowNode): PaintWidth => {
+    if (available === "unbounded" || layout._tag !== "grid") return "unbounded";
+    const used = layout.columns
+      .slice(0, Math.max(0, row.cells.length - 1))
+      .reduce((sum, column) => sum + column.width + COLUMN_GAP, 0);
+    return Math.max(0, available - used);
+  };
+  const inlineTail =
+    layout._tag === "grid" &&
+    rows.every((row) => {
+      const tail = row.cells[row.cells.length - 1];
+      const width = tailWidth(row);
+      return (
+        tail === undefined ||
+        width === "unbounded" ||
+        (width >= FLEX_MIN_WIDTH && width >= longestWordWidth(tail))
+      );
     });
-    lines.push(`${" ".repeat(indent)}${glyphs.change[row.change]} ${cells.join("   ")}`);
-    if (row.children !== undefined) {
-      lines.push(...paintNodes(row.children, style, indent + 4));
-    }
-  }
-  return lines;
+  return rows.flatMap((row) => {
+    const first = `${glyphs.change[row.change]} `;
+    const tail = row.cells[row.cells.length - 1];
+    const lines =
+      layout._tag !== "grid"
+        ? row.cells.flatMap((cell, index) =>
+            paintPrefixed(cell, style, { indent, first: index === 0 ? first : "  " }),
+          )
+        : [
+            ...paintCells(
+              [
+                ...gridCells(layout, row.cells.slice(0, -1)).slice(0, row.cells.length - 1),
+                ...(tail !== undefined && inlineTail
+                  ? [{ text: tail, width: tailWidth(row), align: "left" as const }]
+                  : []),
+              ],
+              style,
+              { indent, first },
+            ),
+            ...(tail !== undefined && !inlineTail
+              ? paintPrefixed(tail, style, { indent, first: "  " })
+              : []),
+          ];
+    const children = row.children === undefined ? [] : paintNodes(row.children, style, indent + 4);
+    return [...lines, ...children];
+  });
 };
+
+// ---------------------------------------------------------------------------
+// Other nodes
+// ---------------------------------------------------------------------------
 
 const actionTarget = (action: SuggestedAction): string => action.cmd ?? action.url ?? "";
 
 const paintTreeItems = (
   items: ReadonlyArray<TreeItem>,
-  style: PaintStyle,
+  style: ResolvedStyle,
   prefix: string,
-): ReadonlyArray<string> => {
-  const lines: Array<string> = [];
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index];
-    if (item === undefined) continue;
+): ReadonlyArray<string> =>
+  items.flatMap((item, index) => {
     const last = index === items.length - 1;
-    const connector = last ? "└─ " : "├─ ";
-    const detail =
-      item.detail === undefined ? "" : `  ${paintTextValue(item.detail, style, "dim")}`;
-    lines.push(`${prefix}${connector}${paintTextValue(item.text, style)}${detail}`);
-    if (item.children !== undefined) {
-      lines.push(...paintTreeItems(item.children, style, `${prefix}${last ? "   " : "│  "}`));
-    }
-  }
-  return lines;
+    const childPrefix = `${prefix}${last ? style.glyphs.tree.space : style.glyphs.tree.pipe}`;
+    const lines = paintPrefixed(item.text, style, {
+      indent: 0,
+      first: `${prefix}${last ? style.glyphs.tree.last : style.glyphs.tree.branch}`,
+      rest: childPrefix,
+    });
+    const detailed =
+      item.detail === undefined
+        ? lines
+        : withTrailing(lines, item.detail, style, displayWidth(childPrefix));
+    return [
+      ...detailed,
+      ...(item.children === undefined ? [] : paintTreeItems(item.children, style, childPrefix)),
+    ];
+  });
+
+/**
+ * Label–value pairs with labels padded to one width. A value whose longest
+ * word cannot fit beside its label, or that would get less than a short line,
+ * moves below the label instead of being split.
+ */
+const paintFields = (
+  fields: ReadonlyArray<{ readonly label: Text; readonly value: Text }>,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  const labelWidth = Math.max(0, ...fields.map((field) => displayWidth(visibleText(field.label))));
+  const valueWidth = remaining(style.width, indent + labelWidth + 2);
+  return fields.flatMap((field) =>
+    valueWidth !== "unbounded" &&
+    (valueWidth < MIN_FIELD_VALUE_WIDTH || longestWordWidth(field.value) > valueWidth)
+      ? [
+          ...paintPrefixed(field.label, style, { indent, first: "", tone: "dim" }),
+          ...paintPrefixed(field.value, style, { indent: indent + 2, first: "" }),
+        ]
+      : paintPrefixed(field.value, style, {
+          indent,
+          first: `${padDisplay(paintValue(field.label, style, "dim"), labelWidth)}  `,
+          rest: spaces(labelWidth + 2),
+        }),
+  );
 };
 
-const paintNode = (node: DocNode, style: PaintStyle, indent: number): ReadonlyArray<string> => {
-  const glyphs = style.glyphs ?? unicodeGlyphs;
+const paintNode = (node: DocNode, style: ResolvedStyle, indent: number): ReadonlyArray<string> => {
+  const glyphs = style.glyphs;
   switch (node._tag) {
     case "headline": {
-      const glyph = statusGlyph(node.tone, glyphs);
-      const aside = node.aside === undefined ? "" : `  ${paintTextValue(node.aside, style, "dim")}`;
-      return paintWrapped(node.text, style, {
-        indent: indent + 2,
-        hanging: indent + 2,
+      const lines = paintPrefixed(node.text, style, {
+        indent,
+        first: `${statusGlyph(node.tone, glyphs)} `,
         tone: node.tone,
-      }).map((line, index) => (index === 0 ? `${glyph}${line.slice(indent + 1)}${aside}` : line));
+      });
+      return node.aside === undefined ? lines : withTrailing(lines, node.aside, style, indent + 2);
     }
     case "paragraph":
-      return paintWrapped(node.text, style, {
+      return paintPrefixed(node.text, style, {
         indent,
-        hanging: indent,
+        first: "",
         ...(node.tone === undefined ? {} : { tone: node.tone }),
       });
     case "row":
-      return paintRowCells([node], style, indent);
+      return paintRows([node], style, indent);
     case "rows":
-      return paintRowCells(node.rows, style, indent);
+      return paintRows(node.rows, style, indent);
     case "collapsed": {
-      const hint = node.hint === undefined ? "" : `  ${paintTextValue(node.hint, style, "dim")}`;
-      return [
-        `${" ".repeat(indent)}${glyphs.change[node.change]} ${String(node.count)} ${node.noun}${hint}`,
-      ];
+      const lines = paintPrefixed(`${String(node.count)} ${node.noun}`, style, {
+        indent,
+        first: `${glyphs.change[node.change]} `,
+      });
+      return node.hint === undefined ? lines : withTrailing(lines, node.hint, style, indent + 2);
     }
     case "callout": {
-      const title = `${statusGlyph(node.tone, glyphs)} ${paintTextValue(node.title, style, node.tone)}`;
+      const title = paintPrefixed(node.title, style, {
+        indent,
+        first: `${statusGlyph(node.tone, glyphs)} `,
+        tone: node.tone,
+      });
       const children =
         node.children === undefined ? [] : paintNodes(node.children, style, indent + 2);
-      return [`${" ".repeat(indent)}${title}`, ...children];
+      return [...title, ...children];
     }
     case "table": {
-      const tableRows: ReadonlyArray<RowNode> = node.rows.map((cells) => ({
-        _tag: "row",
-        change: "unchanged",
-        cells,
-      }));
-      const headers = node.columns.map((column) => column.header);
-      const caption = node.caption === undefined ? [] : [paintTextValue(node.caption, style)];
+      const caption =
+        node.caption === undefined ? [] : paintPrefixed(node.caption, style, { indent, first: "" });
       return [
         ...caption,
-        `${" ".repeat(indent + 2)}${headers.map((header) => paintTextValue(header, style, "dim")).join("   ")}`,
-        ...paintRowCells(tableRows, style, indent),
+        ...paintTable(node.columns, node.rows, style, indent + (caption.length === 0 ? 0 : 2)),
       ];
     }
-    case "fields": {
-      const width = Math.max(
-        0,
-        ...node.fields.map((field) => displayWidth(visibleTextValue(field.label))),
-      );
-      return node.fields.map(
-        (field) =>
-          `${" ".repeat(indent)}${padDisplay(paintTextValue(field.label, style, "dim"), width)}  ${paintTextValue(field.value, style)}`,
-      );
-    }
+    case "fields":
+      return paintFields(node.fields, style, indent);
     case "tree":
-      return paintTreeItems(node.roots, style, " ".repeat(indent));
+      return paintTreeItems(node.roots, style, spaces(indent));
     case "next":
       return [
-        `${" ".repeat(indent)}${paintTextValue("Next", style, "dim")}`,
-        ...node.actions.map((action) => {
+        `${spaces(indent)}${dim("Next", style)}`,
+        ...node.actions.flatMap((action) => {
           const target = actionTarget(action);
-          const suffix = target.length === 0 ? "" : ` · ${paintTextValue(target, style, "dim")}`;
-          return `${" ".repeat(indent + 2)}${action.description}${suffix}`;
+          const lines = paintPrefixed(action.description, style, { indent: indent + 2, first: "" });
+          return target.length === 0
+            ? lines
+            : withTrailing(lines, `${glyphs.separator.trimStart()}${target}`, style, indent + 4, {
+                gap: " ",
+                ownLine: target,
+              });
         }),
       ];
     case "summary": {
       const elapsed =
         node.elapsedMs === undefined ? "" : ` in ${Math.max(0, node.elapsedMs / 1000).toFixed(1)}s`;
-      const content = node.parts.map((part) => paintTextValue(part.text, style)).join(" · ");
-      return [`${" ".repeat(indent)}${paintTextValue(content + elapsed, style, node.tone)}`];
+      const parts: ReadonlyArray<Span> = node.parts.flatMap((part, index) => [
+        ...(index === 0 ? [] : [{ text: glyphs.separator }]),
+        ...(typeof part.text === "string" ? [{ text: part.text }] : part.text),
+      ]);
+      return paintPrefixed([...parts, { text: elapsed }], style, {
+        indent,
+        first: "",
+        ...(node.tone === undefined ? {} : { tone: node.tone }),
+      });
     }
     case "section": {
       const title =
         node.title === undefined
           ? []
-          : [`${" ".repeat(indent)}${paintTextValue(node.title, style, "dim")}`];
+          : paintPrefixed(node.title, style, { indent, first: "", tone: "dim" });
       return [...title, ...paintNodes(node.children, style, indent + (title.length === 0 ? 0 : 2))];
     }
     case "markdown":
     case "raw":
-      return node.content.split("\n").map((line) => `${" ".repeat(indent)}${line}`);
+      return node.content.split("\n").map((line) => `${spaces(indent)}${line}`);
     case "blank":
       return [""];
   }
 };
 
-const paintNodes = (doc: Doc, style: PaintStyle, indent: number): ReadonlyArray<string> =>
+const paintNodes = (doc: Doc, style: ResolvedStyle, indent: number): ReadonlyArray<string> =>
   doc.flatMap((node) => paintNode(node, style, indent));
 
+const resolveStyle = (style: PaintStyle): ResolvedStyle => ({
+  width: style.width === "unbounded" ? "unbounded" : Math.max(20, style.width),
+  colors: style.colors,
+  glyphs: style.glyphs ?? unicodeGlyphs,
+});
+
 export const paintText = (doc: Doc, style: PaintStyle): ReadonlyArray<string> =>
-  paintNodes(doc, { ...style, width: Math.max(20, style.width) }, 0);
+  paintNodes(doc, resolveStyle(style), 0);
+
+/** Paint one already laid-out line of spans without wrapping or padding. */
+export const paintInline = (value: Text, style: PaintStyle): string =>
+  paintValue(value, resolveStyle(style));

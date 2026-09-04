@@ -5,6 +5,8 @@ import { Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
 import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -90,14 +92,14 @@ interface ListTableRow {
 }
 
 const ExtensionListColumns = [
-  { header: "Extension", value: (row: ListTableRow) => row.extension },
+  { header: "Extension", priority: "required", value: (row: ListTableRow) => row.extension },
   { header: "Type", value: (row: ListTableRow) => row.type },
   { header: "Management", value: (row: ListTableRow) => row.management },
   { header: "Installed", value: (row: ListTableRow) => row.installed },
   { header: "Version", value: (row: ListTableRow) => row.version },
-  { header: "Source", value: (row: ListTableRow) => row.source },
+  { header: "Source", priority: "optional", value: (row: ListTableRow) => row.source },
   { header: "Assessment", value: (row: ListTableRow) => row.state },
-  { header: "Guidance", value: (row: ListTableRow) => row.guidance },
+  { header: "Guidance", priority: "optional", value: (row: ListTableRow) => row.guidance },
 ] satisfies ReadonlyArray<ViewColumn<ListTableRow>>;
 
 const matchesFilter = (item: ExtensionListItem, filter: ListFilter): boolean =>
@@ -143,13 +145,17 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
       ? "deprecated"
       : "all";
   const assessmentFilter = filter === "outdated" ? "outdated" : "deprecated";
-  const assessed = yield* screen.task(
-    `Checking extensions for ${assessmentFilter === "outdated" ? "updates" : "deprecation"}`,
-    () =>
+  const assessed = yield* withLiveOperation(
+    { command: "list", name: "List extensions", mode: "preview" },
+    observeUnit(
+      {
+        id: "assessment",
+        label: `${assessmentFilter === "outdated" ? "update" : "deprecation"} status`,
+      },
       Effect.scoped(assessExtensionListItems(localItems, assessmentFilter)).pipe(
         Effect.mapError(inspectionFailureToAppError),
       ),
-    { successMessage: `Checked extension ${assessmentFilter} status` },
+    ),
   );
   const items = assessed
     .filter((item) => matchesFilter(item, filter))

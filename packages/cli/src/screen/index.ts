@@ -19,6 +19,7 @@ export type {
   SummaryNode,
   SummaryPart,
   TableColumn,
+  TableColumnPriority,
   TableNode,
   Text,
   Tone,
@@ -26,14 +27,43 @@ export type {
   TreeNode,
 } from "./doc.js";
 export { plain, text } from "./doc.js";
-export { paintText, unicodeGlyphs, type Glyphs, type PaintStyle } from "./paint-text.js";
 export {
-  Frame,
-  FrameLive,
-  taskEndForCause,
-  type FrameTaskEnd,
-  type FrameTaskHandle,
-} from "./frame.js";
+  asciiGlyphs,
+  paintInline,
+  paintText,
+  unicodeGlyphs,
+  type Glyphs,
+  type PaintStyle,
+  type PaintWidth,
+} from "./paint-text.js";
+export { wrapText, visibleText } from "./wrap-text.js";
+export {
+  STACKED_THRESHOLD,
+  layoutTable,
+  type GridColumn,
+  type LayoutColumn,
+  type TableLayout,
+} from "./table-layout.js";
+export { Frame, FrameLive, type FrameOptions } from "./frame.js";
+export {
+  initialProgress,
+  operationElapsedMs,
+  plannedProgress,
+  reduceProgress,
+  runningTasks,
+  type ProgressMeasure,
+  type ProgressOperation,
+  type ProgressSettlement,
+  type ProgressState,
+  type ProgressTask,
+  type ProgressWait,
+} from "./progress.js";
+export {
+  liveProgressLines,
+  progressTransitionDoc,
+  type LiveProgressOptions,
+  type ProgressTransitionOptions,
+} from "./progress-view.js";
 export {
   OutputStreams,
   OutputStreamsLive,
@@ -49,13 +79,18 @@ export {
   emitSuggestionEvents,
   type ResultOptions,
   type ScreenFacts,
+  type ScreenLiveOptions,
   type ScreenLogRecord,
-  type TaskDetail,
-  type TaskHandle,
-  type TaskOptions,
 } from "./screen.js";
-export { makeTestScreen, rendered, type TestScreenState } from "./screen-test.js";
 export {
+  makeTestScreen,
+  rendered,
+  startedUnitLabels,
+  type TestScreenState,
+} from "./screen-test.js";
+export {
+  MachineEventSchema,
+  ProgressEventSchema,
   encodeMachineEvent,
   errorEvent,
   instructionEvent,
@@ -84,9 +119,11 @@ export {
   duration,
   interruptionPhrase,
   outcomeHeadline,
+  phaseLabel,
   publishDisposition,
   publishParticipation,
   publishReason,
+  settledOutcomeTone,
   severityTone,
   unitState,
   unitStateChange,
@@ -124,17 +161,9 @@ export {
   type LogMessage,
   type ListPayload,
   type DetailOptions,
-  type ProgressConfig,
-  type ProgressHandle,
   type ResolvedDetailField,
   type ResolvedTableColumn,
-  type SpinnerHandle,
-  type SpinnerOptions,
   type SuccessOptions,
-  type Task,
-  type TaskLogConfig,
-  type TaskLogGroupHandle,
-  type TaskLogHandle,
   type TableAlign,
   type TableColumnConfig,
   type TableView,
@@ -155,5 +184,7 @@ export {
   TestRenderer,
   TestMachineRenderer,
   logsByTag,
+  resolvedUnits,
+  startedUnits,
   type TestRendererState,
 } from "./presenter-test.js";

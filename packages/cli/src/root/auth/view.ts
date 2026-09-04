@@ -9,35 +9,19 @@ export interface AuthViewEntry {
   readonly persistent?: boolean;
 }
 
-export const authProgressMessages = (
-  progress: AuthLoginProgress,
-): { readonly message: string; readonly successMessage: string } => {
+/** Label of the lifecycle unit one sign-in phase runs as. */
+export const authProgressLabel = (progress: AuthLoginProgress): string => {
   switch (progress._tag) {
     case "StartingDeviceAuthorization":
-      return {
-        message: `Starting device authorization for ${progress.registryHost}`,
-        successMessage: `Started device authorization for ${progress.registryHost}`,
-      };
+      return `device authorization on ${progress.registryHost}`;
     case "WaitingForDeviceAuthorization":
-      return {
-        message: "Waiting for authorization…",
-        successMessage: `Authorized device on ${progress.registryHost}`,
-      };
+      return `authorization on ${progress.registryHost}`;
     case "SavingCredentials":
-      return {
-        message: `Saving credentials for ${progress.registryHost}`,
-        successMessage: `Saved credentials for ${progress.registryHost}`,
-      };
+      return `credentials for ${progress.registryHost}`;
     case "WaitingForLoopbackAuthorization":
-      return {
-        message: `Waiting for authorization… (expires in ${progress.timeoutMinutes} minutes)`,
-        successMessage: `Received browser authorization on ${progress.registryHost}`,
-      };
+      return `browser authorization on ${progress.registryHost} (expires in ${String(progress.timeoutMinutes)} minutes)`;
     case "CompletingSignIn":
-      return {
-        message: `Completing sign-in to ${progress.registryHost}`,
-        successMessage: `Completed sign-in to ${progress.registryHost}`,
-      };
+      return `sign-in to ${progress.registryHost}`;
   }
 };
 

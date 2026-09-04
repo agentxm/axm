@@ -250,10 +250,7 @@ const parseJsonObject = (input: string): Readonly<Record<string, unknown>> => {
   }
 };
 
-const expectProgressMessages = (
-  stderr: string,
-  expectedMessages: ReadonlyArray<string | RegExp>,
-) => {
+const expectLifecycleUnits = (stderr: string, expectedUnitIds: ReadonlyArray<string>) => {
   const machineEvents = stderr
     .trim()
     .split("\n")
@@ -269,20 +266,17 @@ const expectProgressMessages = (
           typeof event["message"] === "string"),
     ),
   ).toBe(true);
-  const progressEvents = machineEvents.filter((event) => event["type"] === "progress");
-  expect(progressEvents.length).toBeGreaterThan(0);
-  const progressMessages = progressEvents.map((event) => event["message"]);
-  for (const expectedMessage of expectedMessages) {
-    if (typeof expectedMessage === "string") {
-      expect(progressMessages).toContain(expectedMessage);
-      continue;
-    }
-    expect(
-      progressMessages.some(
-        (progressMessage) =>
-          typeof progressMessage === "string" && expectedMessage.test(progressMessage),
-      ),
-    ).toBe(true);
+  const lifecycleEvents = machineEvents
+    .filter((event) => event["type"] === "progress")
+    .map((event) => expectJsonObject(event["event"]));
+  expect(lifecycleEvents.length).toBeGreaterThan(0);
+  expect(lifecycleEvents[0]?.["_tag"]).toBe("OperationStarted");
+  expect(lifecycleEvents[lifecycleEvents.length - 1]?.["_tag"]).toBe("OperationSettled");
+  const startedUnitIds = lifecycleEvents
+    .filter((event) => event["_tag"] === "UnitStarted")
+    .map((event) => event["unitId"]);
+  for (const expectedUnitId of expectedUnitIds) {
+    expect(startedUnitIds).toContain(expectedUnitId);
   }
 };
 
@@ -290,10 +284,7 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
   const runBinary = createBinaryRunner(binaryPath);
   const jsonResult = await runBinary(["upgrade", fixtureVersion, "--json"], { env });
   expectCommandSuccess(`axm upgrade ${fixtureVersion} --json`, jsonResult);
-  expectProgressMessages(jsonResult.stderr, [
-    "Detecting AXM installation method",
-    `Resolving AXM ${fixtureVersion}`,
-  ]);
+  expectLifecycleUnits(jsonResult.stderr, ["detect-install-method", "resolve-version"]);
   const jsonDocument = parseJsonObject(jsonResult.stdout);
   expect(jsonDocument["ok"]).toBe(true);
   const currentResult = expectJsonObject(jsonDocument["result"]);
@@ -307,8 +298,7 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
   });
   expectCommandSuccess(`axm upgrade ${fixtureVersion} --quiet --verbose`, quietResult);
   expect(getOutput(quietResult)).toContain("already up to date");
-  expect(getOutput(quietResult)).not.toContain(`Resolving AXM ${fixtureVersion}`);
-  expect(getOutput(quietResult)).not.toContain("Detecting AXM installation method");
+  expect(getOutput(quietResult)).not.toContain("AXM installation method");
 
   const noColorResult = await runBinary(["upgrade", fixtureVersion], {
     env: { ...env, NO_COLOR: "1" },
@@ -330,10 +320,10 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
         `Locked upgrade exited ${lockedResult.exitCode}; stdout: ${lockedResult.stdout}; stderr: ${lockedResult.stderr}`,
       );
     }
-    expectProgressMessages(lockedResult.stderr, [
-      "Detecting AXM installation method",
-      `Resolving AXM ${fixtureVersion}`,
-      /^Upgrading AXM to /,
+    expectLifecycleUnits(lockedResult.stderr, [
+      "detect-install-method",
+      "resolve-version",
+      "upgrade",
     ]);
     const lockedDocument = parseJsonObject(lockedResult.stdout);
     expect(lockedDocument["ok"]).toBe(false);

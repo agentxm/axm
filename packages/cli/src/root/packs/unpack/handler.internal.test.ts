@@ -5,6 +5,7 @@
  * for each extension -> uninstall-pack -> execute plan.
  */
 
+import { startedUnits } from "../../../screen/index.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -47,7 +48,6 @@ import {
   writeWorkspaceFiles,
 } from "../../../test-stubs.js";
 import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
-import { LifecycleResolutionProgressLive } from "../../../lifecycle-interaction.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -252,7 +252,6 @@ describe("packs unpack.handler", () => {
       SPLayer,
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
-      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
     );
     const ManagersLayer = Layer.provide(
       Layer.mergeAll(
@@ -512,7 +511,7 @@ describe("packs unpack.handler", () => {
           expect(errorResult.guidance).toContain(
             "Install the pack first. · axm packs install <source>",
           );
-          expect(rendererState.spinnerMessages).toEqual([]);
+          expect(startedUnits(rendererState)).toEqual([]);
         }),
       );
     });

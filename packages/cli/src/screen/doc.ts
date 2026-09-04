@@ -54,9 +54,21 @@ export interface CalloutNode {
   readonly children?: Doc;
 }
 
+/**
+ * How a column yields when the table is wider than the terminal: `required`
+ * columns are never dropped, `optional` columns are dropped first, and
+ * `preferred` columns (the default) are dropped only after every optional one.
+ */
+export type TableColumnPriority = "required" | "preferred" | "optional";
+
 export interface TableColumn {
   readonly header: Text;
   readonly align?: "left" | "right";
+  /** Preferred width in cells; the painter shrinks below it under pressure. */
+  readonly width?: number;
+  /** Width the column keeps while it is shown; defaults to its header width. */
+  readonly minWidth?: number;
+  readonly priority?: TableColumnPriority;
 }
 
 export interface TableNode {

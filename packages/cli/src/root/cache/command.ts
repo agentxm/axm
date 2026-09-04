@@ -6,6 +6,8 @@ import { Screen, rawDoc, successDoc } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { makeUserArchiveCache } from "@agentxm/registry-client";
 import { withRuntime } from "../../runtime.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 
 const CacheStatusSchema = Schema.Struct({
   entries: Schema.Number,
@@ -52,9 +54,10 @@ const formatBytes = (bytes: number): string => {
 export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
   const screen = yield* Screen;
   const cache = yield* makeUserArchiveCache();
-  const status = yield* screen.task("Loading archive cache status", () => cache.status(), {
-    successMessage: "Loaded archive cache status",
-  });
+  const status = yield* withLiveOperation(
+    { command: "cache.status", name: "Inspect archive cache", mode: "preview" },
+    observeUnit({ id: "status", label: "archive cache status" }, cache.status()),
+  );
   if (yield* screen.document(status, CacheStatusOutputSchema)) return;
   yield* screen.result(
     rawDoc(
@@ -73,9 +76,10 @@ export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
 export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
   const screen = yield* Screen;
   const cache = yield* makeUserArchiveCache();
-  const result = yield* screen.task("Verifying archive cache", () => cache.verify(), {
-    successMessage: "Verified archive cache",
-  });
+  const result = yield* withLiveOperation(
+    { command: "cache.verify", name: "Verify archive cache", mode: "apply" },
+    observeUnit({ id: "verify", label: "cached archives" }, cache.verify()),
+  );
   if (yield* screen.document({ result }, CacheVerifyOutputSchema)) return;
   yield* screen.result(
     successDoc(
@@ -87,9 +91,10 @@ export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
 export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
   const screen = yield* Screen;
   const cache = yield* makeUserArchiveCache();
-  const result = yield* screen.task("Pruning archive cache", () => cache.prune(), {
-    successMessage: "Pruned archive cache",
-  });
+  const result = yield* withLiveOperation(
+    { command: "cache.prune", name: "Prune archive cache", mode: "apply" },
+    observeUnit({ id: "prune", label: "expired and excess archives" }, cache.prune()),
+  );
   if (yield* screen.document({ result }, CachePruneOutputSchema)) return;
   yield* screen.result(
     successDoc(

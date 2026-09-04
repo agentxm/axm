@@ -1155,6 +1155,21 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/lint/findings-name-the-violated-invariant`
 - Source: [`specifications/cli/lint/machine-findings-carry-only-facts.spec.ts`](../specifications/cli/lint/machine-findings-carry-only-facts.spec.ts)
 
+#### Long Running Operations Emit Lifecycle Events
+
+##### A plan-family operation publishes its lifecycle as typed events
+
+- Requirement: `cli/long-running-operations-emit-lifecycle-events`
+- Statement: A plan-family operation shall publish an operation-started event, a phase-started event for each phase it enters, a unit-started and a unit-resolved event for every unit it attempts, and exactly one settled event whose outcome equals the outcome of its result document.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`
+- Assumptions: Source resolution, lockfile reconciliation, and the plan's units are the only units a local install attempts, so units that do not appear in the result document belong to the resolution or planning phase.
+- Source: [`specifications/cli/long-running-operations-emit-lifecycle-events.spec.ts`](../specifications/cli/long-running-operations-emit-lifecycle-events.spec.ts)
+
 #### Machine Errors Use The Stable Envelope
 
 ##### A failed machine invocation still emits the stable error envelope
@@ -1184,6 +1199,20 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Limitation: The skill-selection prompt has no in-memory interaction port, so the evidence that the same request prompts and honors the answer when machine output is off is carried by the setup command only. Retires when: An in-memory interaction port for the skill-selection prompt lets the harness record that prompt and its answer for install.
 - Source: [`specifications/cli/machine-mode-never-prompts.spec.ts`](../specifications/cli/machine-mode-never-prompts.spec.ts)
+
+#### Machine Progress Events Follow The Lifecycle Schema
+
+##### Machine progress events are the published lifecycle events, in order, before the result
+
+- Requirement: `cli/machine-progress-events-follow-the-lifecycle-schema`
+- Statement: When machine output mode is on, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, and the operation shall write exactly one settled event before its result document.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Derived from: `cli/machine-errors-use-the-stable-envelope`
+- Source: [`specifications/cli/machine-progress-events-follow-the-lifecycle-schema.spec.ts`](../specifications/cli/machine-progress-events-follow-the-lifecycle-schema.spec.ts)
 
 #### Mcps
 
@@ -1223,6 +1252,19 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Source: [`specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts`](../specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts)
+
+#### Non Tty Output Is Plain And Unpadded
+
+##### A stream that is not a terminal receives plain, unbounded human output
+
+- Requirement: `cli/non-tty-output-is-plain-and-unpadded`
+- Statement: When a standard stream receiving human output is not a terminal, AXM shall write no ANSI escape sequence to it and shall not wrap, truncate, or pad any line to a terminal width.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/non-tty-output-is-plain-and-unpadded.spec.ts`](../specifications/cli/non-tty-output-is-plain-and-unpadded.spec.ts)
 
 #### Publish
 

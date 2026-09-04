@@ -16,11 +16,13 @@
 
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import {
   effectCliExit,
+  observeLifecycleForTelemetry,
   recordCommandCompletion,
   requestedInterruptionSignal,
 } from "../../cli-runtime/index.js";
@@ -34,12 +36,15 @@ import {
   makeOperationResolution,
   unitIdOf,
   type AtomicityClass,
+  type OperationMode,
   type OperationPresentation,
   type OperationRecovery,
   type OperationResolution,
   type ResolvedUnit,
   type OperationJournalState,
+  type SettledOutcome,
 } from "@agentxm/workspace-operations";
+import { Screen } from "../../screen/index.js";
 import {
   FootprintRecorder,
   WorkspaceMutations,
@@ -219,6 +224,66 @@ export const interruptionResolution = (
   });
 };
 
+export interface LiveOperationArgs {
+  /** Command identity, dot-separated as elsewhere (e.g. "cache.prune"). */
+  readonly command: string;
+  /** Operation name observers render; never a formatted phrase. */
+  readonly name: string;
+  readonly mode: OperationMode;
+  /** Outcome a successful body settles with; `completed` for non-plan operations. */
+  readonly successOutcome?: SettledOutcome;
+}
+
+const settledOutcomeForExit = (
+  exit: Exit.Exit<unknown, unknown>,
+  success: SettledOutcome,
+): SettledOutcome =>
+  Exit.isSuccess(exit) ? success : Cause.hasInterruptsOnly(exit.cause) ? "interrupted" : "failed";
+
+/**
+ * Run a body as one observed operation: create the lifecycle broadcast,
+ * attach the Screen's observer and telemetry before anything publishes,
+ * announce the start, and on every exit settle (unless the body already did)
+ * and wait for lossless observers to drain, bounded so exit never hangs.
+ *
+ * Non-plan commands wrap their work — not their result rendering — so the
+ * live frame collapses before the settled document prints.
+ */
+export const withLiveOperation = <A, E, R>(
+  args: LiveOperationArgs,
+  body: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, Exclude<R, OperationLifecycle> | Screen> =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const screen = yield* Screen;
+      const lifecycle = yield* makeOperationLifecycle({ name: args.name, mode: args.mode });
+      yield* screen.observe(lifecycle);
+      yield* observeLifecycleForTelemetry(lifecycle);
+      yield* lifecycle.publish((seq, atMs) => ({
+        _tag: "OperationStarted",
+        seq,
+        atMs,
+        operationId: lifecycle.operationId,
+        name: args.name,
+        mode: args.mode,
+      }));
+      return yield* body.pipe(
+        Effect.provideService(OperationLifecycle, lifecycle),
+        Effect.onExit((exit) =>
+          lifecycle
+            .settle(settledOutcomeForExit(exit, args.successOutcome ?? "completed"))
+            .pipe(
+              Effect.andThen(
+                lifecycle.drained.await.pipe(
+                  Effect.timeoutOrElse({ duration: "5 seconds", orElse: () => Effect.void }),
+                ),
+              ),
+            ),
+        ),
+      );
+    }),
+  );
+
 /**
  * Run a plan-family handler body under the operation lifecycle. The body owns
  * planning, confirmation, apply (which acquires the workspace transition
@@ -234,13 +299,14 @@ export const withOperationLifecycle = <A, E, R>(
       Effect.gen(function* () {
         const journal = yield* makeOperationJournal;
         const footprint = yield* makeFootprintRecorder;
-        const lifecycle = yield* makeOperationLifecycle(args.mode);
         const path = yield* Path.Path;
         return yield* restore(
-          body.pipe(
-            Effect.provideService(OperationJournal, journal),
-            Effect.provideService(FootprintRecorder, footprint),
-            Effect.provideService(OperationLifecycle, lifecycle),
+          withLiveOperation(
+            { command: args.command, name: args.planName, mode: args.mode },
+            body.pipe(
+              Effect.provideService(OperationJournal, journal),
+              Effect.provideService(FootprintRecorder, footprint),
+            ),
           ),
         ).pipe(
           Effect.catchCause((cause) =>

@@ -15,10 +15,6 @@ export {
   withAdaptedStepFailures,
   type LifecycleFailureAdapterService,
 } from "./failure-adapter.js";
-export {
-  LifecycleResolutionProgress,
-  type LifecycleResolutionProgressService,
-} from "./resolution-progress.js";
 
 export {
   makeConfiguredReleaseAgeEvaluation,

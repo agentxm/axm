@@ -1,16 +1,18 @@
 import * as Schema from "effect/Schema";
 
+import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace-operations";
+
 import { redactSensitiveValue } from "../app-error/secret-redaction.js";
 
+/**
+ * One lifecycle event of a running operation, written to stderr as it
+ * happens. The `event` is the published lifecycle contract: `seq` increases
+ * strictly within one operation and exactly one `OperationSettled` event
+ * precedes the result document.
+ */
 export const ProgressEventSchema = Schema.Struct({
   type: Schema.Literal("progress"),
-  phase: Schema.String,
-  percent: Schema.Number,
-  message: Schema.String,
-  unit: Schema.optional(Schema.String),
-  state: Schema.optional(Schema.String),
-  reason: Schema.optional(Schema.String),
-  atMs: Schema.optional(Schema.Number),
+  event: OperationEventSchema,
 }).annotate({ identifier: "ProgressEvent" });
 export type ProgressEvent = typeof ProgressEventSchema.Type;
 
@@ -44,15 +46,21 @@ export const InstructionEventSchema = Schema.Struct({
 }).annotate({ identifier: "InstructionEvent" });
 export type InstructionEvent = typeof InstructionEventSchema.Type;
 
-export type MachineEvent =
-  ProgressEvent | LogEvent | ErrorEvent | SuggestionEvent | InstructionEvent;
+export const MachineEventSchema = Schema.Union([
+  ProgressEventSchema,
+  LogEventSchema,
+  ErrorEventSchema,
+  SuggestionEventSchema,
+  InstructionEventSchema,
+]).annotate({ identifier: "MachineEvent" });
+export type MachineEvent = typeof MachineEventSchema.Type;
 
-export const progressEvent = (
-  phase: string,
-  percent: number,
-  message: string,
-  detail?: Omit<ProgressEvent, "type" | "phase" | "percent" | "message">,
-): ProgressEvent => ({ type: "progress", phase, percent, message, ...detail });
+const encodeOperationEvent = Schema.encodeSync(OperationEventSchema);
+
+export const progressEvent = (event: OperationEvent): ProgressEvent => ({
+  type: "progress",
+  event: encodeOperationEvent(event),
+});
 
 export const logEvent = (level: LogEvent["level"], message: string): LogEvent => ({
   type: "log",

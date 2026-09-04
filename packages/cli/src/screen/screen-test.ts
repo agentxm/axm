@@ -1,19 +1,13 @@
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type * as Schema from "effect/Schema";
 
+import { subscribeLossless, type OperationEvent } from "@agentxm/workspace-operations";
+
 import type { Doc } from "./doc.js";
 import { paintText, type PaintStyle } from "./paint-text.js";
-import {
-  Screen,
-  type ResultOptions,
-  type ScreenLogRecord,
-  type TaskDetail,
-  type TaskHandle,
-  type TaskOptions,
-} from "./screen.js";
+import { Screen, type ResultOptions, type ScreenLogRecord } from "./screen.js";
 
 export interface TestScreenState {
   readonly results: Array<{
@@ -27,11 +21,8 @@ export interface TestScreenState {
     readonly doc: Doc;
     readonly persistent: boolean;
   }>;
-  readonly tasks: Array<{
-    readonly label: string;
-    readonly updates: Array<{ readonly label: string; readonly detail?: TaskDetail }>;
-    readonly end: Array<"success" | "failed" | "cancelled">;
-  }>;
+  /** Every lifecycle event observed, in order, across observed operations. */
+  readonly events: Array<OperationEvent>;
   readonly logs: Array<ScreenLogRecord>;
 }
 
@@ -39,7 +30,7 @@ const emptyState = (): TestScreenState => ({
   results: [],
   suggestions: [],
   docs: [],
-  tasks: [],
+  events: [],
   logs: [],
 });
 
@@ -76,43 +67,8 @@ export const makeTestScreen = (
         state.suggestions.push(...(options?.suggestions ?? []));
         return documentResult;
       }),
-    task: <A, E, R>(
-      label: string,
-      body: (handle: TaskHandle) => Effect.Effect<A, E, R>,
-      _options?: TaskOptions<A>,
-    ) => {
-      const record: TestScreenState["tasks"][number] = { label, updates: [], end: [] };
-      state.tasks.push(record);
-      const handle: TaskHandle = {
-        update: (nextLabel, detail) =>
-          Effect.sync(
-            () =>
-              void record.updates.push({
-                label: nextLabel,
-                ...(detail === undefined ? {} : { detail }),
-              }),
-          ),
-        progress: (done, total) =>
-          Effect.sync(
-            () => void record.updates.push({ label, detail: { state: `${done}/${total}` } }),
-          ),
-        child: (childLabel) =>
-          Effect.succeed({
-            ...handle,
-            update: (nextLabel) => handle.update(`${childLabel}: ${nextLabel}`),
-          }),
-      };
-      return body(handle).pipe(
-        Effect.matchCauseEffect({
-          onFailure: (cause) =>
-            Effect.sync(
-              () => void record.end.push(Cause.hasInterruptsOnly(cause) ? "cancelled" : "failed"),
-            ).pipe(Effect.andThen(Effect.failCause(cause))),
-          onSuccess: (value) =>
-            Effect.sync(() => void record.end.push("success")).pipe(Effect.as(value)),
-        }),
-      );
-    },
+    observe: (lifecycle) =>
+      subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
     log: (record) => Effect.sync(() => void state.logs.push(record)),
     prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
     facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
@@ -125,3 +81,7 @@ export const rendered = (
   state: TestScreenState,
   style: PaintStyle = { width: 80, colors: false },
 ): string => state.docs.flatMap((entry) => paintText(entry.doc, style)).join("\n");
+
+/** Labels of the units an observed operation started, in order. */
+export const startedUnitLabels = (events: ReadonlyArray<OperationEvent>): ReadonlyArray<string> =>
+  events.flatMap((event) => (event._tag === "UnitStarted" ? [event.label] : []));

@@ -22,6 +22,7 @@ export type {
   GetExactExtensionVersionArgs,
   ExactExtensionVersion,
   GetExtensionVisibilityArgs,
+  ArchiveDownloadProgress,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
   PublishExtensionArgs,

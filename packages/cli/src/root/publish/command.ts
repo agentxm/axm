@@ -33,7 +33,6 @@ import {
 } from "@agentxm/registry-auth";
 import { authFailureToAppError, publishFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { Screen } from "../../screen/index.js";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import {
   effectCliExit,
@@ -41,8 +40,13 @@ import {
   requestedInterruptionSignal,
   withArgvTracking,
 } from "../../cli-runtime/index.js";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import {
+  awaitDrained,
+  deriveOperationOutcome,
+  observeUnit,
   previewOrApplyPlan,
+  settleOperation,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
@@ -1728,41 +1732,38 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const deviceLoginInteraction = yield* DeviceLoginInteraction;
   const authLoginPresenter = yield* AuthLoginPresenter;
   const registryUrl = yield* RegistryUrl;
-  const screen = yield* Screen;
-  const prepared = yield* screen.task(
-    "Preparing publish candidates",
-    () =>
-      Effect.gen(function* () {
-        const catalog = yield* catalogEntries();
-        const selection = yield* selectEntries(catalog, args);
-        const isRemoteRegistry =
-          registry.url.startsWith("https://") || registry.url.startsWith("http://");
-        if (isRemoteRegistry && selection.entries.length > 0) {
-          const client = yield* createRegistryClient(registry.url);
-          yield* validatePublishOwners(
-            selection.entries.map((entry) => entry.owner),
-            client,
-          ).pipe(Effect.mapError(publishFailureToAppError));
-        }
-        const decoded = yield* Effect.forEach(
-          selection.entries,
-          (entry) =>
-            Effect.result(
-              decodeCandidate(
-                entry,
-                resolveExistingVersionPolicy(args.onExisting, {
-                  mode: selection.mode,
-                  includedDependency: entry.includedDependency === true,
-                }),
-                registry,
-                args.backfill,
-              ),
+  const prepared = yield* observeUnit(
+    { id: "candidates", label: "publish candidates" },
+    Effect.gen(function* () {
+      const catalog = yield* catalogEntries();
+      const selection = yield* selectEntries(catalog, args);
+      const isRemoteRegistry =
+        registry.url.startsWith("https://") || registry.url.startsWith("http://");
+      if (isRemoteRegistry && selection.entries.length > 0) {
+        const client = yield* createRegistryClient(registry.url);
+        yield* validatePublishOwners(
+          selection.entries.map((entry) => entry.owner),
+          client,
+        ).pipe(Effect.mapError(publishFailureToAppError));
+      }
+      const decoded = yield* Effect.forEach(
+        selection.entries,
+        (entry) =>
+          Effect.result(
+            decodeCandidate(
+              entry,
+              resolveExistingVersionPolicy(args.onExisting, {
+                mode: selection.mode,
+                includedDependency: entry.includedDependency === true,
+              }),
+              registry,
+              args.backfill,
             ),
-          { concurrency: 4 },
-        );
-        return { selection, decoded };
-      }),
-    { successMessage: "Prepared publish candidates" },
+          ),
+        { concurrency: 4 },
+      );
+      return { selection, decoded };
+    }),
   );
   const selection = prepared.selection;
   const selected = selection.entries;
@@ -2541,6 +2542,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
               }
             : {}),
         });
+  // Live-to-settled handoff: observers collapse before the result document.
+  yield* settleOperation(deriveOperationOutcome(resolution));
+  yield* awaitDrained;
   const emitted = yield* emitPublishResult(
     "publish",
     {
@@ -2608,13 +2612,16 @@ const runPublish = Effect.fn("Publish.run")(function* (
 export const handleRootPublish = Effect.fn("Publish.handle")(function* (
   args: RootPublishHandlerArgs,
 ) {
-  const screen = yield* Screen;
-  const registry = yield* screen.task(
-    "Resolving publish registry",
-    () => resolveTargetRegistry(args.registry, args.registryUrl),
-    { successMessage: "Resolved publish registry" },
+  yield* withLiveOperation(
+    { command: "publish", name: "Publish extensions", mode: args.preview ? "preview" : "apply" },
+    Effect.gen(function* () {
+      const registry = yield* observeUnit(
+        { id: "registry", label: "publish registry" },
+        resolveTargetRegistry(args.registry, args.registryUrl),
+      );
+      yield* runPublish(args, registry);
+    }),
   );
-  yield* runPublish(args, registry);
 });
 
 const publishConfig = {

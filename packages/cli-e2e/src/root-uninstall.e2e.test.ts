@@ -278,17 +278,31 @@ const documentResult = (document: unknown): Readonly<Record<string, unknown>> =>
   return document["result"];
 };
 
-// Progress events carry a monotonic `atMs` timestamp by design; parity between
-// two invocations is over the event sequence with that free field folded out.
+// Progress events carry a wall-clock `atMs` by design; parity between two
+// invocations is over the event sequence with that free field folded out.
 const comparableStderr = (stderr: string): string =>
   stderr
     .split("\n")
     .map((line) => {
       try {
-        const event: unknown = JSON.parse(line);
-        if (typeof event === "object" && event !== null && "atMs" in event) {
-          const { atMs: _atMs, ...rest } = event;
-          return JSON.stringify(rest);
+        const parsed: unknown = JSON.parse(line);
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "event" in parsed &&
+          typeof parsed.event === "object" &&
+          parsed.event !== null
+        ) {
+          const entries = Object.entries(parsed.event);
+          const started = entries.some(
+            ([key, value]) => key === "_tag" && value === "OperationStarted",
+          );
+          // The root form and the typed form label the operation differently
+          // by design; parity is over every other field of the lifecycle.
+          const comparable = Object.fromEntries(
+            entries.filter(([key]) => key !== "atMs" && !(started && key === "name")),
+          );
+          return JSON.stringify({ ...parsed, event: comparable });
         }
         return line;
       } catch {

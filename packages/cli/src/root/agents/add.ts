@@ -7,6 +7,7 @@ import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
 import {
+  observeUnit,
   previewOrApplyPlan,
   deriveOperationOutcome,
   type JobStepArtifact,
@@ -209,13 +210,11 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   const configured = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const configuredSet = new Set(configured);
   const detected = args.detected
-    ? yield* screen.task(
-        "Detecting coding agents",
-        () =>
-          detectAgentsForScope(ws.baseDir, ws.scope).pipe(
-            Effect.map((agents) => agents.map((agent) => agent.id)),
-          ),
-        { successMessage: "Detected coding agents" },
+    ? yield* observeUnit(
+        { id: "detect-agents", label: "coding agent detection" },
+        detectAgentsForScope(ws.baseDir, ws.scope).pipe(
+          Effect.map((agents) => agents.map((agent) => agent.id)),
+        ),
       )
     : [];
   const detectedConfigurable = yield* validateAgentIds(detected).pipe(
@@ -266,14 +265,12 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   });
   for (const warning of lifecycleWarnings) yield* screen.note(headlineDoc("warn", warning));
 
-  const materialize = yield* screen.task(
-    "Resolving installed extension materialization",
-    () =>
-      collectMaterializeSteps({
-        selection: { target: Option.none(), type: Option.none() },
-        configuredAgents: [...configured, ...agentIds],
-      }),
-    { successMessage: "Resolved installed extension materialization" },
+  const materialize = yield* observeUnit(
+    { id: "materialization", label: "installed extension materialization" },
+    collectMaterializeSteps({
+      selection: { target: Option.none(), type: Option.none() },
+      configuredAgents: [...configured, ...agentIds],
+    }),
   );
   const materializeSteps = materialize.steps.map((step) =>
     attachMaterializationArtifact(ws, agentIds, step),

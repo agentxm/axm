@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -6,7 +5,8 @@ import type * as Schema from "effect/Schema";
 
 import { type BoxOptions, type LogMessage, type ResultOptions } from "./output.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { Screen, plain, type Doc, type DocNode, type TaskHandle } from "./index.js";
+import { subscribeLossless, type OperationEvent } from "@agentxm/workspace-operations";
+import { Screen, plain, type Doc, type DocNode } from "./index.js";
 
 // ---------------------------------------------------------------------------
 // TestRendererState — mutable state object capturing all ScreenPresenter calls
@@ -36,10 +36,10 @@ export interface TestRendererState {
     ok?: boolean;
   }>;
   readonly markdown: Array<string>;
-  readonly spinnerMessages: Array<string>;
+  /** Every lifecycle event observed, in order, across observed operations. */
+  readonly events: Array<OperationEvent>;
   readonly notes: Array<{ message: string; title?: string }>;
   readonly boxes: Array<{ message: string; title?: string; opts?: BoxOptions }>;
-  readonly cancelMessages: Array<string>;
   readonly introTitles: Array<string>;
   readonly outroMessages: Array<string>;
   readonly suggestions: Array<SuggestedAction>;
@@ -59,10 +59,9 @@ const makeEmptyState = (): TestRendererState => ({
   trees: [],
   results: [],
   markdown: [],
-  spinnerMessages: [],
+  events: [],
   notes: [],
   boxes: [],
-  cancelMessages: [],
   introTitles: [],
   outroMessages: [],
   suggestions: [],
@@ -256,50 +255,8 @@ const makeTestScreenService = (
       }
       return resultReturnValue;
     }),
-  task: <A, E, R>(
-    label: string,
-    body: (handle: TaskHandle) => Effect.Effect<A, E, R>,
-    options?: {
-      readonly successMessage?: string | ((value: A) => string);
-      readonly failureMessage?: string;
-    },
-  ) => {
-    state.spinnerMessages.push(label);
-    const handle: TaskHandle = {
-      update: (message) =>
-        Effect.sync(() => {
-          state.spinnerMessages.push(message);
-        }),
-      progress: (done, total) =>
-        Effect.sync(() => {
-          state.spinnerMessages.push(`${done}/${total}`);
-        }),
-      child: (message) => Effect.succeed(handle).pipe(Effect.tap(() => handle.update(message))),
-    };
-    return Effect.interruptible(body(handle)).pipe(
-      Effect.matchCauseEffect({
-        onFailure: (cause) => {
-          if (Cause.hasInterruptsOnly(cause)) {
-            state.cancelMessages.push("Cancelled");
-          } else {
-            state.spinnerMessages.push(options?.failureMessage ?? "Failed");
-            state.logs.push({ _tag: "error", message: options?.failureMessage ?? label });
-          }
-          return Effect.failCause(cause);
-        },
-        onSuccess: (value) =>
-          Effect.sync(() => {
-            const message =
-              typeof options?.successMessage === "function"
-                ? options.successMessage(value)
-                : options?.successMessage;
-            if (message !== undefined) state.spinnerMessages.push(message);
-            return value;
-          }),
-      }),
-      Effect.uninterruptible,
-    );
-  },
+  observe: (lifecycle) =>
+    subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
   log: (record) =>
     Effect.sync(() => {
       state.logs.push({
@@ -320,6 +277,18 @@ const makeTestScreenService = (
 // ---------------------------------------------------------------------------
 // logsByTag — convenience getter object for filtering logs by tag
 // ---------------------------------------------------------------------------
+
+/** Labels of the units observed operations started, in order. */
+export const startedUnits = (state: TestRendererState): ReadonlyArray<string> =>
+  state.events.flatMap((event) => (event._tag === "UnitStarted" ? [event.label] : []));
+
+/** Terminal states of the units observed operations resolved, keyed by label, in order. */
+export const resolvedUnits = (
+  state: TestRendererState,
+): ReadonlyArray<{ readonly label: string; readonly state: string }> =>
+  state.events.flatMap((event) =>
+    event._tag === "UnitResolved" ? [{ label: event.label, state: event.state }] : [],
+  );
 
 export const logsByTag = (state: TestRendererState) => ({
   get message() {

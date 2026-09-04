@@ -1,0 +1,28 @@
+4 skills (3 configured, 0 implicit, 3
+installed, 1 unmanaged)
+= @craigsmitham/effect-v4
+  installed
+  enabled
+  registry
+  claude-code, codex, cursor, gemini-cli
+  claude-code:projected,
+  codex:projected, cursor:projected,
+  gemini-cli:projected
+= @craigsmitham/field-notes
+  installed
+  enabled
+  registry
+  claude-code, codex
+  claude-code:projected, codex:current
+= @agentxm/knowledge/agentxm
+  installed
+  disabled
+  registry
+  none
+  none
+= local-notes
+  detected
+  n/a
+  detected
+  none
+  none

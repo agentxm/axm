@@ -36,9 +36,11 @@ import {
   PlanRiskConditionSchema,
   UnitDispositionSchema,
   UnitStateSchema,
+  awaitDrained,
   countUnitStates,
   deriveOperationOutcome,
   makeOperationResolution,
+  settleOperation,
   unitsByStableIdentity,
   type JobStepArtifact,
   type OperationOutcome,
@@ -767,6 +769,12 @@ export const emitOperationResolution = (
         : { "cli.candidate_id": resolution.candidateId }),
     });
     yield* setOperationExitCode(exitCode);
+
+    // Live-to-settled handoff: the terminal lifecycle event lands and every
+    // lossless observer (frame collapse, machine writer) drains before the
+    // settled document prints, so the two contracts never overlap.
+    yield* settleOperation(outcome);
+    yield* awaitDrained;
 
     const emitted = yield* screen.document({ result }, PlanResolutionDocumentSchema, {
       ...(suggestions === undefined ? {} : { suggestions }),

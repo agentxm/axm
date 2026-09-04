@@ -62,7 +62,6 @@ import {
   LifecycleFailureAdapterLive,
 } from "./feature-errors.js";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
-import { LifecycleResolutionProgressLive } from "./lifecycle-interaction.js";
 import {
   GitDirectoryComparisonLive,
   SourceHostProvidersLive,
@@ -89,7 +88,7 @@ import {
 import { ExecutionDirectory } from "./execution-directory.js";
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
-import { Screen, ScreenLoggerLive } from "./screen/index.js";
+import { ScreenLoggerLive } from "./screen/index.js";
 
 export { verboseFlag, debugFlag };
 
@@ -326,13 +325,10 @@ export const withWorkspace =
         projectRoot: configured.projectRoot ?? executionDirectory.path,
       } satisfies Omit<WorkspaceMutationsOptions, "builtInSources">;
       const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
-      const screen = yield* Screen;
       return yield* Effect.scoped(
-        screen
-          .task(`Loading ${resolved.scope} workspace`, () => Layer.build(wsLayer), {
-            successMessage: `Loaded ${resolved.scope} workspace`,
-          })
-          .pipe(Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext))),
+        Layer.build(wsLayer).pipe(
+          Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext)),
+        ),
       ).pipe(
         Effect.mapError((error) => {
           if (error._tag !== "AppError" || error.suggestions === undefined) return error;
@@ -401,7 +397,6 @@ export const withRuntime =
           WorkspaceInitializationInteractionLive,
           AuthLoginPresenterLive,
           InterruptionSignalSourceLive,
-          LifecycleResolutionProgressLive,
         ),
         foundationLayer,
       );

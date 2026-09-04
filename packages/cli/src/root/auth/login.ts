@@ -32,6 +32,8 @@ import type { PromptCancelled } from "../../prompt/prompt-cancelled.js";
 import { envOption } from "../../utils/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 
 export const LoginNoOpResultSchema = Schema.Struct({
   status: Schema.Literal("already-logged-in"),
@@ -161,10 +163,16 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
     const existing = yield* credStore.load(registryUrl);
     if (Option.isSome(existing)) {
       const authClient = yield* AuthClient;
-      const meResult = yield* screen.task(
-        `Checking registry session on ${registryHost}`,
-        () => authClient.getMe(existing.value.access_token).pipe(Effect.option),
-        { successMessage: `Checked registry session on ${registryHost}` },
+      const meResult = yield* withLiveOperation(
+        {
+          command: "auth.login",
+          name: `Check registry session on ${registryHost}`,
+          mode: "preview",
+        },
+        observeUnit(
+          { id: "session", label: `registry session on ${registryHost}` },
+          authClient.getMe(existing.value.access_token).pipe(Effect.option),
+        ),
       );
 
       if (Option.isSome(meResult)) {
@@ -240,93 +248,100 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
     const requestedScopeOptions = options.scopes.length === 0 ? {} : { scopes: options.scopes };
     const restartOptions = options.restart === undefined ? {} : { restart: options.restart };
 
-    if (strategy === "device-code") {
-      if (!options.deviceCode) {
-        yield* screen.note(
-          paragraphDoc(
-            "This environment appears to be remote or headless; using device-code sign-in.",
-          ),
-          { persistent: true },
-        );
-      }
-      if (nonInteractive) {
-        const result = yield* performInitiateDeviceLogin(registryUrl, {
-          openBrowser: false,
-          ...restartOptions,
-          ...requestedScopeOptions,
-        });
-        yield* setCommandSemanticProperties({
-          "cli.auth.device_flow": result.flow,
-        });
-      } else {
-        yield* performDeviceLogin(registryUrl, {
-          openBrowser: false,
-          ...restartOptions,
-          ...requestedScopeOptions,
-        });
-      }
-      return;
-    }
+    // The sign-in flows report their phases as lifecycle units through the
+    // login presenter; one observed operation spans whichever flow runs.
+    return yield* withLiveOperation(
+      { command: "auth.login", name: `Sign in to ${registryHost}`, mode: "apply" },
+      Effect.gen(function* () {
+        if (strategy === "device-code") {
+          if (!options.deviceCode) {
+            yield* screen.note(
+              paragraphDoc(
+                "This environment appears to be remote or headless; using device-code sign-in.",
+              ),
+              { persistent: true },
+            );
+          }
+          if (nonInteractive) {
+            const result = yield* performInitiateDeviceLogin(registryUrl, {
+              openBrowser: false,
+              ...restartOptions,
+              ...requestedScopeOptions,
+            });
+            yield* setCommandSemanticProperties({
+              "cli.auth.device_flow": result.flow,
+            });
+          } else {
+            yield* performDeviceLogin(registryUrl, {
+              openBrowser: false,
+              ...restartOptions,
+              ...requestedScopeOptions,
+            });
+          }
+          return;
+        }
 
-    if (nonInteractive) {
-      return yield* errAuthRequired(
-        "Loopback browser sign-in requires an interactive terminal. Use device-code sign-in instead.",
-      );
-    }
+        if (nonInteractive) {
+          return yield* errAuthRequired(
+            "Loopback browser sign-in requires an interactive terminal. Use device-code sign-in instead.",
+          );
+        }
 
-    yield* Effect.suspend(() =>
-      performLoopbackLogin(registryUrl, {
-        ...requestedScopeOptions,
-      }),
-    ).pipe(
-      Effect.catchTag("LoopbackLoginFallback", (error) =>
-        error.reason === "bind_failed"
-          ? Effect.gen(function* () {
-              yield* screen.note(
-                paragraphDoc(
-                  "Could not start a local callback server; using device-code sign-in instead.",
+        yield* Effect.suspend(() =>
+          performLoopbackLogin(registryUrl, {
+            ...requestedScopeOptions,
+          }),
+        ).pipe(
+          Effect.catchTag("LoopbackLoginFallback", (error) =>
+            error.reason === "bind_failed"
+              ? Effect.gen(function* () {
+                  yield* screen.note(
+                    paragraphDoc(
+                      "Could not start a local callback server; using device-code sign-in instead.",
+                    ),
+                    { persistent: true },
+                  );
+                  yield* performDeviceLogin(registryUrl, {
+                    openBrowser: true,
+                    ...restartOptions,
+                    ...requestedScopeOptions,
+                  });
+                })
+              : Effect.fail(
+                  makeAppError({
+                    code: "auth",
+                    detail: "Browser sign-in expired after 5 minutes. No credentials were changed.",
+                    suggestions: [
+                      { description: "Try browser sign-in again.", cmd: "axm login" },
+                      {
+                        description: "Use device-code sign-in on a remote or headless machine.",
+                        cmd: "axm login --device-code",
+                      },
+                    ],
+                    cause: error,
+                  }),
                 ),
-                { persistent: true },
-              );
-              yield* performDeviceLogin(registryUrl, {
-                openBrowser: true,
-                ...restartOptions,
-                ...requestedScopeOptions,
-              });
-            })
-          : Effect.fail(
-              makeAppError({
-                code: "auth",
-                detail: "Browser sign-in expired after 5 minutes. No credentials were changed.",
-                suggestions: [
-                  { description: "Try browser sign-in again.", cmd: "axm login" },
-                  {
-                    description: "Use device-code sign-in on a remote or headless machine.",
-                    cmd: "axm login --device-code",
-                  },
-                ],
-                cause: error,
-              }),
+          ),
+          Effect.catchTag("LoopbackCallbackRejected", (error) =>
+            Effect.fail(
+              error.reason === "access_denied"
+                ? makeAppError({
+                    code: "auth",
+                    detail: "Sign-in was cancelled. No credentials were changed.",
+                    suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
+                    cause: error,
+                  })
+                : makeAppError({
+                    code: "auth",
+                    detail:
+                      "The authorization callback was invalid and sign-in could not be completed. Run `axm login` to try again.",
+                    suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
+                    cause: error,
+                  }),
             ),
-      ),
-      Effect.catchTag("LoopbackCallbackRejected", (error) =>
-        Effect.fail(
-          error.reason === "access_denied"
-            ? makeAppError({
-                code: "auth",
-                detail: "Sign-in was cancelled. No credentials were changed.",
-                suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
-                cause: error,
-              })
-            : makeAppError({
-                code: "auth",
-                detail:
-                  "The authorization callback was invalid and sign-in could not be completed. Run `axm login` to try again.",
-                suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
-                cause: error,
-              }),
-        ),
-      ),
+          ),
+        );
+      }),
     );
   },
   Effect.mapError(coerceAuthFailure),

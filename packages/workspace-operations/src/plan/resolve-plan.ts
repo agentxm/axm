@@ -19,6 +19,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 import {
   ApprovalRecoveryMissing,
   STALE_CANDIDATE_DETAIL,
@@ -52,7 +53,14 @@ import {
   recordJournalPhase,
   recordOperationJournal,
 } from "./operation-journal.js";
-import { publishLifecycleEvent, publishPhaseStarted } from "./operation-events.js";
+import {
+  CurrentOperationUnit,
+  observeUnit,
+  publishOperationEvent,
+  publishPhaseStarted,
+  publishWaitEnded,
+  publishWaiting,
+} from "./operation-events.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   readPendingClosureRestorationFailures,
@@ -187,8 +195,9 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
 
   yield* publishPhaseStarted("planning");
 
-  // Step 1: Lockfile reconciliation
-  const augmented = yield* interaction.withPlanningProgress(plan.name, () =>
+  // Step 1: Lockfile reconciliation, observed as one planning unit.
+  const augmented = yield* observeUnit(
+    { id: "lockfile-reconciliation", label: "lockfile reconciliation" },
     augmentPlanWithReconciliation(plan, () => ws.getLockfileState()),
   );
 
@@ -480,7 +489,12 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         steps: job.steps.map((step) =>
           step.readiness === "error"
             ? step
-            : { ...step, run: withWorkspaceClosure(unitIdOf(step))(step.run) },
+            : {
+                ...step,
+                run: withWorkspaceClosure(unitIdOf(step))(step.run).pipe(
+                  Effect.provideService(CurrentOperationUnit, { unitId: unitIdOf(step) }),
+                ),
+              },
         ),
       })),
     };
@@ -490,13 +504,14 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       onStepStarted: (step) =>
         appendStartedUnit(unitIdOf(step)).pipe(
           Effect.andThen(
-            publishLifecycleEvent((atNanos) => ({
+            publishOperationEvent((seq, atMs) => ({
               _tag: "UnitStarted",
+              seq,
+              atMs,
               unitId: unitIdOf(step),
               label: step.label,
               index: startedUnits++,
               total: totalUnits,
-              atNanos,
             })),
           ),
         ),
@@ -512,14 +527,15 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
               : settleWorkspaceClosure(unitIdOf(step)),
           ),
           Effect.andThen(
-            publishLifecycleEvent((atNanos) => ({
+            publishOperationEvent((seq, atMs) => ({
               _tag: "UnitResolved",
+              seq,
+              atMs,
               unitId: unitIdOf(step),
               label: step.label,
               state: resolvedUnitState(step),
               index: resolvedUnits++,
               total: totalUnits,
-              atNanos,
             })),
           ),
         ),
@@ -674,23 +690,38 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         : { error: workspaceTransactionFailureToStepFailure(failure) };
     }),
   );
+  const transitionSubject = "workspace-transition";
   const applyResult = yield* Effect.scoped(
     Effect.gen(function* () {
+      const waited = yield* Ref.make(false);
       const contention = yield* ws.acquireTransition({
         command: applyExecution.approvalRecovery.command.join(" "),
         candidateId: candidate.id,
-        onWaiting: (holder) => interaction.noteTransitionWait(holder),
+        // Contention is a first-class lifecycle fact: observers render the
+        // wait and its holder; nothing here decides how it is worded.
+        onWaiting: (holder) =>
+          Ref.set(waited, true).pipe(
+            Effect.andThen(
+              publishWaiting({
+                blockingClass: "resource-conflict",
+                subject: transitionSubject,
+                detail: Option.match(holder, {
+                  onNone: () => "another operation",
+                  onSome: (value) => `${value.command} (pid ${String(value.pid)})`,
+                }),
+              }),
+            ),
+          ),
       });
+      if (yield* Ref.get(waited)) yield* publishWaitEnded(transitionSubject);
       if (Option.isSome(contention)) {
         return { type: "contention", contention: contention.value } as const;
       }
-      return yield* interaction.withApplyProgress(candidatePlan.name, () =>
-        guardedApply.pipe(
-          Effect.match({
-            onFailure: (error) => ({ type: "failure", error }) as const,
-            onSuccess: (value) => ({ type: "success", value }) as const,
-          }),
-        ),
+      return yield* guardedApply.pipe(
+        Effect.match({
+          onFailure: (error) => ({ type: "failure", error }) as const,
+          onSuccess: (value) => ({ type: "success", value }) as const,
+        }),
       );
     }),
   );

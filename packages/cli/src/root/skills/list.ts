@@ -32,16 +32,17 @@ interface SkillListItem {
 }
 
 const SkillListColumns = [
-  { header: "Name", value: (row: SkillListItem) => row.name },
+  { header: "Name", priority: "required", value: (row: SkillListItem) => row.name },
   { header: "State", value: (row: SkillListItem) => row.state },
   { header: "Activation", value: (row: SkillListItem) => row.activation },
-  { header: "Type", value: (row: SkillListItem) => row.type },
+  { header: "Type", priority: "optional", value: (row: SkillListItem) => row.type },
   {
     header: "Agents",
     value: (row: SkillListItem) => (row.agents.length === 0 ? "none" : row.agents.join(", ")),
   },
   {
     header: "Agent outcomes",
+    priority: "optional",
     value: (row: SkillListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
 ] satisfies ReadonlyArray<ViewColumn<SkillListItem>>;

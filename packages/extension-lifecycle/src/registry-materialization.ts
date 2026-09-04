@@ -30,6 +30,7 @@ import {
 } from "@agentxm/extension-workspace";
 import { CoupledDependencyFailure } from "@agentxm/extension-workspace";
 import { coupleLifecycleDependencyFailure } from "./errors.js";
+import { makeThrottledUnitProgress } from "@agentxm/workspace-operations";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
@@ -89,12 +90,16 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
       canonicalPath: args.destinationPath,
     });
     const client = yield* createRegistryClient(registryLocationForClient(args.sourceLocation));
+    // Continuous download progress reaches the lifecycle broadcast throttled:
+    // tens of events per archive, attributed to the unit that is running.
+    const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
     const { archive } = yield* client
       .getExtensionPackage({
         owner: args.owner,
         type: args.type,
         name: args.name,
         version: Option.some(args.version),
+        onProgress: (progress) => reportProgress(progress.done, progress.total),
       })
       .pipe(Effect.mapError(coupleLifecycleDependencyFailure));
 

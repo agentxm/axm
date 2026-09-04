@@ -1,5 +1,3 @@
-import type * as Effect from "effect/Effect";
-
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 // ---------------------------------------------------------------------------
@@ -15,64 +13,6 @@ export type LogMessage =
   | { readonly _tag: "step"; readonly message: string }
   | { readonly _tag: "warn"; readonly message: string }
   | { readonly _tag: "error"; readonly message: string };
-
-/** Structured detail a lifecycle observer attaches to a spinner update; machine mode forwards it on the progress event. */
-export interface SpinnerUpdateDetail {
-  readonly unit?: string;
-  readonly state?: string;
-  readonly reason?: string;
-  readonly atMs?: number;
-}
-
-export interface SpinnerHandle {
-  readonly stop: (message?: string) => Effect.Effect<void>;
-  readonly update: (message?: string, detail?: SpinnerUpdateDetail) => Effect.Effect<void>;
-  readonly cancel: (message?: string) => Effect.Effect<void>;
-  readonly error: (message?: string) => Effect.Effect<void>;
-  readonly clear: () => Effect.Effect<void>;
-}
-
-export interface SpinnerOptions<A> {
-  readonly successMessage?: string | ((value: A) => string);
-  readonly failureMessage?: string;
-}
-
-export interface ProgressConfig {
-  readonly style?: "light" | "heavy" | "block";
-  readonly max?: number;
-  readonly size?: number;
-}
-
-export interface ProgressHandle extends SpinnerHandle {
-  readonly advance: (step?: number, message?: string) => Effect.Effect<void>;
-}
-
-export interface TaskLogConfig {
-  readonly title: string;
-  readonly limit?: number;
-  readonly retainLog?: boolean;
-}
-
-export interface TaskLogGroupHandle {
-  readonly message: (msg: string) => Effect.Effect<void>;
-  readonly error: (message: string) => Effect.Effect<void>;
-  readonly success: (message: string) => Effect.Effect<void>;
-}
-
-export interface TaskLogHandle {
-  readonly message: (msg: string) => Effect.Effect<void>;
-  readonly group: (name: string) => Effect.Effect<TaskLogGroupHandle>;
-  readonly error: (message: string) => Effect.Effect<void>;
-  readonly success: (message: string) => Effect.Effect<void>;
-}
-
-export interface Task<E, R> {
-  readonly title: string;
-  readonly task: (
-    message: (msg: string) => Effect.Effect<void>,
-  ) => Effect.Effect<string | void, E, R>;
-  readonly enabled?: boolean;
-}
 
 export type ViewKey<T extends object> = Extract<keyof T, string>;
 

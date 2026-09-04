@@ -3,6 +3,13 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
+import {
+  makeOperationLifecycle,
+  observeUnit,
+  OperationLifecycle,
+} from "@agentxm/workspace-operations";
+
+import { ProgressEventSchema } from "./machine-events.js";
 import { Screen, ScreenMachine } from "./screen.js";
 import { makeTestOutputStreams } from "./streams.js";
 
@@ -13,6 +20,8 @@ const makeHarness = (quiet = false) => {
     layer: Layer.provide(ScreenMachine({ quiet }), streams.layer),
   };
 };
+
+const decodeProgress = Schema.decodeUnknownSync(ProgressEventSchema);
 
 describe("machine Screen", () => {
   it.effect("emits one schema-backed result envelope", () => {
@@ -31,15 +40,58 @@ describe("machine Screen", () => {
     }).pipe(Effect.provide(harness.layer));
   });
 
-  it.effect("preserves progress labels and quiet suppresses only progress", () => {
+  it.effect("writes every lifecycle event as NDJSON in order before the result document", () => {
+    const harness = makeHarness();
+    return Effect.gen(function* () {
+      const screen = yield* Screen;
+      const lifecycle = yield* makeOperationLifecycle({ name: "Install skill", mode: "apply" });
+      yield* screen.observe(lifecycle);
+      yield* lifecycle.publish((seq, atMs) => ({
+        _tag: "OperationStarted",
+        seq,
+        atMs,
+        operationId: lifecycle.operationId,
+        name: "Install skill",
+        mode: "apply",
+      }));
+      yield* observeUnit({ id: "skill:review", label: "review", total: 1 }, Effect.void).pipe(
+        Effect.provideService(OperationLifecycle, lifecycle),
+      );
+      yield* lifecycle.settle("applied");
+      yield* lifecycle.drained.await;
+      yield* screen.document({ value: "ok" }, Schema.Struct({ value: Schema.String }));
+
+      const events = harness.state.stderr.map((line) => decodeProgress(JSON.parse(line)));
+      expect(events.map((entry) => entry.event._tag)).toEqual([
+        "OperationStarted",
+        "UnitStarted",
+        "UnitResolved",
+        "OperationSettled",
+      ]);
+      expect(events.map((entry) => entry.event.seq)).toEqual([1, 2, 3, 4]);
+      expect(events.every((entry) => entry.type === "progress")).toBe(true);
+      expect(harness.state.stdout).toHaveLength(1);
+    }).pipe(Effect.provide(harness.layer), Effect.scoped);
+  });
+
+  it.effect("quiet suppresses progress but not logs, and still drains", () => {
     const harness = makeHarness(true);
     return Effect.gen(function* () {
       const screen = yield* Screen;
-      yield* screen.task("Resolving publish registry", () => Effect.void);
+      const lifecycle = yield* makeOperationLifecycle({ name: "Publish", mode: "apply" });
+      yield* screen.observe(lifecycle);
+      yield* lifecycle.publish((seq, atMs) => ({
+        _tag: "PhaseStarted",
+        seq,
+        atMs,
+        phase: "apply",
+      }));
+      yield* lifecycle.settle("applied");
+      yield* lifecycle.drained.await;
       yield* screen.log({ level: "warn", message: "warning" });
-      expect(harness.state.stderr.join("")).not.toContain("Resolving publish registry");
+      expect(harness.state.stderr.join("")).not.toContain('"type":"progress"');
       expect(harness.state.stderr.join("")).toContain('"type":"log"');
-    }).pipe(Effect.provide(harness.layer));
+    }).pipe(Effect.provide(harness.layer), Effect.scoped);
   });
 
   it.effect("rejects a second final result before writing it", () => {

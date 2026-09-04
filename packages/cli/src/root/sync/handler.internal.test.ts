@@ -1,3 +1,4 @@
+import { startedUnits } from "../../screen/index.js";
 import { StepFailure } from "@agentxm/workspace-operations";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -54,7 +55,6 @@ import {
 import { handleListMcpServers } from "../mcps/list.js";
 import { handleSync } from "./handler.js";
 import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
-import { LifecycleResolutionProgressLive } from "../../lifecycle-interaction.js";
 
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -651,7 +651,6 @@ describe("root sync handler", () => {
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
           LifecycleFailureAdapterLive,
-          Layer.provide(LifecycleResolutionProgressLive, ctx.baseLayer),
           managersLayer,
           packManagerLayer,
           invariantFactsLayer,
@@ -672,10 +671,7 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ preview: false }));
 
       expect(logs.success).toEqual(["Workspace materialization is up to date"]);
-      expect(rendererState.spinnerMessages).toEqual([
-        "Resolving workspace sync",
-        "Resolved workspace sync",
-      ]);
+      expect(startedUnits(rendererState)).toContain("workspace sync plan");
     }),
   );
 

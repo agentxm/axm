@@ -1,9 +1,12 @@
-import type { Doc, Text } from "./doc.js";
+import type { Doc, TableColumnPriority, Text } from "./doc.js";
 
 export interface ViewColumn<T> {
   readonly header: Text;
   readonly value: (row: T) => Text;
   readonly align?: "left" | "right";
+  readonly width?: number;
+  readonly minWidth?: number;
+  readonly priority?: TableColumnPriority;
 }
 
 export interface ViewField<T> {
@@ -21,6 +24,9 @@ export const tableDoc = <T>(
     columns: columns.map((column) => ({
       header: column.header,
       ...(column.align === undefined ? {} : { align: column.align }),
+      ...(column.width === undefined ? {} : { width: column.width }),
+      ...(column.minWidth === undefined ? {} : { minWidth: column.minWidth }),
+      ...(column.priority === undefined ? {} : { priority: column.priority }),
     })),
     rows: rows.map((row) => columns.map((column) => column.value(row))),
     ...(caption === undefined ? {} : { caption }),

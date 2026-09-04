@@ -16,6 +16,8 @@ import { Verbosity } from "../../cli-flags/index.js";
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { Screen } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import { InstallMeta } from "../../install-meta/install-meta.js";
 import {
   AXM_SKILL_BUNDLED_APPLY_COMMAND,
@@ -2273,137 +2275,140 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
 
   const installMethod = yield* InstallMethod;
   const detectionCommands: Array<CommandRecord> = [];
-  const initiallyDetectedMethod = yield* screen.task(
-    "Detecting AXM installation method",
-    () => installMethod.detect(),
-    { successMessage: "Detected AXM installation method" },
-  );
-  const method = yield* resolveAmbiguousPackageManager(initiallyDetectedMethod, detectionCommands);
-  if (method._tag === "Unknown") {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "Could not determine how AXM was installed",
-      suggestions: [
-        {
-          description:
-            "Reinstall AXM with the script installer, Homebrew, npm, pnpm, or Yarn Classic, then retry.",
-        },
-      ],
-    });
-  }
+  // Detection, channel resolution, availability, and the upgrade itself are
+  // the units of one observed operation; assessment and rendering follow it.
+  const upgraded = yield* withLiveOperation(
+    { command: "upgrade", name: "Upgrade AXM", mode: "apply" },
+    Effect.gen(function* () {
+      const initiallyDetectedMethod = yield* observeUnit(
+        { id: "detect-install-method", label: "AXM installation method" },
+        installMethod.detect(),
+      );
+      const method = yield* resolveAmbiguousPackageManager(
+        initiallyDetectedMethod,
+        detectionCommands,
+      );
+      if (method._tag === "Unknown") {
+        return yield* makeAppError({
+          code: "validation",
+          detail: "Could not determine how AXM was installed",
+          suggestions: [
+            {
+              description:
+                "Reinstall AXM with the script installer, Homebrew, npm, pnpm, or Yarn Classic, then retry.",
+            },
+          ],
+        });
+      }
 
-  const resolution =
-    args.requestedVersion === undefined
-      ? yield* screen.task(
-          "Checking the AXM stable channel",
-          () =>
-            Effect.gen(function* () {
-              const httpClient = yield* HttpClient.HttpClient;
-              return yield* resolveLatestVersion(
-                httpClient,
+      const resolution =
+        args.requestedVersion === undefined
+          ? yield* observeUnit(
+              { id: "resolve-channel", label: "AXM stable channel" },
+              Effect.gen(function* () {
+                const httpClient = yield* HttpClient.HttpClient;
+                return yield* resolveLatestVersion(
+                  httpClient,
+                  localVersion,
+                  platform.value.binaryName,
+                );
+              }),
+            )
+          : yield* observeUnit(
+              { id: "resolve-version", label: `AXM ${args.requestedVersion}` },
+              resolveExactVersion(
+                args.requestedVersion ?? "",
                 localVersion,
                 platform.value.binaryName,
-              );
-            }),
-          { successMessage: "Checked the AXM stable channel" },
-        )
-      : yield* screen.task(
-          `Resolving AXM ${args.requestedVersion}`,
-          () =>
-            resolveExactVersion(
-              args.requestedVersion ?? "",
-              localVersion,
-              platform.value.binaryName,
-            ),
-          { successMessage: `Resolved AXM ${args.requestedVersion}` },
-        );
-  const targetVersion = resolution.targetVersion;
-  if (resolution.channel !== null) {
-    const updateCheck = yield* UpdateCheck;
-    yield* updateCheck.writeCache(resolution.channel, resolution.etag);
-  }
-  if (semver.valid(targetVersion) === null) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "The selected upgrade target is not valid semantic version",
-    });
-  }
-
-  const input: BaseResultInput = {
-    method,
-    detectionCommands,
-    relation: resolution.versionRelation,
-    localVersion: resolution.localVersion,
-    targetVersion,
-    reinstall: args.reinstall,
-  };
-  const selectedAction = decideUpgrade(
-    resolution.versionRelation,
-    args.reinstall,
-    supportedMethod(method),
-  );
-  const availability: InstallerAvailability =
-    selectedAction !== "mutate"
-      ? { state: "not-required", observedVersion: null, details: [] }
-      : method._tag === "Npm" || method._tag === "Pnpm" || method._tag === "Yarn"
-        ? yield* screen.task(
-            `Checking ${methodLabel(methodName(method))} availability`,
-            () =>
-              queryPackageAvailability(
-                method,
-                targetVersion,
-                args.requestedVersion,
-                detectionCommands,
               ),
-            { successMessage: `Checked ${methodLabel(methodName(method))} availability` },
-          )
-        : { state: "ready", observedVersion: targetVersion, details: [] };
-  const action =
-    selectedAction === "mutate" && availability.state !== "ready" ? "manual" : selectedAction;
-
-  const resultEffect = (() => {
-    switch (action) {
-      case "noop-current":
-        return Effect.succeed(noMutationResult(input, "already-up-to-date", null));
-      case "noop-newer":
-        return Effect.succeed(noMutationResult(input, "local-newer", null));
-      case "refuse":
-        return Effect.succeed(noMutationResult(input, "downgrade-refused", null));
-      case "manual":
-        if (selectedAction === "mutate") {
-          return Effect.succeed(
-            noMutationResult(input, "manual-action-required", null, availability.details),
-          );
-        }
-        return Effect.succeed(
-          noMutationResult(input, "manual-action-required", recoveryInstaller(targetVersion)),
-        );
-      case "mutate":
-        if (method._tag === "Script") {
-          const binaryAssetUrl = resolution.release.binaryAssetUrl;
-          const checksumAssetUrl = resolution.release.checksumAssetUrl;
-          if (binaryAssetUrl === null || checksumAssetUrl === null) {
-            return Effect.fail(
-              makeAppError({
-                code: "unavailable",
-                detail: "Selected release assets are not ready",
-              }),
             );
-          }
-          return handleScript(input, method, platform.value, {
-            binaryAssetUrl,
-            checksumAssetUrl,
-          });
+      const targetVersion = resolution.targetVersion;
+      if (resolution.channel !== null) {
+        const updateCheck = yield* UpdateCheck;
+        yield* updateCheck.writeCache(resolution.channel, resolution.etag);
+      }
+      if (semver.valid(targetVersion) === null) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: "The selected upgrade target is not valid semantic version",
+        });
+      }
+
+      const input: BaseResultInput = {
+        method,
+        detectionCommands,
+        relation: resolution.versionRelation,
+        localVersion: resolution.localVersion,
+        targetVersion,
+        reinstall: args.reinstall,
+      };
+      const selectedAction = decideUpgrade(
+        resolution.versionRelation,
+        args.reinstall,
+        supportedMethod(method),
+      );
+      const availability: InstallerAvailability =
+        selectedAction !== "mutate"
+          ? { state: "not-required", observedVersion: null, details: [] }
+          : method._tag === "Npm" || method._tag === "Pnpm" || method._tag === "Yarn"
+            ? yield* observeUnit(
+                { id: "availability", label: `${methodLabel(methodName(method))} availability` },
+                queryPackageAvailability(
+                  method,
+                  targetVersion,
+                  args.requestedVersion,
+                  detectionCommands,
+                ),
+              )
+            : { state: "ready", observedVersion: targetVersion, details: [] };
+      const action =
+        selectedAction === "mutate" && availability.state !== "ready" ? "manual" : selectedAction;
+
+      const resultEffect = (() => {
+        switch (action) {
+          case "noop-current":
+            return Effect.succeed(noMutationResult(input, "already-up-to-date", null));
+          case "noop-newer":
+            return Effect.succeed(noMutationResult(input, "local-newer", null));
+          case "refuse":
+            return Effect.succeed(noMutationResult(input, "downgrade-refused", null));
+          case "manual":
+            if (selectedAction === "mutate") {
+              return Effect.succeed(
+                noMutationResult(input, "manual-action-required", null, availability.details),
+              );
+            }
+            return Effect.succeed(
+              noMutationResult(input, "manual-action-required", recoveryInstaller(targetVersion)),
+            );
+          case "mutate":
+            if (method._tag === "Script") {
+              const binaryAssetUrl = resolution.release.binaryAssetUrl;
+              const checksumAssetUrl = resolution.release.checksumAssetUrl;
+              if (binaryAssetUrl === null || checksumAssetUrl === null) {
+                return Effect.fail(
+                  makeAppError({
+                    code: "unavailable",
+                    detail: "Selected release assets are not ready",
+                  }),
+                );
+              }
+              return handleScript(input, method, platform.value, {
+                binaryAssetUrl,
+                checksumAssetUrl,
+              });
+            }
+            return handleDelegated(input);
         }
-        return handleDelegated(input);
-    }
-  })();
-  const result =
-    action === "mutate"
-      ? yield* screen.task(`Upgrading AXM to ${targetVersion}`, () => resultEffect, {
-          successMessage: `Finished AXM upgrade attempt for ${targetVersion}`,
-        })
-      : yield* resultEffect;
+      })();
+      const result =
+        action === "mutate"
+          ? yield* observeUnit({ id: "upgrade", label: `AXM ${targetVersion}` }, resultEffect)
+          : yield* resultEffect;
+      return { result, resolution, availability };
+    }),
+  );
+  const { result, resolution, availability } = upgraded;
 
   const machineResult = toUpgradeAssessment({
     result,

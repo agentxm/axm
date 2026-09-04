@@ -5,6 +5,8 @@ import { Command } from "effect/unstable/cli";
 import { AuthClient, authLoginRequired, resolveRequiredToken } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { Screen, rawDoc } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
@@ -32,10 +34,12 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
 
     // Step 2: Call whoami
     const registryHost = new URL(registryUrl).host;
-    const identity = yield* screen.task(
-      `Checking identity on ${registryHost}`,
-      () => authClient.getWhoami(token.token),
-      { successMessage: `Checked identity on ${registryHost}` },
+    const identity = yield* withLiveOperation(
+      { command: "auth.whoami", name: `Check identity on ${registryHost}`, mode: "preview" },
+      observeUnit(
+        { id: "identity", label: `identity on ${registryHost}` },
+        authClient.getWhoami(token.token),
+      ),
     );
     const result = {
       user: identity.handle,

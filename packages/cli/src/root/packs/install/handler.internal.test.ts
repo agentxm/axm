@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { afterEach, beforeEach, vi } from "vitest";
-import { TestRenderer, logsByTag } from "../../../screen/index.js";
+import { TestRenderer, logsByTag, resolvedUnits } from "../../../screen/index.js";
 import { presentPlan } from "../../../operation-view.js";
 import { TestFlagsLayer } from "../../../cli-flags/index.js";
 import {
@@ -62,7 +62,6 @@ import {
 import { getAppError } from "../../../test-helpers.js";
 import { toPlanResolutionResult } from "../../../operation-output.js";
 import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
-import { LifecycleResolutionProgressLive } from "../../../lifecycle-interaction.js";
 
 const decodePackageType = Schema.decodeUnknownSync(PackageTypeSchema);
 const ACME = normalizeHandle("@acme");
@@ -199,7 +198,6 @@ describe("packs install handler", () => {
       SPLayer,
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
-      Layer.provide(LifecycleResolutionProgressLive, BaseLayer),
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const FullLayer = Layer.merge(CoreLayer, MgrLayer);
@@ -263,7 +261,6 @@ describe("packs install handler", () => {
       SPLayer,
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
-      Layer.provide(LifecycleResolutionProgressLive, BaseLayer),
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const FullLayer = Layer.merge(CoreLayer, MgrLayer);
@@ -571,7 +568,9 @@ describe("packs install handler", () => {
             }).pipe(Effect.flip),
           );
           expect(error.code).toBe("validation");
-          expect(rendererState.spinnerMessages).toEqual(["Resolving extension sources", "Failed"]);
+          expect(resolvedUnits(rendererState)).toEqual([
+            { label: "extension sources", state: "failed" },
+          ]);
         }),
       );
     });

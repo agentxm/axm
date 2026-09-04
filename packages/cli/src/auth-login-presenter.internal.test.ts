@@ -10,7 +10,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { AuthLoginPresenter, type DeviceLoginPendingResult } from "@agentxm/registry-auth";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "./screen/index.js";
+import { TestMachineRenderer, TestRenderer, logsByTag, startedUnits } from "./screen/index.js";
+import { withLiveOperation } from "./root/shared/operation-lifecycle.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 
 const pendingResult: DeviceLoginPendingResult = {
@@ -56,7 +57,7 @@ const loginSuccessSuggestions = [
 const makeHuman = () => {
   const renderer = TestRenderer.make();
   return {
-    layer: Layer.provide(AuthLoginPresenterLive, renderer.layer),
+    layer: Layer.provideMerge(AuthLoginPresenterLive, renderer.layer),
     state: renderer.state,
     logs: logsByTag(renderer.state),
   };
@@ -216,39 +217,46 @@ describe("AuthLoginPresenterLive", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("labels each progress phase with the login spinner wording", () => {
+  it.effect("publishes each sign-in phase as one lifecycle unit", () => {
     const { layer, state } = makeHuman();
     const registryHost = "registry.agentxm.ai";
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
-      yield* presenter.withProgress(
-        { _tag: "StartingDeviceAuthorization", registryHost },
-        () => Effect.void,
+      yield* withLiveOperation(
+        { command: "auth.login", name: "Sign in", mode: "apply" },
+        Effect.gen(function* () {
+          yield* presenter.withProgress(
+            { _tag: "StartingDeviceAuthorization", registryHost },
+            () => Effect.void,
+          );
+          yield* presenter.withProgress(
+            { _tag: "WaitingForDeviceAuthorization", registryHost },
+            () => Effect.void,
+          );
+          yield* presenter.withProgress(
+            { _tag: "SavingCredentials", registryHost },
+            () => Effect.void,
+          );
+          yield* presenter.withProgress(
+            { _tag: "WaitingForLoopbackAuthorization", registryHost, timeoutMinutes: 5 },
+            () => Effect.void,
+          );
+          yield* presenter.withProgress(
+            { _tag: "CompletingSignIn", registryHost },
+            () => Effect.void,
+          );
+        }),
       );
-      yield* presenter.withProgress(
-        { _tag: "WaitingForDeviceAuthorization", registryHost },
-        () => Effect.void,
-      );
-      yield* presenter.withProgress({ _tag: "SavingCredentials", registryHost }, () => Effect.void);
-      yield* presenter.withProgress(
-        { _tag: "WaitingForLoopbackAuthorization", registryHost, timeoutMinutes: 5 },
-        () => Effect.void,
-      );
-      yield* presenter.withProgress({ _tag: "CompletingSignIn", registryHost }, () => Effect.void);
 
-      expect(state.spinnerMessages).toEqual([
-        "Starting device authorization for registry.agentxm.ai",
-        "Started device authorization for registry.agentxm.ai",
-        "Waiting for authorization…",
-        "Authorized device on registry.agentxm.ai",
-        "Saving credentials for registry.agentxm.ai",
-        "Saved credentials for registry.agentxm.ai",
-        "Waiting for authorization… (expires in 5 minutes)",
-        "Received browser authorization on registry.agentxm.ai",
-        "Completing sign-in to registry.agentxm.ai",
-        "Completed sign-in to registry.agentxm.ai",
+      expect(startedUnits(state)).toEqual([
+        "device authorization on registry.agentxm.ai",
+        "authorization on registry.agentxm.ai",
+        "credentials for registry.agentxm.ai",
+        "browser authorization on registry.agentxm.ai (expires in 5 minutes)",
+        "sign-in to registry.agentxm.ai",
       ]);
+      expect(state.events.at(-1)).toMatchObject({ _tag: "OperationSettled", outcome: "completed" });
     }).pipe(Effect.provide(layer));
   });
 

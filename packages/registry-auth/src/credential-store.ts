@@ -427,13 +427,21 @@ export const CredentialStoreLive = Layer.effect(
     const writeStoredFile = (data: CredentialFile) =>
       withCredentialFileLock(fs, path, homeDir, writeCredentialFile(fs, path, homeDir, data));
 
+    // A read falls back silently. The auth middleware looks a credential up
+    // for every request origin, so a read happens on commands that never
+    // authenticate — `axm upgrade` reads the store on its way to GitHub. On a
+    // host without a reachable keychain that made an environment fact into a
+    // per-request warning on unrelated commands, and the fallback changes
+    // neither the outcome nor the reader's next action. The write below is
+    // where the tier matters, because there a credential lands in a file
+    // instead of the keychain.
     const loadCredentialFile = (registryUrl: string) =>
       storageTier === "keychain"
         ? readKeychainCredentialFile(registryUrl).pipe(
             Effect.catch(() =>
-              Effect.logWarning("OS keychain unavailable; using restricted credential file.").pipe(
-                Effect.flatMap(() => readStoredFile()),
-              ),
+              Effect.logDebug(
+                "OS keychain unavailable; reading the restricted credential file.",
+              ).pipe(Effect.flatMap(() => readStoredFile())),
             ),
           )
         : readStoredFile();

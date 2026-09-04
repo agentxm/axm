@@ -15,6 +15,11 @@ on:
         description: Release tag to publish, for example cli-v0.1.1
         required: true
         type: string
+      channel_already_promoted:
+        description: Verify this exact release is already stable instead of promoting it again
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   actions: read
@@ -77,7 +82,47 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ steps.release_meta.outputs.tag }}" release-assets/* --clobber
 
+      - name: Verify pre-promoted stable release channel
+        if: ${{ inputs.channel_already_promoted == true }}
+        env:
+          VERSION: ${{ steps.release_meta.outputs.version }}
+          RELEASE_TAG: ${{ steps.release_meta.outputs.tag }}
+          RELEASE_SHA: ${{ steps.release_meta.outputs.sha }}
+        run: |
+          headers="$(mktemp)"
+          trap 'rm -f "$headers"' EXIT
+          document="$(
+            curl -fsS \
+              -H 'Accept: application/json' \
+              -H 'Accept-Encoding: identity' \
+              -D "$headers" \
+              https://releases.axm.sh/v1/channels/stable.json
+          )"
+          etag="$(
+            awk 'BEGIN { IGNORECASE = 1 } /^etag:/ {
+              sub(/^[^:]+:[[:space:]]*/, "")
+              sub(/\r$/, "")
+              print
+              exit
+            }' "$headers"
+          )"
+          if [[ ! "$etag" =~ ^\"[^\"]+\"$ ]]; then
+            echo "The pre-promoted stable channel did not provide a strong ETag."
+            exit 1
+          fi
+          jq -e \
+            --arg version "$VERSION" \
+            --arg tag "$RELEASE_TAG" \
+            --arg commit "$RELEASE_SHA" \
+            '.schema == "axm.release-channel/v1" and
+             .channel == "stable" and
+             .version == $version and
+             .release.tag == $tag and
+             .release.commit == $commit' \
+            <<<"$document"
+
       - name: Promote stable release channel
+        if: ${{ inputs.channel_already_promoted != true }}
         env:
           AXM_RELEASE_CONTROL_TOKEN: ${{ secrets.AXM_RELEASE_CONTROL_TOKEN }}
           AXM_CONTROL_ACCESS_CLIENT_ID: ${{ secrets.AXM_CONTROL_ACCESS_CLIENT_ID }}

@@ -26,16 +26,26 @@ const upgradeConfig = {
     Flag.withDescription("Reinstall an equal version; never permits a downgrade"),
     Flag.withDefault(false),
   ),
+  dryRun: Flag.boolean("dry-run").pipe(
+    Flag.withDescription(
+      "Report the resolved install method, target, and command without running it",
+    ),
+    Flag.withDefault(false),
+  ),
 } as const;
 
-export const upgradeCommand = Command.make("upgrade", upgradeConfig, ({ reinstall, version }) =>
-  Effect.provide(
-    handleUpgrade({
-      reinstall,
-      ...(version._tag === "None" ? {} : { requestedVersion: version.value }),
-    }),
-    upgradeLayer,
-  ).pipe(withRuntime("upgrade")),
+export const upgradeCommand = Command.make(
+  "upgrade",
+  upgradeConfig,
+  ({ dryRun, reinstall, version }) =>
+    Effect.provide(
+      handleUpgrade({
+        reinstall,
+        dryRun,
+        ...(version._tag === "None" ? {} : { requestedVersion: version.value }),
+      }),
+      upgradeLayer,
+    ).pipe(withRuntime("upgrade")),
 ).pipe(
   withArgvTracking(upgradeConfig),
   Command.withDescription("Update axm to the promoted stable or an exact version"),
@@ -48,6 +58,10 @@ export const upgradeCommand = Command.make("upgrade", upgradeConfig, ({ reinstal
     {
       command: "axm upgrade --reinstall",
       description: "Reinstall an equal version without permitting a downgrade",
+    },
+    {
+      command: "axm upgrade --dry-run",
+      description: "Show the detected installer and the command it would run, changing nothing",
     },
   ]),
 );

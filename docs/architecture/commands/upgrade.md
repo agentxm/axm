@@ -32,6 +32,13 @@ selection does not change the promoted channel.
 Downgrades are refused in both modes. `--reinstall` permits replacement only
 when the selected and installed versions are equal.
 
+`axm upgrade --dry-run` resolves ownership and the target and reports the
+delegated action it would perform, without performing it. A preview changes no
+durable state — not the installation, not install metadata, not the
+update-notification cache — and it does not establish installer availability,
+because it is the run that would mutate which must find the selected version
+published.
+
 ## Installer ownership and availability
 
 AXM determines installation ownership before selecting a release. Ownership
@@ -60,6 +67,23 @@ recovery remains necessary.
 Delegated package-manager operations preserve command evidence and verify the
 manager-owned entry point after completion. AXM never reports a successful
 upgrade solely because the manager process exited successfully.
+
+## Disclosure
+
+The upgrade delegates its real work to another tool, so the resolved facts that
+decide what happens are disclosed by the step that establishes them rather than
+only by the terminal result. Detection settles by naming the installer it found,
+release selection by naming the version it chose, and the mutation step carries
+both for as long as it runs. Each command handed to the installer is a nested
+unit of that step, and a poll that blocks on an external publication is
+published as a wait naming what it waits on.
+
+Default output carries the resolved facts a reader cannot obtain any other way
+and that change what happened: the install method, each delegated command, and
+the verified executable with the version it reported. Verbose output carries the
+full command-by-command evidence. A terminal failure shows the tail of the
+failing command's output at default verbosity, because recovering from it should
+not require rerunning a mutating command.
 
 ## Machine result
 

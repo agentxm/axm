@@ -135,7 +135,26 @@ export {
   resolveLatestVersion,
   type VersionResolutionResult,
 } from "./version-resolution/version-resolution.js";
-export { UpgradeAssessmentResultSchema, UpgradeDocumentSchema } from "./root/upgrade/handler.js";
+export {
+  UpgradeAssessmentResultSchema,
+  UpgradeDocumentSchema,
+  handleUpgrade,
+} from "./root/upgrade/handler.js";
+// Upgrade's delegation ports, so a specification can observe what the command
+// narrates while it hands work to an external installer.
+export {
+  Subprocess,
+  type CommandResult,
+  type RunCommandOptions,
+} from "./root/upgrade/subprocess.js";
+export {
+  Homebrew,
+  InstallMethod,
+  Script,
+  type InstallMethodType,
+} from "./install-method/install-method.js";
+export { InstallMeta, type InstallMetaData } from "./install-meta/install-meta.js";
+export { UpdateCheck } from "./update-check/update-check.js";
 // Integration ports the setup harness composes; specs may not import the
 // integration roots directly, so the harness re-exports the needed surface.
 export { AgentExecutableResolver } from "@agentxm/agent-integration";
@@ -182,7 +201,7 @@ export {
 } from "./screen/index.js";
 // The published lifecycle event contract the machine progress channel carries;
 // specs may not import the kernel root, so the harness re-exports it.
-export { OperationEventSchema } from "@agentxm/workspace-operations";
+export { OperationEventSchema, type OperationEvent } from "@agentxm/workspace-operations";
 export { handleList as handleSkillsList } from "./root/skills/list.js";
 export { PromptCancelled } from "./prompt/prompt-cancelled.js";
 export {

@@ -51,25 +51,53 @@ curl -fsSL https://axm.sh/install.sh | AXM_INSTALL_VERSION=0.23.0 sh
 $env:AXM_INSTALL_VERSION='0.23.0'; irm https://axm.sh/install.ps1 | iex
 ```
 
+## Preview
+
+`axm upgrade --dry-run` resolves the installation owner and the target release
+and reports what it would do, then stops. It runs no installer command, writes
+no install metadata, and does not refresh the update-check cache. Its
+disposition is `previewed`, and `details.messages` names the exact command the
+installer would be handed — or, for a script installation, the executable that
+would be replaced and the binary that would replace it.
+
+Publication readiness is not established by a preview: a package manager or tap
+that has not yet published the selected version is discovered by the run that
+would use it, not by the preview.
+
+## Progress
+
+`axm upgrade` publishes what it is doing while it runs. The step performing the
+upgrade names the target version and the detected installer; each command handed
+to that installer appears beneath it as it runs; and a Homebrew formula that has
+not published yet appears as a wait naming the tap, not as silence. The script
+installation path reports downloaded bytes.
+
+At default verbosity the settled output names the detected install method, each
+delegated command, and the executable that was verified with the version it
+reported. `--verbose` adds the full command-by-command audit trail. When a
+delegated command fails, the tail of its output is shown at default verbosity,
+because the failure message directs the reader to it.
+
 ## JSON result
 
-`axm upgrade --json` emits one document. Important result fields are:
+`axm upgrade --json` emits one `axm.upgrade-assessment/v1` document under
+`result`. Important fields are:
 
-| Field                         | Meaning                                                                                                                                                                     |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resultStatus`                | `upgraded`, `reinstalled`, `already-up-to-date`, `local-newer`, `downgrade-refused`, `upgrade-incomplete`, `upgrade-unverified`, `manual-action-required`, or `rolled-back` |
-| `localVersion`                | Observed version before the command, or `null`                                                                                                                              |
-| `targetVersion`               | Selected stable release; fatal selection failures use the `ok: false` error envelope                                                                                        |
-| `reportedVersion`             | Version actually observed afterward, or `null`                                                                                                                              |
-| `installMethod`               | `script`, `homebrew`, `npm`, `pnpm`, `yarn`, or `unknown`                                                                                                                   |
-| `verification`                | `verified`, `unchanged`, `mismatch`, `unavailable`, or `not-attempted`                                                                                                      |
-| `mutationState`               | `not-attempted`, `unchanged`, `updated`, `rolled-back`, or `unknown`                                                                                                        |
-| `executedCommands`            | Structured detection, preparation, delegation, verification, and rollback commands, including whether each did not start, exited, or timed out                              |
-| `verificationExecutables`     | Requested and resolved executable identities, phases, query outcomes, and reported versions                                                                                 |
-| `homebrewFailure`             | Stable Homebrew terminal reason on a Homebrew-specific incomplete result                                                                                                    |
-| `observedFormulaVersion`      | Refreshed Homebrew formula version when observed                                                                                                                            |
-| `recommendedCommand`          | A safe next command AXM did not execute, or `null`                                                                                                                          |
-| `axmSkillCompatibilityTarget` | The selected CLI/official-skill target pair plus the local verification command and bundled recovery preview/apply commands                                                 |
+| Field                   | Meaning                                                                                                                                                                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `outcome`               | `previewed`, `applied`, `no-op`, `failed`, or `indeterminate`                                                                                                                                                                                                                |
+| `disposition`           | `previewed`, `upgraded`, `reinstalled`, `already-current`, `local-newer`, `downgrade-refused`, `installer-lagging`, `installer-leading`, `installer-unavailable`, `installer-indeterminate`, `mutation-failed`, `verification-failed`, `rolled-back`, or `recovery-required` |
+| `intent`                | Requested mode, exact version when one was requested, and whether a reinstall was asked for                                                                                                                                                                                  |
+| `local`                 | Observed version before the command and its relation to the target                                                                                                                                                                                                           |
+| `ownership`             | Detected `method` (`script`, `homebrew`, `npm`, `pnpm`, `yarn`, `unknown`), detection source, evidence, confidence, and executable path                                                                                                                                      |
+| `canonical`             | Selected release source, version, channel revision, and validation time                                                                                                                                                                                                      |
+| `installerAvailability` | `ready`, `lagging`, `leading`, `unavailable`, `indeterminate`, or `not-required`, with the version the installer advertises                                                                                                                                                  |
+| `target`                | Selected version, release tag, and artifact URLs                                                                                                                                                                                                                             |
+| `mutation`              | `not-attempted`, `unchanged`, `updated`, `rolled-back`, or `unknown`                                                                                                                                                                                                         |
+| `verification`          | State, the version observed afterward, and the requested and resolved executable identities with their phases and query outcomes                                                                                                                                             |
+| `recovery`              | Recoverable backup path and a safe next command AXM did not execute, or `null`                                                                                                                                                                                               |
+| `commands`              | Structured detection, preparation, delegation, verification, and rollback commands, including whether each did not start, exited, or timed out                                                                                                                               |
+| `details`               | Supporting messages, the stable Homebrew terminal reason when one applies, and the refreshed formula version when observed                                                                                                                                                   |
 
 ## CLI and official-skill convergence
 

@@ -1132,6 +1132,61 @@ describe("delegated upgrades", () => {
     }),
   );
 
+  it.effect("names the resolved method, delegated command, and verified binary by default", () =>
+    Effect.gen(function* () {
+      const harness = makeHumanHarness(new Npm({ importUrl: "file:///npm/axm" }));
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
+
+      expect(harness.logs.info).toContain("Install method: npm");
+      expect(harness.logs.info.some((line) => line.startsWith(`Ran: npm install -g axm.sh@`))).toBe(
+        true,
+      );
+      expect(
+        harness.logs.info.some(
+          (line) => line.startsWith("Verified: ") && line.includes(TARGET_VERSION),
+        ),
+      ).toBe(true);
+      // The audit trail stays behind --verbose.
+      expect(harness.logs.info.some((line) => line.startsWith("Detection: "))).toBe(false);
+      expect(harness.logs.info.some((line) => line.startsWith("delegation: "))).toBe(false);
+    }),
+  );
+
+  it.effect("shows the failing command's output without requiring verbose", () =>
+    Effect.gen(function* () {
+      const renderer = TestRenderer.make();
+      const subprocess = makeSubprocess((invocation) => {
+        if (invocation.executable === "npm" && invocation.args[0] === "install") {
+          return commandResult("", 1, "npm ERR! code EACCES\nnpm ERR! permission denied");
+        }
+        if (invocation.args.includes("--json"))
+          return commandResult(JSON.stringify(TARGET_VERSION));
+        return commandResult();
+      });
+      const layer = Layer.mergeAll(
+        NodeServices.layer,
+        renderer.layer,
+        TestFlagsLayer(),
+        executionDirectoryLayer,
+        updateCheckLayer,
+        Layer.succeed(InstallMethod, {
+          detect: () => Effect.succeed(new Npm({ importUrl: "file:///npm/axm" })),
+        }),
+        Layer.succeed(InstallMeta, {
+          read: () => Effect.succeed(Option.none()),
+          write: () => Effect.void,
+        }),
+        Layer.succeed(HttpClient.HttpClient, makeHttpClient()),
+        subprocess.layer,
+      );
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(layer));
+
+      const logs = logsByTag(renderer.state);
+      expect(logs.warn.some((line) => line.startsWith("Output from npm install -g "))).toBe(true);
+      expect(logs.info).toContain("npm ERR! permission denied");
+    }),
+  );
+
   it.effect("shows plumbing only in verbose mode and gives quiet precedence", () =>
     Effect.gen(function* () {
       const verbose = makeHumanHarness(new Npm({ importUrl: "file:///npm/axm" }), {
@@ -1154,6 +1209,57 @@ describe("delegated upgrades", () => {
       expect(quiet.logs.info).toEqual([]);
       expect(quiet.logs.warn).toHaveLength(1);
       expect(quiet.logs.warn[0]).toContain("Next:");
+    }),
+  );
+});
+
+describe("upgrade preview", () => {
+  it.effect("reports the resolved plan and runs no command", () =>
+    Effect.gen(function* () {
+      const subprocess = makeSubprocess();
+      const harness = makeHarness(
+        new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
+        { subprocess },
+      );
+      yield* handleUpgrade({ reinstall: false, dryRun: true }).pipe(Effect.provide(harness.layer));
+
+      expect(resultFrom(harness.renderer)).toMatchObject({
+        installMethod: "homebrew",
+        targetVersion: TARGET_VERSION,
+        mutationState: "not-attempted",
+        details: ["Would run brew upgrade agentxm/tap/axm"],
+      });
+      expect(okFrom(harness.renderer)).toBe(true);
+      expect(subprocess.calls).toEqual([]);
+      expect(harness.metadata).toEqual([]);
+    }),
+  );
+
+  it.effect("names the binary it would replace for a script installation", () =>
+    Effect.gen(function* () {
+      const subprocess = makeSubprocess();
+      const harness = makeHarness(new Script({ execPath: "/usr/local/bin/axm" }), { subprocess });
+      yield* handleUpgrade({ reinstall: false, dryRun: true }).pipe(Effect.provide(harness.layer));
+
+      const result = resultFrom(harness.renderer);
+      expect(result.installMethod).toBe("script");
+      expect(String(result.details)).toContain("/usr/local/bin/axm");
+      expect(String(result.details)).toContain(platformBinary.binaryName);
+      expect(subprocess.calls).toEqual([]);
+    }),
+  );
+
+  it.effect("still reports an already-current installation truthfully", () =>
+    Effect.gen(function* () {
+      const harness = makeHarness(new Homebrew({ execPath: "/opt/homebrew/bin/axm" }), {
+        version: LOCAL_VERSION,
+      });
+      yield* handleUpgrade({ reinstall: false, dryRun: true }).pipe(Effect.provide(harness.layer));
+
+      expect(resultFrom(harness.renderer)).toMatchObject({
+        resultStatus: "already-up-to-date",
+        mutationState: "not-attempted",
+      });
     }),
   );
 });

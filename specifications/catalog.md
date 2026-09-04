@@ -146,6 +146,21 @@ programmatic interfaces, and supporting system behavior.
 - Limitation: The evidence establishes the pre-launch command surface only; it cannot establish whether alias routes remain prohibited after public launch. Retires when: Public launch, when the alias-route policy is decided and this specification is revised or retired.
 - Source: [`specifications/cli/commands-have-no-alias-routes.spec.ts`](../specifications/cli/commands-have-no-alias-routes.spec.ts)
 
+#### Delegated Operations Narrate External Work
+
+##### A delegating operation narrates the external work it hands off
+
+- Requirement: `cli/delegated-operations-narrate-external-work`
+- Statement: An operation that delegates work to an external tool shall publish one unit for each command it delegates, nested under the unit that delegated it, and shall publish a wait naming its blocking class and subject for each poll that blocks on that tool, so the delegated work is observable while it runs rather than only after it settles.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`
+- Limitation: Upgrade is the only delegating operation this specification exercises; another command that delegates to an external tool is covered by the statement but not yet by an example. Retires when: A second command delegates to an external tool and its event log is added to this specification.
+- Source: [`specifications/cli/delegated-operations-narrate-external-work.spec.ts`](../specifications/cli/delegated-operations-narrate-external-work.spec.ts)
+
 #### Every Type Completes The Shared Lifecycle
 
 ##### Every extension type completes the shared install and removal lifecycle
@@ -997,6 +1012,18 @@ programmatic interfaces, and supporting system behavior.
 - Source: [`specifications/cli/update/refuses-undesired-extensions.spec.ts`](../specifications/cli/update/refuses-undesired-extensions.spec.ts)
 
 #### Upgrade
+
+##### Upgrade discloses the installer it resolved and the version it selected before mutating
+
+- Requirement: `cli/upgrade/discloses-resolved-ownership-before-mutation`
+- Statement: Upgrade shall disclose the install method it detected and the version it selected before it performs the first mutation, and shall disclose both without performing any mutation when asked for a preview.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/upgrade/ownership-precedes-release-selection`
+- Source: [`specifications/cli/upgrade/discloses-resolved-ownership-before-mutation.spec.ts`](../specifications/cli/upgrade/discloses-resolved-ownership-before-mutation.spec.ts)
 
 ##### Exact upgrade bypasses release discovery
 

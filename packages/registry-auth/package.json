@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/registry-auth",
-  "version": "0.28.5",
+  "version": "0.28.6",
   "description": "AXM registry-auth feature: login, logout, token, identity inspection, device and loopback flows, and credential lifecycle for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

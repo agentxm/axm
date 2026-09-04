@@ -1,3 +1,76 @@
+## 0.28.6 (2026-09-04)
+
+### 🚀 Features
+
+- # Uninstall retires a pack whose package cannot be read
+  - `axm packs uninstall` and `axm uninstall <fqn>` now retire a desired pack
+    whose own package manifest is missing or cannot be decoded. The pack's
+    `axm.json` entry and its `axm-lock.yaml` resolution are removed; no content
+    is deleted, because none of it could be verified. Restoring a manifest purely
+    to satisfy the graph gate is no longer necessary.
+  - The result reports such a removal as registration-only. The plan unit carries
+    a warning naming the pack, the reason, the unreadable manifest path, what was
+    left in place, and the remedy, and the pack's canonical path is reported
+    unchanged rather than removed.
+  - Uninstall still fails closed, and changes nothing, when a pack other than the
+    target is incomplete, or when the target's manifest is readable and
+    disagrees with the workspace. The
+    `packs/uninstall/desired-state-graph-complete` blocker keeps its identity;
+    its detail now names the remedy for each blocking pack that was not selected.
+
+- Publish one schema-backed lifecycle event stream for every long-running
+  operation (operation, phase, unit, progress, waiting, and settled events) that
+  the live frame, the machine progress writer, and telemetry consume
+  independently; project it into a live task tree with numeric progress and
+  first-class waiting and rollback, collapsing into the transcript before the
+  settled document prints. Lay tables and change rows out responsively (width
+  hints, priorities, wrapping, dropped columns, and a stacked fallback under
+  forty columns) with headers aligned to their cells, paint non-terminal streams
+  plain and unbounded with per-stream color, add an ASCII glyph fallback, and
+  ship the design gallery, renderer conformance suite, and terminal design,
+  interaction, and live-event decision documentation. The machine progress
+  event on stderr now carries the encoded lifecycle event in place of the
+  label-derived `phase`, `percent`, and `message` fields.
+
+- Resolve `axm upgrade` through the promoted stable-release channel by default,
+  support exact stable versions without discovery, gate package-manager mutation
+  on target availability, preserve validated channel metadata for update checks,
+  and publish the shared stable-channel document contract and promotion tooling.
+
+- # Agent targeting is workspace membership
+
+  ## Breaking changes
+  - `--agent` is removed from `skills new`, `subagents new`, `skills update`,
+    `subagents update`, `mcps add`, and `mcps install`. Agent selection exists
+    only to choose the workspace's configured agents (`setup`, `agents add`,
+    `agents remove`) or to filter a listing (`skills list`, `subagents list`).
+  - `--agent` on `setup`, `skills list`, and `subagents list` is validated against
+    the supported agent catalog; an unsupported identifier is rejected when the
+    command line is parsed.
+  - MCP server entries in `axm.json` no longer accept an `agents` inclusion list.
+    A settings document carrying the key fails validation and gates every
+    operation; there is no migration or dual read. Every configured MCP server
+    reaches every configured agent that can represent it, and an agent that
+    cannot is reported as `unsupported`.
+  - The lint rule `workspace/mcps-shared-target-compatible` is retired from the
+    published rule catalog and settings schema.
+  - The `uninstallSkill` lifecycle operation is removed from
+    `@agentxm/extension-lifecycle`; `SkillManager` owns skill removal.
+  - `mcps import` records an adopted server once, without an agent subset; the
+    next reconciliation projects it to every configured, capable agent.
+
+### 🩹 Fixes
+
+- Leave a Knowledge bundle whose package is missing or invalid out of the generated instructions file and report the omission, its reason, and its remedy, instead of failing unrelated install, enable, disable, uninstall, and pack operations.
+- Remove the lifecycle `status` field from the shared executable-specification contract: a specification on `main` is accepted authority, the metadata decoder rejects unknown fields, and the per-change verdict is the specification impact of a change.
+
+### ❤️ Thank You
+
+- Claude Fable 5.1
+- Claude Opus 5 (1M context)
+- Craig Smitham
+- Test
+
 ## 0.28.5 (2026-09-03)
 
 ### 🚀 Features

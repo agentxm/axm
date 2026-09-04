@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/extension-workspace",
-  "version": "0.28.6",
+  "version": "0.28.7",
   "description": "AXM extension-workspace kernel: coding-agent contracts, managed-file projection, per-type semantic vocabulary, and extension-type parity for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

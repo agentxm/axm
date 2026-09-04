@@ -1,3 +1,13 @@
+## 0.28.7 (2026-09-04)
+
+### 🩹 Fixes
+
+- Accept compatible prerelease AXM skill cohorts during workspace lint.
+
+### ❤️ Thank You
+
+- Test
+
 ## 0.28.6 (2026-09-04)
 
 ### 🚀 Features

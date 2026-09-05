@@ -63,17 +63,17 @@ describe("Selecting pack dependencies", () => {
     {
       pack: "toolkit",
       extension: "@acme/skills/member",
-      dependencies: { "@acme/skills/member": ">=1.2.3" },
+      members: ["@acme/skills/member"],
     },
     {
       pack: "@acme/packs/toolkit",
       extension: "@acme/rules/member",
-      dependencies: { "@acme/rules/member": ">=1.2.3" },
+      members: ["@acme/rules/member"],
     },
     {
       pack: "toolkit",
       extension: "mem*",
-      dependencies: { "@acme/skills/member": ">=1.2.3", "@acme/rules/member": ">=1.2.3" },
+      members: ["@acme/skills/member", "@acme/rules/member"],
     },
   ])
     it.effect(`selects ${example.extension} in ${example.pack}`, () =>
@@ -88,9 +88,16 @@ describe("Selecting pack dependencies", () => {
         expectAppliedPlanResult(created.rendererState.results.at(-1)?.data, {
           planName: "Add to pack",
         });
-        expect(readPackageJson(created.root, "packs/toolkit/pack.json")).toEqual(
-          expect.objectContaining({ dependencies: example.dependencies }),
-        );
+        const manifest = readPackageJson(created.root, "packs/toolkit/pack.json");
+        if (
+          typeof manifest !== "object" ||
+          manifest === null ||
+          !("dependencies" in manifest) ||
+          typeof manifest.dependencies !== "object" ||
+          manifest.dependencies === null
+        )
+          throw new Error("Expected pack dependency declarations");
+        expect(Object.keys(manifest.dependencies).sort()).toEqual([...example.members].sort());
         expect(created.readFile("axm.json")).toBe(declarations);
       }),
     );

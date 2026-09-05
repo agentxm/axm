@@ -13,12 +13,13 @@ import {
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
 import { makeSpecRegistry } from "../../../support/registry-fixture.js";
+import { authoringTypes, writeAuthoringPackage } from "../../../support/authoring-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/packs/add/records-member-as-pack-dependency",
   title: "Adding an installed extension to an authored pack records it as a pack dependency",
   statement:
-    "When a person adds an installed extension to a workspace-authored pack, AXM shall record the extension in the pack manifest as a dependency constrained to at least its accepted version.",
+    "When a person adds a versioned installed extension to a workspace-authored pack, AXM shall record a dependency whose lower bound is the member’s accepted installed version, or its manifest version when workspace authored.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -66,5 +67,38 @@ describe("Adding a member to a workspace-authored pack", () => {
         dependencies: { "@acme/skills/member-skill": ">=1.0.0" },
       });
     }),
+  );
+  it.effect(
+    "uses the authored manifest version without creating an accepted external resolution",
+    () =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace({
+          settings: { skills: { "authored-member": "workspace" } },
+        });
+        cleanups.push(workspace.cleanup);
+        writeAuthoringPackage(workspace.root, authoringTypes[0], "authored-member", {
+          parent: "skills",
+          version: "4.5.6",
+        });
+        yield* handlePacksNew({
+          name: extensionName("toolkit"),
+          owner: Option.none(),
+          preview: false,
+        }).pipe(Effect.provide(workspace.layer));
+        const lockBefore = workspace.readLockfileText();
+        expect(lockBefore).not.toContain("authored-member:");
+
+        yield* handlePacksAdd({
+          pack: "toolkit",
+          extension: "@acme/skills/authored-member",
+          preview: false,
+        }).pipe(Effect.provide(workspace.layer));
+
+        const manifest: unknown = JSON.parse(workspace.readFile("packs/toolkit/pack.json"));
+        expect(manifest).toMatchObject({
+          dependencies: { "@acme/skills/authored-member": ">=4.5.6" },
+        });
+        expect(workspace.readLockfileText()).toBe(lockBefore);
+      }),
   );
 });

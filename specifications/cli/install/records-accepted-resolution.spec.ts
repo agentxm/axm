@@ -1,17 +1,25 @@
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import YAML from "yaml";
 
-import { LockfileSchema, handleInstall } from "axm.sh/specification-harness";
+import {
+  LockfileSchema,
+  PlanResolutionDocumentSchema,
+  getAppError,
+  handleInstall,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
+import { makeSpecRegistry } from "../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/records-accepted-resolution",
@@ -125,6 +133,107 @@ describe("Install records the accepted resolution", () => {
           contentIdentity: expect.any(String),
           treeIntegrity: expect.anything(),
         });
+      }),
+  );
+  it.effect(
+    "records the selected Registry identity and independently computed archive integrity",
+    () =>
+      Effect.gen(function* () {
+        const registry = makeSpecRegistry();
+        cleanups.push(registry.cleanup);
+        registry.writeSkill("registry-review", [
+          { version: "1.2.3", body: "Expected Registry guidance.\n" },
+        ]);
+        const archive = fs.readFileSync(
+          path.join(registry.root, "extensions/@acme/skills/registry-review/1.2.3.zip"),
+        );
+        const expectedIntegrity = `sha512-${createHash("sha512").update(archive).digest("base64")}`;
+        const workspace = makeSpecWorkspace({
+          userSettings: {},
+          settings: { sources: [registry.source] },
+        });
+        cleanups.push(workspace.cleanup);
+        yield* handleInstall({
+          source: Option.some("@acme/skills/registry-review@1.2.3"),
+          force: false,
+          preview: false,
+        }).pipe(Effect.provide(workspace.layer));
+        const parsed: unknown = YAML.parse(workspace.readLockfileText());
+        const lockfile = yield* decodeLockfile(parsed);
+        const entry = lockfile.skills["registry-review"];
+        if (entry === undefined || entry.type !== "registry")
+          throw new Error("Expected an accepted Registry resolution");
+        expect(entry).toMatchObject({
+          sourceName: registry.source.name,
+          extensionType: "skill",
+          workspaceName: "registry-review",
+          owner: "@acme",
+          name: "registry-review",
+          resolvedVersion: "1.2.3",
+          integrity: expectedIntegrity,
+          publisherBindingId: "hbnd_test",
+        });
+        expect(entry.endpoint.href).toBe(new URL(registry.source.location).href);
+      }),
+  );
+
+  it.effect(
+    "does not accept a Registry resolution for bytes that differ from the declared integrity",
+    () =>
+      Effect.gen(function* () {
+        const registry = makeSpecRegistry();
+        cleanups.push(registry.cleanup);
+        registry.writeSkill("registry-review", [
+          { version: "1.2.3", body: "Expected Registry guidance.\n" },
+        ]);
+        const indexPath = path.join(
+          registry.root,
+          "extensions/@acme/skills/registry-review/index.json",
+        );
+        const acceptedIndex = fs.readFileSync(indexPath);
+        const makeWorkspace = () => {
+          const workspace = makeSpecWorkspace({
+            userSettings: {},
+            settings: { sources: [registry.source] },
+          });
+          cleanups.push(workspace.cleanup);
+          return workspace;
+        };
+        const control = makeWorkspace();
+        yield* handleInstall({
+          source: Option.some("@acme/skills/registry-review@1.2.3"),
+          force: false,
+          preview: false,
+        }).pipe(Effect.provide(control.layer));
+        const controlParsed: unknown = YAML.parse(control.readLockfileText());
+        const controlLock = yield* decodeLockfile(controlParsed);
+        expect(controlLock.skills["registry-review"]?.type).toBe("registry");
+        // Replace only the downloaded bytes, leaving the originally declared identity and integrity intact.
+        registry.writeSkill("registry-review", [
+          { version: "1.2.3", body: "Different downloaded guidance.\n" },
+        ]);
+        fs.writeFileSync(indexPath, acceptedIndex);
+        const workspace = makeWorkspace();
+        const lockBefore = workspace.readLockfileText();
+        const result = yield* handleInstall({
+          source: Option.some("@acme/skills/registry-review@1.2.3"),
+          force: false,
+          preview: false,
+        }).pipe(Effect.provide(workspace.layer), Effect.result);
+        if (Result.isFailure(result)) {
+          expect(getAppError(result.failure).detail).toMatch(/integrity/i);
+        } else {
+          const document = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+            workspace.rendererState.results.at(-1)?.data,
+          );
+          expect(document.result.outcome).toBe("failed");
+          expect(document.result.failure?.message).toMatch(/integrity/i);
+        }
+        expect(workspace.readLockfileText()).toBe(lockBefore);
+        const refusedLockfile = yield* decodeLockfile(YAML.parse(workspace.readLockfileText()));
+        expect(refusedLockfile.skills["registry-review"]).toBeUndefined();
+        // Registry integrity is defined by LockfileSchema as verified against archive bytes before extraction.
+        // No global rollback, public error category, or recovery policy is inferred by this case.
       }),
   );
 });

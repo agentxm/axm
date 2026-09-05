@@ -99,4 +99,31 @@ describe("Execution evidence at the review boundary", () => {
       outcome: "passed",
     });
   });
+  it("attributes imported scenarios only through their selected execution entrypoint", () => {
+    const evidence = evaluateVerdict(`(() => {
+      const source = fixtureSource();
+      const helper = "packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts";
+      const entrypoint = "packages/cli-e2e/src/auth.e2e.test.ts";
+      const binding = (executionSource) => ({ source: executionSource, requirements: [source.specification.metadata.requirement], boundary: "process", rationale: "Executes the imported token scenarios through the selected Vitest entrypoint." });
+      const run = (file = {}) => fixtureRun({ source: entrypoint, contentDigest: "entrypoint-digest", ...file }, { suite: "cli-e2e" });
+      const context = { runs: [fixtureRun(), run()], sourceDigests: new Map([[helper, "helper-digest"], [entrypoint, "entrypoint-digest"]]) };
+      const assess = (sourcePath, overrides = {}) => report(fixtureContext({ ...context, executionBindings: [binding(sourcePath)], ...overrides }))[1];
+      return {
+        importedOnly: assess(helper),
+        executedEntrypoint: assess(entrypoint),
+        changedImportedInput: assess(entrypoint, { inputs: { ...fixtureInputs, sourceDigest: "changed-imported-source" } }),
+        filteredEntrypoint: assess(entrypoint, { runs: [fixtureRun(), run({ filtered: true })] }),
+        skippedEntrypoint: assess(entrypoint, { runs: [fixtureRun(), run({ passed: 2, skipped: 1 })] }),
+        absentEntrypoint: assess(entrypoint, { runs: [fixtureRun()] }),
+      };
+    })()`);
+    expect(evidence).toMatchObject({
+      importedOnly: { status: "missing", outcome: "not-run" },
+      executedEntrypoint: { status: "fresh", outcome: "passed" },
+      changedImportedInput: { status: "stale" },
+      filteredEntrypoint: { status: "partial" },
+      skippedEntrypoint: { status: "partial", outcome: "skipped" },
+      absentEntrypoint: { status: "missing", outcome: "not-run" },
+    });
+  });
 });

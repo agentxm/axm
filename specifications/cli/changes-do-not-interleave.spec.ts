@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/changes-do-not-interleave",
   title: "Concurrent changes to one workspace never interleave",
   statement:
-    "When two changes contend for one workspace at the same time, each change shall either apply completely or terminate without applying anything, and a change serialized out shall succeed when rerun afterward.",
+    "When changes contend for the same workspace, AXM shall prevent one change from applying workspace writes while another is in progress and shall allow a change refused for contention to proceed when retried after the workspace becomes available.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],

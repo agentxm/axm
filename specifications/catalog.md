@@ -98,7 +98,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Adding a coding agent records it durably and realizes installed extensions for it
 
 - Requirement: `cli/agents/add/records-membership-and-realizes-outputs`
-- Statement: When a coding agent is added to the workspace, AXM shall record it in the durable agent set and realize every installed extension for that agent's native surfaces in one operation.
+- Statement: When a coding agent is added to the workspace, AXM shall record it in the configured agent set and realize installed extensions on its supported native and shared surfaces as permitted by workspace activation and instruction settings in one operation.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
@@ -247,7 +247,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Concurrent changes to one workspace never interleave
 
 - Requirement: `cli/changes-do-not-interleave`
-- Statement: When two changes contend for one workspace at the same time, each change shall either apply completely or terminate without applying anything, and a change serialized out shall succeed when rerun afterward.
+- Statement: When changes contend for the same workspace, AXM shall prevent one change from applying workspace writes while another is in progress and shall allow a change refused for contention to proceed when retried after the workspace becomes available.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -372,7 +372,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/registry-auth/src/token-resolution.internal.test.ts`
-- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts`](../packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts) — Observes raw and JSON process stdout and real HTTP verification followed by token creation.
+- Additional evidence: process via [`packages/cli-e2e/src/auth.e2e.test.ts`](../packages/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/credentials-follow-explicit-source-precedence.spec.ts`](../specifications/cli/credentials-follow-explicit-source-precedence.spec.ts)
 
 #### Credentials Stay With Their Registry
@@ -497,6 +497,23 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `packages/cli/help/topics/getting-started.md`, `packages/cli/src/root/discover/handler.internal.test.ts`, `packages/extension-discovery/src/discover.internal.test.ts`
 - Source: [`specifications/cli/discover/reports-companions-for-detected-dependencies.spec.ts`](../specifications/cli/discover/reports-companions-for-detected-dependencies.spec.ts)
+
+#### Errors Do Not Disclose Credentials
+
+##### Error reports keep credentials out of diagnostic details
+
+- Requirement: `cli/errors-do-not-disclose-credentials`
+- Statement: AXM shall redact credential values from error reports and their diagnostic details in human and machine output at every supported verbosity level.
+- Class: quality (security)
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/machine-output.md`, `packages/cli/src/cli-runtime/handle-error.internal.test.ts`, `packages/cli/src/cli-runtime/json-envelope.internal.test.ts`
+- Limitation: These examples exercise production error construction and channel rendering with supplied verbosity settings; they do not establish every command-specific diagnostic producer or global flag combination. Retires when: Bind process evidence for global verbosity selection and review diagnostic producers for values that bypass the shared error boundary.
+- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
+- Additional evidence: process via [`packages/cli-e2e/src/smoke.e2e.test.ts`](../packages/cli-e2e/src/smoke.e2e.test.ts) — Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.
+- Source: [`specifications/cli/errors-do-not-disclose-credentials.spec.ts`](../specifications/cli/errors-do-not-disclose-credentials.spec.ts)
 
 #### Force Bypasses Only Named Policies
 
@@ -928,7 +945,7 @@ programmatic interfaces, and supporting system behavior.
 - Methods: decision-table, example
 - Derived from: `cli/settings-validity-gates-operations`, `cli/workspace-lockfile-rejections-name-state-and-recovery`, `cli/lockfile-version-errors-expose-structured-problem`
 - Supersedes: `cli/settings-validity-gates-operations`, `cli/workspace-lockfile-rejections-name-state-and-recovery`, `cli/lockfile-version-errors-expose-structured-problem`
-- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/skills/list/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/skills/list/command.e2e.ts) — Exercises inventory before setup, native user-scope discovery, malformed settings diagnostics, and setup/install/uninstall/read journeys through real CLI processes.
+- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Additional evidence: process via [`packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
 - Additional evidence: process via [`packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
 - Source: [`specifications/cli/invalid-workspace-state-gates-operations.spec.ts`](../specifications/cli/invalid-workspace-state-gates-operations.spec.ts)
@@ -945,7 +962,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/cli/src/root/skills/list.internal.test.ts`, `packages/cli/src/root/list/command.ts`, `packages/cli/src/root/knowledge/list.ts`
-- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/skills/list/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/skills/list/command.e2e.ts) — Exercises inventory before setup, native user-scope discovery, malformed settings diagnostics, and setup/install/uninstall/read journeys through real CLI processes.
+- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Source: [`specifications/cli/inventories-can-run-before-setup.spec.ts`](../specifications/cli/inventories-can-run-before-setup.spec.ts)
 
 #### Knowledge
@@ -1317,6 +1334,19 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/lint/fix-repairs-only-determined-state.spec.ts`](../specifications/cli/lint/fix-repairs-only-determined-state.spec.ts)
 
+##### Git-index lint requires a repository with no unresolved index entries
+
+- Requirement: `cli/lint/git-index-requires-a-resolved-index`
+- Statement: When lint selects the Git index outside a Git repository or while its index contains unresolved merge entries, AXM shall report why that view cannot be evaluated without changing the index or working tree.
+- Class: constraint
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: Real Git repositories supply unresolved index stages, and the built CLI exposes the refusal and selected-view explanation while real index and file observations establish preservation.
+- Methods: example
+- Derived from: `cli/lint/observes-selected-filesystem-view`, `packages/workspace-lint/src/run/staged-workspace.internal.test.ts`
+- Source: [`specifications/cli/lint/git-index-requires-a-resolved-index.spec.ts`](../specifications/cli/lint/git-index-requires-a-resolved-index.spec.ts)
+
 ##### Local lint honors configured rule severities
 
 - Requirement: `cli/lint/honors-configured-rule-severities`
@@ -1345,7 +1375,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Lint observes only the selected filesystem view
 
 - Requirement: `cli/lint/observes-selected-filesystem-view`
-- Statement: When a lint view is selected, lint shall evaluate only that view, reporting the staged content and its fingerprint for git-index and the working tree for workspace, and shall change neither the Git index nor the working tree.
+- Statement: When a lint view is selected, lint shall evaluate only that view, reporting the staged content and its fingerprint for git-index and the working tree for workspace with diagnostic paths in the selected workspace, and shall change neither the Git index nor the working tree.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`, `machine-automation`
@@ -1661,7 +1691,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: decision-table
 - Derived from: `cli/mcps/inline-lifecycle-is-idempotent`
-- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
+- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
 - Source: [`specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts`](../specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts)
 
 ##### MCP server disable preview describes the deactivation without changing any state
@@ -1735,7 +1765,7 @@ programmatic interfaces, and supporting system behavior.
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
+- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
 - Source: [`specifications/cli/mcps/inline-lifecycle-is-idempotent.spec.ts`](../specifications/cli/mcps/inline-lifecycle-is-idempotent.spec.ts)
 
 ##### One registry MCP source supports multiple independently named local connections
@@ -1832,7 +1862,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/mcps/inline-lifecycle-is-idempotent`
-- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
+- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
 - Source: [`specifications/cli/mcps/uninstall/preserves-unowned-native-entries.spec.ts`](../specifications/cli/mcps/uninstall/preserves-unowned-native-entries.spec.ts)
 
 ##### MCP server uninstall preview describes the removal without changing any state
@@ -1928,7 +1958,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Pack add preview describes the new member without changing the manifest
 
 - Requirement: `cli/packs/add/preview-is-pure`
-- Statement: When packs add runs in preview mode for an installed extension and a workspace-authored pack, it shall report the dependency it would record with a previewed outcome and shall not change the pack manifest, settings, the lockfile, or any other workspace state.
+- Statement: When packs add previews an installed extension’s dependency in a workspace-authored pack, it shall report a previewed change when that dependency would change or a no-op when it already matches, and shall not change the pack manifest, settings, the lockfile, or any other workspace state.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
@@ -1940,7 +1970,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Adding an installed extension to an authored pack records it as a pack dependency
 
 - Requirement: `cli/packs/add/records-member-as-pack-dependency`
-- Statement: When a person adds an installed extension to a workspace-authored pack, AXM shall record the extension in the pack manifest as a dependency constrained to at least its accepted version.
+- Statement: When a person adds a versioned installed extension to a workspace-authored pack, AXM shall record a dependency whose lower bound is the member’s accepted installed version, or its manifest version when workspace authored.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
@@ -2361,7 +2391,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; every scenario substitutes the comparison outcome rather than running Git.
-- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
+- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Source: [`specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts`](../specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts)
 
 ##### Publication respects workspace pack constraints
@@ -2555,7 +2585,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/cli/src/root/setup.internal.test.ts`
-- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/setup/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/setup/command.e2e.ts) — Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.
+- Additional evidence: process via [`packages/cli-e2e/src/init.e2e.test.ts`](../packages/cli-e2e/src/init.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/setup/command.e2e.ts scenarios through real CLI processes. They observe selected-directory argv, bundled files, unattended setup prerequisites, and repeat setup preserving declared configuration. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/setup/initializes-selected-workspace.spec.ts`](../specifications/cli/setup/initializes-selected-workspace.spec.ts)
 
 ##### Setup preview describes the workspace it would create without creating it
@@ -2590,7 +2620,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/cli/src/root/setup.internal.test.ts`
-- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/setup/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/setup/command.e2e.ts) — Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.
+- Additional evidence: process via [`packages/cli-e2e/src/init.e2e.test.ts`](../packages/cli-e2e/src/init.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/setup/command.e2e.ts scenarios through real CLI processes. They observe selected-directory argv, bundled files, unattended setup prerequisites, and repeat setup preserving declared configuration. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/setup/rerun-preserves-existing-configuration.spec.ts`](../specifications/cli/setup/rerun-preserves-existing-configuration.spec.ts)
 
 ##### Unattended setup applies only a fully explicit request
@@ -2603,7 +2633,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/machine-mode-never-prompts`, `packages/cli/src/root/setup.internal.test.ts`
-- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/setup/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/setup/command.e2e.ts) — Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.
+- Additional evidence: process via [`packages/cli-e2e/src/init.e2e.test.ts`](../packages/cli-e2e/src/init.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/setup/command.e2e.ts scenarios through real CLI processes. They observe selected-directory argv, bundled files, unattended setup prerequisites, and repeat setup preserving declared configuration. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts`](../specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts)
 
 #### Skills
@@ -2857,6 +2887,19 @@ programmatic interfaces, and supporting system behavior.
 
 #### Sync
 
+##### A sync check requires preview mode
+
+- Requirement: `cli/sync/check-requires-preview`
+- Statement: When sync is invoked with --fail-on-change without --preview, AXM shall reject the invocation as a usage error before applying workspace changes.
+- Class: constraint
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI establishes the actual parser combination, usage error, process exit status, and persisted state after refusal.
+- Methods: example
+- Derived from: `packages/cli/src/root/sync/handler.internal.test.ts`
+- Source: [`specifications/cli/sync/check-requires-preview.spec.ts`](../specifications/cli/sync/check-requires-preview.spec.ts)
+
 ##### Sync never changes configuration and never advances a satisfying resolution
 
 - Requirement: `cli/sync/preserves-configuration-and-resolutions`
@@ -2882,7 +2925,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Sync preview describes the reconciliation without changing any state
 
 - Requirement: `cli/sync/preview-is-pure`
-- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, shall report divergence without exiting successfully when asked to fail on change, and shall not change settings, the lockfile, canonical content, or agent projections.
+- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -2915,7 +2958,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
-- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts`](../packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts) — Observes raw and JSON process stdout and real HTTP verification followed by token creation.
+- Additional evidence: process via [`packages/cli-e2e/src/auth.e2e.test.ts`](../packages/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/token/completes-required-human-verification.spec.ts`](../specifications/cli/token/completes-required-human-verification.spec.ts)
 
 ##### Token creation requests the selected authority
@@ -2928,6 +2971,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Open questions: Which token-lifetime input forms, omitted-input default, and valid range should the CLI guarantee? Command help and parser tests are witnesses for the current forms and default; this requirement allocates submission of the selected lifetime, not an undecided lifetime-input policy.
 - Source: [`specifications/cli/token/create/submits-requested-authority.spec.ts`](../specifications/cli/token/create/submits-requested-authority.spec.ts)
 
 ##### Token listing reports Registry inventory and completeness
@@ -3120,7 +3164,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Additional evidence: process via [`packages/cli-e2e/src/http-registry.e2e.test.ts`](../packages/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
-- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
+- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Source: [`specifications/cli/update/advances-resolution-within-intent.spec.ts`](../specifications/cli/update/advances-resolution-within-intent.spec.ts)
 
 ##### Targeted update routes bundled source to its converging recovery
@@ -3512,6 +3556,22 @@ programmatic interfaces, and supporting system behavior.
 
 #### Installability
 
+##### Native installers explain how to invoke the installed executable
+
+- Requirement: `system/installability/native-installers-explain-shell-access`
+- Statement: When PATH does not select the newly installed AXM executable, the native installer shall print commands appropriate to its shell for adding the resolved installation directory to PATH and verifying that executable through its absolute path.
+- Class: human-factors
+- Role: experience
+- Product goals: `platform-reach`
+- Boundary: process; selection: per-change
+- Boundary rationale: The primary examples execute the actual shell installer and then execute its printed commands against a version-answering fixture; bound installed evidence exercises the commands with real AXM on each supported installer shell.
+- Methods: example
+- Derived from: `install.md`, `packages/cli/site-content/docs/quickstart.md`, `packages/cli-e2e/src/install-verification.e2e.test.ts`
+- Open questions: Must native installers preserve existing shell profile files and persistent user PATH, leaving those edits to explicit user action? The current profile-preservation witness does not itself establish that obligation.
+- Limitation: Primary examples exercise POSIX shell commands with a version-answering fixture, not AXM functionality. PowerShell and cmd command behavior remains in the existing real Windows installed-product matrix. Retires when: Retain successful installed-boundary execution of the printed commands against real AXM for every supported shell.
+- Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum-specific rejection, custom destination placement, executable PATH and absolute-path guidance, and a working installed product on that shell. Profile and prior-binary preservation remain observations beyond the installation owner's current meaning.
+- Source: [`specifications/system/installability/native-installers-explain-shell-access.spec.ts`](../specifications/system/installability/native-installers-explain-shell-access.spec.ts)
+
 ##### AXM installs through its supported channels with integrity verification
 
 - Requirement: `system/installability/product-installs-through-supported-channels`
@@ -3519,10 +3579,12 @@ programmatic interfaces, and supporting system behavior.
 - Class: quality (installability)
 - Role: experience
 - Product goals: `platform-reach`, `trustworthy-distribution`
-- Boundary: repository; selection: per-change
-- Boundary rationale: Only the committed installer scripts show which install channels exist and that each verifies artifact integrity by checksum; the installed execution bound to this requirement shows that they install a working product.
-- Methods: contract
-- Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum verification, PATH guidance, and a working installed product on that shell.
+- Boundary: process; selection: per-change
+- Boundary rationale: Primary examples execute the actual shell installer with matching and mismatching download bytes. Bound installed-product evidence executes every supported installer shell with real AXM, including checksum rejection on Windows.
+- Methods: example
+- Open questions: Must a direct native installer preserve an existing working executable when download verification fails? Existing process observations support that behavior, but this installation requirement only states installation with checksum verification; cli/upgrade/verifies-download-before-replacement separately owns the CLI upgrade promise.
+- Limitation: Primary examples use a version-answering fixture on macOS/Linux, proving installer acceptance and refusal without claiming AXM functionality. Real AXM startup and PowerShell/cmd behavior require the complementary installed-product matrix. Retires when: Retain successful real AXM installation and checksum rejection evidence for every supported installer shell and platform.
+- Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum-specific rejection, custom destination placement, executable PATH and absolute-path guidance, and a working installed product on that shell. Profile and prior-binary preservation remain observations beyond the installation owner's current meaning.
 - Source: [`specifications/system/installability/product-installs-through-supported-channels.spec.ts`](../specifications/system/installability/product-installs-through-supported-channels.spec.ts)
 
 #### Reliability
@@ -3777,7 +3839,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Machine progress events are the published lifecycle events, in order, before the result
 
 - Requirement: `cli/machine-progress-events-follow-the-lifecycle-schema`
-- Statement: When machine output mode is on, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, and the operation shall write exactly one settled event before its result document.
+- Statement: When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, and the operation shall write exactly one settled event before its result document.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -3877,7 +3939,7 @@ programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Derived from: `cli/publish/requires-explicit-acceptance-for-non-head-source`
 - Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; every scenario substitutes the comparison outcome rather than running Git.
-- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
+- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Source: [`specifications/cli/publish/outcomes-report-source-state.spec.ts`](../specifications/cli/publish/outcomes-report-source-state.spec.ts)
 
 ##### Publication uploads are bound to the reviewed source and visibility
@@ -3893,7 +3955,35 @@ programmatic interfaces, and supporting system behavior.
 - Open questions: If local source changes after publication review, must AXM abort and revoke unused grants, or may it upload the frozen reviewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the reviewed set without choosing an enforcement strategy.
 - Source: [`specifications/cli/publish/uploads-the-reviewed-publication-set.spec.ts`](../specifications/cli/publish/uploads-the-reviewed-publication-set.spec.ts)
 
+#### Quiet Preserves Machine Diagnostics
+
+##### Quiet machine output preserves results and diagnostics
+
+- Requirement: `cli/quiet-preserves-machine-diagnostics`
+- Statement: When quiet mode is used with machine output, AXM shall suppress progress events while preserving result documents and non-progress diagnostic events.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: process; selection: per-change
+- Boundary rationale: Built CLI invocations establish both quiet flag spellings and actual result/error streams; application examples exercise non-progress diagnostics on the production machine screen.
+- Methods: decision-table, example
+- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/cli/help/topics/machine-output.md`, `packages/cli/src/screen/screen-machine.internal.test.ts`
+- Source: [`specifications/cli/quiet-preserves-machine-diagnostics.spec.ts`](../specifications/cli/quiet-preserves-machine-diagnostics.spec.ts)
+
 #### Sync
+
+##### A sync check reports whether reconciliation is needed
+
+- Requirement: `cli/sync/check-reports-convergence`
+- Statement: When sync --preview --fail-on-change can assess workspace reconciliation, AXM shall return exit status 0 with a no-op result when no reconciliation is needed and exit status 1 with divergence and the complete preview plan when changes are needed.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: process; selection: per-change
+- Boundary rationale: Separate invocations of the built CLI expose the exit status and machine result consumed by automation, including the distinction between an ordinary preview and a convergence check against the same persisted workspace.
+- Methods: example
+- Derived from: `cli/sync/preview-is-pure`, `packages/cli/src/root/sync/handler.internal.test.ts`, `packages/cli/help/topics/workspace-state.md`
+- Source: [`specifications/cli/sync/check-reports-convergence.spec.ts`](../specifications/cli/sync/check-reports-convergence.spec.ts)
 
 ##### Sync reports aggregate projection drift at ownership-unit precision
 
@@ -3918,7 +4008,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
-- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts`](../packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts) — Observes raw and JSON process stdout and real HTTP verification followed by token creation.
+- Additional evidence: process via [`packages/cli-e2e/src/auth.e2e.test.ts`](../packages/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/token/returns-effective-token.spec.ts`](../specifications/cli/token/returns-effective-token.spec.ts)
 
 #### Type Lists Report Local State
@@ -3933,7 +4023,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/cli/src/root/skills/list.internal.test.ts`, `packages/cli/src/root/subagents/list/handler.internal.test.ts`, `packages/cli/src/root/packs/list.internal.test.ts`, `packages/cli/src/root/hooks/list.ts`, `packages/cli/src/root/rules/list.ts`
-- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/skills/list/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/skills/list/command.e2e.ts) — Exercises inventory before setup, native user-scope discovery, malformed settings diagnostics, and setup/install/uninstall/read journeys through real CLI processes.
+- Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Source: [`specifications/cli/type-lists-report-local-state.spec.ts`](../specifications/cli/type-lists-report-local-state.spec.ts)
 
 #### Type Shows Report Source And Version
@@ -3969,12 +4059,12 @@ programmatic interfaces, and supporting system behavior.
 ##### Machine upgrade emits one complete assessment
 
 - Requirement: `cli/upgrade/machine-result-is-upgrade-assessment`
-- Statement: Machine-mode upgrade shall emit one axm.upgrade-assessment/v1 result that separately records intent, platform, ownership, canonical selection, installer availability, target, mutation, verification, recovery, command evidence, and disposition.
+- Statement: When upgrade reports an assessment in machine mode, AXM shall emit exactly one axm.upgrade-assessment/v1 result that separately records intent, platform, ownership, canonical selection, installer availability, target, mutation, verification, recovery, command evidence, and disposition.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
-- Methods: contract
+- Methods: contract, example
 - Source: [`specifications/cli/upgrade/machine-result-is-upgrade-assessment.spec.ts`](../specifications/cli/upgrade/machine-result-is-upgrade-assessment.spec.ts)
 
 #### Version
@@ -3990,6 +4080,22 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example, decision-table
 - Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`
 - Source: [`specifications/cli/version/machine-result-identifies-manifest-change.spec.ts`](../specifications/cli/version/machine-result-identifies-manifest-change.spec.ts)
+
+#### Version Output Identifies Running Release
+
+##### Version output identifies the running release
+
+- Requirement: `cli/version-output-identifies-running-release`
+- Statement: When the version flag is requested, AXM shall report the running CLI release version, using a structured version document when machine output is selected.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI process must report its package release identity through the actual global formatter in both human and machine modes.
+- Methods: contract, example
+- Derived from: `packages/cli/help/topics/machine-output.md`, `packages/cli-e2e/src/smoke.e2e.test.ts`, `packages/cli-e2e/src/binary-smoke.e2e.test.ts`
+- Limitation: These examples exercise the built Node entrypoint. Compiled and externally installed release identities require evidence for those exact artifacts. Retires when: Bind exact version readback to identified compiled and installed release artifacts.
+- Source: [`specifications/cli/version-output-identifies-running-release.spec.ts`](../specifications/cli/version-output-identifies-running-release.spec.ts)
 
 #### View
 
@@ -4225,6 +4331,23 @@ programmatic interfaces, and supporting system behavior.
 
 ### System
 
+#### Installability
+
+##### Native installers use the selected destination directory
+
+- Requirement: `system/installability/native-installers-use-selected-directory`
+- Statement: When AXM_INSTALL_DIR selects an absolute directory, AXM's bash, PowerShell, and cmd installers shall install the executable in that directory.
+- Class: functional
+- Role: interface
+- Product goals: `platform-reach`
+- Boundary: process; selection: per-change
+- Boundary rationale: The primary example executes the actual shell installer against a local download fixture and observes the installed bytes; the existing installed-product suite binds real AXM execution for every supported installer shell.
+- Methods: example
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli-e2e/src/install-verification.e2e.test.ts`
+- Limitation: The primary macOS/Linux example installs a version-answering fixture and does not establish AXM startup or Windows installer behavior. Those observations remain in the bound real-binary installed suite and its Windows shell matrix. Retires when: Retain successful real AXM installation evidence for the selected directory on every supported installer shell and platform.
+- Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum-specific rejection, custom destination placement, executable PATH and absolute-path guidance, and a working installed product on that shell. Profile and prior-binary preservation remain observations beyond the installation owner's current meaning.
+- Source: [`specifications/system/installability/native-installers-use-selected-directory.spec.ts`](../specifications/system/installability/native-installers-use-selected-directory.spec.ts)
+
 #### Security
 
 ##### Telemetry excludes extension content and secrets
@@ -4431,7 +4554,7 @@ programmatic interfaces, and supporting system behavior.
 - Bound evidence: `ci: windows-workspace` — Runs the Windows workspace mutation execution on a real Windows runner for every change.
 - Bound evidence: `publish: install-verify` — Runs the installer verification execution against the real release assets on every supported installer shell before the release workflow completes.
 - Additional evidence: binary via [`packages/cli-e2e/src/binary-smoke.e2e.test.ts`](../packages/cli-e2e/src/binary-smoke.e2e.test.ts) — Executes the compiled platform binary, proving the shipped artifact starts and answers on the target operating system and architecture.
-- Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum verification, PATH guidance, and a working installed product on that shell.
+- Additional evidence: installed via [`packages/cli-e2e/src/install-verification.e2e.test.ts`](../packages/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum-specific rejection, custom destination placement, executable PATH and absolute-path guidance, and a working installed product on that shell. Profile and prior-binary preservation remain observations beyond the installation owner's current meaning.
 - Additional evidence: platform via [`packages/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../packages/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
 - Source: [`specifications/system/compatibility/supported-platform-matrix.spec.ts`](../specifications/system/compatibility/supported-platform-matrix.spec.ts)
 

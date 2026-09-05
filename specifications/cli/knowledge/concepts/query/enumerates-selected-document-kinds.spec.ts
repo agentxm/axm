@@ -64,4 +64,38 @@ describe("Knowledge enumeration", () => {
       }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
     );
   });
+
+  it.effect("orders across bundles and concepts independently of creation order", () => {
+    const workspace = makeKnowledgeSpecWorkspace({
+      bundles: [
+        {
+          name: "zeta",
+          documents: {
+            "beta.md": knowledgeDocument("# Zeta beta\n"),
+            "alpha.md": knowledgeDocument("# Zeta alpha\n"),
+          },
+        },
+        {
+          name: "alpha",
+          documents: {
+            "beta.md": knowledgeDocument("# Alpha beta\n"),
+            "alpha.md": knowledgeDocument("# Alpha alpha\n"),
+          },
+        },
+      ],
+    });
+    return workspace.provide(
+      Effect.gen(function* () {
+        yield* handleKnowledgeConceptQuery("project", knowledgeQueryOptions);
+        expect(
+          workspace.readQueryPage().items.map((item) => [item.ref.bundle, item.ref.conceptId]),
+        ).toEqual([
+          ["@acme/knowledge/alpha", "alpha"],
+          ["@acme/knowledge/alpha", "beta"],
+          ["@acme/knowledge/zeta", "alpha"],
+          ["@acme/knowledge/zeta", "beta"],
+        ]);
+      }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
+    );
+  });
 });

@@ -102,9 +102,10 @@ describe("Creating a skill", () => {
 
       yield* createSkill(created, false);
 
-      expect(created.exists(UNIVERSAL_LOCATION)).toBe(true);
+      const instructions = created.readFile(`${AUTHORED_ROOT}/src/SKILL.md`);
+      expect(created.readFile(`${UNIVERSAL_LOCATION}/SKILL.md`)).toBe(instructions);
       for (const location of Object.values(AGENT_LOCATIONS)) {
-        expect(created.exists(location), location).toBe(true);
+        expect(created.readFile(`${location}/SKILL.md`), location).toBe(instructions);
       }
     }),
   );

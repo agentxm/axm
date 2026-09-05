@@ -113,9 +113,23 @@ describe("Availability diagnosis", () => {
       expect(machine.document).toMatchObject({
         result: {
           disposition: `installer-${scenario.state}`,
+          details: {
+            homebrewFailure:
+              scenario.state === "lagging"
+                ? "target-formula-unavailable"
+                : "formula-ahead-of-target",
+            observedFormulaVersion: scenario.version,
+          },
+          mutation: { state: "not-attempted" },
+          verification: { state: "not-attempted" },
           message: expect.stringContaining(scenario.text),
         },
       });
+      if (scenario.state === "lagging") {
+        expect(machine.document).toMatchObject({
+          result: { recovery: { recommendedCommand: null } },
+        });
+      }
       expect(human.humanOutput).toContain(scenario.text);
       expect(human.humanOutput).toContain(scenario.version);
       expect(human.humanOutput).toContain(TARGET_VERSION);

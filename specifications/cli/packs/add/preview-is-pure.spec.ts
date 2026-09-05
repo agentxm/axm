@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/packs/add/preview-is-pure",
   title: "Pack add preview describes the new member without changing the manifest",
   statement:
-    "When packs add runs in preview mode for an installed extension and a workspace-authored pack, it shall report the dependency it would record with a previewed outcome and shall not change the pack manifest, settings, the lockfile, or any other workspace state.",
+    "When packs add previews an installed extension’s dependency in a workspace-authored pack, it shall report a previewed change when that dependency would change or a no-op when it already matches, and shall not change the pack manifest, settings, the lockfile, or any other workspace state.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "authoring-and-creation"],
@@ -128,6 +128,31 @@ describe("Pack add preview purity", () => {
       expect(yield* probeFlag(["packs", "add"], "--preview")).toBe("accepted");
       expect(yield* probeFlag(["packs", "add"], "--yes")).toBe("unrecognized");
       expect(yield* probeFlag(["packs", "add"], "-y")).toBe("unrecognized");
+    }),
+  );
+  it.effect("an already-matching dependency is a no-op preview with no writes", () =>
+    Effect.gen(function* () {
+      const workspace = yield* authoredPackWorkspace;
+      yield* handlePacksAdd({
+        pack: "toolkit",
+        extension: "@acme/skills/member-skill",
+        preview: false,
+      }).pipe(Effect.provide(workspace.layer));
+      const before = snapshotProtectedState(workspace.root);
+      workspace.writes.splice(0);
+      workspace.rendererState.results.splice(0);
+
+      yield* handlePacksAdd({
+        pack: "toolkit",
+        extension: "@acme/skills/member-skill",
+        preview: true,
+      }).pipe(Effect.provide(workspace.layer));
+
+      const [entry] = workspace.rendererState.results;
+      expect(entry?.ok).toBe(true);
+      expect(entry?.data).toMatchObject({ result: { outcome: "no-op", counts: { committed: 0 } } });
+      expectProtectedStateUntouched({ root: workspace.root, before, writes: workspace.writes });
+      expect(workspace.resolvePlanState.confirmApplyChangesCalls).toEqual([]);
     }),
   );
 });

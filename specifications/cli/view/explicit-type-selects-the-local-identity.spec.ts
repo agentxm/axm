@@ -67,4 +67,48 @@ describe("Typed local-name lookup", () => {
         () => ({ body: { ...readExtensionIndex, type: row.type, name: row.name } }),
       );
     });
+  it.effect("uses configured identity despite a populated receipt for another owner", () => {
+    const workspace = makeReadSpecWorkspace({
+      settings: {
+        sources: [{ type: "registry", name: "agentxm", location: readRegistry }],
+        skills: { review: "@acme/skills/review" },
+        lockfileSkills: {
+          "stale-review": {
+            type: "registry",
+            owner: "@stale",
+            name: "review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            publisherBindingId: "hbnd_stale",
+          },
+        },
+      },
+    });
+    return workspace.withRegistry(
+      Effect.gen(function* () {
+        expect(workspace.readLockfileText()).toContain("@stale");
+        yield* handleView({
+          handle: "review",
+          type: Option.some("skill"),
+          field: Option.none(),
+          registry: Option.none(),
+        });
+        expect(workspace.rendererState.results[0]?.data).toMatchObject({
+          handle: "@acme/skills/review",
+          type: "skill",
+          name: "review",
+        });
+        expect(workspace.requests.map((request) => request.url)).toEqual([
+          `${readRegistry}/v1/extensions/@acme/skills/review`,
+        ]);
+      }).pipe(Effect.ensuring(Effect.sync(() => workspace.cleanup()))),
+      (request) => ({
+        body: {
+          ...readExtensionIndex,
+          owner: request.url.includes("/@stale/") ? "@stale" : "@acme",
+          name: "review",
+        },
+      }),
+    );
+  });
 });

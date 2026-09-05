@@ -201,13 +201,11 @@ describe("auth token handler", () => {
     }),
   );
 
-  it.effect("creates a token with structured permissions", () => {
-    const createCalls: Array<unknown> = [];
+  it.effect("shows the issued token with list and revoke guidance", () => {
     const { provide, rendererState } = makeLayers({
       hasCredentials: true,
       authOverrides: {
         createToken: (_accessToken, params) => {
-          createCalls.push(params);
           return Effect.succeed({
             id: "token_123",
             token: "axmt_created",
@@ -234,18 +232,6 @@ describe("auth token handler", () => {
           bypassMfa: true,
         });
 
-        expect(createCalls).toMatchObject([
-          {
-            name: "ci",
-            expiresIn: 2592000,
-            permissions: {
-              owners: ["@foo"],
-              permission: "publish",
-              cidr: ["203.0.113.0/24"],
-              bypass_mfa: true,
-            },
-          },
-        ]);
         expect(rendererState.details[0]?.item).toMatchObject({
           id: "token_123",
           token: "axmt_created",

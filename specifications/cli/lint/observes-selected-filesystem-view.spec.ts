@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/observes-selected-filesystem-view",
   title: "Lint observes only the selected filesystem view",
   statement:
-    "When a lint view is selected, lint shall evaluate only that view, reporting the staged content and its fingerprint for git-index and the working tree for workspace, and shall change neither the Git index nor the working tree.",
+    "When a lint view is selected, lint shall evaluate only that view, reporting the staged content and its fingerprint for git-index and the working tree for workspace with diagnostic paths in the selected workspace, and shall change neither the Git index nor the working tree.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity", "machine-automation"],
@@ -115,9 +115,21 @@ describe("Selected lint filesystem view", () => {
         return yield* Effect.die(new Error("Expected a Git-index lint result"));
       }
       expect(stagedInput.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
-      expect(stagedDocument.result.findings.map(({ ruleId }) => ruleId)).toContain(
-        "workspace/configured-but-not-installed",
+      const stagedFinding = stagedDocument.result.findings.find(
+        ({ ruleId }) => ruleId === "workspace/configured-but-not-installed",
       );
+      if (stagedFinding === undefined) throw new Error("Expected the staged missing-Skill finding");
+      expect(stagedFinding).toMatchObject({
+        authority: "axm.json",
+        location: { file: "axm.json" },
+      });
+      // The screen may display workspace-relative paths; every displayed location
+      // must still resolve to the original workspace, never its temporary index copy.
+      const displayedRoot = path.resolve(workspace.root, stagedFinding.displayRoot);
+      expect(displayedRoot).toBe(workspace.root);
+      expect(path.resolve(displayedRoot, stagedFinding.path)).toBe(settingsPath);
+      expect(path.resolve(displayedRoot, stagedFinding.subject)).toBe(settingsPath);
+      expect(fs.existsSync(settingsPath)).toBe(true);
 
       const liveExit = yield* runLintCommand({
         path: Option.some(workspace.root),

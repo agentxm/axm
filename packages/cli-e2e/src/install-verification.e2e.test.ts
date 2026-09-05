@@ -19,11 +19,13 @@ import {
 export const executionBinding = {
   requirements: [
     "system/installability/product-installs-through-supported-channels",
+    "system/installability/native-installers-use-selected-directory",
+    "system/installability/native-installers-explain-shell-access",
     "system/compatibility/supported-platform-matrix",
   ],
   boundary: "installed",
   rationale:
-    "Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum verification, PATH guidance, and a working installed product on that shell.",
+    "Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum-specific rejection, custom destination placement, executable PATH and absolute-path guidance, and a working installed product on that shell. Profile and prior-binary preservation remain observations beyond the installation owner's current meaning.",
 } as const;
 
 const installMode = resolveInstallMode();
@@ -53,6 +55,7 @@ const artifactNames = new Set([
 
 interface ServerContext {
   readonly baseUrl: string;
+  readonly requests: ReadonlyArray<string>;
   readonly close: () => Promise<void>;
 }
 
@@ -63,8 +66,10 @@ const createBinaryServer = async (): Promise<ServerContext> => {
     );
   }
 
+  const requests: string[] = [];
   const server = http.createServer((request, response) => {
     const requestUrl = request.url ?? "/";
+    requests.push(requestUrl);
     const artifactName = path.basename(requestUrl);
 
     if (artifactName === "SHA256SUMS") {
@@ -81,11 +86,7 @@ const createBinaryServer = async (): Promise<ServerContext> => {
         })
         .filter((line) => line !== undefined);
       response.statusCode = 200;
-      response.end(
-        requestUrl.includes("/bad/")
-          ? `${"0".repeat(64)}  ${path.basename(resolveHostBinaryPath())}\n`
-          : `${lines.join("\n")}\n`,
-      );
+      response.end(`${lines.join("\n")}\n`);
       return;
     }
 
@@ -104,7 +105,14 @@ const createBinaryServer = async (): Promise<ServerContext> => {
     }
 
     response.statusCode = 200;
-    fs.createReadStream(artifactPath).pipe(response);
+    const artifact = fs.createReadStream(artifactPath);
+    if (requestUrl.includes("/bad/")) {
+      // Keep the manifest authentic and alter the actual downloaded bytes.
+      artifact.pipe(response, { end: false });
+      artifact.once("end", () => response.end("Synthetic checksum mismatch bytes\n"));
+    } else {
+      artifact.pipe(response);
+    }
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -120,6 +128,7 @@ const createBinaryServer = async (): Promise<ServerContext> => {
 
   return {
     baseUrl: `http://127.0.0.1:${address.port}/releases/latest/download`,
+    requests,
     close: async () => {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
@@ -232,7 +241,7 @@ const verifyInstalledBinary = async (binaryPath: string) => {
     return;
   }
 
-  expect(versionOutput).toMatch(/^\d+\.\d+\.\d+(?:[-+][^\s]+)?$/);
+  expect(versionOutput).toBe(fixtureVersion);
 };
 
 const expectJsonObject = (value: unknown): Readonly<Record<string, unknown>> => {
@@ -386,7 +395,7 @@ describe("install script verification", () => {
         const scriptPath = path.join(repoRoot, "install.ps1");
         const result = await runCommand(
           "powershell",
-          ["-ExecutionPolicy", "Bypass", "-File", scriptPath],
+          ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
           {
             cwd: repoRoot,
             env: createWindowsEnv(temp.path),
@@ -442,7 +451,13 @@ describe("install script verification", () => {
           : installMode === "powershell"
             ? await runCommand(
                 "powershell",
-                ["-ExecutionPolicy", "Bypass", "-File", path.join(repoRoot, "install.ps1")],
+                [
+                  "-NoProfile",
+                  "-ExecutionPolicy",
+                  "Bypass",
+                  "-File",
+                  path.join(repoRoot, "install.ps1"),
+                ],
                 {
                   cwd: repoRoot,
                   env: createWindowsEnv(temp.path, options),
@@ -491,6 +506,55 @@ describe("install script verification", () => {
         expect(output).toContain(`"${outputInstalledBinary}" --version`);
       }
 
+      const printedLines = output.split(/\r?\n/u).map((line) => line.trim());
+      const pathCommand =
+        installMode === "bash"
+          ? `export PATH="${outputInstallDir}:$PATH"`
+          : installMode === "powershell"
+            ? `$env:Path = "${outputInstallDir};" + $env:Path`
+            : `set "PATH=${outputInstallDir};%PATH%"`;
+      const verificationCommand =
+        installMode === "powershell"
+          ? `& "${outputInstalledBinary}" --version`
+          : `"${outputInstalledBinary}" --version`;
+      expect(printedLines).toContain(pathCommand);
+      expect(printedLines).toContain(verificationCommand);
+      // Execute only the expected commands after matching the printed lines.
+      // Script files keep cmd/PowerShell command syntax out of process argv quoting.
+      for (const command of [`${pathCommand}\naxm --version`, verificationCommand]) {
+        const scriptName = `printed-guidance.${installMode === "bash" ? "sh" : installMode === "powershell" ? "ps1" : "cmd"}`;
+        const scriptPath = path.join(temp.path, scriptName);
+        const scriptContent =
+          installMode === "cmd"
+            ? `@echo off\r\n${command.replaceAll("\n", "\r\n")}\r\nexit /b %errorlevel%\r\n`
+            : installMode === "powershell"
+              ? `$ErrorActionPreference = 'Stop'\n${command}\nexit $LASTEXITCODE\n`
+              : `${command}\n`;
+        fs.writeFileSync(scriptPath, scriptContent);
+        const observation =
+          installMode === "bash"
+            ? await runCommand("sh", [scriptName], {
+                cwd: temp.path,
+                env: createBashEnv(temp.path, options),
+              })
+            : installMode === "powershell"
+              ? await runCommand(
+                  "powershell",
+                  ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptName],
+                  {
+                    cwd: temp.path,
+                    env: createWindowsEnv(temp.path, options),
+                  },
+                )
+              : await runCommand("cmd", ["/d", "/c", scriptName], {
+                  cwd: temp.path,
+                  env: createWindowsEnv(temp.path, options),
+                });
+        expectCommandSuccess(`Printed ${installMode} command`, observation);
+        expect(observation.stdout.trim()).toBe(fixtureVersion);
+      }
+
+      // This sentinel records current behavior; it is not all-shell profile evidence.
       expect(fs.readFileSync(profilePath, "utf-8")).toBe(profileContent);
       await verifyInstalledBinary(installedBinary);
     } finally {
@@ -507,22 +571,23 @@ describe("install script verification", () => {
       "bin",
       process.platform === "win32" ? "axm.exe" : "axm",
     );
-    fs.mkdirSync(path.dirname(installedBinary), { recursive: true });
-    fs.copyFileSync(sourceBinary, installedBinary);
-    if (process.platform !== "win32") fs.chmodSync(installedBinary, 0o755);
-    const before = crypto
-      .createHash("sha256")
-      .update(fs.readFileSync(installedBinary))
-      .digest("hex");
-    const versionResult = await createBinaryRunner(sourceBinary)(["--version"]);
-    expectCommandSuccess("fixture binary", versionResult);
-    const version = versionResult.stdout.trim();
-    const badBaseUrl = serverContext.baseUrl.replace(
-      "/releases/latest/download",
-      "/releases/bad/download",
-    );
-
     try {
+      fs.mkdirSync(path.dirname(installedBinary), { recursive: true });
+      fs.copyFileSync(sourceBinary, installedBinary);
+      if (process.platform !== "win32") fs.chmodSync(installedBinary, 0o755);
+      const before = crypto
+        .createHash("sha256")
+        .update(fs.readFileSync(installedBinary))
+        .digest("hex");
+      const versionResult = await createBinaryRunner(installedBinary)(["--version"]);
+      expectCommandSuccess("existing installed binary", versionResult);
+      const version = versionResult.stdout.trim();
+      const badBaseUrl = serverContext.baseUrl.replace(
+        "/releases/latest/download",
+        "/releases/bad/download",
+      );
+
+      const requestOffset = serverContext.requests.length;
       const result =
         installMode === "bash"
           ? await runCommand("sh", [path.join(repoRoot, "install.sh")], {
@@ -532,7 +597,13 @@ describe("install script verification", () => {
           : installMode === "powershell"
             ? await runCommand(
                 "powershell",
-                ["-ExecutionPolicy", "Bypass", "-File", path.join(repoRoot, "install.ps1")],
+                [
+                  "-NoProfile",
+                  "-ExecutionPolicy",
+                  "Bypass",
+                  "-File",
+                  path.join(repoRoot, "install.ps1"),
+                ],
                 {
                   cwd: repoRoot,
                   env: createWindowsEnv(temp.path, { baseUrl: badBaseUrl, version }),
@@ -544,11 +615,18 @@ describe("install script verification", () => {
               });
 
       expect(result.exitCode).not.toBe(0);
+      expect(getOutput(result)).toMatch(/checksum mismatch/iu);
+      const requests = serverContext.requests.slice(requestOffset);
+      expect(requests).toContain(`/releases/bad/download/${path.basename(sourceBinary)}`);
+      expect(requests).toContain("/releases/bad/download/SHA256SUMS");
       const after = crypto
         .createHash("sha256")
         .update(fs.readFileSync(installedBinary))
         .digest("hex");
       expect(after).toBe(before);
+      const preserved = await createBinaryRunner(installedBinary)(["--version"]);
+      expectCommandSuccess("preserved installed binary", preserved);
+      expect(preserved.stdout.trim()).toBe(version);
       expect(fs.existsSync(`${installedBinary}.upgrade.lock`)).toBe(false);
       expect(
         fs.readdirSync(path.dirname(installedBinary)).filter((name) => name.startsWith(".axm-")),

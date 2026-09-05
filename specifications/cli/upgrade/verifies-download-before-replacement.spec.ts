@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import * as fs from "node:fs";
@@ -82,11 +83,13 @@ describe("Downloaded upgrade verification", () => {
         ];
         const invalidChecksums =
           names.map((name) => `${"0".repeat(64)}  ${name}`).join("\n") + "\n";
+        const matchingHash = createHash("sha256").update(upgradeBinary).digest("hex");
+        const matchingChecksums = names.map((name) => `${matchingHash}  ${name}`).join("\n") + "\n";
         const checksumText =
           problem === "missing checksum"
             ? ""
             : problem === "duplicate checksum"
-              ? invalidChecksums + invalidChecksums
+              ? matchingChecksums + matchingChecksums
               : problem === "mismatching checksum"
                 ? invalidChecksums
                 : undefined;

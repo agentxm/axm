@@ -167,6 +167,8 @@ export interface UpgradeRun {
   readonly updateCheckWrites: ReadonlyArray<{ readonly version: string }>;
   /** The decoded result document written to standard output. */
   readonly document: unknown;
+  /** Complete standard output, assembled across every write. */
+  readonly stdout: string;
   readonly humanOutput: string;
 }
 
@@ -244,14 +246,17 @@ export const runUpgrade = (options?: UpgradeRunOptions) =>
     yield* Fiber.join(fiber);
 
     const events = options?.human === true ? [] : yield* recordedEvents(streams.log);
-    const stdout = streams.log.find((entry) => entry.channel === "stdout");
+    const stdout = streams.log
+      .filter((entry) => entry.channel === "stdout")
+      .map((entry) => entry.content)
+      .join("");
     return {
       events,
       calls: installer.calls,
       installMetaWrites,
       updateCheckWrites,
-      document:
-        stdout === undefined || options?.human === true ? undefined : JSON.parse(stdout.content),
+      stdout,
+      document: stdout.length === 0 || options?.human === true ? undefined : JSON.parse(stdout),
       humanOutput: streams.log.map((entry) => entry.content).join(""),
     };
   });

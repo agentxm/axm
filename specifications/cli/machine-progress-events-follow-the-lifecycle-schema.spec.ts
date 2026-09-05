@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/machine-progress-events-follow-the-lifecycle-schema",
   title: "Machine progress events are the published lifecycle events, in order, before the result",
   statement:
-    "When machine output mode is on, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, and the operation shall write exactly one settled event before its result document.",
+    "When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, and the operation shall write exactly one settled event before its result document.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -63,11 +63,11 @@ describe("Machine progress event contract", () => {
     }
   });
 
-  const machineInstall = (options?: { readonly quiet?: boolean }) =>
+  const machineInstall = () =>
     Effect.gen(function* () {
       const workspace = makeSpecWorkspace({
         screen: { kind: "machine" },
-        flags: { json: true, ...(options?.quiet === true ? { quiet: true } : {}) },
+        flags: { json: true },
       });
       cleanups.push(workspace.cleanup);
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
@@ -139,17 +139,6 @@ describe("Machine progress event contract", () => {
       expect(terminal).toBeDefined();
       expect(terminal?.index).toBeLessThan(resultIndex);
       expect(events.every((entry) => entry.index < resultIndex)).toBe(true);
-    }),
-  );
-
-  it.effect("quiet suppresses progress events while the result document still appears", () =>
-    Effect.gen(function* () {
-      const { log, progress } = yield* machineInstall({ quiet: true });
-      expect(progress).toEqual([]);
-      const resultIndex = log.findIndex((entry) => entry.channel === "stdout");
-      expect(resultIndex).toBeGreaterThan(-1);
-      const document = yield* decodeDocument(JSON.parse(log[resultIndex]?.content ?? ""));
-      expect(document.result.outcome).toBe("applied");
     }),
   );
 });

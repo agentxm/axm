@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import * as path from "node:path";
 import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -8,6 +10,8 @@ import { handleInstall } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
+import { makeSpecRegistry } from "../../support/registry-fixture.js";
+import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/materializes-canonical-content",
@@ -70,6 +74,49 @@ describe("Install materializes canonical content", () => {
       expect(workspace.readFile(`agent_extensions/local/vendor/${name}/${relativeContent}`)).toBe(
         workspace.readFile(`vendor/${name}/${relativeContent}`),
       );
+    }),
+  );
+  it.effect("materializes exactly the regular file bytes of the selected Registry archive", () =>
+    Effect.gen(function* () {
+      const registry = makeSpecRegistry();
+      cleanups.push(registry.cleanup);
+      registry.writeSkill("registry-review", [
+        { version: "1.2.3", body: "Registry guidance with café and Ω.\n" },
+      ]);
+      const archive = path.join(registry.root, "extensions/@acme/skills/registry-review/1.2.3.zip");
+      // An independent ZIP reader supplies the oracle, not AXM's extraction helper.
+      const entries = execFileSync("unzip", ["-Z1", archive], { encoding: "utf8" })
+        .trim()
+        .split("\n");
+      expect(entries.filter((entry) => !entry.endsWith("/")).sort()).toEqual([
+        "skill.json",
+        "src/SKILL.md",
+      ]);
+      const expected = Object.fromEntries(
+        entries.map((relative): readonly [string, string] =>
+          relative.endsWith("/")
+            ? [relative.slice(0, -1), "directory"]
+            : [
+                relative,
+                `file:${execFileSync("unzip", ["-p", archive, relative]).toString("base64")}`,
+              ],
+        ),
+      );
+      const workspace = makeSpecWorkspace({
+        userSettings: {},
+        settings: { sources: [registry.source] },
+      });
+      cleanups.push(workspace.cleanup);
+      yield* handleInstall({
+        source: Option.some("@acme/skills/registry-review@1.2.3"),
+        force: false,
+        preview: false,
+      }).pipe(Effect.provide(workspace.layer));
+      expect(
+        snapshotWorkspaceContent(
+          path.join(workspace.root, "agent_extensions/agentxm/@acme/skills/registry-review"),
+        ),
+      ).toEqual(expected);
     }),
   );
 });

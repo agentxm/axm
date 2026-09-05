@@ -64,6 +64,7 @@ describe("repository execution inputs", () => {
   it.each([
     "specifications/cli/install.spec.ts",
     "specifications/support/install-harness.ts",
+    "packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts",
     "packages/cli/src/install.ts",
     "pnpm-lock.yaml",
   ])("invalidates changed %s without relying on a new commit", (file) => {

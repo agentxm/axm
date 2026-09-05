@@ -10,16 +10,7 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
 
-export const executionBinding = {
-  requirements: [
-    "cli/inventories-can-run-before-setup",
-    "cli/type-lists-report-local-state",
-    "cli/invalid-workspace-state-gates-operations",
-  ],
-  boundary: "process",
-  rationale:
-    "Exercises inventory before setup, native user-scope discovery, malformed settings diagnostics, and setup/install/uninstall/read journeys through real CLI processes.",
-} as const;
+// Process evidence for this module is bound by the skills.e2e.test.ts Vitest entrypoint.
 
 describe("axm skills list", () => {
   it("inventories unmanaged user skills without settings or a lockfile", async () => {

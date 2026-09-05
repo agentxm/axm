@@ -6,7 +6,8 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "effect/FileSystem";
@@ -124,8 +125,22 @@ const makeVersionEntry = (overrides?: {
     : { dependencies: dependencyConstraints(overrides.dependencies) }),
 });
 
-// Minimal zip: just enough bytes to not crash extractZip in a mock context
-// For fetch tests we use the mock client which returns controlled bytes
+/** A genuine archive, built independently of the production extraction path. */
+const makeFetchArchive = (files: Readonly<Record<string, string>>): Uint8Array => {
+  const root = mkdtempSync(nodePath.join(tmpdir(), "provider-fetch-archive-"));
+  try {
+    for (const [relative, content] of Object.entries(files)) {
+      const target = nodePath.join(root, relative);
+      mkdirSync(nodePath.dirname(target), { recursive: true });
+      writeFileSync(target, content);
+    }
+    const archive = nodePath.join(root, "package.zip");
+    execFileSync("zip", ["-q", archive, ...Object.keys(files)], { cwd: root, stdio: "pipe" });
+    return readFileSync(archive);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+};
 
 /** Wrap entries into a GetExtensionsByOwnerResponse. */
 const toResult = (
@@ -994,138 +1009,156 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.fetch", () => {
-  it.effect("delegates to client.getExtensionPackage and verifies integrity", () => {
-    const archiveBytes = new Uint8Array([80, 75, 3, 4, 0, 0, 0, 0]);
-    const integrity = sha512(archiveBytes);
-
+  it.effect("fetches the requested Registry identity and extracts matching archive content", () => {
+    const files = {
+      "skill.json": JSON.stringify({
+        owner: "@test",
+        type: "skill",
+        name: "my-skill",
+        version: "1.0.0",
+      }),
+      "src/SKILL.md":
+        "---\nname: my-skill\ndescription: Review source changes.\n---\n\n# Review\nExact guidance.\n",
+      "src/references/checklist.md": "# Checklist\nPreserve café and Ω exactly.\n",
+    };
+    const archiveBytes = makeFetchArchive(files);
     let capturedArgs: Parameters<RegistryClient["getExtensionPackage"]>[0] | undefined;
-
-    const client = createMockClient({
-      getExtensionPackage: (args) => {
-        capturedArgs = args;
-        return Effect.succeed({ archive: archiveBytes });
-      },
-    });
-
-    const provider = createLocalRegistrySourceHostProvider(client);
-
+    const provider = createLocalRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionPackage: (args) => {
+          capturedArgs = args;
+          return Effect.succeed({ archive: archiveBytes });
+        },
+      }),
+    );
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
-
       publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("my-skill"),
-        description: Option.some("test"),
+        description: Option.none(),
         metadata: Option.none(),
       },
       source: testSource,
       owner: handle("@test"),
       name: extensionName("my-skill"),
       version: exactVersion("1.0.0"),
-      integrity: Option.some(integrity),
+      integrity: Option.some(sha512(archiveBytes)),
       packages: [],
     };
-
     return runEffect(
       Effect.gen(function* () {
-        // extractZip will fail on the fake bytes, but we can verify the
-        // client delegation happened. Use Effect.result to catch the extraction error.
-        const result = yield* provider.fetch(testSource, ref).pipe(Effect.result);
-
-        expect(capturedArgs?.owner).toBe("@test");
-        expect(capturedArgs?.type).toBe("skill");
-        expect(capturedArgs?.name).toBe("my-skill");
-        expect(capturedArgs?.version).toEqual(Option.some(exactVersion("1.0.0")));
-
-        // extractZip may fail on fake bytes, that's fine — the point is
-        // that the integrity passed and client was called correctly
-        // If it succeeded, that means extraction worked; if it failed,
-        // it should be a validation failure from the invalid archive payload,
-        // not an integrity or transport failure.
-        if (result._tag === "Failure") {
-          expect(sourceResolutionFailureCategory(result.failure)).toBe("validation");
-          expect(result.failure.detail).not.toContain("Integrity mismatch");
+        const fs = yield* FileSystem.FileSystem;
+        const fetched = yield* provider.fetch(testSource, ref);
+        expect(capturedArgs).toEqual({
+          owner: "@test",
+          type: "skill",
+          name: "my-skill",
+          version: Option.some(exactVersion("1.0.0")),
+        });
+        for (const [relative, content] of Object.entries(files)) {
+          expect(yield* fs.readFileString(nodePath.join(fetched.directory, relative))).toBe(
+            content,
+          );
         }
       }),
     );
   });
 
-  it.effect("fails on integrity mismatch", () => {
-    const archiveBytes = new Uint8Array([80, 75, 3, 4]);
-
-    const client = createMockClient({
-      getExtensionPackage: () => Effect.succeed({ archive: archiveBytes }),
-    });
-
-    const provider = createLocalRegistrySourceHostProvider(client);
-
+  it.effect("rejects changed archive bytes after a matching archive succeeds", () => {
+    const original = makeFetchArchive({ "src/SKILL.md": "Original accepted guidance.\n" });
+    const changed = makeFetchArchive({ "src/SKILL.md": "Changed download guidance.\n" });
+    let servedArchive = original;
+    const provider = createLocalRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionPackage: () => Effect.sync(() => ({ archive: servedArchive })),
+      }),
+    );
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
-
       publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("my-skill"),
-        description: Option.some("test"),
+        description: Option.none(),
         metadata: Option.none(),
       },
       source: testSource,
       owner: handle("@test"),
       name: extensionName("my-skill"),
       version: exactVersion("1.0.0"),
-      integrity: Option.some("sha512-wrongIntegrityValue=="),
+      integrity: Option.some(sha512(original)),
       packages: [],
     };
-
     return runEffect(
       Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const accepted = yield* provider.fetch(testSource, ref);
+        expect(yield* fs.readFileString(nodePath.join(accepted.directory, "src/SKILL.md"))).toBe(
+          "Original accepted guidance.\n",
+        );
+        servedArchive = changed;
         const result = yield* provider.fetch(testSource, ref).pipe(Effect.result);
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(sourceResolutionFailureCategory(result.failure)).toBe("network");
           expect(result.failure.detail).toContain("Integrity mismatch");
         }
+        expect(yield* fs.readFileString(nodePath.join(accepted.directory, "src/SKILL.md"))).toBe(
+          "Original accepted guidance.\n",
+        );
       }),
     );
   });
 
-  it.effect("extracts owner/type/name/version from mcp-server ref", () => {
-    const archiveBytes = new Uint8Array([80, 75, 3, 4]);
-    const integrity = sha512(archiveBytes);
-
-    let capturedType: string | undefined;
-    let capturedName: string | undefined;
-
-    const client = createMockClient({
-      getExtensionPackage: (args) => {
-        capturedType = args.type;
-        capturedName = args.name;
-        return Effect.succeed({ archive: archiveBytes });
-      },
-    });
-
-    const provider = createLocalRegistrySourceHostProvider(client);
-
+  it.effect("fetches all MCP Registry coordinates and extracts the selected content", () => {
+    const files = {
+      "mcp.json": JSON.stringify({
+        owner: "@test",
+        type: "mcp-server",
+        name: "my-server",
+        version: "2.0.0",
+      }),
+      "README.md": "The selected MCP package.\n",
+    };
+    const archive = makeFetchArchive(files);
+    let capturedArgs: Parameters<RegistryClient["getExtensionPackage"]>[0] | undefined;
+    const provider = createLocalRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionPackage: (args) => {
+          capturedArgs = args;
+          return Effect.succeed({ archive });
+        },
+      }),
+    );
     const ref: ExtensionRef = {
       type: "mcp-server",
       refType: "registry",
-
       publisherBindingId: "hbnd_test",
       server: { name: extensionName("my-server") },
       source: testSource,
       owner: handle("@test"),
       name: extensionName("my-server"),
       version: exactVersion("2.0.0"),
-      integrity: Option.some(integrity),
+      integrity: Option.some(sha512(archive)),
       packages: [],
     };
-
     return runEffect(
       Effect.gen(function* () {
-        yield* provider.fetch(testSource, ref).pipe(Effect.result);
-        expect(capturedType).toBe("mcp-server");
-        expect(capturedName).toBe("my-server");
+        const fs = yield* FileSystem.FileSystem;
+        const fetched = yield* provider.fetch(testSource, ref);
+        expect(capturedArgs).toEqual({
+          owner: "@test",
+          type: "mcp-server",
+          name: "my-server",
+          version: Option.some(exactVersion("2.0.0")),
+        });
+        for (const [relative, content] of Object.entries(files)) {
+          expect(yield* fs.readFileString(nodePath.join(fetched.directory, relative))).toBe(
+            content,
+          );
+        }
       }),
     );
   });

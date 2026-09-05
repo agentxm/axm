@@ -48,6 +48,35 @@ describe("Forking a managed package", () => {
       Effect.gen(function* () {
         const created = workspace({ settings: { agents: [] } });
         const original = writeAuthoringPackage(created.root, row, "original");
+        const sourceManifest = readPackageJson(original, row.manifest);
+        if (
+          typeof sourceManifest !== "object" ||
+          sourceManifest === null ||
+          Array.isArray(sourceManifest)
+        )
+          throw new Error("Expected source package manifest");
+        const contentRelative =
+          row.type === "skill"
+            ? "src/SKILL.md"
+            : row.type === "subagent"
+              ? "src/original.md"
+              : row.type === "rule"
+                ? "src/RULE.md"
+                : row.type === "hook"
+                  ? "src/hook.sh"
+                  : row.type === "knowledge"
+                    ? "src/index.md"
+                    : undefined;
+        if (contentRelative !== undefined)
+          fs.appendFileSync(
+            path.join(original, contentRelative),
+            `\n# Reusable ${row.type} instructions\n# Preserve the complete review workflow.\n`,
+          );
+        fs.mkdirSync(path.join(original, "docs"), { recursive: true });
+        fs.writeFileSync(
+          path.join(original, "docs", "workflow.md"),
+          "Companion workflow and decisions.\n",
+        );
         const before = snapshotWorkspaceContent(original);
         yield* handleFork({
           source: original,
@@ -60,9 +89,43 @@ describe("Forking a managed package", () => {
           planName: "Fork AXM extension package",
         });
         expect(snapshotWorkspaceContent(original)).toEqual(before);
-        expect(readPackageJson(created.root, `${row.plural}/custom/${row.manifest}`)).toMatchObject(
-          { owner: "@acme", type: row.type, name: "custom", version: "0.1.0", license: "MIT" },
+        expect(readPackageJson(created.root, `${row.plural}/custom/${row.manifest}`)).toEqual({
+          ...sourceManifest,
+          owner: "@acme",
+          type: row.type,
+          name: "custom",
+          version: "0.1.0",
+        });
+        const targetRoot = path.join(created.root, row.plural, "custom");
+        const targetContentRelative = row.type === "subagent" ? "src/custom.md" : contentRelative;
+        const unmodifiedSource = Object.fromEntries(
+          Object.entries(before).filter(
+            ([relative]) => relative !== row.manifest && relative !== contentRelative,
+          ),
         );
+        const unmodifiedTarget = Object.fromEntries(
+          Object.entries(snapshotWorkspaceContent(targetRoot)).filter(
+            ([relative]) => relative !== row.manifest && relative !== targetContentRelative,
+          ),
+        );
+        expect(unmodifiedTarget).toEqual(unmodifiedSource);
+        if (contentRelative !== undefined && targetContentRelative !== undefined) {
+          const originalContent = fs.readFileSync(path.join(original, contentRelative), "utf8");
+          const copiedContent = fs.readFileSync(
+            path.join(targetRoot, targetContentRelative),
+            "utf8",
+          );
+          if (row.type === "skill" || row.type === "subagent") {
+            const originalBoundary = originalContent.indexOf("\n---\n");
+            const copiedBoundary = copiedContent.indexOf("\n---\n");
+            expect(originalBoundary).toBeGreaterThan(0);
+            expect(copiedBoundary).toBeGreaterThan(0);
+            // Identity frontmatter and its separating blank lines can be rewritten; every instruction byte remains.
+            expect(copiedContent.slice(copiedBoundary + 5).replace(/^\n+/, "")).toBe(
+              originalContent.slice(originalBoundary + 5).replace(/^\n+/, ""),
+            );
+          } else expect(copiedContent).toBe(originalContent);
+        }
         expect(created.readFile(`${row.plural}/custom/notes.txt`)).toBe(
           "Author notes preserved across the operation.\n",
         );

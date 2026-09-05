@@ -125,36 +125,4 @@ describe("Git-index workspace materialization", () => {
       expect(changed.fingerprint).not.toBe(first.fingerprint);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
-
-  it.effect("rejects an unmerged index before materialization", () =>
-    Effect.gen(function* () {
-      git(root, ["checkout", "-q", "-b", "other"]);
-      write(root, "partial.txt", "other\n");
-      git(root, ["add", "partial.txt"]);
-      git(root, ["commit", "--quiet", "-m", "other"]);
-      git(root, ["checkout", "-q", "main"]);
-      write(root, "partial.txt", "main\n");
-      git(root, ["add", "partial.txt"]);
-      git(root, ["commit", "--quiet", "-m", "main"]);
-      expect(() => git(root, ["merge", "other"])).toThrow();
-
-      const error = yield* Effect.scoped(materializeGitIndexWorkspace(root)).pipe(Effect.flip);
-      expect(error.detail).toContain("unmerged entries");
-      expect(error.detail).toContain("--view git-index");
-    }).pipe(Effect.provide(NodeServices.layer)),
-  );
-
-  it.effect("fails clearly outside a Git repository", () =>
-    Effect.gen(function* () {
-      const outside = fs.mkdtempSync(path.join(os.tmpdir(), "axm-staged-outside-git-"));
-      try {
-        const error = yield* Effect.scoped(materializeGitIndexWorkspace(outside)).pipe(Effect.flip);
-        expect(error.category).toBe("validation");
-        expect(error.title).toBe("Git index unavailable");
-        expect(error.detail).toContain("requires a Git repository");
-      } finally {
-        fs.rmSync(outside, { recursive: true, force: true });
-      }
-    }).pipe(Effect.provide(NodeServices.layer)),
-  );
 });

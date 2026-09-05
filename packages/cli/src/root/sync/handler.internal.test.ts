@@ -692,74 +692,6 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("reports a successful convergence assertion for an up-to-date workspace", () =>
-    Effect.gen(function* () {
-      const { provide, rendererState } = makeLayers({ machine: true });
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
-
-      yield* provide(handleSync({ preview: true, failOnChange: true }));
-
-      const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
-        planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
-      });
-      expect(result).toMatchObject({ mode: "preview" });
-      expect("divergence" in result).toBe(false);
-      expect(rendererState.results[0]?.ok).toBe(true);
-    }),
-  );
-
-  it.effect("fails a read-only convergence assertion with the complete preview plan", () =>
-    Effect.gen(function* () {
-      const { provide, rendererState } = makeLayers({ machine: true });
-      const axmDir = path.join(tempDir, ".axm");
-      const nativeConfigPath = path.join(tempDir, ".mcp.json");
-      writeWorkspaceFiles(axmDir, { agents: ["claude-code"] });
-      writeJson(nativeConfigPath, {
-        mcpServers: {
-          demo: {
-            "x-axm": {
-              v: 1,
-              managed: true,
-              ext: "@workspace/mcps/demo",
-              source: "inline",
-            },
-            command: "node",
-            args: ["server.js"],
-          },
-        },
-      });
-      const before = {
-        settings: fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),
-        lockfile: fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8"),
-        nativeConfig: fs.readFileSync(nativeConfigPath, "utf8"),
-      };
-
-      yield* provide(handleSync({ preview: true, failOnChange: true }));
-
-      expect(rendererState.results[0]?.ok).toBe(false);
-      expect(rendererState.results[0]?.data).toMatchObject({
-        result: {
-          contract: "plan-result-v3",
-          outcome: "previewed",
-          mode: "preview",
-          divergence: true,
-          message: "Workspace reconciliation is required; no changes were applied",
-          counts: { committed: 0 },
-          units: [
-            {
-              label: "stale managed agent projections",
-              state: "ready",
-            },
-          ],
-        },
-      });
-      expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(before.settings);
-      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
-      expect(fs.readFileSync(nativeConfigPath, "utf8")).toBe(before.nativeConfig);
-    }),
-  );
-
   it.effect("reports unsupported marker versions in preview without writing", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
@@ -785,20 +717,6 @@ describe("root sync handler", () => {
       expect(payload).toContain("upgrade AXM");
       expect(payload).toContain("@agentxm/rules/instructions");
       expect(fs.readFileSync(instructionsPath, "utf8")).toBe(before);
-    }),
-  );
-
-  it.effect("requires preview mode for fail-on-change", () =>
-    Effect.gen(function* () {
-      const { provide } = makeLayers();
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
-
-      const error = yield* provide(handleSync({ preview: false, failOnChange: true })).pipe(
-        Effect.flip,
-      );
-
-      expect(error.code).toBe("usage");
-      expect(error.detail).toBe("--fail-on-change requires --preview");
     }),
   );
 

@@ -45,17 +45,46 @@ export const runCommand = async (
   };
 };
 
-export const createCliRunner =
-  (artifactPath: string | URL) =>
-  async (args: ReadonlyArray<string>, options: RunCliOptions = {}): Promise<CliResult> => {
+export const createCliRunner = (artifactPath: string | URL) => {
+  // Resolve the real runtime before a test replaces HOME, PATH or cwd. A
+  // version-manager shim belongs to the parent toolchain, not to the isolated
+  // CLI process whose stdout and stderr the test observes.
+  const runtimeCwd = process.cwd();
+  // eslint-disable-next-line no-restricted-properties -- Resolve the E2E runtime in its parent toolchain environment
+  const runtimeEnv = { ...process.env };
+  let runtimePath: Promise<string> | undefined;
+
+  const resolveRuntimePath = async (): Promise<string> => {
+    const result = await execa("bun", ["--print", "process.execPath"], {
+      cwd: runtimeCwd,
+      env: {
+        ...runtimeEnv,
+        // Toolchain preparation is an explicit repository prerequisite.
+        MISE_AUTO_INSTALL: "false",
+        MISE_NOT_FOUND_AUTO_INSTALL: "false",
+        MISE_NOT_FOUND_SYSTEM_FALLBACK: "false",
+      },
+      extendEnv: false,
+      timeout: DEFAULT_TIMEOUT,
+    });
+    const executable = result.stdout.trim();
+    if (!path.isAbsolute(executable) || !fs.existsSync(executable)) {
+      throw new Error("Bun did not identify an absolute executable path for the E2E runtime.");
+    }
+    return executable;
+  };
+
+  return async (args: ReadonlyArray<string>, options: RunCliOptions = {}): Promise<CliResult> => {
     const cliPath = resolveArtifactPath(artifactPath);
 
     if (!fs.existsSync(cliPath)) {
       throw new Error(`Built CLI not found at ${cliPath}. Run the matching Nx build first.`);
     }
 
-    return runCommand("bun", ["run", cliPath, ...args], options);
+    runtimePath ??= resolveRuntimePath();
+    return runCommand(await runtimePath, ["run", cliPath, ...args], options);
   };
+};
 
 export const createBinaryRunner =
   (artifactPath: string | URL) =>

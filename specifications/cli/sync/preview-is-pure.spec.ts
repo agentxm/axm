@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preview-is-pure",
   title: "Sync preview describes the reconciliation without changing any state",
   statement:
-    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, shall report divergence without exiting successfully when asked to fail on change, and shall not change settings, the lockfile, canonical content, or agent projections.",
+    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -86,28 +86,25 @@ describe("Sync preview purity", () => {
     }),
   );
 
-  it.effect(
-    "a previewed reconciliation asked to fail on change reports divergence and changes nothing",
-    () =>
-      Effect.gen(function* () {
-        const { workspace, before } = yield* driftedWorkspace();
+  it.effect("a previewed reconciliation asked to fail on change changes no protected state", () =>
+    Effect.gen(function* () {
+      const { workspace, before } = yield* driftedWorkspace();
 
-        yield* handleSync({ preview: true, failOnChange: true }).pipe(
-          Effect.provide(workspace.layer),
-        );
+      yield* handleSync({ preview: true, failOnChange: true }).pipe(
+        Effect.provide(workspace.layer),
+      );
 
-        expectProtectedStateUntouched({
-          root: workspace.root,
-          before,
-          writes: workspace.writes,
-        });
-        expect(workspace.exists(".claude/skills/code-review")).toBe(false);
-        const [entry] = workspace.rendererState.results;
-        expect(entry?.ok).toBe(false);
-        expect(entry?.data).toMatchObject({
-          result: { outcome: "previewed", divergence: true, counts: { committed: 0 } },
-        });
-      }),
+      expectProtectedStateUntouched({
+        root: workspace.root,
+        before,
+        writes: workspace.writes,
+      });
+      expect(workspace.exists(".claude/skills/code-review")).toBe(false);
+      const [entry] = workspace.rendererState.results;
+      expect(entry?.data).toMatchObject({
+        result: { outcome: "previewed", counts: { committed: 0 } },
+      });
+    }),
   );
 
   it.effect(

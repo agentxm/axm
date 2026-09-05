@@ -5,8 +5,8 @@
  * - stdout is exactly one valid JSON document
  * - every non-empty stderr line parses via JSON.parse
  *
- * These assertions verify the channel contract surfaced by AXM-675 and are
- * intentionally minimal — per-command shape is covered elsewhere.
+ * These assertions verify stream separation and parseable diagnostics;
+ * command-specific result shapes have their own examples.
  */
 
 import * as fs from "node:fs";

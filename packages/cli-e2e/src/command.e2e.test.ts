@@ -7,11 +7,12 @@ import "./command.e2e.js";
  */
 export const executionBinding = {
   requirements: [
+    "cli/errors-do-not-disclose-credentials",
     "cli/mcps/inline-lifecycle-is-idempotent",
     "cli/mcps/add/records-and-realizes-inline-configuration",
     "cli/mcps/uninstall/preserves-unowned-native-entries",
   ],
   boundary: "process",
   rationale:
-    "Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.",
+    "Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.",
 } as const;

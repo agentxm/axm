@@ -120,7 +120,6 @@ const makeMeResponse = () => ({
     handle: "@alice",
     email: "alice@example.com",
   },
-  orgs: [],
   token: {
     id: "tok_01h455vb4pexka56gq5w2r7cpc",
     type: "session",
@@ -1031,6 +1030,7 @@ describe("AuthClient.getMe", () => {
     let capturedAuth: string | null = null;
 
     const layer = makeTestLayer((req) => {
+      expect(req.url).toBe("https://registry.agentxm.ai/v1/auth/me");
       const authorization = req.headers["authorization"];
       capturedAuth = typeof authorization === "string" ? authorization : null;
       return new Response(JSON.stringify(makeMeResponse()), {
@@ -1043,12 +1043,18 @@ describe("AuthClient.getMe", () => {
       const client = yield* AuthClient;
       const result = yield* client.getMe("axm_ses_test");
       expect(capturedAuth).toBe("Bearer axm_ses_test");
-      expect(result.userId).toBe("user_01h455vb4pexka56gq5w2r7cpc");
       expect(result.userHandle).toBe("@alice");
-      expect(result.email).toBe("alice@example.com");
       expect(result.tokenType).toBe("session");
       expect(result.scopes).toEqual(["extensions:read", "account:read"]);
-      expect(result.orgs).toEqual([]);
+      expect(result.resourceRestrictions).toEqual({ extensions: null });
+      expect(result.expiresAt).not.toBeNull();
+      expect(Object.keys(result).sort()).toEqual([
+        "expiresAt",
+        "resourceRestrictions",
+        "scopes",
+        "tokenType",
+        "userHandle",
+      ]);
     }).pipe(Effect.provide(layer));
   });
 

@@ -18,7 +18,13 @@ import { handleWhoami } from "./whoami.js";
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ALICE = normalizeHandle("@alice");
 
-const defaultWhoami = { handle: ALICE };
+const defaultWhoami = {
+  userHandle: ALICE,
+  tokenType: "session",
+  scopes: ["extensions:read"],
+  resourceRestrictions: { extensions: null },
+  expiresAt: null,
+};
 
 const makeLayers = (opts?: {
   hasCredentials?: boolean;
@@ -51,7 +57,7 @@ const makeLayers = (opts?: {
     : CredentialStoreTest("restricted-file", undefined, opts?.allowsPersistedCredentials);
 
   const authClientLayer = AuthClientTest({
-    getWhoami: () => Effect.succeed(defaultWhoami),
+    getMe: () => Effect.succeed(defaultWhoami),
   });
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
@@ -64,8 +70,7 @@ const makeLayers = (opts?: {
     registryUrlLayer,
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-  const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+  const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(Effect.provide(FullLayer));
 
   return { provide, rendererState };
@@ -115,7 +120,7 @@ describe("auth whoami handler", () => {
 
         expect(rendererState.logs).toContainEqual({
           _tag: "message",
-          message: `Authenticated as ${ALICE}\nRegistry  ${REGISTRY_URL}\n`,
+          message: `Authenticated as ${ALICE}\nRegistry  ${REGISTRY_URL}\nCredential  session\nScopes  extensions:read\nExtensions  unrestricted\nExpires  unavailable\n`,
         });
       }),
     );

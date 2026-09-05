@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/extension-model",
-  "version": "0.28.8",
+  "version": "0.28.9",
   "description": "Shared AgentXM extension model: identities, manifests, version constraints, and agent capabilities. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

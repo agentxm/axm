@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/extension-discovery",
-  "version": "0.28.8",
+  "version": "0.28.9",
   "description": "AXM extension-discovery feature: project package detectors, local extension declarations, Registry recommendations, and discovery results for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

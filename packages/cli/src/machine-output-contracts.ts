@@ -2,7 +2,7 @@
  * Shipped `--json` contract register.
  *
  * This is deliberately indexed by every command path exposed by the real
- * Effect CLI command tree. `machine-output-contracts.test.ts` compares these
+ * Effect CLI command tree. `machine-output-contracts.internal.test.ts` compares these
  * rows with that tree using exact equality, so adding, removing, or aliasing a
  * command requires an explicit machine-output decision.
  *
@@ -44,7 +44,7 @@ const helpFamily = {
   outputClass: "formatter-help",
   humanOutputKind: "orientation",
   liveness: "immediate",
-  livenessCoverage: ["packages/cli/src/formatter.test.ts"],
+  livenessCoverage: ["packages/cli/src/formatter.internal.test.ts"],
   schemaNames: ["JsonHelpDocSchema"],
   requiredEnvelopeKeys: ["type", "name", "usage"],
   requiredTopLevelKeys: ["type", "name", "usage"],
@@ -52,11 +52,11 @@ const helpFamily = {
   scenarios: ["group invoked without a subcommand", "explicit --help on every command path"],
   rationale: "Effect CLI owns built-in help rendering before a command handler runs.",
   centralizedCoverage: [
-    "packages/cli/src/machine-output-contracts.test.ts",
-    "packages/cli/src/formatter.test.ts",
+    "packages/cli/src/machine-output-contracts.internal.test.ts",
+    "packages/cli/src/formatter.internal.test.ts",
   ],
   commandCoverage: [],
-  documentation: ["contributing/guides/cli-renderer.md"],
+  documentation: ["docs/architecture/commands/output.md"],
 } satisfies MachineOutputFamily;
 
 const planFamily = {
@@ -65,21 +65,33 @@ const planFamily = {
   humanOutputKind: "mutation",
   liveness: "progress",
   livenessCoverage: [
-    "packages/core/src/unstable/plan/resolve-plan.test.ts",
+    "specifications/cli/machine-progress-events-follow-the-lifecycle-schema.spec.ts",
+    "specifications/cli/long-running-operations-emit-lifecycle-events.spec.ts",
+    "packages/workspace-operations/src/plan/resolve-plan.internal.test.ts",
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   schemaNames: ["PlanResolutionDocumentSchema"],
   requiredEnvelopeKeys: ["ok", "result"],
   requiredTopLevelKeys: ["ok", "result"],
   optionalTopLevelKeys: ["summary", "suggestions"],
-  scenarios: ["applied", "previewed", "cancelled", "no-op", "partial failure"],
+  scenarios: [
+    "applied",
+    "previewed",
+    "cancelled",
+    "no-op",
+    "partial failure",
+    "failed",
+    "blocked",
+    "interrupted",
+    "recovery required",
+  ],
   rationale: "Mutations expose one durable plan-resolution result across all execution outcomes.",
   centralizedCoverage: [
-    "packages/cli/src/json-output.test.ts",
+    "packages/cli/src/root/publish/result.internal.test.ts",
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   commandCoverage: ["command-specific tests cover branches not represented by the shared plan"],
-  documentation: ["contributing/guides/cli-renderer.md"],
+  documentation: ["docs/architecture/commands/output.md"],
 } satisfies MachineOutputFamily;
 
 const publishFamily = {
@@ -88,22 +100,30 @@ const publishFamily = {
   humanOutputKind: "mutation",
   liveness: "progress",
   livenessCoverage: [
-    "packages/cli/src/root/publish/command.test.ts",
+    "packages/cli/src/root/publish/command.internal.test.ts",
     "packages/cli-e2e/src/cli-commands/skills/publish/publish.e2e.ts",
   ],
   schemaNames: ["PublishResultSchema"],
   requiredEnvelopeKeys: ["ok", "result"],
-  requiredTopLevelKeys: ["ok", "mode", "results"],
-  optionalTopLevelKeys: ["selection", "summary", "suggestions"],
+  requiredTopLevelKeys: [
+    "ok",
+    "contract",
+    "mode",
+    "selection",
+    "publicationSet",
+    "execution",
+    "counts",
+  ],
+  optionalTopLevelKeys: ["recovery", "summary", "suggestions"],
   scenarios: ["preview", "apply", "no-op", "partial failure"],
   rationale:
     "Publish reconciliation has a purpose-built multi-item result whose actions differ from file plans.",
   centralizedCoverage: [
-    "packages/cli/src/json-output.test.ts",
+    "packages/cli/src/root/publish/result.internal.test.ts",
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
-  commandCoverage: ["packages/cli/src/root/publish/command.test.ts"],
-  documentation: ["contributing/guides/cli-renderer.md"],
+  commandCoverage: ["packages/cli/src/root/publish/command.internal.test.ts"],
+  documentation: ["docs/architecture/commands/output.md"],
 } satisfies MachineOutputFamily;
 
 const defineResultFamily = (input: {
@@ -130,11 +150,11 @@ const defineResultFamily = (input: {
   scenarios: input.scenarios,
   rationale: input.rationale,
   centralizedCoverage: [
-    "packages/cli/src/machine-output-contracts.test.ts",
-    "packages/core/src/unstable/cli-renderer/cli-renderer-machine.test.ts",
+    "packages/cli/src/machine-output-contracts.internal.test.ts",
+    "packages/cli/src/screen/screen-machine.internal.test.ts",
   ],
   commandCoverage: input.commandCoverage,
-  documentation: ["contributing/guides/cli-renderer.md"],
+  documentation: ["docs/architecture/commands/output.md"],
 });
 
 const agentsListFamily = defineResultFamily({
@@ -143,7 +163,7 @@ const agentsListFamily = defineResultFamily({
   requiredTopLevelKeys: ["items", "configured", "detected", "available", "count"],
   scenarios: ["configured agents", "empty workspace"],
   rationale: "Agent discovery returns inventory and source counts rather than a mutation plan.",
-  commandCoverage: ["packages/cli/src/root/agents/list.test.ts"],
+  commandCoverage: ["packages/cli/src/root/agents/list.internal.test.ts"],
 });
 
 const agentCapabilitiesFamily = defineResultFamily({
@@ -152,7 +172,7 @@ const agentCapabilitiesFamily = defineResultFamily({
   requiredTopLevelKeys: ["agent", "name", "lifecycle", "supported", "items", "count"],
   scenarios: ["known agent", "unknown agent"],
   rationale: "Capability inspection is a read query.",
-  commandCoverage: ["packages/cli/src/root/agents/capabilities.test.ts"],
+  commandCoverage: ["packages/cli/src/root/agents/capabilities.internal.test.ts"],
 });
 
 const loginFamily = defineResultFamily({
@@ -160,12 +180,12 @@ const loginFamily = defineResultFamily({
   schemaNames: ["LoginDocumentSchema", "LoginNoOpDocumentSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["logged in", "already logged in", "auth failure"],
-  rationale: "Login has applied and already-authenticated operation-plan documents.",
+  rationale: "Login reports the authoritative registry authentication transition.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "packages/cli/src/root/auth/login.test.ts",
-    "packages/core/src/unstable/auth/device-login.test.ts",
-    "packages/core/src/unstable/auth/loopback-login.test.ts",
+    "packages/cli/src/root/auth/login.internal.test.ts",
+    "packages/registry-auth/src/device-login.internal.test.ts",
+    "packages/registry-auth/src/loopback-login.internal.test.ts",
   ],
 });
 
@@ -176,7 +196,7 @@ const logoutFamily = defineResultFamily({
   scenarios: ["logged out", "local-only logout", "not logged in"],
   rationale: "Logout reports the durable credential operation and its status.",
   humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/auth/logout.test.ts"],
+  commandCoverage: ["packages/cli/src/root/auth/logout.internal.test.ts"],
 });
 
 const tokenFamily = defineResultFamily({
@@ -187,7 +207,7 @@ const tokenFamily = defineResultFamily({
   rationale:
     "The token is an explicitly requested secret-bearing result and the sole secret exception.",
   liveness: "immediate",
-  commandCoverage: ["packages/cli/src/root/auth/token.test.ts"],
+  commandCoverage: ["packages/cli/src/root/auth/token.internal.test.ts"],
 });
 
 const tokenCreateFamily = defineResultFamily({
@@ -196,9 +216,9 @@ const tokenCreateFamily = defineResultFamily({
   requiredTopLevelKeys: ["result", "data"],
   scenarios: ["created", "step-up authentication", "auth failure"],
   rationale:
-    "Token creation intentionally returns the newly created token once alongside its plan.",
+    "Token creation intentionally returns the newly created token once alongside the remote transition.",
   humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/auth/token.test.ts"],
+  commandCoverage: ["packages/cli/src/root/auth/token.internal.test.ts"],
 });
 
 const tokenListFamily = defineResultFamily({
@@ -207,7 +227,7 @@ const tokenListFamily = defineResultFamily({
   requiredTopLevelKeys: ["items", "count", "hasMore", "cursor"],
   scenarios: ["tokens present", "empty list", "auth failure"],
   rationale: "Token listing is a paginated read query.",
-  commandCoverage: ["packages/cli/src/root/auth/token.test.ts"],
+  commandCoverage: ["packages/cli/src/root/auth/token.internal.test.ts"],
 });
 
 const tokenRevokeFamily = defineResultFamily({
@@ -217,7 +237,7 @@ const tokenRevokeFamily = defineResultFamily({
   scenarios: ["revoked", "step-up authentication", "auth failure"],
   rationale: "Revocation reports one durable credential operation.",
   humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/auth/token.test.ts"],
+  commandCoverage: ["packages/cli/src/root/auth/token.internal.test.ts"],
 });
 
 const whoamiFamily = defineResultFamily({
@@ -226,16 +246,16 @@ const whoamiFamily = defineResultFamily({
   requiredTopLevelKeys: ["data"],
   scenarios: ["authenticated", "auth failure"],
   rationale: "Identity inspection is a read query.",
-  commandCoverage: ["packages/cli/src/root/auth/whoami.test.ts"],
+  commandCoverage: ["packages/cli/src/root/auth/whoami.internal.test.ts"],
 });
 
 const cacheStatusFamily = defineResultFamily({
   id: "cache-status",
   schemaNames: ["CacheStatusOutputSchema"],
-  requiredTopLevelKeys: ["data"],
+  requiredTopLevelKeys: ["entries", "bytes", "maxBytes", "maxAgeDays"],
   scenarios: ["populated cache", "empty cache"],
   rationale: "Cache status is a read query.",
-  commandCoverage: ["packages/cli/src/root/cache/command.test.ts"],
+  commandCoverage: ["packages/cli/src/root/cache/command.internal.test.ts"],
 });
 
 const cacheVerifyFamily = defineResultFamily({
@@ -244,7 +264,7 @@ const cacheVerifyFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["valid", "invalid entries"],
   rationale: "Cache verification returns a purpose-built verification result.",
-  commandCoverage: ["packages/cli/src/root/cache/command.test.ts"],
+  commandCoverage: ["packages/cli/src/root/cache/command.internal.test.ts"],
 });
 
 const cachePruneFamily = defineResultFamily({
@@ -254,7 +274,7 @@ const cachePruneFamily = defineResultFamily({
   scenarios: ["pruned", "no-op"],
   rationale: "Cache pruning reports cache-specific byte and entry counts.",
   humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/cache/command.test.ts"],
+  commandCoverage: ["packages/cli/src/root/cache/command.internal.test.ts"],
 });
 
 const discoverFamily = defineResultFamily({
@@ -263,7 +283,7 @@ const discoverFamily = defineResultFamily({
   requiredTopLevelKeys: ["items", "count", "totalDetected", "registryAvailable"],
   scenarios: ["matches", "no matches", "registry unavailable"],
   rationale: "Discovery is a read query with registry availability metadata.",
-  commandCoverage: ["packages/cli/src/root/discover/handler.test.ts"],
+  commandCoverage: ["packages/cli/src/root/discover/handler.internal.test.ts"],
 });
 
 const inventoryFamily = defineResultFamily({
@@ -276,11 +296,13 @@ const inventoryFamily = defineResultFamily({
     "implicitCount",
     "installedCount",
     "unmanagedCount",
-    "ignoredCount",
   ],
   scenarios: ["extensions present", "empty inventory", "mixed managed state"],
   rationale: "Per-type list commands share the workspace inventory query contract.",
-  commandCoverage: ["packages/cli/src/root/list-empty-output.test.ts", "per-type list tests"],
+  commandCoverage: [
+    "packages/cli/src/root/list-empty-output.internal.test.ts",
+    "per-type list tests",
+  ],
 });
 
 const extensionShowFamily = defineResultFamily({
@@ -289,7 +311,7 @@ const extensionShowFamily = defineResultFamily({
   requiredTopLevelKeys: ["item", "agents"],
   scenarios: ["extension found", "not found"],
   rationale: "Per-type show commands share the extension detail query contract.",
-  commandCoverage: ["packages/cli/src/root/shared/extension-show.test.ts"],
+  commandCoverage: ["packages/cli/src/root/shared/extension-show.internal.test.ts"],
 });
 
 const packShowFamily = defineResultFamily({
@@ -300,51 +322,14 @@ const packShowFamily = defineResultFamily({
     "sourceAuthority",
     "canonicalPath",
     "manifestVersion",
-    "trustStatus",
+    "acceptedResolution",
     "canonicalStatus",
     "desiredDependencies",
-    "resolvedDependencies",
-    "drift",
-    "recoveryAction",
-  ],
-  scenarios: ["trusted pack", "drifted workspace pack", "unresolved dependencies"],
-  rationale: "Pack inspection joins desired, trusted, canonical, and receipt state.",
-  commandCoverage: ["packages/cli/src/root/packs/show.test.ts"],
-});
-
-const packRepairFamily = defineResultFamily({
-  id: "pack-repair",
-  schemaNames: ["PackRepairResultSchema"],
-  requiredTopLevelKeys: [
-    "pack",
-    "authority",
-    "canonicalPath",
-    "previousContentIdentity",
-    "currentContentIdentity",
-    "changes",
-    "confirmation",
-    "result",
-    "recoveryAction",
-  ],
-  scenarios: ["current", "previewed", "requires confirmation", "repaired"],
-  rationale: "Pack repair reports the classified trust-baseline transition.",
-  humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/packs/repair.test.ts"],
-});
-
-const workspaceStatusFamily = defineResultFamily({
-  id: "workspace-status",
-  schemaNames: ["WorkspaceStatusSchema"],
-  requiredTopLevelKeys: [
-    "healthy",
-    "desiredGraphComplete",
-    "scope",
     "problems",
-    "blockedOperations",
   ],
-  scenarios: ["healthy workspace", "blocking local problems"],
-  rationale: "Workspace status reports local reconciliation health and supported recovery actions.",
-  commandCoverage: ["packages/cli/src/root/status.test.ts"],
+  scenarios: ["authored pack", "accepted Registry pack", "unresolved dependencies"],
+  rationale: "Pack inspection joins desired, accepted-resolution, and observed state.",
+  commandCoverage: ["packages/cli-e2e/src/cli-commands/packs/packs.e2e.ts"],
 });
 
 const helpTopicFamily = defineResultFamily({
@@ -356,16 +341,7 @@ const helpTopicFamily = defineResultFamily({
   rationale: "The help command returns raw topic data; built-in --help remains formatter-owned.",
   humanOutputKind: "orientation",
   liveness: "immediate",
-  commandCoverage: ["packages/cli/src/root/help/command.test.ts"],
-});
-
-const hooksInfoFamily = defineResultFamily({
-  id: "hooks-info",
-  schemaNames: ["HookPortabilityResultSchema"],
-  requiredTopLevelKeys: ["items", "count"],
-  scenarios: ["portable hooks", "unsupported hooks", "empty"],
-  rationale: "Hook portability inspection is a read query.",
-  commandCoverage: ["packages/cli/src/root/hooks/info.test.ts"],
+  commandCoverage: ["packages/cli/src/root/help/command.internal.test.ts"],
 });
 
 const knowledgeLintFamily = defineResultFamily({
@@ -374,7 +350,7 @@ const knowledgeLintFamily = defineResultFamily({
   requiredTopLevelKeys: ["valid", "diagnostics"],
   scenarios: ["valid bundle", "diagnostics"],
   rationale: "Knowledge linting returns a bundle-validation query result.",
-  commandCoverage: ["packages/cli/src/root/knowledge/json-output.test.ts"],
+  commandCoverage: ["packages/cli/src/root/knowledge/json-output.internal.test.ts"],
 });
 
 const knowledgeListFamily = defineResultFamily({
@@ -383,44 +359,117 @@ const knowledgeListFamily = defineResultFamily({
   requiredTopLevelKeys: ["items", "count"],
   scenarios: ["bundles present", "empty"],
   rationale: "Knowledge bundle listing is a read query.",
-  commandCoverage: ["packages/cli/src/root/knowledge/json-output.test.ts"],
+  commandCoverage: ["packages/cli/src/root/knowledge/json-output.internal.test.ts"],
 });
 
-const knowledgeOpenFamily = defineResultFamily({
-  id: "knowledge-open",
-  schemaNames: ["KnowledgeOpenQueryResultSchema"],
-  requiredTopLevelKeys: ["concept"],
-  scenarios: ["concept found", "not found"],
-  rationale: "Opening a knowledge concept is a read query.",
-  commandCoverage: ["packages/cli/src/root/knowledge/json-output.test.ts"],
+const knowledgeConceptGetFamily = defineResultFamily({
+  id: "knowledge-concept-get",
+  schemaNames: ["KnowledgeConceptGetOutputSchema", "KnowledgeConceptCorpusChangingFailureSchema"],
+  requiredTopLevelKeys: ["outcome"],
+  optionalTopLevelKeys: ["concept", "reason", "ref", "expectedRevision", "currentRevision"],
+  scenarios: ["concept found", "revision changed", "not found"],
+  rationale: "Concept get returns exact source and resolved revision identity.",
+  commandCoverage: ["packages/cli/src/root/knowledge/json-output.internal.test.ts"],
 });
 
-const knowledgeSearchFamily = defineResultFamily({
-  id: "knowledge-search",
-  schemaNames: ["KnowledgeSearchQueryResultSchema"],
-  requiredTopLevelKeys: ["query", "items", "count"],
-  scenarios: ["matches", "no matches"],
-  rationale: "Knowledge search is a read query.",
-  commandCoverage: ["packages/cli/src/root/knowledge/json-output.test.ts"],
+const knowledgeConceptQueryFamily = defineResultFamily({
+  id: "knowledge-concept-query",
+  schemaNames: [
+    "KnowledgeConceptQueryPageSchema",
+    "KnowledgeConceptCursorFailureSchema",
+    "KnowledgeConceptCorpusChangingFailureSchema",
+  ],
+  requiredTopLevelKeys: [],
+  optionalTopLevelKeys: [
+    "query",
+    "corpusFingerprint",
+    "items",
+    "count",
+    "hasMore",
+    "cursor",
+    "explanation",
+    "outcome",
+    "reason",
+  ],
+  scenarios: ["matches", "no matches", "next page", "cursor expired", "corpus changing", "explain"],
+  rationale: "Concept search and query share a canonical paginated query result.",
+  commandCoverage: ["packages/cli/src/root/knowledge/json-output.internal.test.ts"],
+});
+
+const knowledgeConceptResolveFamily = defineResultFamily({
+  id: "knowledge-concept-resolve",
+  schemaNames: [
+    "KnowledgeConceptResolveOutputSchema",
+    "KnowledgeConceptCorpusChangingFailureSchema",
+  ],
+  requiredTopLevelKeys: ["outcome"],
+  optionalTopLevelKeys: ["candidate", "candidates", "reason"],
+  scenarios: ["resolved", "ambiguous", "not found", "corpus changing"],
+  rationale: "Concept resolution returns one identity or bounded candidates.",
+  commandCoverage: ["packages/knowledge-query/src/knowledge-graph.internal.test.ts"],
+});
+
+const knowledgeConceptRelatedFamily = defineResultFamily({
+  id: "knowledge-concept-related",
+  schemaNames: [
+    "KnowledgeConceptRelatedOutputSchema",
+    "KnowledgeConceptCorpusChangingFailureSchema",
+  ],
+  requiredTopLevelKeys: [],
+  optionalTopLevelKeys: [
+    "ref",
+    "maximumDepth",
+    "includesIndexBacklinks",
+    "items",
+    "count",
+    "corpusFingerprint",
+    "outcome",
+    "reason",
+  ],
+  scenarios: ["related concepts", "empty", "missing root", "corpus changing"],
+  rationale: "Related traversal returns bounded graph results and corpus identity.",
+  commandCoverage: ["packages/knowledge-query/src/knowledge-graph.internal.test.ts"],
+});
+
+const knowledgeConceptStatusFamily = defineResultFamily({
+  id: "knowledge-concept-status",
+  schemaNames: ["KnowledgeConceptStatusOutputSchema"],
+  requiredTopLevelKeys: [
+    "capabilities",
+    "readiness",
+    "health",
+    "bundleCount",
+    "conceptCount",
+    "scopeCollisions",
+  ],
+  optionalTopLevelKeys: ["corpusFingerprint"],
+  scenarios: [
+    "selected corpus",
+    "empty corpus",
+    "unhealthy corpus",
+    "cross-scope collisions not determined",
+  ],
+  rationale: "Discovery status exposes the canonical capabilities and selected corpus identity.",
+  commandCoverage: ["packages/cli/src/root/knowledge/json-output.internal.test.ts"],
 });
 
 const lintFamily = defineResultFamily({
   id: "workspace-lint",
-  schemaNames: ["LintResultDocumentSchema", "LintFixDocumentSchema"],
+  schemaNames: ["LintResultDocumentSchema"],
   requiredTopLevelKeys: ["result"],
-  scenarios: ["clean", "findings", "fixed", "partially fixed", "fix failure"],
-  rationale: "Lint query and fix modes share a report, with fix nesting the applied plan.",
+  scenarios: ["clean", "findings", "normalized findings"],
+  rationale: "Lint query and normalized fix modes share one fact-report contract.",
   humanOutputKind: "mixed",
-  commandCoverage: ["packages/cli/src/root/lint/handler.test.ts"],
+  commandCoverage: ["packages/cli/src/root/lint/handler.internal.test.ts"],
 });
 
-const outdatedFamily = defineResultFamily({
-  id: "outdated",
-  schemaNames: ["OutdatedDocumentSchema"],
-  requiredTopLevelKeys: ["items", "count"],
-  scenarios: ["updates available", "up to date", "mixed sources"],
-  rationale: "Outdated is a read query across installed extensions.",
-  commandCoverage: ["packages/cli/src/root/outdated/handler.test.ts"],
+const extensionListFamily = defineResultFamily({
+  id: "extension-list",
+  schemaNames: ["ExtensionListDocumentSchema"],
+  requiredTopLevelKeys: ["filter", "items", "count", "totalCount"],
+  scenarios: ["local inventory", "updates available", "deprecated", "incomplete coverage"],
+  rationale: "Root list is a local inventory query with optional remote filters.",
+  commandCoverage: ["packages/cli/src/root/list/command.internal.test.ts"],
 });
 
 const instructionsFamily = defineResultFamily({
@@ -430,7 +479,7 @@ const instructionsFamily = defineResultFamily({
   scenarios: ["enabled", "disabled", "mixed roots"],
   rationale: "Instructions status is a read query; enable and disable remain plan mutations.",
   humanOutputKind: "mixed",
-  commandCoverage: ["packages/cli/src/root/rules/instructions.test.ts"],
+  commandCoverage: ["packages/cli/src/root/instructions.internal.test.ts"],
 });
 
 const setupFamily = defineResultFamily({
@@ -440,7 +489,7 @@ const setupFamily = defineResultFamily({
   scenarios: ["initialized", "already initialized", "previewed", "partial failure"],
   rationale: "Setup has additional discovery data nested in its purpose-built operation result.",
   humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/setup.test.ts"],
+  commandCoverage: ["packages/cli/src/root/setup.internal.test.ts"],
 });
 
 const upgradeFamily = defineResultFamily({
@@ -450,7 +499,7 @@ const upgradeFamily = defineResultFamily({
   scenarios: ["upgraded", "already current", "previewed", "interrupted", "verification failure"],
   rationale: "CLI upgrade reports the package-manager command and verification outcome.",
   humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/upgrade/handler.test.ts"],
+  commandCoverage: ["packages/cli/src/root/upgrade/handler.internal.test.ts"],
 });
 
 const viewFamily = defineResultFamily({
@@ -460,15 +509,45 @@ const viewFamily = defineResultFamily({
   optionalTopLevelKeys: ["data", "value"],
   scenarios: ["full document", "scalar field", "versions field", "not found"],
   rationale: "Registry view returns either the full extension document or one selected field.",
-  commandCoverage: ["packages/cli/src/root/view/handler.test.ts"],
+  commandCoverage: ["packages/cli/src/root/view/handler.internal.test.ts"],
+});
+
+const visibilityEvaluationFamily = defineResultFamily({
+  id: "visibility-evaluation",
+  schemaNames: ["VisibilityEvaluationSchema"],
+  requiredTopLevelKeys: ["target", "intent", "actual", "comparison", "findings"],
+  scenarios: ["matching intent", "drift", "unconfigured", "not established", "unavailable"],
+  rationale:
+    "Visibility status reports repository intent and authoritative Registry state without mutation.",
+  commandCoverage: ["packages/cli/src/app.internal.test.ts"],
+});
+
+const visibilityMutationFamily = defineResultFamily({
+  id: "visibility-mutation",
+  schemaNames: ["VisibilityMutationResultSchema"],
+  requiredTopLevelKeys: ["target", "before", "after", "authority", "result", "revision"],
+  scenarios: ["changed", "already satisfied", "stale revision", "step-up required"],
+  rationale:
+    "Visibility administration reports the conditional whole-Extension mutation and resulting revision.",
+  humanOutputKind: "mutation",
+  commandCoverage: ["packages/cli/src/app.internal.test.ts"],
+});
+
+const lifecycleTransitionFamily = defineResultFamily({
+  id: "lifecycle-transition",
+  schemaNames: ["LifecycleTransitionOutputSchema"],
+  requiredTopLevelKeys: ["target", "before", "after", "disposition", "revision"],
+  scenarios: ["created", "edited", "restored", "unchanged", "stale revision"],
+  rationale:
+    "Deprecation administration reports the authoritative conditional Registry transition without a local workspace artifact.",
+  humanOutputKind: "mutation",
+  commandCoverage: ["packages/cli/src/root/lifecycle/command.internal.test.ts"],
 });
 
 const formatterPaths = [
   "axm",
-  "axm auth",
+  "axm agents",
   "axm cache",
-  "axm commands",
-  "axm files",
   "axm hooks",
   "axm knowledge",
   "axm mcps",
@@ -482,32 +561,14 @@ const planPaths = [
   "axm adopt",
   "axm agents add",
   "axm agents remove",
-  "axm agents rm",
-  "axm commands disable",
-  "axm commands enable",
-  "axm commands install",
-  "axm commands new",
-  "axm commands uninstall",
-  "axm commands update",
-  "axm commands version",
   "axm demote",
-  "axm deprecate",
-  "axm files disable",
-  "axm files enable",
-  "axm files install",
-  "axm files new",
-  "axm files prune",
-  "axm files uninstall",
-  "axm files update",
-  "axm files version",
+  "axm fork",
   "axm hooks disable",
   "axm hooks enable",
   "axm hooks install",
   "axm hooks new",
-  "axm hooks prune",
   "axm hooks uninstall",
   "axm hooks update",
-  "axm hooks version",
   "axm install",
   "axm knowledge disable",
   "axm knowledge enable",
@@ -515,53 +576,46 @@ const planPaths = [
   "axm knowledge new",
   "axm knowledge uninstall",
   "axm knowledge update",
-  "axm knowledge version",
   "axm mcps add",
   "axm mcps disable",
   "axm mcps enable",
   "axm mcps import",
   "axm mcps install",
   "axm mcps new",
-  "axm mcps remove",
-  "axm mcps rm",
   "axm mcps uninstall",
   "axm mcps update",
-  "axm mcps version",
   "axm packs add",
+  "axm packs disable",
+  "axm packs enable",
   "axm packs install",
   "axm packs new",
   "axm packs remove",
   "axm packs uninstall",
   "axm packs unpack",
-  "axm packs version",
-  "axm prune",
+  "axm packs update",
   "axm rules disable",
   "axm rules enable",
   "axm rules install",
-  "axm rules instructions disable",
-  "axm rules instructions enable",
+  "axm instructions disable",
+  "axm instructions enable",
   "axm rules new",
   "axm rules uninstall",
   "axm rules update",
-  "axm rules version",
-  "axm skills copy",
   "axm skills disable",
   "axm skills enable",
+  "axm skills import",
   "axm skills install",
   "axm skills new",
-  "axm skills prune",
   "axm skills uninstall",
   "axm skills update",
-  "axm skills version",
   "axm subagents disable",
   "axm subagents enable",
+  "axm subagents import",
   "axm subagents install",
   "axm subagents new",
   "axm subagents uninstall",
   "axm subagents update",
-  "axm subagents version",
   "axm sync",
-  "axm undeprecate",
   "axm uninstall",
   "axm unyank",
   "axm update",
@@ -571,8 +625,6 @@ const planPaths = [
 
 const publishPaths = [
   "axm publish",
-  "axm commands publish",
-  "axm files publish",
   "axm hooks publish",
   "axm knowledge publish",
   "axm mcps publish",
@@ -590,42 +642,33 @@ const rowsFor = (
 
 export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRow> = [
   ...rowsFor(helpFamily, formatterPaths),
+  ...rowsFor(helpFamily, ["axm visibility"]),
+  ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),
+  ...rowsFor(lifecycleTransitionFamily, ["axm deprecate", "axm undeprecate"]),
   ...rowsFor(publishFamily, publishPaths),
-  ...rowsFor(agentsListFamily, ["axm agents", "axm agents list", "axm agents ls"]),
+  ...rowsFor(agentsListFamily, ["axm agents list"]),
   ...rowsFor(agentCapabilitiesFamily, ["axm agents capabilities"]),
-  ...rowsFor(loginFamily, ["axm login", "axm auth login"]),
-  ...rowsFor(logoutFamily, ["axm logout", "axm auth logout"]),
-  ...rowsFor(tokenFamily, ["axm token", "axm auth token"]),
-  ...rowsFor(tokenCreateFamily, ["axm token create", "axm auth token create"]),
-  ...rowsFor(tokenListFamily, ["axm token list", "axm auth token list"]),
-  ...rowsFor(tokenRevokeFamily, ["axm token revoke", "axm auth token revoke"]),
-  ...rowsFor(whoamiFamily, ["axm whoami", "axm auth whoami"]),
+  ...rowsFor(loginFamily, ["axm login"]),
+  ...rowsFor(logoutFamily, ["axm logout"]),
+  ...rowsFor(tokenFamily, ["axm token"]),
+  ...rowsFor(tokenCreateFamily, ["axm token create"]),
+  ...rowsFor(tokenListFamily, ["axm token list"]),
+  ...rowsFor(tokenRevokeFamily, ["axm token revoke"]),
+  ...rowsFor(whoamiFamily, ["axm whoami"]),
   ...rowsFor(cacheStatusFamily, ["axm cache status"]),
   ...rowsFor(cacheVerifyFamily, ["axm cache verify"]),
   ...rowsFor(cachePruneFamily, ["axm cache prune"]),
   ...rowsFor(discoverFamily, ["axm discover"]),
   ...rowsFor(inventoryFamily, [
-    "axm commands list",
-    "axm commands ls",
-    "axm files list",
-    "axm files ls",
     "axm hooks list",
-    "axm hooks ls",
     "axm mcps list",
-    "axm mcps ls",
     "axm packs list",
-    "axm packs ls",
     "axm rules list",
-    "axm rules ls",
     "axm skills list",
-    "axm skills ls",
     "axm subagents list",
-    "axm subagents ls",
   ]),
   ...rowsFor(extensionShowFamily, [
-    "axm commands show",
-    "axm files show",
     "axm hooks show",
     "axm knowledge show",
     "axm mcps show",
@@ -634,20 +677,25 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
     "axm subagents show",
   ]),
   ...rowsFor(packShowFamily, ["axm packs show"]),
-  ...rowsFor(packRepairFamily, ["axm packs repair"]),
-  ...rowsFor(workspaceStatusFamily, ["axm status"]),
   ...rowsFor(helpTopicFamily, ["axm help"]),
-  ...rowsFor(hooksInfoFamily, ["axm hooks info"]),
   ...rowsFor(knowledgeLintFamily, ["axm knowledge lint"]),
-  ...rowsFor(knowledgeListFamily, ["axm knowledge list", "axm knowledge ls"]),
-  ...rowsFor(knowledgeOpenFamily, ["axm knowledge open"]),
-  ...rowsFor(knowledgeSearchFamily, ["axm knowledge search"]),
+  ...rowsFor(knowledgeListFamily, ["axm knowledge list"]),
+  ...rowsFor(knowledgeConceptResolveFamily, ["axm knowledge concepts resolve"]),
+  ...rowsFor(knowledgeConceptQueryFamily, [
+    "axm knowledge concepts search",
+    "axm knowledge concepts query",
+  ]),
+  ...rowsFor(knowledgeConceptGetFamily, ["axm knowledge concepts get"]),
+  ...rowsFor(knowledgeConceptRelatedFamily, ["axm knowledge concepts related"]),
+  ...rowsFor(knowledgeConceptStatusFamily, ["axm knowledge concepts status"]),
   ...rowsFor(lintFamily, ["axm lint"]),
-  ...rowsFor(outdatedFamily, ["axm outdated"]),
-  ...rowsFor(instructionsFamily, ["axm rules instructions"]),
+  ...rowsFor(extensionListFamily, ["axm list"]),
+  ...rowsFor(instructionsFamily, ["axm instructions"]),
   ...rowsFor(setupFamily, ["axm setup"]),
   ...rowsFor(upgradeFamily, ["axm upgrade"]),
   ...rowsFor(viewFamily, ["axm view"]),
+  ...rowsFor(visibilityEvaluationFamily, ["axm visibility status"]),
+  ...rowsFor(visibilityMutationFamily, ["axm visibility set", "axm visibility reconcile"]),
 ];
 
 export const FORMATTER_VERSION_CONTRACT = {
@@ -657,7 +705,7 @@ export const FORMATTER_VERSION_CONTRACT = {
     outputClass: "formatter-help",
     humanOutputKind: "orientation",
     liveness: "immediate",
-    livenessCoverage: ["packages/cli/src/formatter.test.ts"],
+    livenessCoverage: ["packages/cli/src/formatter.internal.test.ts"],
     schemaNames: ["JsonVersionDocSchema"],
     requiredEnvelopeKeys: ["type", "name", "version"],
     requiredTopLevelKeys: ["type", "name", "version"],
@@ -665,11 +713,11 @@ export const FORMATTER_VERSION_CONTRACT = {
     scenarios: ["explicit --version"],
     rationale: "Effect CLI owns built-in version rendering before a command handler runs.",
     centralizedCoverage: [
-      "packages/cli/src/machine-output-contracts.test.ts",
-      "packages/cli/src/formatter.test.ts",
+      "packages/cli/src/machine-output-contracts.internal.test.ts",
+      "packages/cli/src/formatter.internal.test.ts",
     ],
     commandCoverage: [],
-    documentation: ["contributing/guides/cli-renderer.md"],
+    documentation: ["docs/architecture/commands/output.md"],
   },
   helpSchemaName: "JsonHelpDocSchema",
 } satisfies MachineOutputContractRow;

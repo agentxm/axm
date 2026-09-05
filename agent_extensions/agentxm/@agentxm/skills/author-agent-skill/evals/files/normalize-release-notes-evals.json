@@ -1,0 +1,21 @@
+{
+  "skill_name": "normalize-release-notes",
+  "suite_version": "0.2.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": "routing-positive",
+      "stage": "routing",
+      "prompt": "Normalize this Markdown release-note file.",
+      "expected_selection": "normalize-release-notes",
+      "catalog_neighbors": [],
+      "assertions": ["The normalization request selects the skill."]
+    },
+    {
+      "id": "execution-happy",
+      "stage": "execution",
+      "prompt": "Normalize notes.md into release-notes.md.",
+      "assertions": ["The named output is written with normalized headings and preserved prose."]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-state",
+  "projectType": "library",
+  "root": "packages/workspace-state",
+  "sourceRoot": "packages/workspace-state/src",
+  "tags": ["type:lib", "layer:kernel", "scope:workspace-state", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/workspace-state/src/index.ts",
+        "outputPath": "packages/workspace-state/dist",
+        "tsConfig": "packages/workspace-state/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

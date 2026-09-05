@@ -1,24 +1,37 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, CliError, Command } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { type SuggestedAction, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { type AppError, makeAppError } from "../../app-error/index.js";
+import { quietFlag } from "../../cli-flags/index.js";
+import {
+  Screen,
+  InteractiveScreen,
+  MachineScreen,
+  markdownDoc,
+  rawDoc,
+  resolveCliOutputPolicy,
+  suggestionsDoc,
+  tableViewDoc,
+  type TableView,
+} from "../../screen/index.js";
+import { resolveCliFormat, withArgvTracking } from "../../cli-runtime/index.js";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   HELP_TOPICS,
   HELP_TOPIC_KINDS,
   HELP_TOPIC_NAMES,
   type HelpTopicName,
 } from "../../__generated__/help-topics.js";
-import { withRuntime } from "../../runtime.js";
 import { HELP_TOPIC_DESCRIPTIONS } from "./help-topic-descriptions.js";
 
 const helpConfig = {
-  topic: Argument.string("topic").pipe(
-    Argument.withDescription("Help topic, such as basic-usage or getting-started"),
-    Argument.optional,
+  path: Argument.string("topic-or-command").pipe(
+    Argument.withDescription(
+      "Help topic or command path, such as basic-usage, skills install, or agents add",
+    ),
+    Argument.variadic(),
   ),
 } as const;
 
@@ -36,10 +49,6 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "skill-schema",
   "subagents",
   "subagent-schema",
-  "commands",
-  "command-schema",
-  "files",
-  "files-schema",
   "hooks",
   "knowledge",
   "mcps",
@@ -49,7 +58,6 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "package-extensions",
   "settings",
   "settings-schema",
-  "trust-schema",
   "mcp-schema",
   "axm-lock-schema",
   "axm-package-meta-schema",
@@ -105,14 +113,33 @@ const HELP_INDEX_SUGGESTIONS = [
   },
 ] as const satisfies ReadonlyArray<SuggestedAction>;
 
+const UNKNOWN_TOPIC_SUGGESTIONS = [
+  {
+    description: "List available help topics.",
+    cmd: "axm help",
+  },
+] as const satisfies ReadonlyArray<SuggestedAction>;
+
+const helpRendererLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const format = yield* resolveCliFormat;
+    const quiet = yield* quietFlag;
+    const outputPolicy = resolveCliOutputPolicy({ quiet });
+
+    return format === "json"
+      ? MachineScreen({ quiet: outputPolicy.quiet })
+      : InteractiveScreen({ outputPolicy });
+  }),
+);
+
 const writeHelpTopicIndex = () =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const rows: ReadonlyArray<HelpTopicRow> = ORDERED_TOPIC_NAMES.map((topic) => ({
       topic,
       description: HELP_TOPIC_DESCRIPTIONS[topic],
     }));
-    const emitted = yield* renderer.result(
+    const emitted = yield* screen.document(
       {
         usage: "axm help <topic>",
         topics: rows.map(({ topic, description }) => ({ name: topic, description })),
@@ -123,63 +150,89 @@ const writeHelpTopicIndex = () =>
     if (emitted) return;
     // Render the index through the renderer's structured table so topics align
     // in columns and pick up the standard chrome — no Markdown reflow.
-    yield* renderer.table(rows, HelpTopicTableView);
-    yield* renderer.suggestions(HELP_INDEX_SUGGESTIONS);
+    yield* screen.result(tableViewDoc(rows, HelpTopicTableView));
+    yield* screen.note(suggestionsDoc(HELP_INDEX_SUGGESTIONS));
   });
 
 const writeHelpTopic = (name: HelpTopicName) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const raw = HELP_TOPICS[name];
     const content = raw.endsWith("\n") ? raw : `${raw}\n`;
-    const emitted = yield* renderer.result({ topic: name, content }, HelpTopicResultSchema);
+    const emitted = yield* screen.document({ topic: name, content }, HelpTopicResultSchema);
     if (emitted) return;
     if (HELP_TOPIC_KINDS[name] === "json-schema") {
-      yield* renderer.raw(content);
+      yield* screen.result(rawDoc(content));
       return;
     }
-    yield* renderer.markdown(content);
+    yield* screen.result(markdownDoc(content));
   });
 
-export const handleHelpTopic = (topic: Option.Option<string>) =>
-  Option.match(topic, {
-    onNone: () => writeHelpTopicIndex(),
-    onSome: (rawName) => {
-      const name = rawName;
-      if (isHelpTopicName(name)) {
-        return writeHelpTopic(name);
-      }
+export const resolveCommandPath = (
+  root: Command.Command.Any,
+  requestedPath: ReadonlyArray<string>,
+): ReadonlyArray<string> | undefined => {
+  let current = root;
+  const canonicalPath: Array<string> = [];
 
-      return Effect.fail(
-        makeAppError({
-          code: "not_found",
-          detail: `Unknown help topic '${rawName}'. Known topics include: ${ORDERED_TOPIC_NAMES.join(", ")}`,
-          suggestions: [
-            {
-              description: "List available help topics.",
-              cmd: "axm help",
-            },
-          ],
-        }),
-      );
-    },
-  });
+  for (const segment of requestedPath) {
+    const child = current.subcommands
+      .flatMap((group) => group.commands)
+      .find((command) => command.name === segment || command.alias === segment);
+    if (child === undefined) return undefined;
 
-export const helpCommand = Command.make("help", helpConfig, ({ topic }) =>
-  handleHelpTopic(topic).pipe(withRuntime("help")),
-).pipe(
-  withArgvTracking(helpConfig),
-  Command.withDescription("Show general help, a topic page, or a raw schema"),
-  Command.withExamples([
-    { command: "axm help", description: "View help topics" },
-    { command: "axm help basic-usage", description: "How to use AXM" },
-    { command: "axm help getting-started", description: "How to set up and configure AXM" },
-    { command: "axm help skills", description: "Managing agent skills with AXM" },
-    {
-      command: "axm help subagents",
-      description: "Managing subagents with AXM",
-    },
-    { command: "axm help skill-schema", description: "Print the skill manifest JSON Schema" },
-    { command: "axm help exit-codes", description: "Exit code conventions" },
-  ]),
-);
+    canonicalPath.push(child.name);
+    current = child;
+  }
+
+  return canonicalPath;
+};
+
+export const handleHelpPath = (
+  path: ReadonlyArray<string>,
+  root: Command.Command.Any,
+): Effect.Effect<void, AppError | CliError.ShowHelp, Screen> => {
+  if (path.length === 0) return writeHelpTopicIndex();
+
+  const [singleTopic] = path;
+  if (path.length === 1 && singleTopic !== undefined && isHelpTopicName(singleTopic)) {
+    return writeHelpTopic(singleTopic);
+  }
+
+  const canonicalPath = resolveCommandPath(root, path);
+  if (canonicalPath !== undefined) {
+    return Effect.fail(
+      new CliError.ShowHelp({ commandPath: [root.name, ...canonicalPath], errors: [] }),
+    );
+  }
+
+  const requested = path.join(" ");
+  return Effect.fail(
+    makeAppError({
+      code: "not_found",
+      detail: `Unknown help topic or command path '${requested}'.`,
+      suggestions: UNKNOWN_TOPIC_SUGGESTIONS,
+    }),
+  );
+};
+
+export const makeHelpCommand = (getRootCommand: () => Command.Command.Any) =>
+  Command.make("help", helpConfig, ({ path }) => handleHelpPath(path, getRootCommand())).pipe(
+    Command.provide(helpRendererLayer),
+    withArgvTracking(helpConfig),
+    Command.withDescription("Show general help, a topic page, raw schema, or command help"),
+    Command.withShortDescription("Show topic or command help"),
+    Command.withExamples([
+      { command: "axm help", description: "View help topics" },
+      { command: "axm help basic-usage", description: "How to use AXM" },
+      { command: "axm help skills install", description: "Show nested command help" },
+      { command: "axm help getting-started", description: "How to set up and configure AXM" },
+      { command: "axm help skills", description: "Managing agent skills with AXM" },
+      {
+        command: "axm help subagents",
+        description: "Managing subagents with AXM",
+      },
+      { command: "axm help skill-schema", description: "Print the skill manifest JSON Schema" },
+      { command: "axm help exit-codes", description: "Exit code conventions" },
+    ]),
+  );

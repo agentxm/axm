@@ -1,8 +1,8 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
-import { scopeFlag } from "../../../cli-flags.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { handleEnableSubagent } from "./handler.js";
 
 const enableConfig = {
@@ -11,20 +11,14 @@ const enableConfig = {
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Enable even if the subagent has unresolved dependencies"),
-  ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
 } as const;
 
-export const enableCommand = Command.make(
-  "enable",
-  enableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleEnableSubagent({ name, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("subagents enable"),
-    ),
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
+  handleEnableSubagent({ name, yes, preview }).pipe(
+    withWorkspace(scope),
+    withRuntime("subagents enable"),
+  ),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a previously disabled subagent"),

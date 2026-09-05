@@ -1,0 +1,10 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@example",
+  "type": "skill",
+  "name": "format-release-notes",
+  "version": "0.2.0",
+  "description": "Prepares supplied Markdown release notes as a normalized local file",
+  "license": "MIT",
+  "standalone": true
+}

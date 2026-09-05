@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — test-only command traversal preserves foreign parser errors for assertions
 /**
  * Command-tree introspection helpers built on the real CLI parser.
  *
@@ -13,7 +14,8 @@ import * as Layer from "effect/Layer";
 import { CliOutput, Command } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
-import { cliConfigLayer, rootCommand } from "./app.js";
+import { TestRenderer } from "./screen/index.js";
+import { rootCommand } from "./app.js";
 import { baseLayer } from "./runtime.js";
 
 export const TEST_VERSION = "0.0.0-test";
@@ -23,11 +25,12 @@ export type HelpFiles = Map<string, HelpDoc>;
 export const formatCommandPath = (path: ReadonlyArray<string>): string =>
   path.length === 0 ? "axm" : `axm ${path.join(" ")}`;
 
-export const captureHelpDoc = (
-  path: ReadonlyArray<string>,
+const captureHelpDocForArgs = (
+  args: ReadonlyArray<string>,
 ): Effect.Effect<HelpDoc, unknown, never> =>
   Effect.gen(function* () {
     const files: Array<HelpDoc> = [];
+    const renderer = TestRenderer.make();
     const formatter: CliOutput.Formatter = {
       ...CliOutput.defaultFormatter({ colors: false }),
       formatHelpDoc: (doc) => {
@@ -36,20 +39,31 @@ export const captureHelpDoc = (
       },
     };
 
-    yield* Command.runWith(rootCommand, { version: TEST_VERSION })([...path, "--help"]).pipe(
-      Effect.provide(Layer.mergeAll(baseLayer, cliConfigLayer)),
+    yield* Command.runWith(rootCommand, { version: TEST_VERSION })(args).pipe(
+      Effect.catchTag("ShowHelp", (error) =>
+        error.errors.length === 0 ? Effect.void : Effect.fail(error),
+      ),
+      Effect.provide(Layer.mergeAll(baseLayer, renderer.layer)),
       Effect.provideService(CliOutput.Formatter, formatter),
     );
 
     const doc = files[0];
     if (doc === undefined) {
-      return yield* Effect.die(
-        new Error(`Expected help output for ${formatCommandPath(path)} --help`),
-      );
+      return yield* Effect.die(new Error(`Expected help output for axm ${args.join(" ")}`));
     }
 
     return doc;
   });
+
+export const captureHelpDoc = (
+  path: ReadonlyArray<string>,
+): Effect.Effect<HelpDoc, unknown, never> => captureHelpDocForArgs([...path, "--help"]);
+
+export const captureHelpRequestDoc = (
+  path: ReadonlyArray<string>,
+  options?: { readonly json?: boolean | undefined },
+): Effect.Effect<HelpDoc, unknown, never> =>
+  captureHelpDocForArgs(["help", ...path, ...(options?.json === true ? ["--json"] : [])]);
 
 export const collectHelpFiles = (
   path: ReadonlyArray<string> = [],
@@ -88,18 +102,30 @@ export const collectCommandAliases = (): Effect.Effect<
   ReadonlyMap<string, string>,
   unknown,
   never
-> =>
-  collectHelpFiles().pipe(
-    Effect.map((files) => {
-      const aliases = new Map<string, string>();
-      for (const [parentPath, doc] of files) {
-        for (const group of doc.subcommands ?? []) {
-          for (const subcommand of group.commands) {
-            if (subcommand.alias === undefined) continue;
-            aliases.set(`${parentPath} ${subcommand.alias}`, `${parentPath} ${subcommand.name}`);
-          }
-        }
+> => {
+  const aliases = new Map<string, string>();
+
+  const walk = (
+    command: Command.Command.Any,
+    canonicalParent: ReadonlyArray<string>,
+    invocationParents: ReadonlyArray<ReadonlyArray<string>>,
+  ): void => {
+    for (const child of command.subcommands.flatMap((group) => group.commands)) {
+      const canonicalPath = [...canonicalParent, child.name];
+      const childNames = child.alias === undefined ? [child.name] : [child.name, child.alias];
+      const invocationPaths = invocationParents.flatMap((parent) =>
+        childNames.map((name) => [...parent, name]),
+      );
+
+      for (const invocationPath of invocationPaths) {
+        if (invocationPath.join(" ") === canonicalPath.join(" ")) continue;
+        aliases.set(formatCommandPath(invocationPath), formatCommandPath(canonicalPath));
       }
-      return aliases;
-    }),
-  );
+
+      walk(child, canonicalPath, invocationPaths);
+    }
+  };
+
+  walk(rootCommand, [], [[]]);
+  return Effect.succeed(aliases);
+};

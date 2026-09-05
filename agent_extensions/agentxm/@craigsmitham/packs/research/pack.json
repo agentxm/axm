@@ -1,0 +1,28 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "0.1.1",
+  "description": "Fresh-context, read-only research framing and evidence gathering with inspectable uncertainty",
+  "keywords": [
+    "research",
+    "researcher",
+    "evidence",
+    "citations",
+    "framing",
+    "uncertainty",
+    "read-only"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "packs/research"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "type": "pack",
+  "name": "research",
+  "dependencies": {
+    "@craigsmitham/skills/research": ">=3.0.1",
+    "@craigsmitham/subagents/researcher": ">=0.1.1"
+  }
+}

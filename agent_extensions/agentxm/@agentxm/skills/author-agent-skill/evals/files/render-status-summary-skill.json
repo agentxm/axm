@@ -1,0 +1,9 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@example",
+  "type": "skill",
+  "name": "render-status-summary",
+  "version": "0.3.0",
+  "description": "Renders a local JSON status record as a Markdown summary",
+  "license": "MIT"
+}

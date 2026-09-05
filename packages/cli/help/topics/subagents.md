@@ -1,6 +1,12 @@
 # Subagents
 
-Subagent packages live in `./.axm/extensions/<@owner>/subagents/<subagent-name>`.
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
+Project-authored subagent packages live in `./subagents/<subagent-name>`;
+acquired packages use the source-qualified canonical scheme. For example, an
+AgentXM Registry subagent lives under
+`./agent_extensions/agentxm/<@owner>/subagents/<subagent-name>`.
 
 A subagent is two coordinated files: a portable manifest plus a content file that holds the system prompt and any agent-facing frontmatter.
 
@@ -8,7 +14,9 @@ A subagent is two coordinated files: a portable manifest plus a content file tha
 
 [`subagent.json`](https://axm.sh/schemas/subagent.schema.json)
 
-Targeting is workspace-owned through `.axm/settings.json` `agents`; publish rejects manifest `agents`. The manifest does not carry per-agent behavior — that lives in the content file.
+Targeting is workspace-owned through `axm.json` `agents`; publish rejects
+manifest `agents`. The manifest does not carry per-agent behavior — that lives
+in the content file.
 
 Run `axm help subagent-schema` to print the raw JSON Schema.
 
@@ -58,7 +66,7 @@ agentOverrides:
   claude-code:
     permissions:
       write: false
-      legacyMode: null
+      writeMode: null
     allowedTools:
       - Read
       - Grep
@@ -70,11 +78,30 @@ Overrides for agents not in your configured `agents` set are ignored, with a war
 
 ## Updating subagents
 
-Edit the content file under `src/`. `axm sync` re-renders the agent-native files from the content file's frontmatter and body; it does not write to `subagent.json`.
+For a project-authored subagent, edit its content file under `src/`. `axm sync`
+re-renders the agent-native files from the content file's frontmatter and body;
+it does not write to `subagent.json`.
 
-If you find an AXM-managed rendered subagent file in an agent directory, edit the source path named in that file and then run `axm sync`.
+An AXM-managed rendered file names its canonical source for provenance. It
+offers edit-and-sync guidance only when that source is project-authored.
+Registry, Git, and local-source packages are immutable accepted state; use
+`axm fork` to create an authored copy before customizing one. Never edit the
+rendered agent file.
 
 Run `axm subagents publish` to release a new version. Publish validates the manifest, checks that `src/<subagent-name>.md` exists and that its frontmatter `name` matches the manifest, then zips the extension directory, computes its SRI integrity hash, and uploads the version to the target registry. Publish never edits `subagent.json` — whatever is on disk is what gets shipped.
+
+## Unmanaged subagents
+
+Agent-native subagents without AXM ownership remain outside reconciliation.
+Use `axm subagents import <source> <extension>` when you deliberately want an
+AXM-owned copy that you can customize or publish. Import accepts a supported
+local or Git source, creates a new project-workspace package, and leaves the
+native source unchanged. Use `--preview` to inspect the candidate without
+writing it.
+
+Use `axm fork <source> <extension>` instead when the source is already a
+managed AXM package. Leave content unowned when another tool owns its lifecycle;
+AXM does not delete it.
 
 ## Recommended packs
 
@@ -90,10 +117,12 @@ When a pack lists this subagent as a dependency and the subagent lists that pack
 
 Always declare `recommendedPacks` for packs you publish under the same owner that bundle this subagent — it costs nothing and earns the Official badge in the registry.
 
-See `axm help packs` for pack authoring and `standalone` semantics.
+Keep the subagent self-contained. `recommendedPacks` does not install the pack
+or its members. If the subagent requires another extension, follow
+`axm help packs` for the only supported direct-sibling pack composition.
 
 ## Where to go next
 
 - `axm subagents --help` — full subagent subcommand surface
-- `axm help workspace-state` — desired, observed, trust, and receipt semantics
+- `axm help workspace-state` — desired, accepted-resolution, and observed semantics
 - `axm help packs` — bundling subagent extensions with extension packs

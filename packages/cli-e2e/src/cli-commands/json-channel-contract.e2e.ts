@@ -59,7 +59,16 @@ describe("JSON-mode channel contract (--json)", () => {
       const temp = createTempDir();
       try {
         const result = await runCli(
-          ["setup", "--yes", "--non-interactive", "--agent", "claude-code", "--json"],
+          [
+            "setup",
+            "--yes",
+            "--scope",
+            "project",
+            "--non-interactive",
+            "--agent",
+            "claude-code",
+            "--json",
+          ],
           { cwd: temp.path },
         );
 
@@ -95,17 +104,26 @@ describe("JSON-mode channel contract (--json)", () => {
     });
   });
 
-  describe("partial-failure class", () => {
-    it("axm sync --json preserves one document when some steps apply and another fails", async () => {
+  describe("blocked class", () => {
+    it("C-32: axm sync --json emits one document and mutates nothing when blocked", async () => {
       const temp = createTempDir();
       try {
         const setup = await runCli(
-          ["setup", "--yes", "--non-interactive", "--agent", "claude-code", "--json"],
+          [
+            "setup",
+            "--yes",
+            "--scope",
+            "project",
+            "--non-interactive",
+            "--agent",
+            "claude-code",
+            "--json",
+          ],
           { cwd: temp.path },
         );
         expect(setup.exitCode).toBe(0);
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
         if (!isRecord(settings)) throw new Error("Expected setup to create object settings");
         fs.writeFileSync(
@@ -133,7 +151,6 @@ describe("JSON-mode channel contract (--json)", () => {
             {
               mcpServers: {
                 demo: {
-                  "x-axm": { managed: true, source: "inline" },
                   type: "stdio",
                   command: "python",
                 },
@@ -143,6 +160,7 @@ describe("JSON-mode channel contract (--json)", () => {
             2,
           ),
         );
+        const mcpBefore = fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8");
         fs.rmSync(path.join(temp.path, ".claude", "skills", "axm"), {
           recursive: true,
           force: true,
@@ -151,17 +169,27 @@ describe("JSON-mode channel contract (--json)", () => {
         const result = await runCli(["sync", "--non-interactive", "--json"], {
           cwd: temp.path,
         });
+        expect(result.exitCode).toBe(6);
         const { stdoutDocument } = assertJsonChannelContract(result);
 
         expect(isRecord(stdoutDocument)).toBe(true);
         if (!isRecord(stdoutDocument)) return;
         expect(stdoutDocument["ok"]).toBe(false);
-        const plan = stdoutDocument["result"];
-        expect(isRecord(plan)).toBe(true);
-        if (!isRecord(plan)) return;
-        expect(plan["outcome"]).toBe("partial");
-        expect(plan["failedCount"]).toBe(1);
-        expect(Number(plan["appliedCount"])).toBeGreaterThan(0);
+        expect(stdoutDocument["result"]).toEqual(
+          expect.objectContaining({
+            contract: "plan-result-v3",
+            outcome: "blocked",
+            mode: "apply",
+            blocking: expect.objectContaining({
+              class: "precondition-unmet",
+              subject: "mcp-server:inline:demo",
+              phase: "planning",
+              causeCode: "conflict",
+            }),
+            counts: expect.objectContaining({ blocked: 1, committed: 0, failed: 0 }),
+          }),
+        );
+        expect(fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8")).toBe(mcpBefore);
       } finally {
         temp.cleanup();
       }
@@ -173,7 +201,7 @@ describe("JSON-mode channel contract (--json)", () => {
       const fixture = fileURLToPath(
         new URL("../fixtures/machine-output-defect.mjs", import.meta.url),
       );
-      const result = await runCommand(process.execPath, [fixture], {});
+      const result = await runCommand(process.execPath, [fixture, "--json"], {});
 
       expect(result.exitCode).not.toBe(0);
       const { stdoutDocument, stderrEvents } = assertJsonChannelContract(result);

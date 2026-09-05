@@ -3,29 +3,41 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
-import type { EnableSkillOperation } from "@agentxm/client-core/unstable/skills";
-import { enableSkill } from "@agentxm/client-core/unstable/skills";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { makeAppError } from "../../app-error/index.js";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
+import type { EnableSkillOperation } from "@agentxm/extension-lifecycle";
+import { enableSkill } from "@agentxm/extension-lifecycle";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { scopeFlag } from "../../cli-flags.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export interface EnableHandlerArgs {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
-export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHandlerArgs) {
+export const handleEnable = (args: EnableHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "skills.enable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Enable skill",
+    },
+    handleEnableBody(args),
+  );
+
+const handleEnableBody = Effect.fn("Enable.handle")(function* (args: EnableHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -39,7 +51,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
   const entry = installedSkills[skillName];
 
-  // Validate: skill is installed (ignored names are excluded from installed)
+  // Validate: skill is installed.
   if (entry === undefined) {
     return yield* makeAppError({
       code: "not_found",
@@ -69,6 +81,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     readiness: "ready",
     label: skillName,
     run: enableSkill(op).pipe(
+      provideLifecycleFailureAdapter,
       Effect.map((result): JobStepResult => result),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
@@ -80,19 +93,20 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     _tag: "Plan",
     name: "Enable skill",
     description: Option.some(`Enable ${skillName}`),
+    presentation: operationPresentation(
+      { imperative: "enable", past: "Enabled", gerund: "Enabling" },
+      "skill",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    force: args.force,
-    preview: args.preview,
-    displayApplied: false,
-  });
-  yield* emitAppliedPlanOutcome({
-    command: "skills.enable",
-    headline: `Enabled skill ${skillName}`,
-    resolution,
+  const execution = yield* makePublicPositionalPlanExecution(
+    args,
+    ["skills", "enable"],
+    [skillName],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("skills.enable", resolution, {
     suggestions: [
       LIST_INSTALLED_SKILLS,
       { description: "Undo", cmd: `axm skills disable ${skillName}` },
@@ -106,20 +120,11 @@ const enableConfig = {
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Enable even if the skill has unresolved dependencies"),
-  ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
 } as const;
 
-export const enableCommand = Command.make(
-  "enable",
-  enableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleEnable({ name, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("skills enable"),
-    ),
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
+  handleEnable({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("skills enable")),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a previously disabled skill"),

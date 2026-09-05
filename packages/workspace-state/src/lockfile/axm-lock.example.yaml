@@ -1,0 +1,31 @@
+lockfileVersion: 7
+skills:
+  code-review:
+    type: github
+    sourceType: github
+    sourceName: github
+    endpoint: https://github.com
+    extensionType: skill
+    workspaceName: code-review
+    packageFormat: agentxm
+    packageOwner: "@acme"
+    packageName: code-review
+    owner: acme
+    repo: code-review
+    ref: v1.0.0
+    resolvedCommit: 0123456789abcdef0123456789abcdef01234567
+    resolvedTree: abc123def456
+    contentIdentity: sha256-code-review
+    treeIntegrity: sha256-tree-v1:0000000000000000000000000000000000000000000000000000000000000000
+  local-skill:
+    type: local
+    sourceType: local
+    sourceName: local
+    extensionType: skill
+    workspaceName: local-skill
+    packageFormat: agentxm
+    packageOwner: "@acme"
+    packageName: local-skill
+    path: skills/my-skill
+    contentIdentity: sha256-local-skill
+    treeIntegrity: sha256-tree-v1:0000000000000000000000000000000000000000000000000000000000000000

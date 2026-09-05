@@ -1,3 +1,4 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — generic test harnesses intentionally preserve arbitrary fixture channels
 /**
  * Shared test helpers for CLI package tests.
  *
@@ -8,26 +9,51 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { ensureWorkspaceFiles } from "./test-stubs.js";
-import { AppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  AuthGuardInteractionTest,
-  CredentialStoreTest,
-  RegistryUrl,
-} from "@agentxm/client-core/unstable/auth";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import {
-  layer as coreWorkspaceLayer,
-  ResolvePlanInteractionTest,
-  WorkspaceInitializationInteractionTest,
-} from "@agentxm/client-core/unstable/workspace";
+import { AppError } from "./app-error/index.js";
+import { isKnownFailure, toAppError } from "./app-error/conversions.js";
+import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
+import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
+import { RegistryUrl } from "@agentxm/registry-client";
+import { TestFlagsLayer } from "./cli-flags/index.js";
+import { TestMachineRenderer, TestRenderer, logsByTag, type Screen } from "./screen/index.js";
+import { presentPlan } from "./operation-view.js";
+import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import { AxmSkillCandidateGateLive, WorkspaceCatalogLive } from "./cli-runtime/index.js";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+export { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+export { KnowledgeIndexLive };
+export {
+  HookConfiguredAgentOutcomesProviderLive,
+  HookManagerLive,
+  KnowledgeManagerLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+} from "@agentxm/extension-lifecycle/live";
+import { InspectionFailureAdapterLive, LifecycleFailureAdapterLive } from "./feature-errors.js";
+export { InspectionFailureAdapterLive, LifecycleFailureAdapterLive };
+import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
+import { ExecutionDirectory } from "./execution-directory.js";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
+
+const testHttpClient = HttpClient.make((request) =>
+  Effect.succeed(
+    HttpClientResponse.fromWeb(
+      request,
+      new Response("Unexpected test HTTP request", { status: 500 }),
+    ),
+  ),
+);
 
 const fs = (() => {
   const module = process.getBuiltinModule("node:fs");
@@ -51,7 +77,7 @@ export interface TestPromptConfig {
 }
 
 export interface TestPromptState {
-  readonly confirmCalls: Array<{ readonly kind: "auth-guard" | "resolve-plan" }>;
+  readonly confirmCalls: Array<{ readonly kind: "resolve-plan" }>;
   readonly multiselectCalls: Array<{
     readonly message: string;
     readonly options: ReadonlyArray<{
@@ -131,14 +157,32 @@ export const property = (value: unknown, key: string, message?: string): unknown
     message ?? `Expected property ${key}`,
   );
 
-export const planResultSteps = (result: unknown): ReadonlyArray<unknown> => {
-  const steps = property(result, "steps");
+export const planResultUnits = (result: unknown): ReadonlyArray<unknown> => {
+  const units = property(result, "units");
 
-  if (!Array.isArray(steps)) {
-    throw new Error("Expected result.steps array");
+  if (!Array.isArray(units)) {
+    throw new Error("Expected result.units array");
   }
 
-  return steps;
+  return units;
+};
+
+const expectPlanCounts = (result: unknown, expected: Readonly<Record<string, number>>): void => {
+  const counts = expectRecord(property(result, "counts"));
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    const actual = property(counts, key);
+    if (actual !== expectedValue) {
+      throw new Error(
+        `Expected plan result counts.${key} to be ${String(expectedValue)}, received ${String(actual)}`,
+      );
+    }
+  }
+};
+
+const expectPlanContract = (result: unknown): void => {
+  if (property(result, "contract") !== "plan-result-v3") {
+    throw new Error("Expected plan-result-v3 contract");
+  }
 };
 
 export const expectAppliedPlanResult = (
@@ -152,28 +196,24 @@ export const expectAppliedPlanResult = (
 ): Readonly<Record<string, unknown>> => {
   const payload = expectRecord(value);
   const result = expectRecord(property(payload, "result"));
-  const totalSteps = options.totalSteps ?? 1;
-  const appliedCount = options.appliedCount ?? totalSteps;
-  const expected = {
-    outcome: "applied",
-    planName: options.planName,
-    totalSteps,
-    readyCount: 0,
-    warningCount: options.warningCount ?? 0,
-    errorCount: 0,
-    appliedCount,
-    failedCount: 0,
-    blockedCount: 0,
-  };
-
-  for (const [key, expectedValue] of Object.entries(expected)) {
-    const actual = property(result, key);
-    if (actual !== expectedValue) {
-      throw new Error(`Expected plan result ${key} to be ${String(expectedValue)}`);
-    }
+  const total = options.totalSteps ?? 1;
+  expectPlanContract(result);
+  if (property(result, "outcome") !== "applied") {
+    throw new Error(
+      `Expected plan result outcome to be applied; received ${String(property(result, "outcome"))}: ${JSON.stringify(result["failure"])}`,
+    );
   }
-
-  planResultSteps(result);
+  if (property(result, "planName") !== options.planName) {
+    throw new Error(`Expected plan result planName to be ${options.planName}`);
+  }
+  expectPlanCounts(result, {
+    total,
+    ...(options.appliedCount === undefined ? {} : { committed: options.appliedCount }),
+    failed: 0,
+    blocked: 0,
+    ...(options.warningCount === undefined ? {} : { warnings: options.warningCount }),
+  });
+  planResultUnits(result);
   return result;
 };
 
@@ -185,12 +225,16 @@ export const expectPublishResult = (
   },
 ): Readonly<Record<string, unknown>> => {
   const payload = expectRecord(value);
+  if (property(payload, "contract") !== "publish-result-v3") {
+    throw new Error("Expected publish-result-v3 contract");
+  }
   const mode = property(payload, "mode");
   if (mode !== options.mode) {
     throw new Error(`Expected publish result mode to be ${options.mode}`);
   }
 
-  const results = property(payload, "results");
+  const execution = expectRecord(property(payload, "execution"));
+  const results = property(execution, "outcomes");
   if (!Array.isArray(results)) {
     throw new Error("Expected publish result results array");
   }
@@ -199,7 +243,7 @@ export const expectPublishResult = (
     throw new Error(`Expected publish result to contain ${String(options.count)} results`);
   }
 
-  return payload;
+  return { ...payload, results };
 };
 
 export const expectNoOpPlanResult = (
@@ -212,33 +256,23 @@ export const expectNoOpPlanResult = (
 ): Readonly<Record<string, unknown>> => {
   const payload = expectRecord(value);
   const result = expectRecord(property(payload, "result"));
-  const totalSteps = options.totalSteps ?? 0;
-  const expected = {
-    outcome: "no-op",
-    planName: options.planName,
-    totalSteps,
-    readyCount: 0,
-    warningCount: 0,
-    errorCount: 0,
-    appliedCount: 0,
-    failedCount: 0,
-    blockedCount: 0,
-  };
-
-  for (const [key, expectedValue] of Object.entries(expected)) {
-    const actual = property(result, key);
-    if (actual !== expectedValue) {
-      throw new Error(`Expected no-op plan result ${key} to be ${String(expectedValue)}`);
-    }
+  const total = options.totalSteps ?? 0;
+  expectPlanContract(result);
+  if (property(result, "outcome") !== "no-op") {
+    throw new Error(`Expected plan result outcome to be no-op`);
   }
+  if (property(result, "planName") !== options.planName) {
+    throw new Error(`Expected plan result planName to be ${options.planName}`);
+  }
+  expectPlanCounts(result, { total, committed: 0, failed: 0, blocked: 0 });
 
   if (options.message !== undefined && property(result, "message") !== options.message) {
     throw new Error(`Expected no-op plan result message to be ${options.message}`);
   }
 
-  const steps = planResultSteps(result);
-  if (steps.length !== totalSteps) {
-    throw new Error(`Expected no-op plan result to contain ${String(totalSteps)} steps`);
+  const units = planResultUnits(result);
+  if (units.length !== total) {
+    throw new Error(`Expected no-op plan result to contain ${String(total)} units`);
   }
 
   return result;
@@ -254,30 +288,25 @@ export const expectPreviewedPlanResult = (
 ): Readonly<Record<string, unknown>> => {
   const payload = expectRecord(value);
   const result = expectRecord(property(payload, "result"));
-  const readyCount = options.readyCount ?? options.totalSteps;
-  const expected = {
-    outcome: "previewed",
-    planName: options.planName,
-    totalSteps: options.totalSteps,
-    readyCount,
-    warningCount: 0,
-    errorCount: 0,
-    appliedCount: 0,
-    failedCount: 0,
-    blockedCount: 0,
-  };
-
-  for (const [key, expectedValue] of Object.entries(expected)) {
-    const actual = property(result, key);
-    if (actual !== expectedValue) {
-      throw new Error(`Expected previewed plan result ${key} to be ${String(expectedValue)}`);
-    }
+  const ready = options.readyCount ?? options.totalSteps;
+  expectPlanContract(result);
+  if (property(result, "outcome") !== "previewed") {
+    throw new Error(`Expected plan result outcome to be previewed`);
   }
+  if (property(result, "planName") !== options.planName) {
+    throw new Error(`Expected plan result planName to be ${options.planName}`);
+  }
+  expectPlanCounts(result, {
+    total: options.totalSteps,
+    ready,
+    committed: 0,
+    failed: 0,
+  });
 
-  const steps = planResultSteps(result);
-  if (steps.length !== options.totalSteps) {
+  const units = planResultUnits(result);
+  if (units.length !== options.totalSteps) {
     throw new Error(
-      `Expected previewed plan result to contain ${String(options.totalSteps)} steps`,
+      `Expected previewed plan result to contain ${String(options.totalSteps)} units`,
     );
   }
 
@@ -286,7 +315,7 @@ export const expectPreviewedPlanResult = (
 
 export const expectNoPlanEnvelope = (value: unknown): void => {
   const record = expectRecord(value);
-  const planFields = ["result", "outcome", "planName", "steps"];
+  const planFields = ["result", "outcome", "planName", "units"];
 
   for (const field of planFields) {
     if (field in record) {
@@ -320,10 +349,15 @@ export const stringArrayProperty = (
 };
 
 export const getAppError = (error: unknown): AppError => {
-  if (!(error instanceof AppError)) {
-    throw new Error("Expected AppError");
+  if (error instanceof AppError) {
+    return error;
   }
-  return error;
+  // Typed workspace failures assert through their boundary rendering; the
+  // byte-for-byte contract for each tag is pinned by the conversion tests.
+  if (isKnownFailure(error)) {
+    return toAppError(error);
+  }
+  throw new Error("Expected AppError");
 };
 
 export const getErrorResult = (result: unknown): AppErrorResult => {
@@ -357,9 +391,16 @@ export const makeCliTestContext = (opts?: {
       }
     | undefined;
   readonly machine?: boolean | undefined;
+  readonly httpClient?: HttpClient.HttpClient | undefined;
+  /**
+   * A real `Screen` layer (over recording output streams) used in place of
+   * the captured test renderer, so a specification can observe the bytes the
+   * application writes to each stream. `rendererState` stays empty.
+   */
+  readonly screenLayer?: Layer.Layer<Screen> | undefined;
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
-  const rendererLayer = renderer.layer;
+  const rendererLayer = opts?.screenLayer ?? renderer.layer;
   const rendererState = renderer.state;
   const promptState: TestPromptState = {
     confirmCalls: [],
@@ -368,21 +409,28 @@ export const makeCliTestContext = (opts?: {
   const confirmQueue = Array.from(opts?.prompt?.confirmResponses ?? []);
   const multiselectQueue = Array.from(opts?.prompt?.multiselectResponses ?? []);
 
-  const nextConfirm = (kind: "auth-guard" | "resolve-plan") =>
+  const nextConfirm = () =>
     Effect.gen(function* () {
-      promptState.confirmCalls.push({ kind });
+      promptState.confirmCalls.push({ kind: "resolve-plan" });
       const response = confirmQueue.shift();
       if (response === undefined) {
-        return yield* Effect.die(new Error(`Test prompt: no canned confirm response for ${kind}.`));
+        return yield* Effect.die(
+          new Error("Test prompt: no canned confirm response for resolve-plan."),
+        );
       }
-      return response;
+      return response ? ("approved" as const) : ("declined" as const);
     });
 
-  const authGuardTest = AuthGuardInteractionTest({
-    confirmLogin: () => nextConfirm("auth-guard"),
-  });
+  const flagsLayer = TestFlagsLayer(opts?.flags);
   const resolvePlanTest = ResolvePlanInteractionTest({
-    confirmApplyChanges: () => nextConfirm("resolve-plan"),
+    // Mirrors TestFlagsLayer's non-interactive default: confirmation is
+    // available only when a test explicitly opts into interactivity.
+    isConfirmationAvailable: opts?.flags?.nonInteractive === false,
+    confirmApplyChanges: nextConfirm,
+    // Render plan candidates like the CLI Live so output assertions keep
+    // observing the real display wording.
+    presentPlan: (plan, options) =>
+      presentPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
   });
   const workspaceInitializationTest = WorkspaceInitializationInteractionTest({
     selectAgents: ({ allAgents, detectedIds }) =>
@@ -392,7 +440,8 @@ export const makeCliTestContext = (opts?: {
           options: allAgents.map((agent) => ({
             value: agent.id,
             label: agent.name,
-            hint: `skills: ${agent.skills.dir}`,
+            hint:
+              agent.skills === undefined ? "skills: unsupported" : `skills: ${agent.skills.dir}`,
           })),
           initialValues: detectedIds,
           required: false,
@@ -406,23 +455,30 @@ export const makeCliTestContext = (opts?: {
         return response;
       }),
   });
+  const authLoginPresenterTest = AuthLoginPresenterTest();
   const baseLayer = Layer.mergeAll(
     NodeServices.layer,
+    Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
     rendererLayer,
-    authGuardTest.layer,
     resolvePlanTest.layer,
+    authLoginPresenterTest.layer,
     workspaceInitializationTest.layer,
-    TestFlagsLayer(opts?.flags),
+    flagsLayer,
+    Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
     Layer.succeed(RegistryUrl, "https://registry.example.com"),
     CredentialStoreTest(),
+    // The posture a command boundary discharges when it registers no
+    // override. A test that wants the one-shot bypass provides "ignore"
+    // closer to the handler it drives.
+    Layer.succeed(ReleaseAgePosture, "enforce"),
   );
 
   return {
+    authLoginPresenterState: authLoginPresenterTest.state,
     baseLayer,
     logs: logsByTag(rendererState),
     promptState,
     rendererState,
-    authGuardState: authGuardTest.state,
     resolvePlanState: resolvePlanTest.state,
     workspaceInitializationState: workspaceInitializationTest.state,
   };
@@ -460,21 +516,27 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
       }
     | undefined;
   readonly machine?: boolean | undefined;
-  readonly wsOptions?: Partial<WorkspaceMutationsOptions> | undefined;
+  readonly httpClient?: HttpClient.HttpClient | undefined;
+  readonly screenLayer?: Layer.Layer<Screen> | undefined;
+  readonly wsOptions?:
+    | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
+        readonly projectRoot?: string;
+      })
+    | undefined;
 }) => {
   const cliTestContext = makeCliTestContext(opts);
+  const projectRoot = decodeAbsolutePathSync(opts?.wsOptions?.projectRoot ?? process.cwd());
   const wsOptions = {
     scope: "project",
     ...opts?.wsOptions,
+    projectRoot,
   } satisfies WorkspaceMutationsOptions;
-  const projectRoot =
-    wsOptions.scope === "project" ? (wsOptions.projectRoot ?? process.cwd()) : undefined;
 
   // Ensure workspace settings exist — loadWorkspace requires an initialized workspace
   if (wsOptions.scope === "project") {
-    const workspaceRoot = projectRoot ?? process.cwd();
+    const workspaceRoot = projectRoot;
 
-    if (wsOptions.projectRoot === undefined && isRepositoryPath(workspaceRoot)) {
+    if (opts?.wsOptions?.projectRoot === undefined && isRepositoryPath(workspaceRoot)) {
       throw new Error(
         "Project workspace tests must set wsOptions.projectRoot or chdir into a temp dir before calling makeWorkspaceHandlerTestContext().",
       );
@@ -483,15 +545,21 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     ensureWorkspaceFiles(path.join(workspaceRoot, ".axm"));
   }
 
-  const workspaceOptions =
-    wsOptions.scope === "project"
-      ? {
-          ...wsOptions,
-          projectRoot: projectRoot ?? process.cwd(),
-        }
-      : wsOptions;
-  const wsLayer = Layer.provide(coreWorkspaceLayer(workspaceOptions), cliTestContext.baseLayer);
-  const fullLayer = Layer.mergeAll(cliTestContext.baseLayer, wsLayer);
+  const coreWsLayer = Layer.provide(coreWorkspaceLayer(wsOptions), cliTestContext.baseLayer);
+  const wsLayer = Layer.mergeAll(
+    coreWsLayer,
+    Layer.provide(
+      WorkspaceCatalogLive,
+      Layer.mergeAll(coreWsLayer, CodingAgentRepositoryLive, cliTestContext.baseLayer),
+    ),
+    AxmSkillCandidateGateLive,
+  );
+  const fullLayer = Layer.mergeAll(
+    cliTestContext.baseLayer,
+    wsLayer,
+    KnowledgeIndexLive,
+    LifecycleFailureAdapterLive,
+  );
 
   return {
     ...cliTestContext,

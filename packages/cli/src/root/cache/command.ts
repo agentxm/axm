@@ -2,10 +2,12 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { makeUserArchiveCache } from "@agentxm/client-core/unstable/registry";
+import { Screen, rawDoc, successDoc } from "../../screen/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { makeUserArchiveCache } from "@agentxm/registry-client";
 import { withRuntime } from "../../runtime.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 
 const CacheStatusSchema = Schema.Struct({
   entries: Schema.Number,
@@ -14,7 +16,7 @@ const CacheStatusSchema = Schema.Struct({
   maxAgeDays: Schema.Number,
 });
 
-export const CacheStatusOutputSchema = Schema.Struct({ data: CacheStatusSchema });
+export const CacheStatusOutputSchema = CacheStatusSchema;
 export type CacheStatusOutput = typeof CacheStatusOutputSchema.Type;
 
 const CacheVerifySchema = Schema.Struct({
@@ -50,45 +52,54 @@ const formatBytes = (bytes: number): string => {
 };
 
 export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const cache = yield* makeUserArchiveCache();
-  const status = yield* renderer.withSpinner("Loading archive cache status", () => cache.status(), {
-    successMessage: "Loaded archive cache status",
-  });
-  if (yield* renderer.result({ data: status }, CacheStatusOutputSchema)) return;
-  yield* renderer.raw(
-    [
-      "Archive cache",
-      `Entries  ${status.entries}`,
-      `Size     ${formatBytes(status.bytes)}`,
-      `Limit    ${formatBytes(status.maxBytes)}`,
-      `Max age  ${status.maxAgeDays} days`,
-      "",
-    ].join("\n"),
+  const status = yield* withLiveOperation(
+    { command: "cache.status", name: "Inspect archive cache", mode: "preview" },
+    observeUnit({ id: "status", label: "archive cache status" }, cache.status()),
+  );
+  if (yield* screen.document(status, CacheStatusOutputSchema)) return;
+  yield* screen.result(
+    rawDoc(
+      [
+        "Archive cache",
+        `Entries  ${status.entries}`,
+        `Size     ${formatBytes(status.bytes)}`,
+        `Limit    ${formatBytes(status.maxBytes)}`,
+        `Max age  ${status.maxAgeDays} days`,
+        "",
+      ].join("\n"),
+    ),
   );
 });
 
 export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const cache = yield* makeUserArchiveCache();
-  const result = yield* renderer.withSpinner("Verifying archive cache", () => cache.verify(), {
-    successMessage: "Verified archive cache",
-  });
-  if (yield* renderer.result({ result }, CacheVerifyOutputSchema)) return;
-  yield* renderer.success(
-    `Verified ${result.checked} archive cache entr${result.checked === 1 ? "y" : "ies"}; ${result.corruptRemoved} corrupt removed.`,
+  const result = yield* withLiveOperation(
+    { command: "cache.verify", name: "Verify archive cache", mode: "apply" },
+    observeUnit({ id: "verify", label: "cached archives" }, cache.verify()),
+  );
+  if (yield* screen.document({ result }, CacheVerifyOutputSchema)) return;
+  yield* screen.result(
+    successDoc(
+      `Verified ${result.checked} archive cache entr${result.checked === 1 ? "y" : "ies"}; ${result.corruptRemoved} corrupt removed.`,
+    ),
   );
 });
 
 export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const cache = yield* makeUserArchiveCache();
-  const result = yield* renderer.withSpinner("Pruning archive cache", () => cache.prune(), {
-    successMessage: "Pruned archive cache",
-  });
-  if (yield* renderer.result({ result }, CachePruneOutputSchema)) return;
-  yield* renderer.success(
-    `Pruned ${result.removed} archive cache entr${result.removed === 1 ? "y" : "ies"} (${formatBytes(result.bytesFreed)}); ${result.remaining} remain (${formatBytes(result.remainingBytes)}).`,
+  const result = yield* withLiveOperation(
+    { command: "cache.prune", name: "Prune archive cache", mode: "apply" },
+    observeUnit({ id: "prune", label: "expired and excess archives" }, cache.prune()),
+  );
+  if (yield* screen.document({ result }, CachePruneOutputSchema)) return;
+  yield* screen.result(
+    successDoc(
+      `Pruned ${result.removed} archive cache entr${result.removed === 1 ? "y" : "ies"} (${formatBytes(result.bytesFreed)}); ${result.remaining} remain (${formatBytes(result.remainingBytes)}).`,
+    ),
   );
 });
 

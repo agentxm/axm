@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "agent-integration",
+  "projectType": "library",
+  "root": "packages/agent-integration",
+  "sourceRoot": "packages/agent-integration/src",
+  "tags": ["type:lib", "layer:integration", "scope:agent-integration", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/agent-integration/src/index.ts",
+        "outputPath": "packages/agent-integration/dist",
+        "tsConfig": "packages/agent-integration/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

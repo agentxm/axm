@@ -1,13 +1,23 @@
 # MCP servers
 
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
 An MCP server extension registers a Model Context Protocol server that your
 coding agents connect to for extra tools and resources. AXM tracks the server
-once and writes it into every configured agent's native MCP config, so you do
-not hand-maintain `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, and
-friends in parallel.
+once and writes it into the native MCP config of every configured agent that
+can represent it, so you do not hand-maintain `.mcp.json`, `.cursor/mcp.json`,
+`.vscode/mcp.json`, and friends in parallel.
+
+AXM manages the connection definition and its lifecycle, including command or
+URL, arguments, environment-variable references, headers, installation,
+projection, packaging, and publication. It does not implement or debug the MCP
+server software behind that connection.
 
 MCP server packages live in
-`./.axm/extensions/<@owner>/mcps/<name>/mcp.json`. Unlike skills and
+`./mcps/<name>/mcp.json`; acquired packages live under
+`./agent_extensions/agentxm/<@owner>/mcps/<name>`. This is the Registry case of
+the source-qualified acquired package scheme. Unlike skills and
 subagents, an MCP server has no `src/` body — the whole definition lives in the
 manifest.
 
@@ -60,27 +70,35 @@ which holds the actual transports:
 All commands live under `axm mcps` and accept `--scope project` (default) or
 `--scope user`.
 
-- `axm mcps install @owner/mcps/<name>` — install a registry MCP server. Pass
+- `axm mcps install @owner/mcps/<name>` — install a registry MCP server. Add
+  `--as <local-name>` to install another locally named connection from the same
+  package. Pass
   `--env KEY=VALUE` to supply declared inputs, or `--non-interactive` to use
   defaults and placeholders instead of prompting.
 - `axm mcps add <name> --command "npx -y linear-mcp-server"` — add an inline
   stdio server you define yourself. Use `--url` for a remote server, plus
   `--env` and `--header` for its inputs.
 - `axm mcps import` — adopt MCP servers already present in your agent configs as
-  inline AXM entries.
-- `axm mcps update [@owner/mcps/<name>]` — update registry servers to their
-  latest resolved version.
-- `axm mcps list` (`ls`) — show installed servers and their state.
+  inline AXM entries. Import records each server once; the next reconciliation
+  writes it to every configured agent that can represent it, and preview and
+  apply list every native file the import rewrites.
+- `axm mcps update` — update configured Registry servers to their latest
+  eligible resolution. Use `--name <local-name-or-glob>` to select connections,
+  or `--source @owner/mcps/<name>` to select an exact source. Every selected
+  connection that shares a source advances together.
+- `axm mcps list` — show local connection names, sources, accepted resolutions,
+  and state.
 - `axm mcps enable <name>` / `axm mcps disable <name>` — keep a server installed
   while toggling whether AXM materializes it.
-- `axm mcps uninstall <name>` / `axm mcps remove <name>` (`rm`) — remove a
-  server and its agent entries.
+- `axm mcps uninstall <local-name>` — remove one connection and its AXM-owned
+  agent entries. Shared package content and resolution remain until their last
+  connection or Pack route is removed.
 
 Authoring commands mirror the other extension types:
 
 - `axm mcps new <name>` — scaffold an `mcp.json` under your workspace
   owner.
-- `axm mcps version @owner/mcps/<name> <patch|minor|major>` — bump the manifest
+- `axm version @owner/mcps/<name> <patch|minor|major>` — bump the manifest
   version.
 - `axm mcps publish @owner/mcps/<name>` — validate and upload a new version to
   the registry.
@@ -98,14 +116,24 @@ under that agent's servers key:
 
 The key and dialect vary per agent (`mcpServers`, `servers`, `mcp`,
 `mcp_servers`, `context_servers`). Local transports render as `command`/`args`;
-remote transports render as `url`/`headers`. AXM only edits its own entries and
-backs up each file before writing, so servers added by other tools are left
-untouched. Run `axm sync` after editing settings to re-materialize.
+remote transports render as `url`/`headers`. AXM only edits entries whose
+ownership it can prove and preserves servers added by other tools. `axm sync`
+restores missing or stale AXM-owned entries and blocks the affected server on
+unowned or ambiguous collisions. Every configured agent whose transport and
+config capability can represent the server receives it; there is no per-server
+agent list. A configured agent that cannot represent the transport or a
+required secret reference is reported as unsupported with an explicit reason,
+never silently skipped.
+
+Some agents share one native config file. AXM writes one entry that every
+sharing agent reads; a genuine dialect conflict between sharing agents blocks
+the server with an explicit reason. Reconciliation removes only stale AXM-owned
+state and preserves unmanaged collisions.
 
 ## Settings and lockfile
 
-Installed servers are tracked in `.axm/settings.json` under `mcpServers`, with
-shared resolution state in `.axm/axm-lock.yaml` under `mcpServers`. The lockfile
+Installed servers are tracked in `axm.json` under `mcpServers`, with
+shared resolution state in `axm-lock.yaml` under `mcpServers`. The lockfile
 does not persist which agents received materialized configuration. Every entry
 declares exactly one transport — `source`, `command`, or `url`:
 
@@ -118,7 +146,7 @@ declares exactly one transport — `source`, `command`, or `url`:
     "search": {
       "source": "@acme/mcps/search@^2.0.0",
       "enabled": false,
-      "env": { "SEARCH_API_KEY": "${SEARCH_API_KEY}" },
+      "env": ["SEARCH_API_KEY"],
     },
     // Inline stdio server
     "linear": { "command": "npx", "args": ["-y", "linear-mcp-server"], "env": ["LINEAR_API_KEY"] },
@@ -128,28 +156,45 @@ declares exactly one transport — `source`, `command`, or `url`:
       "headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" },
     },
   },
-  "mcpServersConfig": {
-    "ignore": ["local-*", "legacy-helper"],
-  },
 }
 ```
 
-- **`enabled: false`** keeps a server installed but omits it from agent configs.
+The settings key is the local connection name. For example, both
+`"work-github": "@acme/mcps/github"` and
+`"personal-github": "@acme/mcps/github"` are valid. They project as two native
+keys and keep separate inputs, activation, and keychain accounts,
+while the lockfile records one source resolution for the Registry authority and
+`@acme/mcps/github` package.
+
+- **`enabled: false`** keeps a server installed but deactivates its AXM-owned
+  agent entries.
 - **`env`** accepts a `{ KEY: value }` map or an array of names; `["VAR"]`
   decodes to a `${VAR}` reference.
-- **`mcpServersConfig.ignore`** lists installed server names or globs AXM leaves
-  unmanaged.
+- Agent-native entries without AXM ownership metadata remain unowned and are
+  never deleted by reconciliation.
+- AXM-owned JSON and YAML entries carry versioned `x-axm` metadata. Its `ext`
+  field is the installed extension FQN or `@workspace/mcps/<name>` for an
+  inline server; source and reference fields retain provenance. The native map
+  key carries the local connection name.
 
 Prefer the CLI over hand-editing — it normalizes the shape and reconciles agent
-configs through `axm sync` or `axm lint --fix`.
+configs through `axm sync`.
 
 ## Secrets
 
-Never store literal tokens in `.axm/settings.json`. Put secrets in `env` or
+Never store literal tokens in `axm.json`. Put secrets in `env` or
 `headers` as `${VAR}` references and let each agent resolve them from the
-environment at runtime. `axm lint` flags secret-looking literals through
+environment at runtime. Registry inputs marked `isSecret` may be supplied to
+the installer and saved in the system keychain, but native config receives only
+the reference. AXM never substitutes a secret value into native config. If an
+applicable agent cannot represent the reference, projection blocks instead of
+writing a literal or omitting authentication. `axm lint` flags secret-looking literals through
 `workspace/mcps-no-secret-literal`, and `mcp.json` marks sensitive
 inputs with `isSecret` so installers prompt for them instead of hardcoding.
+Keychain accounts are isolated by workspace, local connection name, source
+identity, and input name. Uninstall removes only the selected connection's
+accounts. If keychain deletion fails after workspace state commits, AXM reports
+the remaining credential for manual cleanup.
 
 ## Recommended packs
 
@@ -164,7 +209,9 @@ using the bare pack reference — no version range:
 
 When a pack lists this server as a dependency and the server lists that pack as
 recommended, the registry marks both sides of the relationship **official**.
-See `axm help packs` for pack authoring and `standalone` semantics.
+Keep the MCP server self-contained. `recommendedPacks` does not install the pack
+or its members. If the server requires another extension, follow
+`axm help packs` for the only supported direct-sibling pack composition.
 
 ## Where to go next
 

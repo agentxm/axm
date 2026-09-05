@@ -3,7 +3,7 @@
  *
  * This script generates JSON Schema files for all manifest types,
  * settings, and lockfile schemas. The published public schema surface
- * lives under `packages/core/site-content/schemas`, so generation
+ * lives under `packages/cli/site-content/schemas`, so generation
  * writes there directly instead of scattering files across package
  * internals and re-exporting them one by one.
  */
@@ -16,23 +16,20 @@ import * as path from "node:path";
 import * as JsonSchema from "effect/JsonSchema";
 import * as Schema from "effect/Schema";
 import { format as formatWithPrettier, resolveConfig as resolvePrettierConfig } from "prettier";
-import { SkillManifestSchema } from "../../core/src/unstable/skills/index.js";
-import { CommandManifestSchema } from "../../core/src/unstable/commands/index.js";
-import { McpServerManifestSchema } from "../../core/src/unstable/mcps/index.js";
-import { SubagentManifestSchema } from "../../core/src/unstable/subagents/index.js";
-import { PackManifestSchema } from "../../core/src/unstable/packs/index.js";
-import { FilesManifestSchema } from "../../core/src/unstable/files/index.js";
-import { RuleManifestSchema } from "../../core/src/unstable/rules/index.js";
-import { HookManifestSchema } from "../../core/src/unstable/hooks/index.js";
-import { KnowledgeManifestSchema } from "../../core/src/unstable/knowledge/index.js";
-import { LockfileSchema } from "../../core/src/unstable/lockfile/index.js";
-import { AxmPackageMetaSchema } from "../../core/src/unstable/packaging/index.js";
-import { SettingsSchema } from "../../core/src/unstable/settings/index.js";
-import { WorkspaceTrustStateSchema } from "../../core/src/unstable/trust/index.js";
+import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
+import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/manifest-schema";
+import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge";
+import { LockfileSchema } from "../../workspace-state/src/lockfile/index.js";
+import { AxmPackageMetaSchema } from "../../registry-client/src/axm-package-meta.js";
+import { SettingsSchema } from "../../workspace-state/src/settings/index.js";
+import { allLintCatalogRuleIds } from "../../registry-protocol/src/unstable/lint/catalog-metadata.js";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
-const CORE_ROOT = path.join(import.meta.dirname, "../../core");
-const SITE_CONTENT_SCHEMAS_DIR = path.join(CORE_ROOT, "site-content/__generated__/schemas");
+const SITE_CONTENT_SCHEMAS_DIR = path.join(CLI_ROOT, "site-content/__generated__/schemas");
 
 interface SchemaConfig {
   name: string;
@@ -52,18 +49,8 @@ const schemas: SchemaConfig[] = [
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
-    name: "trust.schema.json",
-    schema: WorkspaceTrustStateSchema,
-    outputDir: SITE_CONTENT_SCHEMAS_DIR,
-  },
-  {
     name: "skill.schema.json",
     schema: SkillManifestSchema,
-    outputDir: SITE_CONTENT_SCHEMAS_DIR,
-  },
-  {
-    name: "command.schema.json",
-    schema: CommandManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
@@ -79,11 +66,6 @@ const schemas: SchemaConfig[] = [
   {
     name: "pack.schema.json",
     schema: PackManifestSchema,
-    outputDir: SITE_CONTENT_SCHEMAS_DIR,
-  },
-  {
-    name: "files.schema.json",
-    schema: FilesManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
@@ -177,6 +159,29 @@ const rewritePatternProperties = (node: unknown, patternRefs: Map<string, string
   return out;
 };
 
+const lintRuleProperties = () =>
+  Object.fromEntries(
+    allLintCatalogRuleIds.map((ruleId) => [ruleId, { $ref: "#/definitions/LintRuleSeverity" }]),
+  );
+
+const exposeExactLintRuleProperties = (node: unknown): unknown => {
+  if (Array.isArray(node)) {
+    return node.map(exposeExactLintRuleProperties);
+  }
+  if (!isJsonObject(node)) return node;
+  if (node["title"] === "Lint Rules Map") {
+    return {
+      ...node,
+      properties: lintRuleProperties(),
+      additionalProperties: false,
+    };
+  }
+  const properties = Object.fromEntries(
+    Object.entries(node).map(([key, value]) => [key, exposeExactLintRuleProperties(value)]),
+  );
+  return properties;
+};
+
 const toDraft07SchemaFile = (schema: Schema.Top) => {
   const document = JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(schema));
 
@@ -189,7 +194,9 @@ const toDraft07SchemaFile = (schema: Schema.Top) => {
     ...(Object.keys(document.definitions).length > 0 ? { definitions: document.definitions } : {}),
   };
 
-  return rewritePatternProperties(file, buildPatternRefIndex(document.definitions));
+  return exposeExactLintRuleProperties(
+    rewritePatternProperties(file, buildPatternRefIndex(document.definitions)),
+  );
 };
 
 for (const { name, schema, outputDir } of schemas) {

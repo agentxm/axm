@@ -1,0 +1,9 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@example",
+  "type": "skill",
+  "name": "review-release",
+  "version": "0.4.0",
+  "description": "Reviews release notes for structure and completeness",
+  "license": "MIT"
+}

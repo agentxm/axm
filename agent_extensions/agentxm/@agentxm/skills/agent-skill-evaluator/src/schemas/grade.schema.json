@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/grade-1.0.0.json",
+  "title": "Agent Skill evaluator grade",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "outcome", "failure_class", "assertions", "detail", "suite_findings", "usage"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "outcome": { "enum": ["pass", "fail", "unknown", "harness-error"] },
+    "failure_class": { "type": ["string", "null"] },
+    "assertions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assertion", "result", "evidence"],
+        "properties": {
+          "assertion": { "type": "string" },
+          "result": { "enum": ["pass", "fail", "unknown"] },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "detail": { "type": "string" },
+    "suite_findings": { "type": "array" },
+    "grader_reported_outcome": { "enum": ["pass", "fail", "unknown", "harness-error", null] },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokens", "cost_usd"],
+      "properties": {
+        "tokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cost_usd": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

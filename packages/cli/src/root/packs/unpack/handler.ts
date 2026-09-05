@@ -1,84 +1,113 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CommandManager } from "@agentxm/client-core/unstable/commands";
+import { makeAppError } from "../../../app-error/index.js";
 import {
-  buildInstallOperation,
-  buildUninstallOperation,
   type UninstallRetentionPolicy,
-} from "@agentxm/client-core/unstable/extensions";
-import {
-  parseRegistrySourcePatternParts,
-  type ExtensionRef,
-} from "@agentxm/client-core/unstable/extensions";
-import { FilesManager } from "@agentxm/client-core/unstable/files";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
-import { PackManager } from "@agentxm/client-core/unstable/packs";
+  buildUninstallOperation,
+} from "@agentxm/extension-workspace";
 import {
   previewOrApplyPlan,
+  operationPresentation,
+  type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
+} from "@agentxm/workspace-operations";
 import {
   WorkspaceMutations,
-  trustedCanonicalRef,
+  usableAcceptedCanonical,
   type DesiredExtensionNode,
-} from "@agentxm/client-core/unstable/workspace";
+  type WorkspaceMutationsService,
+} from "@agentxm/workspace-state";
 
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
+import {
+  workspaceCanonicalNodePath,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
+import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
+import { PackManager } from "@agentxm/extension-workspace";
 
 export interface UnpackHandlerArgs {
   readonly name: string;
-  readonly strictAgentSync: Option.Option<boolean>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
-}
-
-type PackLeafRef = Exclude<ExtensionRef, { readonly type: "pack" }>;
-
-interface Promotion {
-  readonly node: DesiredExtensionNode;
-  readonly ref: PackLeafRef;
 }
 
 const neverRetain: UninstallRetentionPolicy = {
   isRequiredByInstalledPack: () => Effect.succeed(false),
 };
 
-const versionRangeFor = (node: DesiredExtensionNode): Option.Option<string> =>
-  Option.fromUndefinedOr(parseRegistrySourcePatternParts(node.source)?.versionRange);
-
-const normalizeIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+const promoteToDirectSettings = (
+  ws: WorkspaceMutationsService,
+  node: DesiredExtensionNode & { readonly source: string },
+): PlannedJobStep => {
+  const entry = { source: node.source, enabled: node.enabled };
+  const run = (() => {
+    switch (node.type) {
+      case "skill":
+        return ws.setSkillEntry(node.name, entry).pipe(Effect.mapError(toAppError));
+      case "mcp-server":
+        return ws
+          .setMcpServerEntry(node.name, { ...entry, env: {} })
+          .pipe(Effect.mapError(toAppError));
+      case "subagent":
+        return ws.setSubagentEntry(node.name, entry).pipe(Effect.mapError(toAppError));
+      case "rule":
+        return ws.setRuleEntry(node.name, entry).pipe(Effect.mapError(toAppError));
+      case "hook":
+        return ws.setHookEntry(node.name, entry).pipe(Effect.mapError(toAppError));
+      case "knowledge":
+        return ws.setKnowledgeEntry(node.name, entry).pipe(Effect.mapError(toAppError));
+      case "pack":
+        return Effect.fail(
+          makeAppError({
+            code: "validation",
+            detail: `Nested pack member "${node.name}" cannot be unpacked`,
+          }),
+        );
+    }
+  })();
+  return {
+    readiness: "ready",
+    label: node.name,
+    run: run.pipe(
+      Effect.mapError(failureToStepFailure),
+      Effect.as({
+        result: "success",
+        message: `Promoted ${node.type} ${node.name}`,
+      } satisfies JobStepResult),
+    ),
+  };
+};
 
 /**
  * Handles `axm packs unpack` by promoting every desired leaf from the named
  * pack to a direct settings origin, then removing the pack. Membership comes
- * from the complete desired graph and exact refs come from authoritative trust;
- * optional receipt history is never consulted.
+ * from the complete desired graph and exact refs come from authored intent or
+ * accepted external resolutions.
  */
-export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
-  const ws = yield* WorkspaceMutations;
-  const skillManager = yield* SkillManager;
-  const commandManager = yield* CommandManager;
-  const mcpServerManager = yield* McpServerManager;
-  const subagentManager = yield* SubagentManager;
-  const filesManager = yield* FilesManager;
-  const ruleManager = yield* RuleManager;
-  const hookManager = yield* HookManager;
-  const knowledgeManager = yield* KnowledgeManager;
-  const packManager = yield* PackManager;
+export const handleUnpack = (args: UnpackHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "packs.unpack",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Unpack pack",
+    },
+    handleUnpackBody(args),
+  );
 
-  const graph = yield* ws.getDesiredStateGraph();
+const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
+  const ws = yield* WorkspaceMutations;
+  const packManager = yield* PackManager;
+  const path = yield* Path.Path;
+
+  const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
   if (!graph.complete) {
     return yield* makeAppError({
       code: "validation",
@@ -103,41 +132,36 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     });
   }
 
-  const trust = yield* ws.getTrustState();
-  const trustedRefFor = (node: DesiredExtensionNode) =>
+  const acceptedRefFor = (node: DesiredExtensionNode) =>
     Effect.gen(function* () {
-      const record = trust.records[trustRecordKey(node.type, node.name)];
-      if (
-        record === undefined ||
-        normalizeIdentity(record.sourceIdentity) !== normalizeIdentity(node.identity)
-      ) {
+      const canonical = yield* usableAcceptedCanonical({
+        workspace: ws,
+        type: node.type,
+        name: node.name,
+      });
+      if (Option.isNone(canonical)) {
         return yield* makeAppError({
           code: "not_found",
-          detail: `Trusted ${node.type} identity for "${node.name}" is unavailable`,
+          detail: `Accepted ${node.type} identity for "${node.name}" is unavailable`,
           suggestions: [
             {
-              description: "Repair the pack before unpacking.",
-              cmd: `axm packs install ${packNode.source} --force`,
+              description: "Preview workspace reconciliation before unpacking.",
+              cmd: `axm sync ${packNode.identity} --preview`,
             },
           ],
         });
       }
-      return yield* trustedCanonicalRef({
-        baseDir: ws.baseDir,
-        scope: ws.scope,
-        desired: node,
-        trust: record,
-      });
+      return canonical.value.ref;
     });
-  const packRef = yield* trustedRefFor(packNode);
+  const packRef = yield* acceptedRefFor(packNode);
   if (packRef.type !== "pack") {
     return yield* makeAppError({
       code: "not_found",
-      detail: `Trusted pack identity for "${args.name}" is invalid`,
+      detail: `Accepted pack identity for "${args.name}" is invalid`,
       suggestions: [
         {
-          description: "Repair the pack before unpacking.",
-          cmd: `axm packs install ${packNode.source} --force`,
+          description: "Preview workspace reconciliation before unpacking.",
+          cmd: `axm sync ${packNode.identity} --preview`,
         },
       ],
     });
@@ -152,25 +176,25 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     memberNodes,
     (node) =>
       Effect.gen(function* () {
-        const ref = yield* trustedRefFor(node);
+        const ref = yield* acceptedRefFor(node);
         if (ref.type === "pack") {
           return yield* makeAppError({
             code: "not_found",
-            detail: `Trusted ${node.type} identity for "${node.name}" is invalid`,
+            detail: `Accepted ${node.type} identity for "${node.name}" is invalid`,
             suggestions: [
               {
-                description: "Repair the pack before unpacking.",
-                cmd: `axm packs install ${packNode.source} --force`,
+                description: "Preview workspace reconciliation before unpacking.",
+                cmd: `axm sync ${packNode.identity} --preview`,
               },
             ],
           });
         }
-        return { node, ref } satisfies Promotion;
+        return node;
       }),
     { concurrency: "unbounded" },
   );
 
-  const promotionSteps = promotions.map(({ node, ref }): PlannedJobStep => {
+  const promotionSteps = promotions.map((node): PlannedJobStep => {
     const alreadyDirect = node.origins.some((origin) => origin.type === "settings");
     if (alreadyDirect) {
       return {
@@ -183,52 +207,81 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
       };
     }
 
-    const common = {
-      versionRange: versionRangeFor(node),
-      force: args.force,
-      message: `Promoted ${node.type} ${node.name}`,
-    };
-    switch (ref.type) {
-      case "skill":
-        return buildInstallOperation(skillManager, { ...common, ref });
-      case "command":
-        return buildInstallOperation(commandManager, { ...common, ref });
-      case "mcp-server":
-        return buildInstallOperation(mcpServerManager, { ...common, ref });
-      case "subagent":
-        return buildInstallOperation(subagentManager, { ...common, ref });
-      case "files":
-        return buildInstallOperation(filesManager, { ...common, ref });
-      case "rule":
-        return buildInstallOperation(ruleManager, { ...common, ref });
-      case "hook":
-        return buildInstallOperation(hookManager, { ...common, ref });
-      case "knowledge":
-        return buildInstallOperation(knowledgeManager, { ...common, ref });
+    if (node.source === undefined) {
+      return {
+        readiness: "error",
+        errorMessage: "Inline MCP configuration has no Pack source.",
+        label: node.name,
+      };
     }
+
+    return promoteToDirectSettings(ws, node);
   });
 
   const uninstallPackStep = buildUninstallOperation(packManager, neverRetain, {
+    toStepFailure: failureToStepFailure,
     target: {
       type: "pack",
       owner: packRef.owner,
       name: packRef.pack.name,
     },
   });
+  const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
+    ...promotions.map((node): JobStepArtifactTarget => ({
+      path: `${workspaceSettingsPath(ws.scope)}#${node.type}.${node.name}`,
+      change: "updated",
+    })),
+    {
+      path: workspaceCanonicalNodePath(path, ws, packNode),
+      change: "removed",
+    } satisfies JobStepArtifactTarget,
+  ];
+  const graphStep = yield* buildAtomicPackGraphStep({
+    label: packNode.identity,
+    message: `Unpacked ${packNode.identity} into ${promotions.length} direct declaration${promotions.length === 1 ? "" : "s"}`,
+    artifact: {
+      path: "pack provenance",
+      scope: ws.scope,
+      change: "updated",
+      fileCount: promotions.length + 1,
+      targets: artifactTargets,
+    },
+    children: [...promotionSteps, uninstallPackStep].map((step) => ({
+      step,
+      coverage: "ineligible",
+    })),
+    validate: validatePackGraphPostcondition({
+      requiredMembers: promotions.flatMap((node) =>
+        node.type === "pack"
+          ? []
+          : [
+              {
+                type: node.type,
+                name: node.name,
+                direct: true,
+                enabled: node.enabled,
+              },
+            ],
+      ),
+      absent: [{ type: "pack", name: packNode.name }],
+    }),
+  }).pipe(Effect.provideService(WorkspaceMutations, ws));
   const plan = {
     _tag: "Plan",
     name: "Unpack pack",
     description: Option.some(`Unpack ${args.name} into direct settings entries`),
-    jobs: [
-      { steps: promotionSteps, concurrency: 1 as const },
-      { steps: [uninstallPackStep], concurrency: 1 as const },
-    ],
+    presentation: operationPresentation(
+      { imperative: "unpack", past: "Unpacked", gerund: "Unpacking" },
+      "pack",
+    ),
+    jobs: [{ steps: [graphStep], concurrency: 1 as const }],
   } satisfies Plan;
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    force: args.force,
-    preview: args.preview,
-  });
-  yield* emitPlanResolutionResult("packs.unpack", resolution);
+  const execution = yield* makePublicPositionalPlanExecution(
+    args,
+    ["packs", "unpack"],
+    [args.name],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("packs.unpack", resolution);
 });

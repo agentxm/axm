@@ -4,15 +4,5 @@
   "projectType": "library",
   "root": "packages/e2e-utils",
   "sourceRoot": "packages/e2e-utils/src",
-  "tags": ["type:lib", "scope:test"],
-  "targets": {
-    "test": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "options": {
-        "command": "pnpm exec vitest run",
-        "cwd": "packages/e2e-utils"
-      }
-    }
-  }
+  "tags": ["type:lib", "scope:test"]
 }

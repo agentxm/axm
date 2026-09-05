@@ -1,0 +1,25 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@agentxm",
+  "name": "agentxm",
+  "version": "1.2.1",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing",
+  "keywords": [
+    "agentxm",
+    "axm",
+    "knowledge",
+    "okf",
+    "extensions",
+    "registry",
+    "domain-model",
+    "comparisons"
+  ],
+  "license": "CC-BY-4.0",
+  "homepage": "https://agentxm.ai"
+}

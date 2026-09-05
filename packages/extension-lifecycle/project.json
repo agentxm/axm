@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-lifecycle",
+  "projectType": "library",
+  "root": "packages/extension-lifecycle",
+  "sourceRoot": "packages/extension-lifecycle/src",
+  "tags": ["type:lib", "layer:feature", "scope:extension-lifecycle", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/extension-lifecycle/src/index.ts",
+        "outputPath": "packages/extension-lifecycle/dist",
+        "tsConfig": "packages/extension-lifecycle/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

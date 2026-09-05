@@ -1,11 +1,16 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../../cli-flags.js";
+import {
+  ignoreReleaseAgeFlag,
+  ignoreVersionConstraintsFlag,
+  previewFlag,
+  yesFlag,
+} from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { updateNameFilterFlag } from "../../shared/update-targets.js";
 import { handleUpdate } from "./handler.js";
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const updateConfig = {
   source: Argument.string("source").pipe(
@@ -15,42 +20,41 @@ const updateConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Update skills in project (default) or user-level configuration"),
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Update only skills installed for specific agents"),
-    Flag.atLeast(0),
-  ),
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific skills by name or glob pattern"),
   ),
-  // Kept alongside --name so existing invocations keep working; both lists are
-  // merged into one filter set.
-  skill: Flag.string("skill").pipe(Flag.withDescription("Alias for --name"), Flag.atLeast(0)),
-  yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Update even if version constraints would prevent it"),
+  yes: yesFlag.pipe(
+    Flag.withDescription(
+      "Pre-approve the update when it carries a risk that would otherwise prompt",
+    ),
   ),
+  force: ignoreVersionConstraintsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, agent, name, skill, yes, force, preview }) =>
+  ({ source, scope, name, yes, force, preview, ignoreReleaseAge }) =>
     handleUpdate({
       source,
-      agents: agent,
-      skills: [...name, ...skill],
+      skills: name,
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(scope), withRuntime("skills update")),
+    }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("skills update"),
+    ),
 ).pipe(
   withArgvTracking(updateConfig),
   Command.withDescription("Update installed skills to latest versions"),
   Command.withExamples([
     { command: "axm skills update", description: "Update all skills to their latest versions" },
     {
-      command: "axm skills update --skill code-review",
+      command: "axm skills update --name code-review",
       description: "Update a specific skill",
     },
     {

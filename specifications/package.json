@@ -1,0 +1,32 @@
+{
+  "name": "@agentxm/specifications",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Executable specifications: the sole local requirements authority for AXM.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/registry-auth": "workspace:^",
+    "@agentxm/workspace-configuration": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "axm.sh": "workspace:^"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@typescript/native": "catalog:",
+    "allure-js-commons": "catalog:",
+    "effect": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "yaml": "catalog:"
+  }
+}

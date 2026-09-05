@@ -5,7 +5,11 @@ import * as path from "node:path";
 const packageDir = path.join(import.meta.dirname, "..");
 const distDir = path.join(packageDir, "dist");
 const entrypoint = path.join(distDir, "src", "main.js");
+// One output directory per producing target, so a cache entry never carries an
+// artifact set the target did not produce: cli:compile -> dist/bin,
+// cli:compile-host -> dist/host-bin, cli:compile-host-dev -> dist/dev-bin.
 const releaseOutputDir = path.join(distDir, "bin");
+const hostOutputDir = path.join(distDir, "host-bin");
 const devOutputDir = path.join(distDir, "dev-bin");
 const packageJsonPath = path.join(packageDir, "package.json");
 const args = process.argv.slice(2);
@@ -23,7 +27,7 @@ if (devBuild && !hostOnly) {
   throw new Error("Usage: --dev-build requires --host-only");
 }
 
-const outputDir = devBuild ? devOutputDir : releaseOutputDir;
+const outputDir = devBuild ? devOutputDir : hostOnly ? hostOutputDir : releaseOutputDir;
 
 const targets = [
   { target: "bun-darwin-arm64", output: "axm-darwin-arm64" },
@@ -119,6 +123,9 @@ if (!fs.existsSync(entrypoint)) {
   throw new Error(`Build output missing: ${entrypoint}. Run cli:build first.`);
 }
 
+// Clear the directory this invocation owns so its declared output describes
+// exactly the artifacts this invocation produced.
+fs.rmSync(outputDir, { recursive: true, force: true });
 fs.mkdirSync(outputDir, { recursive: true });
 
 for (const { target, output } of requestedTargets) {

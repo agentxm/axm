@@ -6,22 +6,76 @@ const containerfile = read("containers/ci/Containerfile");
 const dockerignore = read("containers/ci/.dockerignore");
 const ciImagePin = read("containers/ci/CI_IMAGE").trim();
 const version = read("containers/ci/VERSION").trim();
+const ciWorkflow = read(".github/workflows/ci.yml");
+const releaseWorkflow = read(".github/workflows/publish.yml");
+const nxManifest = JSON.parse(read("nx.json"));
+const packageManifest = JSON.parse(read("package.json"));
+const workspaceConfig = read("pnpm-workspace.yaml");
+const projectManifest = JSON.parse(read("project.json"));
+const cliE2eProjectManifest = JSON.parse(read("packages/cli-e2e/project.json"));
 const workflow = read(".github/workflows/ci-image.yml");
+const publishWorkflow = read(".github/workflows/ci-image-publish.yml");
 const workflowSources = readdirSync(".github/workflows")
   .filter((path) => path.endsWith(".yml") || path.endsWith(".yaml"))
   .map((path) => [path, read(`.github/workflows/${path}`)]);
 const containerLauncher = read("scripts/container-environment.sh");
 const mise = read("mise.toml");
 
+const packageManagerPnpmMatch = /^pnpm@(\d+\.\d+\.\d+)$/u.exec(
+  packageManifest.packageManager ?? "",
+);
+const ciImageVersionMatch = /^ghcr\.io\/agentxm\/axm-ci:(\d+\.\d+\.\d+)@sha256:[0-9a-f]{64}$/u.exec(
+  ciImagePin,
+);
+const imageNodeMatch = /^ARG NODE_VERSION=(\d+\.\d+\.\d+)$/mu.exec(containerfile);
+const imageBunMatch = /^ARG BUN_VERSION=(\d+\.\d+\.\d+)$/mu.exec(containerfile);
+const imagePnpmMatch = /^ARG PNPM_VERSION=(\d+\.\d+\.\d+)$/mu.exec(containerfile);
+const miseNodeMatch = /^node\s*=\s*"([^"]+)"$/mu.exec(mise);
+const miseBunMatch = /^bun\s*=\s*"([^"]+)"$/mu.exec(mise);
+const candidateSmokeMatch = /^smoke_ci_image\(\) \{([\s\S]*?)^\}$/mu.exec(containerLauncher);
+const activeSmokeMatch = /^smoke\(\) \{([\s\S]*?)^\}$/mu.exec(containerLauncher);
+const activeImageVersion = ciImageVersionMatch?.[1];
+const imageNodeVersion = imageNodeMatch?.[1];
+const imageBunVersion = imageBunMatch?.[1];
+const packageManagerPnpmVersion = packageManagerPnpmMatch?.[1];
+const imagePnpmVersion = imagePnpmMatch?.[1];
+const miseNodeVersion = miseNodeMatch?.[1];
+const miseBunVersion = miseBunMatch?.[1];
+const candidateSmoke = candidateSmokeMatch?.[1] ?? "";
+const activeSmoke = activeSmokeMatch?.[1] ?? "";
+
 const requireText = (subject, text, message) => {
   if (!subject.includes(text)) errors.push(message);
 };
+
+if (publishWorkflow.includes("containers/ci/**")) {
+  errors.push("CI image publication must not run for consumer-only CI_IMAGE changes");
+}
+if (publishWorkflow.includes("scripts/check-ci-image.mjs")) {
+  errors.push("CI image publication must not run for checker-only changes");
+}
+if (publishWorkflow.includes(".github/workflows/ci-image-publish.yml")) {
+  errors.push("CI image publication must not run for publication-wrapper-only changes");
+}
+for (const path of [
+  "containers/ci/Containerfile",
+  "containers/ci/.dockerignore",
+  "containers/ci/VERSION",
+  ".github/workflows/ci-image.yml",
+]) {
+  requireText(publishWorkflow, path, `CI image publication must watch producer input ${path}`);
+}
+if (workflow.includes("--metadata-file")) {
+  errors.push(
+    "CI image promotion must resolve its digest by registry inspection for runner Buildx compatibility",
+  );
+}
 
 if (!/^\d+\.\d+\.\d+$/u.test(version)) {
   errors.push("containers/ci/VERSION must contain one semantic version");
 }
 
-if (!/^ghcr\.io\/agentxm\/axm-ci:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$/u.test(ciImagePin)) {
+if (activeImageVersion === undefined) {
   errors.push("containers/ci/CI_IMAGE must pin a semantic axm-ci tag by digest");
 }
 
@@ -33,13 +87,167 @@ if (!/^ARG UBUNTU_IMAGE=[^@\n]+@sha256:[0-9a-f]{64}$/mu.test(containerfile)) {
   errors.push("the AXM CI image base must use a full immutable digest");
 }
 
-for (const [manifestPin, imagePin] of [
-  [/node\s*=\s*"22"/u, "ARG NODE_VERSION=22.22.2"],
-  [/pnpm\s*=\s*"10\.29\.3"/u, "ARG PNPM_VERSION=10.29.3"],
-  [/bun\s*=\s*"1\.3\.5"/u, "ARG BUN_VERSION=1.3.5"],
+if (imageNodeVersion === undefined) {
+  errors.push("Containerfile must pin an exact NODE_VERSION");
+} else {
+  requireText(
+    candidateSmoke,
+    `test "$(node --version)" = "v${imageNodeVersion}"`,
+    "local candidate-image smoke test Node version must match Containerfile",
+  );
+}
+
+if (imageBunVersion === undefined) {
+  errors.push("Containerfile must pin an exact BUN_VERSION");
+} else {
+  requireText(
+    candidateSmoke,
+    `test "$(bun --version)" = "${imageBunVersion}"`,
+    "local candidate-image smoke test Bun version must match Containerfile",
+  );
+}
+
+if (miseNodeVersion === undefined) {
+  errors.push("mise.toml must declare Node");
+}
+if (miseBunVersion === undefined) {
+  errors.push("mise.toml must declare Bun");
+}
+
+const nodePinMatches = (miseVersion, exactVersion) =>
+  miseVersion === exactVersion ||
+  (/^\d+$/u.test(miseVersion ?? "") && exactVersion?.startsWith(`${miseVersion}.`));
+
+const producerFirstUpgrade =
+  activeImageVersion !== undefined &&
+  /^\d+\.\d+\.\d+$/u.test(version) &&
+  activeImageVersion !== version;
+
+if (producerFirstUpgrade) {
+  const activeSmokeNodeMatch = /test "\$\(node --version\)" = "v(\d+\.\d+\.\d+)"/u.exec(
+    activeSmoke,
+  );
+  const activeSmokeBunMatch = /test "\$\(bun --version\)" = "(\d+\.\d+\.\d+)"/u.exec(activeSmoke);
+  if (!nodePinMatches(miseNodeVersion, activeSmokeNodeMatch?.[1])) {
+    errors.push("producer-first mise Node pin must match the active-image smoke check");
+  }
+  if (miseBunVersion !== activeSmokeBunMatch?.[1]) {
+    errors.push("producer-first mise Bun pin must match the active-image smoke check");
+  }
+} else {
+  if (!nodePinMatches(miseNodeVersion, imageNodeVersion)) {
+    errors.push("mise Node pin must match the active CI image");
+  }
+  if (miseBunVersion !== imageBunVersion) {
+    errors.push("mise Bun pin must match the active CI image");
+  }
+}
+
+if (
+  packageManagerPnpmVersion === undefined ||
+  Number.parseInt(packageManagerPnpmVersion, 10) < 11
+) {
+  errors.push("package.json packageManager must pin an exact pnpm 11+ version");
+} else {
+  requireText(
+    mise,
+    `"npm:pnpm" = "${packageManagerPnpmVersion}"`,
+    "mise.toml npm:pnpm version must match packageManager",
+  );
+
+  const releaseCorepackSetupCount =
+    releaseWorkflow.split(`corepack prepare pnpm@${packageManagerPnpmVersion} --activate`).length -
+    1;
+  if (releaseCorepackSetupCount !== 1) {
+    errors.push("the Windows release verification job must activate packageManager pnpm");
+  }
+  requireText(
+    releaseWorkflow,
+    "uses: ./.github/actions/setup-workspace",
+    "the primary release job must use the canonical workspace toolchain setup",
+  );
+}
+
+// The installer-verification matrix cannot use the setup-workspace composite —
+// publish.yml records why — so it is the one job that duplicates mise.toml's
+// toolchain versions instead of reading them. Hold the duplication to the
+// authority so an installer is never verified on an undeclared toolchain.
+if (miseNodeVersion !== undefined) {
+  requireText(
+    releaseWorkflow,
+    `node-version: ${miseNodeVersion}`,
+    "the Corepack installer-verification job must duplicate the mise.toml Node version exactly",
+  );
+}
+if (miseBunVersion !== undefined) {
+  requireText(
+    releaseWorkflow,
+    `bun-version: ${miseBunVersion}`,
+    "the Corepack installer-verification job must duplicate the mise.toml Bun version exactly",
+  );
+}
+
+// One published name per unit of work: workflows reach this checker through
+// `pnpm run check:ci-image`, never through its script path.
+for (const [workflowPath, source] of workflowSources) {
+  if (source.includes("node scripts/check-ci-image.mjs")) {
+    errors.push(
+      `${workflowPath} must invoke the published check:ci-image name, not the checker's script path`,
+    );
+  }
+}
+
+if (imagePnpmVersion === undefined) {
+  errors.push("Containerfile must pin an exact PNPM_VERSION");
+} else {
+  requireText(
+    containerfile,
+    `mise install "npm:pnpm@\${PNPM_VERSION}"`,
+    "Containerfile must install pnpm through mise's npm backend",
+  );
+  const nodeActivationIndex = containerfile.indexOf(`mise use --global "node@\${NODE_VERSION}"`);
+  const pnpmInstallIndex = containerfile.indexOf(`mise install "npm:pnpm@\${PNPM_VERSION}"`);
+  if (nodeActivationIndex === -1 || nodeActivationIndex >= pnpmInstallIndex) {
+    errors.push("Containerfile must activate Node before using mise's npm backend");
+  }
+  requireText(
+    containerfile,
+    `mise use --global "node@\${NODE_VERSION}" "npm:pnpm@\${PNPM_VERSION}" "bun@\${BUN_VERSION}"`,
+    "Containerfile global tool configuration must use mise's npm pnpm backend",
+  );
+  requireText(
+    workflow,
+    `test "$(pnpm --version)" = "${imagePnpmVersion}"`,
+    "CI image smoke test pnpm version must match Containerfile",
+  );
+  requireText(
+    containerLauncher,
+    `test "$(pnpm --version)" = "${imagePnpmVersion}"`,
+    "local CI image smoke test pnpm version must match Containerfile",
+  );
+}
+
+for (const text of [
+  "verifyDepsBeforeRun: error",
+  "allowBuilds:",
+  '"@swc/core": true',
+  "esbuild: true",
+  "msgpackr-extract: false",
+  "nx: true",
+  "minimumReleaseAge: 1440",
+  '- "@agentxm/*"',
+  "- axm.sh",
 ]) {
-  if (!manifestPin.test(mise)) errors.push(`mise.toml is missing ${manifestPin}`);
-  requireText(containerfile, imagePin, `Containerfile is missing ${imagePin}`);
+  requireText(workspaceConfig, text, `pnpm-workspace.yaml is missing ${text}`);
+}
+if (workspaceConfig.includes("onlyBuiltDependencies:")) {
+  errors.push("pnpm-workspace.yaml must use pnpm 11 allowBuilds");
+}
+
+const storeConfigOccurrences =
+  containerLauncher.match(/--env pnpm_config_store_dir=/gu)?.length ?? 0;
+if (storeConfigOccurrences !== 1 || containerLauncher.includes("--env npm_config_store_dir=")) {
+  errors.push("the CI container launcher must pass its pnpm store through pnpm_config_store_dir");
 }
 
 for (const text of [
@@ -51,19 +259,31 @@ for (const text of [
   requireText(containerfile, text, `Containerfile is missing ${text}`);
 }
 
-for (const variable of ["AXM_HOST_UID", "AXM_HOST_GID", "AXM_DEPS_DIRS"]) {
+for (const variable of [
+  "AXM_HOST_UID",
+  "AXM_HOST_GID",
+  "AXM_DEPS_DIRS",
+  "AXM_RELEASE_PREPARATION",
+]) {
   requireText(
     containerLauncher,
     `--env ${variable}=`,
     `container launcher must pass ${variable} to the image entrypoint`,
   );
 }
+for (const variable of ["NX_BASE", "NX_HEAD"]) {
+  requireText(
+    containerLauncher,
+    `--env ${variable} \\\n`,
+    `container launcher must forward ${variable} when the caller sets it`,
+  );
+}
 
 for (const cacheVolume of ["CI_PNPM_CACHE_VOLUME", "CI_NX_CACHE_VOLUME"]) {
   requireText(
     containerLauncher,
-    `docker volume create "$${cacheVolume}"`,
-    `container launcher must create the scoped ${cacheVolume} cache`,
+    `ensure_ci_cache_source "$${cacheVolume}"`,
+    `container launcher must prepare the scoped ${cacheVolume} cache`,
   );
 }
 
@@ -74,11 +294,173 @@ requireText(
 );
 requireText(
   containerLauncher,
-  '--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx/cache"',
-  "container launcher must persist only the Nx result cache",
+  '--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx"',
+  "container launcher must persist Nx task artifacts with their database metadata",
 );
-if (containerLauncher.includes('--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx" \\\n')) {
-  errors.push("container launcher must not persist transient Nx workspace data");
+if (containerLauncher.includes('--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx/cache"')) {
+  errors.push(
+    "container launcher must not separate Nx task artifacts from their database metadata",
+  );
+}
+if (containerLauncher.includes("NX_REJECT_UNKNOWN_LOCAL_CACHE")) {
+  errors.push("container launcher must not bypass Nx cache provenance checks");
+}
+
+for (const text of [
+  'install: "false"',
+  "id: pnpm-cache",
+  "id: nx-cache",
+  "axm-ci-cache/pnpm-store",
+  "axm-ci-cache/nx",
+  "hashFiles('containers/ci/CI_IMAGE')",
+  'AXM_CONTAINER_NX_PARALLEL: "3"',
+  'AXM_CONTAINER_VITEST_MAX_WORKERS: "2"',
+  "NX_BASE: ${{ github.event.pull_request.base.sha }}",
+  "NX_HEAD: ${{ github.event.pull_request.head.sha }}",
+  "pnpm run verify:clean",
+  "pnpm run verify:affected",
+  "pnpm run ci:workspace:report",
+  "NX_SKIP_NX_CACHE=true pnpm run test:e2e:report",
+  "verify-e2e-main-trusted",
+  'AXM_CONTAINER_VITEST_MAX_WORKERS: "4"',
+  "if: always()",
+  '>> "$GITHUB_STEP_SUMMARY"',
+  "Exact hit",
+  "Fallback hit",
+  "Miss",
+]) {
+  requireText(ciWorkflow, text, `CI workflow is missing ${text}`);
+}
+
+if (ciWorkflow.includes("affected_projects")) {
+  errors.push("the path classifier must not install Nx only to render an affected-project summary");
+}
+
+if (
+  !/key:\s*>-\s+axm-ci-nx-v2-[\s\S]{0,500}github\.event\.pull_request\.head\.sha\s*\}\}\s+restore-keys:/u.test(
+    ciWorkflow,
+  )
+) {
+  errors.push("the Nx cache must use a commit-specific primary key");
+}
+
+const workflowFormatChecks = ciWorkflow.match(/pnpm run format:check/gu) ?? [];
+if (workflowFormatChecks.length !== 1) {
+  errors.push("the PR workflow must have exactly one formatting owner");
+}
+
+if (packageManifest.scripts?.["generate:check"]?.includes("format:check")) {
+  errors.push("generate:check must not duplicate the PR formatting check");
+}
+
+if (
+  !nxManifest.targetDefaults?.test?.outputs?.includes("{workspaceRoot}/test-results/{projectName}")
+) {
+  errors.push("cached test targets must restore their JUnit reports");
+}
+
+if (!projectManifest.targets?.test?.outputs?.includes("{workspaceRoot}/test-results/scripts")) {
+  errors.push("the cached root test target must restore its JUnit report");
+}
+
+for (const target of ["test-report", "allure-report"]) {
+  const command = projectManifest.targets?.[target]?.options?.command ?? "";
+  requireText(command, "allure generate", `${target} must generate the Allure report`);
+  if (command.includes("--clean")) {
+    errors.push(
+      `${target} must use the Allure 3 generate contract without the removed --clean flag`,
+    );
+  }
+}
+
+const workspaceCi = packageManifest.scripts?.["ci:workspace"] ?? "";
+requireText(workspaceCi, "pnpm run format:check", "workspace CI must retain formatting");
+requireText(
+  packageManifest.scripts?.ci ?? "",
+  "pnpm run ci:workspace",
+  "full CI must compose the workspace phase",
+);
+requireText(
+  packageManifest.scripts?.ci ?? "",
+  "pnpm run test:e2e",
+  "full CI must compose the E2E phase",
+);
+
+const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "";
+for (const text of [
+  "nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check",
+  "nx run-many -t build --parallel=1 --skip-nx-cache",
+  "nx run-many -t test --parallel=1",
+  "--maxWorkers=2",
+]) {
+  requireText(
+    workspaceVerification,
+    text,
+    `verify:workspace must retain the bounded workspace phase for ${text}`,
+  );
+}
+
+const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
+for (const text of [
+  "nx affected -t lint typecheck",
+  "verify-source-hygiene parity-ledger-check",
+  "nx affected -t build --parallel=1 --skip-nx-cache",
+  "nx affected -t test --parallel=1",
+  "--maxWorkers=2",
+  "nx affected -t e2e",
+]) {
+  requireText(
+    affectedVerification,
+    text,
+    `verify:affected must use the native Nx affected path for ${text}`,
+  );
+}
+// The bundled-skill lint is the only gate over `skills/axm/**`. It reaches the
+// developer through the source-verification names, not only the CI job, so a
+// local `pnpm run ci` covers what CI's `extension-lint` job covers.
+for (const [name, source] of [
+  ["verify:workspace", workspaceVerification],
+  ["verify:affected", affectedVerification],
+]) {
+  requireText(
+    source,
+    "lint-bundled-skill",
+    `${name} must run the bundled AXM skill lint alongside the other lint phases`,
+  );
+}
+
+if (
+  affectedVerification.indexOf("nx affected -t lint typecheck") >=
+    affectedVerification.indexOf("nx affected -t build --parallel=1 --skip-nx-cache") ||
+  affectedVerification.indexOf("nx affected -t build --parallel=1 --skip-nx-cache") >=
+    affectedVerification.indexOf("nx affected -t test") ||
+  affectedVerification.indexOf("nx affected -t test") >=
+    affectedVerification.indexOf("nx affected -t e2e")
+) {
+  errors.push("verify:affected must complete typechecking, builds, tests, and E2E in order");
+}
+
+if (nxManifest.parallel !== 2) {
+  errors.push("the local Nx default must bound workspace task concurrency at two");
+}
+
+const cliE2eTargets = cliE2eProjectManifest.targets ?? {};
+const aggregateDependencies = cliE2eTargets.e2e?.dependsOn ?? [];
+for (const target of ["e2e-main", "binary-smoke", "install-suite"]) {
+  if (!aggregateDependencies.includes(target)) {
+    errors.push(`the aggregate E2E target must depend on cli-e2e:${target}`);
+  }
+  if (cliE2eTargets[target]?.parallelism !== false) {
+    errors.push(`cli-e2e:${target} must run exclusively on its machine`);
+  }
+}
+if (cliE2eTargets.e2e?.executor !== "nx:noop") {
+  errors.push("the aggregate E2E target must delegate to its component target graph");
+}
+for (const text of ["generate:check", "sync:check", "format:check"]) {
+  if (affectedVerification.includes(text)) {
+    errors.push(`verify:affected must leave clean-checkout ${text} to CI`);
+  }
 }
 
 for (const scopeInput of ['"axm|', "$(uname -m)", "$CI_IMAGE", "pnpm-lock.yaml"]) {
@@ -120,6 +502,14 @@ for (const [path, source] of workflowSources) {
       errors.push(`${path} action ${action} must use a full commit SHA`);
     }
   }
+}
+
+for (const text of ["Required CI failures", "GITHUB_STEP_SUMMARY"]) {
+  requireText(
+    ciWorkflow,
+    text,
+    `Required CI rollup must report actionable failure details via ${text}`,
+  );
 }
 
 if (errors.length > 0) {

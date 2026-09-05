@@ -1,25 +1,24 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { includeIgnoredFlag, scopeFlag } from "../../cli-flags.js";
+  type ConfiguredAgentOutcome,
+} from "@agentxm/workspace-state";
+import {
+  parseExtensionFqnParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
+} from "@agentxm/extension-model/unstable/extensions";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
-  inventoryIgnoredBy,
   inventoryState,
+  inventoryAgentOutcomes,
   inventorySummary,
-  renderEmptyInventory,
-  renderInventoryTable,
-} from "../extension-inventory.js";
+} from "../inventory-view.js";
 
 interface PackListItem {
   readonly name: string;
@@ -27,58 +26,44 @@ interface PackListItem {
   readonly owner: string;
   readonly version: string;
   readonly source: string;
-  readonly ignoredBy: string;
+  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
-const PackListTable = {
-  columns: {
-    name: { header: "Name" },
-    state: { header: "State" },
-    owner: { header: "Owner" },
-    version: { header: "Version" },
-    source: { header: "Source" },
-    ignoredBy: { header: "Ignored by" },
+const PackListColumns = [
+  { header: "Name", priority: "required", value: (row: PackListItem) => row.name },
+  { header: "State", value: (row: PackListItem) => row.state },
+  { header: "Owner", value: (row: PackListItem) => row.owner },
+  { header: "Version", value: (row: PackListItem) => row.version },
+  { header: "Source", value: (row: PackListItem) => row.source },
+  {
+    header: "Agent outcomes",
+    priority: "optional",
+    value: (row: PackListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-} as const satisfies TableView<PackListItem>;
+] satisfies ReadonlyArray<ViewColumn<PackListItem>>;
 
-registerEntity<PackListItem>("pack", {
-  list: {
-    columns: PackListTable.columns,
-    emptyMessage: "No packs found",
-    singularLabel: "pack",
-    pluralLabel: "packs",
-  },
-});
-
-export const handleList = Effect.fn("PacksList.handle")(function* (args: {
-  readonly includeIgnored: boolean;
-}) {
-  const renderer = yield* CliRenderer;
+export const handleList = Effect.fn("PacksList.handle")(function* () {
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
-  const inventory = yield* ws.records.getExtensionInventory("pack", {
-    includeIgnored: args.includeIgnored,
-  });
+  const inventory = yield* ws.records.getExtensionInventory("pack", {});
   const packs = yield* ws.getLockedPacks();
 
   const items: ReadonlyArray<PackListItem> = inventory.items.map((row) => {
-    const entry = Object.values(packs).find((candidate) => candidate.name === row.name);
+    const entry = packs[row.name];
+    const configuredSource = row.source ?? row.origins.join(", ");
+    const parsedRegistrySource = parseSourceQualifiedRegistrySourcePatternParts(configuredSource);
+    const parsedWorkspaceSource = parseExtensionFqnParts(
+      configuredSource.replace(/^workspace:/u, "").replace(/@[^@/]+$/u, ""),
+    );
     return {
       name: row.name,
       state: inventoryState(row),
-      owner: entry?.owner ?? "n/a",
-      version:
-        entry === undefined
-          ? "n/a"
-          : entry.type === "workspace"
-            ? entry.version
-            : entry.resolvedVersion,
-      source:
-        entry === undefined
-          ? row.origins.join(", ")
-          : entry.type === "workspace"
-            ? "workspace"
-            : entry.sourceName,
-      ignoredBy: inventoryIgnoredBy(row),
+      owner: entry?.owner ?? parsedRegistrySource?.owner ?? parsedWorkspaceSource?.owner ?? "n/a",
+      version: entry?.resolvedVersion ?? "n/a",
+      source: configuredSource.startsWith("workspace:")
+        ? "workspace"
+        : (entry?.sourceName ?? configuredSource),
+      agentOutcomes: row.agentOutcomes,
     };
   });
   const details = new Map(items.map((item) => [item.name, item]));
@@ -91,30 +76,27 @@ export const handleList = Effect.fn("PacksList.handle")(function* (args: {
     };
   });
 
-  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
-  if (items.length === 0) {
-    yield* renderEmptyInventory(renderer, "No packs found");
-    return;
-  }
-
-  yield* renderInventoryTable(renderer, items, PackListTable, inventorySummary(inventory, "pack"));
+  if (yield* screen.document(output, ExtensionInventorySchema)) return;
+  yield* screen.result(
+    inventoryDoc({
+      rows: items,
+      columns: PackListColumns,
+      summary: inventorySummary(inventory, "pack"),
+      empty: "No packs found",
+    }),
+  );
 });
 
 const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List packs from project (default) or user-level configuration"),
   ),
-  includeIgnored: includeIgnoredFlag,
 } as const;
 
-export const listCommand = Command.make("list", listConfig, ({ scope, includeIgnored }) =>
-  handleList({ includeIgnored }).pipe(
-    withWorkspace({ scope, allowUninitialized: true }),
-    withRuntime("packs list"),
-  ),
+export const listCommand = Command.make("list", listConfig, ({ scope }) =>
+  handleList().pipe(withWorkspace({ scope, allowUninitialized: true }), withRuntime("packs list")),
 ).pipe(
   withArgvTracking(listConfig),
-  Command.withAlias("ls"),
   Command.withDescription("List detected packs and their lifecycle classification"),
   Command.withExamples([
     { command: "axm packs list", description: "Inventory detected packs" },

@@ -4,27 +4,19 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import { Screen, headlineDoc, successDoc } from "../../screen/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
-  AuthClient,
-  AuthLoginInteraction,
-  RegistryUrl,
-  resolveRequiredToken,
-} from "@agentxm/client-core/unstable/auth";
-import {
-  errAuthRequired,
-  makeAppError,
-  type AppError,
-} from "@agentxm/client-core/unstable/app-error";
-import { jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  fqnInvalidErrorToAppError,
+  ExtensionFqnSchema,
+  formatFqn,
   parseFqn,
   toExtensionTypePlural,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError, toAppError } from "../../app-error/conversions.js";
 import {
   deprecateExtension,
+  getExtensionDeprecation,
   undeprecateExtension,
   unyankExtensionVersion,
   yankAvailableExtensionVersions,
@@ -32,14 +24,27 @@ import {
   type RegistryExtensionReference,
   type RegistryExtensionVersionReference,
   type YankCategory,
-} from "@agentxm/client-core/unstable/registry";
-import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/registry-client";
+import {
+  DeprecationTransitionSchema,
+  type DeprecationReplacementIntent,
+  type DeprecationTransition,
+} from "@agentxm/registry-protocol/unstable/registry";
+import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 
-import { withAuthRuntime } from "../../runtime.js";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { makeOperationResolution, observeUnit } from "@agentxm/workspace-operations";
+
+import { withRuntime } from "../../runtime.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { runWithStepUp } from "../step-up.js";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 
 const categoryValues = ["broken", "security", "accidental", "other"] as const;
 const decodeVersion = Schema.decodeUnknownResult(VersionSchema);
+
+export const LifecycleTransitionOutputSchema = DeprecationTransitionSchema.annotate({
+  identifier: "LifecycleTransitionOutput",
+});
 
 const parseExtensionReference = (
   input: string,
@@ -53,6 +58,18 @@ const parseExtensionReference = (
       type: toExtensionTypePlural(parsed.type),
       name: parsed.name,
     };
+  });
+
+const parseExtensionFqn = (input: string) =>
+  Effect.gen(function* () {
+    const parsed = yield* Effect.fromResult(
+      Result.mapError(parseFqn(input), fqnInvalidErrorToAppError),
+    );
+    return yield* Schema.decodeUnknownEffect(ExtensionFqnSchema)(formatFqn(parsed)).pipe(
+      Effect.mapError(() =>
+        makeAppError({ code: "validation", detail: `Invalid fully qualified name: ${input}` }),
+      ),
+    );
   });
 
 const parseExactVersionReference = (
@@ -81,78 +98,6 @@ const parseExactVersionReference = (
     return { ...ref, version: decodedVersion.success };
   });
 
-interface StepUpRequired {
-  readonly authUrl: string;
-  readonly doneUrl: string;
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const readString = (record: Record<string, unknown>, key: string) => {
-  const value = record[key];
-  return typeof value === "string" ? value : null;
-};
-
-const readStepUpRequired = (error: AppError): StepUpRequired | null => {
-  const body = error.metadata?.response?.body;
-  if (!isRecord(body) || readString(body, "code") !== "eotp") return null;
-  const authUrl = readString(body, "authUrl");
-  const doneUrl = readString(body, "doneUrl");
-  return authUrl === null || doneUrl === null ? null : { authUrl, doneUrl };
-};
-
-const runWithStepUp = <A, R>(
-  subject: string,
-  operation: (stepUpToken?: string) => Effect.Effect<A, AppError, R>,
-) =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    const activity = yield* renderer.spinner(`Updating ${subject}`);
-    const initial = yield* Effect.result(operation()).pipe(
-      Effect.onInterrupt(() => activity.cancel(`Cancelled update for ${subject}`)),
-    );
-    if (Result.isSuccess(initial)) {
-      yield* activity.stop(`Updated ${subject}`);
-      return { value: initial.success, stepUpCompleted: false };
-    }
-
-    const stepUp = readStepUpRequired(initial.failure);
-    if (stepUp === null) {
-      yield* activity.error(`Failed to update ${subject}`);
-      return yield* initial.failure;
-    }
-    yield* activity.stop(`Additional authorization required for ${subject}`);
-
-    const registryUrl = yield* RegistryUrl;
-    const authClient = yield* AuthClient;
-    const interaction = yield* AuthLoginInteraction;
-    const jsonMode = Option.getOrElse(yield* jsonFlag, () => false);
-    const token = yield* resolveRequiredToken(registryUrl, {
-      missingTokenError: errAuthRequired("Not authenticated"),
-    });
-
-    const opened = yield* interaction.openBrowser(stepUp.authUrl);
-    if (!jsonMode) {
-      yield* renderer.step(
-        opened
-          ? "Opening browser to complete step-up authentication..."
-          : "Complete step-up authentication in your browser.",
-      );
-      yield* renderer.step(`Visit: ${stepUp.authUrl}`);
-    }
-
-    const proof = yield* renderer.withSpinner(
-      `Waiting for authorization to update ${subject}`,
-      () => authClient.pollStepUpChallenge(token.token, stepUp.doneUrl),
-      { successMessage: `Authorized update for ${subject}` },
-    );
-    const value = yield* renderer.withSpinner(`Updating ${subject}`, () => operation(proof), {
-      successMessage: `Updated ${subject}`,
-    });
-    return { value, stepUpCompleted: true };
-  });
-
 const emitLifecycleOutput = (input: {
   readonly command: "yank" | "unyank" | "deprecate" | "undeprecate";
   readonly planName: string;
@@ -161,39 +106,31 @@ const emitLifecycleOutput = (input: {
   readonly warnings?: ReadonlyArray<string>;
   readonly version?: string;
 }) =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    const emitted = yield* emitPlanResolutionResult(input.command, {
-      _tag: "ExecutedPlan",
+  emitOperationResolution(
+    input.command,
+    makeOperationResolution({
       name: input.planName,
       description: Option.none(),
-      jobs: [
+      mode: "apply",
+      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+      units: [
         {
-          concurrency: 1,
-          steps: [
-            {
-              label: input.extension,
-              result: {
-                result: "success",
-                message: input.message,
-                ...(input.warnings === undefined ? {} : { warnings: input.warnings }),
-                artifact: {
-                  path: input.extension,
-                  scope: "user",
-                  change: "updated",
-                  ...(input.version === undefined ? {} : { version: input.version }),
-                },
-              },
-            },
-          ],
+          id: input.extension,
+          label: input.extension,
+          state: "committed",
+          message: input.message,
+          ...(input.warnings === undefined ? {} : { warnings: input.warnings }),
+          artifact: {
+            path: input.extension,
+            scope: "user",
+            change: "updated",
+            ...(input.version === undefined ? {} : { version: input.version }),
+          },
         },
       ],
-    });
-    if (emitted) {
-      return;
-    }
-    yield* renderer.success(input.message);
-  });
+    }),
+    { message: input.message },
+  );
 
 export const handleYank = (input: {
   readonly ref: string;
@@ -207,15 +144,21 @@ export const handleYank = (input: {
 
     if (input.allVersions) {
       const ref = yield* parseExtensionReference(input.ref);
-      const result = yield* runWithStepUp(input.ref, (stepUpToken) =>
-        yankAvailableExtensionVersions(
-          ref,
-          {
-            ...(category === undefined ? {} : { category }),
-            ...(notice === undefined ? {} : { notice }),
-          },
-          stepUpToken === undefined ? undefined : { stepUpToken },
-        ),
+      const result = yield* runWithStepUp(
+        (stepUpRequestId) =>
+          yankAvailableExtensionVersions(
+            ref,
+            {
+              ...(category === undefined ? {} : { category }),
+              ...(notice === undefined ? {} : { notice }),
+            },
+            stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+          ).pipe(Effect.mapError(toAppError)),
+        {
+          command: "yank",
+          name: `Yank ${input.ref}`,
+          waiting: `verification to update ${input.ref}`,
+        },
       );
       const extension = `${ref.owner}/${ref.type}/${ref.name}`;
       yield* emitLifecycleOutput({
@@ -228,15 +171,21 @@ export const handleYank = (input: {
     }
 
     const ref = yield* parseExactVersionReference(input.ref);
-    yield* runWithStepUp(input.ref, (stepUpToken) =>
-      yankExtensionVersion(
-        ref,
-        {
-          ...(category === undefined ? {} : { category }),
-          ...(notice === undefined ? {} : { notice }),
-        },
-        stepUpToken === undefined ? undefined : { stepUpToken },
-      ),
+    yield* runWithStepUp(
+      (stepUpRequestId) =>
+        yankExtensionVersion(
+          ref,
+          {
+            ...(category === undefined ? {} : { category }),
+            ...(notice === undefined ? {} : { notice }),
+          },
+          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+        ).pipe(Effect.mapError(toAppError)),
+      {
+        command: "yank",
+        name: `Yank ${input.ref}`,
+        waiting: `verification to update ${input.ref}`,
+      },
     );
     yield* emitLifecycleOutput({
       command: "yank",
@@ -250,8 +199,17 @@ export const handleYank = (input: {
 export const handleUnyank = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExactVersionReference(input);
-    yield* runWithStepUp(input, (stepUpToken) =>
-      unyankExtensionVersion(ref, stepUpToken === undefined ? undefined : { stepUpToken }),
+    yield* runWithStepUp(
+      (stepUpRequestId) =>
+        unyankExtensionVersion(
+          ref,
+          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+        ).pipe(Effect.mapError(toAppError)),
+      {
+        command: "unyank",
+        name: `Un-yank ${input}`,
+        waiting: `verification to update ${input}`,
+      },
     );
     yield* emitLifecycleOutput({
       command: "unyank",
@@ -262,46 +220,124 @@ export const handleUnyank = (input: string) =>
     });
   });
 
-export const handleDeprecate = (input: { readonly ref: string; readonly message: string }) =>
+const emitDeprecationTransition = (transition: DeprecationTransition) =>
+  Effect.gen(function* () {
+    const screen = yield* Screen;
+    if (yield* screen.document(transition, LifecycleTransitionOutputSchema)) return;
+    const verb =
+      transition.disposition === "created"
+        ? "Deprecated"
+        : transition.disposition === "edited"
+          ? "Updated deprecation for"
+          : transition.disposition === "restored"
+            ? "Restored"
+            : transition.after === null
+              ? "Already active"
+              : "Deprecation already current for";
+    yield* screen.result(successDoc(`${verb} ${transition.target}.`));
+    if (transition.after?.message !== undefined) {
+      yield* screen.note(headlineDoc("info", `Message: ${transition.after.message}`));
+    }
+    if (transition.after?.replacement !== undefined) {
+      const replacement = transition.after.replacement;
+      yield* screen.note(
+        headlineDoc(
+          "info",
+          replacement.status === "available"
+            ? `Replacement: ${replacement.fqn}`
+            : replacement.fqn === undefined
+              ? "Replacement: unavailable or not visible"
+              : `Replacement: ${replacement.fqn} (unavailable)`,
+        ),
+      );
+    }
+  });
+
+export const handleDeprecate = (input: {
+  readonly ref: string;
+  readonly message: Option.Option<string>;
+  readonly replacement: Option.Option<string>;
+  readonly clearMessage: boolean;
+  readonly clearReplacement: boolean;
+}) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input.ref);
-    const message = input.message.trim();
-    if (message.length === 0) {
+    if (Option.isSome(input.message) && input.clearMessage) {
       return yield* makeAppError({
         code: "validation",
-        detail: "Deprecation message must not be empty.",
+        detail: "--message and --clear-message cannot be combined.",
       });
     }
-    const renderer = yield* CliRenderer;
-    yield* renderer.withSpinner(
-      `Deprecating ${input.ref}`,
-      () => deprecateExtension(ref, message),
-      { successMessage: `Deprecated ${input.ref}` },
+    if (Option.isSome(input.replacement) && input.clearReplacement) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "--replacement and --clear-replacement cannot be combined.",
+      });
+    }
+    const current = yield* withLiveOperation(
+      { command: "deprecate", name: `Read deprecation for ${input.ref}`, mode: "preview" },
+      observeUnit(
+        { id: "deprecation", label: `deprecation for ${input.ref}` },
+        getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
+      ),
     );
-    yield* emitLifecycleOutput({
-      command: "deprecate",
-      planName: "Deprecate extension",
-      extension: input.ref,
-      message: `Deprecated ${input.ref}: ${message}`,
-      warnings: [message],
-    });
+    const suppliedMessage = Option.getOrUndefined(input.message)?.trim();
+    const message = input.clearMessage
+      ? null
+      : suppliedMessage === undefined
+        ? (current.deprecation?.message ?? null)
+        : suppliedMessage.length === 0
+          ? null
+          : suppliedMessage;
+    const replacement: DeprecationReplacementIntent = input.clearReplacement
+      ? { kind: "clear" }
+      : Option.isSome(input.replacement)
+        ? { kind: "set", fqn: yield* parseExtensionFqn(input.replacement.value) }
+        : current.deprecation?.replacement === undefined
+          ? { kind: "clear" }
+          : current.deprecation.replacement.status === "available"
+            ? { kind: "set", fqn: current.deprecation.replacement.fqn }
+            : { kind: "preserve" };
+    if (message === null && replacement.kind === "clear") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "A deprecation requires a message, a replacement, or both.",
+        suggestions: [
+          {
+            description: "Supply --message or --replacement, or remove the deprecation instead.",
+          },
+        ],
+      });
+    }
+    const transition = yield* withLiveOperation(
+      { command: "deprecate", name: `Deprecate ${input.ref}`, mode: "apply" },
+      observeUnit(
+        { id: "transition", label: `deprecation of ${input.ref}` },
+        deprecateExtension(ref, { revision: current.revision, message, replacement }).pipe(
+          Effect.mapError(toAppError),
+        ),
+      ),
+    );
+    yield* emitDeprecationTransition(transition);
   });
 
 export const handleUndeprecate = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input);
-    const renderer = yield* CliRenderer;
-    yield* renderer.withSpinner(
-      `Removing deprecation from ${input}`,
-      () => undeprecateExtension(ref),
-      { successMessage: `Removed deprecation from ${input}` },
+    const transition = yield* withLiveOperation(
+      { command: "undeprecate", name: `Remove deprecation from ${input}`, mode: "apply" },
+      Effect.gen(function* () {
+        const current = yield* observeUnit(
+          { id: "deprecation", label: `deprecation for ${input}` },
+          getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
+        );
+        return yield* observeUnit(
+          { id: "transition", label: `deprecation removal from ${input}` },
+          undeprecateExtension(ref, current.revision).pipe(Effect.mapError(toAppError)),
+        );
+      }),
     );
-    yield* emitLifecycleOutput({
-      command: "undeprecate",
-      planName: "Undeprecate extension",
-      extension: input,
-      message: `Removed the deprecation warning from ${input}.`,
-    });
+    yield* emitDeprecationTransition(transition);
   });
 
 const yankConfig = {
@@ -310,6 +346,7 @@ const yankConfig = {
   ),
   allVersions: Flag.boolean("all-versions").pipe(
     Flag.withDescription("Atomically yank all versions currently available"),
+    Flag.withDefault(false),
   ),
   category: Flag.choice("category", categoryValues).pipe(
     Flag.withDescription("Public yank category"),
@@ -331,7 +368,22 @@ const deprecateConfig = {
   ref: Argument.string("extension").pipe(
     Argument.withDescription("Extension FQN (@owner/<plural-type>/name)"),
   ),
-  message: Flag.string("message").pipe(Flag.withDescription("Public deprecation warning")),
+  message: Flag.string("message").pipe(
+    Flag.withDescription("Concise publisher migration guidance (maximum 500 characters)"),
+    Flag.optional,
+  ),
+  replacement: Flag.string("replacement").pipe(
+    Flag.withDescription("Replacement extension FQN"),
+    Flag.optional,
+  ),
+  clearMessage: Flag.boolean("clear-message").pipe(
+    Flag.withDescription("Remove the current publisher message"),
+    Flag.withDefault(false),
+  ),
+  clearReplacement: Flag.boolean("clear-replacement").pipe(
+    Flag.withDescription("Remove the current replacement relationship"),
+    Flag.withDefault(false),
+  ),
 } as const;
 
 const extensionRefConfig = {
@@ -341,7 +393,7 @@ const extensionRefConfig = {
 } as const;
 
 export const yankCommand = Command.make("yank", yankConfig, (input) =>
-  handleYank(input).pipe(withAuthRuntime("yank")),
+  handleYank(input).pipe(withRuntime("yank")),
 ).pipe(
   withArgvTracking(yankConfig),
   Command.withDescription("Exclude extension versions from fresh resolution"),
@@ -355,7 +407,7 @@ export const yankCommand = Command.make("yank", yankConfig, (input) =>
 );
 
 export const unyankCommand = Command.make("unyank", exactRefConfig, ({ ref }) =>
-  handleUnyank(ref).pipe(withAuthRuntime("unyank")),
+  handleUnyank(ref).pipe(withRuntime("unyank")),
 ).pipe(
   withArgvTracking(exactRefConfig),
   Command.withDescription("Restore one exact version to fresh resolution"),
@@ -368,27 +420,28 @@ export const unyankCommand = Command.make("unyank", exactRefConfig, ({ ref }) =>
 );
 
 export const deprecateCommand = Command.make("deprecate", deprecateConfig, (input) =>
-  handleDeprecate(input).pipe(withAuthRuntime("deprecate")),
+  handleDeprecate(input).pipe(withRuntime("deprecate")),
 ).pipe(
   withArgvTracking(deprecateConfig),
-  Command.withDescription("Add a warning-only deprecation notice to an extension"),
+  Command.withDescription("Create or edit warning-only extension deprecation guidance"),
   Command.withExamples([
     {
-      command: 'axm deprecate @acme/skills/code-review --message "Use @acme/skills/reviewer"',
-      description: "Warn consumers and suggest a replacement",
+      command:
+        'axm deprecate @acme/skills/code-review --replacement @acme/skills/reviewer --message "Move review workflows"',
+      description: "Deprecate with structured replacement guidance",
     },
   ]),
 );
 
 export const undeprecateCommand = Command.make("undeprecate", extensionRefConfig, ({ ref }) =>
-  handleUndeprecate(ref).pipe(withAuthRuntime("undeprecate")),
+  handleUndeprecate(ref).pipe(withRuntime("undeprecate")),
 ).pipe(
   withArgvTracking(extensionRefConfig),
-  Command.withDescription("Remove an extension deprecation notice"),
+  Command.withDescription("Restore a deprecated extension identity"),
   Command.withExamples([
     {
       command: "axm undeprecate @acme/skills/code-review",
-      description: "Remove the warning-only deprecation marker",
+      description: "Restore the identity to active lifecycle state",
     },
   ]),
 );

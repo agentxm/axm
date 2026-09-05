@@ -1,35 +1,40 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
-  syncInlineMcpServerToAgent,
+  syncInlineMcpServerToAgents,
   type McpServerSyncTarget,
-} from "@agentxm/client-core/unstable/agents";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
-import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
+} from "@agentxm/extension-workspace";
+import { makeAppError } from "../../app-error/index.js";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { count } from "../../screen/index.js";
 import {
+  operationPresentation,
   type JobStepArtifact,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
-import { scopeFlag } from "../../cli-flags.js";
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { emitOperationResolution } from "../../operation-output.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { handleInstallMcpServer } from "./install/handler.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import {
+  makeInlineMcpDefinition,
+  matchesInlineMcpEntry,
+  parseInlineMcpEnv,
+  parseInlineMcpHeaders,
+  validateInlineMcpRemoteUrl,
+} from "@agentxm/workspace-configuration";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
+import { configurationFailureToAppError } from "../../feature-errors.js";
 
 export interface McpsAddArgs {
   readonly name: string;
@@ -42,156 +47,6 @@ export interface McpsAddArgs {
   readonly preview: boolean;
 }
 
-const splitCommand = (value: string): ReadonlyArray<string> =>
-  value.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map((part) => {
-    if (
-      (part.startsWith('"') && part.endsWith('"')) ||
-      (part.startsWith("'") && part.endsWith("'"))
-    ) {
-      return part.slice(1, -1);
-    }
-    return part;
-  }) ?? [];
-
-const parseEnv = (values: ReadonlyArray<string>): Readonly<Record<string, string>> =>
-  Object.fromEntries(
-    values.map((value) => {
-      const separator = value.indexOf("=");
-      if (separator > 0) {
-        return [value.slice(0, separator), value.slice(separator + 1)];
-      }
-      return [value, `\${${value}}`];
-    }),
-  );
-
-const parseHeader = (value: string): Effect.Effect<readonly [string, string], AppError> =>
-  Effect.gen(function* () {
-    const separator = value.indexOf(":");
-    if (separator <= 0) {
-      return yield* makeAppError({
-        code: "usage",
-        detail: `Invalid header "${value}". Use Name:Value.`,
-      });
-    }
-    return [value.slice(0, separator).trim(), value.slice(separator + 1).trim()] as const;
-  });
-
-const parseHeaders = (
-  values: ReadonlyArray<string>,
-): Effect.Effect<Readonly<Record<string, string>>, AppError> =>
-  Effect.map(Effect.forEach(values, parseHeader), (entries) => Object.fromEntries(entries));
-
-const validateRemoteUrl = (value: string): Effect.Effect<void, AppError> =>
-  Effect.gen(function* () {
-    const protocol = yield* Effect.try({
-      try: () => new URL(value).protocol,
-      catch: (cause) =>
-        makeAppError({
-          code: "usage",
-          detail: `Invalid MCP server URL "${value}". Use an http(s):// streamable URL.`,
-          cause,
-        }),
-    });
-    if (protocol === "ws:" || protocol === "wss:") {
-      return yield* makeAppError({
-        code: "usage",
-        detail: "WebSocket MCP transport is not supported; use an http(s):// streamable URL.",
-      });
-    }
-    if (protocol !== "http:" && protocol !== "https:") {
-      return yield* makeAppError({
-        code: "usage",
-        detail: `Unsupported MCP server URL scheme "${protocol}". Use an http(s):// streamable URL.`,
-      });
-    }
-  });
-
-const arraysEqual = (
-  left: ReadonlyArray<string> | undefined,
-  right: ReadonlyArray<string> | undefined,
-): boolean => {
-  const normalizedLeft = left ?? [];
-  const normalizedRight = right ?? [];
-  return (
-    normalizedLeft.length === normalizedRight.length &&
-    normalizedLeft.every((value, index) => value === normalizedRight[index])
-  );
-};
-
-const recordsEqual = (
-  left: Readonly<Record<string, string>> | undefined,
-  right: Readonly<Record<string, string>> | undefined,
-): boolean => {
-  const normalizedLeft = left ?? {};
-  const normalizedRight = right ?? {};
-  const leftEntries = Object.entries(normalizedLeft).sort(([leftKey], [rightKey]) =>
-    leftKey.localeCompare(rightKey),
-  );
-  const rightEntries = Object.entries(normalizedRight).sort(([leftKey], [rightKey]) =>
-    leftKey.localeCompare(rightKey),
-  );
-  return (
-    leftEntries.length === rightEntries.length &&
-    leftEntries.every(([key, value], index) => {
-      const rightEntry = rightEntries[index];
-      return rightEntry !== undefined && key === rightEntry[0] && value === rightEntry[1];
-    })
-  );
-};
-
-const matchesInlineMcpEntry = (args: {
-  readonly existing: McpServerEntry | undefined;
-  readonly lockEntry: McpServerLockEntry;
-  readonly env: Readonly<Record<string, string>>;
-}): boolean =>
-  args.existing !== undefined &&
-  args.lockEntry.type === "inline" &&
-  args.existing.source === "inline" &&
-  args.existing.enabled &&
-  args.existing.command === args.lockEntry.command &&
-  arraysEqual(args.existing.args, args.lockEntry.args) &&
-  args.existing.url === args.lockEntry.url &&
-  recordsEqual(args.existing.headers, args.lockEntry.headers) &&
-  recordsEqual(args.existing.env, args.env);
-
-const makeInlineLockEntry = (
-  args: McpsAddArgs,
-  headers: Readonly<Record<string, string>>,
-): Effect.Effect<McpServerLockEntry, AppError> =>
-  Effect.gen(function* () {
-    const now = yield* DateTime.now;
-    if (Option.isSome(args.command)) {
-      const commandParts = splitCommand(args.command.value);
-      const command = commandParts[0];
-      if (command === undefined) {
-        return yield* makeAppError({
-          code: "usage",
-          detail: "Inline MCP command cannot be empty.",
-        });
-      }
-      return {
-        type: "inline",
-        command,
-        args: commandParts.slice(1),
-        installedAt: now,
-        updatedAt: now,
-      } satisfies McpServerLockEntry;
-    }
-    if (Option.isSome(args.url)) {
-      return {
-        type: "inline",
-        url: args.url.value,
-        headers,
-        installedAt: now,
-        updatedAt: now,
-      } satisfies McpServerLockEntry;
-    }
-    return yield* makeAppError({
-      code: "usage",
-      detail: "Provide --command or --url for inline MCP servers.",
-    });
-  });
-
 const syncStep = (
   ws: WorkspaceMutationsService,
   fs: FileSystem.FileSystem,
@@ -201,25 +56,20 @@ const syncStep = (
   label: `Sync ${name} to configured agents`,
   readiness: "ready",
   run: Effect.gen(function* () {
-    const entries = yield* ws.getConfiguredMcpServerEntries();
+    const entries = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
     const entry = entries[name];
     if (entry === undefined) {
       return { result: "success", message: `${name} is not configured` } satisfies JobStepResult;
     }
-    const agentIds = yield* ws.getConfiguredAgents();
-    const outcomes = yield* Effect.forEach(
-      agentIds,
-      (agentId) =>
-        syncInlineMcpServerToAgent(agentId, {
-          workspaceRoot: ws.baseDir,
-          serverName: name,
-          entry,
-          scope: ws.scope,
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        ),
-      { concurrency: "unbounded" },
+    const agentIds = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
+    const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+      workspaceRoot: ws.baseDir,
+      serverName: name,
+      entry,
+      scope: ws.scope,
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
     );
     const warningDetails = outcomes.flatMap((outcome, index) => {
       const agentId = agentIds[index] ?? "unknown";
@@ -290,29 +140,49 @@ const syncStep = (
       ...(warningDetails.length > 0 ? { warnings: warningDetails } : {}),
       ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
-  }),
+  }).pipe(Effect.mapError(failureToStepFailure)),
 });
 
 const configArtifact = (
   scope: "project" | "user",
   change: JobStepArtifact["change"],
 ): JobStepArtifact => ({
-  path: ".axm (config/lockfile)",
+  path: workspaceSettingsPath(scope),
   scope,
   change,
-  targets: [{ path: ".axm (config/lockfile)", change }],
+  targets: [{ path: workspaceSettingsPath(scope), change }],
 });
 
 const makePlan = (name: string, steps: ReadonlyArray<PlannedJobStep>): Plan => ({
   _tag: "Plan",
   name: "Add MCP server",
   description: Option.some(`Configure ${name} and sync agent MCP configs`),
+  presentation: operationPresentation(
+    { imperative: "configure", past: "Configured", gerund: "Configuring" },
+    "mcp-server",
+  ),
   jobs: [{ concurrency: 1, steps }],
 });
 
-export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
+export const handleMcpsAdd = (args: McpsAddArgs) =>
+  withOperationLifecycle(
+    {
+      command: "mcps.add",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Add MCP server",
+    },
+    handleMcpsAddBody(args),
+  );
+
+const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
   if (Option.isNone(args.command) && Option.isNone(args.url)) {
-    return yield* handleInstallMcpServer({ source: Option.some(args.name), env: [] }, args);
+    return yield* makeAppError({
+      code: "usage",
+      detail: `mcps add only configures inline MCP servers. Use axm mcps install ${args.name} for package or source locators.`,
+      suggestions: [
+        { description: "Install the MCP server package", cmd: `axm mcps install ${args.name}` },
+      ],
+    });
   }
   if (Option.isSome(args.command) && Option.isSome(args.url)) {
     return yield* makeAppError({
@@ -324,15 +194,30 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const env = parseEnv(args.env);
-  const headers = yield* parseHeaders(args.header);
+  const env = yield* parseInlineMcpEnv(args.env).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
+  const headers = yield* parseInlineMcpHeaders(args.header).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   if (Option.isSome(args.url)) {
-    yield* validateRemoteUrl(args.url.value);
+    yield* validateInlineMcpRemoteUrl(args.url.value).pipe(
+      Effect.mapError(configurationFailureToAppError),
+    );
   }
-  const lockEntry = yield* makeInlineLockEntry(args, headers);
-  const configured = yield* ws.getConfiguredMcpServerEntries();
+  const definition = yield* makeInlineMcpDefinition(
+    { command: Option.getOrUndefined(args.command), url: Option.getOrUndefined(args.url) },
+    headers,
+  ).pipe(Effect.mapError(configurationFailureToAppError));
+  const configured = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
   const existingEntry = configured[args.name];
-  if (matchesInlineMcpEntry({ existing: configured[args.name], lockEntry, env })) {
+  if (
+    matchesInlineMcpEntry({
+      existing: configured[args.name],
+      definition,
+      env,
+    })
+  ) {
     yield* emitNoOpOutcome("mcps.add", {
       planName: "Add MCP server",
       planDescription: `Configure ${args.name} and sync agent MCP configs`,
@@ -346,14 +231,17 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
       label: `Configure ${args.name}`,
       readiness: "ready",
       run: ws
-        .setMcpServer({
-          name: args.name,
-          lockEntry,
-          versionRange: Option.none(),
+        .setMcpServerEntry(args.name, {
+          kind: "inline",
+          ...(definition.type === "stdio"
+            ? { command: definition.command, args: definition.args }
+            : { url: definition.url, headers: definition.headers }),
           env,
           enabled: true,
         })
+        .pipe(Effect.mapError(toAppError))
         .pipe(
+          Effect.mapError(failureToStepFailure),
           Effect.as({
             result: "success",
             message: `Configured ${args.name}`,
@@ -364,14 +252,16 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
     syncStep(ws, fs, path, args.name),
   ]);
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
-  yield* emitPlanResolutionResult("mcps.add", resolution);
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    yes: args.yes,
+    acceptedPolicies: args.force ? ["accept-warnings"] : [],
+  });
+  yield* emitOperationResolution("mcps.add", resolution);
 });
 
 const addConfig = {
-  name: Argument.string("name").pipe(
-    Argument.withDescription("MCP server name or registry reference"),
-  ),
+  name: Argument.string("name").pipe(Argument.withDescription("Inline MCP server name")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Add to project (default) or user-level configuration"),
   ),
@@ -388,7 +278,7 @@ const addConfig = {
     Flag.atLeast(0),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Apply even if the plan has unresolved warnings")),
+  force: acceptWarningsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
 } as const;
 
@@ -396,13 +286,19 @@ export const addCommand = Command.make(
   "add",
   addConfig,
   ({ name, scope, command, url, env, header, yes, force, preview }) =>
-    handleMcpsAdd({ name, command, url, env, header, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("mcps add"),
-    ),
+    handleMcpsAdd({
+      name,
+      command,
+      url,
+      env,
+      header,
+      yes,
+      force,
+      preview,
+    }).pipe(withWorkspace(scope), withRuntime("mcps add")),
 ).pipe(
   withArgvTracking(addConfig),
-  Command.withDescription("Add an inline or registry MCP server"),
+  Command.withDescription("Add an inline MCP server"),
   Command.withExamples([
     {
       command: 'axm mcps add linear --command "npx -y linear-mcp-server" --env LINEAR_API_KEY',
@@ -412,10 +308,6 @@ export const addCommand = Command.make(
       command:
         'axm mcps add sentry --url https://mcp.sentry.dev/sse --header "Authorization:Bearer ${SENTRY_TOKEN}"',
       description: "Add an inline remote MCP server",
-    },
-    {
-      command: "axm mcps add @acme/mcps/github",
-      description: "Install a registry MCP server",
     },
   ]),
 );

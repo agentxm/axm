@@ -1,25 +1,21 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+  type ConfiguredAgentOutcome,
+} from "@agentxm/workspace-state";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
   inventoryActivation,
+  inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
-  renderEmptyInventory,
-  renderInventoryTable,
-} from "../extension-inventory.js";
+} from "../inventory-view.js";
 
 interface RuleListItem {
   readonly name: string;
@@ -27,34 +23,30 @@ interface RuleListItem {
   readonly activation: string;
   readonly source: string;
   readonly locked: boolean;
+  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
-const RuleListTable = {
-  columns: {
-    name: { header: "Name" },
-    state: { header: "State" },
-    activation: { header: "Activation" },
-    source: { header: "Source" },
-    locked: { header: "Locked", render: (value: boolean) => (value ? "yes" : "no") },
+const RuleListColumns = [
+  { header: "Name", priority: "required", value: (row: RuleListItem) => row.name },
+  { header: "State", value: (row: RuleListItem) => row.state },
+  { header: "Activation", value: (row: RuleListItem) => row.activation },
+  { header: "Source", value: (row: RuleListItem) => row.source },
+  {
+    header: "Locked",
+    priority: "optional",
+    value: (row: RuleListItem) => (row.locked ? "yes" : "no"),
   },
-} as const satisfies TableView<RuleListItem>;
-
-// Keyed by the catalog type id, per parity obligation 8.6. The sibling
-// `agent-rule` entity is deliberately separate: it carries instruction-file
-// targets, not rule extensions.
-registerEntity<RuleListItem>("rule", {
-  list: {
-    columns: RuleListTable.columns,
-    emptyMessage: "No rules found",
-    singularLabel: "rule",
-    pluralLabel: "rules",
+  {
+    header: "Agent outcomes",
+    priority: "optional",
+    value: (row: RuleListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-});
+] satisfies ReadonlyArray<ViewColumn<RuleListItem>>;
 
 export const handleListRule = Effect.fn("ListRule.handle")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
-  const inventory = yield* ws.records.getExtensionInventory("rule", { includeIgnored: false });
+  const inventory = yield* ws.records.getExtensionInventory("rule", {});
   const configured = yield* ws.getConfiguredRuleEntries();
   const locked = yield* ws.getLockedRules();
   const items = inventory.items.map((row) => ({
@@ -63,6 +55,7 @@ export const handleListRule = Effect.fn("ListRule.handle")(function* () {
     activation: inventoryActivation(row),
     source: configured[row.name]?.source ?? row.origins.join(", "),
     locked: locked[row.name] !== undefined,
+    agentOutcomes: row.agentOutcomes,
   }));
   const details = new Map(items.map((item) => [item.name, item]));
   const output = augmentInventory(inventory, (row) => {
@@ -73,12 +66,15 @@ export const handleListRule = Effect.fn("ListRule.handle")(function* () {
     };
   });
 
-  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
-  if (items.length === 0) {
-    yield* renderEmptyInventory(renderer, "No rules found");
-    return;
-  }
-  yield* renderInventoryTable(renderer, items, RuleListTable, inventorySummary(inventory, "rule"));
+  if (yield* screen.document(output, ExtensionInventorySchema)) return;
+  yield* screen.result(
+    inventoryDoc({
+      rows: items,
+      columns: RuleListColumns,
+      summary: inventorySummary(inventory, "rule"),
+      empty: "No rules found",
+    }),
+  );
 });
 
 const listConfig = {
@@ -94,7 +90,6 @@ export const listCommand = Command.make("list", listConfig, ({ scope }) =>
   ),
 ).pipe(
   withArgvTracking(listConfig),
-  Command.withAlias("ls"),
   Command.withDescription("List detected rules and their lifecycle classification"),
   Command.withExamples([
     {

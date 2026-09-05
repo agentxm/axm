@@ -19,10 +19,8 @@ import {
   EXTENSION_ONLY_TYPES,
   WORKSPACE_CAPABILITY_EXTENSION_TYPES,
   type ExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 
-import { commandsCommand } from "./commands/_commands.js";
-import { filesCommand } from "./files/_files.js";
 import { hooksCommand } from "./hooks/_hooks.js";
 import { knowledgeCommand } from "./knowledge/_knowledge.js";
 import { mcpsCommand } from "./mcps/_mcps.js";
@@ -33,10 +31,8 @@ import { subagentsCommand } from "./subagents/_subagents.js";
 
 export const EXTENSION_TYPE_COMMANDS = {
   skill: skillsCommand,
-  command: commandsCommand,
   "mcp-server": mcpsCommand,
   subagent: subagentsCommand,
-  files: filesCommand,
   rule: rulesCommand,
   hook: hooksCommand,
   knowledge: knowledgeCommand,

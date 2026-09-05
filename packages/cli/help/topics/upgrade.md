@@ -8,8 +8,8 @@ installer may mutate the installation.
 
 - An older or unknown local version upgrades only through a supported detected
   installer.
-- An equal version is unchanged unless `--force` requests a reinstall.
-- A newer local version is never downgraded. With `--force`, AXM refuses the
+- An equal version is unchanged unless `--reinstall` requests a reinstall.
+- A newer local version is never downgraded. With `--reinstall`, AXM refuses the
   downgrade and exits 1.
 - Unknown or conflicting install ownership requires manual action; AXM does not
   substitute npm or run a recovery installer automatically.
@@ -17,6 +17,21 @@ installer may mutate the installation.
 Supported owners are the AXM installer, Homebrew, npm, pnpm, and Yarn Classic
 1.x. Modern Yarn releases do not provide the required global-install command
 and therefore require manual action.
+
+## Homebrew convergence
+
+For a Homebrew-managed installation, the GitHub-selected target stays fixed for
+the invocation. AXM explicitly refreshes Homebrew metadata and requires
+`agentxm/tap/axm` to advertise that exact version before mutation. A temporarily
+older formula is retried for up to 90 seconds; a newer formula stops the command
+without silently installing a different release.
+
+Before and after mutation, AXM records the version reported by Homebrew's stable
+`bin/axm` entrypoint and by a fresh PATH resolution. Both must report the exact
+target for success. If an exit-0 `brew upgrade` leaves Homebrew's entrypoint on
+its known older version, AXM attempts one `brew reinstall` recovery and verifies
+both identities again. It never loops or recommends an upgrade or reinstall
+that already proved ineffective.
 
 ## Transaction safety
 
@@ -36,24 +51,94 @@ curl -fsSL https://axm.sh/install.sh | AXM_INSTALL_VERSION=0.23.0 sh
 $env:AXM_INSTALL_VERSION='0.23.0'; irm https://axm.sh/install.ps1 | iex
 ```
 
+## Preview
+
+`axm upgrade --dry-run` resolves the installation owner and the target release
+and reports what it would do, then stops. It runs no installer command, writes
+no install metadata, and does not refresh the update-check cache. Its
+disposition is `previewed`, and `details.messages` names the exact command the
+installer would be handed — or, for a script installation, the executable that
+would be replaced and the binary that would replace it.
+
+Publication readiness is not established by a preview: a package manager or tap
+that has not yet published the selected version is discovered by the run that
+would use it, not by the preview.
+
+## Progress
+
+`axm upgrade` publishes what it is doing while it runs. The step performing the
+upgrade names the target version and the detected installer; each command handed
+to that installer appears beneath it as it runs; and a Homebrew formula that has
+not published yet appears as a wait naming the tap, not as silence. The script
+installation path reports downloaded bytes.
+
+At default verbosity the settled output names the detected install method, each
+delegated command, and the executable that was verified with the version it
+reported. `--verbose` adds the full command-by-command audit trail. When a
+delegated command fails, the tail of its output is shown at default verbosity,
+because the failure message directs the reader to it.
+
 ## JSON result
 
-`axm upgrade --json` emits one document. Important result fields are:
+`axm upgrade --json` emits one `axm.upgrade-assessment/v1` document under
+`result`. Important fields are:
 
-| Field                | Meaning                                                                                                                                                                     |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resultStatus`       | `upgraded`, `reinstalled`, `already-up-to-date`, `local-newer`, `downgrade-refused`, `upgrade-incomplete`, `upgrade-unverified`, `manual-action-required`, or `rolled-back` |
-| `localVersion`       | Observed version before the command, or `null`                                                                                                                              |
-| `targetVersion`      | Selected stable release; fatal selection failures use the `ok: false` error envelope                                                                                        |
-| `reportedVersion`    | Version actually observed afterward, or `null`                                                                                                                              |
-| `installMethod`      | `script`, `homebrew`, `npm`, `pnpm`, `yarn`, or `unknown`                                                                                                                   |
-| `verification`       | `verified`, `unchanged`, `mismatch`, `unavailable`, or `not-attempted`                                                                                                      |
-| `mutationState`      | `not-attempted`, `unchanged`, `updated`, `rolled-back`, or `unknown`                                                                                                        |
-| `executedCommands`   | Structured detection, preparation, delegation, verification, and rollback commands AXM actually ran                                                                         |
-| `recommendedCommand` | A safe next command AXM did not execute, or `null`                                                                                                                          |
-| `delegatedCommand`   | Deprecated compatibility field; do not use it to infer execution                                                                                                            |
+| Field                   | Meaning                                                                                                                                                                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `outcome`               | `previewed`, `applied`, `no-op`, `failed`, or `indeterminate`                                                                                                                                                                                                                |
+| `disposition`           | `previewed`, `upgraded`, `reinstalled`, `already-current`, `local-newer`, `downgrade-refused`, `installer-lagging`, `installer-leading`, `installer-unavailable`, `installer-indeterminate`, `mutation-failed`, `verification-failed`, `rolled-back`, or `recovery-required` |
+| `intent`                | Requested mode, exact version when one was requested, and whether a reinstall was asked for                                                                                                                                                                                  |
+| `local`                 | Observed version before the command and its relation to the target                                                                                                                                                                                                           |
+| `ownership`             | Detected `method` (`script`, `homebrew`, `npm`, `pnpm`, `yarn`, `unknown`), detection source, evidence, confidence, and executable path                                                                                                                                      |
+| `canonical`             | Selected release source, version, channel revision, and validation time                                                                                                                                                                                                      |
+| `installerAvailability` | `ready`, `lagging`, `leading`, `unavailable`, `indeterminate`, or `not-required`, with the version the installer advertises                                                                                                                                                  |
+| `target`                | Selected version, release tag, and artifact URLs                                                                                                                                                                                                                             |
+| `mutation`              | `not-attempted`, `unchanged`, `updated`, `rolled-back`, or `unknown`                                                                                                                                                                                                         |
+| `verification`          | State, the version observed afterward, and the requested and resolved executable identities with their phases and query outcomes                                                                                                                                             |
+| `recovery`              | Recoverable backup path and a safe next command AXM did not execute, or `null`                                                                                                                                                                                               |
+| `commands`              | Structured detection, preparation, delegation, verification, and rollback commands, including whether each did not start, exited, or timed out                                                                                                                               |
+| `details`               | Supporting messages, the stable Homebrew terminal reason when one applies, and the refreshed formula version when observed                                                                                                                                                   |
+
+## CLI and official-skill convergence
+
+An executable upgrade and a workspace skill update are separate mutation
+boundaries; AXM does not describe them as one atomic transaction. After an
+upgrade reports success, run `axm lint`. This local check is read-only and
+network-free, including in agent, CI, JSON, non-interactive, and non-TTY use.
+`AXM_NO_UPDATE_CHECK` disables remote update checks only; it never hides the
+local compatibility result.
+
+In JSON output, `axm lint --json` reports the shared fact under
+`result.axmSkillCompatibility`. It includes the running CLI version, installed
+official-skill version, declared range, source, status, reason code, and a
+`recovery` object. Follow `recovery.steps` in order and re-run `axm lint` after
+each executable or workspace boundary:
+
+- `upgrade-cli`: run `axm upgrade`, then `axm lint`.
+- `update-registry-skill`: preview with
+  `axm skills update --name axm --preview`, apply with
+  `axm skills update --name axm`, then run `axm lint`. If Registry resolution
+  reports that no compatible release is eligible, follow its bundled recovery
+  command instead.
+- `install-bundled-skill`: preview with
+  `axm skills install @agentxm/skills/axm --bundled --preview`, apply without
+  `--preview`, then run `axm lint`. This path uses bytes embedded in the running
+  executable and does not require Registry access.
+- `preserve-authored-skill`: do not run bundled recovery. Keep the authored
+  workspace source, align its manifest and compatibility metadata to the
+  reported target pair through the normal authoring workflow, then run
+  `axm lint`.
+
+Declining, previewing, interrupting, or failing a workspace recovery leaves the
+committed workspace unchanged. Bundled recovery also refuses to overwrite a
+workspace-authored official skill, even with `--force`.
 
 Operational attention outcomes carry a failed or blocked plan step, report
 `ok: false`, and exit 1. Release lookup, network, validation, and unexpected
 transaction failures use the normal `ok: false` error envelope and canonical
 exit codes documented by `axm help exit-codes`.
+
+## Where to go next
+
+- `axm upgrade --help` — command arguments, flags, and examples
+- `axm help exit-codes` — canonical failure classes and process exit codes

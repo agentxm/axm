@@ -2,25 +2,37 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import type { DisableSubagentOperation } from "@agentxm/client-core/unstable/subagents";
-import { disableSubagent } from "@agentxm/client-core/unstable/subagents";
-import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
+import { makeAppError } from "../../../app-error/index.js";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import type { DisableSubagentOperation } from "@agentxm/extension-lifecycle";
+import { disableSubagent } from "@agentxm/extension-lifecycle";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
+import { provideLifecycleFailureAdapter } from "../../../feature-errors.js";
 
 export interface DisableSubagentHandlerArgs {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
-export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(function* (
+export const handleDisableSubagent = (args: DisableSubagentHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "subagents.disable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Disable subagent",
+    },
+    handleDisableSubagentBody(args),
+  );
+
+const handleDisableSubagentBody = Effect.fn("DisableSubagent.handle")(function* (
   args: DisableSubagentHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
@@ -39,7 +51,7 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
     .pipe(Effect.map(installedRowsByName));
   const installedEntry = installedSubagents[subagentName];
 
-  // Validate: subagent is installed (ignored names are excluded from installed)
+  // Validate: subagent is installed.
   if (installedEntry === undefined) {
     return yield* makeAppError({
       code: "not_found",
@@ -73,6 +85,7 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
     readiness: "ready",
     label: subagentName,
     run: disableSubagent(op).pipe(
+      provideLifecycleFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -84,19 +97,20 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
     _tag: "Plan",
     name: "Disable subagent",
     description: Option.some(`Disable ${subagentName}`),
+    presentation: operationPresentation(
+      { imperative: "disable", past: "Disabled", gerund: "Disabling" },
+      "subagent",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    force: args.force,
-    preview: args.preview,
-    displayApplied: false,
-  });
-  yield* emitAppliedPlanOutcome({
-    command: "subagents.disable",
-    headline: `Disabled subagent ${subagentName}`,
-    resolution,
+  const execution = yield* makePublicPositionalPlanExecution(
+    args,
+    ["subagents", "disable"],
+    [subagentName],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("subagents.disable", resolution, {
     suggestions: [
       { description: "Inspect installed subagents", cmd: "axm subagents list" },
       { description: "Undo", cmd: `axm subagents enable ${subagentName}` },

@@ -4,452 +4,458 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { AGENTS_BY_ID, type AgentId } from "@agentxm/client-core/unstable/agent-capabilities";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import * as Result from "effect/Result";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import { CodingAgentRepository, McpServerManager } from "@agentxm/extension-workspace";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { Screen, count } from "../../screen/index.js";
+import { installMcpServer } from "@agentxm/extension-lifecycle";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
-  forceFlag,
-  previewFlag,
-  Verbosity,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+  MCP_SERVER_MANIFEST_FILENAME,
+  MCP_SERVER_MANIFEST_SCHEMA_URL,
+  MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
+  type McpServerManifest,
+} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
-  AXM_MCP_METADATA_KEY,
-  buildAxmMcpMetadataFromSettingsSource,
-  isAxmManagedMcpEntry,
-} from "@agentxm/client-core/unstable/mcps";
-import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
+  buildAuthoredExtensionStep,
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
+} from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-authoring";
+import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
-  type CompletedJobStep,
-  type ExecutedPlan,
-  type JobStepArtifact,
-  type JobStepResult,
-  type Plan,
-  type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
-import { scopeFlag } from "../../cli-flags.js";
+  fqnInvalidErrorToAppError,
+  toAppError,
+  failureToStepFailure,
+} from "../../app-error/conversions.js";
+import type {
+  JobStepArtifact,
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/workspace-operations";
+import { operationPresentation, type OperationResolution } from "@agentxm/workspace-operations";
+import { emitOperationResolution } from "../../operation-output.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import {
+  applyMcpImport,
+  collectMcpImportSources,
+  preflightMcpImports,
+  removeConvertedMcpConfig,
+  type McpImportAdoption,
+  type McpImportPreflight,
+} from "@agentxm/workspace-configuration";
+import {
+  configurationFailureToAppError,
+  configurationFailureToStepFailure,
+  provideLifecycleFailureAdapter,
+} from "../../feature-errors.js";
 
 export interface McpsImportArgs {
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
+  readonly as?: Option.Option<string>;
+  readonly enable?: boolean;
 }
 
-interface ImportedMcpServer {
-  readonly name: string;
-  readonly lockEntry: McpServerLockEntry;
-  readonly env: Readonly<Record<string, string>>;
-  readonly adoptions: ReadonlyArray<ImportedMcpServerAdoption>;
+export interface McpsImportTestHooks {
+  readonly beforeAdoptionWrite?: (adoption: McpImportAdoption) => Effect.Effect<void, AppError>;
 }
-
-interface ImportedMcpServerAdoption {
-  readonly filePath: string;
-  readonly serversKey: string;
-  readonly name: string;
-}
-
-interface AgentMcpConfig {
-  readonly serversKey: string;
-  readonly targets: ReadonlyArray<AgentMcpConfigTarget>;
-}
-
-interface AgentMcpConfigTarget {
-  readonly scope: string;
-  readonly path: string;
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const stringArray = (value: unknown): ReadonlyArray<string> =>
-  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-
-const stringRecord = (value: unknown): Readonly<Record<string, string>> => {
-  if (!isRecord(value)) return {};
-  const record: Record<string, string> = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (typeof item === "string") record[key] = item;
-  }
-  return record;
-};
-
-const isCapabilityAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS_BY_ID, id);
-
-const readAgentMcpConfig = (agent: unknown): Option.Option<AgentMcpConfig> => {
-  if (!isRecord(agent)) return Option.none();
-  const mcp = agent["mcp"];
-  if (!isRecord(mcp)) return Option.none();
-  const config = mcp["config"];
-  if (!isRecord(config)) return Option.none();
-  const serversKey = config["serversKey"];
-  const targets = config["targets"];
-  if (typeof serversKey !== "string" || !Array.isArray(targets)) return Option.none();
-  const parsedTargets: Array<AgentMcpConfigTarget> = [];
-  for (const target of targets) {
-    if (!isRecord(target)) continue;
-    const scope = target["scope"];
-    const targetPath = target["path"];
-    if (typeof scope === "string" && typeof targetPath === "string") {
-      parsedTargets.push({ scope, path: targetPath });
-    }
-  }
-  return Option.some({ serversKey, targets: parsedTargets });
-};
-
-const readJsonObject = (
-  fs: FileSystem.FileSystem,
-  filePath: string,
-): Effect.Effect<Option.Option<Readonly<Record<string, unknown>>>, AppError> =>
-  Effect.gen(function* () {
-    const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) return Option.none();
-    const raw = yield* fs.readFileString(filePath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read MCP config: ${filePath}`,
-          cause: error,
-        }),
-      ),
-    );
-    const parsed = yield* Effect.try({
-      try: (): unknown => JSON.parse(raw),
-      catch: (cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Invalid JSON in MCP config: ${filePath}`,
-          cause,
-        }),
-    });
-    return isRecord(parsed) ? Option.some(parsed) : Option.none();
-  });
-
-const envRefsFromRecord = (
-  env: Readonly<Record<string, string>>,
-): Readonly<Record<string, string>> =>
-  Object.fromEntries(Object.keys(env).map((name) => [name, `\${${name}}`]));
-
-const normalizeStdio = (
-  name: string,
-  config: Readonly<Record<string, unknown>>,
-  adoption: ImportedMcpServerAdoption,
-  now: DateTime.Utc,
-): Option.Option<ImportedMcpServer> => {
-  const commandValue = config["command"];
-  const env = envRefsFromRecord(stringRecord(config["env"] ?? config["environment"]));
-  if (typeof commandValue === "string") {
-    return Option.some({
-      name,
-      lockEntry: {
-        type: "inline",
-        command: commandValue,
-        args: stringArray(config["args"]),
-        installedAt: now,
-        updatedAt: now,
-      } satisfies McpServerLockEntry,
-      env,
-      adoptions: [adoption],
-    });
-  }
-  const command = stringArray(commandValue);
-  if (command.length === 0) return Option.none();
-  const executable = command[0];
-  if (executable === undefined) return Option.none();
-  return Option.some({
-    name,
-    lockEntry: {
-      type: "inline",
-      command: executable,
-      args: command.slice(1),
-      installedAt: now,
-      updatedAt: now,
-    } satisfies McpServerLockEntry,
-    env,
-    adoptions: [adoption],
-  });
-};
-
-const normalizeRemote = (
-  name: string,
-  config: Readonly<Record<string, unknown>>,
-  adoption: ImportedMcpServerAdoption,
-  now: DateTime.Utc,
-): Option.Option<ImportedMcpServer> => {
-  const url = config["url"];
-  if (typeof url !== "string") return Option.none();
-  return Option.some({
-    name,
-    lockEntry: {
-      type: "inline",
-      url,
-      headers: stringRecord(config["headers"] ?? config["http_headers"]),
-      installedAt: now,
-      updatedAt: now,
-    } satisfies McpServerLockEntry,
-    env: {},
-    adoptions: [adoption],
-  });
-};
-
-const normalizeServer = (
-  name: string,
-  config: Readonly<Record<string, unknown>>,
-  adoption: ImportedMcpServerAdoption,
-  now: DateTime.Utc,
-): Option.Option<ImportedMcpServer> => {
-  if (isAxmManagedMcpEntry(config)) return Option.none();
-  const remote = normalizeRemote(name, config, adoption, now);
-  if (Option.isSome(remote)) return remote;
-  return normalizeStdio(name, config, adoption, now);
-};
-
-const collectFromConfig = (
-  config: Readonly<Record<string, unknown>>,
-  serversKey: string,
-  filePath: string,
-  now: DateTime.Utc,
-): ReadonlyArray<ImportedMcpServer> => {
-  const servers = config[serversKey];
-  if (!isRecord(servers)) return [];
-  return Object.entries(servers)
-    .map(([name, value]) =>
-      isRecord(value)
-        ? normalizeServer(name, value, { filePath, serversKey, name }, now)
-        : Option.none(),
-    )
-    .filter(Option.isSome)
-    .map((entry) => entry.value);
-};
-
-const writeAdoptedMcpConfig = (
-  fs: FileSystem.FileSystem,
-  adoption: ImportedMcpServerAdoption,
-): Effect.Effect<void, AppError> =>
-  Effect.gen(function* () {
-    const config = yield* readJsonObject(fs, adoption.filePath);
-    if (Option.isNone(config)) return;
-    const servers = config.value[adoption.serversKey];
-    if (!isRecord(servers)) return;
-    const entry = servers[adoption.name];
-    if (!isRecord(entry) || isAxmManagedMcpEntry(entry)) return;
-    const updatedConfig = {
-      ...config.value,
-      [adoption.serversKey]: {
-        ...servers,
-        [adoption.name]: {
-          ...entry,
-          [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource("inline"),
-        },
-      },
-    };
-    yield* fs
-      .writeFileString(adoption.filePath, `${JSON.stringify(updatedConfig, null, 2)}\n`)
-      .pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to write MCP config: ${adoption.filePath}`,
-            cause: error,
-          }),
-        ),
-      );
-  });
-
-const adoptImportedMcpServerConfigs = (
-  fs: FileSystem.FileSystem,
-  server: ImportedMcpServer,
-): Effect.Effect<void, AppError> =>
-  Effect.forEach(server.adoptions, (adoption) => writeAdoptedMcpConfig(fs, adoption), {
-    concurrency: "unbounded",
-  }).pipe(Effect.asVoid);
-
-const collectImportableServers = (
-  ws: WorkspaceMutationsService,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-): Effect.Effect<ReadonlyArray<ImportedMcpServer>, AppError> =>
-  Effect.gen(function* () {
-    const now = yield* DateTime.now;
-    const configured = yield* ws.getConfiguredMcpServerEntries();
-    const configuredNames = new Set(Object.keys(configured));
-    const imports: Array<ImportedMcpServer> = [];
-    const addNew = (servers: ReadonlyArray<ImportedMcpServer>) => {
-      for (const server of servers) {
-        if (configuredNames.has(server.name)) continue;
-        const existingIndex = imports.findIndex((item) => item.name === server.name);
-        const existing = imports[existingIndex];
-        if (existing === undefined) {
-          imports.push(server);
-        } else {
-          imports[existingIndex] = {
-            ...existing,
-            adoptions: [...existing.adoptions, ...server.adoptions],
-          };
-        }
-      }
-    };
-
-    const workspaceConfigPath = path.join(ws.baseDir, ".mcp.json");
-    const workspaceConfig = yield* readJsonObject(fs, workspaceConfigPath);
-    if (Option.isSome(workspaceConfig))
-      addNew(collectFromConfig(workspaceConfig.value, "mcpServers", workspaceConfigPath, now));
-
-    const agentIds = yield* ws.getConfiguredAgents();
-    for (const agentId of agentIds) {
-      if (!isCapabilityAgentId(agentId)) continue;
-      const agent = AGENTS_BY_ID[agentId];
-      const mcpConfig = readAgentMcpConfig(agent);
-      if (Option.isNone(mcpConfig)) continue;
-      const targets = mcpConfig.value.targets.filter((target) => target.scope === ws.scope);
-      for (const target of targets) {
-        const configPath = path.resolve(ws.baseDir, target.path);
-        const config = yield* readJsonObject(fs, configPath);
-        if (Option.isSome(config))
-          addNew(collectFromConfig(config.value, mcpConfig.value.serversKey, configPath, now));
-      }
-    }
-    return imports;
-  });
-
-const makePlan = (
-  servers: ReadonlyArray<ImportedMcpServer>,
-  ws: WorkspaceMutationsService,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-): Plan => ({
-  _tag: "Plan",
-  name: "Import MCP servers",
-  description: Option.some(`Adopt ${count(servers.length, "unmanaged MCP server")}`),
-  jobs: [
-    {
-      concurrency: 1,
-      steps: servers.map<PlannedJobStep>((server) => ({
-        label: server.name,
-        readiness: "ready",
-        run: ws
-          .setMcpServer({
-            name: server.name,
-            lockEntry: server.lockEntry,
-            versionRange: Option.none(),
-            env: server.env,
-            enabled: true,
-          })
-          .pipe(
-            Effect.flatMap(() => adoptImportedMcpServerConfigs(fs, server)),
-            Effect.as({
-              result: "success",
-              message: `Imported ${server.name}`,
-              artifact: importArtifact(ws.scope, server, ws.baseDir, path),
-            } satisfies JobStepResult),
-          ),
-      })),
-    },
-  ],
-});
 
 const importArtifact = (
-  scope: "project" | "user",
-  server: ImportedMcpServer,
-  baseDir: string,
+  preflight: McpImportPreflight,
+  ws: WorkspaceMutationsService,
   path: Path.Path,
-): JobStepArtifact => ({
-  path: `.axm/settings.json:mcpServers.${server.name}`,
-  scope,
-  change: "created",
-  fileCount: 2 + server.adoptions.length,
-  targets: [
-    { path: ".axm (config/lockfile)", change: "updated" },
-    ...server.adoptions.map((adoption) => ({
-      path: path.relative(baseDir, adoption.filePath),
-      change: "updated" as const,
-    })),
-  ],
+): JobStepArtifact => {
+  const adoptions = preflight.candidates.flatMap((candidate) => candidate.adoptions);
+  return {
+    path: workspaceSettingsPath(ws.scope),
+    scope: ws.scope,
+    change: "updated",
+    fileCount: 1 + new Set(adoptions.map((adoption) => adoption.filePath)).size,
+    targets: [
+      { path: workspaceSettingsPath(ws.scope), change: "updated" },
+      ...Array.from(new Set(adoptions.map((adoption) => adoption.filePath)))
+        .sort()
+        .map((filePath) => ({
+          path: path.relative(ws.baseDir, filePath),
+          change: "updated" as const,
+        })),
+    ],
+  };
+};
+
+const makePlan = (
+  preflight: McpImportPreflight,
+  ws: WorkspaceMutationsService,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  hooks: McpsImportTestHooks,
+): Plan => {
+  const conflictSteps = preflight.conflicts.map<PlannedJobStep>((conflict) => ({
+    label: conflict.name,
+    readiness: "error",
+    errorMessage: conflict.reason,
+  }));
+  const importSteps =
+    preflight.candidates.length === 0
+      ? []
+      : [
+          {
+            label: `Import ${count(preflight.candidates.length, "MCP server")}`,
+            readiness: "ready" as const,
+            message: `Candidates: ${preflight.candidates.map((candidate) => candidate.name).join(", ")}`,
+            artifact: importArtifact(preflight, ws, path),
+            run: applyMcpImport(preflight.candidates, ws, fs, hooks).pipe(
+              Effect.mapError(configurationFailureToStepFailure),
+              Effect.as({
+                result: "success",
+                message: `Imported ${count(preflight.candidates.length, "MCP server")}`,
+                artifact: importArtifact(preflight, ws, path),
+              } satisfies JobStepResult),
+            ),
+          },
+        ];
+  return {
+    _tag: "Plan",
+    name: "Import MCP servers",
+    description: Option.some(`Adopt ${count(preflight.candidates.length, "unmanaged MCP server")}`),
+    presentation: operationPresentation(
+      { imperative: "import", past: "Imported", gerund: "Importing" },
+      "mcp-server",
+    ),
+    jobs: [{ concurrency: 1, steps: [...conflictSteps, ...importSteps] }],
+  };
+};
+
+const importedCount = (
+  resolution: OperationResolution<unknown>,
+  candidateCount: number,
+): number => {
+  const importUnit = resolution.units.find((unit) => unit.label.startsWith("Import "));
+  return importUnit?.state === "committed" ? candidateCount : 0;
+};
+
+const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (args: {
+  readonly targetInput: string;
+  readonly enable: boolean;
+  readonly preflight: McpImportPreflight;
+  readonly ws: WorkspaceMutationsService;
+  readonly fs: FileSystem.FileSystem;
+  readonly path: Path.Path;
+}) {
+  const httpClient = yield* HttpClient.HttpClient;
+  const nonInteractive = yield* isNonInteractiveOptional;
+  if (args.ws.scope !== "project") {
+    return yield* makeAppError({
+      code: "usage",
+      detail: "MCP package import is project-workspace only; omit --scope user",
+    });
+  }
+  const target = yield* Effect.fromResult(
+    Result.mapError(parseFqn(args.targetInput), fqnInvalidErrorToAppError),
+  );
+  if (target.type !== "mcp-server") {
+    return yield* makeAppError({
+      code: "validation",
+      detail: `MCP package import target must use the mcps type: ${args.targetInput}`,
+    });
+  }
+  yield* requireAuthoredOwner(target.owner);
+  if (args.preflight.conflicts.length > 0) {
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `MCP package import has ${args.preflight.conflicts.length} conflicted native candidate(s)`,
+    });
+  }
+  const candidate = args.preflight.candidates[0];
+  if (candidate === undefined || args.preflight.candidates.length !== 1) {
+    return yield* makeAppError({
+      code: "validation",
+      detail:
+        args.preflight.candidates.length === 0
+          ? "No losslessly importable unmanaged MCP server was found"
+          : "MCP package import requires exactly one unmanaged server candidate",
+    });
+  }
+  if (candidate.definition.type !== "http") {
+    return yield* makeAppError({
+      code: "usage",
+      detail:
+        "This MCP command cannot be represented losslessly as a managed package; import it inline without --as",
+    });
+  }
+  const fqn = formatFqn(target);
+  const version = decodeVersionSync("0.1.0");
+  const targetDir = args.path.join(
+    workspaceAuthoredRoot(args.path, args.ws, "mcp-server", target.owner),
+    target.name,
+  );
+  yield* preflightCreateOnly({
+    subject: "MCP package",
+    name: target.name,
+    configured: false,
+    destinations: [],
+  }).pipe(Effect.provideService(FileSystem.FileSystem, args.fs));
+  const manifest: McpServerManifest = {
+    $schema: MCP_SERVER_MANIFEST_SCHEMA_URL,
+    owner: target.owner,
+    type: "mcp-server",
+    name: target.name,
+    version,
+    description: `Imported MCP server ${candidate.name}`,
+    server: {
+      $schema: MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
+      name: `local.axm/${target.name}`,
+      description: `Imported MCP server ${candidate.name}`,
+      version,
+      remotes: [
+        {
+          type: "streamable-http",
+          url: candidate.definition.url,
+          ...(Object.keys(candidate.definition.headers).length === 0
+            ? {}
+            : {
+                headers: Object.entries(candidate.definition.headers).map(([name, value]) => ({
+                  name,
+                  value,
+                })),
+              }),
+        },
+      ],
+    },
+  };
+  const manager = yield* McpServerManager;
+  const screen = yield* Screen;
+  const agentRepo = yield* CodingAgentRepository;
+  const source = "workspace";
+  const adoptionPaths = Array.from(
+    new Set(candidate.adoptions.map((adoption) => adoption.filePath)),
+  ).sort();
+  const artifact: JobStepArtifact = {
+    path: args.path.relative(args.ws.baseDir, targetDir),
+    scope: args.ws.scope,
+    version,
+    change: "created",
+    targets: [
+      { path: args.path.relative(args.ws.baseDir, targetDir), change: "created" },
+      { path: workspaceSettingsPath(args.ws.scope), change: "created" },
+      ...adoptionPaths.map((filePath) => ({
+        path: args.path.relative(args.ws.baseDir, filePath),
+        change: "updated" as const,
+      })),
+    ],
+  };
+  const step = buildAuthoredExtensionStep(manager, {
+    toStepFailure: failureToStepFailure,
+    target: { type: "mcp-server", name: target.name },
+    location: targetDir,
+    transactionTargets: adoptionPaths,
+    versionRange: Option.none(),
+    enabled: args.enable,
+    materializeWhenDisabled: true,
+    allowConfiguredSourceTransition: true,
+    label: `Import ${candidate.name} -> ${fqn}`,
+    message: `Imported ${fqn}`,
+    plannedArtifact: artifact,
+    buildArtifact: () => Effect.succeed(artifact),
+    preflight: Effect.gen(function* () {
+      yield* recoverCanonicalDirectory({
+        baseDir: args.ws.baseDir,
+        canonicalPath: targetDir,
+      });
+      yield* preflightCreateOnly({
+        subject: "MCP package",
+        name: target.name,
+        configured: false,
+        destinations: [targetDir],
+      });
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, args.fs),
+      Effect.provideService(Path.Path, args.path),
+    ),
+    scaffold: createCanonicalDirectory({
+      baseDir: args.ws.baseDir,
+      canonicalPath: targetDir,
+      subject: "MCP package",
+      requiredFiles: [MCP_SERVER_MANIFEST_FILENAME],
+      populate: (stagingPath) =>
+        args.fs
+          .writeFileString(
+            args.path.join(stagingPath, MCP_SERVER_MANIFEST_FILENAME),
+            `${JSON.stringify(manifest, null, 2)}\n`,
+          )
+          .pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "internal",
+                detail: "MCP package manifest could not be staged",
+                cause,
+              }),
+            ),
+          ),
+    }).pipe(
+      Effect.asVoid,
+      Effect.provideService(FileSystem.FileSystem, args.fs),
+      Effect.provideService(Path.Path, args.path),
+    ),
+    markAuthored: args.ws
+      .setMcpServerEntry(target.name, {
+        source,
+        enabled: true,
+        env: candidate.env,
+      })
+      .pipe(Effect.mapError(toAppError)),
+    finalizeAuthored: args.ws
+      .setMcpServerEntry(target.name, {
+        source,
+        enabled: args.enable,
+        env: candidate.env,
+      })
+      .pipe(Effect.mapError(toAppError))
+      .pipe(
+        Effect.andThen(
+          Effect.forEach(candidate.adoptions, (adoption) =>
+            removeConvertedMcpConfig(args.fs, adoption).pipe(
+              Effect.mapError(configurationFailureToAppError),
+            ),
+          ),
+        ),
+        Effect.asVoid,
+      ),
+    materializeInstall: (ref) =>
+      installMcpServer({
+        name: "install-mcp-server",
+        args: {
+          ref,
+          nonInteractive,
+          force: false,
+          allowWorkspaceSourceTransition: true,
+          versionRange: Option.none(),
+          skipSettings: Option.none(),
+          skipStateWrites: true,
+          env: Option.none(),
+        },
+      }).pipe(
+        Effect.asVoid,
+        Effect.mapError(toAppError),
+        Effect.provideService(FileSystem.FileSystem, args.fs),
+        Effect.provideService(Path.Path, args.path),
+        Effect.provideService(WorkspaceMutations, args.ws),
+        Effect.provideService(Screen, screen),
+        Effect.provideService(CodingAgentRepository, agentRepo),
+        Effect.provideService(HttpClient.HttpClient, httpClient),
+        provideLifecycleFailureAdapter,
+      ),
+  });
+  return {
+    _tag: "Plan",
+    name: "Import MCP server package",
+    description: Option.some(
+      `Losslessly convert ${candidate.name} into ${fqn}; native MCP config is replaced only after managed validation`,
+    ),
+    presentation: operationPresentation(
+      { imperative: "import", past: "Imported", gerund: "Importing" },
+      "mcp-server",
+    ),
+    jobs: [{ concurrency: 1, steps: [step] }],
+  } satisfies Plan;
 });
 
-const formatArtifactTargets = (artifact: JobStepArtifact): string => {
-  if (artifact.targets === undefined || artifact.targets.length === 0) {
-    return artifact.path;
-  }
-  return artifact.targets.map((target) => `${target.path} (${target.change})`).join(", ");
-};
+export const handleMcpsImport = (args: McpsImportArgs, hooks: McpsImportTestHooks = {}) =>
+  withOperationLifecycle(
+    {
+      command: "mcps.import",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Import MCP servers",
+    },
+    handleMcpsImportBody(args, hooks),
+  );
 
-const formatCompletedArtifactStep = (step: CompletedJobStep): string | undefined => {
-  if (step.result.result !== "success" || step.result.artifact === undefined) return undefined;
-  const artifact = step.result.artifact;
-  const details = [
-    artifact.change,
-    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
-    formatArtifactTargets(artifact),
-  ].filter((part): part is string => part !== undefined && part.length > 0);
-  return `${step.label}   ${details.join("   ")}`;
-};
-
-const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
-  const rows = plan.jobs
-    .flatMap((job) => job.steps)
-    .flatMap((step) => {
-      const summary = formatCompletedArtifactStep(step);
-      return summary === undefined ? [] : [summary];
+const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (
+  args: McpsImportArgs,
+  hooks: McpsImportTestHooks = {},
+) {
+  const packageTarget = args.as ?? Option.none<string>();
+  const enablePackage = args.enable ?? false;
+  if (enablePackage && Option.isNone(packageTarget)) {
+    return yield* makeAppError({
+      code: "usage",
+      detail: "--enable requires --as <extension>",
     });
-  return rows.length === 0 ? undefined : rows.join("\n");
-};
-
-export const handleMcpsImport = Effect.fn("Mcps.import")(function* (args: McpsImportArgs) {
+  }
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const servers = yield* collectImportableServers(ws, fs, path);
-
-  if (servers.length === 0) {
-    yield* emitNoOpOutcome("mcps.import", {
-      planName: "Import MCP servers",
-      message: "No unmanaged MCP servers imported.",
-      withoutSuggestions: true,
+  const now = yield* DateTime.now;
+  const configured = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
+  const discovery = yield* collectMcpImportSources(ws, fs, path).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
+  const normalized = preflightMcpImports({
+    configuredNames: new Set(Object.keys(configured)),
+    now,
+    sources: discovery.sources,
+  });
+  const preflight = {
+    ...normalized,
+    skipped: [...normalized.skipped, ...discovery.skipped].sort(
+      (left, right) =>
+        left.name.localeCompare(right.name) || left.reason.localeCompare(right.reason),
+    ),
+  } satisfies McpImportPreflight;
+  if (Option.isSome(packageTarget)) {
+    const packagePlan = yield* makePackageImportPlan({
+      targetInput: packageTarget.value,
+      enable: enablePackage,
+      preflight,
+      ws,
+      fs,
+      path,
     });
+    const packageResolution = yield* previewOrApplyLocalPlan(packagePlan, {
+      preview: args.preview,
+      yes: args.yes,
+      recovery: makeConfirmationRecovery(["mcps", "import"], []),
+    });
+    yield* emitOperationResolution("mcps.import", packageResolution);
     return;
   }
-
-  const plan = makePlan(servers, ws, fs, path);
+  const plan = makePlan(preflight, ws, fs, path, hooks);
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
-    displayApplied: false,
+    yes: args.yes,
+    recovery: makeConfirmationRecovery(["mcps", "import"], []),
   });
-  const summary =
-    resolution._tag === "ExecutedPlan" ? summarizeExecutedArtifacts(resolution) : undefined;
+  const appliedCount = importedCount(resolution, preflight.candidates.length);
   const suggestions = [
     { description: "Inspect MCP servers", cmd: "axm mcps list" },
-    ...(servers.length === 1
-      ? [{ description: "Undo", cmd: `axm mcps uninstall ${servers[0]?.name ?? ""}` }]
+    ...(appliedCount === 1
+      ? [{ description: "Undo", cmd: `axm mcps uninstall ${preflight.candidates[0]?.name ?? ""}` }]
       : []),
   ];
-  const resultOptions = summary === undefined ? { suggestions } : { summary, suggestions };
-  const emitted = yield* emitPlanResolutionResult(
-    "mcps.import",
-    resolution,
-    resolution._tag === "ExecutedPlan" ? resultOptions : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    const renderer = yield* CliRenderer;
-    const verbosity = yield* Verbosity;
-    const successOptions =
-      summary === undefined
-        ? { suggestions, withoutSuggestions: emitted }
-        : { summary, suggestions, withoutSuggestions: emitted };
-    yield* renderer.success(
-      `Imported ${count(servers.length, "MCP server")}`,
-      verbosity.level === "quiet" ? undefined : successOptions,
-    );
-  }
+  yield* emitOperationResolution("mcps.import", resolution, {
+    suggestions,
+    ...(preflight.candidates.length === 0 && preflight.conflicts.length === 0
+      ? { message: "No unmanaged MCP servers imported." }
+      : {}),
+    imports: {
+      imported: appliedCount,
+      skipped: preflight.skipped.length,
+      conflicting: preflight.conflicts.length,
+    },
+  });
 });
 
 const importConfig = {
@@ -457,15 +463,22 @@ const importConfig = {
     Flag.withDescription("Import to project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Apply even if the plan has unresolved warnings")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+  as: Flag.string("as").pipe(
+    Flag.withDescription("Create one managed MCP package at the target FQN"),
+    Flag.optional,
+  ),
+  enable: Flag.boolean("enable").pipe(
+    Flag.withDescription("Enable a package created with --as"),
+    Flag.withDefault(false),
+  ),
 } as const;
 
 export const importCommand = Command.make(
   "import",
   importConfig,
-  ({ scope, yes, force, preview }) =>
-    handleMcpsImport({ yes, force, preview }).pipe(
+  ({ scope, yes, preview, as, enable }) =>
+    handleMcpsImport({ yes, preview, as, enable }).pipe(
       withWorkspace(scope),
       withRuntime("mcps import"),
     ),
@@ -480,6 +493,10 @@ export const importCommand = Command.make(
     {
       command: "axm mcps import --preview",
       description: "Preview unmanaged MCP server adoption",
+    },
+    {
+      command: "axm mcps import --as @me/mcps/context",
+      description: "Convert one losslessly representable native server into an authored package",
     },
   ]),
 );

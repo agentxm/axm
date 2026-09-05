@@ -5,8 +5,8 @@
  */
 
 import type * as Option from "effect/Option";
-import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 /**
  * Describes the resolved intent to install one or more skills.
@@ -19,7 +19,6 @@ export type InstallSkillCommandIntent = {
     readonly ref: SkillExtensionRef;
     readonly versionRange: Option.Option<VersionRange>;
   }>;
-  readonly diagnosticLines?: ReadonlyArray<string>;
   /** Re-materialize even when the canonical tree already matches the lockfile. */
   readonly force?: boolean;
 };

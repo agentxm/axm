@@ -1,36 +1,31 @@
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { previewFlag, Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { Screen, headlineDoc, successDoc } from "../../screen/index.js";
+import { previewFlag, Verbosity } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   extensionTypeSentenceLabels,
   extensionTypeToPlural,
-  fqnInvalidErrorToAppError,
   parseFqn,
-} from "@agentxm/client-core/unstable/extensions";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import {
-  type CompletedJobStep,
-  type ExecutedPlan,
+  makeOperationResolution,
+  operationPresentation,
   type JobStepArtifact,
-  type JobStepResult,
-  type Plan,
-  type PlanResolution,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/workspace-operations";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withOperationLifecycle } from "./operation-lifecycle.js";
 import {
   bumpManifestVersion,
   isVersionableType,
@@ -39,21 +34,6 @@ import {
   type VersionableExtensionType,
   type VersionBump,
 } from "./extension-version.js";
-import { PackManifestSchema, packTrustManifest } from "@agentxm/client-core/unstable/packs";
-import { computePackageContentHash } from "@agentxm/client-core/unstable/extensions";
-import * as Schema from "effect/Schema";
-import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
-
-const packContentIdentity = (directory: string) =>
-  computePackageContentHash(directory).pipe(
-    Effect.mapError((cause) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to compute pack content identity at ${directory}`,
-        cause,
-      }),
-    ),
-  );
 
 export interface VersionHandlerArgs {
   readonly type: VersionableExtensionType;
@@ -77,8 +57,6 @@ const configuredSourceForVersionTarget = Effect.fn("Version.configuredSourceForT
   switch (type) {
     case "skill":
       return entrySource((yield* ws.getConfiguredSkillEntries())[name]);
-    case "command":
-      return entrySource((yield* ws.getConfiguredCommandEntries())[name]);
     case "mcp-server":
       return entrySource((yield* ws.getConfiguredMcpServerEntries())[name]);
     case "subagent":
@@ -87,8 +65,6 @@ const configuredSourceForVersionTarget = Effect.fn("Version.configuredSourceForT
       return entrySource((yield* ws.getConfiguredPackEntries())[name]);
     case "hook":
       return entrySource((yield* ws.getConfiguredHookEntries())[name]);
-    case "files":
-      return entrySource((yield* ws.getConfiguredFilesEntries())[name]);
     case "rule":
       return entrySource((yield* ws.getConfiguredRuleEntries())[name]);
     case "knowledge":
@@ -102,9 +78,6 @@ const versionResultMessage = (
 ): string => {
   return `${verb} ${extensionTypeSentenceLabels[result.type]} ${result.fqn} ${result.from} -> ${result.to}`;
 };
-
-const versionNoOpMessage = (result: BumpManifestVersionResult): string =>
-  `Already up to date — ${extensionTypeSentenceLabels[result.type]} ${result.fqn} ${result.to}`;
 
 const versionResultSummary = (result: BumpManifestVersionResult) =>
   Effect.gen(function* () {
@@ -128,63 +101,45 @@ const versionArtifact = (result: BumpManifestVersionResult) =>
     } satisfies JobStepArtifact;
   });
 
-const noopStepResult = {
-  result: "success",
-  message: "",
-} satisfies JobStepResult;
+const versionPresentation = (type: VersionableExtensionType) =>
+  operationPresentation({ imperative: "update", past: "Updated", gerund: "Updating" }, type);
 
-const makeVersionPlan = (result: BumpManifestVersionResult): Plan => ({
-  _tag: "Plan",
-  name: "Update extension version",
-  description: Option.none(),
-  jobs: [
-    {
-      concurrency: 1,
-      steps: [
-        {
-          label: result.fqn,
-          readiness: "ready",
-          message: `${result.from} -> ${result.to}`,
-          run: Effect.succeed(noopStepResult),
-        },
-      ],
-    },
-  ],
-});
+const previewVersionResolution = (result: BumpManifestVersionResult) =>
+  makeOperationResolution({
+    name: "Update extension version",
+    description: Option.none(),
+    mode: "preview",
+    atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+    units: [
+      {
+        id: result.fqn,
+        label: result.fqn,
+        state: "ready",
+        message: `${result.from} -> ${result.to}`,
+      },
+    ],
+    presentation: versionPresentation(result.type),
+  });
 
-const previewVersionPlan = (plan: Plan): PlanResolution => ({
-  _tag: "PreviewedPlan",
-  name: plan.name,
-  description: plan.description,
-  jobs: plan.jobs,
-});
-
-const executedVersionPlan = (
-  plan: Plan,
-  result: BumpManifestVersionResult,
-): Effect.Effect<ExecutedPlan, never, WorkspaceMutations | Path.Path> =>
+const executedVersionResolution = (result: BumpManifestVersionResult) =>
   Effect.gen(function* () {
     const artifact = yield* versionArtifact(result);
-    const step = {
-      label: result.fqn,
-      result: {
-        result: "success",
-        message: `${result.from} -> ${result.to}`,
-        artifact,
-      },
-    } satisfies CompletedJobStep;
-
-    return {
-      _tag: "ExecutedPlan",
-      name: plan.name,
-      description: plan.description,
-      jobs: [
+    return makeOperationResolution({
+      name: "Update extension version",
+      description: Option.none(),
+      mode: "apply",
+      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+      units: [
         {
-          concurrency: 1,
-          steps: [step],
+          id: result.fqn,
+          label: result.fqn,
+          state: artifact.change === "unchanged" ? "unchanged" : "committed",
+          message: `${result.from} -> ${result.to}`,
+          artifact,
         },
       ],
-    } satisfies ExecutedPlan;
+      presentation: versionPresentation(result.type),
+    });
   });
 
 const parseBump = (bump: string) => {
@@ -204,6 +159,17 @@ const parseBump = (bump: string) => {
 };
 
 export const handleVersion = (args: VersionHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "version",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Update extension version",
+      presentation: versionPresentation(args.type),
+    },
+    handleVersionBody(args),
+  );
+
+const handleVersionBody = (args: VersionHandlerArgs) =>
   Effect.gen(function* () {
     const parsedTarget = yield* Effect.fromResult(
       Result.mapError(parseFqn(args.handle), fqnInvalidErrorToAppError),
@@ -251,171 +217,28 @@ export const handleVersion = (args: VersionHandlerArgs) =>
       ...versionArgs,
       preview: true,
     });
-    if (args.type === "pack") {
-      const ws = yield* WorkspaceMutations;
-      const path = yield* Path.Path;
-      const trust = (yield* ws.getTrustState()).records[trustRecordKey("pack", parsedTarget.name)];
-      const currentIdentity = yield* packContentIdentity(path.dirname(previewResult.manifestPath));
-      if (trust?.authority !== "workspace" || trust.contentIdentity !== currentIdentity) {
-        return yield* makeAppError({
-          code: "conflict",
-          detail: `Pack ${args.handle} differs from its trusted workspace baseline`,
-          recover: "Inspect and resolve the pack drift before changing its version.",
-          suggestions: [
-            {
-              description: "Preview pack repair",
-              cmd: `axm packs repair ${args.handle} --preview`,
-            },
-          ],
-        });
-      }
-    }
-    const plan = makeVersionPlan(previewResult);
     const resolution = args.preview
-      ? previewVersionPlan(plan)
+      ? previewVersionResolution(previewResult)
       : yield* bumpManifestVersion({
           ...versionArgs,
           preview: false,
-        }).pipe(
-          Effect.tap((applied) =>
-            args.type !== "pack" || !applied.written
-              ? Effect.void
-              : Effect.gen(function* () {
-                  const ws = yield* WorkspaceMutations;
-                  const fs = yield* FileSystem.FileSystem;
-                  const path = yield* Path.Path;
-                  const raw = yield* fs.readFileString(applied.manifestPath).pipe(
-                    Effect.mapError((cause) =>
-                      makeAppError({
-                        code: "internal",
-                        detail: `Failed to read pack manifest: ${applied.manifestPath}`,
-                        cause,
-                      }),
-                    ),
-                  );
-                  const parsed = yield* Effect.try({
-                    try: (): unknown => JSON.parse(raw),
-                    catch: (cause) =>
-                      makeAppError({
-                        code: "validation",
-                        detail: `Invalid pack manifest after version update: ${applied.manifestPath}`,
-                        cause,
-                      }),
-                  });
-                  const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
-                    parsed,
-                  ).pipe(
-                    Effect.mapError((cause) =>
-                      makeAppError({
-                        code: "validation",
-                        detail: `Invalid pack manifest after version update: ${applied.manifestPath}`,
-                        cause,
-                      }),
-                    ),
-                  );
-                  const contentIdentity = yield* packContentIdentity(
-                    path.dirname(applied.manifestPath),
-                  );
-                  yield* ws.refreshPackContentIdentity(
-                    parsedTarget.name,
-                    contentIdentity,
-                    packTrustManifest(manifest),
-                  );
-                }).pipe(
-                  Effect.catch((error) =>
-                    bumpManifestVersion({
-                      fqn: args.handle,
-                      type: "pack",
-                      bump: "set",
-                      targetVersion: applied.from,
-                      preview: false,
-                    }).pipe(
-                      Effect.catch(() => Effect.void),
-                      Effect.andThen(Effect.fail(error)),
-                    ),
-                  ),
-                ),
-          ),
-          Effect.flatMap((applied) => executedVersionPlan(plan, applied)),
-        );
+        }).pipe(Effect.flatMap((applied) => executedVersionResolution(applied)));
 
-    const renderer = yield* CliRenderer;
-    if (yield* emitPlanResolutionResult("version", resolution)) {
-      return;
+    const { emitted } = yield* emitOperationResolution("version", resolution);
+
+    // The preview display is the planning-time render this command owns.
+    if (args.preview && !emitted) {
+      const screen = yield* Screen;
+      const verbosity = yield* Verbosity;
+      const message = versionResultMessage(previewResult, "Would update");
+      if (verbosity.level === "quiet") {
+        yield* screen.result(successDoc(message));
+        return;
+      }
+      const summary = yield* versionResultSummary(previewResult);
+      yield* screen.note(headlineDoc("info", `${message}\n  ${summary}`));
     }
-
-    const verbosity = yield* Verbosity;
-    const message =
-      !args.preview && previewResult.from === previewResult.to
-        ? versionNoOpMessage(previewResult)
-        : versionResultMessage(previewResult, args.preview ? "Would update" : "Updated");
-    const summary = yield* versionResultSummary(previewResult);
-    if (!args.preview) {
-      yield* renderer.success(message, verbosity.level === "quiet" ? undefined : { summary });
-      return;
-    }
-
-    yield* renderer.info(verbosity.level === "quiet" ? message : `${message}\n  ${summary}`);
   });
-
-const exampleNamesByType: Record<VersionableExtensionType, string> = {
-  command: "my-cmd",
-  skill: "code-review",
-  subagent: "researcher",
-  "mcp-server": "my-server",
-  files: "workspace-baseline",
-  rule: "commit-style",
-  hook: "block-secrets",
-  knowledge: "platform-handbook",
-  pack: "frontend-tools",
-};
-
-const makeVersionCommand = (type: VersionableExtensionType) => {
-  const plural = extensionTypeToPlural[type];
-  const sentence = extensionTypeSentenceLabels[type];
-  const exampleName = exampleNamesByType[type];
-  const versionConfig = {
-    handle: Argument.string("handle").pipe(
-      Argument.withDescription(`Fully-qualified ${sentence} handle (@owner/${plural}/name)`),
-    ),
-    bump: Argument.string("bump").pipe(Argument.withDescription("Version bump rule or set")),
-    targetVersion: Argument.string("version").pipe(
-      Argument.withDescription("Exact semver version for set"),
-      Argument.optional,
-    ),
-    preview: previewFlag.pipe(Flag.withDescription("Print the bump without writing")),
-  } as const;
-
-  return Command.make("version", versionConfig, ({ handle, bump, targetVersion, preview }) =>
-    handleVersion({ type, handle, bump, targetVersion, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRuntime(`${plural} version`),
-    ),
-  ).pipe(
-    withArgvTracking(versionConfig),
-    Command.withDescription(`Bump a managed ${sentence} manifest version`),
-    Command.withExamples([
-      {
-        command: `axm ${plural} version @acme/${plural}/${exampleName} patch`,
-        description: "Bump the patch version",
-      },
-      {
-        command: `axm ${plural} version @acme/${plural}/${exampleName} set 1.2.3`,
-        description: "Set an exact version",
-      },
-    ]),
-  );
-};
-
-export const commandsVersionCommand = makeVersionCommand("command");
-export const skillsVersionCommand = makeVersionCommand("skill");
-export const subagentsVersionCommand = makeVersionCommand("subagent");
-export const mcpsVersionCommand = makeVersionCommand("mcp-server");
-export const packsVersionCommand = makeVersionCommand("pack");
-export const filesVersionCommand = makeVersionCommand("files");
-export const rulesVersionCommand = makeVersionCommand("rule");
-export const hooksVersionCommand = makeVersionCommand("hook");
-export const knowledgeVersionCommand = makeVersionCommand("knowledge");
 
 export interface RootVersionHandlerArgs {
   readonly handle: string;
@@ -444,6 +267,16 @@ const inferVersionableType = (handle: string) =>
   });
 
 export const handleRootVersion = (args: RootVersionHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "version",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Update extension version",
+    },
+    handleRootVersionBody(args),
+  );
+
+const handleRootVersionBody = (args: RootVersionHandlerArgs) =>
   Effect.gen(function* () {
     const type = yield* inferVersionableType(args.handle);
     return yield* handleVersion({ ...args, type });
@@ -454,7 +287,7 @@ const supportedTypePluralPattern = versionableTypes
   .join("|");
 
 const rootVersionConfig = {
-  handle: Argument.string("handle").pipe(
+  handle: Argument.string("extension").pipe(
     Argument.withDescription(
       `Fully-qualified extension handle (@owner/<${supportedTypePluralPattern}>/name)`,
     ),
@@ -477,11 +310,11 @@ export const versionCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(rootVersionConfig),
-  Command.withDescription("Bump a managed extension manifest version"),
+  Command.withDescription("Bump a project-workspace extension manifest version"),
   Command.withExamples([
     {
-      command: "axm version @acme/commands/my-cmd patch",
-      description: "Bump a command's patch version",
+      command: "axm version @acme/hooks/block-secrets patch",
+      description: "Bump a hook's patch version",
     },
     {
       command: "axm version @acme/skills/code-review minor",

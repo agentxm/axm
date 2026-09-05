@@ -6,15 +6,29 @@ import * as path from "node:path";
 import { createBinaryRunner, createTempDir, runCommand } from "@agentxm/client-e2e-utils";
 import { afterAll, describe, expect, it } from "vitest";
 import {
-  binaryDir,
+  hostBinaryDir,
   repoRoot,
-  resolveBinaryPath,
+  resolveHostBinaryPath,
   resolveInstallMode,
 } from "./distribution-targets.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes. The
+ * literal shape is read by the specification catalog.
+ */
+export const executionBinding = {
+  requirements: [
+    "system/installability/product-installs-through-supported-channels",
+    "system/compatibility/supported-platform-matrix",
+  ],
+  boundary: "installed",
+  rationale:
+    "Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum verification, PATH guidance, and a working installed product on that shell.",
+} as const;
+
 const installMode = resolveInstallMode();
 const expectedVersion = process.env["AXM_EXPECTED_VERSION"];
-const fixtureBinaryPath = resolveBinaryPath();
+const fixtureBinaryPath = resolveHostBinaryPath();
 const fixtureVersionResult = await createBinaryRunner(fixtureBinaryPath)(["--version"]);
 
 if (fixtureVersionResult.exitCode !== 0) {
@@ -39,57 +53,25 @@ const artifactNames = new Set([
 
 interface ServerContext {
   readonly baseUrl: string;
-  readonly apiBaseUrl: string;
   readonly close: () => Promise<void>;
 }
 
 const createBinaryServer = async (): Promise<ServerContext> => {
-  if (!fs.existsSync(binaryDir)) {
+  if (!fs.existsSync(hostBinaryDir)) {
     throw new Error(
-      `Compiled binaries not found at ${binaryDir}. Run 'pnpm nx run cli:compile' or set AXM_INSTALL_BASE_URL.`,
+      `Compiled host binary not found at ${hostBinaryDir}. Run 'pnpm exec nx run cli:compile-host'.`,
     );
   }
 
   const server = http.createServer((request, response) => {
     const requestUrl = request.url ?? "/";
-    if (requestUrl.startsWith("/repos/agentxm/axm/releases")) {
-      const address = server.address();
-      if (address === null || typeof address === "string") {
-        response.statusCode = 500;
-        response.end("Server address unavailable");
-        return;
-      }
-      const origin = `http://127.0.0.1:${address.port}`;
-      response.setHeader("content-type", "application/json");
-      response.statusCode = 200;
-      response.end(
-        JSON.stringify([
-          {
-            tag_name: `cli-v${fixtureVersion}`,
-            draft: false,
-            prerelease: false,
-            assets: [
-              ...[...artifactNames].map((name) => ({
-                name,
-                browser_download_url: `${origin}/releases/download/cli-v${fixtureVersion}/${name}`,
-              })),
-              {
-                name: "SHA256SUMS",
-                browser_download_url: `${origin}/releases/download/cli-v${fixtureVersion}/SHA256SUMS`,
-              },
-            ],
-          },
-        ]),
-      );
-      return;
-    }
     const artifactName = path.basename(requestUrl);
 
     if (artifactName === "SHA256SUMS") {
       const lines = [...artifactNames]
         .sort()
         .map((name) => {
-          const artifactPath = path.join(binaryDir, name);
+          const artifactPath = path.join(hostBinaryDir, name);
           if (!fs.existsSync(artifactPath)) return undefined;
           const hash = crypto
             .createHash("sha256")
@@ -101,7 +83,7 @@ const createBinaryServer = async (): Promise<ServerContext> => {
       response.statusCode = 200;
       response.end(
         requestUrl.includes("/bad/")
-          ? `${"0".repeat(64)}  ${path.basename(resolveBinaryPath())}\n`
+          ? `${"0".repeat(64)}  ${path.basename(resolveHostBinaryPath())}\n`
           : `${lines.join("\n")}\n`,
       );
       return;
@@ -113,7 +95,7 @@ const createBinaryServer = async (): Promise<ServerContext> => {
       return;
     }
 
-    const artifactPath = path.join(binaryDir, artifactName);
+    const artifactPath = path.join(hostBinaryDir, artifactName);
 
     if (!fs.existsSync(artifactPath)) {
       response.statusCode = 404;
@@ -138,7 +120,6 @@ const createBinaryServer = async (): Promise<ServerContext> => {
 
   return {
     baseUrl: `http://127.0.0.1:${address.port}/releases/latest/download`,
-    apiBaseUrl: `http://127.0.0.1:${address.port}`,
     close: async () => {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
@@ -209,7 +190,6 @@ const createBashEnv = (
         ? basePath
         : `${installDir}${pathSeparator}${basePath}`,
     AXM_INSTALL_BASE_URL: options.baseUrl ?? installBaseUrl,
-    AXM_UPGRADE_GITHUB_API_URL: serverContext.apiBaseUrl,
     npm_config_user_agent: "",
     ...(options.installDir === undefined ? {} : { AXM_INSTALL_DIR: options.installDir }),
     ...(version === undefined ? {} : { AXM_INSTALL_VERSION: version }),
@@ -233,7 +213,6 @@ const createWindowsEnv = (
         : `${installDir}${pathSeparator}${basePath}`,
     AXM_INSTALL_BASE_URL: options.baseUrl ?? installBaseUrl,
     AXM_INSTALL_PS1_PATH: path.join(repoRoot, "install.ps1"),
-    AXM_UPGRADE_GITHUB_API_URL: serverContext.apiBaseUrl,
     npm_config_user_agent: "",
     ...(options.installDir === undefined ? {} : { AXM_INSTALL_DIR: options.installDir }),
     ...(version === undefined ? {} : { AXM_INSTALL_VERSION: version }),
@@ -263,57 +242,68 @@ const expectJsonObject = (value: unknown): Readonly<Record<string, unknown>> => 
   return Object.fromEntries(Object.entries(value));
 };
 
-const parseJsonObject = (input: string): Readonly<Record<string, unknown>> =>
-  expectJsonObject(JSON.parse(input));
+const parseJsonObject = (input: string): Readonly<Record<string, unknown>> => {
+  try {
+    return expectJsonObject(JSON.parse(input));
+  } catch (cause) {
+    throw new Error(`Expected one JSON object, received ${JSON.stringify(input)}`, { cause });
+  }
+};
 
-const expectProgressMessages = (
-  stderr: string,
-  expectedMessages: ReadonlyArray<string | RegExp>,
-) => {
-  const progressEvents = stderr
+const expectLifecycleUnits = (stderr: string, expectedUnitIds: ReadonlyArray<string>) => {
+  const machineEvents = stderr
     .trim()
     .split("\n")
     .filter((line) => line.length > 0)
     .map(parseJsonObject);
-  expect(progressEvents.length).toBeGreaterThan(0);
-  expect(progressEvents.every((event) => event["type"] === "progress")).toBe(true);
-  const progressMessages = progressEvents.map((event) => event["message"]);
-  for (const expectedMessage of expectedMessages) {
-    if (typeof expectedMessage === "string") {
-      expect(progressMessages).toContain(expectedMessage);
-      continue;
-    }
-    expect(
-      progressMessages.some(
-        (progressMessage) =>
-          typeof progressMessage === "string" && expectedMessage.test(progressMessage),
-      ),
-    ).toBe(true);
+  expect(machineEvents.length).toBeGreaterThan(0);
+  expect(
+    machineEvents.every(
+      (event) =>
+        event["type"] === "progress" ||
+        (event["type"] === "log" &&
+          ["error", "warn", "info"].includes(String(event["level"])) &&
+          typeof event["message"] === "string"),
+    ),
+  ).toBe(true);
+  const lifecycleEvents = machineEvents
+    .filter((event) => event["type"] === "progress")
+    .map((event) => expectJsonObject(event["event"]));
+  expect(lifecycleEvents.length).toBeGreaterThan(0);
+  expect(lifecycleEvents[0]?.["_tag"]).toBe("OperationStarted");
+  expect(lifecycleEvents[lifecycleEvents.length - 1]?.["_tag"]).toBe("OperationSettled");
+  const startedUnitIds = lifecycleEvents
+    .filter((event) => event["_tag"] === "UnitStarted")
+    .map((event) => event["unitId"]);
+  for (const expectedUnitId of expectedUnitIds) {
+    expect(startedUnitIds).toContain(expectedUnitId);
   }
 };
 
 const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<string, string>>) => {
   const runBinary = createBinaryRunner(binaryPath);
-  const jsonResult = await runBinary(["upgrade", "--json"], { env });
-  expectCommandSuccess("axm upgrade --json", jsonResult);
-  expectProgressMessages(jsonResult.stderr, [
-    "Checking AXM releases",
-    "Detecting AXM installation method",
-  ]);
+  const jsonResult = await runBinary(["upgrade", fixtureVersion, "--json"], { env });
+  expectCommandSuccess(`axm upgrade ${fixtureVersion} --json`, jsonResult);
+  expectLifecycleUnits(jsonResult.stderr, ["detect-install-method", "resolve-version"]);
   const jsonDocument = parseJsonObject(jsonResult.stdout);
   expect(jsonDocument["ok"]).toBe(true);
   const currentResult = expectJsonObject(jsonDocument["result"]);
-  expect(currentResult["resultStatus"]).toBe("already-up-to-date");
-  expect(currentResult["installMethod"], JSON.stringify(currentResult)).toBe("script");
-  expect(currentResult["blockedCount"]).toBe(0);
-  expect(currentResult["failedCount"]).toBe(0);
+  expect(currentResult["contract"]).toBe("axm.upgrade-assessment/v1");
+  expect(currentResult["disposition"]).toBe("already-current");
+  expect(expectJsonObject(currentResult["ownership"])["method"]).toBe("script");
+  expect(currentResult["outcome"]).toBe("no-op");
 
-  const quietResult = await runBinary(["upgrade", "--quiet", "--verbose"], { env });
-  expectCommandSuccess("axm upgrade --quiet --verbose", quietResult);
-  expect(getOutput(quietResult)).toBe("");
+  const quietResult = await runBinary(["upgrade", fixtureVersion, "--quiet", "--verbose"], {
+    env,
+  });
+  expectCommandSuccess(`axm upgrade ${fixtureVersion} --quiet --verbose`, quietResult);
+  expect(getOutput(quietResult)).toContain("already up to date");
+  expect(getOutput(quietResult)).not.toContain("AXM installation method");
 
-  const noColorResult = await runBinary(["upgrade"], { env: { ...env, NO_COLOR: "1" } });
-  expectCommandSuccess("NO_COLOR=1 axm upgrade", noColorResult);
+  const noColorResult = await runBinary(["upgrade", fixtureVersion], {
+    env: { ...env, NO_COLOR: "1" },
+  });
+  expectCommandSuccess(`NO_COLOR=1 axm upgrade ${fixtureVersion}`, noColorResult);
   expect(getOutput(noColorResult)).not.toContain("\u001b");
 
   const lockPath = `${binaryPath}.upgrade.lock`;
@@ -322,22 +312,25 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
     JSON.stringify({ pid: process.pid, targetPath: binaryPath, backupPath: null }),
   );
   try {
-    const lockedResult = await runBinary(["upgrade", "--force", "--json"], { env });
+    const lockedResult = await runBinary(["upgrade", fixtureVersion, "--reinstall", "--json"], {
+      env,
+    });
     if (lockedResult.exitCode !== 1) {
       throw new Error(
         `Locked upgrade exited ${lockedResult.exitCode}; stdout: ${lockedResult.stdout}; stderr: ${lockedResult.stderr}`,
       );
     }
-    expectProgressMessages(lockedResult.stderr, [
-      "Checking AXM releases",
-      "Detecting AXM installation method",
-      /^Upgrading AXM to /,
+    expectLifecycleUnits(lockedResult.stderr, [
+      "detect-install-method",
+      "resolve-version",
+      "upgrade",
     ]);
     const lockedDocument = parseJsonObject(lockedResult.stdout);
     expect(lockedDocument["ok"]).toBe(false);
     const blockedResult = expectJsonObject(lockedDocument["result"]);
-    expect(blockedResult["resultStatus"]).toBe("manual-action-required");
-    expect(blockedResult["blockedCount"]).toBe(1);
+    expect(blockedResult["disposition"]).toBe("recovery-required");
+    expect(blockedResult["outcome"]).toBe("failed");
+    expect(expectJsonObject(blockedResult["mutation"])["state"]).toBe("not-attempted");
   } finally {
     fs.rmSync(lockPath, { force: true });
   }
@@ -507,7 +500,7 @@ describe("install script verification", () => {
 
   it(`preserves a working axm on ${installMode} checksum failure`, async () => {
     const temp = createTempDir();
-    const sourceBinary = resolveBinaryPath();
+    const sourceBinary = resolveHostBinaryPath();
     const installedBinary = path.join(
       temp.path,
       ".axm",

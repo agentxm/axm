@@ -1,0 +1,10 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@example",
+  "type": "skill",
+  "name": "build-report",
+  "version": "1.0.0",
+  "description": "Builds a local report from caller-selected input and output paths",
+  "license": "MIT",
+  "standalone": true
+}

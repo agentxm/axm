@@ -2,11 +2,14 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { AuthClient, RegistryUrl, resolveRequiredToken } from "@agentxm/client-core/unstable/auth";
-import { errAuthRequired } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { withAuthRuntime } from "../../runtime.js";
+import { AuthClient, authLoginRequired, resolveRequiredToken } from "@agentxm/registry-auth";
+import { RegistryUrl } from "@agentxm/registry-client";
+import { Screen, rawDoc } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { coerceAuthFailure } from "../../feature-errors.js";
+import { withRuntime } from "../../runtime.js";
 
 export const WhoamiDataSchema = Schema.Struct({
   user: Schema.String,
@@ -18,46 +21,51 @@ const WhoamiDocumentFields = {
 export const WhoamiDocumentSchema = Schema.Struct(WhoamiDocumentFields);
 export type WhoamiDocument = typeof WhoamiDocumentSchema.Type;
 
-export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
-  const authClient = yield* AuthClient;
-  const renderer = yield* CliRenderer;
-  const registryUrl = yield* RegistryUrl;
+export const handleWhoami = Effect.fn("AuthWhoami.handle")(
+  function* () {
+    const authClient = yield* AuthClient;
+    const screen = yield* Screen;
+    const registryUrl = yield* RegistryUrl;
 
-  // Step 1: Resolve token
-  const token = yield* resolveRequiredToken(registryUrl, {
-    missingTokenError: errAuthRequired("Not authenticated"),
-  });
+    // Step 1: Resolve token
+    const token = yield* resolveRequiredToken(registryUrl, {
+      missingTokenError: authLoginRequired("Not authenticated"),
+    });
 
-  // Step 2: Call whoami
-  const registryHost = new URL(registryUrl).host;
-  const identity = yield* renderer.withSpinner(
-    `Checking identity on ${registryHost}`,
-    () => authClient.getWhoami(token.token),
-    { successMessage: `Checked identity on ${registryHost}` },
-  );
-  const result = {
-    user: identity.handle,
-    registry: registryUrl,
-  };
+    // Step 2: Call whoami
+    const registryHost = new URL(registryUrl).host;
+    const identity = yield* withLiveOperation(
+      { command: "auth.whoami", name: `Check identity on ${registryHost}`, mode: "preview" },
+      observeUnit(
+        { id: "identity", label: `identity on ${registryHost}` },
+        authClient.getWhoami(token.token),
+      ),
+    );
+    const result = {
+      user: identity.handle,
+      registry: registryUrl,
+    };
 
-  // Step 3: Display result
-  if (yield* renderer.result({ data: result }, WhoamiDocumentSchema)) {
-    return;
-  }
+    // Step 3: Display result
+    if (yield* screen.document({ data: result }, WhoamiDocumentSchema)) {
+      return;
+    }
 
-  yield* renderer.raw(`Authenticated as ${result.user}\nRegistry  ${result.registry}\n`);
-}, Effect.asVoid);
+    yield* screen.result(rawDoc(`Authenticated as ${result.user}\nRegistry  ${result.registry}\n`));
+  },
+  Effect.mapError(coerceAuthFailure),
+  Effect.asVoid,
+);
 
 const whoamiConfig = {} as const;
 
 export const whoamiCommand = Command.make("whoami", whoamiConfig, () =>
-  handleWhoami().pipe(withAuthRuntime("auth whoami")),
+  handleWhoami().pipe(withRuntime("auth whoami")),
 ).pipe(
   withArgvTracking(whoamiConfig),
   Command.withDescription("Show current authenticated identity"),
   Command.withExamples([
-    { command: "axm auth whoami", description: "Check who you're authenticated as" },
-    { command: "axm whoami", description: "Same command via shortcut" },
-    { command: "axm auth whoami --json", description: "Get identity as JSON for scripts" },
+    { command: "axm whoami", description: "Check who you're authenticated as" },
+    { command: "axm whoami --json", description: "Get identity as JSON for scripts" },
   ]),
 );

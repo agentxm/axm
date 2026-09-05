@@ -15,7 +15,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-export const LEDGER_PATH = "packages/core/src/unstable/extension-types/parity/exemptions.ts";
+export const LEDGER_PATH = "packages/extension-workspace/src/extension-types/parity/exemptions.ts";
 
 /**
  * A `seed: true` marker, which only rows present at ledger introduction carry.
@@ -41,11 +41,19 @@ export interface LedgerCheckResult {
   readonly comparison: LedgerComparison;
 }
 
+const isolatedGitEnvironment = { ...process.env };
+for (const name of Object.keys(isolatedGitEnvironment)) {
+  if (name.startsWith("GIT_")) {
+    delete isolatedGitEnvironment[name];
+  }
+}
+
 const git = (repoRoot: string, args: ReadonlyArray<string>): string | null => {
   try {
     return execFileSync("git", [...args], {
       cwd: repoRoot,
       encoding: "utf-8",
+      env: isolatedGitEnvironment,
       stdio: ["ignore", "pipe", "ignore"],
     });
   } catch {

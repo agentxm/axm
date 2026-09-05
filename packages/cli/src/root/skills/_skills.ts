@@ -9,10 +9,8 @@ import { newCommand } from "./new.js";
 import { enableCommand } from "./enable.js";
 import { disableCommand } from "./disable.js";
 import { skillsPublishCommand as publishCommand } from "../publish/per-type-command.js";
-import { pruneCommand } from "./prune/command.js";
-import { skillsVersionCommand } from "../shared/version-command.js";
-import { copyCommand } from "./copy.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { skillsImportCommand as importCommand } from "../import/command.js";
 
 const showCommand = makeExtensionShowCommand({
   type: "skill",
@@ -43,10 +41,6 @@ export const skillsCommand = Command.make("skills").pipe(
       description: "Install from a GitHub repository",
     },
     { command: "axm skills list", description: "See what skills are installed" },
-    {
-      command: "axm skills version @acme/skills/code-review patch",
-      description: "Bump a skill version",
-    },
   ]),
   Command.withSubcommands([
     installCommand,
@@ -55,11 +49,9 @@ export const skillsCommand = Command.make("skills").pipe(
     showCommand,
     updateCommand,
     newCommand,
-    copyCommand,
+    importCommand,
     enableCommand,
     disableCommand,
-    skillsVersionCommand,
     publishCommand,
-    pruneCommand,
   ]),
 );

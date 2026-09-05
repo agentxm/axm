@@ -1,0 +1,39 @@
+[
+  {
+    "_tag": "OperationStarted",
+    "seq": 1,
+    "atMs": 0,
+    "operationId": "operation-4",
+    "name": "Install skills",
+    "mode": "apply"
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 2,
+    "atMs": 0,
+    "phase": "resolution"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 3,
+    "atMs": 0,
+    "unitId": "extension-sources",
+    "label": "extension sources",
+    "index": 0
+  },
+  {
+    "_tag": "UnitResolved",
+    "seq": 4,
+    "atMs": 0,
+    "unitId": "extension-sources",
+    "label": "extension sources",
+    "state": "failed",
+    "index": 0
+  },
+  {
+    "_tag": "OperationSettled",
+    "seq": 5,
+    "atMs": 0,
+    "outcome": "failed"
+  }
+]

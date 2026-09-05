@@ -3,15 +3,23 @@ import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import YAML from "yaml";
 
-import { handleInstall, handleSync } from "axm.sh/specification-harness";
+import {
+  handleInstall,
+  handleSync,
+  getAppError,
+  PlanResolutionDocumentSchema,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 import { makeSpecRegistry } from "../../support/registry-fixture.js";
+import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/preserves-configuration-and-resolutions",
@@ -106,4 +114,46 @@ describe("Sync preserves configuration and accepted resolutions", () => {
         expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
       }),
   );
+  for (const canonicalState of ["modified", "missing"] as const)
+    for (const changedSourceFile of ["notes.txt", "src/SKILL.md"] as const)
+      it.effect(
+        `preserves accepted state when ${canonicalState} content cannot be restored after source ${changedSourceFile} changes`,
+        () =>
+          Effect.gen(function* () {
+            const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+            cleanups.push(workspace.cleanup);
+            const source = writeLocalSkillPackage(workspace.root, { name: "code-review" });
+            fs.writeFileSync(path.join(source, "notes.txt"), "Accepted companion content.\n");
+            yield* handleInstall({
+              source: Option.some(source),
+              force: false,
+              preview: false,
+            }).pipe(Effect.provide(workspace.layer));
+            const canonical = path.join(
+              workspace.root,
+              "agent_extensions/local/vendor/code-review",
+            );
+            if (canonicalState === "missing") fs.rmSync(canonical, { recursive: true });
+            else fs.writeFileSync(path.join(canonical, "notes.txt"), "Local edits to preserve.\n");
+            fs.appendFileSync(
+              path.join(source, changedSourceFile),
+              "Source content changed after acceptance.\n",
+            );
+            const before = snapshotWorkspaceContent(workspace.root);
+            const outcome = yield* handleSync({ preview: false }).pipe(
+              Effect.result,
+              Effect.provide(workspace.layer),
+            );
+            if (Result.isFailure(outcome))
+              expect(getAppError(outcome.failure).code).toBe("conflict");
+            else {
+              const document = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+                workspace.rendererState.results.at(-1)?.data,
+              );
+              expect(document.result.outcome).toBe("failed");
+              expect(document.result.failure?.code).toBe("conflict");
+            }
+            expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+          }),
+      );
 });

@@ -1,4 +1,15 @@
-import { getAppError } from "axm.sh/specification-harness";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { execFileSync } from "node:child_process";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import * as YAML from "yaml";
+import {
+  getAppError,
+  handleInstall,
+  LockfileSchema,
+  SettingsSchema,
+} from "axm.sh/specification-harness";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -6,7 +17,11 @@ import { defineSpecification } from "@agentxm/extension-model/unstable/specifica
 import { handleDemote, expectAppliedPlanResult } from "axm.sh/specification-harness";
 import { makeSpecRegistry } from "../../support/registry-fixture.js";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
-import { authoringTypes, writeAuthoringPackage } from "../../support/authoring-fixtures.js";
+import {
+  authoringTypes,
+  writeAuthoringPackage,
+  writePackageFile,
+} from "../../support/authoring-fixtures.js";
 import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
@@ -46,13 +61,19 @@ describe("Demoting workspace authorship", () => {
         `preserves ${row.type} enabled=${enabled} while replacing the workspace source`,
         () =>
           Effect.gen(function* () {
+            const replacementFiles = {
+              "notes.txt": "Selected external companion bytes.\n",
+              "docs/purpose.md": "# Selected external behavior\nUse the replacement workflow.\n",
+            };
             const registry =
               row.type === "pack" || row.type === "mcp-server" ? makeSpecRegistry() : undefined;
             if (registry !== undefined) {
               cleanups.push(registry.cleanup);
               if (row.type === "pack")
-                registry.writePack("review", [{ version: "2.0.0", dependencies: {} }]);
-              else registry.writeMcp("review", [{ version: "2.0.0" }]);
+                registry.writePack("review", [
+                  { version: "2.0.0", dependencies: {}, files: replacementFiles },
+                ]);
+              else registry.writeMcp("review", [{ version: "2.0.0", files: replacementFiles }]);
             }
             const created = workspace({
               settings: {
@@ -61,11 +82,75 @@ describe("Demoting workspace authorship", () => {
                 [row.inputKey]: { review: { source: "workspace", enabled } },
               },
             });
-            writeAuthoringPackage(created.root, row, "review", { parent: row.plural });
+            const authored = writeAuthoringPackage(created.root, row, "review", {
+              parent: row.plural,
+            });
+            writePackageFile(authored, "notes.txt", "Previous authored companion bytes.\n");
+            writePackageFile(
+              authored,
+              "docs/purpose.md",
+              "# Previous authored behavior\nUse the old workflow.\n",
+            );
+            writePackageFile(authored, "old-only.txt", "Remove this obsolete authored file.\n");
             const replacement =
               registry !== undefined
                 ? `@acme/${row.plural}/review`
                 : writeAuthoringPackage(created.root, row, "review", { version: "2.0.0" });
+            const expectedPackage = path.join(created.root, "expected-replacement");
+            if (registry !== undefined) {
+              execFileSync("unzip", [
+                "-q",
+                path.join(registry.root, "extensions", "@acme", row.plural, "review", "2.0.0.zip"),
+                "-d",
+                expectedPackage,
+              ]);
+            } else {
+              for (const [relative, content] of Object.entries(replacementFiles))
+                writePackageFile(replacement, relative, content);
+              const contentFile =
+                row.type === "skill"
+                  ? "src/SKILL.md"
+                  : row.type === "subagent"
+                    ? "src/review.md"
+                    : row.type === "rule"
+                      ? "src/RULE.md"
+                      : row.type === "hook"
+                        ? "src/hook.sh"
+                        : "src/index.md";
+              fs.appendFileSync(
+                path.join(authored, contentFile),
+                "\n# Previous authored behavior\n",
+              );
+              fs.appendFileSync(
+                path.join(replacement, contentFile),
+                "\n# Selected external behavior\n",
+              );
+              fs.cpSync(replacement, expectedPackage, { recursive: true });
+            }
+            const expectedContent = snapshotWorkspaceContent(expectedPackage);
+            const sourceBefore = snapshotWorkspaceContent(registry?.root ?? replacement);
+            const unrelatedSource = writeAuthoringPackage(
+              created.root,
+              authoringTypes[0],
+              "test-helper",
+            );
+            yield* handleInstall({
+              source: Option.some(unrelatedSource),
+              force: false,
+              preview: false,
+            }).pipe(Effect.provide(created.layer));
+            const unrelatedSourceBefore = snapshotWorkspaceContent(unrelatedSource);
+            const unrelatedCanonical = path.join(
+              created.root,
+              "agent_extensions/local/vendor/test-helper",
+            );
+            const unrelatedContentBefore = snapshotWorkspaceContent(unrelatedCanonical);
+            const beforeLock = yield* Schema.decodeUnknownEffect(LockfileSchema)(
+              YAML.parse(created.readLockfileText()),
+            );
+            const beforeSettings = yield* Schema.decodeUnknownEffect(SettingsSchema)(
+              created.readSettings(),
+            );
             yield* handleDemote({
               yes: true,
               fqn: `@acme/${row.plural}/review`,
@@ -89,7 +174,24 @@ describe("Demoting workspace authorship", () => {
               registry !== undefined
                 ? `agent_extensions/agentxm/@acme/${row.plural}/review/${row.manifest}`
                 : `agent_extensions/local/vendor/review/${row.manifest}`;
-            expect(created.readFile(canonical)).toContain('"2.0.0"');
+            expect(
+              snapshotWorkspaceContent(path.dirname(path.join(created.root, canonical))),
+            ).toEqual(expectedContent);
+            expect(snapshotWorkspaceContent(expectedPackage)).toEqual(expectedContent);
+            expect(snapshotWorkspaceContent(registry?.root ?? replacement)).toEqual(sourceBefore);
+            expect(snapshotWorkspaceContent(unrelatedSource)).toEqual(unrelatedSourceBefore);
+            expect(snapshotWorkspaceContent(unrelatedCanonical)).toEqual(unrelatedContentBefore);
+            const afterLock = yield* Schema.decodeUnknownEffect(LockfileSchema)(
+              YAML.parse(created.readLockfileText()),
+            );
+            expect(beforeLock.skills["test-helper"]).toBeDefined();
+            expect(afterLock.skills["test-helper"]).toEqual(beforeLock.skills["test-helper"]);
+            const afterSettings = yield* Schema.decodeUnknownEffect(SettingsSchema)(
+              created.readSettings(),
+            );
+            expect(afterSettings.skills?.["test-helper"]).toEqual(
+              beforeSettings.skills?.["test-helper"],
+            );
             expect(created.readLockfileText()).toContain(
               registry !== undefined ? "resolvedVersion: 2.0.0" : "review:",
             );

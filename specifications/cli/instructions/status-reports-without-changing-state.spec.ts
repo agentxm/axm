@@ -5,16 +5,21 @@ import { afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { handleInstructionsEnable, handleInstructionsStatus } from "axm.sh/specification-harness";
+import {
+  handleInstructionsEnable,
+  handleInstructionsDisable,
+  handleInstructionsStatus,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
+import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/instructions/status-reports-without-changing-state",
   title: "Instruction-file status is inspected without changing workspace state",
   statement:
-    "When instruction-file management status is inspected, AXM shall report whether management is enabled and, when it is, the source file and the managed target for each configured agent, and shall not change settings or instruction files.",
+    "When instruction-file management status is inspected, AXM shall report whether management is enabled and, when it is, the source file and the managed target for each configured agent together with stale owned aliases, and shall not change settings or instruction files.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
@@ -75,6 +80,73 @@ describe("Instruction-file status", () => {
       expect(workspace.readFile("axm.json")).toBe(settingsBefore);
       expect(workspace.readFile(".gitignore")).toBe(ignoreBefore);
       expect(workspace.readFile("AGENTS.md")).toBe("# Authored instructions\n");
+    }),
+  );
+  it.effect("reports an explicit disabled choice without changing content", () =>
+    Effect.gen(function* () {
+      const workspace = instructionsWorkspace();
+      yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: true }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      yield* handleInstructionsDisable().pipe(Effect.provide(workspace.layer));
+      const before = snapshotWorkspaceContent(workspace.root);
+      yield* handleInstructionsStatus().pipe(Effect.provide(workspace.layer));
+      expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
+        enabled: false,
+        items: [],
+        staleTargets: [],
+      });
+      expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+    }),
+  );
+  it.effect("reports enabled management with no configured agent targets", () =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace({ machine: true, settings: { agents: [] } });
+      cleanups.push(workspace.cleanup);
+      fs.writeFileSync(path.join(workspace.root, "AGENTS.md"), "Authored instructions.\n");
+      yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      const before = snapshotWorkspaceContent(workspace.root);
+      yield* handleInstructionsStatus().pipe(Effect.provide(workspace.layer));
+      expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
+        enabled: true,
+        sourceFileName: "AGENTS.md",
+        items: [],
+        staleTargets: [],
+      });
+      expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+    }),
+  );
+  it.effect("distinguishes a current configured alias from a stale owned alias", () =>
+    Effect.gen(function* () {
+      const workspace = instructionsWorkspace();
+      yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      fs.symlinkSync("AGENTS.md", path.join(workspace.root, "GEMINI.md"));
+      fs.writeFileSync(path.join(workspace.root, "IFLOW.md"), "Unowned instruction content.\n");
+      const before = snapshotWorkspaceContent(workspace.root);
+      yield* handleInstructionsStatus().pipe(Effect.provide(workspace.layer));
+      expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
+        enabled: true,
+        items: [
+          expect.objectContaining({
+            agentId: "claude-code",
+            health: "ok",
+            ownership: "owned-current",
+            observedForm: "symlink",
+          }),
+        ],
+        staleTargets: [
+          expect.objectContaining({
+            agentId: "gemini-cli",
+            health: "stale",
+            targetFile: path.join(workspace.root, "GEMINI.md"),
+          }),
+        ],
+      });
+      expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
     }),
   );
 });

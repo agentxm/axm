@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import * as Option from "effect/Option";
 import { CredentialStore, PendingDeviceLoginStore } from "axm.sh/specification-harness";
-import { handleLogin } from "axm.sh/specification-harness";
+import { handleLogin, captureHelpDoc } from "axm.sh/specification-harness";
 import {
   authRegistry,
   loginOptions,
@@ -30,6 +30,21 @@ export const specification = defineSpecification({
 });
 
 describe("Bounded approval wait", () => {
+  it.effect("login help explains how to bound a pending device sign-in wait", () =>
+    Effect.gen(function* () {
+      const doc = yield* captureHelpDoc(["login"]);
+      const timeout = doc.flags.find((flag) => flag.name === "timeout");
+      expect(timeout).toBeDefined();
+      expect(timeout && Option.getOrElse(timeout.description, () => "")).toContain(
+        "requires --wait",
+      );
+      expect(doc.examples).toContainEqual({
+        command: "axm login --wait --timeout 300",
+        description: "Wait up to 300 seconds for a pending device sign-in",
+      });
+    }),
+  );
+
   it.effect("retains the same authorization after a caller-selected timeout", () => {
     const context = makeAuthSpecContext({ auth: { pollDeviceToken: () => Effect.never } });
     return context.provide(

@@ -228,13 +228,6 @@ export const acquireWorkspaceTransitionLock = (args: {
           (cause) => new WorkspaceDirectoryError({ path: workspaceDir, step: "inspect", cause }),
         ),
       );
-    yield* fs
-      .makeDirectory(scratchDir, { recursive: true })
-      .pipe(
-        Effect.mapError(
-          (cause) => new TransitionLockError({ path: scratchDir, step: "create-scratch", cause }),
-        ),
-      );
     const removeEmptyScratch = fs.readDirectory(scratchDir).pipe(
       Effect.flatMap((entries) =>
         entries.length === 0
@@ -258,6 +251,16 @@ export const acquireWorkspaceTransitionLock = (args: {
     let waitedMillis = 0;
     let reportedWaiting = false;
     while (true) {
+      // The previous holder removes an empty scratch directory when it
+      // releases. Recreate it before every attempt so that a waiter can
+      // acquire after that cleanup instead of mistaking ENOENT for a hold.
+      yield* fs
+        .makeDirectory(scratchDir, { recursive: true })
+        .pipe(
+          Effect.mapError(
+            (cause) => new TransitionLockError({ path: scratchDir, step: "create-scratch", cause }),
+          ),
+        );
       // One attempt is atomic with respect to interruption: from the library
       // granting the hold through finalizer registration there is no
       // interruptible gap, so an interrupt requested mid-acquisition defers

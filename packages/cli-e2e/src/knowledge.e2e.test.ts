@@ -6,6 +6,7 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 export const executionBinding = {
   requirements: [
     "cli/knowledge/lint/reports-validation-without-mutation",
+    "cli/knowledge/list/explains-instruction-entry-inclusion",
     "cli/knowledge/concepts/search/matches-lexical-query",
     "cli/knowledge/concepts/search/rejects-invalid-query",
     "cli/knowledge/concepts/query/combines-typed-filters",

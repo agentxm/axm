@@ -1802,10 +1802,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const sourceAssessedCandidates = sourceAssessments.flatMap((result) =>
     Result.isSuccess(result) ? [result.success] : [],
   );
-  const shouldCheckLocalPackConstraints = sourceAssessedCandidates.some(
-    (candidate) => candidate.authored && candidate.type !== "pack",
+  const shouldInspectPackDependencies = sourceAssessedCandidates.some(
+    (candidate) => candidate.authored,
   );
-  const packDependencyReachability = shouldCheckLocalPackConstraints
+  const packDependencyReachability = shouldInspectPackDependencies
     ? yield* Effect.gen(function* () {
         const lintWorkspace = yield* buildLintWorkspace({
           platform: { fs, path },

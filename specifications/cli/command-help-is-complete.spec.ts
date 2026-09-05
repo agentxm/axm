@@ -1,12 +1,10 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import type { Command } from "effect/unstable/cli";
 
 import {
   captureHelpDoc,
   collectCommandPaths,
-  collectHelpFiles,
   formatCommandPath,
   rootCommand,
 } from "axm.sh/specification-harness";
@@ -15,9 +13,9 @@ import { defineSpecification } from "@agentxm/extension-model/unstable/specifica
 
 export const specification = defineSpecification({
   requirement: "cli/command-help-is-complete",
-  title: "Every supported command presents complete help",
+  title: "Every supported command describes its invocation and purpose",
   statement:
-    "Every supported command shall present usable help, the rendered help tree shall list exactly the supported command paths, and no command's help shall list a retired flag spelling.",
+    "Every supported command shall present help identifying its invocation and purpose, and the rendered help tree shall list exactly the supported command paths.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access"],
@@ -47,39 +45,17 @@ const registeredCommands = (
 ];
 
 describe("Command help completeness", () => {
-  it.effect("login help explains how to bound a pending device sign-in wait", () =>
-    Effect.gen(function* () {
-      const doc = yield* captureHelpDoc(["login"]);
-      const timeout = doc.flags.find((flag) => flag.name === "timeout");
-      expect(timeout).toBeDefined();
-      expect(timeout && Option.getOrElse(timeout.description, () => "")).toContain(
-        "requires --wait",
-      );
-      expect(doc.examples).toContainEqual({
-        command: "axm login --wait --timeout 300",
-        description: "Wait up to 300 seconds for a pending device sign-in",
-      });
-    }),
-  );
-
-  it.effect("every registered command path renders usable command help", () =>
+  it.effect("every registered command describes its invocation and purpose", () =>
     Effect.gen(function* () {
       const commands = registeredCommands();
       expect(commands.length).toBeGreaterThan(1);
       for (const command of commands) {
         const doc = yield* captureHelpDoc(command.path);
-        expect(doc.usage.length, formatCommandPath(command.path)).toBeGreaterThan(0);
+        expect(doc.usage, formatCommandPath(command.path)).toContain(
+          formatCommandPath(command.path),
+        );
+        expect(doc.description.trim().length, formatCommandPath(command.path)).toBeGreaterThan(0);
       }
-    }),
-  );
-
-  it.effect("no command lists the retired --dry-run spelling", () =>
-    Effect.gen(function* () {
-      const helpFiles = yield* collectHelpFiles();
-      const listing = [...helpFiles].flatMap(([commandPath, doc]) =>
-        doc.flags.some((flag) => flag.name === "dry-run") ? [commandPath] : [],
-      );
-      expect(listing).toEqual([]);
     }),
   );
 

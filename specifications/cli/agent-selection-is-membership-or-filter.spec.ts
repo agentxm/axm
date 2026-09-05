@@ -24,9 +24,9 @@ import { defineSpecification } from "@agentxm/extension-model/unstable/specifica
 
 export const specification = defineSpecification({
   requirement: "cli/agent-selection-is-membership-or-filter",
-  title: "Agent selection chooses workspace membership or filters a listing, never one extension",
+  title: "The agent option configures workspace membership or filters a listing",
   statement:
-    "A command shall accept an agent selection only to choose the workspace's configured agents or to filter a listing, shall reject an unsupported agent identifier before any work begins, and no command shall accept an agent selection that narrows one extension.",
+    "A command shall accept the agent option only to choose the workspace's configured agents or to filter a listing, shall reject an unsupported identifier supplied through that option before any work begins, and shall not use that option to narrow the agents for one extension.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability", "actionable-diagnostics"],
@@ -46,7 +46,7 @@ export const specification = defineSpecification({
 });
 
 /**
- * The only commands whose meaning includes choosing agents: workspace
+ * The commands that expose the --agent option choose workspace
  * membership at setup and row filtering when listing. Any other command
  * offering `--agent` would be selecting agents for one extension, which the
  * workspace model cannot represent durably.

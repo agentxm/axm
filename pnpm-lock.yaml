@@ -373,9 +373,15 @@ importers:
       '@agentxm/client-e2e-utils':
         specifier: workspace:*
         version: link:../e2e-utils
+      '@napi-rs/keyring':
+        specifier: ^1.3.0
+        version: 1.3.0
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
+      axm.sh:
+        specifier: workspace:*
+        version: link:../cli
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
@@ -511,6 +517,9 @@ importers:
       '@agentxm/workspace-state':
         specifier: workspace:^
         version: link:../workspace-state
+      '@napi-rs/keyring':
+        specifier: ^1.3.0
+        version: 1.3.0
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112

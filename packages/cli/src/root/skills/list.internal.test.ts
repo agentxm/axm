@@ -286,33 +286,4 @@ describe("list.handler", () => {
       }),
     );
   });
-
-  it.effect("allows inventory when settings and lockfile are absent", () => {
-    const { provide, rendererState } = makeLayers({
-      machine: true,
-      wsOverrides: { allowUninitialized: true },
-    });
-    const skillDir = path.join(tempDir, ".agents", "skills", "native-only");
-    fs.mkdirSync(skillDir, { recursive: true });
-    fs.writeFileSync(path.join(skillDir, "SKILL.md"), "---\nname: native-only\n---\n");
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleList({ agents: [] });
-        expect(rendererState.results[0]?.data).toMatchObject({
-          count: 1,
-          configuredCount: 0,
-          implicitCount: 0,
-          installedCount: 1,
-          unmanagedCount: 1,
-          items: [
-            expect.objectContaining({
-              name: "native-only",
-              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
-            }),
-          ],
-        });
-      }),
-    );
-  });
 });

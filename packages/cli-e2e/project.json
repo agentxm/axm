@@ -24,6 +24,18 @@
         "cwd": "packages/cli-e2e"
       }
     },
+    "e2e-keychain": {
+      "cache": false,
+      "parallelism": false,
+      "dependsOn": ["cli:build"],
+      "inputs": ["default", "^production", "hostPlatform"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e-keychain"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run --config vitest.keychain.config.ts",
+        "cwd": "packages/cli-e2e"
+      }
+    },
     "e2e": {
       "cache": false,
       "dependsOn": ["e2e-main", "binary-smoke", "install-suite"],

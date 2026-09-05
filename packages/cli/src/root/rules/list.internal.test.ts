@@ -49,17 +49,4 @@ describe("rules list", () => {
       }),
     );
   });
-
-  it.effect("reports an empty inventory when no rules are configured", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    writeWorkspaceFiles(path.join(tempDir, ".axm"));
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleListRule();
-
-        expect(rendererState.results[0]?.data).toMatchObject({ count: 0, items: [] });
-      }),
-    );
-  });
 });

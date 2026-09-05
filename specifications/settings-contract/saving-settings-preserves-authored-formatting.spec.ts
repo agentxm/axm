@@ -47,18 +47,23 @@ describe("Saving settings", () => {
     }
   });
 
-  it.effect("rewriting unchanged settings leaves the authored file byte-identical", () =>
+  it.effect.each([
+    { label: "one newline", text: authoredText },
+    { label: "no final newline", text: authoredText.trimEnd() },
+    { label: "multiple final newlines", text: `${authoredText}\n\n` },
+    { label: "Windows line endings", text: authoredText.replaceAll("\n", "\r\n") },
+  ])("rewriting unchanged settings preserves $label byte-for-byte", ({ text }) =>
     Effect.gen(function* () {
       const workspace = makeSpecWorkspace();
       cleanups.push(workspace.cleanup);
       const settingsPath = path.join(workspace.root, "axm.json");
-      fs.writeFileSync(settingsPath, authoredText);
+      fs.writeFileSync(settingsPath, text);
 
-      const authored: unknown = JSON.parse(authoredText);
+      const authored: unknown = JSON.parse(text);
       const settings = yield* decodeSettings(authored);
       yield* writeSettingsAtPath(settingsPath, settings).pipe(Effect.provide(workspace.layer));
 
-      expect(fs.readFileSync(settingsPath, "utf8")).toBe(authoredText);
+      expect(fs.readFileSync(settingsPath, "utf8")).toBe(text);
     }),
   );
 

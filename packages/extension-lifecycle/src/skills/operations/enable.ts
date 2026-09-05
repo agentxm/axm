@@ -89,7 +89,14 @@ export const enableSkill: OperationHandler<
         Effect.provideService(WorkspaceMutations, ws),
       );
 
-    const skillSrcPath = canonical.value.observation.path;
+    const accepted = canonical.value.accepted;
+    const portable =
+      accepted !== undefined &&
+      "packageFormat" in accepted &&
+      accepted.packageFormat === "agent-skill";
+    const skillSrcPath = portable
+      ? canonical.value.observation.path
+      : path.join(canonical.value.observation.path, "src");
 
     const installableTargets = yield* ws.runTransaction({
       transition: Effect.gen(function* () {

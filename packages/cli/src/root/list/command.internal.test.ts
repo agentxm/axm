@@ -4,11 +4,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import { afterEach, beforeEach } from "vitest";
 
 import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";
@@ -56,39 +53,6 @@ describe("root list", () => {
         });
         expect(startedUnits(rendererState)).toContain("deprecation status");
       }),
-    );
-  });
-
-  it.effect("filters the local inventory by every selected type", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-      skills: { review: "@acme/skills/review" },
-      hooks: { audit: { source: "@acme/hooks/audit", enabled: true } },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleList({ type: Option.some("skill"), outdated: false, deprecated: false });
-        expect(rendererState.results[0]?.data).toMatchObject({
-          count: 1,
-          items: [expect.objectContaining({ type: "skill", name: "review" })],
-        });
-      }),
-    );
-  });
-
-  it.effect("rejects mutually exclusive remote filters as a usage error", () => {
-    const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
-    return provide(
-      handleList({ type: Option.none(), outdated: true, deprecated: true }).pipe(
-        Effect.flip,
-        Effect.tap((error) =>
-          Effect.sync(() => {
-            expect(error.code).toBe("usage");
-            expect(error.detail).toContain("cannot be combined");
-          }),
-        ),
-      ),
     );
   });
 
@@ -161,67 +125,6 @@ describe("root list", () => {
     }
   };
 
-  it.effect("checks the recorded named Registry for outdated disabled installations", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    writeInstalledRegistrySkill({});
-    return provide(
-      Effect.gen(function* () {
-        yield* handleList({ type: Option.none(), outdated: true, deprecated: false });
-        expect(rendererState.results[0]?.data).toMatchObject({
-          filter: "outdated",
-          count: 1,
-          coverage: { eligible: 1, checked: 1, unknown: 0 },
-          items: [
-            expect.objectContaining({
-              ref: "@acme/skills/review",
-              enabled: false,
-              sourceName: "company",
-              assessment: expect.objectContaining({
-                state: "available",
-                installedVersion: "1.0.0",
-                constraint: "^1.0.0",
-                latestMatching: "1.1.0",
-                latestAvailable: "1.1.0",
-              }),
-            }),
-          ],
-        });
-      }),
-    );
-  });
-
-  it.effect("reports structured Registry deprecation metadata", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    writeInstalledRegistrySkill({
-      deprecation: {
-        deprecatedAt: "2026-03-01T00:00:00.000Z",
-        message: "Use the replacement skill.",
-        replacement: { status: "available", fqn: "@acme/skills/replacement" },
-      },
-    });
-    return provide(
-      Effect.gen(function* () {
-        yield* handleList({ type: Option.none(), outdated: false, deprecated: true });
-        expect(rendererState.results[0]?.data).toMatchObject({
-          filter: "deprecated",
-          count: 1,
-          items: [
-            {
-              assessment: {
-                state: "deprecated",
-                deprecation: {
-                  deprecatedAt: DateTime.makeUnsafe("2026-03-01T00:00:00.000Z"),
-                  message: "Use the replacement skill.",
-                  replacement: { status: "available", fqn: "@acme/skills/replacement" },
-                },
-              },
-            },
-          ],
-        });
-      }),
-    );
-  });
-
   it.effect("summarizes deprecation in the ordinary machine list without full guidance", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeInstalledRegistrySkill({
@@ -249,115 +152,6 @@ describe("root list", () => {
             assessment: { state: "deprecated" },
           }),
         ]);
-      }),
-    );
-  });
-
-  it.effect("points ordinary human list rows to full deprecation detail", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext();
-    writeInstalledRegistrySkill({
-      deprecation: {
-        deprecatedAt: "2026-03-01T00:00:00.000Z",
-        message: "Use the replacement skill.",
-      },
-    });
-    return provide(
-      Effect.gen(function* () {
-        yield* handleList({ type: Option.none(), outdated: false, deprecated: false });
-        expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
-          expect.objectContaining({
-            _tag: "table",
-            rows: expect.arrayContaining([
-              expect.arrayContaining([
-                "@acme/skills/review",
-                "skill",
-                "configured",
-                "yes",
-                "1.0.0",
-                expect.any(String),
-                "deprecated",
-                "axm view @acme/skills/review deprecation",
-              ]),
-            ]),
-          }),
-        );
-      }),
-    );
-  });
-
-  it.effect(
-    "does not mark an installation outdated when only an incompatible version is newer",
-    () => {
-      const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-      writeInstalledRegistrySkill({
-        versions: [
-          {
-            version: "2.0.0",
-            published: "2026-02-01T00:00:00.000Z",
-            integrity: "sha512-BBBB==",
-          },
-          {
-            version: "1.0.0",
-            published: "2026-01-01T00:00:00.000Z",
-            integrity: "sha512-AAAA==",
-          },
-        ],
-      });
-      return provide(
-        Effect.gen(function* () {
-          yield* handleList({ type: Option.none(), outdated: true, deprecated: false });
-
-          expect(rendererState.results[0]?.data).toMatchObject({
-            filter: "outdated",
-            count: 0,
-            items: [],
-            coverage: { eligible: 1, checked: 1, unknown: 0 },
-          });
-        }),
-      );
-    },
-  );
-
-  it.effect("keeps missing indexes out of matches and reports incomplete coverage", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    writeInstalledRegistrySkill();
-    return provide(
-      Effect.gen(function* () {
-        yield* handleList({ type: Option.none(), outdated: true, deprecated: false });
-        expect(rendererState.results[0]?.data).toMatchObject({
-          filter: "outdated",
-          count: 0,
-          items: [],
-          coverage: { eligible: 1, checked: 0, unknown: 1 },
-        });
-      }),
-    );
-  });
-
-  it.effect("propagates remote Registry failures instead of reporting a clean result", () => {
-    const { provide } = makeWorkspaceHandlerTestContext({
-      machine: true,
-      httpClient: HttpClient.make((request) =>
-        Effect.fail(
-          new HttpClientError.HttpClientError({
-            reason: new HttpClientError.InvalidUrlError({
-              request,
-              description: "Registry request failed",
-            }),
-          }),
-        ),
-      ),
-    });
-    writeInstalledRegistrySkill(undefined, "http://127.0.0.1:1");
-    return provide(
-      Effect.gen(function* () {
-        const error = yield* handleList({
-          type: Option.none(),
-          outdated: true,
-          deprecated: false,
-        }).pipe(Effect.flip);
-
-        expect(error.code).toBe("internal");
       }),
     );
   });

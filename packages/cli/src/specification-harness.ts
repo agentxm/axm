@@ -352,3 +352,21 @@ export {
 } from "./root/cache/command.js";
 
 export { resolveAxmCacheRoot } from "@agentxm/registry-client";
+
+export { handleDiscover, DiscoverOutputSchema } from "./root/discover/handler.js";
+export { ViewDocumentSchema, ViewFieldValueSchema } from "./root/view/handler.js";
+export { handleExtensionShow, ExtensionShowResultSchema } from "./root/shared/extension-show.js";
+export { handleListHook } from "./root/hooks/list.js";
+export { handleListRule } from "./root/rules/list.js";
+export { handleKnowledgeList, KnowledgeListQueryResultSchema } from "./root/knowledge/list.js";
+export { handleList as handlePacksList } from "./root/packs/list.js";
+export { handleListSubagents } from "./root/subagents/list/handler.js";
+export { PackShowResultSchema } from "./root/packs/show.js";
+export { ExtensionInventorySchema } from "@agentxm/workspace-state";
+export {
+  handleAgentsCapabilities,
+  AgentCapabilitiesOutputSchema,
+} from "./root/agents/capabilities.js";
+export { AgentsListOutputSchema } from "./root/agents/list.js";
+export { Unknown } from "./install-method/install-method.js";
+export { mcpRegistryResolutionKey } from "@agentxm/workspace-state";

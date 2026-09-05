@@ -28,12 +28,16 @@ export interface RegistrySkillVersion {
 
 export interface RegistryMcpVersion {
   readonly version: string;
+  /** Additional package files included in the version archive. */
+  readonly files?: Readonly<Record<string, string>>;
   /** Optional environment input used by credential-lifecycle specifications. */
   readonly secretInput?: string;
 }
 
 export interface RegistryPackVersion {
   readonly version: string;
+  /** Additional package files included in the version archive. */
+  readonly files?: Readonly<Record<string, string>>;
   /** Member constraints keyed by fully qualified name, as the pack manifest records them. */
   readonly dependencies: Readonly<Record<string, string>>;
   readonly published?: string;
@@ -143,7 +147,7 @@ export const makeSpecRegistry = (): SpecRegistry => {
 
   const writeMcp = (name: string, versions: ReadonlyArray<RegistryMcpVersion>): void => {
     const mcpDir = path.join(root, "extensions", OWNER, "mcps", name);
-    const entries = versions.map(({ version, secretInput }) => {
+    const entries = versions.map(({ version, secretInput, files }) => {
       const stagingDir = path.join(mcpDir, `staging-${version}`);
       fs.mkdirSync(stagingDir, { recursive: true });
       fs.writeFileSync(
@@ -180,7 +184,14 @@ export const makeSpecRegistry = (): SpecRegistry => {
         )}\n`,
       );
       const archivePath = path.join(mcpDir, `${version}.zip`);
-      execFileSync("zip", ["-qr", archivePath, "mcp.json"], { cwd: stagingDir });
+      for (const [relative, content] of Object.entries(files ?? {})) {
+        const target = path.join(stagingDir, relative);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, content);
+      }
+      execFileSync("zip", ["-qr", archivePath, "mcp.json", ...Object.keys(files ?? {})], {
+        cwd: stagingDir,
+      });
       fs.rmSync(stagingDir, { recursive: true, force: true });
       const archive = fs.readFileSync(archivePath);
       return {
@@ -208,7 +219,7 @@ export const makeSpecRegistry = (): SpecRegistry => {
 
   const writePack = (name: string, versions: ReadonlyArray<RegistryPackVersion>): void => {
     const packDir = path.join(root, "extensions", OWNER, "packs", name);
-    const entries = versions.map(({ version, dependencies, published }) => {
+    const entries = versions.map(({ version, dependencies, published, files }) => {
       const stagingDir = path.join(packDir, `staging-${version}`);
       fs.mkdirSync(stagingDir, { recursive: true });
       fs.writeFileSync(
@@ -227,7 +238,14 @@ export const makeSpecRegistry = (): SpecRegistry => {
         )}\n`,
       );
       const archivePath = path.join(packDir, `${version}.zip`);
-      execFileSync("zip", ["-qr", archivePath, "pack.json"], { cwd: stagingDir });
+      for (const [relative, content] of Object.entries(files ?? {})) {
+        const target = path.join(stagingDir, relative);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, content);
+      }
+      execFileSync("zip", ["-qr", archivePath, "pack.json", ...Object.keys(files ?? {})], {
+        cwd: stagingDir,
+      });
       fs.rmSync(stagingDir, { recursive: true, force: true });
       const archive = fs.readFileSync(archivePath);
       // The Registry index carries the member constraints the resolver reads;

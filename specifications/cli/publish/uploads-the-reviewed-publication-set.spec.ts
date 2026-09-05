@@ -31,7 +31,9 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [],
-  openQuestions: [],
+  openQuestions: [
+    "If local source changes after publication review, must AXM abort and revoke unused grants, or may it upload the frozen reviewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the reviewed set without choosing an enforcement strategy.",
+  ],
 });
 
 describe("Reviewed publication upload", () => {

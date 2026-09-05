@@ -1,5 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -14,6 +16,7 @@ import {
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
+import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
@@ -76,8 +79,12 @@ describe("Activation follows desired state", () => {
   it.effect("enabling the skill restores its agent surfaces exactly", () =>
     Effect.gen(function* () {
       const workspace = yield* workspaceWithInstalledSkill();
-      const claudeBefore = workspace.snapshotTree(".claude");
-      const agentsBefore = workspace.snapshotTree(".agents");
+      const claudeBefore = snapshotWorkspaceContent(path.join(workspace.root, ".claude"));
+      const agentsBefore = snapshotWorkspaceContent(path.join(workspace.root, ".agents"));
+      const sourceBefore = workspace.readFile(".claude/skills/code-review/SKILL.md");
+      const canonicalBefore = snapshotWorkspaceContent(
+        path.join(workspace.root, "agent_extensions"),
+      );
       const lockBefore = workspace.readLockfileText();
 
       yield* handleSkillsDisable({ name: "code-review", preview: false }).pipe(
@@ -87,8 +94,13 @@ describe("Activation follows desired state", () => {
         Effect.provide(workspace.layer),
       );
 
-      expect(workspace.snapshotTree(".claude")).toEqual(claudeBefore);
-      expect(workspace.snapshotTree(".agents")).toEqual(agentsBefore);
+      expect(workspace.readFile(".claude/skills/code-review/SKILL.md")).toBe(sourceBefore);
+      expect(workspace.readFile(".agents/skills/code-review/SKILL.md")).toBe(sourceBefore);
+      expect(snapshotWorkspaceContent(path.join(workspace.root, ".claude"))).toEqual(claudeBefore);
+      expect(snapshotWorkspaceContent(path.join(workspace.root, ".agents"))).toEqual(agentsBefore);
+      expect(snapshotWorkspaceContent(path.join(workspace.root, "agent_extensions"))).toEqual(
+        canonicalBefore,
+      );
       expect(workspace.readLockfileText()).toBe(lockBefore);
       expect(workspace.readSettings()).toMatchObject({
         skills: { "code-review": expect.anything() },
@@ -98,6 +110,48 @@ describe("Activation follows desired state", () => {
       });
     }),
   );
+
+  for (const format of ["agent-skill", "workspace"] as const)
+    it.effect(`restores the ${format} Skill entry document without changing its content`, () =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace({ machine: true });
+        cleanups.push(workspace.cleanup);
+        const name = "format-review";
+        const source = writeLocalSkillPackage(workspace.root, { name });
+        const instructions = fs.readFileSync(path.join(source, "src", "SKILL.md"), "utf8");
+        if (format === "agent-skill") {
+          fs.writeFileSync(path.join(source, "SKILL.md"), instructions);
+          fs.rmSync(path.join(source, "skill.json"));
+          fs.rmSync(path.join(source, "src"), { recursive: true });
+          yield* handleInstall({ source: Option.some(source), force: false, preview: false }).pipe(
+            Effect.provide(workspace.layer),
+          );
+          yield* handleSkillsDisable({ name, preview: false }).pipe(
+            Effect.provide(workspace.layer),
+          );
+        } else {
+          const authored = path.join(workspace.root, "skills", name);
+          fs.mkdirSync(path.dirname(authored), { recursive: true });
+          fs.renameSync(source, authored);
+          workspace.writeSettings({
+            owner: "@acme",
+            agents: ["claude-code"],
+            skills: { [name]: { source: "workspace", enabled: false } },
+          });
+        }
+        const contentRoot = path.join(
+          workspace.root,
+          format === "workspace" ? "skills" : "agent_extensions",
+        );
+        const contentBefore = snapshotWorkspaceContent(contentRoot);
+        const lockBefore = workspace.readLockfileText();
+        yield* handleSkillsEnable({ name, preview: false }).pipe(Effect.provide(workspace.layer));
+        expect(workspace.readFile(`.claude/skills/${name}/SKILL.md`)).toBe(instructions);
+        expect(workspace.readFile(`.agents/skills/${name}/SKILL.md`)).toBe(instructions);
+        expect(snapshotWorkspaceContent(contentRoot)).toEqual(contentBefore);
+        expect(workspace.readLockfileText()).toBe(lockBefore);
+      }),
+    );
 
   it.effect("disabling and enabling an inline MCP server changes only its agent projection", () =>
     Effect.gen(function* () {

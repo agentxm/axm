@@ -1,3 +1,4 @@
+import { writeAuthoredSkill } from "../../support/publish-harness.js";
 import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -52,6 +53,33 @@ describe("Uninstall preserves unowned state", () => {
       expect(workspace.readFile(".claude/skills/hand-written/SKILL.md")).toBe("# Hand written\n");
       expect(workspace.readFile("NOTES.md")).toBe("unrelated project file\n");
       expect(snapshotWorkspaceContent(source)).toEqual(sourceContent);
+    }),
+  );
+  it.effect("removes workspace-authored intent while preserving every authored package byte", () =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace({
+        settings: { owner: "@acme", skills: { review: "workspace" } },
+      });
+      cleanups.push(workspace.cleanup);
+      writeAuthoredSkill(workspace.root, { name: "review" });
+      const source = path.join(workspace.root, "skills", "review");
+      fs.writeFileSync(path.join(source, "author-notes.md"), "Authored notes survive.\n");
+      expect(workspace.readSettings()).toMatchObject({
+        owner: "@acme",
+        skills: { review: "workspace" },
+      });
+      expect(fs.readFileSync(path.join(source, "src", "SKILL.md"), "utf8")).toContain(
+        "The review skill.",
+      );
+      expect(fs.readFileSync(path.join(source, "author-notes.md"), "utf8")).toBe(
+        "Authored notes survive.\n",
+      );
+      const before = snapshotWorkspaceContent(source);
+      yield* handleUninstall({ source: "@acme/skills/review", preview: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      expect(workspace.readSettings()).not.toMatchObject({ skills: { review: expect.anything() } });
+      expect(snapshotWorkspaceContent(source)).toEqual(before);
     }),
   );
 });

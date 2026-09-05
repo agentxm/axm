@@ -17,7 +17,7 @@ import { snapshotWorkspaceContent } from "./workspace-fixtures.js";
 
 export const makePublicationSpecContext = (options: SpecWorkspaceOptions = {}) =>
   Effect.gen(function* () {
-    const workspace = makeSpecWorkspace({ ...options, machine: true });
+    const workspace = makeSpecWorkspace({ ...options, machine: options.machine ?? true });
     yield* Effect.addFinalizer(() => Effect.sync(workspace.cleanup));
     const registry = makeFileRegistry(workspace.root);
     const root = fileURLToPath(registry.url);

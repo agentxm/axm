@@ -1,10 +1,14 @@
+import * as path from "node:path";
+import YAML from "yaml";
+import * as Schema from "effect/Schema";
+import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { handleInstall, handleUninstall } from "axm.sh/specification-harness";
+import { handleInstall, handleUninstall, LockfileSchema } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
@@ -99,6 +103,17 @@ describe("Uninstall a directly desired extension", () => {
         const { workspace, skillFqn, canonicalSkillPath, projectionPath } =
           makePackRetainedSkillWorkspace();
         cleanups.push(workspace.cleanup);
+        expect(workspace.readFile(path.join(canonicalSkillPath, "SKILL.md"))).toBe(
+          "# review-helper\n",
+        );
+        expect(workspace.readFile(path.join(projectionPath, "SKILL.md"))).toBe("# review-helper\n");
+        const canonicalBefore = snapshotWorkspaceContent(
+          path.join(workspace.root, canonicalSkillPath),
+        );
+        const projectedBefore = snapshotWorkspaceContent(path.join(workspace.root, projectionPath));
+        const lockBefore = yield* Schema.decodeUnknownEffect(LockfileSchema)(
+          YAML.parse(workspace.readLockfileText()),
+        );
 
         yield* handleUninstall({ source: skillFqn, preview: false }).pipe(
           Effect.provide(workspace.layer),
@@ -110,6 +125,16 @@ describe("Uninstall a directly desired extension", () => {
         expect(workspace.readLockfileText()).toContain("review-helper");
         expect(workspace.exists(canonicalSkillPath)).toBe(true);
         expect(workspace.exists(projectionPath)).toBe(true);
+        expect(snapshotWorkspaceContent(path.join(workspace.root, canonicalSkillPath))).toEqual(
+          canonicalBefore,
+        );
+        expect(snapshotWorkspaceContent(path.join(workspace.root, projectionPath))).toEqual(
+          projectedBefore,
+        );
+        const lockAfter = yield* Schema.decodeUnknownEffect(LockfileSchema)(
+          YAML.parse(workspace.readLockfileText()),
+        );
+        expect(lockAfter).toEqual(lockBefore);
 
         const [entry] = workspace.rendererState.results;
         expect(entry?.data).toMatchObject({ result: { outcome: "applied" } });

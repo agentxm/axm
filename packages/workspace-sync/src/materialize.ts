@@ -45,6 +45,7 @@ import {
   sanitizeName,
   acceptedResolutionRef,
   acceptedCanonicalObservation,
+  lockEntryToSourceParams,
   isSourcedDesiredExtension,
   desiredStateProblemsText,
   WorkspaceMutations,
@@ -54,6 +55,7 @@ import {
   type DesiredStateGraph,
   type ResolvedConfiguredEntry,
 } from "@agentxm/workspace-state";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
@@ -708,6 +710,46 @@ export const collectMaterializeSteps = <
     ).pipe(
       Effect.map((steps) => steps.flatMap((step) => (Option.isSome(step) ? [step.value] : []))),
     );
+    const validateAcceptedLocalMaterialization = (ref: ExtensionRef) =>
+      Effect.gen(function* () {
+        if (ref.refType !== "local") return;
+        const target = targetFromRef(ref);
+        const canonical = yield* acceptedCanonicalObservation({
+          workspace: ws,
+          type: target.type,
+          name: target.name,
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new WorkspaceSyncFailed({
+                category: "conflict",
+                detail: `Cannot verify the accepted local package for ${target.type} ${target.name}`,
+                cause,
+              }),
+          ),
+        );
+        if (Option.isNone(canonical)) return;
+        const accepted = canonical.value.accepted;
+        if (accepted?.type !== "local") return;
+        const { desired, observation } = canonical.value;
+        const acceptedSource = printSourceParams(lockEntryToSourceParams(accepted));
+        if (acceptedSource !== desired.source && acceptedSource !== desired.identity) return;
+        if (observation.status !== "usable") {
+          return yield* new WorkspaceSyncFailed({
+            category: "conflict",
+            detail: `Cannot restore ${target.type} ${target.name} from its accepted local package: the available source does not reproduce the accepted content`,
+            suggestions: [
+              {
+                description:
+                  "Restore the accepted source bytes, or explicitly update the extension to accept the changed source.",
+              },
+            ],
+          });
+        }
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      );
     const skillMaterializeStep = ({ ref, force, transitionLabel }: Reconciled<SkillExtensionRef>) =>
       Effect.gen(function* () {
         const buildArtifact = () =>
@@ -726,6 +768,7 @@ export const collectMaterializeSteps = <
           ...buildMaterializeOperation(skillManager, {
             toStepFailure: args.adapter.toStepFailure,
             ref,
+            validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
             force,
             label: transitionLabel,
             message: `Synced skill ${ref.skill.name}`,
@@ -742,6 +785,7 @@ export const collectMaterializeSteps = <
       buildMaterializeOperation(subagentManager, {
         toStepFailure: args.adapter.toStepFailure,
         ref,
+        validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
         force,
         label: transitionLabel,
         message: `Synced subagent ${ref.subagent.name}`,
@@ -755,6 +799,7 @@ export const collectMaterializeSteps = <
       buildMaterializeOperation(knowledgeManager, {
         toStepFailure: args.adapter.toStepFailure,
         ref,
+        validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
         force,
         label: transitionLabel,
         message: `Synced knowledge ${ref.knowledge.name}`,
@@ -807,6 +852,7 @@ export const collectMaterializeSteps = <
             buildMaterializeOperation(ruleManager, {
               toStepFailure: args.adapter.toStepFailure,
               ref,
+              validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
               force,
               label: transitionLabel,
             }),
@@ -817,6 +863,7 @@ export const collectMaterializeSteps = <
             buildMaterializeOperation(hookManager, {
               toStepFailure: args.adapter.toStepFailure,
               ref,
+              validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
               force,
               label: transitionLabel,
             }),

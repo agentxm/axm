@@ -1,3 +1,4 @@
+import { getAppError } from "axm.sh/specification-harness";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
@@ -8,7 +9,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/older-unpublished-versions-require-backfill",
   title: "Older unpublished versions require explicit backfill",
   statement:
-    "Publish shall reject an unpublished version below the highest published semantic version unless backfill is explicitly requested, and backfill shall permit only an unpublished version without authorizing replacement of an existing release.",
+    "Publish shall reject an unpublished version below the highest published semantic version unless backfill is explicitly requested, and the refusal shall offer a version bump or intentional backfill, and backfill shall permit only an unpublished version without authorizing replacement of an existing release.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "safe-repetition"],
@@ -67,6 +68,30 @@ describe("Publication version ordering", () => {
           },
         });
         expect(context.snapshotRegistry()).toEqual(after);
+      }),
+    ),
+  );
+  it.effect("offers a version bump or explicit backfill when rejecting an older version", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* makePublicationSpecContext({
+          machine: false,
+          settings: { skills: { review: "workspace" } },
+        });
+        writeAuthoredSkill(context.workspace.root, { name: "review", version: "1.1.0" });
+        yield* context.run();
+        writeAuthoredSkill(context.workspace.root, { name: "review", version: "1.0.5" });
+        const error = getAppError(
+          yield* context.run({ selectors: ["@acme/skills/review"] }).pipe(Effect.flip),
+        );
+        expect(error.code).toBe("conflict");
+        expect(error.detail).toContain("highest published version 1.1.0");
+        expect(error.suggestions).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ cmd: "axm version @acme/skills/review patch" }),
+            expect.objectContaining({ description: expect.stringContaining("--backfill") }),
+          ]),
+        );
       }),
     ),
   );

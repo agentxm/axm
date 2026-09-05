@@ -523,25 +523,6 @@ ${lintBlock}
       ),
     );
 
-    it.effect("adds exactly one trailing newline without changing equal content", () =>
-      withContext(
-        Effect.gen(function* () {
-          fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "axm.json");
-          const prior = `{
-  "skills": {},
-  "owner": "@acme"
-}`;
-          fs.writeFileSync(settingsPath, prior);
-          const settings = yield* Schema.decodeUnknownEffect(SettingsSchema)(JSON.parse(prior));
-
-          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
-
-          expect(fs.readFileSync(settingsPath, "utf-8")).toBe(`${prior}\n`);
-        }),
-      ),
-    );
-
     it.effect("falls back to canonical output for malformed prior JSON", () =>
       withContext(
         Effect.gen(function* () {

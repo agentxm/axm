@@ -1,3 +1,10 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import {
+  makePublicationSpecContext,
+  archiveContents,
+} from "../../support/publication-evidence-harness.js";
+import { writeAuthoredKnowledge } from "../../support/publish-harness.js";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -76,4 +83,70 @@ describe("The fixed publication gate", () => {
       expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
     }),
   );
+  for (const scenario of [
+    { name: "minimal conformant OKF 0.2", invalid: undefined, minimal: true },
+    { name: "conformant OKF 0.2 with provenance", invalid: undefined, minimal: false },
+    { name: "bundle-escaping provenance", invalid: "escapes the Knowledge bundle", minimal: false },
+    { name: "malformed YAML frontmatter", invalid: "Invalid YAML frontmatter", minimal: false },
+  ]) {
+    it.effect(`validates Knowledge publication: ${scenario.name}`, () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const context = yield* makePublicationSpecContext({
+            settings: { knowledge: { platform: "workspace" } },
+          });
+          writeAuthoredKnowledge(context.workspace.root, { name: "platform" });
+          const concept = path.join(
+            context.workspace.root,
+            "knowledge",
+            "platform",
+            "src",
+            "architecture.md",
+          );
+          const source = scenario.minimal
+            ? "---\ntype: reference\ndescription: Platform architecture\ntags: [platform]\n---\n# Architecture\n"
+            : scenario.invalid === "Invalid YAML frontmatter"
+              ? "---\ntype: reference\ndescription: value: extra\n---\n# Architecture\n"
+              : [
+                  "---",
+                  "type: reference",
+                  "description: Platform architecture",
+                  "tags: [platform]",
+                  "status: stable",
+                  "generated: { by: reference_agent/gemini-2.5-pro, at: 2026-06-20T22:53:05Z }",
+                  "verified: { by: human:reviewer, at: 2026-06-25T09:00:00Z }",
+                  "sources:",
+                  "  - id: adr-1",
+                  `    resource: ${scenario.invalid === undefined ? "./missing-adr.md" : "../outside.md"}`,
+                  "---",
+                  "# Architecture",
+                  "",
+                ].join("\n");
+          fs.writeFileSync(concept, source);
+          for (const preview of [true, false]) {
+            const exit = yield* context.run({ types: ["knowledge"], preview }).pipe(Effect.exit);
+            expect(exit._tag).toBe(scenario.invalid === undefined ? "Success" : "Failure");
+            const result = yield* context.result();
+            if (scenario.invalid === undefined) {
+              expect(result.execution.outcomes).toEqual([
+                expect.objectContaining({
+                  id: "@acme/knowledge/platform",
+                  status: preview ? "pending" : "success",
+                }),
+              ]);
+              if (!preview) {
+                const contents = yield* archiveContents(
+                  context.archive("platform", "1.0.0", "knowledge"),
+                );
+                expect(contents["src/architecture.md"]).toEqual(Buffer.from(source));
+              }
+            } else {
+              expect(JSON.stringify(result)).toContain(scenario.invalid);
+              expect(context.registry.storedFiles()).toEqual([]);
+            }
+          }
+        }),
+      ),
+    );
+  }
 });

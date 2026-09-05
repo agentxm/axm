@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -15,6 +18,7 @@ import {
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
+import { startWorkspaceTransitionProcess } from "../support/workspace-contention-process.js";
 import { pinSpecUserHome } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
@@ -25,12 +29,13 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
+  boundary: "process",
+  boundaryRationale:
+    "Separate Node processes overlap while using the production workspace-operations package’s published lock and transaction boundaries; existing handler examples establish installation outcomes.",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],
-  assumptions: [
-    "Contention between separate operating-system processes behaves like contention between concurrent invocations within one process.",
-  ],
+  assumptions: [],
   openQuestions: [],
 });
 
@@ -178,4 +183,60 @@ describe("Concurrent workspace changes", () => {
       }),
     30000,
   );
+});
+
+describe("Workspace changes in separate processes", () => {
+  it("does not enter a second transition while the first process holds an incomplete change", async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-process-contention-")));
+    fs.writeFileSync(path.join(root, "state.json"), "[]");
+    fs.writeFileSync(path.join(root, "mirror.json"), "[]");
+    fs.writeFileSync(path.join(root, "trace.jsonl"), "");
+    const first = startWorkspaceTransitionProcess(root, "first");
+    let second: ReturnType<typeof startWorkspaceTransitionProcess> | undefined;
+    try {
+      const entered = await first.waitFor("entered");
+      second = startWorkspaceTransitionProcess(root, "second");
+      const waiting = await second.waitFor("waiting");
+      expect(waiting.pid).not.toBe(entered.pid);
+      expect(waiting.holderPid).toBe(entered.pid);
+      expect(first.events.some((event) => event.event === "released")).toBe(false);
+      expect(second.events.some((event) => event.event === "entered")).toBe(false);
+      expect(JSON.parse(fs.readFileSync(path.join(root, "state.json"), "utf8"))).toEqual(["first"]);
+      expect(JSON.parse(fs.readFileSync(path.join(root, "mirror.json"), "utf8"))).toEqual([]);
+      const traceBefore = fs
+        .readFileSync(path.join(root, "trace.jsonl"), "utf8")
+        .trim()
+        .split("\n")
+        .map((line): unknown => JSON.parse(line));
+      expect(traceBefore).toEqual([{ label: "first", event: "entered", pid: entered.pid }]);
+
+      first.release();
+      await first.waitFor("released");
+      const secondEntered = await second.waitFor("entered");
+      expect(await first.completion).toBe(0);
+      expect(await second.completion).toBe(0);
+      const trace = fs
+        .readFileSync(path.join(root, "trace.jsonl"), "utf8")
+        .trim()
+        .split("\n")
+        .map((line): unknown => JSON.parse(line));
+      expect(trace).toEqual([
+        { label: "first", event: "entered", pid: entered.pid },
+        { label: "first", event: "complete", pid: entered.pid },
+        { label: "second", event: "entered", pid: secondEntered.pid },
+        { label: "second", event: "complete", pid: secondEntered.pid },
+      ]);
+      for (const file of ["state.json", "mirror.json"])
+        expect(JSON.parse(fs.readFileSync(path.join(root, file), "utf8"))).toEqual([
+          "first",
+          "second",
+        ]);
+    } finally {
+      first.stop();
+      second?.stop();
+      await first.completion;
+      if (second !== undefined) await second.completion;
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }, 30000);
 });

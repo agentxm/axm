@@ -81,12 +81,14 @@ selected path.
 Registry `integrity` is the SRI SHA-512 digest of the published archive. AXM
 verifies downloaded archive bytes before extraction, then records
 `treeIntegrity` over every regular-file path and byte in the extracted package.
-Any later edit, addition, removal, symlink, unsafe path, or case-fold collision
-is canonical drift. Drift blocks the affected desired-state closure, lint,
-sync, inspection, projection, and lifecycle preflight until the package is
-reinstalled, updated, or explicitly forked into authored source. Publish
-independently rebuilds only workspace-authored packages; installed external
-trees are never publication inputs.
+Later edits, additions, removals, symlinks, unsafe paths, and case-fold collisions
+can make the acquired tree disagree with its accepted identity. `axm lint`
+reports that disagreement as canonical drift. The lockfile continues to identify
+the accepted external source; checking a file does not accept its edits.
+
+Use `axm fork` to create a workspace-authored package under a new identity when
+you want to maintain your own changes. Publish rebuilds only workspace-authored
+packages; installed external trees are never publication inputs.
 
 AXM does not create or modify `.gitattributes`, formatter configuration, or
 editor policy. The consuming repository owns those choices; AXM keeps package

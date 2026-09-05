@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -66,6 +68,41 @@ describe("Install records the accepted resolution", () => {
         treeIntegrity: expect.anything(),
       });
     }),
+  );
+  it.effect.each(localLifecycleRows)(
+    "binds the accepted source and identities to the actual $label content",
+    (row) =>
+      Effect.gen(function* () {
+        const identities: Array<{ content: string; tree: string }> = [];
+        for (const content of ["first content", "changed content", "first content"]) {
+          const workspace = makeSpecWorkspace();
+          cleanups.push(workspace.cleanup);
+          const name = `identity-${row.label}`;
+          const source = row.writePackage(workspace.root, { name });
+          fs.appendFileSync(path.join(source, row.canonicalFile(name)), `\n# ${content}\n`);
+          yield* handleInstall({ source: Option.some(source), force: false, preview: false }).pipe(
+            Effect.provide(workspace.layer),
+          );
+          const parsed: unknown = YAML.parse(workspace.readLockfileText());
+          const lockfile = yield* decodeLockfile(parsed);
+          const entry = lockfile[row.settingsKey]?.[name];
+          if (entry === undefined || entry.type !== "local") {
+            throw new Error("Expected the accepted local resolution");
+          }
+          expect(fs.realpathSync(path.resolve(workspace.root, entry.path))).toBe(
+            fs.realpathSync(source),
+          );
+          expect(entry.packageOwner).toBe("@acme");
+          identities.push({ content: entry.contentIdentity, tree: entry.treeIntegrity });
+        }
+        const [first, changed, repeated] = identities;
+        if (first === undefined || changed === undefined || repeated === undefined) {
+          throw new Error("Expected all three independent installations");
+        }
+        expect(changed.content).not.toBe(first.content);
+        expect(changed.tree).not.toBe(first.tree);
+        expect(repeated).toEqual(first);
+      }),
   );
   it.effect.each(localLifecycleRows)(
     "records the accepted source and content identity for a local $label",

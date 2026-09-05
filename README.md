@@ -189,8 +189,9 @@ under a new identity.
 AXM builds a deterministic archive from each selected authored package. For an
 existing immutable version, `--on-existing verify` rebuilds that archive and
 requires its SHA-512 digest to match the Registry release before reporting a
-successful no-op. Installed external files are mutable observed materialization,
-not release inputs or continuously integrity-checked snapshots.
+successful no-op. Installed external packages represent the source identity recorded
+in `axm-lock.yaml`. `axm lint` checks their current contents against that accepted
+identity. Publication reads workspace-authored packages.
 
 `axm lint` checks the same rules the registry enforces — see
 [Lint](#lint) for details.

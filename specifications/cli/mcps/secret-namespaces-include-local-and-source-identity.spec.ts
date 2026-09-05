@@ -23,11 +23,13 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [],
+  openQuestions: [
+    "When a required secret cannot be persisted in the system keychain, must installation fail, or may it complete with a warning and require the secret to be supplied later? The current statement promises storage; the controlled unavailable-keychain case establishes disclosure safety, not satisfaction of storage.",
+  ],
   limitations: [
     {
       limitation:
-        "The native keyring Entry boundary is controlled; actual operating-system keychain availability and access policy are not exercised.",
+        "Default scenarios control the native keyring Entry boundary. The separately selected platform execution exercises the actual keychain only on its recorded host and access context; other operating systems and access policies remain unverified.",
       retirementCondition:
         "Run the same credential lifecycle against disposable keychain entries on each supported operating system.",
     },

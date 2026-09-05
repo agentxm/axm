@@ -9,7 +9,6 @@ import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/exten
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { EXTENSION_SHOW_ITEM_FIELDS, handleExtensionShow } from "./extension-show.js";
-import { toAppError } from "../../app-error/conversions.js";
 
 const configured = { source: "@acme/skills/thing", enabled: true };
 
@@ -65,48 +64,5 @@ describe("extension show", () => {
         }),
       );
     });
-
-    it.effect(`reports an unknown ${type} as not found`, () => {
-      const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), settingsFor[type]);
-
-      return provide(
-        Effect.gen(function* () {
-          const result = yield* Effect.result(handleExtensionShow({ type, name: "absent" }));
-
-          expect(result._tag).toBe("Failure");
-          if (result._tag === "Failure") {
-            expect(toAppError(result.failure).code).toBe("not_found");
-          }
-        }),
-      );
-    });
   }
-
-  it.effect("reports the canonical manifest version without a lock entry", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    const axmDir = path.join(tempDir, ".axm");
-    writeWorkspaceFiles(axmDir, {
-      skills: {
-        axm: { source: "workspace", enabled: true },
-      },
-    });
-    const packageRoot = path.join(tempDir, "skills", "axm");
-    fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
-    fs.writeFileSync(
-      path.join(packageRoot, "skill.json"),
-      JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "0.27.0" }),
-    );
-    fs.writeFileSync(path.join(packageRoot, "src", "SKILL.md"), "# AXM\n");
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleExtensionShow({ type: "skill", name: "axm" });
-
-        expect(rendererState.results[0]?.data).toMatchObject({
-          item: { source: "workspace", locked: false, version: "0.27.0" },
-        });
-      }),
-    );
-  });
 });

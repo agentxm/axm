@@ -13,7 +13,7 @@ import type { DiscoverPackageResult, DiscoverResult } from "@agentxm/extension-d
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-helpers.js";
-import { formatPackageName, handleDiscoverWith, toDiscoverOutput } from "./handler.js";
+import { formatPackageName, handleDiscoverWith } from "./handler.js";
 
 const packageType = Schema.decodeUnknownSync(PackageTypeSchema);
 
@@ -96,26 +96,6 @@ describe("formatPackageName", () => {
       extensions: [],
     };
     expect(formatPackageName(pkg)).toBe("@effect/cli@1.0.0");
-  });
-});
-
-describe("toDiscoverOutput", () => {
-  it("maps a discover result to the machine output shape", () => {
-    expect(toDiscoverOutput(sampleResult)).toMatchObject({
-      count: 2,
-      totalDetected: 2,
-      registryAvailable: true,
-      items: [
-        {
-          package: "pkg:npm/react",
-          extensions: [{ name: "react-testing", official: true }],
-        },
-        {
-          package: "pkg:npm/vitest@3.2.1",
-          extensions: [{ name: "effect-testing", official: false }],
-        },
-      ],
-    });
   });
 });
 

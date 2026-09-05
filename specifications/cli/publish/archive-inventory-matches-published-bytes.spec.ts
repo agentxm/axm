@@ -99,4 +99,30 @@ describe("Published archive inventory", () => {
         ),
     );
   }
+  it.effect("preserves extension manifest metadata in the actual uploaded archive", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* makePublicationSpecContext({
+          settings: { skills: { review: "workspace" } },
+        });
+        writeAuthoredSkill(context.workspace.root, { name: "review" });
+        const manifest = {
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          version: "1.0.0",
+          metadata: { "com.example/tool": { enabled: true, values: ["one", "two"] } },
+        };
+        const bytes = Buffer.from(JSON.stringify(manifest));
+        fs.writeFileSync(
+          path.join(context.workspace.root, "skills", "review", "skill.json"),
+          bytes,
+        );
+        yield* context.run();
+        const contents = yield* archiveContents(context.archive("review"));
+        expect(contents["skill.json"]).toEqual(bytes);
+        expect((yield* context.result()).counts.published).toBe(1);
+      }),
+    ),
+  );
 });

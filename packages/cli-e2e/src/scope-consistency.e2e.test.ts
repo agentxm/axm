@@ -5,6 +5,30 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
 
+export const executionBinding = {
+  requirements: ["cli/installed-state-stays-in-selected-scope"],
+  boundary: "process",
+  rationale:
+    "Runs Pack, Knowledge and Subagent operations in a populated user workspace and verifies that the populated project workspace and native projections remain byte-identical.",
+} as const;
+
+const snapshotDirectory = (root: string): Readonly<Record<string, string>> => {
+  const entries: Record<string, string> = {};
+  const visit = (directory: string, prefix: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+      const absolute = path.join(directory, entry.name);
+      if (entry.isSymbolicLink()) entries[relative] = `link:${fs.readlinkSync(absolute)}`;
+      else if (entry.isDirectory()) {
+        entries[relative] = "directory";
+        visit(absolute, relative);
+      } else entries[relative] = fs.readFileSync(absolute).toString("base64");
+    }
+  };
+  visit(root, "");
+  return entries;
+};
+
 const OWNER = "@test";
 const PACK = "scope-pack";
 const SUBAGENT = "scope-subagent";
@@ -177,7 +201,7 @@ describe("installed-state scope consistency", () => {
         ),
       ).toContain(CANONICAL_REFERENCE);
       expect(fs.existsSync(path.join(consumer.path, CANONICAL_REFERENCE))).toBe(true);
-      const projectSettings = fs.readFileSync(projectSettingsPath, "utf-8");
+      const projectSnapshot = snapshotDirectory(consumer.path);
 
       const userSetup = await runCli(
         ["setup", "--scope", "user", "--agent", "cursor", "--yes", "--non-interactive"],
@@ -280,14 +304,14 @@ describe("installed-state scope consistency", () => {
         env,
       });
       expect(linted.exitCode, `${linted.stderr}\n${linted.stdout}`).toBe(0);
-      expect(fs.readFileSync(projectSettingsPath, "utf-8")).toBe(projectSettings);
+      expect(snapshotDirectory(consumer.path)).toEqual(projectSnapshot);
 
       const unpacked = await runCli(["packs", "unpack", PACK, "--scope", "user", "--json"], {
         cwd: consumer.path,
         env,
       });
       expect(unpacked.exitCode, `${unpacked.stderr}\n${unpacked.stdout}`).toBe(0);
-      expect(fs.readFileSync(projectSettingsPath, "utf-8")).toBe(projectSettings);
+      expect(snapshotDirectory(consumer.path)).toEqual(projectSnapshot);
 
       const userSettings = JSON.parse(fs.readFileSync(userSettingsPath, "utf-8"));
       expect(userSettings.packs ?? {}).not.toHaveProperty(PACK);

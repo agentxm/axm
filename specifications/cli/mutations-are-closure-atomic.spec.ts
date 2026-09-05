@@ -24,7 +24,10 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [],
+  openQuestions: [
+    "Does failure in one dependency group roll back the entire command, or may successful independent groups in the same invocation remain committed?",
+    "Must failure after writes begin use a typed command error without a result document, or may the command report a failed operation result? Existing examples establish preflight refusal only.",
+  ],
 });
 
 const userHome = pinSpecUserHome();

@@ -1,3 +1,4 @@
+import { makePublicationSpecContext } from "../../support/publication-evidence-harness.js";
 import * as path from "node:path";
 
 import { describe, expect, it } from "@effect/vitest";
@@ -138,5 +139,41 @@ describe("Publish preflight over a selection", () => {
         },
       });
     }),
+  );
+  it.effect(
+    "blocks an unpublished candidate when another selected immutable version conflicts",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const context = yield* makePublicationSpecContext({
+            settings: { skills: { review: "workspace", deploy: "workspace" } },
+          });
+          writeAuthoredSkill(context.workspace.root, { name: "review" });
+          writeAuthoredSkill(context.workspace.root, { name: "deploy" });
+          yield* context.run({ selectors: ["@acme/skills/review"] });
+          const before = context.snapshotRegistry();
+          const exit = yield* context.run({ onExisting: Option.some("error") }).pipe(Effect.exit);
+          expect(exit._tag).toBe("Failure");
+          expect(context.snapshotRegistry()).toEqual(before);
+          const result = yield* context.result();
+          expect(result.execution.outcomes).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                id: "@acme/skills/review",
+                status: "failed",
+                reason: "version_exists",
+              }),
+              expect.objectContaining({
+                id: "@acme/skills/deploy",
+                status: "blocked",
+                reason: "blocked_by_preflight",
+                blockedBy: ["@acme/skills/review"],
+              }),
+            ]),
+          );
+          yield* context.run({ selectors: ["@acme/skills/deploy"] });
+          expect(context.archive("deploy").length).toBeGreaterThan(0);
+        }),
+      ),
   );
 });

@@ -20,7 +20,9 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [],
+  openQuestions: [
+    "When installed files differ from the accepted content, should a repeated install restore that content and report a repair, or refuse until the user explicitly chooses recovery? The unchanged-state example does not decide this case.",
+  ],
 });
 
 describe("Repeat installs are safe", () => {

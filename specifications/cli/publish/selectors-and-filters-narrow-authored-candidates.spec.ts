@@ -94,4 +94,44 @@ describe("Publication selection", () => {
       ),
     );
   }
+  for (const preview of [true, false]) {
+    it.effect(
+      `reports an empty authored selection as a no-op in ${preview ? "preview" : "apply"}`,
+      () =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const context = yield* makePublicationSpecContext();
+            yield* context.run({ preview });
+            const result = yield* context.result();
+            expect(result.selection.mode).toBe("authored");
+            expect(result.execution.outcomes).toEqual([]);
+            expect(result.counts).toMatchObject({ selected: 0, published: 0, failed: 0 });
+            expect(context.registry.storedFiles()).toEqual([]);
+          }),
+        ),
+    );
+    it.effect(
+      `includes an authored extension disabled for installation in ${preview ? "preview" : "apply"}`,
+      () =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const context = yield* makePublicationSpecContext({
+              settings: { skills: { review: { source: "workspace", enabled: false } } },
+            });
+            writeAuthoredSkill(context.workspace.root, { name: "review" });
+            yield* context.run({ preview });
+            const result = yield* context.result();
+            expect(result.execution.outcomes).toEqual([
+              expect.objectContaining({
+                id: "@acme/skills/review",
+                authored: true,
+                sourceType: "workspace",
+                status: preview ? "pending" : "success",
+              }),
+            ]);
+            if (!preview) expect(context.archive("review").length).toBeGreaterThan(0);
+          }),
+        ),
+    );
+  }
 });

@@ -568,6 +568,8 @@ export interface MaterializeOperationArgs<
   readonly allowWorkspaceSourceTransition?: boolean;
   /** Reacquire canonical content before projecting it. */
   readonly force?: boolean;
+  /** Verify realized content inside the transaction before recording its resolution. */
+  readonly validateMaterialized?: () => Effect.Effect<void, CallerStepFailure<F>, never>;
   readonly buildArtifact?: () => Effect.Effect<JobStepArtifact, CallerStepFailure<F>, never>;
   readonly message?: string;
 }
@@ -584,6 +586,7 @@ const runMaterializeOperation = <TRef extends ExtensionRef, F>(
           ref: args.ref,
           ...(args.force === undefined ? {} : { force: args.force }),
         });
+        if (args.validateMaterialized !== undefined) yield* args.validateMaterialized();
         yield* manager.upsertLockfileEntry({ ref: args.ref });
       }),
       validate: () =>

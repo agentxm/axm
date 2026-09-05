@@ -12,7 +12,7 @@ export const specification = defineSpecification({
   requirement: "cli/knowledge/concepts/query/bounds-concept-evidence",
   title: "Query evidence respects requested bounds",
   statement:
-    "When a Knowledge query matches a concept through several fields or passages, AXM shall return one concept result with matching-field and source-location evidence within the caller-selected result, passage-count, and passage-length bounds.",
+    "When a Knowledge query matches a concept through several fields or passages, AXM shall return one concept result with matching-field and source-location evidence within the caller-selected passage-count and passage-length bounds.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
@@ -23,7 +23,9 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [],
-  openQuestions: [],
+  openQuestions: [
+    "What explanatory information should query --explain promise about why concepts matched and their ordering? The current strategy and numeric ranking weights are implementation evidence, not accepted output obligations.",
+  ],
 });
 
 describe("Bounded source evidence", () => {

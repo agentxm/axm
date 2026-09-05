@@ -38,13 +38,14 @@ export const makeRemotePublicationContext = (
       success: (request: HttpClientRequest.HttpClientRequest) => Response,
     ) => Effect.Effect<Response>;
     readonly beforeAuthorization?: Effect.Effect<void>;
+    readonly ownerResponse?: (owner: string) => Response;
   } = {},
 ) =>
   Effect.gen(function* () {
     const workspace = makeSpecWorkspace({
       ...options.workspace,
-      machine: true,
-      flags: { nonInteractive: false, json: true },
+      machine: options.workspace?.machine ?? true,
+      flags: { nonInteractive: false, json: options.workspace?.machine ?? true },
     });
     const callbacks = new Set<NodeHttp.ClientRequest>();
     const timers = new Set<ReturnType<typeof setTimeout>>();
@@ -190,8 +191,13 @@ export const makeRemotePublicationContext = (
             options.upload === undefined
               ? success(request)
               : yield* options.upload(request, uploads.length - 1, success);
-        } else if (request.method === "GET" && new URL(request.url).pathname === "/v1/owners/@acme")
-          response = jsonRegistryResponse({ displayName: "Acme" });
+        } else if (
+          request.method === "GET" &&
+          new URL(request.url).pathname.startsWith("/v1/owners/")
+        )
+          response =
+            options.ownerResponse?.(new URL(request.url).pathname.slice("/v1/owners/".length)) ??
+            jsonRegistryResponse({ displayName: "Acme" });
         else response = registryProblem("not_found", 404);
         return HttpClientResponse.fromWeb(request, response);
       }),
@@ -219,6 +225,7 @@ export const makeRemotePublicationContext = (
       authorized,
       success,
       callbackErrors,
+      authorizationCount: () => (authorizationRequest === undefined ? 0 : 1),
       result: () =>
         Schema.decodeUnknownEffect(PublishResultSchema)(
           workspace.rendererState.results.at(-1)?.data,

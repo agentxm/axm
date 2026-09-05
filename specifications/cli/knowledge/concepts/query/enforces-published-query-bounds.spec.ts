@@ -1,8 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import * as Result from "effect/Result";
-import { handleKnowledgeConceptQuery } from "axm.sh/specification-harness";
+import * as Schema from "effect/Schema";
+import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import {
+  handleKnowledgeConceptQuery,
+  handleKnowledgeConceptStatus,
+  KnowledgeConceptStatusOutputSchema,
+} from "axm.sh/specification-harness";
 import {
   knowledgeQueryOptions,
   makeKnowledgeSpecWorkspace,
@@ -10,9 +15,9 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/knowledge/concepts/query/enforces-published-query-bounds",
-  title: "Query bounds follow the published discovery limits",
+  title: "Query passage bounds follow the published discovery limits",
   statement:
-    "When a Knowledge query selects output bounds, AXM shall accept only whole-number result limits from 1 through 100, passage limits from 0 through 10, and passage lengths from 1 through 2000.",
+    "When a Knowledge query selects passage bounds, AXM shall accept only whole-number passage limits from 0 through 10 and passage lengths from 1 through 2000.",
   class: "functional",
   role: "interface",
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
@@ -26,38 +31,45 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-describe("Published query limits", () => {
-  for (const bounds of [
-    { resultLimit: 0 },
-    { resultLimit: 101 },
-    { resultLimit: 1.5 },
-    { passageLimit: -1 },
-    { passageLimit: 11 },
-    { passageLength: 0 },
-    { passageLength: 2001 },
-  ])
-    it.effect(JSON.stringify(bounds), () => {
-      const workspace = makeKnowledgeSpecWorkspace();
-      return workspace.provide(
-        Effect.gen(function* () {
+describe("Published passage limits", () => {
+  it.effect("accepts the advertised whole-number endpoints and rejects bounds outside them", () => {
+    const workspace = makeKnowledgeSpecWorkspace();
+    return workspace.provide(
+      Effect.gen(function* () {
+        yield* handleKnowledgeConceptStatus();
+        const { capabilities } = Schema.decodeUnknownSync(KnowledgeConceptStatusOutputSchema)(
+          workspace.rendererState.results.at(-1)?.data,
+        );
+        const maximumCount = capabilities.limits.maximumPassagesPerResult;
+        const maximumLength = capabilities.limits.maximumPassageLength;
+        expect(maximumCount).toBe(10);
+        expect(maximumLength).toBe(2000);
+        for (const bounds of [
+          { passageLimit: -1 },
+          { passageLimit: maximumCount + 1 },
+          { passageLimit: 1.5 },
+          { passageLength: 0 },
+          { passageLength: maximumLength + 1 },
+          { passageLength: 1.5 },
+        ]) {
+          workspace.rendererState.results.length = 0;
           const result = yield* Effect.result(
-            handleKnowledgeConceptQuery("project", { ...knowledgeQueryOptions, ...bounds }),
+            handleKnowledgeConceptQuery("project", {
+              ...knowledgeQueryOptions,
+              ...bounds,
+            }),
           );
           expect(Result.isFailure(result) && result.failure).toMatchObject({ code: "validation" });
           expect(workspace.rendererState.results).toEqual([]);
-        }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
-      );
-    });
-  for (const bounds of [
-    { resultLimit: 1, passageLimit: 0, passageLength: 1 },
-    { resultLimit: 100, passageLimit: 10, passageLength: 2000 },
-  ])
-    it.effect(`accepts ${JSON.stringify(bounds)}`, () => {
-      const workspace = makeKnowledgeSpecWorkspace();
-      return workspace.provide(
-        handleKnowledgeConceptQuery("project", { ...knowledgeQueryOptions, ...bounds }).pipe(
-          Effect.ensuring(Effect.sync(workspace.cleanup)),
-        ),
-      );
-    });
+        }
+        for (const bounds of [
+          { passageLimit: 0, passageLength: 1 },
+          { passageLimit: maximumCount, passageLength: maximumLength },
+        ]) {
+          yield* handleKnowledgeConceptQuery("project", { ...knowledgeQueryOptions, ...bounds });
+          expect(workspace.readQueryPage().query).toMatchObject(bounds);
+        }
+      }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
+    );
+  });
 });

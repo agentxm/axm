@@ -141,7 +141,7 @@ export const renderExistingSettings = (
 ): ExistingSettingsRenderResult => {
   const patch = JsonPatch.get(prior, target);
   if (patch.length === 0) {
-    return { content: ensureSingleTrailingNewline(priorText) };
+    return { content: priorText };
   }
 
   const priorWasCanonical = hasCanonicalTopLevelOrder(prior);

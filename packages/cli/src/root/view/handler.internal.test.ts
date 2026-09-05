@@ -5,15 +5,10 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-
-import { RegistryUrl } from "@agentxm/registry-client";
 import {
-  expectNoPlanEnvelope,
   getAppError,
   makeCliTestContext,
   makeEffectProvide,
@@ -65,29 +60,6 @@ const writeIndex = (registryRoot: string, deprecation: unknown = null) => {
   );
 };
 
-const writeRuleIndex = (registryRoot: string) => {
-  const dir = path.join(registryRoot, "extensions", "@test", "rules", "house-style");
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(
-    path.join(dir, "index.json"),
-    JSON.stringify({
-      owner: "@test",
-      type: "rule",
-      name: "house-style",
-      publisherBindingId: "hbnd_test",
-      description: "House style rules",
-      deprecation: null,
-      versions: [
-        {
-          version: "1.0.0",
-          published: "2026-01-01T00:00:00.000Z",
-          integrity: "sha512-rule",
-        },
-      ],
-    }),
-  );
-};
-
 describe("view handler", () => {
   let tempDir: string;
   let registryRoot: string;
@@ -128,60 +100,6 @@ describe("view handler", () => {
     );
   });
 
-  it.effect("emits structured JSON document in machine mode", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    initWorkspace(tempDir, registryRoot);
-    writeIndex(registryRoot);
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleView({
-          handle: "@test/skills/code-review",
-          field: Option.none(),
-          registry: Option.some("test-registry"),
-        });
-
-        expect(rendererState.results[0]?.data).toEqual(
-          expect.objectContaining({
-            handle: "@test/skills/code-review",
-            latest: {
-              version: "1.2.3",
-              published: DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
-            },
-          }),
-        );
-        expectNoPlanEnvelope(rendererState.results[0]?.data);
-      }),
-    );
-  });
-
-  it.effect("exposes full structured deprecation guidance in machine mode", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    writeIndex(registryRoot, {
-      deprecatedAt: "2026-03-01T00:00:00.000Z",
-      message: "Move review workflows.",
-      replacement: { status: "available", fqn: "@test/skills/reviewer" },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleView({
-          handle: "@test/skills/code-review",
-          field: Option.none(),
-          registry: Option.some("test-registry"),
-        });
-
-        expect(rendererState.results[0]?.data).toMatchObject({
-          deprecation: {
-            deprecatedAt: DateTime.makeUnsafe("2026-03-01T00:00:00.000Z"),
-            message: "Move review workflows.",
-            replacement: { status: "available", fqn: "@test/skills/reviewer" },
-          },
-        });
-      }),
-    );
-  });
-
   it.effect("renders unavailable replacement guidance without inventing a target", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext();
     writeIndex(registryRoot, {
@@ -203,82 +121,6 @@ describe("view handler", () => {
             { field: "Deprecation message", value: "-" },
             { field: "Replacement", value: "unavailable or not visible" },
           ]),
-        );
-      }),
-    );
-  });
-
-  it.effect("suggests the per-type install command for a type that registers one", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    initWorkspace(tempDir, registryRoot);
-    writeIndex(registryRoot);
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleView({
-          handle: "@test/skills/code-review",
-          field: Option.none(),
-          registry: Option.some("test-registry"),
-        });
-
-        expect(rendererState.results[0]?.data).toEqual(
-          expect.objectContaining({
-            install: "axm skills install @test/skills/code-review",
-          }),
-        );
-      }),
-    );
-  });
-
-  // `axm rules` only toggles instruction-file management, so rule extensions
-  // must be pointed at the root installer rather than `axm rules install`.
-  it.effect("suggests the per-type install command for rule extensions", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    initWorkspace(tempDir, registryRoot);
-    writeRuleIndex(registryRoot);
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleView({
-          handle: "@test/rules/house-style",
-          field: Option.none(),
-          registry: Option.some("test-registry"),
-        });
-
-        expect(rendererState.results[0]?.data).toEqual(
-          expect.objectContaining({
-            install: "axm rules install @test/rules/house-style",
-          }),
-        );
-      }),
-    );
-  });
-
-  it.effect("uses the default registry URL without requiring workspace settings", () => {
-    fs.rmSync(path.join(tempDir, ".axm"), { recursive: true, force: true });
-    const ctx = makeCliTestContext({ machine: true });
-    const layer = Layer.mergeAll(
-      ctx.baseLayer,
-      Layer.succeed(RegistryUrl, `file://${registryRoot}`),
-    );
-    const provide = makeEffectProvide(layer);
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleView({
-          handle: "@test/skills/code-review",
-          field: Option.none(),
-          registry: Option.none(),
-        });
-
-        expect(ctx.rendererState.results[0]?.data).toEqual(
-          expect.objectContaining({
-            handle: "@test/skills/code-review",
-            latest: {
-              version: "1.2.3",
-              published: DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
-            },
-          }),
         );
       }),
     );

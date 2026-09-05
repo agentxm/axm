@@ -76,12 +76,11 @@ const makeLayers = (opts?: {
     : CredentialStoreTest("restricted-file", undefined, opts?.allowsPersistedCredentials);
 
   const meData: MeResponse = opts?.meResponse ?? {
-    userId: "user-1",
     userHandle: ALICE,
-    email: "alice@example.com",
     tokenType: "session",
     scopes: ["extensions:read"],
-    orgs: [],
+    resourceRestrictions: { extensions: null },
+    expiresAt: null,
   };
 
   const authClientLayer = AuthClientTest({

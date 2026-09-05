@@ -350,17 +350,6 @@ export const TokenOAuthErrorEncoded = Schema.Struct({
     description: "Human-readable explanation of the error.",
   }),
 }).annotate({ identifier: "TokenOAuthErrorEncoded" });
-export type AuthWhoamiResponse = { readonly handle: string };
-export const AuthWhoamiResponse = Schema.Struct({
-  handle: Schema.String.annotate({
-    description: "The authenticated user's registry handle.",
-    examples: ["@example"],
-  }),
-}).annotate({
-  title: "Auth Whoami Response",
-  description: "Minimal identity response for login checks and CLI whoami.",
-  identifier: "AuthWhoamiResponse",
-});
 export type UserId = string;
 export const UserId = Schema.String.annotate({
   title: "User ID",
@@ -1059,7 +1048,7 @@ export type AuthMeToken = {
   readonly permissions: Schema.Json | null;
   readonly scopes: ReadonlyArray<string>;
   readonly resource_restrictions: ResourceRestrictions;
-  readonly expires_at: IsoDateTimeString;
+  readonly expires_at: IsoDateTimeString | null;
 };
 export const AuthMeToken = Schema.Struct({
   id: Schema.String.annotate({
@@ -1079,7 +1068,7 @@ export const AuthMeToken = Schema.Struct({
   ]).annotate({ description: "Structured permissions associated with this token." }),
   scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
   resource_restrictions: ResourceRestrictions,
-  expires_at: IsoDateTimeString,
+  expires_at: Schema.Union([IsoDateTimeString, Schema.Null]),
 }).annotate({
   title: "Token Info",
   description: "Details about the token you used to authenticate.",
@@ -1615,20 +1604,10 @@ export const PackDependencyResolution = Schema.Struct({
   dependency: PackDependencyDescriptor,
   effectiveVersion: Version,
 }).annotate({ identifier: "PackDependencyResolution" });
-export type AuthMeResponse = {
-  readonly user: AuthMeUser;
-  readonly orgs: readonly [];
-  readonly token: AuthMeToken;
-};
-export const AuthMeResponse = Schema.Struct({
-  user: AuthMeUser,
-  orgs: Schema.Tuple([]).annotate({
-    description: "Organizations the user belongs to (reserved, currently empty).",
-  }),
-  token: AuthMeToken,
-}).annotate({
+export type AuthMeResponse = { readonly user: AuthMeUser; readonly token: AuthMeToken };
+export const AuthMeResponse = Schema.Struct({ user: AuthMeUser, token: AuthMeToken }).annotate({
   title: "Auth Me Response",
-  description: "Your user profile, organizations, and token details.",
+  description: "Your user profile and credential details.",
   identifier: "AuthMeResponse",
 });
 export type TokenListResponse = {
@@ -2087,12 +2066,6 @@ export type AuthRevokeOAuthToken400 = DecodeErrorResponseEncoded;
 export const AuthRevokeOAuthToken400 = DecodeErrorResponseEncoded;
 export type AuthRevokeOAuthToken503 = ProblemDetails;
 export const AuthRevokeOAuthToken503 = ProblemDetails;
-export type AuthGetWhoami200 = AuthWhoamiResponse;
-export const AuthGetWhoami200 = AuthWhoamiResponse;
-export type AuthGetWhoami400 = DecodeErrorResponseEncoded;
-export const AuthGetWhoami400 = DecodeErrorResponseEncoded;
-export type AuthGetWhoami401 = ProblemDetails;
-export const AuthGetWhoami401 = ProblemDetails;
 export type AuthGetMe200 = AuthMeResponse;
 export const AuthGetMe200 = AuthMeResponse;
 export type AuthGetMe400 = DecodeErrorResponseEncoded;
@@ -2745,7 +2718,7 @@ export type ExtensionsYankVersion200 = {
   readonly name: ExtensionName;
   readonly version: Version;
   readonly yankedAt: IsoDateTimeString | null;
-  readonly yankCategory: string | null;
+  readonly yankCategory: "broken" | "security" | "accidental" | "other" | null;
   readonly yankNotice: string | null;
   readonly links: ExtensionLinks;
 };
@@ -2755,8 +2728,16 @@ export const ExtensionsYankVersion200 = Schema.Struct({
   name: ExtensionName,
   version: Version,
   yankedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
-  yankCategory: Schema.Union([Schema.String, Schema.Null]),
-  yankNotice: Schema.Union([Schema.String, Schema.Null]),
+  yankCategory: Schema.Union([
+    Schema.Literals(["broken", "security", "accidental", "other"]),
+    Schema.Null,
+  ]),
+  yankNotice: Schema.Union([
+    Schema.String.check(
+      Schema.isMaxLength(500).annotate({ expected: "a value with a length of at most 500" }),
+    ),
+    Schema.Null,
+  ]),
   links: ExtensionLinks,
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponseEncoded;
@@ -3366,17 +3347,6 @@ export const make = (
             "400": decodeError("AuthRevokeOAuthToken400", AuthRevokeOAuthToken400),
             "503": decodeError("AuthRevokeOAuthToken503", AuthRevokeOAuthToken503),
             "200": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    AuthGetWhoami: (options) =>
-      HttpClientRequest.get(`/v1/auth/whoami`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(AuthGetWhoami200),
-            "400": decodeError("AuthGetWhoami400", AuthGetWhoami400),
-            "401": decodeError("AuthGetWhoami401", AuthGetWhoami401),
             orElse: unexpectedStatus,
           }),
         ),
@@ -4019,18 +3989,6 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"AuthRevokeOAuthToken400", typeof AuthRevokeOAuthToken400.Type>
     | RegistryClientError<"AuthRevokeOAuthToken503", typeof AuthRevokeOAuthToken503.Type>
-  >;
-  /**
-   * Return authenticated user handle
-   */
-  readonly AuthGetWhoami: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof AuthGetWhoami200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"AuthGetWhoami400", typeof AuthGetWhoami400.Type>
-    | RegistryClientError<"AuthGetWhoami401", typeof AuthGetWhoami401.Type>
   >;
   /**
    * Return authenticated user info

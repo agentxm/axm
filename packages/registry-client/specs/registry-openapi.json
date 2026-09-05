@@ -289,41 +289,6 @@
         }
       }
     },
-    "/v1/auth/whoami": {
-      "get": {
-        "tags": ["Auth"],
-        "operationId": "Auth.getWhoami",
-        "parameters": [],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Minimal identity response for login checks and CLI whoami.",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/AuthWhoamiResponse" }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Return authenticated user handle"
-      }
-    },
     "/v1/auth/me": {
       "get": {
         "tags": ["Auth"],
@@ -332,7 +297,7 @@
         "security": [{ "bearer": [] }],
         "responses": {
           "200": {
-            "description": "Your user profile, organizations, and token details.",
+            "description": "Your user profile and credential details.",
             "content": {
               "application/json": { "schema": { "$ref": "#/components/schemas/AuthMeResponse" } }
             }
@@ -2436,8 +2401,15 @@
                         { "type": "null" }
                       ]
                     },
-                    "yankCategory": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "yankNotice": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "yankCategory": {
+                      "anyOf": [
+                        { "type": "string", "enum": ["broken", "security", "accidental", "other"] },
+                        { "type": "null" }
+                      ]
+                    },
+                    "yankNotice": {
+                      "anyOf": [{ "type": "string", "maxLength": 500 }, { "type": "null" }]
+                    },
                     "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
                   "required": [
@@ -4387,20 +4359,6 @@
         "required": ["kind", "error", "error_description"],
         "additionalProperties": false
       },
-      "AuthWhoamiResponse": {
-        "type": "object",
-        "properties": {
-          "handle": {
-            "type": "string",
-            "description": "The authenticated user's registry handle.",
-            "examples": ["@example"]
-          }
-        },
-        "required": ["handle"],
-        "additionalProperties": false,
-        "title": "Auth Whoami Response",
-        "description": "Minimal identity response for login checks and CLI whoami."
-      },
       "UserId": {
         "type": "string",
         "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
@@ -4475,7 +4433,9 @@
             "description": "Scopes granted to this token."
           },
           "resource_restrictions": { "$ref": "#/components/schemas/ResourceRestrictions" },
-          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
+          "expires_at": {
+            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString" }, { "type": "null" }]
+          }
         },
         "required": [
           "id",
@@ -4494,17 +4454,12 @@
         "type": "object",
         "properties": {
           "user": { "$ref": "#/components/schemas/AuthMeUser" },
-          "orgs": {
-            "type": "array",
-            "items": false,
-            "description": "Organizations the user belongs to (reserved, currently empty)."
-          },
           "token": { "$ref": "#/components/schemas/AuthMeToken" }
         },
-        "required": ["user", "orgs", "token"],
+        "required": ["user", "token"],
         "additionalProperties": false,
         "title": "Auth Me Response",
-        "description": "Your user profile, organizations, and token details."
+        "description": "Your user profile and credential details."
       },
       "StepUpRequestId": {
         "type": "string",

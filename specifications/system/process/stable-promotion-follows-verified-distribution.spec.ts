@@ -38,6 +38,11 @@ export const boundEvidence = defineBoundEvidence([
     verifies:
       "Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.",
   },
+  {
+    gate: "test: axm:test (scripts/verify-installed-package.tooling.test.ts)",
+    verifies:
+      "Runs the published-package verifier through a package-manager launcher with sibling entrypoints from an unrelated directory, including paths with spaces, and rejects wrong installed versions and unexpected stderr; Windows CI executes the batch-launcher cases.",
+  },
 ]);
 
 const required = [

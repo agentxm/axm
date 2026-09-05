@@ -42,9 +42,6 @@
     "goose",
     "qwen-code"
   ],
-  "bin": {
-    "axm": "./dist/src/main.js"
-  },
   "exports": {
     "./app": {
       "types": "./dist/src/app.d.ts",
@@ -70,7 +67,10 @@
     "site-content/"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "bin": {
+      "axm": "./dist/src/main.js"
+    }
   },
   "nx": {
     "includedScripts": []

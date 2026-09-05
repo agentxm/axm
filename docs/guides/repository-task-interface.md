@@ -44,6 +44,13 @@ file, service, or container is a general prerequisite. The workspace sets
 `verifyDepsBeforeRun: error`, so a command with absent or stale dependencies
 fails before pnpm can install or partially mutate the checkout.
 
+The source workspace does not advertise an `axm` package bin before the CLI is
+built. Its `publishConfig.bin` supplies the compiled executable mapping when
+pnpm packs the release package; dependency installation neither builds the CLI
+nor links a missing build output. Use the source-CLI launchers for repository
+work. Release publication still owns the build and ships the same compiled
+entry point.
+
 - Container workflows additionally require Docker.
 - Release publication runs in GitHub Actions with repository credentials and
   platform-specific tool setup.

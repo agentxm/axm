@@ -1813,6 +1813,19 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: GitHub branch protection enforces pull-request review and code-owner approval outside the repository.
 - Source: [`specifications/system/process/changes-land-through-reviewed-pull-requests.spec.ts`](../specifications/system/process/changes-land-through-reviewed-pull-requests.spec.ts)
 
+##### Dependency installation defers the compiled CLI bin to package creation
+
+- Requirement: `system/process/dependency-installation-defers-cli-bin`
+- Statement: Workspace dependency installation shall not advertise the unbuilt CLI executable for bin linking, while release package creation shall expose axm at its compiled entry point.
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`, `trustworthy-distribution`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The source and publication manifest fields establish when the executable is advertised; actual clean-install and packed-artifact checks provide additional release evidence.
+- Methods: static
+- Assumptions: The pinned pnpm package manager applies publishConfig.bin during packing.
+- Source: [`specifications/system/process/dependency-installation-defers-cli-bin.spec.ts`](../specifications/system/process/dependency-installation-defers-cli-bin.spec.ts)
+
 ##### The dual TypeScript alias stays in place until its recorded exit condition
 
 - Requirement: `system/process/dual-typescript-alias-retained`

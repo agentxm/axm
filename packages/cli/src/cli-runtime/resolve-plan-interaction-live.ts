@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import { requireInteractive } from "../prompt/index.js";
-import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
+import { promptAvailability, Verbosity } from "../cli-flags/index.js";
 import { planDoc } from "../operation-view.js";
 import { Screen } from "../screen/index.js";
 import { PlanInteractionFailed } from "@agentxm/workspace-operations";
@@ -40,16 +40,16 @@ export const ResolvePlanInteractionLive = Layer.effect(
       Layer.succeed(Terminal.Terminal, terminal),
     );
     return {
-      isConfirmationAvailable: Effect.map(
-        isNonInteractiveOptional,
-        (nonInteractive) => !nonInteractive,
-      ),
+      // One resolution of effective interactivity feeds planning and the
+      // screen alike, so an unavailable confirmation resolves as the
+      // operation's own blocked outcome, never as a late prompt failure.
+      isConfirmationAvailable: promptAvailability,
       confirmApplyChanges: (recovery) =>
         screen
           .prompt(
             requireInteractive(Prompt.confirm({ message: confirmApplyChangesMessage }), {
               message: confirmApplyChangesMessage,
-              suggestions: confirmationRecoverySuggestions(recovery),
+              suggestions: confirmationRecoverySuggestions(recovery, "interactive"),
             }).pipe(Effect.provide(promptEnvironment)),
           )
           .pipe(

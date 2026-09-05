@@ -73,7 +73,6 @@ describe("Machine progress event contract", () => {
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

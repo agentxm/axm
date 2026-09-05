@@ -115,7 +115,7 @@ describe("compiled binary smoke", () => {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
       });
-      const install = await runBinary(["knowledge", "install", "--yes", "--non-interactive"], {
+      const install = await runBinary(["knowledge", "install", "--non-interactive"], {
         cwd: temp.path,
         env: environment,
       });
@@ -216,12 +216,9 @@ describe("compiled binary smoke", () => {
     const temp = createTempDir();
 
     try {
-      const result = await runBinary(
-        ["--non-interactive", "skills", "disable", "fake-skill", "--yes"],
-        {
-          cwd: temp.path,
-        },
-      );
+      const result = await runBinary(["--non-interactive", "skills", "disable", "fake-skill"], {
+        cwd: temp.path,
+      });
 
       expect(result.exitCode).toBe(10);
       expect(getOutput(result)).toContain("Workspace settings not found");

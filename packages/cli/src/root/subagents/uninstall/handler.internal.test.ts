@@ -133,7 +133,6 @@ describe("uninstall.handler (subagents)", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent"), {
-            yes: false,
             preview: false,
           });
 
@@ -161,7 +160,6 @@ describe("uninstall.handler (subagents)", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
-            yes: false,
             preview: false,
           });
 
@@ -180,7 +178,6 @@ describe("uninstall.handler (subagents)", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
-            yes: false,
             preview: false,
           });
 
@@ -209,7 +206,6 @@ describe("uninstall.handler (subagents)", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-subagent"), {
-            yes: true,
             preview: false,
           });
 
@@ -242,7 +238,6 @@ describe("uninstall.handler (subagents)", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-subagent"), {
-            yes: true,
             preview: false,
           });
 

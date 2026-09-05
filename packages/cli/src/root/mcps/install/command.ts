@@ -1,12 +1,12 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  ignoreReleaseAgeFlag,
-  previewFlag,
-  reinstallFlag,
-  yesFlag,
-} from "../../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, reinstallFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { handleInstallMcpServer } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
@@ -19,11 +19,8 @@ const installConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall an MCP server that already exists")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be installed without making changes"),
-  ),
+  preview: previewCapabilityFlag("Show what would be installed without making changes"),
   env: Flag.string("env").pipe(
     Flag.withAlias("e"),
     Flag.withDescription("Provide an MCP input value as KEY=VALUE; repeatable"),
@@ -36,14 +33,15 @@ const installConfig = {
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview, env, as, ignoreReleaseAge }) =>
-    handleInstallMcpServer({ source, env, localName: as }, { yes, force, preview }).pipe(
+  ({ source, scope, force, preview, env, as, ignoreReleaseAge }) =>
+    handleInstallMcpServer({ source, env, localName: as }, { force, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("mcps install"),
     ),
 ).pipe(
   withArgvTracking(installConfig),
+  withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription(
     "Reinstall configured MCP servers from their sources, or install an MCP server from a registry",
   ),

@@ -6,6 +6,10 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "../../../app-error/index.js";
 import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
+import {
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { getKnowledgeIndexConcept, relatedKnowledgeConcepts } from "@agentxm/knowledge-query";
 import { parseConceptRef } from "@agentxm/extension-model/unstable/knowledge";
 
@@ -114,6 +118,7 @@ export const relatedCommand = Command.make(
     ).pipe(withWorkspace(scope), withRuntime("knowledge concepts related")),
 ).pipe(
   withArgvTracking(relatedConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Traverse authored links and derived backlinks"),
   Command.withExamples([
     {

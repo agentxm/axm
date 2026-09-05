@@ -28,7 +28,6 @@ type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 const rootInstall = (workspace: SpecWorkspace, skillPackage: string) =>
   handleInstall({
     source: Option.some(skillPackage),
-    yes: true,
     force: false,
     preview: false,
   }).pipe(Effect.provide(workspace.layer));
@@ -36,7 +35,7 @@ const rootInstall = (workspace: SpecWorkspace, skillPackage: string) =>
 const typeInstall = (workspace: SpecWorkspace, skillPackage: string) =>
   handleSkillsInstall(
     { source: Option.some(skillPackage), skills: [], all: true },
-    { yes: true, force: false, preview: false },
+    { force: false, preview: false },
   ).pipe(Effect.provide(workspace.layer));
 
 const expectSameRealizedState = (rootWorkspace: SpecWorkspace, typeWorkspace: SpecWorkspace) => {

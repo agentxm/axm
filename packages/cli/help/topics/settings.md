@@ -56,8 +56,8 @@ minimum release age can block accepts it with the same meaning: take the
 withheld release for this invocation only. It does not change settings, and a
 declared `minimumReleaseAgeExclude` entry takes precedence over it. Attended
 named installs accept the flag but already select the requested release
-without the unattended gate. No other flag grants this bypass — in particular
-`--yes` does not. JSON and NDJSON results report the evaluation time,
+without the unattended gate. No other flag grants this bypass, and no consent
+flag ever does. JSON and NDJSON results report the evaluation time,
 holdbacks, dependency paths, eligibility times, and each bypass cause and
 exemption scope.
 

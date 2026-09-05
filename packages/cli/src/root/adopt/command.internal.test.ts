@@ -47,7 +47,7 @@ describe("adopt command", () => {
     const provide = makeEffectProvide(Layer.provideMerge(SkillManagerLive, foundation));
     return provide(
       Effect.gen(function* () {
-        yield* handleAdopt({ fqn: "@acme/skills/review", yes: true, preview: false });
+        yield* handleAdopt({ fqn: "@acme/skills/review", preview: false });
 
         const settings = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(SettingsSchema))(
           fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),

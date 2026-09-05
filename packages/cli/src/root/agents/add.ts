@@ -3,12 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { detectAgentsForScope } from "@agentxm/agent-integration";
 import { makeAppError } from "../../app-error/index.js";
-import {
-  acceptWarningsFlag,
-  ignoreReleaseAgeFlag,
-  previewFlag,
-  yesFlag,
-} from "../../cli-flags/index.js";
+import { acceptWarningsFlag, ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
 import {
@@ -26,6 +21,11 @@ import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
@@ -45,7 +45,6 @@ import {
 export interface AgentsAddArgs {
   readonly ids: ReadonlyArray<string>;
   readonly detected: boolean;
-  readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
 }
@@ -346,23 +345,23 @@ const addConfig = {
     Flag.withDescription("Add detected agents"),
     Flag.withDefault(false),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
   force: acceptWarningsFlag,
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+  preview: previewCapabilityFlag("Show what would change without applying"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const addCommand = Command.make(
   "add",
   addConfig,
-  ({ ids, scope, detected, yes, force, preview, ignoreReleaseAge }) =>
-    handleAgentsAdd({ ids: [...ids], detected, yes, force, preview }).pipe(
+  ({ ids, scope, detected, force, preview, ignoreReleaseAge }) =>
+    handleAgentsAdd({ ids: [...ids], detected, force, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("agents add"),
     ),
 ).pipe(
   withArgvTracking(addConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Configure coding-agent harnesses and materialize installed extensions"),
   Command.withExamples([
     { command: "axm agents add cursor", description: "Add Cursor to this workspace" },

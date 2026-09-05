@@ -76,7 +76,6 @@ describe("Creating a skill", () => {
     handleSkillsNew({
       name: extensionName(SKILL),
       owner: Option.none(),
-      yes: true,
       preview,
     }).pipe(Effect.provide(target.layer));
 

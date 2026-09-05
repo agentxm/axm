@@ -75,7 +75,6 @@ describe("Inline MCP entries are authoritative as authored", () => {
         url: Option.none(),
         env: [],
         header: [],
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

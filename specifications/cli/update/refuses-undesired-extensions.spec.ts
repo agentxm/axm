@@ -40,7 +40,6 @@ describe("Update an extension the workspace does not desire", () => {
 
       yield* handleUpdate({
         source: Option.some("@acme/skills/absent"),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

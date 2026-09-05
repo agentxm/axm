@@ -16,10 +16,7 @@ const uninstallPresentation = operationPresentation(
   "skill",
 );
 
-export const handleUninstall = (
-  args: UninstallHandlerArgs,
-  flags: { yes: boolean; preview: boolean },
-) =>
+export const handleUninstall = (args: UninstallHandlerArgs, flags: { preview: boolean }) =>
   withOperationLifecycle(
     {
       command: "skills.uninstall",
@@ -30,10 +27,7 @@ export const handleUninstall = (
     handleUninstallBody(args, flags),
   );
 
-const handleUninstallBody = (
-  args: UninstallHandlerArgs,
-  flags: { yes: boolean; preview: boolean },
-) =>
+const handleUninstallBody = (args: UninstallHandlerArgs, flags: { preview: boolean }) =>
   Effect.gen(function* () {
     const actions = yield* UninstallSkillCommandWorkflowActions;
     const presentedActions: typeof actions = {

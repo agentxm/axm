@@ -21,7 +21,7 @@ describe("axm skills disable", () => {
       });
 
       // Install a skill
-      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
         cwd: temp.path,
       });
 
@@ -31,7 +31,7 @@ describe("axm skills disable", () => {
       expect(fs.existsSync(agentSkillDir)).toBe(true);
 
       // Disable the skill
-      const result = await runCli(["skills", "disable", "my-skill", "--yes"], {
+      const result = await runCli(["skills", "disable", "my-skill"], {
         cwd: temp.path,
       });
 
@@ -73,17 +73,17 @@ describe("axm skills disable", () => {
         },
       );
 
-      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
         cwd: temp.path,
       });
 
       // Disable once
-      await runCli(["skills", "disable", "my-skill", "--yes"], {
+      await runCli(["skills", "disable", "my-skill"], {
         cwd: temp.path,
       });
 
       // Disable again — should indicate already disabled
-      const result = await runCli(["skills", "disable", "my-skill", "--yes"], {
+      const result = await runCli(["skills", "disable", "my-skill"], {
         cwd: temp.path,
       });
 
@@ -104,7 +104,7 @@ describe("axm skills disable", () => {
         },
       );
 
-      const result = await runCli(["skills", "disable", "nonexistent-skill", "--yes"], {
+      const result = await runCli(["skills", "disable", "nonexistent-skill"], {
         cwd: temp.path,
       });
 
@@ -121,7 +121,7 @@ describe("axm skills disable", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("skills disable");
-      expect(result.stdout).toContain("--yes");
+      expect(result.stdout).not.toContain("--yes");
     });
   });
 });

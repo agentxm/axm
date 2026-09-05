@@ -43,7 +43,6 @@ describe("Sync preserves configuration and accepted resolutions", () => {
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
@@ -83,7 +82,6 @@ describe("Sync preserves configuration and accepted resolutions", () => {
         cleanups.push(workspace.cleanup);
         yield* handleInstall({
           source: Option.some("@acme/skills/code-review"),
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));

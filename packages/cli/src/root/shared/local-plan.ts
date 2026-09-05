@@ -1,11 +1,9 @@
 import * as Effect from "effect/Effect";
 import type { ConfirmationRecovery, ConfiguredAgentOperation } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan, type Plan, type PlanPolicyId } from "@agentxm/workspace-operations";
-import { makePlanExecution } from "./confirmation-recovery.js";
+import { makePlanExecution, type CommandExecutionIntent } from "./confirmation-recovery.js";
 
-export interface LocalPlanFlags {
-  readonly preview: boolean;
-  readonly yes?: boolean;
+export interface LocalPlanFlags extends CommandExecutionIntent {
   readonly recovery?: ConfirmationRecovery;
   readonly acceptedPolicies?: ReadonlyArray<PlanPolicyId>;
   readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
@@ -16,7 +14,7 @@ export const previewOrApplyLocalPlan = Effect.fn("previewOrApplyLocalPlan")(func
   flags: LocalPlanFlags,
 ) {
   const execution = yield* makePlanExecution(
-    { preview: flags.preview, yes: flags.yes ?? false },
+    { preview: flags.preview, ...(flags.yes === undefined ? {} : { yes: flags.yes }) },
     flags.recovery ?? { command: [], arguments: [] },
     flags.acceptedPolicies ?? [],
     flags.configuredAgentOperations,

@@ -176,7 +176,6 @@ describe("Every extension type completes the shared lifecycle", () => {
     const packageRoot = row.writePackage(workspace.root, { name });
     const install = handleInstall({
       source: Option.some(packageRoot),
-      yes: true,
       force: false,
       preview: false,
     }).pipe(Effect.provide(workspace.layer));
@@ -223,7 +222,6 @@ describe("Every extension type completes the shared lifecycle", () => {
 
         yield* handleUninstall({
           source: `@acme/${row.plural}/${name}`,
-          yes: true,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));
 

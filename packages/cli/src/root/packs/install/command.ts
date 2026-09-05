@@ -1,13 +1,13 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  ignoreReleaseAgeFlag,
-  previewFlag,
-  reinstallFlag,
-  yesFlag,
-} from "../../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, reinstallFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { handleInstallPack } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
@@ -21,25 +21,23 @@ const installConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall a pack that already exists")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be installed without making changes"),
-  ),
+  preview: previewCapabilityFlag("Show what would be installed without making changes"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview, ignoreReleaseAge }) =>
-    handleInstallPack({ source }, { yes, force, preview }).pipe(
+  ({ source, scope, force, preview, ignoreReleaseAge }) =>
+    handleInstallPack({ source }, { force, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("packs install"),
     ),
 ).pipe(
   withArgvTracking(installConfig),
+  withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription(
     "Reinstall configured packs from their sources, or install a pack and its extensions from a registry",
   ),

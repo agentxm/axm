@@ -1,9 +1,8 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { Prompt } from "effect/unstable/cli";
 import type * as PromptTypes from "effect/unstable/cli/Prompt";
 import { makeAppError } from "../app-error/index.js";
-import { isNonInteractiveOptional, jsonFlag } from "../cli-flags/index.js";
+import { promptAvailability } from "../cli-flags/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { PromptCancelled } from "./prompt-cancelled.js";
 
@@ -34,9 +33,7 @@ export const requireInteractive = <A>(
   options: InteractiveGuardOptions,
 ) =>
   Effect.gen(function* () {
-    const nonInteractive = yield* isNonInteractiveOptional;
-    const json = Option.exists(Option.flatten(yield* Effect.serviceOption(jsonFlag)), Boolean);
-    if (nonInteractive || json) {
+    if (!(yield* promptAvailability)) {
       return yield* promptRequired(options);
     }
 

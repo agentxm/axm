@@ -60,7 +60,11 @@ describe("bootstrapWorkspace", () => {
    * Helper to create workspace layer with custom TUI behaviors for init testing.
    * Uses multiselect behavior to control which agents are "selected".
    */
-  const getServiceWithInit = (flags: { nonInteractive?: boolean }) => {
+  const getServiceWithInit = (flags: {
+    nonInteractive?: boolean;
+    yes?: boolean;
+    preview?: boolean;
+  }) => {
     const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
       selectAgents: () => Effect.succeed([]),
     });
@@ -69,6 +73,8 @@ describe("bootstrapWorkspace", () => {
     const wsOptions = {
       ...defaultOptions,
       ...(flags.nonInteractive === undefined ? {} : { nonInteractive: flags.nonInteractive }),
+      ...(flags.yes === undefined ? {} : { yes: flags.yes }),
+      ...(flags.preview === undefined ? {} : { preview: flags.preview }),
     };
     return {
       run: bootstrapWorkspace(wsOptions).pipe(
@@ -116,7 +122,7 @@ describe("bootstrapWorkspace", () => {
     }),
   );
 
-  it.effect("--yes still prompts for agent selection", () =>
+  it.effect("an interactive setup without preapproval prompts for agent selection", () =>
     Effect.gen(function* () {
       // Create .claude dir in project to trigger detection
       fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
@@ -127,8 +133,61 @@ describe("bootstrapWorkspace", () => {
 
       yield* run;
 
-      // --yes alone does not skip selection prompts
       expect(promptState.selectAgentsCalls).toHaveLength(1);
+    }),
+  );
+
+  it.effect("an interactive preview resolves every input from documented defaults", () =>
+    Effect.gen(function* () {
+      fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
+      fs.writeFileSync(path.join(projectDir, "CLAUDE.md"), "# Existing\n");
+
+      const { run, promptState } = getServiceWithInit({
+        nonInteractive: false,
+        preview: true,
+      });
+
+      const settings = yield* run;
+
+      expect(promptState.selectAgentsCalls).toEqual([]);
+      expect(promptState.confirmInstructionSyncCalls).toEqual([]);
+      expect(promptState.selectInstructionSourceCalls).toEqual([]);
+      expect(promptState.confirmSetupPlanCalls).toEqual([]);
+      expect(settings.agents).toEqual(["claude-code"]);
+      expect(settings.instructionFiles).toEqual({ fileName: "AGENTS.md", gitignoreAliases: true });
+      // The presented candidate names the seed the default source would take.
+      expect(promptState.presentSetupPlanCalls[0]).toContainEqual({
+        target: "AGENTS.md",
+        action: "create",
+        detail: "seeded from CLAUDE.md",
+      });
+      expect(fs.existsSync(path.join(projectDir, "axm.json"))).toBe(false);
+      expect(fs.existsSync(path.join(projectDir, "AGENTS.md"))).toBe(false);
+    }),
+  );
+
+  it.effect("a preview resolves identical inputs with and without preapproval", () =>
+    Effect.gen(function* () {
+      fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
+
+      const withoutApproval = getServiceWithInit({ nonInteractive: false, preview: true });
+      const withApproval = getServiceWithInit({
+        nonInteractive: false,
+        preview: true,
+        yes: true,
+      });
+
+      const unapproved = yield* withoutApproval.run;
+      const approved = yield* withApproval.run;
+
+      expect(unapproved).toEqual(approved);
+      expect(withoutApproval.promptState.presentSetupPlanCalls).toEqual(
+        withApproval.promptState.presentSetupPlanCalls,
+      );
+      expect(withoutApproval.promptState.confirmInstructionSyncCalls).toEqual([]);
+      expect(withoutApproval.promptState.selectInstructionSourceCalls).toEqual([]);
+      expect(withApproval.promptState.confirmInstructionSyncCalls).toEqual([]);
+      expect(withApproval.promptState.selectInstructionSourceCalls).toEqual([]);
     }),
   );
 });

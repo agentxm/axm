@@ -38,7 +38,6 @@ export interface InstallHandlerArgs {
 }
 
 export interface InstallSkillFlags {
-  readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
 }

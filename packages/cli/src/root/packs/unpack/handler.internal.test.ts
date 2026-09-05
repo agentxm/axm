@@ -186,7 +186,6 @@ const defaultArgs = (
   overrides: Partial<UnpackHandlerArgs> = {},
 ): UnpackHandlerArgs => ({
   name,
-  yes: false,
   preview: false,
   ...overrides,
 });

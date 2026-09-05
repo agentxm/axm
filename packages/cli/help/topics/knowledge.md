@@ -334,7 +334,7 @@ Pack removal and participates in version-constraint resolution.
 ## Publishing
 
 `axm knowledge publish @owner/knowledge/<name>` validates the manifest and the
-bundle, then releases a new version. Add `--preview` to dry-run the manifest
+bundle, then releases a new version. Add `--preview` to preview the manifest
 and publish checks without releasing.
 
 Bump the manifest `version` first; the registry rejects a version that already

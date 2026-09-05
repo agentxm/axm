@@ -187,7 +187,7 @@ All commands live under `axm hooks` and accept `--scope project` (default) or
 - `axm sync --preview` — preview stale hook state and remove it only when AXM ownership
   is proven.
 - `axm hooks publish @owner/hooks/<name>` — validate and release a new version;
-  add `--preview` to dry-run manifest and publish lint.
+  add `--preview` to run manifest and publish lint without applying.
 
 ## Recommended packs
 

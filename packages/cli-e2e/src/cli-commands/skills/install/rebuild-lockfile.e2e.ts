@@ -17,7 +17,7 @@ describe("authoritative lockfile recovery boundary", () => {
       fs.rmSync(lockfilePath, { force: true });
 
       const result = await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "another-skill", "--yes"],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "another-skill"],
         { cwd: temp.path },
       );
 
@@ -43,7 +43,7 @@ describe("authoritative lockfile recovery boundary", () => {
       fs.writeFileSync(lockfilePath, invalidLockfile);
 
       const result = await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "another-skill", "--yes"],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "another-skill"],
         { cwd: temp.path },
       );
 

@@ -67,7 +67,6 @@ describe("Creating a subagent", () => {
     handleSubagentsNew({
       name: extensionName(SUBAGENT),
       owner: Option.none(),
-      yes: true,
       preview,
     }).pipe(Effect.provide(target.layer));
 

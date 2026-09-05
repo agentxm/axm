@@ -122,7 +122,7 @@ describe("hook configured-agent outcomes", () => {
       ]);
 
       const applied = await runCli(
-        ["hooks", "install", observational, "--yes", "--json", "--non-interactive"],
+        ["hooks", "install", observational, "--json", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
@@ -202,7 +202,7 @@ describe("hook configured-agent outcomes", () => {
       ]);
       const beforeBlocked = snapshotTree(temp.path);
       const blockedApply = await runCli(
-        ["hooks", "install", blocked, "--yes", "--json", "--non-interactive"],
+        ["hooks", "install", blocked, "--json", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(blockedApply.exitCode, blockedApply.stdout + blockedApply.stderr).toBe(6);

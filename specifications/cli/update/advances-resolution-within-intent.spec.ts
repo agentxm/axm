@@ -55,14 +55,12 @@ describe("Update a desired Registry extension", () => {
       cleanups.push(workspace.cleanup);
       yield* handleInstall({
         source: Option.some(options?.locator ?? "@acme/skills/code-review"),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
       const unrelated = writeLocalSkillPackage(workspace.root, { name: "release-notes" });
       yield* handleInstall({
         source: Option.some(unrelated),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
@@ -76,7 +74,6 @@ describe("Update a desired Registry extension", () => {
   const update = (workspace: ReturnType<typeof makeSpecWorkspace>, target: string) =>
     handleUpdate({
       source: Option.some(target),
-      yes: true,
       force: false,
       preview: false,
     }).pipe(Effect.provide(workspace.layer));

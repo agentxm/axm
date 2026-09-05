@@ -43,14 +43,13 @@ describe("Uninstall a locally named MCP connection", () => {
             localName: Option.some(localName),
             env: [],
           },
-          { yes: true, force: false, preview: false },
+          { force: false, preview: false },
         ).pipe(Effect.provide(workspace.layer));
       }
 
-      yield* handleUninstallMcpServer(
-        { serverName: "work-context" },
-        { yes: true, preview: false },
-      ).pipe(Effect.provide(workspace.layer));
+      yield* handleUninstallMcpServer({ serverName: "work-context" }, { preview: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
 
       expect(workspace.readSettings()).toMatchObject({
         mcpServers: { "personal-context": "agentxm:@acme/mcps/context" },
@@ -61,10 +60,9 @@ describe("Uninstall a locally named MCP connection", () => {
       expect(workspace.exists("agent_extensions/agentxm/@acme/mcps/context/mcp.json")).toBe(true);
       expect(workspace.readLockfileText()).toContain("resolvedVersion: 1.0.0");
 
-      yield* handleUninstallMcpServer(
-        { serverName: "personal-context" },
-        { yes: true, preview: false },
-      ).pipe(Effect.provide(workspace.layer));
+      yield* handleUninstallMcpServer({ serverName: "personal-context" }, { preview: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
 
       expect(workspace.exists("agent_extensions/agentxm/@acme/mcps/context")).toBe(false);
       expect(workspace.readLockfileText()).not.toContain("resolvedVersion: 1.0.0");

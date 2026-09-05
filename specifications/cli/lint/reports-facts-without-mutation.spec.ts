@@ -59,7 +59,6 @@ describe("Lint reports facts without mutation", () => {
         const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
         yield* handleInstall({
           source: Option.some(skillPackage),
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));
@@ -100,7 +99,6 @@ describe("Lint reports facts without mutation", () => {
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

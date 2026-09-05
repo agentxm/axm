@@ -63,7 +63,7 @@ const createManagedPack = async (
     dependencies: Record<string, string>;
   },
 ) => {
-  const createResult = await runCli(["packs", "new", name, "--owner", owner, "--yes"], {
+  const createResult = await runCli(["packs", "new", name, "--owner", owner], {
     cwd: tempPath,
   });
   expect(createResult.exitCode, createResult.stderr).toBe(0);
@@ -110,7 +110,7 @@ describe("axm packs publish", () => {
 
         // Publish with --include-dependencies
         const result = await runCli(
-          ["packs", "publish", `${owner}/packs/my-pack`, "--include-dependencies", "--yes"],
+          ["packs", "publish", `${owner}/packs/my-pack`, "--include-dependencies"],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(result.exitCode).toBe(0);
@@ -179,7 +179,7 @@ describe("axm packs publish", () => {
           },
         });
 
-        // Run with --preview (no --yes)
+        // Run with --preview
         const result = await runCli(
           [
             "packs",
@@ -242,7 +242,7 @@ describe("axm packs publish", () => {
         });
 
         const dependencyResult = await runCli(
-          ["skills", "publish", `${owner}/skills/published-dep`, "--yes"],
+          ["skills", "publish", `${owner}/skills/published-dep`],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(dependencyResult.exitCode, dependencyResult.stderr).toBe(0);
@@ -255,7 +255,6 @@ describe("axm packs publish", () => {
             "--include-dependencies",
             "--on-existing",
             "verify",
-            "--yes",
             "--json",
           ],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
@@ -294,7 +293,7 @@ describe("axm packs publish", () => {
         await setupWorkspace(temp.path, registryDir.path, owner);
         createManagedSkill(temp.path, owner, "registry-dep", "1.0.0");
         const dependencyResult = await runCli(
-          ["skills", "publish", `${owner}/skills/registry-dep`, "--yes"],
+          ["skills", "publish", `${owner}/skills/registry-dep`],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(dependencyResult.exitCode, dependencyResult.stderr).toBe(0);
@@ -317,7 +316,6 @@ describe("axm packs publish", () => {
             "publish",
             `${owner}/packs/registry-reference-pack`,
             "--include-dependencies",
-            "--yes",
             "--json",
           ],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
@@ -361,7 +359,7 @@ describe("axm packs publish", () => {
         );
 
         const result = await runCli(
-          ["packs", "publish", `${owner}/packs/blocked-pack`, "--include-dependencies", "--yes"],
+          ["packs", "publish", `${owner}/packs/blocked-pack`, "--include-dependencies"],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(result.exitCode).not.toBe(0);
@@ -441,7 +439,7 @@ describe("axm packs publish", () => {
         });
 
         // Publish WITHOUT --include-dependencies
-        const result = await runCli(["packs", "publish", `${owner}/packs/solo-pack`, "--yes"], {
+        const result = await runCli(["packs", "publish", `${owner}/packs/solo-pack`], {
           cwd: temp.path,
           env: { AXM_TOKEN: "e2e-test-token" },
         });

@@ -7,6 +7,10 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
 import { Screen, errorDoc, rawDoc } from "../../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
+import {
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { getKnowledgeIndexConcept } from "@agentxm/knowledge-query";
 import {
   KnowledgeRevisionSchema,
@@ -136,6 +140,7 @@ export const getCommand = Command.make("get", getConfig, ({ reference, ifRevisio
   }).pipe(withWorkspace(scope), withRuntime("knowledge concepts get")),
 ).pipe(
   withArgvTracking(getConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Get one installed knowledge concept by exact identity"),
   Command.withExamples([
     {

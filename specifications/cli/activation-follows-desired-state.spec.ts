@@ -45,7 +45,6 @@ describe("Activation follows desired state", () => {
       const packageRoot = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
         source: Option.some(packageRoot),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
@@ -60,7 +59,7 @@ describe("Activation follows desired state", () => {
         const canonicalBefore = workspace.snapshotTree("agent_extensions");
         const lockBefore = workspace.readLockfileText();
 
-        yield* handleSkillsDisable({ name: "code-review", yes: true, preview: false }).pipe(
+        yield* handleSkillsDisable({ name: "code-review", preview: false }).pipe(
           Effect.provide(workspace.layer),
         );
 
@@ -81,10 +80,10 @@ describe("Activation follows desired state", () => {
       const agentsBefore = workspace.snapshotTree(".agents");
       const lockBefore = workspace.readLockfileText();
 
-      yield* handleSkillsDisable({ name: "code-review", yes: true, preview: false }).pipe(
+      yield* handleSkillsDisable({ name: "code-review", preview: false }).pipe(
         Effect.provide(workspace.layer),
       );
-      yield* handleSkillsEnable({ name: "code-review", yes: true, preview: false }).pipe(
+      yield* handleSkillsEnable({ name: "code-review", preview: false }).pipe(
         Effect.provide(workspace.layer),
       );
 
@@ -110,7 +109,6 @@ describe("Activation follows desired state", () => {
         url: Option.none(),
         env: [],
         header: [],
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
@@ -118,7 +116,7 @@ describe("Activation follows desired state", () => {
       const lockBefore = workspace.readLockfileText();
       expect(lockBefore).not.toContain("context");
 
-      yield* handleDisableMcpServer({ name: "context", yes: true, preview: false }).pipe(
+      yield* handleDisableMcpServer({ name: "context", preview: false }).pipe(
         Effect.provide(workspace.layer),
       );
       expect(workspace.readFile(".mcp.json")).not.toContain('"context"');
@@ -127,7 +125,7 @@ describe("Activation follows desired state", () => {
       });
       expect(workspace.readLockfileText()).toBe(lockBefore);
 
-      yield* handleEnableMcpServer({ name: "context", yes: true, preview: false }).pipe(
+      yield* handleEnableMcpServer({ name: "context", preview: false }).pipe(
         Effect.provide(workspace.layer),
       );
       expect(workspace.readFile(".mcp.json")).toContain('"context"');

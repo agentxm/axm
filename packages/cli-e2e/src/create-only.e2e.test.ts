@@ -64,7 +64,7 @@ describe("create-only extension commands", () => {
         fs.writeFileSync(path.join(destination, "keep.bin"), Buffer.from([0, 1, 2, 255]));
         const before = snapshotTree(workspace.path);
 
-        const result = await runCli([type, "new", name, "--yes"], { cwd: workspace.path });
+        const result = await runCli([type, "new", name], { cwd: workspace.path });
 
         expect(result.exitCode, `${type} new`).not.toBe(0);
         expect(result.stdout + result.stderr).toContain("destination already exists");
@@ -94,7 +94,7 @@ describe("create-only extension commands", () => {
       );
       const beforeSettingsCollision = snapshotTree(workspace.path);
 
-      const configured = await runCli(["skills", "new", "configured", "--yes"], {
+      const configured = await runCli(["skills", "new", "configured"], {
         cwd: workspace.path,
       });
 
@@ -114,7 +114,7 @@ describe("create-only extension commands", () => {
       for (const type of CREATE_TYPES) {
         const name = `preview-${type}`;
         const before = snapshotTree(workspace.path);
-        const result = await runCli([type, "new", name, "--preview", "--yes"], {
+        const result = await runCli([type, "new", name, "--preview"], {
           cwd: workspace.path,
         });
 

@@ -72,10 +72,10 @@ describe("axm skills publish", () => {
         );
 
         // Publish the extension
-        const publishResult = await runCli(
-          ["skills", "publish", "@test/skills/my-publish-skill", "--yes"],
-          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" } },
-        );
+        const publishResult = await runCli(["skills", "publish", "@test/skills/my-publish-skill"], {
+          cwd: temp.path,
+          env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" },
+        });
         expect(publishResult.exitCode).toBe(0);
         expect(publishResult.stdout).toContain("Published @test/skills/my-publish-skill@1.0.0");
         // Plain mode narrates the operation start and its settlement.
@@ -131,7 +131,6 @@ describe("axm skills publish", () => {
             "@test/skills/my-publish-skill",
             "--on-existing",
             "verify",
-            "--yes",
             "--quiet",
           ],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" } },
@@ -187,7 +186,7 @@ describe("axm skills publish", () => {
         fs.appendFileSync(skillPath, "\nChanged after commit.\n");
 
         const blocked = await runCli(
-          ["skills", "publish", "@test/skills/git-source-review", "--yes", "--json"],
+          ["skills", "publish", "@test/skills/git-source-review", "--json"],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(blocked.exitCode).not.toBe(0);
@@ -223,14 +222,7 @@ describe("axm skills publish", () => {
         expect(fs.existsSync(registryIndexPath)).toBe(false);
 
         const accepted = await runCli(
-          [
-            "skills",
-            "publish",
-            "@test/skills/git-source-review",
-            "--yes",
-            "--accept-warnings",
-            "--json",
-          ],
+          ["skills", "publish", "@test/skills/git-source-review", "--accept-warnings", "--json"],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(accepted.exitCode, `${accepted.stderr}\n${accepted.stdout}`).toBe(0);
@@ -285,7 +277,7 @@ describe("axm skills publish", () => {
         );
 
         // Publish using bare name (owner resolved from settings)
-        const publishResult = await runCli(["skills", "publish", "code-review", "--yes"], {
+        const publishResult = await runCli(["skills", "publish", "code-review"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "e2e-test-token" },
         });
@@ -328,7 +320,7 @@ describe("axm skills publish", () => {
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         const publishResult = await runCli(
-          ["skills", "publish", "@test/skills/nonexistent-skill", "--yes", "--json"],
+          ["skills", "publish", "@test/skills/nonexistent-skill", "--json"],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(publishResult.exitCode).toBe(0);
@@ -414,7 +406,7 @@ describe("axm skills publish", () => {
         });
 
         // Publish with glob pattern
-        const result = await runCli(["skills", "publish", "effect-*", "--yes"], {
+        const result = await runCli(["skills", "publish", "effect-*"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "e2e-test-token" },
         });
@@ -471,7 +463,7 @@ describe("axm skills publish", () => {
         });
 
         // Publish multiple literal names
-        const result = await runCli(["skills", "publish", "skill-a", "skill-b", "--yes"], {
+        const result = await runCli(["skills", "publish", "skill-a", "skill-b"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "e2e-test-token" },
         });
@@ -515,7 +507,7 @@ describe("axm skills publish", () => {
         });
 
         // Publish with a glob that matches nothing
-        const result = await runCli(["skills", "publish", "nonexistent-*", "--yes", "--json"], {
+        const result = await runCli(["skills", "publish", "nonexistent-*", "--json"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "e2e-test-token" },
         });
@@ -537,7 +529,7 @@ describe("axm skills publish", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("skills publish");
-      expect(result.stdout).toContain("--yes");
+      expect(result.stdout).not.toContain("--yes");
       expect(result.stdout).toContain("--registry");
       expect(result.stdout).toContain("--preview");
     });

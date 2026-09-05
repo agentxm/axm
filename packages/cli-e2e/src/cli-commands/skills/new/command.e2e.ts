@@ -44,7 +44,7 @@ describe("axm skills new", () => {
       });
       configureScope(settingsPath);
 
-      const result = await runCli(["skills", "new", "my-skill", "--yes"], { cwd: temp.path });
+      const result = await runCli(["skills", "new", "my-skill"], { cwd: temp.path });
       expect(result.exitCode).toBe(0);
 
       // Verify manifest
@@ -87,7 +87,7 @@ describe("axm skills new", () => {
       );
       configureScope(settingsPath, "@custom");
 
-      const result = await runCli(["skills", "new", "my-skill", "--owner", "@custom", "--yes"], {
+      const result = await runCli(["skills", "new", "my-skill", "--owner", "@custom"], {
         cwd: temp.path,
       });
       expect(result.exitCode).toBe(0);
@@ -112,8 +112,8 @@ describe("axm skills new", () => {
       );
       configureScope(settingsPath);
 
-      await runCli(["skills", "new", "dup-skill", "--yes"], { cwd: temp.path });
-      const result = await runCli(["skills", "new", "dup-skill", "--yes"], { cwd: temp.path });
+      await runCli(["skills", "new", "dup-skill"], { cwd: temp.path });
+      const result = await runCli(["skills", "new", "dup-skill"], { cwd: temp.path });
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("already exists");

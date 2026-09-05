@@ -5,6 +5,7 @@ import { Command } from "effect/unstable/cli";
 
 import { Screen, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import {
   ConfiguredAgentOutcomeSchema,
   configuredAgentLifecycleOutcomes,
@@ -163,6 +164,7 @@ export const listCommand = Command.make("list", scopeConfig, ({ scope }) =>
   ),
 ).pipe(
   withArgvTracking(scopeConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("List installed knowledge bundles"),
   Command.withExamples([
     { command: "axm knowledge list", description: "List installed knowledge bundles" },

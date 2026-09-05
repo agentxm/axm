@@ -106,7 +106,7 @@ describe("axm login", () => {
     const output = result.stdout + result.stderr;
     expect(output).toContain("Use OAuth device-code sign-in; recommended for SSH and");
     expect(output).toContain("headless environments");
-    expect(output).toContain("Log in again without prompting when already authenticated");
+    expect(output).toContain("Start a new sign-in without prompting when a valid session");
     expect(output).toContain("axm login");
     expect(output).toContain("axm login --device-code");
     expect(output).toContain("--wait");

@@ -35,6 +35,17 @@ export {
 } from "./resolution-timeout.js";
 
 export {
+  PUBLISHER_CHANGE_CONDITION_ID,
+  classifyPublisherBindingTransition,
+  publisherChangeRiskCondition,
+  publisherTransitionWarning,
+  registryBindingProposal,
+  withPublisherTrust,
+  withPublisherTrustConditions,
+  type PublisherBindingTransition,
+} from "./publisher-binding.js";
+
+export {
   buildInstallCommandPlan,
   runInstallCommandWorkflow,
   type InstallExtensionCommandWorkflowActions,

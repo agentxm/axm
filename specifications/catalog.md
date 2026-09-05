@@ -28,6 +28,19 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Source: [`specifications/cli/activation-follows-desired-state.spec.ts`](../specifications/cli/activation-follows-desired-state.spec.ts)
 
+#### Adopt
+
+##### Adopt preview describes the authorship transition without changing any state
+
+- Requirement: `cli/adopt/preview-is-pure`
+- Statement: When adopt runs in preview mode against a canonical package the workspace could author, it shall report the adoption it would apply with a previewed outcome and shall not move the package, create authored content, or change settings or the lockfile.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/adopt/preview-is-pure.spec.ts`](../specifications/cli/adopt/preview-is-pure.spec.ts)
+
 #### Agent Selection Is Membership Or Filter
 
 ##### Agent selection chooses workspace membership or filters a listing, never one extension
@@ -58,6 +71,18 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
 - Source: [`specifications/cli/agents/add/add-is-idempotent.spec.ts`](../specifications/cli/agents/add/add-is-idempotent.spec.ts)
 
+##### Agent add preview describes the new membership without changing any state
+
+- Requirement: `cli/agents/add/preview-is-pure`
+- Statement: When agents add runs in preview mode for a coding agent the workspace does not yet configure, it shall report the membership and realized outputs it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or any agent's outputs.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/agents/add/records-membership-and-realizes-outputs`
+- Source: [`specifications/cli/agents/add/preview-is-pure.spec.ts`](../specifications/cli/agents/add/preview-is-pure.spec.ts)
+
 ##### Adding a coding agent records it durably and realizes installed extensions for it
 
 - Requirement: `cli/agents/add/records-membership-and-realizes-outputs`
@@ -86,6 +111,18 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/agent-membership.e2e.test.ts`](../packages/cli-e2e/src/agent-membership.e2e.test.ts) — Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.
 - Source: [`specifications/cli/agents/remove/preserves-unowned-agent-content.spec.ts`](../specifications/cli/agents/remove/preserves-unowned-agent-content.spec.ts)
 
+##### Agent remove preview describes the departing membership without changing any state
+
+- Requirement: `cli/agents/remove/preview-is-pure`
+- Statement: When agents remove runs in preview mode for a configured coding agent, it shall report the membership and owned outputs it would remove with a previewed outcome and shall not change settings, the lockfile, canonical content, or any agent's outputs.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/agents/remove/removes-membership-and-owned-outputs`
+- Source: [`specifications/cli/agents/remove/preview-is-pure.spec.ts`](../specifications/cli/agents/remove/preview-is-pure.spec.ts)
+
 ##### Removing a coding agent retires it together with the outputs only it reached
 
 - Requirement: `cli/agents/remove/removes-membership-and-owned-outputs`
@@ -99,6 +136,20 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
 - Additional evidence: process via [`packages/cli-e2e/src/agent-membership.e2e.test.ts`](../packages/cli-e2e/src/agent-membership.e2e.test.ts) — Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.
 - Source: [`specifications/cli/agents/remove/removes-membership-and-owned-outputs.spec.ts`](../specifications/cli/agents/remove/removes-membership-and-owned-outputs.spec.ts)
+
+#### Approval Required Names A Valid Recovery
+
+##### A blocked approval names a recovery the command line will accept
+
+- Requirement: `cli/approval-required-names-a-valid-recovery`
+- Statement: When an apply stops as approval required, its recovery shall name the approval its route supports — a replay carrying the advance-approval flag where the route offers one, otherwise an interactive rerun without machine or non-interactive switches — the named command shall parse on the real command line, and a request whose values cannot be replayed safely shall describe the recovery without echoing those values.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/lockfile-rejections-name-recovery-routes`, `cli/confirmation-flags-have-a-supported-purpose`
+- Source: [`specifications/cli/approval-required-names-a-valid-recovery.spec.ts`](../specifications/cli/approval-required-names-a-valid-recovery.spec.ts)
 
 #### Changes Do Not Interleave
 
@@ -119,7 +170,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Every supported command presents complete help
 
 - Requirement: `cli/command-help-is-complete`
-- Statement: Every supported command shall present usable help, and the rendered help tree shall list exactly the supported command paths.
+- Statement: Every supported command shall present usable help, the rendered help tree shall list exactly the supported command paths, and no command's help shall list a retired flag spelling.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`
@@ -146,6 +197,34 @@ programmatic interfaces, and supporting system behavior.
 - Limitation: The evidence establishes the pre-launch command surface only; it cannot establish whether alias routes remain prohibited after public launch. Retires when: Public launch, when the alias-route policy is decided and this specification is revised or retired.
 - Source: [`specifications/cli/commands-have-no-alias-routes.spec.ts`](../specifications/cli/commands-have-no-alias-routes.spec.ts)
 
+#### Confirmation Flags Have A Supported Purpose
+
+##### Advance approval is offered only where it settles one documented decision
+
+- Requirement: `cli/confirmation-flags-have-a-supported-purpose`
+- Statement: A command shall accept the advance-approval flag only when it documents the one confirmation that flag settles, an invocation carrying the flag shall change that command's outcome exactly as documented, and every other command shall reject the flag and its short spelling before any work begins.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Derived from: `cli/demote/preview-is-pure`, `cli/setup/unattended-apply-requires-explicit-intent`, `cli/login/preapproval-requests-new-sign-in`
+- Source: [`specifications/cli/confirmation-flags-have-a-supported-purpose.spec.ts`](../specifications/cli/confirmation-flags-have-a-supported-purpose.spec.ts)
+
+#### Confirmation Is Required Only For Actionable Risk
+
+##### A person is asked to confirm only when the plan carries a risk worth confirming
+
+- Requirement: `cli/confirmation-is-required-only-for-actionable-risk`
+- Statement: An apply whose plan carries no confirmable risk shall proceed without asking, an apply with nothing to do shall finish without asking, and an apply whose plan carries a confirmable risk shall ask when a prompt can open, honor a declined answer by changing nothing, and stop as approval required when no prompt can open.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/machine-mode-never-prompts`, `cli/preview-does-not-consume-approval`
+- Source: [`specifications/cli/confirmation-is-required-only-for-actionable-risk.spec.ts`](../specifications/cli/confirmation-is-required-only-for-actionable-risk.spec.ts)
+
 #### Delegated Operations Narrate External Work
 
 ##### A delegating operation narrates the external work it hands off
@@ -161,6 +240,19 @@ programmatic interfaces, and supporting system behavior.
 - Limitation: The conditional wait narration obligation has no product polling witness after upgrade stopped polling publication. Retires when: A command that polls an external tool supplies an event-log example for waiting and completion.
 - Limitation: Upgrade is the only delegating operation this specification exercises; another command that delegates to an external tool is covered by the statement but not yet by an example. Retires when: A second command delegates to an external tool and its event log is added to this specification.
 - Source: [`specifications/cli/delegated-operations-narrate-external-work.spec.ts`](../specifications/cli/delegated-operations-narrate-external-work.spec.ts)
+
+#### Demote
+
+##### Demote preview describes the authority transition without consuming approval
+
+- Requirement: `cli/demote/preview-is-pure`
+- Statement: When demote runs in preview mode, it shall report the replacement it would apply with a previewed outcome that is identical with or without advance approval, shall not change settings, the lockfile, authored content, or agent projections, and an unattended apply without advance approval shall stop before changing anything and name the approval it needs.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/demote/preview-is-pure.spec.ts`](../specifications/cli/demote/preview-is-pure.spec.ts)
 
 #### Every Type Completes The Shared Lifecycle
 
@@ -190,6 +282,105 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: contract, decision-table
 - Source: [`specifications/cli/force-bypasses-only-named-policies.spec.ts`](../specifications/cli/force-bypasses-only-named-policies.spec.ts)
+
+#### Fork
+
+##### Fork preview describes the new authored package without changing any state
+
+- Requirement: `cli/fork/preview-is-pure`
+- Statement: When fork runs in preview mode against a resolvable source package, it shall report the authored package it would create with a previewed outcome and shall not create authored content or change settings, the lockfile, or the source package.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/fork/preview-is-pure.spec.ts`](../specifications/cli/fork/preview-is-pure.spec.ts)
+
+#### Hooks
+
+##### Hooks package disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/hooks/disable/preview-is-pure`
+- Statement: When hooks disable runs in preview mode against an enabled hooks package, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/hooks/disable/preview-is-pure.spec.ts`](../specifications/cli/hooks/disable/preview-is-pure.spec.ts)
+
+##### Hooks package enable preview describes the activation without changing any state
+
+- Requirement: `cli/hooks/enable/preview-is-pure`
+- Statement: When hooks enable runs in preview mode against a disabled hooks package, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/hooks/enable/preview-is-pure.spec.ts`](../specifications/cli/hooks/enable/preview-is-pure.spec.ts)
+
+##### Hooks package install preview describes the installation without changing any state
+
+- Requirement: `cli/hooks/install/preview-is-pure`
+- Statement: When hooks install runs in preview mode against a local hooks package that is not yet installed, it shall report the installation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/install/preview-is-pure`
+- Source: [`specifications/cli/hooks/install/preview-is-pure.spec.ts`](../specifications/cli/hooks/install/preview-is-pure.spec.ts)
+
+##### New hook preview describes the scaffold without changing any state
+
+- Requirement: `cli/hooks/new/preview-is-pure`
+- Statement: When hooks new runs in preview mode for a name that is not yet authored, it shall report the package it would create with a previewed outcome and shall not change settings, the authored source root, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`
+- Source: [`specifications/cli/hooks/new/preview-is-pure.spec.ts`](../specifications/cli/hooks/new/preview-is-pure.spec.ts)
+
+##### Hook publish preview reports the admitted hooks without distributing anything
+
+- Requirement: `cli/hooks/publish/preview-is-pure`
+- Statement: When hooks publish runs in preview mode, it shall report the admitted workspace-authored hooks with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/hooks/publish/preview-is-pure.spec.ts`](../specifications/cli/hooks/publish/preview-is-pure.spec.ts)
+
+##### Hooks package uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/hooks/uninstall/preview-is-pure`
+- Statement: When hooks uninstall runs in preview mode against an installed hooks package, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Source: [`specifications/cli/hooks/uninstall/preview-is-pure.spec.ts`](../specifications/cli/hooks/uninstall/preview-is-pure.spec.ts)
+
+##### Hooks package update preview describes the update without changing any state
+
+- Requirement: `cli/hooks/update/preview-is-pure`
+- Statement: When hooks update runs in preview mode against an installed hooks package whose source has changed, it shall report the update it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Source: [`specifications/cli/hooks/update/preview-is-pure.spec.ts`](../specifications/cli/hooks/update/preview-is-pure.spec.ts)
 
 #### Install
 
@@ -260,7 +451,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Install preview describes the plan without changing any state
 
 - Requirement: `cli/install/preview-is-pure`
-- Statement: When the install command runs in preview mode, it shall report the planned closure with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Statement: When install runs in preview mode, it shall report the planned closure with a previewed outcome, including any publisher change the acceptance would make, and shall not change settings, the lockfile, canonical content, or agent projections.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -350,6 +541,18 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/instructions/management-is-explicit`
 - Source: [`specifications/cli/instructions/disable/disable-is-idempotent.spec.ts`](../specifications/cli/instructions/disable/disable-is-idempotent.spec.ts)
 
+##### Instruction management disable preview describes the cleanup without changing any state
+
+- Requirement: `cli/instructions/disable/preview-is-pure`
+- Statement: When instructions disable runs in preview mode for a workspace with managed instruction files, it shall report the recorded choice and owned aliases it would remove with a previewed outcome and shall not change settings, alias files, ignore regions, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/instructions/disable/removes-only-owned-aliases`
+- Source: [`specifications/cli/instructions/disable/preview-is-pure.spec.ts`](../specifications/cli/instructions/disable/preview-is-pure.spec.ts)
+
 ##### Disabling instruction-file management removes only what AXM owns
 
 - Requirement: `cli/instructions/disable/removes-only-owned-aliases`
@@ -362,6 +565,18 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/instructions/management-is-explicit`
 - Supersedes: `cli/instructions/management-is-explicit`
 - Source: [`specifications/cli/instructions/disable/removes-only-owned-aliases.spec.ts`](../specifications/cli/instructions/disable/removes-only-owned-aliases.spec.ts)
+
+##### Instruction management enable preview describes the aliases without changing any state
+
+- Requirement: `cli/instructions/enable/preview-is-pure`
+- Statement: When instructions enable runs in preview mode for a workspace whose instruction files are unmanaged, it shall report the recorded choice and alias files it would create with a previewed outcome and shall not change settings, alias files, ignore regions, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/instructions/enable/records-choice-and-reconciles-aliases`
+- Source: [`specifications/cli/instructions/enable/preview-is-pure.spec.ts`](../specifications/cli/instructions/enable/preview-is-pure.spec.ts)
 
 ##### Enabling instruction-file management records the explicit choice and reconciles aliases together
 
@@ -419,6 +634,92 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
 - Additional evidence: process via [`packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
 - Source: [`specifications/cli/invalid-workspace-state-gates-operations.spec.ts`](../specifications/cli/invalid-workspace-state-gates-operations.spec.ts)
+
+#### Knowledge
+
+##### Knowledge disable preview describes the exclusion without changing any state
+
+- Requirement: `cli/knowledge/disable/preview-is-pure`
+- Statement: When knowledge disable runs in preview mode against an enabled Knowledge bundle, it shall report the exclusion it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/knowledge/disable/preview-is-pure.spec.ts`](../specifications/cli/knowledge/disable/preview-is-pure.spec.ts)
+
+##### Knowledge enable preview describes the activation without changing any state
+
+- Requirement: `cli/knowledge/enable/preview-is-pure`
+- Statement: When knowledge enable runs in preview mode against a disabled Knowledge bundle, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/knowledge/enable/preview-is-pure.spec.ts`](../specifications/cli/knowledge/enable/preview-is-pure.spec.ts)
+
+##### Knowledge install preview describes the acquisition without changing any state
+
+- Requirement: `cli/knowledge/install/preview-is-pure`
+- Statement: When knowledge install runs in preview mode against an installable Knowledge source, it shall report the bundle it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/knowledge/install/preview-is-pure.spec.ts`](../specifications/cli/knowledge/install/preview-is-pure.spec.ts)
+
+##### Knowledge new preview describes the scaffold without creating any state
+
+- Requirement: `cli/knowledge/new/preview-is-pure`
+- Statement: When knowledge new runs in preview mode for a bundle name the workspace does not yet author, it shall report the bundle it would create with a previewed outcome and shall not write the authored package, settings, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/new/scaffolds-for-every-configured-agent`
+- Source: [`specifications/cli/knowledge/new/preview-is-pure.spec.ts`](../specifications/cli/knowledge/new/preview-is-pure.spec.ts)
+
+##### Knowledge publish preview reports the admitted bundles without distributing anything
+
+- Requirement: `cli/knowledge/publish/preview-is-pure`
+- Statement: When knowledge publish runs in preview mode, it shall report the admitted workspace-authored knowledge bundles with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/knowledge/publish/preview-is-pure.spec.ts`](../specifications/cli/knowledge/publish/preview-is-pure.spec.ts)
+
+##### Knowledge uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/knowledge/uninstall/preview-is-pure`
+- Statement: When knowledge uninstall runs in preview mode against an installed Knowledge bundle, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/knowledge/uninstall/preview-is-pure.spec.ts`](../specifications/cli/knowledge/uninstall/preview-is-pure.spec.ts)
+
+##### Knowledge update preview describes the newer release without changing any state
+
+- Requirement: `cli/knowledge/update/preview-is-pure`
+- Statement: When knowledge update runs in preview mode against a configured Registry bundle with a newer eligible release, it shall report the update it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/update/advances-resolution-within-intent`
+- Source: [`specifications/cli/knowledge/update/preview-is-pure.spec.ts`](../specifications/cli/knowledge/update/preview-is-pure.spec.ts)
 
 #### Lint
 
@@ -538,6 +839,19 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/workspace-lockfile-rejections-name-state-and-recovery`
 - Source: [`specifications/cli/lockfile-rejections-name-recovery-routes.spec.ts`](../specifications/cli/lockfile-rejections-name-recovery-routes.spec.ts)
 
+#### Login
+
+##### Login preapproval starts a new sign-in over a valid session in every mode
+
+- Requirement: `cli/login/preapproval-requests-new-sign-in`
+- Statement: When a valid registry session already exists, login with preapproval shall start a new sign-in without asking in interactive, machine-output, and non-interactive modes, while login without preapproval shall keep the session and name the preapproval in modes that cannot ask and shall ask before replacing it in a mode that can.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/login/preapproval-requests-new-sign-in.spec.ts`](../specifications/cli/login/preapproval-requests-new-sign-in.spec.ts)
+
 #### Managed Projection Guidance Respects Authority
 
 ##### Managed projections name editable sources only when the workspace owns them
@@ -553,6 +867,18 @@ programmatic interfaces, and supporting system behavior.
 
 #### Mcps
 
+##### Inline MCP server add preview describes the configuration without changing any state
+
+- Requirement: `cli/mcps/add/preview-is-pure`
+- Statement: When mcps add runs in preview mode with a new inline server definition, it shall report the configuration and agent realization it would apply with a previewed outcome and shall not change settings, the lockfile, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/add/records-and-realizes-inline-configuration`
+- Source: [`specifications/cli/mcps/add/preview-is-pure.spec.ts`](../specifications/cli/mcps/add/preview-is-pure.spec.ts)
+
 ##### Adding an inline MCP server records it as authored configuration and realizes it
 
 - Requirement: `cli/mcps/add/records-and-realizes-inline-configuration`
@@ -566,6 +892,30 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
 - Source: [`specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts`](../specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts)
 
+##### MCP server disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/mcps/disable/preview-is-pure`
+- Statement: When mcps disable runs in preview mode against an enabled MCP server, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/mcps/disable/preview-is-pure.spec.ts`](../specifications/cli/mcps/disable/preview-is-pure.spec.ts)
+
+##### MCP server enable preview describes the activation without changing any state
+
+- Requirement: `cli/mcps/enable/preview-is-pure`
+- Statement: When mcps enable runs in preview mode against a disabled MCP server, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/mcps/enable/preview-is-pure.spec.ts`](../specifications/cli/mcps/enable/preview-is-pure.spec.ts)
+
 ##### An imported MCP server is adopted once and reaches every configured agent
 
 - Requirement: `cli/mcps/import/adoption-reaches-every-configured-agent`
@@ -578,6 +928,18 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/sync/realizes-desired-state`, `packages/cli/src/root/mcps/import.internal.test.ts`
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so a server present in one file and absent from the other observes adoption reaching a second agent.
 - Source: [`specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts`](../specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts)
+
+##### MCP server import preview describes the adoption without changing any state
+
+- Requirement: `cli/mcps/import/preview-is-pure`
+- Statement: When mcps import runs in preview mode against an unmanaged native MCP server, it shall report the adoption it would apply with a previewed outcome and shall not change settings, the lockfile, or any native agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/import/adoption-reaches-every-configured-agent`
+- Source: [`specifications/cli/mcps/import/preview-is-pure.spec.ts`](../specifications/cli/mcps/import/preview-is-pure.spec.ts)
 
 ##### Inline MCP entries stay authoritative exactly as authored
 
@@ -615,6 +977,18 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts`](../specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts)
 
+##### MCP server install preview describes the installation without changing any state
+
+- Requirement: `cli/mcps/install/preview-is-pure`
+- Statement: When mcps install runs in preview mode against a Registry MCP server that is not yet installed, it shall report the installation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/install/local-connection-names-share-source-resolution`
+- Source: [`specifications/cli/mcps/install/preview-is-pure.spec.ts`](../specifications/cli/mcps/install/preview-is-pure.spec.ts)
+
 ##### The human MCP inventory shows local name and source as separate columns
 
 - Requirement: `cli/mcps/list/human-inventory-separates-local-name-and-source`
@@ -626,6 +1000,18 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
 - Source: [`specifications/cli/mcps/list/human-inventory-separates-local-name-and-source.spec.ts`](../specifications/cli/mcps/list/human-inventory-separates-local-name-and-source.spec.ts)
+
+##### New MCP server preview describes the scaffold without changing any state
+
+- Requirement: `cli/mcps/new/preview-is-pure`
+- Statement: When mcps new runs in preview mode for a name that is not yet authored, it shall report the package it would create with a previewed outcome and shall not change settings, the authored source root, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/mcps/new.internal.test.ts`
+- Source: [`specifications/cli/mcps/new/preview-is-pure.spec.ts`](../specifications/cli/mcps/new/preview-is-pure.spec.ts)
 
 ##### MCP servers reach every configured agent that can represent them
 
@@ -640,6 +1026,18 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.
 - Source: [`specifications/cli/mcps/projects-to-every-configured-agent.spec.ts`](../specifications/cli/mcps/projects-to-every-configured-agent.spec.ts)
 
+##### MCP server publish preview reports the admitted servers without distributing anything
+
+- Requirement: `cli/mcps/publish/preview-is-pure`
+- Statement: When mcps publish runs in preview mode, it shall report the admitted workspace-authored MCP servers with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/mcps/publish/preview-is-pure.spec.ts`](../specifications/cli/mcps/publish/preview-is-pure.spec.ts)
+
 ##### Uninstalling an MCP server preserves native entries AXM does not own
 
 - Requirement: `cli/mcps/uninstall/preserves-unowned-native-entries`
@@ -653,6 +1051,18 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
 - Source: [`specifications/cli/mcps/uninstall/preserves-unowned-native-entries.spec.ts`](../specifications/cli/mcps/uninstall/preserves-unowned-native-entries.spec.ts)
 
+##### MCP server uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/mcps/uninstall/preview-is-pure`
+- Statement: When mcps uninstall runs in preview mode against an installed MCP server, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/uninstall/removes-one-local-connection-at-a-time`
+- Source: [`specifications/cli/mcps/uninstall/preview-is-pure.spec.ts`](../specifications/cli/mcps/uninstall/preview-is-pure.spec.ts)
+
 ##### Uninstall removes one local MCP connection and retains shared source state
 
 - Requirement: `cli/mcps/uninstall/removes-one-local-connection-at-a-time`
@@ -663,6 +1073,18 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/mcps/uninstall/removes-one-local-connection-at-a-time.spec.ts`](../specifications/cli/mcps/uninstall/removes-one-local-connection-at-a-time.spec.ts)
+
+##### MCP server update preview describes the update without changing any state
+
+- Requirement: `cli/mcps/update/preview-is-pure`
+- Statement: When mcps update runs in preview mode against an installed MCP server whose source publishes a newer eligible version, it shall report the update it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/update/shared-source-update-is-closure-wide`
+- Source: [`specifications/cli/mcps/update/preview-is-pure.spec.ts`](../specifications/cli/mcps/update/preview-is-pure.spec.ts)
 
 ##### Updating one locally named connection advances every connection sharing its source
 
@@ -704,6 +1126,18 @@ programmatic interfaces, and supporting system behavior.
 
 #### Packs
 
+##### Pack add preview describes the new member without changing the manifest
+
+- Requirement: `cli/packs/add/preview-is-pure`
+- Statement: When packs add runs in preview mode for an installed extension and a workspace-authored pack, it shall report the dependency it would record with a previewed outcome and shall not change the pack manifest, settings, the lockfile, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/packs/add/records-member-as-pack-dependency`
+- Source: [`specifications/cli/packs/add/preview-is-pure.spec.ts`](../specifications/cli/packs/add/preview-is-pure.spec.ts)
+
 ##### Adding an installed extension to an authored pack records it as a pack dependency
 
 - Requirement: `cli/packs/add/records-member-as-pack-dependency`
@@ -718,6 +1152,54 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/packs/add/records-member-as-pack-dependency.spec.ts`](../specifications/cli/packs/add/records-member-as-pack-dependency.spec.ts)
 
+##### Pack disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/packs/disable/preview-is-pure`
+- Statement: When packs disable runs in preview mode against an enabled pack, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/packs/disable/preview-is-pure.spec.ts`](../specifications/cli/packs/disable/preview-is-pure.spec.ts)
+
+##### Pack enable preview describes the activation without changing any state
+
+- Requirement: `cli/packs/enable/preview-is-pure`
+- Statement: When packs enable runs in preview mode against a disabled pack, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/packs/enable/preview-is-pure.spec.ts`](../specifications/cli/packs/enable/preview-is-pure.spec.ts)
+
+##### Pack install preview describes the pack closure without changing any state
+
+- Requirement: `cli/packs/install/preview-is-pure`
+- Statement: When packs install runs in preview mode against a Registry pack, it shall report the pack and members it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/packs/install/preview-is-pure.spec.ts`](../specifications/cli/packs/install/preview-is-pure.spec.ts)
+
+##### Pack new preview describes the scaffold without creating any state
+
+- Requirement: `cli/packs/new/preview-is-pure`
+- Statement: When packs new runs in preview mode for a pack name the workspace does not yet author, it shall report the pack it would create with a previewed outcome and shall not write the authored package, settings, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/packs/new/records-workspace-authorship`
+- Source: [`specifications/cli/packs/new/preview-is-pure.spec.ts`](../specifications/cli/packs/new/preview-is-pure.spec.ts)
+
 ##### Creating a pack records workspace authorship with an empty dependency graph
 
 - Requirement: `cli/packs/new/records-workspace-authorship`
@@ -731,6 +1213,66 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/packs/authored-packs-expand-membership`
 - Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/packs/new/records-workspace-authorship.spec.ts`](../specifications/cli/packs/new/records-workspace-authorship.spec.ts)
+
+##### Pack publish preview reports the admitted packs without distributing anything
+
+- Requirement: `cli/packs/publish/preview-is-pure`
+- Statement: When packs publish runs in preview mode, it shall report the admitted workspace-authored packs with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/packs/publish/preview-is-pure.spec.ts`](../specifications/cli/packs/publish/preview-is-pure.spec.ts)
+
+##### Pack remove preview describes the departing member without changing the manifest
+
+- Requirement: `cli/packs/remove/preview-is-pure`
+- Statement: When packs remove runs in preview mode for a member of a workspace-authored pack, it shall report the dependency it would remove with a previewed outcome and shall not change the pack manifest, settings, the lockfile, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/packs/add/records-member-as-pack-dependency`
+- Source: [`specifications/cli/packs/remove/preview-is-pure.spec.ts`](../specifications/cli/packs/remove/preview-is-pure.spec.ts)
+
+##### Pack uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/packs/uninstall/preview-is-pure`
+- Statement: When packs uninstall runs in preview mode against an installed pack, it shall report the pack and orphaned members it would remove with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/packs/uninstall/preview-is-pure.spec.ts`](../specifications/cli/packs/uninstall/preview-is-pure.spec.ts)
+
+##### Pack unpack preview describes the promotions without changing any state
+
+- Requirement: `cli/packs/unpack/preview-is-pure`
+- Statement: When packs unpack runs in preview mode against an installed pack, it shall report the members it would promote to direct entries and the pack it would remove with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/packs/unpack/preview-is-pure.spec.ts`](../specifications/cli/packs/unpack/preview-is-pure.spec.ts)
+
+##### Pack update preview describes the reconciliation without changing any state
+
+- Requirement: `cli/packs/update/preview-is-pure`
+- Statement: When packs update runs in preview mode against a configured pack whose closure is not yet accepted, it shall report the pack and members it would resolve with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/packs/update/preview-is-pure.spec.ts`](../specifications/cli/packs/update/preview-is-pure.spec.ts)
 
 #### Policy Overrides Reach Every Blocked Command
 
@@ -747,6 +1289,20 @@ programmatic interfaces, and supporting system behavior.
 - Open questions: Whether enabling an already-installed extension should resolve from source at all, or should read only the accepted resolution and never reach the gate. Activation accepts the override today because the gate can block it today; deciding that question may remove activation from the gated inventory instead.
 - Limitation: The one-shot meaning is exercised through each handler the flag reaches — root install, root update, sync, the shared workspace install, and the shared workspace update — rather than once per registered command path. Commands routing into the same handler share its behavior by construction, and the registration and parser checks below do cover every path. Retires when: The specification harness exports a driver for every gate-blockable command path, letting the decision table run per path.
 - Source: [`specifications/cli/policy-overrides-reach-every-blocked-command.spec.ts`](../specifications/cli/policy-overrides-reach-every-blocked-command.spec.ts)
+
+#### Preview Does Not Consume Approval
+
+##### A preview reads the same with or without advance approval and spends none of it
+
+- Requirement: `cli/preview-does-not-consume-approval`
+- Statement: When a command that offers both assessment and advance approval runs in preview mode, it shall render the same candidate whether or not approval accompanies the request, shall ask for no confirmation, and a later unattended apply without approval shall still stop as approval required with nothing changed.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/demote/preview-is-pure`, `cli/setup/preview-is-pure`
+- Source: [`specifications/cli/preview-does-not-consume-approval.spec.ts`](../specifications/cli/preview-does-not-consume-approval.spec.ts)
 
 #### Projection Currency Follows State Authority
 
@@ -780,7 +1336,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Publish preview reports the admitted publication set without distributing anything
 
 - Requirement: `cli/publish/preview-is-pure`
-- Statement: When publish runs in preview mode, it shall report the admitted publication set with no execution and shall not upload anything or change settings or the lockfile.
+- Statement: When publish runs in preview mode, it shall report the admitted publication set with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `trustworthy-distribution`
@@ -828,7 +1384,179 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
 - Source: [`specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts`](../specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts)
 
+#### Publisher Changes Require Interactive Approval
+
+##### Accepting a Registry extension from a different publisher needs a person's approval
+
+- Requirement: `cli/publisher-changes-require-interactive-approval`
+- Statement: When an apply would replace an accepted Registry binding with one published under a different publisher for the same extension, every route that can make that acceptance shall report the change in preview without changing anything, shall stop as approval required naming interactive approval when no prompt can open, and shall record the new binding only after a person approves it at a prompt; an acceptance under the same publisher, or a first acceptance, shall not be treated as such a change.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `cli/update/preview-is-pure`, `cli/install/preview-is-pure`, `cli/skills/update/preview-is-pure`, `packages/cli/src/root/skills/update/handler.internal.test.ts`
+- Source: [`specifications/cli/publisher-changes-require-interactive-approval.spec.ts`](../specifications/cli/publisher-changes-require-interactive-approval.spec.ts)
+
+#### Rules
+
+##### Rule disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/rules/disable/preview-is-pure`
+- Statement: When rules disable runs in preview mode against an enabled rule, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/rules/disable/preview-is-pure.spec.ts`](../specifications/cli/rules/disable/preview-is-pure.spec.ts)
+
+##### Rule enable preview describes the activation without changing any state
+
+- Requirement: `cli/rules/enable/preview-is-pure`
+- Statement: When rules enable runs in preview mode against a disabled rule, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/rules/enable/preview-is-pure.spec.ts`](../specifications/cli/rules/enable/preview-is-pure.spec.ts)
+
+##### Rule install preview describes the installation without changing any state
+
+- Requirement: `cli/rules/install/preview-is-pure`
+- Statement: When rules install runs in preview mode against a local rule package that is not yet installed, it shall report the installation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/install/preview-is-pure`
+- Source: [`specifications/cli/rules/install/preview-is-pure.spec.ts`](../specifications/cli/rules/install/preview-is-pure.spec.ts)
+
+##### New rule preview describes the scaffold without changing any state
+
+- Requirement: `cli/rules/new/preview-is-pure`
+- Statement: When rules new runs in preview mode for a name that is not yet authored, it shall report the package it would create with a previewed outcome and shall not change settings, the authored source root, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/hooks/new/preview-is-pure`
+- Source: [`specifications/cli/rules/new/preview-is-pure.spec.ts`](../specifications/cli/rules/new/preview-is-pure.spec.ts)
+
+##### Rule publish preview reports the admitted rules without distributing anything
+
+- Requirement: `cli/rules/publish/preview-is-pure`
+- Statement: When rules publish runs in preview mode, it shall report the admitted workspace-authored rules with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/rules/publish/preview-is-pure.spec.ts`](../specifications/cli/rules/publish/preview-is-pure.spec.ts)
+
+##### Rule uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/rules/uninstall/preview-is-pure`
+- Statement: When rules uninstall runs in preview mode against an installed rule, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Source: [`specifications/cli/rules/uninstall/preview-is-pure.spec.ts`](../specifications/cli/rules/uninstall/preview-is-pure.spec.ts)
+
+##### Rule update preview describes the update without changing any state
+
+- Requirement: `cli/rules/update/preview-is-pure`
+- Statement: When rules update runs in preview mode against an installed rule whose source has changed, it shall report the update it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Source: [`specifications/cli/rules/update/preview-is-pure.spec.ts`](../specifications/cli/rules/update/preview-is-pure.spec.ts)
+
+#### Setup
+
+##### Setup preview describes the workspace it would create without creating it
+
+- Requirement: `cli/setup/preview-is-pure`
+- Statement: When setup runs in preview mode against an uninitialized directory, it shall report the setup candidate it would apply with a previewed outcome and shall not create workspace settings, the lockfile, the runtime directory, instruction files, or agent projections, whether or not preapproval accompanies the preview.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/setup/preview-is-pure.spec.ts`](../specifications/cli/setup/preview-is-pure.spec.ts)
+
+##### Setup preview resolves its inputs from documented defaults without asking
+
+- Requirement: `cli/setup/preview-resolves-inputs-without-prompts`
+- Statement: When setup runs in preview mode, it shall resolve coding-agent membership and instruction configuration from the explicit request or the documented defaults, shall raise no prompt even in an interactive session, shall resolve the same candidate with or without preapproval, and shall disclose which defaults it used.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/setup/preview-resolves-inputs-without-prompts.spec.ts`](../specifications/cli/setup/preview-resolves-inputs-without-prompts.spec.ts)
+
+##### Unattended setup applies only a fully explicit request
+
+- Requirement: `cli/setup/unattended-apply-requires-explicit-intent`
+- Statement: When setup runs unattended against an uninitialized directory, it shall apply only when preapproval, an explicit scope, and at least one explicit coding agent are all present, and a request missing any of them shall terminate with approval required and shall change no state.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/machine-mode-never-prompts`
+- Source: [`specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts`](../specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts)
+
 #### Skills
+
+##### Skill disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/skills/disable/preview-is-pure`
+- Statement: When skills disable runs in preview mode against an enabled skill, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`, `cli/activation-follows-desired-state`
+- Source: [`specifications/cli/skills/disable/preview-is-pure.spec.ts`](../specifications/cli/skills/disable/preview-is-pure.spec.ts)
+
+##### Skill enable preview describes the activation without changing any state
+
+- Requirement: `cli/skills/enable/preview-is-pure`
+- Statement: When skills enable runs in preview mode against a disabled skill, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`
+- Source: [`specifications/cli/skills/enable/preview-is-pure.spec.ts`](../specifications/cli/skills/enable/preview-is-pure.spec.ts)
+
+##### Skill import preview describes the conversion without changing any state
+
+- Requirement: `cli/skills/import/preview-is-pure`
+- Statement: When skills import runs in preview mode against a native skill, it shall report the managed package it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, agent projections, or the native source.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli-e2e/src/fork-import.e2e.test.ts`
+- Source: [`specifications/cli/skills/import/preview-is-pure.spec.ts`](../specifications/cli/skills/import/preview-is-pure.spec.ts)
 
 ##### Bundled official-skill recovery rewrites the settings entry to bundled ownership and retires the Registry resolution
 
@@ -856,6 +1584,30 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/skills/install/bundled-recovery-converges`
 - Source: [`specifications/cli/skills/install/preserves-authored-official-skill.spec.ts`](../specifications/cli/skills/install/preserves-authored-official-skill.spec.ts)
 
+##### Skill install preview describes the acquisition without changing any state
+
+- Requirement: `cli/skills/install/preview-is-pure`
+- Statement: When skills install runs in preview mode against an installable source, it shall report the skills it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/skills/install/preview-is-pure.spec.ts`](../specifications/cli/skills/install/preview-is-pure.spec.ts)
+
+##### Skill creation preview describes the scaffold without creating any state
+
+- Requirement: `cli/skills/new/preview-is-pure`
+- Statement: When skills new runs in preview mode with an owner the workspace authors, it shall report the manifest, content, settings entry, and agent locations it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/new/scaffolds-for-every-configured-agent`
+- Source: [`specifications/cli/skills/new/preview-is-pure.spec.ts`](../specifications/cli/skills/new/preview-is-pure.spec.ts)
+
 ##### A new skill is scaffolded for the universal location and every configured agent
 
 - Requirement: `cli/skills/new/scaffolds-for-every-configured-agent`
@@ -869,7 +1621,103 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
 - Source: [`specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts)
 
+##### Skill publish preview reports the admitted skills without distributing anything
+
+- Requirement: `cli/skills/publish/preview-is-pure`
+- Statement: When skills publish runs in preview mode, it shall report the admitted workspace-authored skills with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/skills/publish/preview-is-pure.spec.ts`](../specifications/cli/skills/publish/preview-is-pure.spec.ts)
+
+##### Skill uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/skills/uninstall/preview-is-pure`
+- Statement: When skills uninstall runs in preview mode against an installed skill, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`, `packages/cli/src/root/skills/uninstall/handler.internal.test.ts`
+- Source: [`specifications/cli/skills/uninstall/preview-is-pure.spec.ts`](../specifications/cli/skills/uninstall/preview-is-pure.spec.ts)
+
+##### Skill update preview describes the available update without changing any state
+
+- Requirement: `cli/skills/update/preview-is-pure`
+- Statement: When skills update runs in preview mode while the Registry serves a newer version of an accepted skill, it shall report the update it would apply with a previewed outcome, shall report a changed publisher binding as a condition that only interactive approval satisfies, and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/update/advances-resolution-within-intent`, `packages/cli/src/root/skills/update/handler.internal.test.ts`
+- Source: [`specifications/cli/skills/update/preview-is-pure.spec.ts`](../specifications/cli/skills/update/preview-is-pure.spec.ts)
+
 #### Subagents
+
+##### Subagent disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/subagents/disable/preview-is-pure`
+- Statement: When subagents disable runs in preview mode against an enabled subagent, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/disable/preview-is-pure`, `cli/activation-follows-desired-state`
+- Source: [`specifications/cli/subagents/disable/preview-is-pure.spec.ts`](../specifications/cli/subagents/disable/preview-is-pure.spec.ts)
+
+##### Subagent enable preview describes the activation without changing any state
+
+- Requirement: `cli/subagents/enable/preview-is-pure`
+- Statement: When subagents enable runs in preview mode against a disabled subagent, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`, `cli/activation-follows-desired-state`
+- Source: [`specifications/cli/subagents/enable/preview-is-pure.spec.ts`](../specifications/cli/subagents/enable/preview-is-pure.spec.ts)
+
+##### Subagent import preview describes the conversion without changing any state
+
+- Requirement: `cli/subagents/import/preview-is-pure`
+- Statement: When subagents import runs in preview mode against a native subagent, it shall report the managed package it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, agent projections, or the native source.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/import/preview-is-pure`, `packages/cli-e2e/src/fork-import.e2e.test.ts`
+- Source: [`specifications/cli/subagents/import/preview-is-pure.spec.ts`](../specifications/cli/subagents/import/preview-is-pure.spec.ts)
+
+##### Subagent install preview describes the acquisition without changing any state
+
+- Requirement: `cli/subagents/install/preview-is-pure`
+- Statement: When subagents install runs in preview mode against an installable source, it shall report the subagents it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`, `cli/skills/install/preview-is-pure`
+- Source: [`specifications/cli/subagents/install/preview-is-pure.spec.ts`](../specifications/cli/subagents/install/preview-is-pure.spec.ts)
+
+##### Subagent creation preview describes the scaffold without creating any state
+
+- Requirement: `cli/subagents/new/preview-is-pure`
+- Statement: When subagents new runs in preview mode with an owner the workspace authors, it shall report the manifest, content, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/subagents/new/scaffolds-for-every-configured-agent`
+- Source: [`specifications/cli/subagents/new/preview-is-pure.spec.ts`](../specifications/cli/subagents/new/preview-is-pure.spec.ts)
 
 ##### A new subagent is scaffolded and rendered for every configured agent
 
@@ -884,6 +1732,42 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.
 - Open questions: Whether the creation result should list each agent's rendered file as a target, as skill creation lists agent locations, is unresolved; this specification requires only that preview and apply agree and that every configured agent receives its rendering.
 - Source: [`specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts)
+
+##### Subagent publish preview reports the admitted subagents without distributing anything
+
+- Requirement: `cli/subagents/publish/preview-is-pure`
+- Statement: When subagents publish runs in preview mode, it shall report the admitted workspace-authored subagents with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/subagents/publish/preview-is-pure.spec.ts`](../specifications/cli/subagents/publish/preview-is-pure.spec.ts)
+
+##### Subagent uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/subagents/uninstall/preview-is-pure`
+- Statement: When subagents uninstall runs in preview mode against an installed subagent, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/uninstall/preview-is-pure`, `packages/cli/src/root/subagents/uninstall/handler.internal.test.ts`
+- Source: [`specifications/cli/subagents/uninstall/preview-is-pure.spec.ts`](../specifications/cli/subagents/uninstall/preview-is-pure.spec.ts)
+
+##### Subagent update preview describes the available update without changing any state
+
+- Requirement: `cli/subagents/update/preview-is-pure`
+- Statement: When subagents update runs in preview mode while the Registry serves a newer version of an accepted subagent, it shall report the update it would apply with a previewed outcome, shall report a changed publisher binding as a condition that only interactive approval satisfies, and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/update/preview-is-pure`, `packages/cli/src/root/subagents/update/handler.internal.test.ts`
+- Source: [`specifications/cli/subagents/update/preview-is-pure.spec.ts`](../specifications/cli/subagents/update/preview-is-pure.spec.ts)
 
 #### Sync
 
@@ -908,6 +1792,18 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/sync/preserves-unowned-agent-content.spec.ts`](../specifications/cli/sync/preserves-unowned-agent-content.spec.ts)
+
+##### Sync preview describes the reconciliation without changing any state
+
+- Requirement: `cli/sync/preview-is-pure`
+- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, shall report divergence without exiting successfully when asked to fail on change, and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/realizes-desired-state`
+- Source: [`specifications/cli/sync/preview-is-pure.spec.ts`](../specifications/cli/sync/preview-is-pure.spec.ts)
 
 ##### Sync realizes desired additions and removes what desired state no longer includes
 
@@ -934,6 +1830,18 @@ programmatic interfaces, and supporting system behavior.
 - Methods: decision-table
 - Additional evidence: process via [`packages/cli-e2e/src/root-uninstall.e2e.test.ts`](../packages/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
 - Source: [`specifications/cli/uninstall/is-idempotent.spec.ts`](../specifications/cli/uninstall/is-idempotent.spec.ts)
+
+##### Uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/uninstall/preview-is-pure`
+- Statement: When uninstall runs in preview mode against a desired extension, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/uninstall/is-idempotent`
+- Source: [`specifications/cli/uninstall/preview-is-pure.spec.ts`](../specifications/cli/uninstall/preview-is-pure.spec.ts)
 
 ##### Uninstall removes direct intent and keeps state another desired route still reaches
 
@@ -999,6 +1907,18 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/update/bundled-source-routes-to-recovery.spec.ts`](../specifications/cli/update/bundled-source-routes-to-recovery.spec.ts)
+
+##### Update preview describes the advance without changing any state
+
+- Requirement: `cli/update/preview-is-pure`
+- Statement: When update runs in preview mode against a desired extension with a newer eligible version, it shall report the advance it would apply with a previewed outcome, including any publisher change the acceptance would make, and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/update/advances-resolution-within-intent`
+- Source: [`specifications/cli/update/preview-is-pure.spec.ts`](../specifications/cli/update/preview-is-pure.spec.ts)
 
 ##### Update is blocked for an extension the workspace does not desire
 
@@ -1082,6 +2002,31 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts`](../specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts)
+
+##### Upgrade preview resolves the installation change without performing it
+
+- Requirement: `cli/upgrade/preview-is-pure`
+- Statement: When upgrade runs in preview mode against an installation with a newer promoted release, it shall report the installer, the target, and the command it would run with a previewed outcome and shall invoke no installer command, persist no install metadata, and write no update-check cache.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/upgrade/discloses-resolved-ownership-before-mutation`
+- Source: [`specifications/cli/upgrade/preview-is-pure.spec.ts`](../specifications/cli/upgrade/preview-is-pure.spec.ts)
+
+#### Version
+
+##### Version preview describes the manifest bump without changing any state
+
+- Requirement: `cli/version/preview-is-pure`
+- Statement: When version runs in preview mode against a workspace-authored extension, it shall report the version it would record with a previewed outcome and shall not change the manifest, settings, the lockfile, or any other authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/version/preview-is-pure.spec.ts`](../specifications/cli/version/preview-is-pure.spec.ts)
 
 #### Whoami
 
@@ -1189,12 +2134,12 @@ programmatic interfaces, and supporting system behavior.
 ##### The published exit-code reference matches the runtime exit codes
 
 - Requirement: `cli/exit-codes-match-published-reference`
-- Statement: The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows.
+- Statement: The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows, and an invocation the parser rejects or an apply stopped as approval required shall exit with the code whose published meaning names that outcome.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `knowledge-access`
 - Boundary: memory; selection: per-change
-- Methods: model
+- Methods: model, example
 - Source: [`specifications/cli/exit-codes-match-published-reference.spec.ts`](../specifications/cli/exit-codes-match-published-reference.spec.ts)
 
 #### Install
@@ -1294,7 +2239,7 @@ programmatic interfaces, and supporting system behavior.
 ##### A failed machine invocation still emits the stable error envelope
 
 - Requirement: `cli/machine-errors-use-the-stable-envelope`
-- Statement: When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output that carries any structured problem the failure names, keeping every diagnostic line on standard error as a structured event.
+- Statement: When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output that carries any structured problem the failure names, keeping every diagnostic line on standard error as a structured event; when it stops as approval required, it shall write exactly one schema-valid result document that names the block and its recovery.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1310,7 +2255,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Machine output mode terminates deterministically instead of prompting
 
 - Requirement: `cli/machine-mode-never-prompts`
-- Statement: When machine output mode is on, a command that needs interactive input shall terminate with a usage failure naming the required input, shall raise no prompt, and shall change no workspace state, while the same request with machine output off shall prompt and honor the answer.
+- Statement: When machine output mode is on, a command that needs interactive input or interactive approval shall terminate with a usage failure naming what it needs, shall raise no prompt even from an interactive terminal, and shall change no workspace state, while the same request with machine output off shall prompt and honor the answer.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
@@ -1384,6 +2329,20 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/non-tty-output-is-plain-and-unpadded.spec.ts`](../specifications/cli/non-tty-output-is-plain-and-unpadded.spec.ts)
+
+#### Preview Uses The Canonical Flag
+
+##### Assessment is spelled --preview everywhere it exists and nowhere else
+
+- Requirement: `cli/preview-uses-the-canonical-flag`
+- Statement: Every command that assesses its change without applying it shall accept --preview and no alternative spelling, every command without an assessment shall reject --preview, and rendered help shall list --preview and --yes on exactly the commands whose capabilities declare them.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: contract
+- Derived from: `cli/command-help-is-complete`
+- Source: [`specifications/cli/preview-uses-the-canonical-flag.spec.ts`](../specifications/cli/preview-uses-the-canonical-flag.spec.ts)
 
 #### Publish
 
@@ -1740,6 +2699,19 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: The module-boundary lint gate declared as bound evidence runs on every change through the required aggregate check.
 - Bound evidence: `lint: @nx/enforce-module-boundaries` — Rejects workspace imports from end-to-end and test-support projects into product source packages, and relative imports that cross a project root, leaving the built CLI output path as the only sanctioned way to reach the shipped surface.
 - Source: [`specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts`](../specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts)
+
+##### Every registered command declares interaction capabilities its flags and evidence agree with
+
+- Requirement: `system/architecture/every-command-declares-interaction-capabilities`
+- Statement: Every registered command node shall declare its interaction capabilities; the declared routes shall be exactly the accepted allocation, each declaration shall agree with its allocation row and with the flags its rendered help lists, every assessment route shall own a preview-purity specification, and every advance-approval route shall have a purpose fixture in the confirmation-flag specification.
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Only the registered command tree, the accepted allocation table, the rendered help, and the specification files on disk, compared together, can show that every route's declaration, grammar, and evidence correspond.
+- Methods: contract, static
+- Derived from: `system/architecture/specification-folders-mirror-command-tree`, `cli/confirmation-flags-have-a-supported-purpose`, `cli/preview-uses-the-canonical-flag`
+- Source: [`specifications/system/architecture/every-command-declares-interaction-capabilities.spec.ts`](../specifications/system/architecture/every-command-declares-interaction-capabilities.spec.ts)
 
 ##### Feature packages stay peers and never depend on one another
 

@@ -48,13 +48,12 @@ describe("Inline MCP server lifecycle is safe to repeat", () => {
       url: Option.none(),
       env: [],
       header: [],
-      yes: true,
       force: false,
       preview: false,
     }).pipe(Effect.provide(workspace.layer));
 
   const uninstallDemo = (workspace: ReturnType<typeof makeSpecWorkspace>) =>
-    handleUninstallMcpServer({ serverName: "demo" }, { yes: true, preview: false }).pipe(
+    handleUninstallMcpServer({ serverName: "demo" }, { preview: false }).pipe(
       Effect.provide(workspace.layer),
     );
 

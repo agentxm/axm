@@ -44,14 +44,14 @@ const reinstallForms = [
   {
     form: "root install",
     install: (source: string, force: boolean) =>
-      handleInstall({ source: Option.some(source), yes: true, force, preview: false }),
+      handleInstall({ source: Option.some(source), force, preview: false }),
   },
   {
     form: "skills install",
     install: (source: string, force: boolean) =>
       handleSkillsInstall(
         { source: Option.some(source), skills: [], all: true },
-        { yes: true, force, preview: false },
+        { force, preview: false },
       ),
   },
 ] as const;
@@ -73,7 +73,7 @@ const heldReleaseWorkspace = (cleanups: Array<() => void>) => {
 };
 
 const configuredInstall = (workspace: SpecWorkspace, flags: { readonly force: boolean }) =>
-  handleInstall({ source: Option.none(), yes: true, preview: false, ...flags }).pipe(
+  handleInstall({ source: Option.none(), preview: false, ...flags }).pipe(
     Effect.provide(workspace.layer),
   );
 

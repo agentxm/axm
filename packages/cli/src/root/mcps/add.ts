@@ -8,8 +8,13 @@ import {
   type McpServerSyncTarget,
 } from "@agentxm/extension-workspace";
 import { makeAppError } from "../../app-error/index.js";
-import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { count } from "../../screen/index.js";
 import {
   operationPresentation,
@@ -42,7 +47,6 @@ export interface McpsAddArgs {
   readonly url: Option.Option<string>;
   readonly env: ReadonlyArray<string>;
   readonly header: ReadonlyArray<string>;
-  readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
 }
@@ -254,7 +258,6 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
-    yes: args.yes,
     acceptedPolicies: args.force ? ["accept-warnings"] : [],
   });
   yield* emitOperationResolution("mcps.add", resolution);
@@ -277,27 +280,26 @@ const addConfig = {
     Flag.withDescription("Remote header as Name:Value; repeatable"),
     Flag.atLeast(0),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
   force: acceptWarningsFlag,
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+  preview: previewCapabilityFlag("Show what would change without applying"),
 } as const;
 
 export const addCommand = Command.make(
   "add",
   addConfig,
-  ({ name, scope, command, url, env, header, yes, force, preview }) =>
+  ({ name, scope, command, url, env, header, force, preview }) =>
     handleMcpsAdd({
       name,
       command,
       url,
       env,
       header,
-      yes,
       force,
       preview,
     }).pipe(withWorkspace(scope), withRuntime("mcps add")),
 ).pipe(
   withArgvTracking(addConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Add an inline MCP server"),
   Command.withExamples([
     {

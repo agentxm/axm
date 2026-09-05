@@ -16,8 +16,10 @@ import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/ext
 import {
   observeUnit,
   previewOrApplyPlan,
-  preapprovedPlanExecution,
-  previewPlanExecution,
+  publicRecoveryValue,
+  recoveryOption,
+  recoveryPositional,
+  recoverySwitch,
 } from "@agentxm/workspace-operations";
 import { Screen } from "../../screen/index.js";
 import {
@@ -50,6 +52,7 @@ import {
 } from "@agentxm/workspace-operations";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { buildConfiguredPackInstallPlan } from "../install/workspace-install.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { toAppError } from "../../app-error/conversions.js";
@@ -418,9 +421,29 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
     description: planDescription,
   });
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    execution: args.preview ? previewPlanExecution : preapprovedPlanExecution,
-  }).pipe(Effect.provide(syncPlanLayer));
+  // Sync confirms nothing in advance: it applies ready reconciliation work and
+  // stops before mutation if a plan ever carries an unexpected confirmable
+  // condition, naming interactive approval rather than a flag it lacks.
+  const execution = yield* makePlanExecution(
+    { preview: args.preview },
+    makeConfirmationRecovery(
+      ["sync"],
+      [
+        ...Option.match(Option.flatten(Option.fromUndefinedOr(args.target)), {
+          onNone: () => [],
+          onSome: (target) => [recoveryPositional(publicRecoveryValue(target))],
+        }),
+        ...Option.match(Option.flatten(Option.fromUndefinedOr(args.type)), {
+          onNone: () => [],
+          onSome: (type) => [recoveryOption("--type", publicRecoveryValue(type))],
+        }),
+        recoverySwitch("--fail-on-change", args.failOnChange === true),
+      ],
+    ),
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution }).pipe(
+    Effect.provide(syncPlanLayer),
+  );
   const outcome = deriveOperationOutcome(resolution);
   const diverged =
     args.failOnChange === true && outcome === "previewed" && resolution.units.length > 0;

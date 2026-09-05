@@ -152,15 +152,31 @@ and syncs the configured MCP servers into each configured agent.
 
 ### Mutation consent
 
-An explicit, eligible mutation applies without a redundant confirmation prompt.
-Use `--preview` to inspect the exact candidate without writing, including in
-combination with `--yes`. AXM prompts only for a confirmable semantic risk;
-`--yes` preapproves that risk for the current invocation.
+Every command declares what it can do without applying and which confirmation
+it can approve in advance; a flag appears only where it has a purpose. Where a
+command can assess its change without applying it, `--preview` reports the
+exact candidate and writes nothing, including a candidate the command would
+refuse to apply. An explicit, eligible mutation then applies without a
+redundant confirmation prompt: AXM asks only when a plan carries a confirmable
+semantic risk.
 
-Named policy overrides remain independent. `--yes` never substitutes for
-`--ignore-version-constraints` or `--accept-warnings`. In non-interactive and JSON contexts,
-AXM never opens a prompt: it either applies an eligible candidate or returns a
-structured reason and a safe recovery action.
+`--yes` (`-y`) exists on three commands, each for one documented confirmation:
+`demote` approves replacing workspace authority with the externally sourced
+package, `setup` applies the documented unattended defaults with an explicit
+scope and explicit agents, and `login` starts a new sign-in although a valid
+session exists. No other command accepts it. A preview never consumes an
+approval: `--preview` with `--yes` inspects the candidate and confirms nothing.
+
+Replacing an accepted publisher with a different one during install or update
+is a trust decision approved only at an interactive prompt; no flag approves it
+in advance. Named policy overrides remain independent of consent: `--yes`
+never substitutes for `--ignore-version-constraints` or `--accept-warnings`.
+
+In non-interactive and JSON contexts, AXM never opens a prompt: it either
+applies an eligible candidate or returns a structured `approval-required`
+reason with a valid recovery — the same invocation with `--yes` where the
+command accepts it, otherwise the invocation rerun without `--json` or
+`--non-interactive` so the prompt can open.
 
 ## Where to go next
 

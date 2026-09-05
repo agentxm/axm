@@ -8,6 +8,10 @@ import YAML from "yaml";
 
 import { Screen, rawDoc } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
+import {
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/knowledge-query";
 import { LockfileSchema } from "@agentxm/workspace-state";
 import { SettingsSchema } from "@agentxm/workspace-state";
@@ -117,6 +121,7 @@ export const statusCommand = Command.make("status", statusConfig, ({ scope }) =>
   ),
 ).pipe(
   withArgvTracking(statusConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Report discovery capabilities and selected corpus identity"),
   Command.withExamples([
     {

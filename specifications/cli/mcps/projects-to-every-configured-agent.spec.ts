@@ -121,7 +121,6 @@ describe("MCP servers project to every configured agent", () => {
       url: Option.none(),
       env: [],
       header: [],
-      yes: true,
       force: false,
       preview: false,
     }).pipe(Effect.provide(workspace.layer));
@@ -182,13 +181,13 @@ describe("MCP servers project to every configured agent", () => {
         const workspace = workspaceWithAgents(["claude-code", "cursor"]);
         yield* addDemo(workspace);
 
-        yield* handleDisableMcpServer({ name: "demo", yes: true, preview: false }).pipe(
+        yield* handleDisableMcpServer({ name: "demo", preview: false }).pipe(
           Effect.provide(workspace.layer),
         );
         expect(nativeHasServer(workspace, CLAUDE_CODE_CONFIG, "demo")).toBe(false);
         expect(nativeHasServer(workspace, CURSOR_CONFIG, "demo")).toBe(false);
 
-        yield* handleEnableMcpServer({ name: "demo", yes: true, preview: false }).pipe(
+        yield* handleEnableMcpServer({ name: "demo", preview: false }).pipe(
           Effect.provide(workspace.layer),
         );
         expect(nativeHasServer(workspace, CLAUDE_CODE_CONFIG, "demo")).toBe(true);
@@ -201,7 +200,7 @@ describe("MCP servers project to every configured agent", () => {
       const workspace = workspaceWithAgents(["claude-code", "cursor"]);
       yield* addDemo(workspace);
 
-      yield* handleUninstallMcpServer({ serverName: "demo" }, { yes: true, preview: false }).pipe(
+      yield* handleUninstallMcpServer({ serverName: "demo" }, { preview: false }).pipe(
         Effect.provide(workspace.layer),
       );
 

@@ -47,7 +47,7 @@ describe("List locally named MCP connections as a machine document", () => {
             localName: Option.some(localName),
             env: [],
           },
-          { yes: true, force: false, preview: false },
+          { force: false, preview: false },
         ).pipe(Effect.provide(workspace.layer));
       }
       workspace.rendererState.results.length = 0;

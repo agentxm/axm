@@ -32,7 +32,6 @@ import {
 import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 export interface RootInstallFlags {
-  readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
 }
@@ -234,14 +233,14 @@ const handleInstallBody = (args: RootInstallHandlerArgs, actions: InstallCommand
           type: Option.none(),
           planName: "Install configured extensions",
           planDescription: Option.some("Install configured workspace extensions"),
-          flags: args,
+          flags: { force: args.force, preview: args.preview },
         },
         actions,
       ),
     onSome: (source) =>
       Effect.gen(function* () {
         const execution = yield* makePlanExecution(
-          args,
+          { preview: args.preview },
           makeConfirmationRecovery(
             ["install"],
             [

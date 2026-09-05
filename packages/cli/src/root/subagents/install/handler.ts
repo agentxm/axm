@@ -19,7 +19,6 @@ export interface InstallSubagentHandlerArgs {
 }
 
 export interface InstallSubagentFlags {
-  readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
 }

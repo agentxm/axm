@@ -35,15 +35,12 @@ describe("Uninstall a directly desired extension", () => {
   const installLocalSkill = (workspace: ReturnType<typeof makeSpecWorkspace>, name: string) =>
     handleInstall({
       source: Option.some(writeLocalSkillPackage(workspace.root, { name })),
-      yes: true,
       force: false,
       preview: false,
     }).pipe(Effect.provide(workspace.layer));
 
   const uninstall = (workspace: ReturnType<typeof makeSpecWorkspace>, fqn: string) =>
-    handleUninstall({ source: fqn, yes: true, preview: false }).pipe(
-      Effect.provide(workspace.layer),
-    );
+    handleUninstall({ source: fqn, preview: false }).pipe(Effect.provide(workspace.layer));
 
   it.effect("removes the direct workspace configuration route and its resolution", () =>
     Effect.gen(function* () {
@@ -102,7 +99,7 @@ describe("Uninstall a directly desired extension", () => {
           makePackRetainedSkillWorkspace();
         cleanups.push(workspace.cleanup);
 
-        yield* handleUninstall({ source: skillFqn, yes: true, preview: false }).pipe(
+        yield* handleUninstall({ source: skillFqn, preview: false }).pipe(
           Effect.provide(workspace.layer),
         );
 

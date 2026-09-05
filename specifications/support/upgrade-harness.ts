@@ -25,6 +25,7 @@ import {
   Homebrew,
   InstallMeta,
   InstallMethod,
+  type InstallMetaData,
   ProgressEventSchema,
   Subprocess,
   TestFlagsLayer,
@@ -160,6 +161,10 @@ export interface UpgradeRun {
   readonly events: ReadonlyArray<OperationEvent>;
   /** Every external command the installer was asked to run. */
   readonly calls: ReadonlyArray<Invocation>;
+  /** Every install-metadata record the command persisted. */
+  readonly installMetaWrites: ReadonlyArray<InstallMetaData>;
+  /** Every update-check cache write the command performed. */
+  readonly updateCheckWrites: ReadonlyArray<{ readonly version: string }>;
   /** The decoded result document written to standard output. */
   readonly document: unknown;
   readonly humanOutput: string;
@@ -170,7 +175,10 @@ export interface UpgradeRunOptions extends InstallerOptions {
   readonly requestedVersion?: string;
   readonly localVersion?: string;
   readonly method?: InstallMethodType;
-  readonly dryRun?: boolean;
+  /** Assess the upgrade without performing it. */
+  readonly preview?: boolean;
+  /** Permit replacing an equal installed version. */
+  readonly reinstall?: boolean;
   /** Test-clock advance in milliseconds while the command runs, for a delayed command. */
   readonly advanceMs?: number;
 }
@@ -183,6 +191,8 @@ export const runUpgrade = (options?: UpgradeRunOptions) =>
   Effect.gen(function* () {
     const streams = makeRecordingStreams();
     const installer = homebrewInstaller(options);
+    const installMetaWrites: Array<InstallMetaData> = [];
+    const updateCheckWrites: Array<{ readonly version: string }> = [];
     const layer = Layer.mergeAll(
       NodeServices.layer,
       options?.human === true ? humanScreenLayer(streams) : machineScreenLayer(streams),
@@ -191,7 +201,10 @@ export const runUpgrade = (options?: UpgradeRunOptions) =>
       Layer.succeed(UpdateCheck, {
         readCacheState: () => Effect.succeed({ state: "missing" }),
         readCache: () => Effect.succeed(Option.none()),
-        writeCache: () => Effect.void,
+        writeCache: (channel) =>
+          Effect.sync(() => {
+            updateCheckWrites.push({ version: channel.version });
+          }),
         isUpdateAvailable: () => Effect.succeed(Option.none()),
         shouldSkip: () => false,
         notificationMessage: () => "",
@@ -210,19 +223,22 @@ export const runUpgrade = (options?: UpgradeRunOptions) =>
       }),
       Layer.succeed(InstallMeta, {
         read: () => Effect.succeed(Option.none()),
-        write: () => Effect.void,
+        write: (metadata) =>
+          Effect.sync(() => {
+            installMetaWrites.push(metadata);
+          }),
       }),
       Layer.succeed(HttpClient.HttpClient, releaseChannel),
       installer.layer,
     );
 
     const fiber = yield* handleUpgrade({
-      reinstall: false,
+      reinstall: options?.reinstall === true,
       ...(options?.requestedVersion === undefined
         ? {}
         : { requestedVersion: options.requestedVersion }),
       ...(options?.localVersion === undefined ? {} : { localVersion: options.localVersion }),
-      ...(options?.dryRun === true ? { dryRun: true } : {}),
+      ...(options?.preview === true ? { preview: true } : {}),
     }).pipe(Effect.provide(layer), Effect.forkChild);
     if (options?.advanceMs !== undefined) yield* TestClock.adjust(options.advanceMs);
     yield* Fiber.join(fiber);
@@ -232,6 +248,8 @@ export const runUpgrade = (options?: UpgradeRunOptions) =>
     return {
       events,
       calls: installer.calls,
+      installMetaWrites,
+      updateCheckWrites,
       document:
         stdout === undefined || options?.human === true ? undefined : JSON.parse(stdout.content),
       humanOutput: streams.log.map((entry) => entry.content).join(""),

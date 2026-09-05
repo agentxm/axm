@@ -40,7 +40,6 @@ describe("Install records direct workspace intent", () => {
 
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

@@ -60,7 +60,6 @@ describe("mcps-new.handler", () => {
           name: extensionName("context"),
           description: "Context server",
           owner: Option.none(),
-          yes: true,
           preview: false,
         });
 
@@ -99,7 +98,6 @@ describe("mcps-new.handler", () => {
           name: extensionName("context"),
           description: "Context server",
           owner: Option.none(),
-          yes: true,
           preview: false,
         });
 
@@ -138,7 +136,6 @@ describe("mcps-new.handler", () => {
           name: extensionName("context"),
           description: "Context server",
           owner: Option.none(),
-          yes: true,
           preview: false,
         });
 
@@ -146,7 +143,6 @@ describe("mcps-new.handler", () => {
           name: extensionName("context"),
           description: "Context server",
           owner: Option.none(),
-          yes: true,
           preview: false,
         }).pipe(Effect.flip);
 

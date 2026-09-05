@@ -2,14 +2,7 @@ import { CodingAgentRepository, resolveInstructionTarget } from "@agentxm/extens
 import { bootstrapWorkspace, type SetupAgentCandidate } from "@agentxm/workspace-configuration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import {
-  agentFlag,
-  isNonInteractive,
-  jsonFlag,
-  previewFlag,
-  yesFlag,
-  Verbosity,
-} from "../cli-flags/index.js";
+import { agentFlag, isNonInteractive, jsonFlag, Verbosity } from "../cli-flags/index.js";
 import { Screen, errorDoc, headlineDoc, successDoc, suggestionsDoc } from "../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -47,6 +40,12 @@ import { ExecutionDirectory } from "../execution-directory.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath, joinDisplayPath } from "./shared/display-path.js";
 import { commandForScope } from "./shared/scoped-command.js";
+import {
+  preapprovalCapabilityFlag,
+  previewCapabilityFlag,
+  withCommandCapabilities,
+  type CommandCapabilities,
+} from "./shared/command-capabilities.js";
 import { setupBrandingDoc, setupScopeSupportDoc, subagentSummaryDoc } from "./setup/view.js";
 import { AXM_SKILL_VERSION } from "../__generated__/bundled-axm-skill.js";
 import { installBundledAxmSkill } from "./skills/install/bundled-axm-skill.js";
@@ -134,6 +133,37 @@ const SetupScopeSupportCategorySchema = Schema.Struct({
   outcomes: Schema.Array(SetupScopeSupportOutcomeSchema),
 });
 
+/**
+ * The documented defaults a preview resolved in place of the answers an
+ * interactive setup would have asked for. `agents` names how the candidate
+ * membership was chosen; `instructions` is present only for a scope that
+ * configures instruction files.
+ */
+const SetupPreviewDefaultsSchema = Schema.Struct({
+  agents: Schema.Literals(["explicit", "detected", "suggested"] as const),
+  instructions: Schema.optional(
+    Schema.Struct({
+      enabled: Schema.Boolean,
+      fileName: Schema.String,
+    }),
+  ),
+});
+
+/**
+ * Setup applies a documented unattended candidate when explicitly asked to,
+ * and it assesses that same candidate under `--preview` without asking.
+ */
+const setupCapabilities = {
+  preview: true,
+  preapproval: {
+    purpose:
+      "Apply the documented unattended setup defaults with an explicit scope and explicit agents",
+  },
+  trust: [],
+  inputs: "explicit-or-documented-defaults",
+  effect: "workspace",
+} satisfies CommandCapabilities;
+
 export const SetupResultSchema = Schema.Struct({
   outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op", "failed"] as const),
   planName: Schema.String,
@@ -177,10 +207,12 @@ export const SetupResultSchema = Schema.Struct({
   ),
   telemetryEnabled: Schema.Boolean,
   subagentFiles: Schema.optional(Schema.Array(SubagentSummarySchema)),
+  previewDefaults: Schema.optional(SetupPreviewDefaultsSchema),
 });
 
 export type SetupResult = typeof SetupResultSchema.Type;
 type SetupStatus = SetupResult["status"];
+type SetupPreviewDefaults = typeof SetupPreviewDefaultsSchema.Type;
 type SetupPlanStep = typeof SetupPlanStepSchema.Type;
 type SetupArtifactTarget = typeof SetupPlanStepArtifactTargetSchema.Type;
 
@@ -334,6 +366,26 @@ const setupArtifactChange = (args: {
 }): ArtifactChange => {
   if (args.status === "preview") return "created";
   return args.hasChange ? "created" : "unchanged";
+};
+
+/**
+ * How a preview chose its membership candidate: the explicit request when one
+ * was given, otherwise detection where it produced a strong signal, otherwise
+ * the catalog suggestion set.
+ */
+const previewAgentDefault = (
+  candidates: ReadonlyArray<SetupAgentCandidate>,
+): SetupPreviewDefaults["agents"] => {
+  const reasons = candidates.flatMap((candidate) =>
+    candidate.state === "selected" && candidate.selectionReason !== undefined
+      ? [candidate.selectionReason]
+      : [],
+  );
+  if (reasons.includes("explicit")) return "explicit";
+  if (reasons.some((reason) => reason === "project-detected" || reason === "user-detected")) {
+    return "detected";
+  }
+  return "suggested";
 };
 
 const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
@@ -666,6 +718,20 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
     agentDescriptors.length > 0 ? yield* scanAllSubagentFiles(location.baseDir) : [];
   const status = wouldInitialize ? "preview" : initialized ? "initialized" : "already-initialized";
   const resolvedStatus = cancelled ? "cancelled" : status;
+  const previewDefaults: SetupPreviewDefaults | undefined =
+    resolvedStatus === "preview"
+      ? {
+          agents: previewAgentDefault(agentCandidates),
+          ...(instructions === undefined
+            ? {}
+            : {
+                instructions: {
+                  enabled: instructions.enabled,
+                  fileName: instructions.fileName ?? "AGENTS.md",
+                },
+              }),
+        }
+      : undefined;
   const suggestions = setupSuggestions({
     status: resolvedStatus,
     agentCount: allAgents.length,
@@ -791,6 +857,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
           ...(instructions !== undefined ? { instructions } : {}),
           telemetryEnabled,
           ...(subagentSummaries.length > 0 ? { subagentFiles: [...subagentSummaries] } : {}),
+          ...(previewDefaults === undefined ? {} : { previewDefaults }),
         },
       },
       SetupDocumentSchema,
@@ -866,8 +933,8 @@ const setupConfig = {
     Flag.optional,
   ),
   agent: agentFlag.pipe(Flag.withDescription("Specify agents to configure (skips auto-detection)")),
-  yes: yesFlag,
-  preview: previewFlag,
+  yes: preapprovalCapabilityFlag(setupCapabilities),
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent, yes, preview }) => {
@@ -881,6 +948,7 @@ export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent, 
   }).pipe(withRuntime("setup"));
 }).pipe(
   withArgvTracking(setupConfig),
+  withCommandCapabilities(setupCapabilities),
   Command.withDescription("Set up AXM in the current project"),
   Command.withExamples([
     { command: "axm setup", description: "Preview, confirm, and initialize project setup" },

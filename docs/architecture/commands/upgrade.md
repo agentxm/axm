@@ -32,7 +32,7 @@ selection does not change the promoted channel.
 Downgrades are refused in both modes. `--reinstall` permits replacement only
 when the selected and installed versions are equal.
 
-`axm upgrade --dry-run` resolves ownership and the target and reports the
+`axm upgrade --preview` resolves ownership and the target and reports the
 delegated action it would perform, without performing it. A preview changes no
 durable state — not the installation, not install metadata, not the
 update-notification cache — and it does not establish installer availability,

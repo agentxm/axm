@@ -60,7 +60,7 @@ describe("Upgrade ownership disclosure", () => {
     "a preview discloses the method, the change, and the command, and mutates nothing",
     () =>
       Effect.gen(function* () {
-        const { calls, document, events } = yield* runUpgrade({ dryRun: true });
+        const { calls, document, events } = yield* runUpgrade({ preview: true });
 
         expect(unitResolvedLabel(events, "detect-install-method")).toBe(
           "AXM installed with Homebrew",

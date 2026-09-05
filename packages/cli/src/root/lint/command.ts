@@ -10,6 +10,10 @@ import { materializeGitIndexWorkspace, type LintView } from "@agentxm/workspace-
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import {
+  withCommandCapabilities,
+  type CommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleLint } from "./handler.js";
@@ -106,6 +110,16 @@ export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLint
   }).pipe(withWorkspace({ scope: args.scope, projectRoot }));
 });
 
+/** Lint reports facts by default; `--fix` switches it into repairing determined workspace state. */
+const lintCapabilities: CommandCapabilities = {
+  preview: false,
+  preapproval: null,
+  trust: [],
+  inputs: "explicit",
+  effect: "none",
+  modes: [{ flag: "--fix", effect: "workspace" }],
+};
+
 export const lintCommand = Command.make(
   "lint",
   lintConfig,
@@ -113,6 +127,7 @@ export const lintCommand = Command.make(
     runLintCommand({ path, scope, strict, details, fix, view }).pipe(withRuntime("lint")),
 ).pipe(
   withArgvTracking(lintConfig),
+  withCommandCapabilities(lintCapabilities),
   Command.withDescription("Check workspace configuration"),
   Command.withExamples([
     { command: "axm lint", description: "Lint the current project workspace" },

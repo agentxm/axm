@@ -69,7 +69,7 @@ describe("atomic agent membership lifecycle", () => {
       expect(readAgents(temp.path)).toEqual(["claude-code"]);
       expect(fs.existsSync(opencodeSkill)).toBe(false);
 
-      const add = await runCli(["agents", "add", "opencode", "--yes", "--json"], {
+      const add = await runCli(["agents", "add", "opencode", "--json"], {
         cwd: temp.path,
       });
       expect(add.exitCode, `${add.stderr}\n${add.stdout}`).toBe(0);
@@ -89,7 +89,7 @@ describe("atomic agent membership lifecycle", () => {
       expect(readAgents(temp.path)).toEqual(["claude-code", "opencode"]);
       expect(fs.existsSync(opencodeSkill)).toBe(true);
 
-      const remove = await runCli(["agents", "remove", "opencode", "--yes", "--json"], {
+      const remove = await runCli(["agents", "remove", "opencode", "--json"], {
         cwd: temp.path,
       });
       expect(remove.exitCode, `${remove.stderr}\n${remove.stdout}`).toBe(0);
@@ -115,7 +115,7 @@ describe("atomic agent membership lifecycle", () => {
       fs.mkdirSync(path.dirname(manualSkill), { recursive: true });
       fs.writeFileSync(manualSkill, "# User-authored skill\n");
 
-      const remove = await runCli(["agents", "remove", "opencode", "--yes", "--json"], {
+      const remove = await runCli(["agents", "remove", "opencode", "--json"], {
         cwd: temp.path,
       });
 

@@ -44,7 +44,7 @@ describe("Update a shared MCP source closure", () => {
             localName: Option.some(localName),
             env: [],
           },
-          { yes: true, force: false, preview: false },
+          { force: false, preview: false },
         ).pipe(Effect.provide(workspace.layer));
       }
       registry.writeMcp("context", [{ version: "1.0.0" }, { version: "2.0.0" }]);
@@ -54,7 +54,7 @@ describe("Update a shared MCP source closure", () => {
         type: Option.some("mcp-server"),
         planName: "Update configured MCP servers",
         planDescription: Option.some("Update configured MCP servers"),
-        flags: { yes: true, preview: false, force: false },
+        flags: { preview: false, force: false },
         names: ["work-context"],
       }).pipe(Effect.provide(workspace.layer));
 

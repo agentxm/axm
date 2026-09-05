@@ -2,12 +2,17 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
 import { Screen, headlineDoc, successDoc } from "../../screen/index.js";
-import { previewFlag, Verbosity } from "../../cli-flags/index.js";
+import { Verbosity } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "./command-capabilities.js";
 import {
   extensionTypeSentenceLabels,
   extensionTypeToPlural,
@@ -297,7 +302,7 @@ const rootVersionConfig = {
     Argument.withDescription("Exact semver version for set"),
     Argument.optional,
   ),
-  preview: previewFlag.pipe(Flag.withDescription("Print the bump without writing")),
+  preview: previewCapabilityFlag("Print the bump without writing"),
 } as const;
 
 export const versionCommand = Command.make(
@@ -310,6 +315,7 @@ export const versionCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(rootVersionConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Bump a project-workspace extension manifest version"),
   Command.withExamples([
     {

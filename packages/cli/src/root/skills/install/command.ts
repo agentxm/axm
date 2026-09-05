@@ -1,14 +1,14 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  ignoreReleaseAgeFlag,
-  previewFlag,
-  reinstallFlag,
-  yesFlag,
-} from "../../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, reinstallFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { handleInstall, validateInstallArgsBeforeWorkspace } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
@@ -30,11 +30,8 @@ const installConfig = {
     Flag.withDescription("Install every skill found in the source without prompting"),
     Flag.withDefault(false),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall a skill that already exists")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be installed without making changes"),
-  ),
+  preview: previewCapabilityFlag("Show what would be installed without making changes"),
   bundled: Flag.boolean("bundled").pipe(
     Flag.withDescription("Install the embedded official AXM skill without Registry access"),
     Flag.withDefault(false),
@@ -45,11 +42,11 @@ const installConfig = {
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, skill, all, yes, force, preview, bundled, ignoreReleaseAge }) => {
+  ({ source, scope, skill, all, force, preview, bundled, ignoreReleaseAge }) => {
     const args = { source, skills: skill, all, bundled };
     return validateInstallArgsBeforeWorkspace(args).pipe(
       Effect.andThen(
-        handleInstall(args, { yes, force, preview }).pipe(
+        handleInstall(args, { force, preview }).pipe(
           withReleaseAgePosture(ignoreReleaseAge),
           withWorkspace(scope),
         ),
@@ -59,6 +56,12 @@ export const installCommand = Command.make(
   },
 ).pipe(
   withArgvTracking(installConfig),
+  withCommandCapabilities(
+    previewableCapabilities("workspace", {
+      inputs: "explicit-or-interactive-selection",
+      trust: ["publisher-change"],
+    }),
+  ),
   Command.withDescription(
     "Reinstall configured skills from their sources, or install skills from a registry, GitHub, or local path",
   ),
@@ -84,8 +87,8 @@ export const installCommand = Command.make(
       description: "Install from a local directory during development",
     },
     {
-      command: "axm skills install owner/repo --all --yes",
-      description: "CI: install all skills without prompts",
+      command: "axm skills install owner/repo --all",
+      description: "CI: install every skill in the source without a selection prompt",
     },
     {
       command: "axm skills install @acme/skills/code-review --preview",

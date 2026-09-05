@@ -45,7 +45,6 @@ const defaultArgs = (
   runtime: "bash",
   event: "tool.pre",
   matcher: Option.none(),
-  yes: false,
   preview: false,
   ...overrides,
 });

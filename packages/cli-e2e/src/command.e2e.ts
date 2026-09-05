@@ -532,7 +532,7 @@ describe("main CLI help", () => {
       );
       expect(setup.exitCode).toBe(0);
 
-      const addArgs = ["mcps", "add", "demo", "--command", "node server.js", "--yes", "--json"];
+      const addArgs = ["mcps", "add", "demo", "--command", "node server.js", "--json"];
       const firstAdd = await runCli(addArgs, { cwd: workspace.path });
       const secondAdd = await runCli(addArgs, { cwd: workspace.path });
       expect(firstAdd.exitCode).toBe(0);
@@ -548,7 +548,7 @@ describe("main CLI help", () => {
       nativeConfig.mcpServers.keep = { command: "node", args: ["keep.js"] };
       fs.writeFileSync(nativeConfigPath, `${JSON.stringify(nativeConfig, null, 2)}\n`);
 
-      const uninstallArgs = ["mcps", "uninstall", "demo", "--yes", "--json"];
+      const uninstallArgs = ["mcps", "uninstall", "demo", "--json"];
       const firstUninstall = await runCli(uninstallArgs, { cwd: workspace.path });
       const secondUninstall = await runCli(uninstallArgs, { cwd: workspace.path });
       expect(firstUninstall.exitCode).toBe(0);

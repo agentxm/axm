@@ -14,7 +14,7 @@ import {
   type JobStepResult,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
+import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { toPlanResolutionResult } from "../../operation-output.js";

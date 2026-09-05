@@ -3,15 +3,25 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
 import type { PublishableType } from "@agentxm/extension-publish";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { backfillFlag, onExistingFlag } from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
+
+/** Every publish form distributes authored content to a Registry. */
+const publishCapabilities = previewableCapabilities("registry", {
+  inputs: "explicit-or-documented-defaults",
+});
 
 type PerTypePublishType = PublishableType;
 
@@ -57,8 +67,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       Flag.withDescription("Initial visibility for every new extension in the selection"),
       Flag.optional,
     ),
-    yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
-    preview: previewFlag.pipe(Flag.withDescription("Preflight without uploading")),
+    preview: previewCapabilityFlag("Preflight without uploading"),
   } as const;
 
   const examples = [
@@ -98,7 +107,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           onExisting: parsed.onExisting,
           backfill: parsed.backfill,
           acceptWarnings: parsed.acceptWarnings,
-          yes: parsed.yes,
           preview: parsed.preview,
           scope: "project",
           visibility: parsed.visibility,
@@ -110,6 +118,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
     ).pipe(
       withArgvTracking(config),
+      withCommandCapabilities(publishCapabilities),
       Command.withDescription(`Publish project-workspace ${plural} to a registry`),
       Command.withExamples(examples),
     );
@@ -134,7 +143,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         onExisting: parsed.onExisting,
         backfill: parsed.backfill,
         acceptWarnings: parsed.acceptWarnings,
-        yes: parsed.yes,
         preview: parsed.preview,
         scope: "project",
         visibility: parsed.visibility,
@@ -146,6 +154,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
   ).pipe(
     withArgvTracking(config),
+    withCommandCapabilities(publishCapabilities),
     Command.withDescription(`Publish project-workspace ${plural} to a registry`),
     Command.withExamples(examples),
   );

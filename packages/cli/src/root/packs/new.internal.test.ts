@@ -54,7 +54,6 @@ const defaultArgs = (
 ): PacksNewHandlerArgs => ({
   name: extensionName(name),
   owner: Option.none<Handle>(),
-  yes: false,
   preview: false,
   ...overrides,
 });

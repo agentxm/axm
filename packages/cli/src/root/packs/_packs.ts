@@ -12,9 +12,11 @@ import { uninstallCommand } from "./uninstall/command.js";
 import { unpackCommand } from "./unpack/command.js";
 import { updateCommand } from "./update.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 
 export const packsCommand = Command.make("packs").pipe(
   Command.withDescription("Manage packs"),
+  withCommandCapabilities(groupCapabilities),
   Command.annotate(
     LearnMore,
     formatLearnMore([

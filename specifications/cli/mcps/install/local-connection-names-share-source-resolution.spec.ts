@@ -50,7 +50,7 @@ describe("Install locally named MCP connections", () => {
         localName: Option.some(localName),
         env: [],
       },
-      { yes: true, force: false, preview: false },
+      { force: false, preview: false },
     ).pipe(Effect.provide(workspace.layer));
 
   it.effect("records two local settings entries and one accepted source resolution", () =>

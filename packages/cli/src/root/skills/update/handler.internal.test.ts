@@ -73,7 +73,6 @@ const defaultArgs = (overrides: Partial<UpdateHandlerArgs> = {}): UpdateHandlerA
   source: Option.none(),
   skills: [],
   force: false,
-  yes: false,
   preview: false,
   ...overrides,
 });
@@ -281,6 +280,7 @@ describe("update.handler — error recovery", () => {
       provide,
       logs: handlerTestContext.logs,
       rendererState: handlerTestContext.rendererState,
+      resolvePlanState: handlerTestContext.resolvePlanState,
     };
   };
 
@@ -467,90 +467,137 @@ describe("update.handler — error recovery", () => {
     );
   });
 
-  it.effect("refuses an unattended update across a publisher epoch", () => {
-    const { provide } = makeLayers();
-    const registryRoot = path.join(tempDir, "registry");
-    writeRegistrySkill({
-      registryRoot,
-      owner: "@acme",
-      name: "code-review",
-      publisherBindingId: "hbnd_new",
-      versions: [
-        { version: "2.0.0", skillBody: "# code-review v2" },
-        { version: "1.0.0", skillBody: "# code-review v1" },
-      ],
-    });
-    initWorkspace(path.join(tempDir, ".axm"), {
-      sources: [
-        {
-          name: "local-reg",
-          type: "registry",
-          location: pathToFileURL(registryRoot).href,
+  describe("publisher binding change", () => {
+    /**
+     * The accepted resolution of `code-review` was published under one
+     * publisher binding; the Registry now serves a newer version under a
+     * different one.
+     */
+    const publisherChangeWorkspace = () => {
+      const registryRoot = path.join(tempDir, "registry");
+      writeRegistrySkill({
+        registryRoot,
+        owner: "@acme",
+        name: "code-review",
+        publisherBindingId: "hbnd_new",
+        versions: [
+          { version: "2.0.0", skillBody: "# code-review v2" },
+          { version: "1.0.0", skillBody: "# code-review v1" },
+        ],
+      });
+      initWorkspace(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        sources: [
+          {
+            name: "local-reg",
+            type: "registry",
+            location: pathToFileURL(registryRoot).href,
+          },
+        ],
+        skills: { "code-review": "local-reg:@acme/skills/code-review" },
+        skillLocks: {
+          "code-review": makeRegistryLockEntry(
+            "@acme",
+            "code-review",
+            "1.0.0",
+            ["claude-code"],
+            "hbnd_old",
+          ),
         },
-      ],
-      skills: { "code-review": "local-reg:@acme/skills/code-review" },
-      skillLocks: {
-        "code-review": makeRegistryLockEntry(
-          "@acme",
-          "code-review",
-          "1.0.0",
-          ["claude-code"],
-          "hbnd_old",
-        ),
-      },
-    });
+      });
+    };
 
-    return provide(
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(handleUpdate(defaultArgs({ yes: true })));
-        expect(error).toMatchObject({ detail: expect.stringContaining("publisher epoch changed") });
-        expect(error).toMatchObject({ detail: expect.stringContaining("hbnd_old") });
-        expect(error).toMatchObject({ detail: expect.stringContaining("hbnd_new") });
-      }),
-    );
-  });
+    const lockedVersion = () => {
+      const lockfile = expectRecord(
+        YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8")),
+        "Expected lockfile object",
+      );
+      const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
+      return stringProperty(
+        expectRecord(lockedSkills["code-review"], "Expected code-review lock entry"),
+        "resolvedVersion",
+      );
+    };
 
-  it.effect("surfaces publisher epoch changes in an interactive preview", () => {
-    const { provide, rendererState } = makeLayers();
-    const registryRoot = path.join(tempDir, "registry");
-    writeRegistrySkill({
-      registryRoot,
-      owner: "@acme",
-      name: "code-review",
-      publisherBindingId: "hbnd_new",
-      versions: [
-        { version: "2.0.0", skillBody: "# code-review v2" },
-        { version: "1.0.0", skillBody: "# code-review v1" },
-      ],
-    });
-    initWorkspace(path.join(tempDir, ".axm"), {
-      sources: [
-        {
-          name: "local-reg",
-          type: "registry",
-          location: pathToFileURL(registryRoot).href,
-        },
-      ],
-      skills: { "code-review": "local-reg:@acme/skills/code-review" },
-      skillLocks: {
-        "code-review": makeRegistryLockEntry(
-          "@acme",
-          "code-review",
-          "1.0.0",
-          ["claude-code"],
-          "hbnd_old",
-        ),
-      },
-    });
+    it.effect(
+      "blocks an unattended apply with an interactive recovery that offers no preapproval",
+      () => {
+        const { provide, rendererState, resolvePlanState } = makeLayers({ machine: true });
+        publisherChangeWorkspace();
 
-    return provide(
-      Effect.gen(function* () {
-        yield* handleUpdate(defaultArgs({ preview: true }));
-        expect(JSON.stringify(rendererState.results).includes("Publisher identity changed")).toBe(
-          true,
+        return provide(
+          Effect.gen(function* () {
+            yield* handleUpdate(defaultArgs());
+
+            expect(resolvePlanState.confirmApplyChangesCalls).toEqual([]);
+            const [entry] = rendererState.results;
+            expect(entry?.data).toMatchObject({
+              result: {
+                outcome: "blocked",
+                blocking: {
+                  class: "approval-required",
+                  subject: "publisher-ownership-change",
+                  detail: expect.stringContaining("Interactive approval is required"),
+                  escape: {
+                    description: expect.stringContaining("Approve interactively"),
+                    cmd: expect.not.stringContaining("--yes"),
+                  },
+                },
+              },
+            });
+            expect(JSON.stringify(entry?.data)).not.toContain("--yes");
+            expect(lockedVersion()).toBe("1.0.0");
+          }),
         );
-      }),
+      },
     );
+
+    it.effect("reports the publisher change in preview and changes nothing", () => {
+      const { provide, rendererState, resolvePlanState } = makeLayers({ machine: true });
+      publisherChangeWorkspace();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpdate(defaultArgs({ preview: true }));
+
+          const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+            planName: "Update skills",
+            totalSteps: 1,
+          });
+          expect(result).toMatchObject({
+            riskConditions: [
+              expect.objectContaining({
+                level: "confirmable",
+                consent: "interactive-only",
+                id: "publisher-ownership-change",
+              }),
+            ],
+          });
+          expect(JSON.stringify(result)).toContain(
+            "Publisher identity changed (hbnd_old → hbnd_new)",
+          );
+          expect(resolvePlanState.confirmApplyChangesCalls).toEqual([]);
+          expect(lockedVersion()).toBe("1.0.0");
+        }),
+      );
+    });
+
+    it.effect("applies after a person approves the change at a prompt", () => {
+      const { provide, resolvePlanState } = makeLayers({
+        flags: { nonInteractive: false },
+        prompt: { confirmResponses: [true] },
+      });
+      publisherChangeWorkspace();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpdate(defaultArgs());
+
+          expect(resolvePlanState.confirmApplyChangesCalls).toHaveLength(1);
+          expect(lockedVersion()).toBe("2.0.0");
+        }),
+      );
+    });
   });
 
   it.effect("reports no-op when positional source matches no installed skill or source", () => {

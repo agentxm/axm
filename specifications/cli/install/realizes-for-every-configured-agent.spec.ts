@@ -51,7 +51,6 @@ describe("Install realizes the extension for configured agents", () => {
 
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

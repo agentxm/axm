@@ -46,7 +46,6 @@ import {
 import { type AppError } from "../../app-error/index.js";
 
 export interface RootUninstallFlags {
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -137,7 +136,11 @@ const uninstallNoOpMessage = (
 
 const runUninstallIntent = (args: RootUninstallHandlerArgs, actions: RootUninstallActions) =>
   Effect.gen(function* () {
-    const execution = yield* makeUninstallPlanExecution(args, ["uninstall"], [args.source]);
+    const execution = yield* makeUninstallPlanExecution(
+      { preview: args.preview },
+      ["uninstall"],
+      [args.source],
+    );
     const intent = yield* resolveRootUninstallIntent(args.source);
 
     const resolution = yield* Effect.gen(function* () {

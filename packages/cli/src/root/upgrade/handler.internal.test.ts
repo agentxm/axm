@@ -1210,7 +1210,7 @@ describe("upgrade preview", () => {
         new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
         { subprocess },
       );
-      yield* handleUpgrade({ reinstall: false, dryRun: true }).pipe(Effect.provide(harness.layer));
+      yield* handleUpgrade({ reinstall: false, preview: true }).pipe(Effect.provide(harness.layer));
 
       expect(resultFrom(harness.renderer)).toMatchObject({
         installMethod: "homebrew",
@@ -1228,7 +1228,7 @@ describe("upgrade preview", () => {
     Effect.gen(function* () {
       const subprocess = makeSubprocess();
       const harness = makeHarness(new Script({ execPath: "/usr/local/bin/axm" }), { subprocess });
-      yield* handleUpgrade({ reinstall: false, dryRun: true }).pipe(Effect.provide(harness.layer));
+      yield* handleUpgrade({ reinstall: false, preview: true }).pipe(Effect.provide(harness.layer));
 
       const result = resultFrom(harness.renderer);
       expect(result.installMethod).toBe("script");
@@ -1243,7 +1243,7 @@ describe("upgrade preview", () => {
       const harness = makeHarness(new Homebrew({ execPath: "/opt/homebrew/bin/axm" }), {
         version: LOCAL_VERSION,
       });
-      yield* handleUpgrade({ reinstall: false, dryRun: true }).pipe(Effect.provide(harness.layer));
+      yield* handleUpgrade({ reinstall: false, preview: true }).pipe(Effect.provide(harness.layer));
 
       expect(resultFrom(harness.renderer)).toMatchObject({
         resultStatus: "already-up-to-date",

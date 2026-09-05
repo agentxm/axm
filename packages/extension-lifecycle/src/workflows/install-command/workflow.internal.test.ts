@@ -11,11 +11,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import {
-  promptablePlanExecution,
-  preapprovedPlanExecution,
-  type ConfirmationRecovery,
-} from "@agentxm/workspace-operations";
+import type { ConfirmationRecovery } from "@agentxm/workspace-operations";
 import type { Plan } from "@agentxm/workspace-operations";
 import {
   OperationLifecycle,
@@ -23,7 +19,11 @@ import {
   subscribeLossless,
   type OperationEvent,
 } from "@agentxm/workspace-operations";
-import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import {
+  ResolvePlanInteractionTest,
+  preapprovedPlanExecution,
+  promptablePlanExecution,
+} from "@agentxm/workspace-operations/testing";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {

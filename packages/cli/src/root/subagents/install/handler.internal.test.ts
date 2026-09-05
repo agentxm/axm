@@ -257,7 +257,6 @@ describe("subagents install handler — error propagation", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handleInstall(defaultArgs("nonexistent-subagent"), {
-            yes: false,
             force: false,
             preview: false,
           }).pipe(Effect.flip);
@@ -275,7 +274,6 @@ describe("subagents install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         const error = yield* handleInstall(defaultArgs(""), {
-          yes: false,
           force: false,
           preview: false,
         }).pipe(Effect.flip);
@@ -299,7 +297,6 @@ describe("subagents install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         const error = yield* handleInstall(defaultArgs("/path/does/not/exist"), {
-          yes: false,
           force: false,
           preview: false,
         }).pipe(Effect.flip);
@@ -316,7 +313,6 @@ describe("subagents install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@myorg/subagents"), {
-          yes: false,
           force: false,
           preview: false,
         });
@@ -333,7 +329,6 @@ describe("subagents install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@myorg/subagents/planner"), {
-          yes: true,
           force: false,
           preview: false,
         });
@@ -358,7 +353,6 @@ describe("subagents install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@myorg/subagents"), {
-          yes: false,
           force: false,
           preview: false,
         });
@@ -385,7 +379,6 @@ describe("subagents install handler — error propagation", () => {
             all: false,
           },
           {
-            yes: false,
             force: false,
             preview: false,
           },
@@ -409,7 +402,6 @@ describe("subagents install handler — error propagation", () => {
             all: true,
           },
           {
-            yes: false,
             force: false,
             preview: false,
           },

@@ -18,7 +18,7 @@ const setupWorkspaceWithoutBundledSkill = async (cwd: string): Promise<void> => 
   );
   expect(setup.exitCode).toBe(0);
 
-  const uninstall = await runCli(["skills", "uninstall", "axm", "--yes"], { cwd });
+  const uninstall = await runCli(["skills", "uninstall", "axm"], { cwd });
   expect(uninstall.exitCode).toBe(0);
 };
 
@@ -42,7 +42,7 @@ describe("axm skills update", () => {
       try {
         await setupWorkspaceWithoutBundledSkill(temp.path);
 
-        const result = await runCli(["skills", "update", "--yes"], {
+        const result = await runCli(["skills", "update"], {
           cwd: temp.path,
         });
 
@@ -62,7 +62,7 @@ describe("axm skills update", () => {
         await setupWorkspaceWithoutBundledSkill(temp.path);
 
         const source = copySkillsFixture(temp.path);
-        await runCli(["skills", "install", source, "--all", "--yes"], {
+        await runCli(["skills", "install", source, "--all"], {
           cwd: temp.path,
         });
 
@@ -75,7 +75,7 @@ describe("axm skills update", () => {
         changeSkillSource(source, "my-skill");
 
         // Run update
-        const result = await runCli(["skills", "update", "--yes"], {
+        const result = await runCli(["skills", "update"], {
           cwd: temp.path,
         });
 
@@ -118,7 +118,7 @@ describe("axm skills update", () => {
         await setupWorkspaceWithoutBundledSkill(temp.path);
 
         const source = copySkillsFixture(temp.path);
-        await runCli(["skills", "install", source, "--all", "--yes"], {
+        await runCli(["skills", "install", source, "--all"], {
           cwd: temp.path,
         });
 
@@ -153,7 +153,7 @@ describe("axm skills update", () => {
         await setupWorkspaceWithoutBundledSkill(temp.path);
 
         const source = copySkillsFixture(temp.path);
-        await runCli(["skills", "install", source, "--all", "--yes"], {
+        await runCli(["skills", "install", source, "--all"], {
           cwd: temp.path,
         });
 
@@ -163,7 +163,7 @@ describe("axm skills update", () => {
         );
 
         // Disable my-skill
-        await runCli(["skills", "disable", "my-skill", "--yes"], {
+        await runCli(["skills", "disable", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -177,7 +177,7 @@ describe("axm skills update", () => {
         changeSkillSource(source, "another-skill");
 
         // Run update
-        const result = await runCli(["skills", "update", "--yes"], {
+        const result = await runCli(["skills", "update"], {
           cwd: temp.path,
         });
 
@@ -209,7 +209,7 @@ describe("axm skills update", () => {
         await setupWorkspaceWithoutBundledSkill(temp.path);
 
         const source = copySkillsFixture(temp.path);
-        await runCli(["skills", "install", source, "--all", "--yes"], {
+        await runCli(["skills", "install", source, "--all"], {
           cwd: temp.path,
         });
 
@@ -223,7 +223,7 @@ describe("axm skills update", () => {
         changeSkillSource(source, "another-skill");
 
         // Update only my-skill
-        const result = await runCli(["skills", "update", "--name", "my-skill", "--yes"], {
+        const result = await runCli(["skills", "update", "--name", "my-skill"], {
           cwd: temp.path,
         });
 

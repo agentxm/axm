@@ -105,8 +105,8 @@ Once setup is complete, install extensions in one of these ways:
 
 ```bash
 axm discover --json                              # suggestions from project deps
-axm install @profile/skills/<name> --yes         # install a known registry FQN
-axm skills install owner/repo --yes              # install from a GitHub source
+axm install @profile/skills/<name>               # install a known registry FQN
+axm skills install owner/repo                    # install from a GitHub source
 ```
 
 `axm discover` is read-only and a good starting point when you do not already

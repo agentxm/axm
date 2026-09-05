@@ -208,7 +208,6 @@ const args = (
   onExisting: Option.none(),
   backfill: false,
   acceptWarnings: false,
-  yes: true,
   preview: true,
   scope: "project",
   visibility: Option.none(),
@@ -1498,7 +1497,7 @@ describe("root publish", () => {
             ],
             recovery: {
               description: "Continue the failed items and their blocked dependents",
-              cmd: "axm publish --on-existing verify --yes @acme/skills/review",
+              cmd: "axm publish --on-existing verify @acme/skills/review",
               remainingItems: ["@acme/skills/review"],
               blockedDependents: [],
             },
@@ -1509,7 +1508,7 @@ describe("root publish", () => {
           expect(
             rendererState.suggestions.some(
               (suggestion) =>
-                suggestion.cmd === "axm publish --on-existing verify --yes @acme/skills/review",
+                suggestion.cmd === "axm publish --on-existing verify @acme/skills/review",
             ),
           ).toBe(true);
         }),
@@ -2626,8 +2625,8 @@ describe("publish recovery", () => {
       ["@acme/skills/review", "@acme/packs/toolkit"],
     );
 
-    expect(renderConfirmationRecoveryCommand(recovery)).toBe(
-      "axm publish --registry private --on-existing verify --visibility private --yes @acme/skills/review @acme/packs/toolkit",
+    expect(renderConfirmationRecoveryCommand(recovery, { approval: "none" })).toBe(
+      "axm publish --registry private --on-existing verify --visibility private @acme/skills/review @acme/packs/toolkit",
     );
   });
 
@@ -2686,9 +2685,10 @@ describe("publish recovery", () => {
           },
           selection.remainingItems,
         ),
+        { approval: "none" },
       ),
     ).toBe(
-      "axm publish --registry private --on-existing verify --yes @acme/skills/review @acme/packs/toolkit",
+      "axm publish --registry private --on-existing verify @acme/skills/review @acme/packs/toolkit",
     );
   });
 

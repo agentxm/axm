@@ -38,7 +38,6 @@ describe("Adding a coding agent", () => {
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
@@ -55,7 +54,6 @@ describe("Adding a coding agent", () => {
         yield* handleAgentsAdd({
           ids: ["opencode"],
           detected: false,
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));

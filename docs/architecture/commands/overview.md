@@ -120,12 +120,16 @@ Given the same state, preview must accurately describe what application will
 do. Before writing, AXM checks that the relevant state has not changed; a stale
 preview or plan writes nothing.
 
-`--yes` answers routine prompts. The binding force boundary is the executable
-specification `cli/force-bypasses-only-named-policies` in the
+Every command declares what it can do without applying, which confirmation it
+can approve in advance, and which trust conditions it can meet only
+interactively; a command exposes `--preview` or `--yes` only when that
+declaration gives the flag a purpose. [Interaction](interaction.md) owns the
+contract. The binding force boundary is the executable specification
+`cli/force-bypasses-only-named-policies` in the
 [specification catalog](../../../specifications/catalog.md): it owns which
 explicitly forceable policy `--force` may bypass and whether a command exposes
-the flag at all. Routine exceptional modes receive their own
-names rather than accumulating narrow override flags.
+the flag at all. Routine exceptional modes receive their own names rather than
+accumulating narrow override flags.
 
 Global sync applies every ready independent closure. A nonzero result may still
 include committed closures; human and machine output report each closure's

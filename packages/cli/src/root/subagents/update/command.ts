@@ -1,13 +1,13 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  ignoreReleaseAgeFlag,
-  ignoreVersionConstraintsFlag,
-  previewFlag,
-  yesFlag,
-} from "../../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, ignoreVersionConstraintsFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { updateNameFilterFlag } from "../../shared/update-targets.js";
 import { handleUpdate } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
@@ -25,24 +25,18 @@ const updateConfig = {
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific subagents by name or glob pattern"),
   ),
-  yes: yesFlag.pipe(
-    Flag.withDescription(
-      "Pre-approve the update when it carries a risk that would otherwise prompt",
-    ),
-  ),
   force: ignoreVersionConstraintsFlag,
-  preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
+  preview: previewCapabilityFlag("Show available updates without applying them"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, name, yes, force, preview, ignoreReleaseAge }) =>
+  ({ source, scope, name, force, preview, ignoreReleaseAge }) =>
     handleUpdate({
       source,
       subagents: name,
-      yes,
       force,
       preview,
     }).pipe(
@@ -52,6 +46,7 @@ export const updateCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(updateConfig),
+  withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription("Update installed subagents to latest versions"),
   Command.withExamples([
     {

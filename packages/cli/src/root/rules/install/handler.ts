@@ -16,7 +16,7 @@ import {
 
 export const handleInstallRule = (
   args: InstallRuleHandlerArgs,
-  flags: { readonly yes: boolean; readonly force: boolean; readonly preview: boolean },
+  flags: { readonly force: boolean; readonly preview: boolean },
 ) =>
   withOperationLifecycle(
     {
@@ -29,7 +29,7 @@ export const handleInstallRule = (
 
 const handleInstallRuleBody = (
   args: InstallRuleHandlerArgs,
-  flags: { readonly yes: boolean; readonly force: boolean; readonly preview: boolean },
+  flags: { readonly force: boolean; readonly preview: boolean },
 ) =>
   Effect.gen(function* () {
     const actions = yield* InstallRuleCommandWorkflowActions;

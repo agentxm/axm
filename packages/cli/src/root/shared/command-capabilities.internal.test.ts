@@ -3,11 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import {
-  mutationExecutionInventory,
-  mutationPolicyFlagInventory,
-  mutationPolicyIds,
-} from "./mutation-execution-inventory.js";
+import { PlanPolicyIds } from "@agentxm/workspace-operations";
+import { NAMED_OVERRIDE_POLICIES } from "../../cli-flags/index.js";
+import { rootCommand } from "../../app.js";
+import { registeredCommandCapabilities } from "./command-capabilities.js";
 
 const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -22,19 +21,22 @@ const productionTypeScriptFiles = (directory: string): ReadonlyArray<string> =>
       : [];
   });
 
-describe("mutation execution conformance inventory", () => {
-  it("keeps every public named mutation policy mapped to one distinct flag", () => {
-    expect(Object.keys(mutationPolicyFlagInventory).sort()).toEqual([...mutationPolicyIds].sort());
-    expect(new Set(Object.values(mutationPolicyFlagInventory)).size).toBe(mutationPolicyIds.length);
+describe("command capability declarations", () => {
+  it("keeps every named mutation policy reachable as one override flag", () => {
+    const policyFlags = Object.keys(NAMED_OVERRIDE_POLICIES);
+    for (const policy of PlanPolicyIds) {
+      expect(policyFlags).toContain(`--${policy}`);
+    }
   });
 
-  it("requires a rationale for every audited exception", () => {
-    const exceptions = mutationExecutionInventory.filter(
-      (entry) => entry.classification === "audited-non-plan-exception",
+  it("declares a preapproval purpose only on routes that expose the flag", () => {
+    const declared = registeredCommandCapabilities(rootCommand).flatMap((entry) =>
+      entry.capabilities !== undefined && entry.capabilities.preapproval !== null
+        ? [{ path: entry.path, purpose: entry.capabilities.preapproval.purpose }]
+        : [],
     );
-    expect(exceptions.length).toBeGreaterThan(0);
-    for (const entry of exceptions) {
-      expect(entry.rationale.trim().length).toBeGreaterThan(0);
+    for (const entry of declared) {
+      expect(entry.purpose.trim().length, entry.path.join(" ")).toBeGreaterThan(0);
     }
   });
 

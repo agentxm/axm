@@ -1,9 +1,13 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { handleUninstall } from "./handler.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
@@ -11,32 +15,26 @@ const uninstallConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip the 'are you sure?' confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be removed without making changes"),
-  ),
+  preview: previewCapabilityFlag("Show what would be removed without making changes"),
 } as const;
 
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ skill, scope, yes, preview }) =>
-    handleUninstall({ skill }, { yes, preview }).pipe(
+  ({ skill, scope, preview }) =>
+    handleUninstall({ skill }, { preview }).pipe(
       withWorkspace(scope),
       withRuntime("skills uninstall"),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Uninstall a skill from agents"),
   Command.withExamples([
     { command: "axm skills uninstall my-skill", description: "Remove a skill you no longer need" },
     {
       command: "axm skills uninstall my-skill --preview",
       description: "Check what would be removed first",
-    },
-    {
-      command: "axm skills uninstall my-skill --yes",
-      description: "Remove without confirmation (scripts/CI)",
     },
   ]),
 );

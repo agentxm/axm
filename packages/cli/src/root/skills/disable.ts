@@ -8,7 +8,6 @@ import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-source
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
 import type { DisableSkillOperation } from "@agentxm/extension-lifecycle";
 import { disableSkill } from "@agentxm/extension-lifecycle";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
@@ -17,13 +16,17 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
 import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export interface DisableHandlerArgs {
   readonly name: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -119,17 +122,14 @@ const disableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
+  preview: previewCapabilityFlag("Show what would change without disabling"),
 } as const;
 
-export const disableCommand = Command.make(
-  "disable",
-  disableConfig,
-  ({ name, scope, yes, preview }) =>
-    handleDisable({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("skills disable")),
+export const disableCommand = Command.make("disable", disableConfig, ({ name, scope, preview }) =>
+  handleDisable({ name, preview }).pipe(withWorkspace(scope), withRuntime("skills disable")),
 ).pipe(
   withArgvTracking(disableConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Disable a skill without uninstalling it"),
   Command.withExamples([
     {

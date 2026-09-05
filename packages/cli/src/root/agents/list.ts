@@ -9,6 +9,7 @@ import { Screen, count, inventoryDoc, type ViewColumn } from "../../screen/index
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { agentLifecycle, lifecycleCell } from "./lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
@@ -145,6 +146,7 @@ export const listCommand = Command.make("list", listConfig, ({ scope, detected, 
   handleAgentsList({ detected, available }).pipe(withWorkspace(scope), withRuntime("agents list")),
 ).pipe(
   withArgvTracking(listConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("List coding-agent harnesses configured for AXM"),
   Command.withExamples([
     { command: "axm agents list", description: "Show configured and detected coding agents" },

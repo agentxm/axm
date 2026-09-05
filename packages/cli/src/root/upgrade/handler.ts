@@ -55,7 +55,7 @@ export interface UpgradeHandlerArgs {
   /** Optional exact stable version. Omit to use the promoted stable channel. */
   readonly requestedVersion?: string | undefined;
   /** Resolve and report the upgrade without performing it. */
-  readonly dryRun?: boolean;
+  readonly preview?: boolean;
   /** Test/internal override for an observed local version. */
   readonly localVersion?: string | null;
 }
@@ -2426,7 +2426,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   const localVersion = observedLocal === null ? null : semver.valid(observedLocal);
 
   const installMethod = yield* InstallMethod;
-  const dryRun = args.dryRun === true;
+  const preview = args.preview === true;
   const detectionCommands: Array<CommandRecord> = [];
   // Detection, channel resolution, availability, and the upgrade itself are
   // the units of one observed operation; assessment and rendering follow it.
@@ -2436,9 +2436,9 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   const upgraded = yield* withLiveOperation(
     {
       command: "upgrade",
-      name: dryRun ? "Preview AXM upgrade" : "Upgrade AXM",
-      mode: dryRun ? "preview" : "apply",
-      ...(dryRun ? { successOutcome: "previewed" as const } : {}),
+      name: preview ? "Preview AXM upgrade" : "Upgrade AXM",
+      mode: preview ? "preview" : "apply",
+      ...(preview ? { successOutcome: "previewed" as const } : {}),
     },
     Effect.gen(function* () {
       // Detection and its ownership disambiguation are one unit: the probes
@@ -2499,7 +2499,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       const targetVersion = resolution.targetVersion;
       // A preview leaves no trace: the channel cache is durable state the
       // command was not asked to change.
-      if (resolution.channel !== null && !dryRun) {
+      if (resolution.channel !== null && !preview) {
         const updateCheck = yield* UpdateCheck;
         yield* updateCheck.writeCache(resolution.channel, resolution.etag);
       }
@@ -2526,7 +2526,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       // A preview resolves ownership and the target and stops: publication
       // state is established by the run that would use it.
       const availability: InstallerAvailability =
-        selectedAction !== "mutate" || dryRun
+        selectedAction !== "mutate" || preview
           ? { state: "not-required", observedVersion: null, details: [] }
           : method._tag === "Npm" || method._tag === "Pnpm" || method._tag === "Yarn"
             ? yield* observeUnit(
@@ -2538,13 +2538,16 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       // preview performs none, so it is not gated by publication state it
       // deliberately did not establish.
       const action =
-        !dryRun && selectedAction === "mutate" && availability.state !== "ready"
+        !preview && selectedAction === "mutate" && availability.state !== "ready"
           ? "manual"
           : selectedAction;
 
-      if (dryRun && action === "mutate") {
-        const preview = previewResult(input, platform.value.binaryName);
-        return { result: preview, resolution, availability };
+      if (preview && action === "mutate") {
+        return {
+          result: previewResult(input, platform.value.binaryName),
+          resolution,
+          availability,
+        };
       }
 
       const resultEffect = (() => {

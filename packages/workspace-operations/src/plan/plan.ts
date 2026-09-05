@@ -64,11 +64,21 @@ export interface UnitBlocking {
   readonly reference?: string;
 }
 
+/**
+ * How a confirmable condition may be approved. `preapprovable` (the default
+ * when absent) accepts explicit preapproval from a command that offers it;
+ * `interactive-only` accepts only an affirmative answer at a prompt, so no
+ * flag and no unattended mode can satisfy it.
+ */
+export const ConfirmableConsentSchema = Schema.Literals(["preapprovable", "interactive-only"]);
+export type ConfirmableConsent = typeof ConfirmableConsentSchema.Type;
+
 export const PlanRiskConditionSchema = Schema.Union([
   Schema.Struct({
     level: Schema.Literal("confirmable"),
     id: Schema.String,
     detail: Schema.String,
+    consent: Schema.optional(ConfirmableConsentSchema),
   }),
   Schema.Struct({
     level: Schema.Literal("override-required"),
@@ -143,6 +153,22 @@ export interface JobStepArtifactSource {
   readonly gitTreeHash?: string;
 }
 
+/**
+ * The Registry identity a step proposes to accept. Trust classification
+ * compares it with the accepted resolution for the same configured target,
+ * so a change of publisher is identified from structured data rather than
+ * from warning text.
+ */
+export interface RegistryBindingProposal {
+  readonly extensionType: ExtensionType;
+  /** The configured (local) name whose accepted resolution the step replaces. */
+  readonly target: string;
+  readonly owner: string;
+  readonly packageName: string;
+  readonly version: string;
+  readonly publisherBindingId: string;
+}
+
 export interface RegistryLifecycleEvidence {
   readonly deprecation: DeprecationView;
 }
@@ -179,6 +205,7 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly artifact?: JobStepArtifact;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
+  readonly registryBinding?: RegistryBindingProposal;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
@@ -191,6 +218,7 @@ export interface WarnJobStep<Requirements = never, Output = never> {
   readonly artifact?: JobStepArtifact;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
+  readonly registryBinding?: RegistryBindingProposal;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
@@ -203,6 +231,7 @@ export interface ErrorJobStep {
   readonly artifact?: JobStepArtifact;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
+  readonly registryBinding?: RegistryBindingProposal;
   /** Semantic blockers already represented in Plan.riskConditions. */
   readonly blockingConditionIds?: ReadonlyArray<string>;
 }

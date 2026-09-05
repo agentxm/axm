@@ -171,7 +171,6 @@ describe("root uninstall handler", () => {
       Effect.gen(function* () {
         const calls: Array<UninstallCall> = [];
         const flags = {
-          yes: false,
           preview: true,
         } satisfies RootUninstallFlags;
         const { provide, handleUninstall } = makeLayers(calls);
@@ -206,7 +205,6 @@ describe("root uninstall handler", () => {
     Effect.gen(function* () {
       const calls: Array<UninstallCall> = [];
       const flags = {
-        yes: false,
         preview: true,
       } satisfies RootUninstallFlags;
       const { provide, handleUninstall } = makeLayers(calls);
@@ -229,7 +227,6 @@ describe("root uninstall handler", () => {
     Effect.gen(function* () {
       const calls: Array<UninstallCall> = [];
       const flags = {
-        yes: true,
         preview: false,
       } satisfies RootUninstallFlags;
       const { provide, handleUninstall, rendererState } = makeLayers(calls, { machine: true });

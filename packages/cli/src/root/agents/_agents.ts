@@ -1,6 +1,7 @@
 import { Command } from "effect/unstable/cli";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { addCommand } from "./add.js";
 import { capabilitiesCommand } from "./capabilities.js";
 import { listCommand } from "./list.js";
@@ -8,6 +9,7 @@ import { removeCommand } from "./remove.js";
 
 export const agentsCommand = Command.make("agents").pipe(
   Command.withDescription("Manage coding-agent harnesses configured for AXM"),
+  withCommandCapabilities(groupCapabilities),
   Command.annotate(
     LearnMore,
     formatLearnMore([

@@ -19,7 +19,6 @@ import {
 import { Screen } from "../../screen/index.js";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { makeAppError } from "../../app-error/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
@@ -65,6 +64,11 @@ import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
@@ -116,14 +120,15 @@ const selectPackage = (
   return Effect.succeed(candidate);
 };
 
-export const handleFork = (args: {
+export interface ForkHandlerArgs {
   readonly source: string;
   readonly target: string;
   readonly from: Option.Option<string>;
   readonly enable: boolean;
-  readonly yes: boolean;
   readonly preview: boolean;
-}) =>
+}
+
+export const handleFork = (args: ForkHandlerArgs) =>
   withOperationLifecycle(
     {
       command: "fork",
@@ -133,14 +138,7 @@ export const handleFork = (args: {
     handleForkBody(args),
   );
 
-const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
-  readonly source: string;
-  readonly target: string;
-  readonly from: Option.Option<string>;
-  readonly enable: boolean;
-  readonly yes: boolean;
-  readonly preview: boolean;
-}) {
+const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
   const nonInteractive = yield* isNonInteractiveOptional;
   const target = yield* Effect.fromResult(
     Result.mapError(parseFqn(args.target), fqnInvalidErrorToAppError),
@@ -453,7 +451,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
     jobs: [{ concurrency: 1, steps: [step] }],
   };
   const execution = yield* makePlanExecution(
-    args,
+    { preview: args.preview },
     makeConfirmationRecovery(
       ["fork"],
       [
@@ -484,14 +482,14 @@ const config = {
     Flag.withDescription("Enable and materialize a newly forked extension"),
     Flag.withDefault(false),
   ),
-  yes: yesFlag,
-  preview: previewFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const forkCommand = Command.make("fork", config, (parsed) =>
   handleFork(parsed).pipe(Effect.scoped, withWorkspace("project"), withRuntime("fork")),
 ).pipe(
   withArgvTracking(config),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Fork a managed AXM package into project-workspace authorship"),
   Command.withExamples([
     {

@@ -42,7 +42,6 @@ describe("Install materializes canonical content", () => {
 
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

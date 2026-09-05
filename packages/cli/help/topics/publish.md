@@ -86,9 +86,9 @@ Git source evidence. A worktree with no `HEAD` commit requires the same explicit
 acceptance as a differing archive.
 
 Apply stops before upload unless `--accept-warnings` explicitly accepts this
-condition. `--yes` only answers the ordinary confirmation prompt and is not a
-substitute. AXM checks the source evidence again immediately before upload and
-stops if it changed after planning.
+condition; publish offers no other approval flag. AXM checks the source
+evidence again immediately before upload and stops if it changed after
+planning.
 
 AXM validates the filtered result as a complete type-specific package before
 upload, and Registry ingestion repeats that validation. Ignoring the manifest,

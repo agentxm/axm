@@ -36,7 +36,7 @@ describe("axm skills new", () => {
       const settingsPath = path.join(temp.path, "axm.json");
       const before = fs.readFileSync(settingsPath, "utf-8");
 
-      const result = await runCli(["skills", "new", "layout-check", "--yes"], {
+      const result = await runCli(["skills", "new", "layout-check"], {
         cwd: temp.path,
       });
 
@@ -70,10 +70,9 @@ describe("axm mcps new", () => {
         agents: [],
       }));
 
-      const result = await runCli(
-        ["mcps", "new", "context", "--description", "Context server", "--yes"],
-        { cwd: temp.path },
-      );
+      const result = await runCli(["mcps", "new", "context", "--description", "Context server"], {
+        cwd: temp.path,
+      });
       expect(result.exitCode).toBe(0);
 
       const packageDir = path.join(temp.path, "mcps", "context");
@@ -120,7 +119,7 @@ describe("axm mcps new", () => {
       }));
       expect(
         (
-          await runCli(["mcps", "new", "context", "--description", "Context server", "--yes"], {
+          await runCli(["mcps", "new", "context", "--description", "Context server"], {
             cwd: temp.path,
           })
         ).exitCode,
@@ -171,7 +170,7 @@ describe("axm hooks new", () => {
         },
       });
 
-      const result = await runCli(["hooks", "new", "tool-audit", "--owner", "@test", "--yes"], {
+      const result = await runCli(["hooks", "new", "tool-audit", "--owner", "@test"], {
         cwd: temp.path,
       });
       expect(result.exitCode).toBe(0);
@@ -209,10 +208,9 @@ describe("axm knowledge new", () => {
       expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
       expect(preview.stdout).toContain(description);
 
-      const created = await runCli(
-        ["knowledge", "new", "platform", "--description", description, "--yes"],
-        { cwd: temp.path },
-      );
+      const created = await runCli(["knowledge", "new", "platform", "--description", description], {
+        cwd: temp.path,
+      });
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
       const packageDir = path.join(temp.path, "knowledge", "platform");
       expect(readJson(path.join(packageDir, "knowledge.json"))["description"]).toBe(description);
@@ -220,7 +218,7 @@ describe("axm knowledge new", () => {
         "Discovery map",
       );
 
-      const undescribed = await runCli(["knowledge", "new", "runbooks", "--yes"], {
+      const undescribed = await runCli(["knowledge", "new", "runbooks"], {
         cwd: temp.path,
       });
       expect(undescribed.exitCode, undescribed.stdout + undescribed.stderr).toBe(0);

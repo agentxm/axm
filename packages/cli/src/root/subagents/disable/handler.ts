@@ -18,7 +18,6 @@ import { provideLifecycleFailureAdapter } from "../../../feature-errors.js";
 
 export interface DisableSubagentHandlerArgs {
   readonly name: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 

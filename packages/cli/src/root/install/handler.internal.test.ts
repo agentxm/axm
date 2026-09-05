@@ -89,7 +89,6 @@ describe("root install handler", () => {
           calls.push({
             type: "skill",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -107,7 +106,6 @@ describe("root install handler", () => {
           calls.push({
             type: "mcp-server",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -125,7 +123,6 @@ describe("root install handler", () => {
           calls.push({
             type: "subagent",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -143,7 +140,6 @@ describe("root install handler", () => {
           calls.push({
             type: "hook",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -161,7 +157,6 @@ describe("root install handler", () => {
           calls.push({
             type: "pack",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -183,7 +178,6 @@ describe("root install handler", () => {
           calls.push({
             type: "knowledge",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -201,7 +195,6 @@ describe("root install handler", () => {
           calls.push({
             type: "rule",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -252,7 +245,6 @@ describe("root install handler", () => {
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
       const flags = {
-        yes: false,
         force: false,
         preview: true,
       } satisfies RootInstallFlags;
@@ -305,7 +297,6 @@ describe("root install handler", () => {
       yield* provide(
         handleInstall({
           source: Option.some("./local-source"),
-          yes: true,
           force: false,
           preview: true,
         }),
@@ -329,7 +320,6 @@ describe("root install handler", () => {
       yield* provide(
         handleInstall({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -365,7 +355,6 @@ describe("root install handler", () => {
       yield* provide(
         handleInstall({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -401,7 +390,6 @@ describe("root install handler", () => {
       yield* provide(
         handleInstall({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -450,7 +438,6 @@ describe("root install handler", () => {
       yield* provide(
         handleInstall({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: true,
         }),
@@ -500,7 +487,6 @@ describe("root install handler", () => {
       yield* provide(
         handleInstall({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -558,7 +544,6 @@ describe("root install handler", () => {
       yield* provide(
         handleInstall({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -588,7 +573,6 @@ describe("root install handler", () => {
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
       const flags = {
-        yes: true,
         force: true,
         preview: true,
       } satisfies RootInstallFlags;
@@ -604,23 +588,20 @@ describe("root install handler", () => {
         {
           type: "skill",
           source: "github:acme/extensions",
-          yes: false,
           force: false,
           preview: true,
         },
-        { type: "rule", source: "github:acme/extensions", yes: false, force: false, preview: true },
-        { type: "hook", source: "github:acme/extensions", yes: false, force: false, preview: true },
+        { type: "rule", source: "github:acme/extensions", force: false, preview: true },
+        { type: "hook", source: "github:acme/extensions", force: false, preview: true },
         {
           type: "knowledge",
           source: "github:acme/extensions",
-          yes: false,
           force: false,
           preview: true,
         },
         {
           type: "subagent",
           source: "github:acme/extensions",
-          yes: false,
           force: false,
           preview: true,
         },

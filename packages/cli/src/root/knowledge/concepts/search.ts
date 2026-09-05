@@ -7,6 +7,10 @@ import { makeAppError } from "../../../app-error/index.js";
 import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
+import {
   KnowledgeIndex,
   type KnowledgeQueryClause,
   makeKnowledgeQuery,
@@ -148,6 +152,7 @@ export const searchCommand = Command.make(
     }).pipe(withWorkspace(scope), withRuntime("knowledge concepts search")),
 ).pipe(
   withArgvTracking(searchConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Search installed knowledge concepts"),
   Command.withExamples([
     {

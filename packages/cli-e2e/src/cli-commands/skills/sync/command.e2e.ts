@@ -12,7 +12,7 @@ describe("axm sync configured skills", () => {
       });
       expect(setup.exitCode).toBe(0);
       const installed = await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"],
         { cwd: temp.path },
       );
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);

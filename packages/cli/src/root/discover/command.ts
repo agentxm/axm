@@ -5,6 +5,7 @@
 import { Command, Flag } from "effect/unstable/cli";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime } from "../../runtime.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 
 import { handleDiscover } from "./handler.js";
 
@@ -19,6 +20,7 @@ export const discoverCommand = Command.make("discover", discoverConfig, ({ path 
   handleDiscover({ path }).pipe(withRuntime("discover")),
 ).pipe(
   withArgvTracking(discoverConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Find extensions for your project"),
   Command.withExamples([
     { command: "axm discover", description: "Discover extensions for the current project" },

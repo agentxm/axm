@@ -45,14 +45,12 @@ describe("Lint classifies agent residue by ownership", () => {
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
       yield* handleAgentsAdd({
         ids: ["opencode"],
         detected: false,
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

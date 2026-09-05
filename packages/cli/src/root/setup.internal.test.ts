@@ -752,6 +752,132 @@ describe("setup.handler", () => {
       );
     });
 
+    it.effect("discloses the documented defaults an explicit preview resolved", () => {
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"], preview: true });
+
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              status: "preview",
+              previewDefaults: {
+                agents: "explicit",
+                instructions: { enabled: true, fileName: "AGENTS.md" },
+              },
+            },
+          });
+        }),
+      );
+    });
+
+    it.effect("discloses detected and suggested agent defaults in preview", () => {
+      const detected = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+      const suggested = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+      fs.mkdirSync(path.join(tempDir, ".claude"), { recursive: true });
+
+      return Effect.gen(function* () {
+        yield* detected.provide(
+          detected.handleSetup({ scope: "project", scopeExplicit: true, preview: true }),
+        );
+        expect(detected.rendererState.results[0]?.data).toMatchObject({
+          result: {
+            agents: [{ id: "claude-code", name: "Claude Code" }],
+            previewDefaults: { agents: "detected" },
+          },
+        });
+
+        fs.rmSync(path.join(tempDir, ".claude"), { recursive: true, force: true });
+        yield* suggested.provide(
+          suggested.handleSetup({ scope: "project", scopeExplicit: true, preview: true }),
+        );
+        expect(suggested.rendererState.results[0]?.data).toMatchObject({
+          result: { previewDefaults: { agents: "suggested" } },
+        });
+      });
+    });
+
+    it.effect("discloses no instruction default for a user-scope preview", () => {
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "user", agents: ["claude-code"], preview: true });
+
+          const result = expectRecord(
+            property(expectRecord(rendererState.results[0]?.data), "result"),
+          );
+          expect(property(result, "previewDefaults")).toEqual({ agents: "explicit" });
+        }),
+      );
+    });
+
+    it.effect("omits preview defaults from an applied setup", () => {
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          const result = expectRecord(
+            property(expectRecord(rendererState.results[0]?.data), "result"),
+          );
+          expect(result).not.toHaveProperty("previewDefaults");
+        }),
+      );
+    });
+
+    it.effect("an interactive preview raises no prompt with or without preapproval", () => {
+      const unapproved = makeSetupTestContext({ flags: { nonInteractive: false } });
+      const approved = makeSetupTestContext({ flags: { nonInteractive: false } });
+      fs.mkdirSync(path.join(tempDir, ".claude"), { recursive: true });
+      fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Existing\n");
+
+      return Effect.gen(function* () {
+        yield* unapproved.provide(
+          unapproved.handleSetup({ scope: "project", scopeExplicit: true, preview: true }),
+        );
+        yield* approved.provide(
+          approved.handleSetup({
+            scope: "project",
+            scopeExplicit: true,
+            preview: true,
+            yes: true,
+          }),
+        );
+
+        for (const context of [unapproved, approved]) {
+          expect(context.promptState.selectAgentsCalls).toEqual([]);
+          expect(context.promptState.confirmInstructionSyncCalls).toEqual([]);
+          expect(context.promptState.selectInstructionSourceCalls).toEqual([]);
+          expect(context.promptState.confirmSetupPlanCalls).toEqual([]);
+          expect(context.installCalls).toEqual([]);
+        }
+        expect(unapproved.promptState.presentSetupPlanCalls).toEqual(
+          approved.promptState.presentSetupPlanCalls,
+        );
+        expect(unapproved.rendererState.logs).toEqual(approved.rendererState.logs);
+        expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
+      });
+    });
+
     it.effect("reports exact setup projection targets instead of agent placeholders", () => {
       const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },

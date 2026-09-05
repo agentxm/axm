@@ -17,7 +17,7 @@ const uninstallPresentation = operationPresentation(
 
 export const handleUninstallMcpServer = (
   args: UninstallMcpServerHandlerArgs,
-  flags: { yes: boolean; preview: boolean },
+  flags: { preview: boolean },
 ) =>
   withOperationLifecycle(
     {
@@ -31,7 +31,7 @@ export const handleUninstallMcpServer = (
 
 const handleUninstallMcpServerBody = (
   args: UninstallMcpServerHandlerArgs,
-  flags: { yes: boolean; preview: boolean },
+  flags: { preview: boolean },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallMcpServerCommandWorkflowActions;

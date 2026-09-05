@@ -22,8 +22,12 @@ export {
   expectNoPlanEnvelope,
   planResultUnits,
   getAppError,
+  recordingFileSystemLayer,
+  type FileSystemWriteEvent,
   type TestPromptConfig,
+  type TestPromptState,
 } from "./test-helpers.js";
+export { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 
 export {
   ensureWorkspaceFiles,
@@ -48,6 +52,48 @@ export {
 export { resolveRootInstallIntent } from "./root/install/resolve-root-install-intent.js";
 export { PLAN_RESULT_CONTRACT, PlanResolutionDocumentSchema } from "./operation-output.js";
 export { handleUninstall } from "./root/uninstall/handler.js";
+export { handleAdopt } from "./root/adopt/command.js";
+export { handleFork } from "./root/fork/command.js";
+export { handleDemote } from "./root/demote/command.js";
+export { handleImport } from "./root/import/command.js";
+export { handleRootVersion, handleVersion } from "./root/shared/version-command.js";
+export { handleLogin } from "./root/auth/login.js";
+// The credential store port and the session shape the login specifications
+// observe; specs may not import the auth root directly.
+export { CredentialStore, type MeResponse } from "@agentxm/registry-auth";
+export { handleEnableHook } from "./root/hooks/enable.js";
+export { handleDisableHook } from "./root/hooks/disable.js";
+export { handleHooksNew } from "./root/hooks/new.js";
+export { handleInstallHook } from "./root/hooks/install/handler.js";
+export { handleUninstallHook } from "./root/hooks/uninstall/handler.js";
+export { handleEnableRule } from "./root/rules/enable.js";
+export { handleDisableRule } from "./root/rules/disable.js";
+export { handleRulesNew } from "./root/rules/new.js";
+export { handleInstallRule } from "./root/rules/install/handler.js";
+export { handleUninstallRule } from "./root/rules/uninstall/handler.js";
+export { handleKnowledgeNew } from "./root/knowledge/new.js";
+export { handleKnowledgeInstall } from "./root/knowledge/install/command.js";
+export { handleKnowledgeUninstall } from "./root/knowledge/uninstall/command.js";
+export { handleKnowledgeUpdate } from "./root/knowledge/update.js";
+export { setKnowledgeEnabled } from "./root/knowledge/activation.js";
+export { handleMcpServersNew } from "./root/mcps/new.js";
+export { handleEnableSubagent } from "./root/subagents/enable/handler.js";
+export { handleDisableSubagent } from "./root/subagents/disable/handler.js";
+export { handleInstall as handleSubagentsInstall } from "./root/subagents/install/handler.js";
+export { handleUninstall as handleSubagentsUninstall } from "./root/subagents/uninstall/handler.js";
+export { handleUpdate as handleSubagentsUpdate } from "./root/subagents/update/handler.js";
+export { handleUpdate as handleSkillsUpdate } from "./root/skills/update/handler.js";
+export { handleUninstall as handleSkillsUninstall } from "./root/skills/uninstall/handler.js";
+export { handleInstallPack } from "./root/packs/install/handler.js";
+export { handleUnpack } from "./root/packs/unpack/handler.js";
+export { handleWorkspaceInstall } from "./root/install/workspace-install-handler.js";
+export {
+  CommandCapabilitiesAnnotation,
+  readCommandCapabilities,
+  registeredCommandCapabilities,
+  type CommandCapabilities,
+  type RegisteredCommandCapabilities,
+} from "./root/shared/command-capabilities.js";
 export { handleSync } from "./root/sync/handler.js";
 export { handleUpdate } from "./root/update/handler.js";
 export { ExtensionListDocumentSchema, handleList } from "./root/list/command.js";
@@ -95,6 +141,7 @@ export { handlePacksNew } from "./root/packs/new.js";
 export { handlePacksShow } from "./root/packs/show.js";
 export { handleUninstallPack } from "./root/packs/uninstall/handler.js";
 export { handlePackActivation } from "./root/packs/activation.js";
+export { handlePacksUpdate } from "./root/packs/update.js";
 export { handleRootPublish } from "./root/publish/command.js";
 // The published publish-result contract, so interface specifications can
 // decode the rendered document against the schema machine consumers read.
@@ -185,6 +232,11 @@ export { SourceHostProvidersLive } from "./test-helpers.js";
 // entry point.
 export { AppError, ExitCodeDefinitions } from "./app-error/index.js";
 export { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
+export {
+  OperationExitLive,
+  ResolvePlanInteractionLive,
+  getOperationExitCode,
+} from "./cli-runtime/index.js";
 export { NAMED_OVERRIDE_POLICIES, TestFlagsLayer, Verbosity } from "./cli-flags/index.js";
 export {
   FrameLive,

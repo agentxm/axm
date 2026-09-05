@@ -17,6 +17,7 @@ import {
   publishPhaseStarted,
 } from "@agentxm/workspace-operations";
 import type { PlanExecution } from "@agentxm/workspace-operations";
+import { withPublisherTrust } from "../../publisher-binding.js";
 
 // -----------------------------------------------------------------------------
 // Install Command Workflow Actions Interface
@@ -111,7 +112,12 @@ export const buildInstallCommandPlan = <
     const finalizedIntent = yield* actions.finalizeIntent(parsed, refs);
     const intent = options?.transformIntent?.(finalizedIntent) ?? finalizedIntent;
     const plan = yield* actions.buildPlan(intent);
-    return options?.transformPlan === undefined ? plan : yield* options.transformPlan(plan);
+    const transformed =
+      options?.transformPlan === undefined ? plan : yield* options.transformPlan(plan);
+    // Every acceptance the plan proposes is classified against the accepted
+    // resolution here, so root, type, reinstall, and closure routes share one
+    // publisher-trust rule.
+    return yield* withPublisherTrust(transformed);
   });
 
 /**

@@ -2,6 +2,7 @@ import { Command } from "effect/unstable/cli";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { knowledgePublishCommand as publishCommand } from "../publish/per-type-command.js";
+import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
@@ -21,6 +22,7 @@ const showCommand = makeExtensionShowCommand({
 
 export const knowledgeCommand = Command.make("knowledge").pipe(
   Command.withDescription("Browse and validate Open Knowledge Format bundles"),
+  withCommandCapabilities(groupCapabilities),
   Command.annotate(
     LearnMore,
     formatLearnMore([

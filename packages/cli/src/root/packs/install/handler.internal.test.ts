@@ -30,7 +30,7 @@ import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { previewOrApplyPlan, deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
+import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
 import type { ExtensionFiles } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
@@ -411,7 +411,6 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const error = getAppError(
             yield* handleInstallPack(defaultHandlerArgs("./local-path"), {
-              yes: false,
               force: false,
               preview: false,
             }).pipe(Effect.flip),
@@ -429,7 +428,6 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const error = getAppError(
             yield* handleInstallPack(defaultHandlerArgs("github:owner/repo"), {
-              yes: false,
               force: false,
               preview: false,
             }).pipe(Effect.flip),
@@ -449,7 +447,6 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const error = getAppError(
             yield* handleInstallPack(defaultHandlerArgs("@acme/my-pack"), {
-              yes: false,
               force: false,
               preview: false,
             }).pipe(Effect.flip),
@@ -525,7 +522,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("@acme/packs/my-pack"), {
-            yes: false,
             force: false,
             preview: false,
           });
@@ -562,7 +558,6 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const error = getAppError(
             yield* handleInstallPack(defaultHandlerArgs("@acme/packs/test-pack"), {
-              yes: false,
               force: false,
               preview: true,
             }).pipe(Effect.flip),
@@ -641,7 +636,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("@acme/packs/frontend"), {
-            yes: false,
             force: false,
             preview: true,
           });
@@ -718,7 +712,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("@acme/packs/basic-pack"), {
-            yes: false,
             force: false,
             preview: true,
           });
@@ -1034,7 +1027,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("@acme/packs/test-pack"), {
-            yes: false,
             force: false,
             preview: false,
           });
@@ -1098,7 +1090,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("@acme/packs/test-pack@^2.0.0"), {
-            yes: false,
             force: false,
             preview: false,
           });
@@ -1194,7 +1185,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("@acme/packs/test-pack"), {
-            yes: false,
             force: false,
             preview: false,
           });
@@ -1231,7 +1221,6 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const error = getAppError(
             yield* handleInstallPack(defaultHandlerArgs("@acme/packs/nonexistent"), {
-              yes: false,
               force: false,
               preview: false,
             }).pipe(Effect.flip),
@@ -1284,7 +1273,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("@acme/packs/effect"), {
-            yes: false,
             force: false,
             preview: false,
           });
@@ -1337,7 +1325,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("effect"), {
-            yes: false,
             force: false,
             preview: false,
           });
@@ -1451,7 +1438,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("@acme/packs/multi-pack"), {
-            yes: false,
             force: false,
             preview: false,
           });
@@ -1556,7 +1542,6 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleInstallPack(defaultHandlerArgs("@acme/packs/dep-pack"), {
-            yes: false,
             force: false,
             preview: false,
           });

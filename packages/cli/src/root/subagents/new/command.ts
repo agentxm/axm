@@ -1,8 +1,12 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleSubagentsNew } from "./handler.js";
 
@@ -14,21 +18,18 @@ const newConfig = {
     Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Create the subagent without confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what files would be created without creating them"),
-  ),
+  preview: previewCapabilityFlag("Show what files would be created without creating them"),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, preview }) =>
+export const newCommand = Command.make("new", newConfig, ({ name, owner, preview }) =>
   handleSubagentsNew({
     name: decodeExtensionNameSync(name),
     owner,
-    yes,
     preview,
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("subagents new")),
 ).pipe(
   withArgvTracking(newConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Create a new subagent in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm subagents new my-subagent", description: "Scaffold a new subagent" },

@@ -6,7 +6,6 @@ import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { buildAuthoredExtensionStep } from "@agentxm/extension-workspace";
 import {
@@ -31,6 +30,11 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import {
@@ -195,11 +199,12 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
   }
 });
 
-export const handleAdopt = (args: {
+export interface AdoptHandlerArgs {
   readonly fqn: string;
-  readonly yes: boolean;
   readonly preview: boolean;
-}) =>
+}
+
+export const handleAdopt = (args: AdoptHandlerArgs) =>
   withOperationLifecycle(
     {
       command: "adopt",
@@ -209,11 +214,7 @@ export const handleAdopt = (args: {
     handleAdoptBody(args),
   );
 
-const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: {
-  readonly fqn: string;
-  readonly yes: boolean;
-  readonly preview: boolean;
-}) {
+const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerArgs) {
   const step = yield* adoptStep(args.fqn);
   const plan: Plan = {
     _tag: "Plan",
@@ -228,7 +229,11 @@ const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: {
     }),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
-  const execution = yield* makePublicPositionalPlanExecution(args, ["adopt"], [args.fqn]);
+  const execution = yield* makePublicPositionalPlanExecution(
+    { preview: args.preview },
+    ["adopt"],
+    [args.fqn],
+  );
   const resolution = yield* previewOrApplyPlan(plan, { execution });
   yield* emitOperationResolution("adopt", resolution);
 });
@@ -237,14 +242,14 @@ const config = {
   fqn: Argument.string("extension").pipe(
     Argument.withDescription("Canonical extension FQN (@owner/<plural-type>/name)"),
   ),
-  yes: yesFlag,
-  preview: previewFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
-export const adoptCommand = Command.make("adopt", config, ({ fqn, yes, preview }) =>
-  handleAdopt({ fqn, yes, preview }).pipe(withWorkspace("project"), withRuntime("adopt")),
+export const adoptCommand = Command.make("adopt", config, ({ fqn, preview }) =>
+  handleAdopt({ fqn, preview }).pipe(withWorkspace("project"), withRuntime("adopt")),
 ).pipe(
   withArgvTracking(config),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Adopt a canonical package into project-workspace authorship"),
   Command.withExamples([
     {

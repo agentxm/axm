@@ -7,11 +7,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import {
-  previewOrApplyPlan,
-  preapprovedPlanExecution,
-  previewPlanExecution,
-} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan, previewPlanExecution } from "@agentxm/workspace-operations";
+import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 

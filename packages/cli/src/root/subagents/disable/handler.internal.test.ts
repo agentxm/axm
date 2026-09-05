@@ -114,7 +114,6 @@ describe("subagents disable.handler", () => {
       Effect.gen(function* () {
         const result = yield* handleDisableSubagent({
           name: "nonexistent",
-          yes: true,
           preview: false,
         }).pipe(Effect.result);
 
@@ -143,7 +142,6 @@ describe("subagents disable.handler", () => {
       Effect.gen(function* () {
         yield* handleDisableSubagent({
           name: "my-subagent",
-          yes: true,
           preview: false,
         });
 
@@ -170,7 +168,6 @@ describe("subagents disable.handler", () => {
       Effect.gen(function* () {
         yield* handleDisableSubagent({
           name: "my-subagent",
-          yes: true,
           preview: false,
         });
 
@@ -250,7 +247,6 @@ describe("subagents disable.handler", () => {
       Effect.gen(function* () {
         yield* handleDisableSubagent({
           name: "pack-subagent",
-          yes: true,
           preview: false,
         });
 
@@ -290,7 +286,6 @@ describe("subagents disable.handler", () => {
       Effect.gen(function* () {
         yield* handleDisableSubagent({
           name: "my-subagent",
-          yes: true,
           preview: false,
         });
 

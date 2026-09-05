@@ -38,7 +38,6 @@ describe("Repeat installs are safe", () => {
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       const install = handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

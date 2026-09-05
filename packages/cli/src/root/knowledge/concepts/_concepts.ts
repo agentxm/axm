@@ -1,5 +1,6 @@
 import { Command } from "effect/unstable/cli";
 
+import { groupCapabilities, withCommandCapabilities } from "../../shared/command-capabilities.js";
 import { getCommand } from "./get.js";
 import { queryCommand } from "./query.js";
 import { relatedCommand } from "./related.js";
@@ -9,6 +10,7 @@ import { statusCommand } from "./status.js";
 
 export const conceptsCommand = Command.make("concepts").pipe(
   Command.withDescription("Discover installed knowledge concepts through versioned identities"),
+  withCommandCapabilities(groupCapabilities),
   Command.withExamples([
     {
       command: 'axm knowledge concepts search "authentication"',

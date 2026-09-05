@@ -45,7 +45,6 @@ const INITIAL_VERSION = decodeVersionSync("0.0.1");
 export interface SubagentsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<string>;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -238,10 +237,7 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
-    preview: args.preview,
-    yes: args.yes,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
   const suggestions = [
     {

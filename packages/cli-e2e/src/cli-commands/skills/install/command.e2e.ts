@@ -15,7 +15,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 describe("axm skills install", () => {
-  describe("with local source --all --yes", () => {
+  describe("with local source --all", () => {
     it("installs all skills and creates the project and acquired-package structure", async () => {
       const temp = createTempDir();
       try {
@@ -25,7 +25,7 @@ describe("axm skills install", () => {
         });
 
         // Install all skills
-        const result = await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        const result = await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
           cwd: temp.path,
         });
 
@@ -75,7 +75,7 @@ describe("axm skills install", () => {
           },
         );
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
           cwd: temp.path,
         });
 
@@ -111,7 +111,7 @@ describe("axm skills install", () => {
         });
 
         const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"],
           {
             cwd: temp.path,
           },
@@ -146,10 +146,9 @@ describe("axm skills install", () => {
           },
         );
 
-        const result = await runCli(
-          ["skills", "install", "/nonexistent/path/to/skills", "--all", "--yes"],
-          { cwd: temp.path },
-        );
+        const result = await runCli(["skills", "install", "/nonexistent/path/to/skills", "--all"], {
+          cwd: temp.path,
+        });
 
         expect(result.exitCode).not.toBe(0);
         expect(result.stderr).toContain("No skills found in source (not_found)");
@@ -169,7 +168,7 @@ describe("axm skills install", () => {
           },
         );
 
-        const result = await runCli(["skills", "install", emptyDir.path, "--all", "--yes"], {
+        const result = await runCli(["skills", "install", emptyDir.path, "--all"], {
           cwd: temp.path,
         });
 
@@ -278,10 +277,10 @@ describe("axm skills install", () => {
         expect(preview.exitCode, preview.stderr).toBe(0);
         expect(fs.readFileSync(manifestPath, "utf8")).toContain("99.0.0");
 
-        const applied = await runCli(
-          ["skills", "install", "@agentxm/skills/axm", "--bundled", "--yes"],
-          { cwd: temp.path, env: offlineEnv },
-        );
+        const applied = await runCli(["skills", "install", "@agentxm/skills/axm", "--bundled"], {
+          cwd: temp.path,
+          env: offlineEnv,
+        });
         expect(applied.exitCode, applied.stderr).toBe(0);
         expect(fs.readFileSync(manifestPath, "utf8")).not.toContain("99.0.0");
         expect(fs.readFileSync(skillPath, "utf8")).not.toContain("99.0.0");
@@ -314,10 +313,9 @@ describe("axm skills install", () => {
     it("rejects invalid bundled selectors with usage exit 2", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(
-          ["skills", "install", "@acme/skills/axm", "--bundled", "--yes"],
-          { cwd: temp.path },
-        );
+        const result = await runCli(["skills", "install", "@acme/skills/axm", "--bundled"], {
+          cwd: temp.path,
+        });
         expect(result.exitCode).toBe(2);
         expect(result.stderr).toContain("restricted to @agentxm/skills/axm");
       } finally {
@@ -334,7 +332,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -378,7 +376,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -403,7 +401,7 @@ describe("axm skills install", () => {
           },
         );
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -435,7 +433,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
           cwd: temp.path,
         });
 
@@ -475,13 +473,13 @@ describe("axm skills install", () => {
         );
 
         // First install
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
         // Second install of same local skill triggers repair (no stable identifier)
         const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"],
           { cwd: temp.path },
         );
 
@@ -503,13 +501,13 @@ describe("axm skills install", () => {
         );
 
         // First install
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
         // Second install with --reinstall should succeed
         const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--reinstall"],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--reinstall"],
           { cwd: temp.path },
         );
 
@@ -528,7 +526,7 @@ describe("axm skills install", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("skills install");
       expect(result.stdout).toContain("--all");
-      expect(result.stdout).toContain("--yes");
+      expect(result.stdout).not.toContain("--yes");
       expect(result.stdout).toContain("--skill");
       expect(result.stdout).toContain("--scope");
       expect(result.stdout).toContain("--reinstall");
@@ -603,7 +601,7 @@ describe("axm skills install", () => {
         );
 
         // First install a skill
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -651,7 +649,7 @@ describe("axm skills install", () => {
         );
 
         // Install a skill
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 

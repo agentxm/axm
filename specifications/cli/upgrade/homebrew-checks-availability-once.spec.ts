@@ -52,7 +52,7 @@ describe("Homebrew availability observation", () => {
   );
   it.effect("leaves preview and already-current requests free of installer commands", () =>
     Effect.gen(function* () {
-      expect((yield* runUpgrade({ dryRun: true })).calls).toEqual([]);
+      expect((yield* runUpgrade({ preview: true })).calls).toEqual([]);
       expect((yield* runUpgrade({ localVersion: TARGET_VERSION })).calls).toEqual([]);
     }),
   );

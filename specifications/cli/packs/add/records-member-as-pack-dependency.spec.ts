@@ -46,21 +46,18 @@ describe("Adding a member to a workspace-authored pack", () => {
       cleanups.push(workspace.cleanup);
       yield* handleInstall({
         source: Option.some("@acme/skills/member-skill"),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
       yield* handlePacksNew({
         name: extensionName("toolkit"),
         owner: Option.none(),
-        yes: true,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
 
       yield* handlePacksAdd({
         pack: "toolkit",
         extension: "@acme/skills/member-skill",
-        yes: true,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
 

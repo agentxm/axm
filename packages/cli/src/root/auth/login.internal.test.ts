@@ -563,6 +563,77 @@ describe("auth login handler", () => {
     );
   });
 
+  it.effect("starts a new device sign-in for a valid non-interactive session with --yes", () => {
+    const { provide, rendererState } = makeLayers({
+      nonInteractive: true,
+      machine: true,
+      json: true,
+      existingCredentials: true,
+    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin({ yes: true, deviceCode: true, scopes: [] });
+        const result = expectRecord(
+          property(expectRecord(rendererState.results[0]?.data), "result"),
+        );
+        expect(result).toMatchObject({
+          status: "pending-human",
+          userCode: "ABCD-1234",
+          resume: "axm login --wait --json",
+        });
+      }),
+    );
+  });
+
+  it.effect(
+    "starts a new sign-in for a valid session with --yes in human non-interactive mode",
+    () => {
+      const { provide, rendererState } = makeLayers({
+        nonInteractive: true,
+        existingCredentials: true,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleLogin({ yes: true, deviceCode: true, scopes: [] });
+          expect(
+            rendererState.logs.filter(
+              (l) => l._tag === "success" && l.message.includes("Already logged in to"),
+            ),
+          ).toEqual([]);
+          expect(rendererState.logs).toContainEqual({
+            _tag: "info",
+            message: `Already logged in as ${ALICE}.`,
+          });
+          // The non-interactive device flow hands the approval to a person
+          // instead of blocking on the poll.
+          expect(
+            rendererState.logs.some((l) => l._tag === "info" && l.message.includes("ABCD-1234")),
+          ).toBe(true);
+        }),
+      );
+    },
+  );
+
+  it.effect("keeps a valid non-interactive session without --yes and names the preapproval", () => {
+    const { provide, rendererState } = makeLayers({
+      nonInteractive: true,
+      existingCredentials: true,
+    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        expect(rendererState.logs).toContainEqual({
+          _tag: "success",
+          message: "Already logged in to registry.agentxm.ai as @alice.",
+        });
+        expect(rendererState.suggestions).toContainEqual({
+          description: "Sign in again with a different account",
+          cmd: "axm login --yes",
+        });
+      }),
+    );
+  });
+
   it.effect("returns early when user declines re-login", () => {
     const { provide, rendererState } = makeLayers({
       existingCredentials: true,
@@ -592,6 +663,7 @@ describe("auth login handler", () => {
         expect(rendererState.suggestions).toEqual([
           { description: "Check active account", cmd: "axm whoami" },
           { description: "Log out", cmd: "axm logout" },
+          { description: "Sign in again with a different account", cmd: "axm login --yes" },
         ]);
       }),
     );
@@ -626,6 +698,7 @@ describe("auth login handler", () => {
         expect(rendererState.suggestions).toEqual([
           { description: "Check active account", cmd: "axm whoami" },
           { description: "Log out", cmd: "axm logout" },
+          { description: "Sign in again with a different account", cmd: "axm login --yes" },
         ]);
       }),
     );

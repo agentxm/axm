@@ -29,7 +29,7 @@ describe("axm skills install --preview integration", () => {
           },
         );
 
-        // Run preview without --yes (non-interactive mode prevents confirmation)
+        // Run preview in non-interactive mode; a preview never prompts or applies
         const previewResult = await runCli(
           ["skills", "install", SKILLS_REPO_FIXTURE, "--preview", "--all", "--non-interactive"],
           { cwd: temp.path },
@@ -42,10 +42,9 @@ describe("axm skills install --preview integration", () => {
         expect(fs.existsSync(localExtensionsRoot)).toBe(false);
 
         // Real install
-        const installResult = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"],
-          { cwd: temp.path },
-        );
+        const installResult = await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
+          cwd: temp.path,
+        });
 
         expect(installResult.exitCode).toBe(0);
 
@@ -72,12 +71,12 @@ describe("axm skills install --preview integration", () => {
 
         // Run preview twice (without --json)
         const result1 = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--preview", "--all", "--yes"],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--preview", "--all"],
           { cwd: temp.path },
         );
 
         const result2 = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--preview", "--all", "--yes"],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--preview", "--all"],
           { cwd: temp.path },
         );
 

@@ -7,6 +7,7 @@
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -89,6 +90,75 @@ export interface TestPromptState {
     readonly required: boolean;
   }>;
 }
+
+/** One mutating call the recording file system observed. */
+export interface FileSystemWriteEvent {
+  readonly operation:
+    | "chmod"
+    | "chown"
+    | "copy"
+    | "copyFile"
+    | "link"
+    | "makeDirectory"
+    | "open"
+    | "remove"
+    | "rename"
+    | "symlink"
+    | "truncate"
+    | "utimes"
+    | "writeFile";
+  /** Every path the call could change. */
+  readonly paths: ReadonlyArray<string>;
+}
+
+/**
+ * A file system that delegates every call and reports each mutating one.
+ * Specifications pair it with observed state so an assessment that leaves
+ * protected state unchanged is also shown never to have attempted a write
+ * beneath it. Reads, temporary files, and existence checks are not reported.
+ */
+export const recordingFileSystemLayer = (
+  onWrite: (event: FileSystemWriteEvent) => void,
+): Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem> =>
+  Layer.effect(
+    FileSystem.FileSystem,
+    Effect.map(FileSystem.FileSystem, (fs) => {
+      const record = (operation: FileSystemWriteEvent["operation"], paths: ReadonlyArray<string>) =>
+        Effect.sync(() => onWrite({ operation, paths }));
+      const opensForWriting = (flag: string | undefined): boolean =>
+        flag !== undefined && /[wa+]/.test(flag);
+      return FileSystem.make({
+        ...fs,
+        chmod: (path, mode) => record("chmod", [path]).pipe(Effect.andThen(fs.chmod(path, mode))),
+        chown: (path, uid, gid) =>
+          record("chown", [path]).pipe(Effect.andThen(fs.chown(path, uid, gid))),
+        copy: (fromPath, toPath, options) =>
+          record("copy", [toPath]).pipe(Effect.andThen(fs.copy(fromPath, toPath, options))),
+        copyFile: (fromPath, toPath) =>
+          record("copyFile", [toPath]).pipe(Effect.andThen(fs.copyFile(fromPath, toPath))),
+        link: (fromPath, toPath) =>
+          record("link", [toPath]).pipe(Effect.andThen(fs.link(fromPath, toPath))),
+        makeDirectory: (path, options) =>
+          record("makeDirectory", [path]).pipe(Effect.andThen(fs.makeDirectory(path, options))),
+        open: (path, options) =>
+          (opensForWriting(options?.flag) ? record("open", [path]) : Effect.void).pipe(
+            Effect.andThen(fs.open(path, options)),
+          ),
+        remove: (path, options) =>
+          record("remove", [path]).pipe(Effect.andThen(fs.remove(path, options))),
+        rename: (oldPath, newPath) =>
+          record("rename", [oldPath, newPath]).pipe(Effect.andThen(fs.rename(oldPath, newPath))),
+        symlink: (fromPath, toPath) =>
+          record("symlink", [toPath]).pipe(Effect.andThen(fs.symlink(fromPath, toPath))),
+        truncate: (path, length) =>
+          record("truncate", [path]).pipe(Effect.andThen(fs.truncate(path, length))),
+        utimes: (path, atime, mtime) =>
+          record("utimes", [path]).pipe(Effect.andThen(fs.utimes(path, atime, mtime))),
+        writeFile: (path, data, options) =>
+          record("writeFile", [path]).pipe(Effect.andThen(fs.writeFile(path, data, options))),
+      });
+    }),
+  );
 
 export interface AppErrorResult {
   readonly error: true;
@@ -398,6 +468,8 @@ export const makeCliTestContext = (opts?: {
    * application writes to each stream. `rendererState` stays empty.
    */
   readonly screenLayer?: Layer.Layer<Screen> | undefined;
+  /** Observe every mutating file-system call the application makes. */
+  readonly onFileSystemWrite?: ((event: FileSystemWriteEvent) => void) | undefined;
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
   const rendererLayer = opts?.screenLayer ?? renderer.layer;
@@ -456,8 +528,12 @@ export const makeCliTestContext = (opts?: {
       }),
   });
   const authLoginPresenterTest = AuthLoginPresenterTest();
+  const platformLayer =
+    opts?.onFileSystemWrite === undefined
+      ? NodeServices.layer
+      : Layer.provideMerge(recordingFileSystemLayer(opts.onFileSystemWrite), NodeServices.layer);
   const baseLayer = Layer.mergeAll(
-    NodeServices.layer,
+    platformLayer,
     Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
     rendererLayer,
     resolvePlanTest.layer,
@@ -518,6 +594,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly machine?: boolean | undefined;
   readonly httpClient?: HttpClient.HttpClient | undefined;
   readonly screenLayer?: Layer.Layer<Screen> | undefined;
+  readonly onFileSystemWrite?: ((event: FileSystemWriteEvent) => void) | undefined;
   readonly wsOptions?:
     | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
         readonly projectRoot?: string;

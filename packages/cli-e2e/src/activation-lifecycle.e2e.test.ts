@@ -129,19 +129,17 @@ const expectInventoryOutcome = async (
 const runLifecycleMutation = async (
   workspace: string,
   command: ReadonlyArray<string>,
-  confirmation: ReadonlyArray<string>,
 ): Promise<void> => {
   const before = snapshotTree(workspace);
-  const preview = await runCli(
-    [...command, ...confirmation, "--preview", "--json", "--non-interactive"],
-    { cwd: workspace },
-  );
+  const preview = await runCli([...command, "--preview", "--json", "--non-interactive"], {
+    cwd: workspace,
+  });
   expect(preview.exitCode, `preview ${command.join(" ")}\n${preview.stdout}${preview.stderr}`).toBe(
     0,
   );
   expect(snapshotTree(workspace), `preview purity for ${command.join(" ")}`).toEqual(before);
 
-  const applied = await runCli([...command, ...confirmation, "--json", "--non-interactive"], {
+  const applied = await runCli([...command, "--json", "--non-interactive"], {
     cwd: workspace,
   });
   expect(applied.exitCode, `apply ${command.join(" ")}\n${applied.stdout}${applied.stderr}`).toBe(
@@ -157,7 +155,7 @@ const runLifecycleMutation = async (
   expect(outcomeDecisions(appliedOutcomes)).toEqual(outcomeDecisions(previewOutcomes));
   const afterApply = snapshotTree(workspace);
 
-  const second = await runCli([...command, ...confirmation, "--json", "--non-interactive"], {
+  const second = await runCli([...command, "--json", "--non-interactive"], {
     cwd: workspace,
   });
   expect(second.exitCode, `second ${command.join(" ")}\n${second.stdout}${second.stderr}`).toBe(0);
@@ -195,7 +193,7 @@ describe("extension activation lifecycle", () => {
 
       for (const row of EXTENSION_TYPE_MATRIX) {
         const name = extensionName(row.plural);
-        const created = await runCli([row.plural, "new", name, "--yes", "--non-interactive"], {
+        const created = await runCli([row.plural, "new", name, "--non-interactive"], {
           cwd: temp.path,
         });
         expect(created.exitCode, `create ${row.type}\n${created.stdout}${created.stderr}`).toBe(0);
@@ -213,14 +211,13 @@ describe("extension activation lifecycle", () => {
       for (const row of EXTENSION_TYPE_MATRIX) {
         const name = extensionName(row.plural);
         const selection = row.updateSelection === "name-filter" ? ["--name", name] : [];
-        await runLifecycleMutation(temp.path, [row.plural, "update", ...selection], ["--yes"]);
+        await runLifecycleMutation(temp.path, [row.plural, "update", ...selection]);
         await expectCleanWorkspace(temp.path, `${row.type} updated`);
       }
 
       for (const row of EXTENSION_TYPE_MATRIX) {
         const name = extensionName(row.plural);
-        const confirmation = row.activationConfirmation ? ["--yes"] : [];
-        await runLifecycleMutation(temp.path, [row.plural, "disable", name], confirmation);
+        await runLifecycleMutation(temp.path, [row.plural, "disable", name]);
         expect(
           fs.existsSync(canonicalDirectory(temp.path, row.plural)),
           `${row.type} canonical package retained after disable`,
@@ -228,7 +225,7 @@ describe("extension activation lifecycle", () => {
         await expectCleanWorkspace(temp.path, `${row.type} disabled`);
         await expectInventoryOutcome(temp.path, row.plural, name, "not-applicable");
 
-        await runLifecycleMutation(temp.path, [row.plural, "enable", name], confirmation);
+        await runLifecycleMutation(temp.path, [row.plural, "enable", name]);
         await expectInventoryOutcome(
           temp.path,
           row.plural,
@@ -246,7 +243,7 @@ describe("extension activation lifecycle", () => {
 
       for (const row of EXTENSION_TYPE_MATRIX) {
         const name = extensionName(row.plural);
-        await runLifecycleMutation(temp.path, [row.plural, "uninstall", name], ["--yes"]);
+        await runLifecycleMutation(temp.path, [row.plural, "uninstall", name]);
         await expectCleanWorkspace(temp.path, `${row.type} uninstalled`);
       }
     } finally {
@@ -279,7 +276,7 @@ describe("extension activation lifecycle", () => {
       for (const row of EXTENSION_TYPE_MATRIX) {
         const name = extensionName(row.plural);
         const created = await runCli(
-          [row.plural, "new", name, "--owner", "@test", "--yes", "--non-interactive"],
+          [row.plural, "new", name, "--owner", "@test", "--non-interactive"],
           {
             cwd: workspace.path,
             env,

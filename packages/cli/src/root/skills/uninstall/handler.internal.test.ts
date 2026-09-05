@@ -196,7 +196,6 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-skill"), {
-            yes: true,
             preview: false,
           });
 
@@ -231,7 +230,6 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("settings-only"), {
-            yes: true,
             preview: false,
           });
 
@@ -270,7 +268,6 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("effect-*"), {
-            yes: true,
             preview: false,
           });
 
@@ -305,7 +302,6 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
-            yes: true,
             preview: false,
           });
 
@@ -324,7 +320,6 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent-*"), {
-            yes: true,
             preview: false,
           });
 
@@ -351,7 +346,6 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("nonexistent"), {
-            yes: true,
             preview: false,
           });
 
@@ -382,7 +376,6 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-skill"), {
-            yes: true,
             preview: false,
           });
 
@@ -452,7 +445,6 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs(skillName), {
-            yes: true,
             preview: false,
           });
 
@@ -493,7 +485,6 @@ describe("uninstall.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstall(defaultArgs("my-skill"), {
-            yes: false,
             preview: true,
           });
 
@@ -516,7 +507,6 @@ describe("uninstall.handler", () => {
         return provide(
           Effect.gen(function* () {
             yield* handleUninstall(defaultArgs("my-skill"), {
-              yes: false,
               preview: true,
             });
 
@@ -568,7 +558,6 @@ describe("uninstall.handler", () => {
         return provide(
           Effect.gen(function* () {
             yield* handleUninstall(defaultArgs("my-skill"), {
-              yes: false,
               preview: true,
             });
 

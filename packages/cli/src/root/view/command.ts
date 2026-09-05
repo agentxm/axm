@@ -7,6 +7,7 @@ import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/exten
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { handleDefaultRegistryFqnView, handleView } from "./handler.js";
 
 const viewConfig = {
@@ -42,6 +43,7 @@ export const viewCommand = Command.make("view", viewConfig, ({ handle, field, re
   );
 }).pipe(
   withArgvTracking(viewConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("View published extension metadata"),
   Command.withExamples([
     {

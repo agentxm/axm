@@ -24,8 +24,13 @@ import {
 import { RegistryUrl } from "@agentxm/registry-client";
 import { requireInteractive } from "../../prompt/index.js";
 import { Screen, headlineDoc, paragraphDoc, successDoc } from "../../screen/index.js";
-import { isNonInteractive, jsonFlag, yesFlag } from "../../cli-flags/index.js";
+import { isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import { setCommandSemanticProperties, withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  preapprovalCapabilityFlag,
+  withCommandCapabilities,
+  type CommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { errAuthRequired, makeAppError, type AppError } from "../../app-error/index.js";
 import type { PromptCancelled } from "../../prompt/prompt-cancelled.js";
@@ -51,7 +56,22 @@ export type LoginNoOpDocument = typeof LoginNoOpDocumentSchema.Type;
 const LoginNoOpSuggestions = [
   { description: "Check active account", cmd: "axm whoami" },
   { description: "Log out", cmd: "axm logout" },
+  { description: "Sign in again with a different account", cmd: "axm login --yes" },
 ] satisfies ReadonlyArray<SuggestedAction>;
+
+/**
+ * Login writes credentials directly; the one confirmation it can approve in
+ * advance is replacing a session that is still valid.
+ */
+const loginCapabilities = {
+  preview: false,
+  preapproval: {
+    purpose: "Start a new sign-in without prompting when a valid session already exists",
+  },
+  trust: [],
+  inputs: "explicit-or-documented-defaults",
+  effect: "credentials",
+} satisfies CommandCapabilities;
 
 interface LoginInteractions {
   readonly confirmRelogin?: (message: string) => Effect.Effect<boolean, PromptCancelled | AppError>;
@@ -181,7 +201,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
           registryHost,
           handle: meResult.value.userHandle,
         };
-        if (!options.yes && jsonMode) {
+        const reportAlreadyLoggedIn = Effect.gen(function* () {
           if (
             yield* screen.document({ result: noOpResult }, LoginNoOpDocumentSchema, {
               suggestions: LoginNoOpSuggestions,
@@ -189,19 +209,20 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
           ) {
             return;
           }
-        }
+          yield* screen.result(
+            successDoc(`Already logged in to ${registryHost} as ${noOpResult.handle}.`, {
+              suggestions: LoginNoOpSuggestions,
+            }),
+          );
+        });
 
-        if (nonInteractive) {
-          if (!jsonMode) {
-            yield* screen.result(
-              successDoc(`Already logged in to ${registryHost} as ${noOpResult.handle}.`, {
-                suggestions: LoginNoOpSuggestions,
-              }),
-            );
-          }
+        // Preapproval answers the one question a valid session raises, so a
+        // new sign-in starts in every mode. Without it, a mode that cannot
+        // ask keeps the session; a mode that can asks.
+        if (!options.yes && (nonInteractive || jsonMode)) {
+          yield* reportAlreadyLoggedIn;
           return;
         }
-
         if (!jsonMode) {
           yield* screen.note(
             headlineDoc("info", `Already logged in as ${meResult.value.userHandle}.`),
@@ -212,18 +233,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
           const shouldContinue = yield* interactions?.confirmRelogin?.(message) ??
             confirmRelogin(message);
           if (!shouldContinue) {
-            if (
-              yield* screen.document({ result: noOpResult }, LoginNoOpDocumentSchema, {
-                suggestions: LoginNoOpSuggestions,
-              })
-            ) {
-              return;
-            }
-            yield* screen.result(
-              successDoc(`Already logged in to ${registryHost} as ${noOpResult.handle}.`, {
-                suggestions: LoginNoOpSuggestions,
-              }),
-            );
+            yield* reportAlreadyLoggedIn;
             return;
           }
         }
@@ -349,9 +359,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
 );
 
 const loginConfig = {
-  yes: yesFlag.pipe(
-    Flag.withDescription("Log in again without prompting when already authenticated"),
-  ),
+  yes: preapprovalCapabilityFlag(loginCapabilities),
   deviceCode: Flag.boolean("device-code").pipe(
     Flag.withDescription(
       "Use OAuth device-code sign-in; recommended for SSH and headless environments",
@@ -393,6 +401,7 @@ export const loginCommand = Command.make(
     }).pipe(withRuntime("auth login")),
 ).pipe(
   withArgvTracking(loginConfig),
+  withCommandCapabilities(loginCapabilities),
   Command.withDescription("Sign in to a registry"),
   Command.withExamples([
     { command: "axm login", description: "Sign in with a local browser" },

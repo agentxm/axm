@@ -62,7 +62,6 @@ describe("hooks enable/disable no-op output", () => {
       Effect.gen(function* () {
         yield* handleEnableHook({
           name: "workspace-baseline",
-          yes: false,
           preview: false,
         });
 
@@ -81,7 +80,6 @@ describe("hooks enable/disable no-op output", () => {
       Effect.gen(function* () {
         yield* handleEnableHook({
           name: "workspace-baseline",
-          yes: false,
           preview: false,
         });
 
@@ -104,7 +102,6 @@ describe("hooks enable/disable no-op output", () => {
       Effect.gen(function* () {
         yield* handleDisableHook({
           name: "workspace-baseline",
-          yes: false,
           preview: false,
         });
 
@@ -127,7 +124,6 @@ describe("hooks enable/disable no-op output", () => {
       Effect.gen(function* () {
         yield* handleDisableHook({
           name: "missing",
-          yes: false,
           preview: false,
         });
 
@@ -150,7 +146,6 @@ describe("hooks enable/disable no-op output", () => {
       Effect.gen(function* () {
         yield* handleEnableHook({
           name: "missing",
-          yes: false,
           preview: false,
         });
 
@@ -174,17 +169,14 @@ describe("hooks enable/disable no-op output", () => {
           runtime: "bash",
           event: "tool.pre",
           matcher: Option.some("Bash"),
-          yes: true,
           preview: false,
         });
         yield* handleDisableHook({
           name: "workspace-baseline",
-          yes: true,
           preview: false,
         });
         yield* handleEnableHook({
           name: "workspace-baseline",
-          yes: true,
           preview: false,
         });
 

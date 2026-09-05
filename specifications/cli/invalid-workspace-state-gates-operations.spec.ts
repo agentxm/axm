@@ -241,7 +241,6 @@ const invokeOperation = (
         .provide(
           handleInstall({
             source: Option.some(packagePath),
-            yes: true,
             force: false,
             preview: false,
           }),
@@ -255,7 +254,6 @@ const invokeOperation = (
         .provide(
           handleInstall({
             source: Option.some(packagePath),
-            yes: true,
             force: true,
             preview: false,
           }),
@@ -325,7 +323,6 @@ describe("Invalid workspace state gates operations", () => {
       const install = () =>
         handleInstall({
           source: Option.some(packagePath),
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));

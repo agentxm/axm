@@ -66,7 +66,7 @@ describe("MCP secrets for locally named connections", () => {
             localName: Option.some(connection.localName),
             env: [`${SECRET_INPUT}=${connection.secret}`],
           },
-          { yes: true, force: false, preview: false },
+          { force: false, preview: false },
         ).pipe(Effect.provide(workspace.layer));
       }
       return workspace;

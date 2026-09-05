@@ -23,6 +23,11 @@ import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 import { runWithStepUp } from "../step-up.js";
 import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import {
+  directWriteCapabilities,
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { observeUnit } from "@agentxm/workspace-operations";
 
 export const TokenDataSchema = Schema.Struct({
@@ -447,6 +452,7 @@ const createTokenCommand = Command.make(
     }).pipe(withRuntime("auth token create")),
 ).pipe(
   withArgvTracking(createTokenConfig),
+  withCommandCapabilities(directWriteCapabilities("credentials")),
   Command.withDescription("Create a granular access token"),
   Command.withExamples([
     {
@@ -466,6 +472,7 @@ const listTokenCommand = Command.make("list", listTokenConfig, () =>
   handleListTokens().pipe(withRuntime("auth token list")),
 ).pipe(
   withArgvTracking(listTokenConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("List granular access tokens"),
   Command.withExamples([
     { command: "axm token list", description: "List your granular access tokens" },
@@ -480,6 +487,7 @@ const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
   handleRevokeToken(id).pipe(withRuntime("auth token revoke")),
 ).pipe(
   withArgvTracking(revokeTokenConfig),
+  withCommandCapabilities(directWriteCapabilities("credentials")),
   Command.withDescription("Revoke a granular access token"),
   Command.withExamples([
     { command: "axm token revoke token_123", description: "Revoke a granular access token" },
@@ -490,6 +498,7 @@ export const tokenCommand = Command.make("token", tokenConfig, () =>
   handleToken().pipe(withRuntime("auth token")),
 ).pipe(
   withArgvTracking(tokenConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withSubcommands([createTokenCommand, listTokenCommand, revokeTokenCommand]),
   Command.withDescription("Output current auth token to stdout"),
   Command.withExamples([

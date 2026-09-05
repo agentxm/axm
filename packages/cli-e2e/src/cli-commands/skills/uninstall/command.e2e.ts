@@ -28,7 +28,7 @@ describe("axm skills uninstall", () => {
         );
 
         // Install a skill first
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -37,7 +37,7 @@ describe("axm skills uninstall", () => {
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
         // Uninstall the skill
-        const result = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        const result = await runCli(["skills", "uninstall", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -63,7 +63,7 @@ describe("axm skills uninstall", () => {
         const lint = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
 
-        const repeat = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        const repeat = await runCli(["skills", "uninstall", "my-skill"], {
           cwd: temp.path,
         });
         expect(repeat.exitCode).toBe(0);
@@ -80,7 +80,7 @@ describe("axm skills uninstall", () => {
           cwd: temp.path,
         });
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -90,7 +90,7 @@ describe("axm skills uninstall", () => {
         expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
 
         // Uninstall
-        await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        await runCli(["skills", "uninstall", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -113,7 +113,7 @@ describe("axm skills uninstall", () => {
           },
         );
 
-        const result = await runCli(["skills", "uninstall", "unknown-skill", "--yes"], {
+        const result = await runCli(["skills", "uninstall", "unknown-skill"], {
           cwd: temp.path,
         });
 
@@ -135,7 +135,7 @@ describe("axm skills uninstall", () => {
           },
         );
 
-        const result = await runCli(["skills", "uninstall", "nonexistent", "--yes"], {
+        const result = await runCli(["skills", "uninstall", "nonexistent"], {
           cwd: temp.path,
         });
 
@@ -155,7 +155,7 @@ describe("axm skills uninstall", () => {
           cwd: temp.path,
         });
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -191,7 +191,7 @@ describe("axm skills uninstall", () => {
           },
         );
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -224,7 +224,7 @@ describe("axm skills uninstall", () => {
           },
         );
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -252,7 +252,7 @@ describe("axm skills uninstall", () => {
           },
         );
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -271,8 +271,8 @@ describe("axm skills uninstall", () => {
     });
   });
 
-  describe("--yes flag", () => {
-    it("skips confirmation prompt", async () => {
+  describe("unattended apply", () => {
+    it("applies without a confirmation prompt", async () => {
       const temp = createTempDir();
       try {
         await runCli(
@@ -282,14 +282,14 @@ describe("axm skills uninstall", () => {
           },
         );
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
         const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
 
-        // Uninstall with --yes should complete without requiring input
-        const result = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        // An explicit uninstall carries no confirmable risk and applies without input
+        const result = await runCli(["skills", "uninstall", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -312,14 +312,14 @@ describe("axm skills uninstall", () => {
           },
         );
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
           cwd: temp.path,
         });
 
         const mySkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
         const anotherSkillDir = installedCanonicalSkillDir(temp.path, "another-skill");
 
-        const result = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        const result = await runCli(["skills", "uninstall", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -340,7 +340,7 @@ describe("axm skills uninstall", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("skills uninstall");
-      expect(result.stdout).toContain("--yes");
+      expect(result.stdout).not.toContain("--yes");
       expect(result.stdout).toContain("--preview");
       expect(result.stdout).not.toContain("--keep-source");
       expect(result.stdout).not.toContain("--delete-source");
@@ -361,7 +361,7 @@ describe("axm skills uninstall", () => {
         );
 
         // Install multiple skills
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
           cwd: temp.path,
         });
 
@@ -369,7 +369,7 @@ describe("axm skills uninstall", () => {
         const anotherSkillDir = installedCanonicalSkillDir(temp.path, "another-skill");
 
         // Uninstall only my-skill
-        const result = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        const result = await runCli(["skills", "uninstall", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -402,14 +402,14 @@ describe("axm skills uninstall", () => {
         );
 
         // Install one skill
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
           cwd: temp.path,
         });
 
         const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
 
         // Uninstall the only skill
-        await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        await runCli(["skills", "uninstall", "my-skill"], {
           cwd: temp.path,
         });
 
@@ -426,12 +426,9 @@ describe("axm skills uninstall", () => {
       try {
         // Do not initialize. Uninstall requires an explicit workspace bootstrap.
 
-        const result = await runCli(
-          ["skills", "uninstall", "my-skill", "--yes", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
+        const result = await runCli(["skills", "uninstall", "my-skill", "--non-interactive"], {
+          cwd: temp.path,
+        });
 
         expect(result.exitCode).toBe(10);
         expect(getOutput(result)).toContain("axm setup");

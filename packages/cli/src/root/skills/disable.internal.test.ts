@@ -56,7 +56,6 @@ const defaultArgs = (
   overrides: Partial<DisableHandlerArgs> = {},
 ): DisableHandlerArgs => ({
   name,
-  yes: true,
   preview: false,
   ...overrides,
 });

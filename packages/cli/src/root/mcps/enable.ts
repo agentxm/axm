@@ -13,8 +13,12 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -23,11 +27,7 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
-export const handleEnableMcpServer = (args: {
-  readonly name: string;
-  readonly yes: boolean;
-  readonly preview: boolean;
-}) =>
+export const handleEnableMcpServer = (args: { readonly name: string; readonly preview: boolean }) =>
   withOperationLifecycle(
     {
       command: "mcps.enable",
@@ -39,7 +39,6 @@ export const handleEnableMcpServer = (args: {
 
 const handleEnableMcpServerBody = Effect.fn("EnableMcpServer.handle")(function* (args: {
   readonly name: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -101,17 +100,14 @@ const enableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
-  preview: previewFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
-export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
-  handleEnableMcpServer({ name, yes, preview }).pipe(
-    withWorkspace(scope),
-    withRuntime("mcps enable"),
-  ),
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, preview }) =>
+  handleEnableMcpServer({ name, preview }).pipe(withWorkspace(scope), withRuntime("mcps enable")),
 ).pipe(
   withArgvTracking(enableConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Enable a disabled MCP server"),
   Command.withExamples([
     { command: "axm mcps enable context", description: "Enable an MCP server" },

@@ -37,7 +37,7 @@ describe("installed-state scope consistency", () => {
       expect(authorSetup.exitCode, `${authorSetup.stderr}\n${authorSetup.stdout}`).toBe(0);
       configureRegistry(path.join(author.path, "axm.json"), registry.path);
 
-      const created = await runCli(["packs", "new", PACK, "--owner", OWNER, "--yes"], {
+      const created = await runCli(["packs", "new", PACK, "--owner", OWNER], {
         cwd: author.path,
       });
       expect(created.exitCode, `${created.stderr}\n${created.stdout}`).toBe(0);
@@ -51,7 +51,6 @@ describe("installed-state scope consistency", () => {
           OWNER,
           "--description",
           "Shared review policy for scope-sensitive pack fixtures",
-          "--yes",
         ],
         { cwd: author.path },
       );
@@ -70,7 +69,7 @@ describe("installed-state scope consistency", () => {
         `---\ntype: reference\ndescription: Required review behavior for the scope fixture.\ntags: [review, policy]\n---\n# Review policy\n\nReview the complete change before delivery.\n`,
       );
       const knowledgePublished = await runCli(
-        ["knowledge", "publish", `${OWNER}/knowledge/${KNOWLEDGE}`, "--yes"],
+        ["knowledge", "publish", `${OWNER}/knowledge/${KNOWLEDGE}`],
         { cwd: author.path, env: { AXM_TOKEN: "e2e-test-token" } },
       );
       expect(
@@ -78,7 +77,7 @@ describe("installed-state scope consistency", () => {
         `${knowledgePublished.stderr}\n${knowledgePublished.stdout}`,
       ).toBe(0);
 
-      const skillCreated = await runCli(["skills", "new", SKILL, "--owner", OWNER, "--yes"], {
+      const skillCreated = await runCli(["skills", "new", SKILL, "--owner", OWNER], {
         cwd: author.path,
       });
       expect(skillCreated.exitCode, `${skillCreated.stderr}\n${skillCreated.stdout}`).toBe(0);
@@ -101,10 +100,10 @@ describe("installed-state scope consistency", () => {
         path.join(skillRoot, "src", "SKILL.md"),
         `\nRead \`${CANONICAL_REFERENCE}\` before reviewing.\n`,
       );
-      const skillPublished = await runCli(
-        ["skills", "publish", `${OWNER}/skills/${SKILL}`, "--yes"],
-        { cwd: author.path, env: { AXM_TOKEN: "e2e-test-token" } },
-      );
+      const skillPublished = await runCli(["skills", "publish", `${OWNER}/skills/${SKILL}`], {
+        cwd: author.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
       expect(skillPublished.exitCode, `${skillPublished.stderr}\n${skillPublished.stdout}`).toBe(0);
 
       const packManifestPath = path.join(author.path, "packs", PACK, "pack.json");
@@ -124,20 +123,19 @@ describe("installed-state scope consistency", () => {
         )}\n`,
       );
       refreshAuthoredWorkspacePackState(author.path, OWNER, PACK);
-      const published = await runCli(["packs", "publish", `${OWNER}/packs/${PACK}`, "--yes"], {
+      const published = await runCli(["packs", "publish", `${OWNER}/packs/${PACK}`], {
         cwd: author.path,
         env: { AXM_TOKEN: "e2e-test-token" },
       });
       expect(published.exitCode, `${published.stderr}\n${published.stdout}`).toBe(0);
-      const subagentCreated = await runCli(
-        ["subagents", "new", SUBAGENT, "--owner", OWNER, "--yes"],
-        { cwd: author.path },
-      );
+      const subagentCreated = await runCli(["subagents", "new", SUBAGENT, "--owner", OWNER], {
+        cwd: author.path,
+      });
       expect(subagentCreated.exitCode, `${subagentCreated.stderr}\n${subagentCreated.stdout}`).toBe(
         0,
       );
       const subagentPublished = await runCli(
-        ["subagents", "publish", `${OWNER}/subagents/${SUBAGENT}`, "--yes"],
+        ["subagents", "publish", `${OWNER}/subagents/${SUBAGENT}`],
         { cwd: author.path, env: { AXM_TOKEN: "e2e-test-token" } },
       );
       expect(
@@ -155,10 +153,10 @@ describe("installed-state scope consistency", () => {
       expect(projectSetup.exitCode, `${projectSetup.stderr}\n${projectSetup.stdout}`).toBe(0);
       const projectSettingsPath = path.join(consumer.path, "axm.json");
       configureRegistry(projectSettingsPath, registry.path);
-      const projectInstalled = await runCli(
-        ["packs", "install", `${OWNER}/packs/${PACK}`, "--yes"],
-        { cwd: consumer.path, env },
-      );
+      const projectInstalled = await runCli(["packs", "install", `${OWNER}/packs/${PACK}`], {
+        cwd: consumer.path,
+        env,
+      });
       expect(
         projectInstalled.exitCode,
         `${projectInstalled.stderr}\n${projectInstalled.stdout}`,
@@ -190,7 +188,7 @@ describe("installed-state scope consistency", () => {
       configureRegistry(userSettingsPath, registry.path);
 
       const missingAgent = await runCli(
-        ["agents", "remove", "cursor", "codex", "--scope", "user", "--yes"],
+        ["agents", "remove", "cursor", "codex", "--scope", "user"],
         { cwd: consumer.path, env },
       );
       expect(missingAgent.exitCode).not.toBe(0);
@@ -199,7 +197,7 @@ describe("installed-state scope consistency", () => {
       );
 
       const installedSubagent = await runCli(
-        ["subagents", "install", `${OWNER}/subagents/${SUBAGENT}`, "--scope", "user", "--yes"],
+        ["subagents", "install", `${OWNER}/subagents/${SUBAGENT}`, "--scope", "user"],
         { cwd: consumer.path, env },
       );
       expect(
@@ -227,7 +225,7 @@ describe("installed-state scope consistency", () => {
       );
 
       const installed = await runCli(
-        ["packs", "install", `${OWNER}/packs/${PACK}`, "--scope", "user", "--yes"],
+        ["packs", "install", `${OWNER}/packs/${PACK}`, "--scope", "user"],
         { cwd: consumer.path, env },
       );
       expect(installed.exitCode, `${installed.stderr}\n${installed.stdout}`).toBe(0);
@@ -284,10 +282,10 @@ describe("installed-state scope consistency", () => {
       expect(linted.exitCode, `${linted.stderr}\n${linted.stdout}`).toBe(0);
       expect(fs.readFileSync(projectSettingsPath, "utf-8")).toBe(projectSettings);
 
-      const unpacked = await runCli(
-        ["packs", "unpack", PACK, "--scope", "user", "--yes", "--json"],
-        { cwd: consumer.path, env },
-      );
+      const unpacked = await runCli(["packs", "unpack", PACK, "--scope", "user", "--json"], {
+        cwd: consumer.path,
+        env,
+      });
       expect(unpacked.exitCode, `${unpacked.stderr}\n${unpacked.stdout}`).toBe(0);
       expect(fs.readFileSync(projectSettingsPath, "utf-8")).toBe(projectSettings);
 

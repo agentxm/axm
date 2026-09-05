@@ -104,7 +104,6 @@ const defaultArgs = (
 ): PacksRemoveHandlerArgs => ({
   pack,
   extension,
-  yes: false,
   preview: false,
   ...overrides,
 });

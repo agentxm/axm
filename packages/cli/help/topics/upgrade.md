@@ -64,7 +64,7 @@ $env:AXM_INSTALL_VERSION='0.23.0'; irm https://axm.sh/install.ps1 | iex
 
 ## Preview
 
-`axm upgrade --dry-run` resolves the installation owner and the target release
+`axm upgrade --preview` resolves the installation owner and the target release
 and reports what it would do, then stops. It runs no installer command, writes
 no install metadata, and does not refresh the update-check cache. Its
 disposition is `previewed`, and `details.messages` names the exact command the

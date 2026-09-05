@@ -66,7 +66,6 @@ describe("An unreadable Knowledge bundle", () => {
       for (const name of ["alpha-notes", "other-notes"]) {
         yield* handleInstall({
           source: Option.some(writeLocalKnowledgePackage(workspace.root, { name })),
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));
@@ -96,7 +95,6 @@ describe("An unreadable Knowledge bundle", () => {
   const uninstall = (workspace: ReturnType<typeof makeSpecWorkspace>, name: string) =>
     handleUninstall({
       source: `@acme/knowledge/${name}`,
-      yes: true,
       preview: false,
     }).pipe(Effect.provide(workspace.layer));
 

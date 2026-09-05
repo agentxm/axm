@@ -5,7 +5,6 @@ import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   buildNewExtensionStep,
@@ -28,6 +27,11 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
@@ -38,13 +42,14 @@ import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspac
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { KnowledgeManager } from "@agentxm/extension-workspace";
 
-export const handleKnowledgeNew = (args: {
+export interface KnowledgeNewHandlerArgs {
   readonly name: string;
   readonly owner: Option.Option<string>;
   readonly description: Option.Option<string>;
-  readonly yes: boolean;
   readonly preview: boolean;
-}) =>
+}
+
+export const handleKnowledgeNew = (args: KnowledgeNewHandlerArgs) =>
   withOperationLifecycle(
     {
       command: "knowledge.new",
@@ -54,13 +59,9 @@ export const handleKnowledgeNew = (args: {
     handleKnowledgeNewBody(args),
   );
 
-const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args: {
-  readonly name: string;
-  readonly owner: Option.Option<string>;
-  readonly description: Option.Option<string>;
-  readonly yes: boolean;
-  readonly preview: boolean;
-}) {
+const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (
+  args: KnowledgeNewHandlerArgs,
+) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const ws = yield* WorkspaceMutations;
@@ -214,10 +215,7 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args:
       },
     ],
   };
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
-    preview: args.preview,
-    yes: args.yes,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
   const suggestions = [
     ...(Option.isNone(args.description)
       ? [
@@ -248,22 +246,17 @@ const newConfig = {
     Flag.withDescription("Concise bundle-level discovery summary"),
     Flag.optional,
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Create the bundle without confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be created without writing files"),
-  ),
+  preview: previewCapabilityFlag("Show what would be created without writing files"),
 } as const;
 
-export const newCommand = Command.make(
-  "new",
-  newConfig,
-  ({ name, owner, description, yes, preview }) =>
-    handleKnowledgeNew({ name, owner, description, yes, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRuntime("knowledge new"),
-    ),
+export const newCommand = Command.make("new", newConfig, ({ name, owner, description, preview }) =>
+  handleKnowledgeNew({ name, owner, description, preview }).pipe(
+    withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+    withRuntime("knowledge new"),
+  ),
 ).pipe(
   withArgvTracking(newConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription(
     "Create an Open Knowledge Format bundle in the project-workspace authoring root",
   ),

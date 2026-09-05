@@ -7,6 +7,7 @@ import { makeAppError } from "../../app-error/index.js";
 import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { observeUnit } from "@agentxm/workspace-operations";
 import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -242,6 +243,7 @@ export const listCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(listConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("List extensions across all types"),
   Command.withExamples([
     { command: "axm list", description: "List the local project inventory" },

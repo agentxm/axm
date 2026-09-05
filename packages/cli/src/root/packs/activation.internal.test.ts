@@ -204,7 +204,6 @@ describe("packs activation", () => {
         handlePackActivation({
           name: "toolkit",
           enabled: false,
-          yes: true,
           preview: true,
         }),
       );
@@ -229,7 +228,6 @@ describe("packs activation", () => {
         handlePackActivation({
           name: "toolkit",
           enabled: false,
-          yes: true,
           preview: false,
         }),
       );
@@ -246,7 +244,6 @@ describe("packs activation", () => {
         handlePackActivation({
           name: "toolkit",
           enabled: false,
-          yes: true,
           preview: false,
         }),
       );
@@ -260,7 +257,6 @@ describe("packs activation", () => {
         handlePackActivation({
           name: "toolkit",
           enabled: true,
-          yes: true,
           preview: false,
         }),
       );
@@ -280,7 +276,6 @@ describe("packs activation", () => {
         handlePackActivation({
           name: "toolkit",
           enabled: false,
-          yes: true,
           preview: false,
         }),
       );
@@ -298,7 +293,6 @@ describe("packs activation", () => {
         handlePackActivation({
           name: "toolkit",
           enabled: true,
-          yes: true,
           preview: false,
         }),
       );

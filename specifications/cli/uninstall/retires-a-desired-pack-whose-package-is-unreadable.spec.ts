@@ -36,8 +36,8 @@ const runUninstall = (
   phase: Phase,
 ) =>
   (route === "root"
-    ? handleUninstall({ source: fixture.fqn(name), yes: true, preview: phase === "preview" })
-    : handleUninstallPack({ name }, { yes: true, preview: phase === "preview" })
+    ? handleUninstall({ source: fixture.fqn(name), preview: phase === "preview" })
+    : handleUninstallPack({ name }, { preview: phase === "preview" })
   ).pipe(Effect.provide(fixture.workspace.layer));
 
 const latestResult = (fixture: ReturnType<typeof makePackRetirementWorkspace>): unknown =>

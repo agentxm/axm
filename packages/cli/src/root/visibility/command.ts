@@ -5,6 +5,12 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/works
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
+  directWriteCapabilities,
+  groupCapabilities,
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
+import {
   handleVisibilityReconcile,
   handleVisibilitySet,
   handleVisibilityStatus,
@@ -22,6 +28,7 @@ const statusCommand = Command.make("status", statusConfig, ({ fqn }) =>
   ),
 ).pipe(
   withArgvTracking(statusConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Compare source intent with Registry visibility"),
 );
 const statusCommandWithExamples = statusCommand.pipe(
@@ -39,7 +46,11 @@ const setConfig = {
 } as const;
 const setCommand = Command.make("set", setConfig, ({ fqn, visibility }) =>
   handleVisibilitySet(fqn, visibility).pipe(withRuntime("visibility set")),
-).pipe(withArgvTracking(setConfig), Command.withDescription("Set established Registry visibility"));
+).pipe(
+  withArgvTracking(setConfig),
+  withCommandCapabilities(directWriteCapabilities("registry")),
+  Command.withDescription("Set established Registry visibility"),
+);
 const setCommandWithExamples = setCommand.pipe(
   Command.withExamples([
     {
@@ -57,6 +68,7 @@ const reconcileCommand = Command.make("reconcile", reconcileConfig, ({ fqn }) =>
   ),
 ).pipe(
   withArgvTracking(reconcileConfig),
+  withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Apply repository visibility intent to the Registry"),
 );
 const reconcileCommandWithExamples = reconcileCommand.pipe(
@@ -70,6 +82,7 @@ const reconcileCommandWithExamples = reconcileCommand.pipe(
 
 export const visibilityCommand = Command.make("visibility").pipe(
   Command.withDescription("Inspect and manage whole-Extension Registry visibility"),
+  withCommandCapabilities(groupCapabilities),
   Command.withExamples([
     { description: "Inspect visibility", command: "axm visibility status @acme/skills/review" },
   ]),

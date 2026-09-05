@@ -16,12 +16,12 @@ workspace.
 2. Add a local Registry source in project-root `axm.json`:
    `{"name":"test-registry","type":"registry","location":"file:///tmp/axm-registry"}` and set `owner` to `@test`.
 3. Publish one or more extensions, for example:
-   `axm skills new smoke-skill --owner @test --yes`
-   `axm skills publish @test/skills/smoke-skill --yes`
+   `axm skills new smoke-skill --owner @test`
+   `axm skills publish @test/skills/smoke-skill`
 4. In a fresh workspace with the same registry source:
-   - Sourceful root install: `axm install test-registry:@test/skills/smoke-skill --yes`
-   - No-arg typed install: add `skills.smoke-skill = "test-registry:@test/skills/smoke-skill"` to `axm.json`, then run `axm skills install --yes`
-   - No-arg root install: declare one or more configured entries in `axm.json`, then run `axm install --yes`
+   - Sourceful root install: `axm install test-registry:@test/skills/smoke-skill`
+   - No-arg typed install: add `skills.smoke-skill = "test-registry:@test/skills/smoke-skill"` to `axm.json`, then run `axm skills install`
+   - No-arg root install: declare one or more configured entries in `axm.json`, then run `axm install`
 5. Verify:
    - `axm.json` contains the configured direct entries
    - `axm-lock.yaml` contains version-6 installed entries, source provenance, and `treeIntegrity`
@@ -37,7 +37,7 @@ registry-backed workspace.
 1. Start from a workspace where one or more registry extensions are already
    installed.
 2. Run a root uninstall such as:
-   - `axm uninstall test-registry:@test/skills/smoke-skill --yes`
+   - `axm uninstall test-registry:@test/skills/smoke-skill`
    - `axm uninstall test-registry:@test/packs/smoke-pack@1.0.0 --preview`
 3. Verify:
    - the matching typed uninstall behavior is preserved for the target type

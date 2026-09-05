@@ -53,14 +53,12 @@ describe("Uninstall of an absent extension is safe to repeat", () => {
       cleanups.push(workspace.cleanup);
       const uninstall = handleUninstall({
         source: "@acme/skills/code-review",
-        yes: true,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
       if (testCase.prepare === "install-then-uninstall") {
         const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
         yield* handleInstall({
           source: Option.some(skillPackage),
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));

@@ -104,7 +104,7 @@ const publishSkillToRegistry = async (registryPath: string, name: string) => {
   try {
     await initWorkspace(workspace.path, registryPath);
 
-    const createResult = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+    const createResult = await runCli(["skills", "new", name, "--owner", OWNER], {
       cwd: workspace.path,
     });
     expect(
@@ -112,10 +112,10 @@ const publishSkillToRegistry = async (registryPath: string, name: string) => {
       `stdout:\n${createResult.stdout}\n\nstderr:\n${createResult.stderr}`,
     ).toBe(0);
 
-    const publishResult = await runCli(
-      ["skills", "publish", registryFqn("skills", name), "--yes"],
-      { cwd: workspace.path, env: PUBLISH_ENV },
-    );
+    const publishResult = await runCli(["skills", "publish", registryFqn("skills", name)], {
+      cwd: workspace.path,
+      env: PUBLISH_ENV,
+    });
     expect(
       publishResult.exitCode,
       `stdout:\n${publishResult.stdout}\n\nstderr:\n${publishResult.stderr}`,
@@ -131,7 +131,7 @@ const publishRuleToRegistry = async (registryPath: string, name: string) => {
   try {
     await initWorkspace(workspace.path, registryPath);
 
-    const createResult = await runCli(["rules", "new", name, "--owner", OWNER, "--yes"], {
+    const createResult = await runCli(["rules", "new", name, "--owner", OWNER], {
       cwd: workspace.path,
     });
     expect(
@@ -139,7 +139,7 @@ const publishRuleToRegistry = async (registryPath: string, name: string) => {
       `stdout:\n${createResult.stdout}\n\nstderr:\n${createResult.stderr}`,
     ).toBe(0);
 
-    const publishResult = await runCli(["rules", "publish", registryFqn("rules", name), "--yes"], {
+    const publishResult = await runCli(["rules", "publish", registryFqn("rules", name)], {
       cwd: workspace.path,
       env: PUBLISH_ENV,
     });
@@ -158,7 +158,7 @@ const publishSubagentToRegistry = async (registryPath: string, name: string) => 
   try {
     await initWorkspace(workspace.path, registryPath);
 
-    const createResult = await runCli(["subagents", "new", name, "--owner", OWNER, "--yes"], {
+    const createResult = await runCli(["subagents", "new", name, "--owner", OWNER], {
       cwd: workspace.path,
     });
     expect(
@@ -166,10 +166,10 @@ const publishSubagentToRegistry = async (registryPath: string, name: string) => 
       `stdout:\n${createResult.stdout}\n\nstderr:\n${createResult.stderr}`,
     ).toBe(0);
 
-    const publishResult = await runCli(
-      ["subagents", "publish", registryFqn("subagents", name), "--yes"],
-      { cwd: workspace.path, env: PUBLISH_ENV },
-    );
+    const publishResult = await runCli(["subagents", "publish", registryFqn("subagents", name)], {
+      cwd: workspace.path,
+      env: PUBLISH_ENV,
+    });
     expect(
       publishResult.exitCode,
       `stdout:\n${publishResult.stdout}\n\nstderr:\n${publishResult.stderr}`,
@@ -189,7 +189,7 @@ const publishPackToRegistry = async (
   try {
     await initWorkspace(workspace.path, registryPath);
 
-    const createResult = await runCli(["packs", "new", name, "--owner", OWNER, "--yes"], {
+    const createResult = await runCli(["packs", "new", name, "--owner", OWNER], {
       cwd: workspace.path,
     });
     expect(
@@ -215,7 +215,7 @@ const publishPackToRegistry = async (
       refreshAuthoredWorkspacePackState(workspace.path, OWNER, name);
     }
 
-    const publishResult = await runCli(["packs", "publish", registryFqn("packs", name), "--yes"], {
+    const publishResult = await runCli(["packs", "publish", registryFqn("packs", name)], {
       cwd: workspace.path,
       env: PUBLISH_ENV,
     });
@@ -315,7 +315,7 @@ const runJsonCommand = async (
   workspacePath: string,
   args: ReadonlyArray<string>,
 ): Promise<JsonCommandResult> => {
-  const result = await runCli([...args, "--yes", "--json"], { cwd: workspacePath });
+  const result = await runCli([...args, "--json"], { cwd: workspacePath });
   const document: unknown = JSON.parse(result.stdout);
 
   return {
@@ -331,7 +331,7 @@ const installRegistryExtension = async (
   surface: UninstallSurface,
   source: string,
 ) => {
-  const result = await runCli([surface, "install", source, "--yes"], { cwd: workspacePath });
+  const result = await runCli([surface, "install", source], { cwd: workspacePath });
   expect(result.exitCode, `stdout:\n${result.stdout}\n\nstderr:\n${result.stderr}`).toBe(0);
 };
 
@@ -608,20 +608,20 @@ describe("axm uninstall", () => {
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
         configureWorkspaceRegistry(workspace.path, registryDir.path, "user");
         const install = await runCli(
-          ["skills", "install", registryFqn("skills", name), "--scope", "user", "--yes"],
+          ["skills", "install", registryFqn("skills", name), "--scope", "user"],
           { cwd: workspace.path, env },
         );
         expect(install.exitCode, `${install.stderr}\n${install.stdout}`).toBe(0);
       }
 
       const rootResult = await runCli(
-        ["uninstall", registryFqn("skills", name), "--scope", "user", "--yes", "--json"],
+        ["uninstall", registryFqn("skills", name), "--scope", "user", "--json"],
         { cwd: rootWorkspace.path, env: rootEnv },
       );
-      const typedResult = await runCli(
-        ["skills", "uninstall", name, "--scope", "user", "--yes", "--json"],
-        { cwd: typedWorkspace.path, env: typedEnv },
-      );
+      const typedResult = await runCli(["skills", "uninstall", name, "--scope", "user", "--json"], {
+        cwd: typedWorkspace.path,
+        env: typedEnv,
+      });
 
       expect(rootResult.exitCode, `${rootResult.stderr}\n${rootResult.stdout}`).toBe(0);
       expect(typedResult.exitCode, `${typedResult.stderr}\n${typedResult.stdout}`).toBe(0);

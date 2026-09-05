@@ -32,7 +32,7 @@ selection does not change the promoted channel.
 Downgrades are refused in both modes. `--reinstall` permits replacement only
 when the selected and installed versions are equal.
 
-`axm upgrade --dry-run` resolves ownership and the target and reports the
+`axm upgrade --preview` resolves ownership and the target and reports the
 delegated action it would perform, without performing it. A preview changes no
 durable state — not the installation, not install metadata, not the
 update-notification cache — and it does not establish installer availability,
@@ -49,11 +49,25 @@ decides the supported mutation path:
 - the install script replaces its managed executable transactionally; and
 - unresolved ownership produces recovery guidance rather than guessing.
 
-For package-manager-owned installations, AXM checks that the selected version
-is actually available from that manager before mutation. A lagging, leading,
-unavailable, or indeterminate manager blocks the change and reports the
-observed state. The stable channel therefore does not pretend that independent
-distribution has converged.
+For npm, pnpm, and Yarn, availability belongs to the exact selected package
+version; an unrelated newer latest tag does not block it. Yarn Classic uses
+its published version inventory to establish membership. Homebrew performs one
+explicit metadata refresh and one formula query after any required tap
+preparation. Its current formula must match the target because the mutation
+command cannot select a historical version.
+
+A lagging or leading formula, affirmative absence, or indeterminate query stops
+before mutation. Preparation failure and invalid output remain indeterminate;
+they are never reconstructed as publication lag from an older version
+observation. Each delegated command retains its own timeout. There is no
+publication poll or retry deadline. Human and machine results use the same
+recorded assessment.
+
+Release automation verifies required distribution before promoting stable, but
+that readiness is evidence at promotion time. Native package channels, public
+installer scripts, and GitHub releases have their own discovery behavior and
+may expose the candidate before stable promotion. Upgrade still checks current
+availability before mutation.
 
 ## Mutation and verification
 
@@ -75,8 +89,8 @@ decide what happens are disclosed by the step that establishes them rather than
 only by the terminal result. Detection settles by naming the installer it found,
 release selection by naming the version it chose, and the mutation step carries
 both for as long as it runs. Each command handed to the installer is a nested
-unit of that step, and a poll that blocks on an external publication is
-published as a wait naming what it waits on.
+unit of that step. An availability mismatch ends the request without a
+publication-wait event.
 
 Default output carries the resolved facts a reader cannot obtain any other way
 and that change what happened: the install method, each delegated command, and

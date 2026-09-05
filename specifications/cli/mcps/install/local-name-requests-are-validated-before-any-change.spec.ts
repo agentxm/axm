@@ -49,7 +49,7 @@ describe("Validate locally named MCP install requests", () => {
         localName: Option.some(localName),
         env: [],
       },
-      { yes: true, force: false, preview: false },
+      { force: false, preview: false },
     ).pipe(Effect.provide(workspace.layer));
 
   it.effect.each(["Uppercase", "-leading", "trailing-", "space name"])(
@@ -104,7 +104,7 @@ describe("Validate locally named MCP install requests", () => {
           localName: Option.some("work-context"),
           env: [],
         },
-        { yes: true, force: false, preview: false },
+        { force: false, preview: false },
       ).pipe(Effect.provide(workspace.layer), Effect.flip);
 
       expect(getAppError(failure).detail).toContain("--as requires an MCP server source");

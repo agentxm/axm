@@ -126,22 +126,77 @@ export const isValidVersionRange = (range: string): boolean => semver.validRange
 export const intersectVersionConstraints = (
   constraints: ReadonlyArray<string>,
 ): string | undefined => {
-  let intersections = [""];
+  // A comparator conjunction admits a prerelease when *any* comparator names
+  // its version tuple. Intersection instead requires *every contributor* to
+  // admit that tuple, so preserve this information before flattening the sets.
+  let intersections: Array<{
+    readonly comparators: ReadonlyArray<semver.Comparator>;
+    readonly prereleaseBases: ReadonlySet<string> | undefined;
+  }> = [{ comparators: [], prereleaseBases: undefined }];
   for (const constraint of constraints) {
     const validRange = semver.validRange(constraint);
     if (validRange === null) return undefined;
     const range = new semver.Range(validRange);
     intersections = intersections.flatMap((current) =>
       range.set.flatMap((comparators) => {
-        const candidate = [current, ...comparators.map((comparator) => comparator.value)]
-          .filter((part) => part.length > 0)
+        const combined = [...current.comparators, ...comparators];
+        const candidate = combined
+          .map((comparator) => comparator.value)
+          .filter((value) => value.length > 0)
           .join(" ");
-        return semver.minVersion(candidate) === null ? [] : [candidate];
+        if (semver.minVersion(candidate) === null) return [];
+        const bases = new Set(
+          comparators.flatMap((comparator) =>
+            comparator.value !== "" && comparator.semver.prerelease.length > 0
+              ? [`${comparator.semver.major}.${comparator.semver.minor}.${comparator.semver.patch}`]
+              : [],
+          ),
+        );
+        return [
+          {
+            comparators: combined,
+            prereleaseBases:
+              current.prereleaseBases === undefined
+                ? bases
+                : new Set([...current.prereleaseBases].filter((base) => bases.has(base))),
+          },
+        ];
       }),
     );
     if (intersections.length === 0) return undefined;
   }
-  return intersections.join(" || ");
+  const ranges = intersections.flatMap(({ comparators, prereleaseBases }) => {
+    const original = comparators
+      .map((comparator) => comparator.value)
+      .filter((value) => value.length > 0)
+      .join(" ");
+    const stable =
+      comparators
+        .map((comparator) => {
+          if (comparator.value === "" || comparator.semver.prerelease.length === 0)
+            return comparator.value;
+          const base = `${comparator.semver.major}.${comparator.semver.minor}.${comparator.semver.patch}`;
+          switch (comparator.operator) {
+            case ">":
+            case ">=":
+              return `>=${base}`;
+            case "<":
+            case "<=":
+              return `<${base}`;
+            // An exact prerelease admits no stable version.
+            default:
+              return "<0.0.0-0";
+          }
+        })
+        .filter((value) => value.length > 0)
+        .join(" ") || "*";
+    const candidates = [
+      stable,
+      ...[...(prereleaseBases ?? [])].map((base) => `${original} >=${base}-0 <${base}`),
+    ];
+    return candidates.filter((candidate) => semver.minVersion(candidate) !== null);
+  });
+  return ranges.length === 0 ? undefined : [...new Set(ranges)].join(" || ");
 };
 
 /**

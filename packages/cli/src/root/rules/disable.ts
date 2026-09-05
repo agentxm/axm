@@ -3,8 +3,12 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -31,11 +35,7 @@ import {
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { RuleManager } from "@agentxm/extension-workspace";
 
-export const handleDisableRule = (args: {
-  readonly name: string;
-  readonly yes: boolean;
-  readonly preview: boolean;
-}) =>
+export const handleDisableRule = (args: { readonly name: string; readonly preview: boolean }) =>
   withOperationLifecycle(
     {
       command: "rules.disable",
@@ -47,7 +47,6 @@ export const handleDisableRule = (args: {
 
 const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
   readonly name: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -167,20 +166,14 @@ const disableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
+  preview: previewCapabilityFlag("Show what would change without disabling"),
 } as const;
 
-export const disableCommand = Command.make(
-  "disable",
-  disableConfig,
-  ({ name, scope, yes, preview }) =>
-    handleDisableRule({ name, yes, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("rules disable"),
-    ),
+export const disableCommand = Command.make("disable", disableConfig, ({ name, scope, preview }) =>
+  handleDisableRule({ name, preview }).pipe(withWorkspace(scope), withRuntime("rules disable")),
 ).pipe(
   withArgvTracking(disableConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Disable a rule without uninstalling it"),
   Command.withExamples([
     {

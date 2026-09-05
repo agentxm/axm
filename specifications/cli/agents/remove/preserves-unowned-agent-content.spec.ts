@@ -41,14 +41,12 @@ describe("Removing a coding agent preserves unowned content", () => {
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
       yield* handleAgentsAdd({
         ids: ["opencode"],
         detected: false,
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
@@ -58,7 +56,6 @@ describe("Removing a coding agent preserves unowned content", () => {
 
       yield* handleAgentsRemove({
         ids: ["opencode"],
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

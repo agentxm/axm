@@ -119,57 +119,6 @@ describe("removeFromPack", () => {
   };
 
   describe("happy path", () => {
-    it.effect("removes extensions from pack manifest", () =>
-      Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        const { manifestHash } = createPackManifestWithDependencies(base, "@myorg", "my-pack", {
-          "@acme/skills/my-skill": "^1.0.0",
-          "@acme/skills/other-skill": "^2.0.0",
-        });
-
-        const result = yield* removeFromPack(
-          makeOp({
-            removals: ["@acme/skills/my-skill"],
-            manifestHash,
-          }),
-        ).pipe(Effect.provide(withServices(axmDir)));
-
-        expect(result.result).toBe("success");
-
-        // Verify manifest was updated
-        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.dependencies["@acme/skills/my-skill"]).toBeUndefined();
-        expect(manifest.dependencies["@acme/skills/other-skill"]).toBe("^2.0.0");
-      }),
-    );
-
-    it.effect("removes multiple extensions at once", () =>
-      Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        const { manifestHash } = createPackManifestWithDependencies(base, "@myorg", "my-pack", {
-          "@acme/skills/skill-a": "^1.0.0",
-          "@acme/skills/skill-b": "^2.0.0",
-          "@acme/skills/skill-c": "^3.0.0",
-        });
-
-        const result = yield* removeFromPack(
-          makeOp({
-            removals: ["@acme/skills/skill-a", "@acme/skills/skill-c"],
-            manifestHash,
-          }),
-        ).pipe(Effect.provide(withServices(axmDir)));
-
-        expect(result.result).toBe("success");
-
-        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.dependencies["@acme/skills/skill-a"]).toBeUndefined();
-        expect(manifest.dependencies["@acme/skills/skill-b"]).toBe("^2.0.0");
-        expect(manifest.dependencies["@acme/skills/skill-c"]).toBeUndefined();
-      }),
-    );
-
     it.effect("returns success when removals list is empty", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();

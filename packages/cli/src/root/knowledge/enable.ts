@@ -3,6 +3,10 @@ import { Command } from "effect/unstable/cli";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { activationConfig, setKnowledgeEnabled } from "./activation.js";
 
 export const enableCommand = Command.make(
@@ -16,6 +20,7 @@ export const enableCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(activationConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Include a knowledge bundle in discovery"),
   Command.withExamples([
     {

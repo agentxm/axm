@@ -4,7 +4,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command } from "effect/unstable/cli";
 import { makeAppError } from "../../app-error/index.js";
 import {
   formatFqn,
@@ -37,7 +37,6 @@ import {
 } from "@agentxm/workspace-state";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -48,12 +47,16 @@ import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspac
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 
 export interface PacksAddHandlerArgs {
   readonly pack: string;
   readonly extension: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -410,19 +413,17 @@ const addConfig = {
   extension: Argument.string("extension").pipe(
     Argument.withDescription("Extension name or glob pattern"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Add without confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would change in the manifest without modifying it"),
-  ),
+  preview: previewCapabilityFlag("Show what would change in the manifest without modifying it"),
 } as const;
 
-export const addCommand = Command.make("add", addConfig, ({ pack, extension, yes, preview }) =>
-  handlePacksAdd({ pack, extension, yes, preview }).pipe(
+export const addCommand = Command.make("add", addConfig, ({ pack, extension, preview }) =>
+  handlePacksAdd({ pack, extension, preview }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
     withRuntime("packs add"),
   ),
 ).pipe(
   withArgvTracking(addConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Add an extension to a project-workspace pack manifest"),
   Command.withExamples([
     {

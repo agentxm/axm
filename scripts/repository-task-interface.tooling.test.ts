@@ -316,6 +316,11 @@ describe("repository task interface", () => {
       "release-publish",
       "release-publish-local",
       "specification-verdict",
+      "distribute-release",
+      "verify-installed-package",
+      "verify-release-packs",
+      "update-homebrew-formula",
+      "promote-release-channel",
       "validate-release-tag",
     ]) {
       expect(targetCache(rootTargets, targetName), targetName).toBe(false);

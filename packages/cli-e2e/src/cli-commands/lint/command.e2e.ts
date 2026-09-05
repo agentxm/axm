@@ -149,10 +149,10 @@ describe("axm lint (e2e, Phase 7)", () => {
           `${JSON.stringify({ ...settings, owner: "@test" }, null, 2)}\n`,
         );
 
-        const scaffold = await runCli(
-          ["skills", "new", "draft-skill", "--owner", "@test", "--yes"],
-          { cwd: temp.path, env },
-        );
+        const scaffold = await runCli(["skills", "new", "draft-skill", "--owner", "@test"], {
+          cwd: temp.path,
+          env,
+        });
         expect(scaffold.exitCode).toBe(0);
 
         const skillPath = path.join(temp.path, "skills", "draft-skill", "src", "SKILL.md");

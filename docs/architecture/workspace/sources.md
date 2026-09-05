@@ -64,6 +64,18 @@ or local-path source changes, moves, or disappears and canonical content is
 also unavailable, the affected closure blocks. AXM does not substitute the
 source's current bytes. Update may explicitly accept a new result.
 
+## Publisher trust
+
+A Registry resolution binds the publisher that released the accepted version.
+When a later resolution for the same owner and name would replace an accepted
+binding with a different publisher, the change is a trust decision rather than
+a routine confirmation: the plan carries it as an interactive-only condition,
+preview reports it, and only an interactive approval lets install or update
+proceed. No consent flag approves it in advance, and unattended or machine
+invocations block naming the interactive route. Accepting a binding for the
+first time is not a change. [Interaction](../commands/interaction.md) owns the
+approval contract.
+
 ## Invariants
 
 - A source name resolves through deterministic scope precedence.
@@ -75,6 +87,7 @@ source's current bytes. Update may explicitly accept a new result.
 - Lock-only Pack metadata cannot introduce a desired dependency route.
 - Policy exceptions cannot bypass identity, integrity, publisher binding,
   ownership, or atomicity.
+- Replacing an accepted publisher binding requires interactive approval.
 
 ## Testing strategy
 

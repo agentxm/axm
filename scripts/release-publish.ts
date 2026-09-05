@@ -111,7 +111,9 @@ const publish = async (version: string, tag: string, sha: string) => {
     ]);
   });
 
-  console.log(`\nReleased ${tag}`);
+  console.log(
+    `\nCreated GitHub Release ${tag}; the publication and verification workflow must complete before stable promotion`,
+  );
 };
 
 const main = async () => {

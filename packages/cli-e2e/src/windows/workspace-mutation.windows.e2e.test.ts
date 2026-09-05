@@ -68,7 +68,7 @@ describe("Windows workspace mutation contract", () => {
       fs.mkdirSync(codeartsDir, { recursive: true });
       fs.writeFileSync(codeartsConfig, '{\n  // retained Windows marker\n  "mcp": {}\n}\n');
       const detected = expectSuccess(
-        await runCli(["agents", "add", "--detected", "--yes", "--json", "--non-interactive"], {
+        await runCli(["agents", "add", "--detected", "--json", "--non-interactive"], {
           cwd: workspace.path,
           env,
         }),
@@ -86,7 +86,6 @@ describe("Windows workspace mutation contract", () => {
             "windows-demo",
             "--command",
             "node server.js",
-            "--yes",
             "--json",
             "--non-interactive",
           ],
@@ -122,7 +121,6 @@ describe("Windows workspace mutation contract", () => {
             "user",
             "--command",
             "node user-server.js",
-            "--yes",
             "--json",
             "--non-interactive",
           ],
@@ -143,7 +141,6 @@ describe("Windows workspace mutation contract", () => {
             "windows-user-demo",
             "--scope",
             "user",
-            "--yes",
             "--json",
             "--non-interactive",
           ],
@@ -156,16 +153,7 @@ describe("Windows workspace mutation contract", () => {
 
       const install = expectSuccess(
         await runCli(
-          [
-            "skills",
-            "install",
-            source,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--json",
-            "--non-interactive",
-          ],
+          ["skills", "install", source, "--skill", "my-skill", "--json", "--non-interactive"],
           { cwd: workspace.path, env },
         ),
       );
@@ -190,7 +178,7 @@ describe("Windows workspace mutation contract", () => {
       fs.rmSync(blockedProjectionRoot, { recursive: true, force: true });
       fs.writeFileSync(blockedProjectionRoot, "injected projection failure\n");
       const failedUpdate = await runCli(
-        ["skills", "update", "--name", "my-skill", "--yes", "--json", "--non-interactive"],
+        ["skills", "update", "--name", "my-skill", "--json", "--non-interactive"],
         { cwd: workspace.path, env },
       );
       expect(failedUpdate.exitCode).not.toBe(0);
@@ -201,10 +189,10 @@ describe("Windows workspace mutation contract", () => {
       fs.rmSync(blockedProjectionRoot, { force: true });
       fs.mkdirSync(blockedProjectionRoot, { recursive: true });
       expectSuccess(
-        await runCli(
-          ["skills", "update", "--name", "my-skill", "--yes", "--json", "--non-interactive"],
-          { cwd: workspace.path, env },
-        ),
+        await runCli(["skills", "update", "--name", "my-skill", "--json", "--non-interactive"], {
+          cwd: workspace.path,
+          env,
+        }),
       );
       const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf8"));
       expect(lockAfter.skills["my-skill"].contentIdentity).not.toBe(
@@ -213,7 +201,7 @@ describe("Windows workspace mutation contract", () => {
       expect(fs.readFileSync(canonicalSkillMd, "utf8")).toContain("Windows refresh.");
 
       expectSuccess(
-        await runCli(["skills", "disable", "my-skill", "--yes", "--json", "--non-interactive"], {
+        await runCli(["skills", "disable", "my-skill", "--json", "--non-interactive"], {
           cwd: workspace.path,
           env,
         }),
@@ -223,7 +211,7 @@ describe("Windows workspace mutation contract", () => {
       expect(fs.existsSync(codexSkill)).toBe(false);
       expect(fs.existsSync(codeartsSkill)).toBe(false);
       expectSuccess(
-        await runCli(["skills", "enable", "my-skill", "--yes", "--json", "--non-interactive"], {
+        await runCli(["skills", "enable", "my-skill", "--json", "--non-interactive"], {
           cwd: workspace.path,
           env,
         }),
@@ -292,7 +280,7 @@ describe("Windows workspace mutation contract", () => {
       });
 
       expectSuccess(
-        await runCli(["skills", "uninstall", "my-skill", "--yes", "--json", "--non-interactive"], {
+        await runCli(["skills", "uninstall", "my-skill", "--json", "--non-interactive"], {
           cwd: workspace.path,
           env,
         }),

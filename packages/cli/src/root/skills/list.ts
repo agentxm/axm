@@ -9,6 +9,7 @@ import {
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { agentFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
@@ -94,6 +95,7 @@ export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =
   ),
 ).pipe(
   withArgvTracking(listConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("List detected skills and their lifecycle classification"),
   Command.withExamples([
     { command: "axm skills list", description: "Inventory detected skills" },

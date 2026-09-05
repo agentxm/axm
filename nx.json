@@ -42,7 +42,11 @@
     }
   },
   "namedInputs": {
-    "sharedGlobals": ["{workspaceRoot}/tsconfig*.json", "{workspaceRoot}/vitest.reporting.ts"],
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig*.json",
+      "{workspaceRoot}/vitest.reporting.ts",
+      "{workspaceRoot}/scripts/specification-evidence*.ts"
+    ],
     "hostPlatform": [{ "runtime": "node -p \"process.platform + '/' + process.arch\"" }],
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [

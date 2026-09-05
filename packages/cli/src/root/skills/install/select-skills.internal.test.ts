@@ -202,7 +202,7 @@ describe("determineSkillsToInstall", () => {
       ),
     );
 
-    it.effect("--yes with multiple skills still prompts for selection", () => {
+    it.effect("multiple skills still prompt for selection when a prompt can open", () => {
       const availableSkills = skills("commit", "review-pr");
       const selectCalls: Array<ReadonlyArray<string>> = [];
       return Effect.gen(function* () {

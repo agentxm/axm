@@ -1,8 +1,12 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   WorkspaceMutations,
@@ -70,11 +74,7 @@ const hookDisableArtifact = (args: {
   };
 };
 
-export const handleDisableHook = (args: {
-  readonly name: string;
-  readonly yes: boolean;
-  readonly preview: boolean;
-}) =>
+export const handleDisableHook = (args: { readonly name: string; readonly preview: boolean }) =>
   withOperationLifecycle(
     {
       command: "hooks.disable",
@@ -86,7 +86,6 @@ export const handleDisableHook = (args: {
 
 const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
   readonly name: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -173,20 +172,14 @@ const disableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
+  preview: previewCapabilityFlag("Show what would change without disabling"),
 } as const;
 
-export const disableCommand = Command.make(
-  "disable",
-  disableConfig,
-  ({ name, scope, yes, preview }) =>
-    handleDisableHook({ name, yes, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("hooks disable"),
-    ),
+export const disableCommand = Command.make("disable", disableConfig, ({ name, scope, preview }) =>
+  handleDisableHook({ name, preview }).pipe(withWorkspace(scope), withRuntime("hooks disable")),
 ).pipe(
   withArgvTracking(disableConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Disable a hooks package without removing sync-once targets"),
   Command.withExamples([
     {

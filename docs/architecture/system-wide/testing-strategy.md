@@ -484,6 +484,18 @@ Each inventory member either resolves to maintained specification coverage or
 is explicitly outside the accepted requirements scope. Code coverage remains a
 diagnostic measure and never substitutes for behavioral completeness.
 
+The command tree shows the approach in full. An independently enumerated route
+table — every registered command node, groups included — is compared with
+three sources at once: the interaction capabilities each node declares, the
+flags its parser actually accepts, and the per-command purity specifications
+under `specifications/cli/<command>/`. A node without a declaration, a
+declared capability with no matching flag, a flag with no declared purpose, or
+a preview route without its purity evidence fails the gate. The declaration
+states expectations, the parsed grammar proves exposure, and the purpose
+specifications prove effect; none of the three is trusted alone.
+[Interaction](../commands/interaction.md) explains the contract the table
+enforces.
+
 Completeness gates measure breadth; specification strength measures depth.
 Mutation testing runs as a diagnostic: a surviving mutant maps to a
 requirement whose evidence could not detect a behavior change and therefore

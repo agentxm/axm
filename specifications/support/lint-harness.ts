@@ -38,7 +38,7 @@ import { writeAuthoredSkill } from "./publish-harness.js";
 /** Installs the bundled official AXM skill for scenarios that declare it. */
 export const installBundledAxmSkill = handleSkillsInstall(
   { source: Option.some("@agentxm/skills/axm"), skills: [], all: false, bundled: true },
-  { yes: true, force: false, preview: false },
+  { force: false, preview: false },
 );
 
 export const makeLintSpecWorkspace = (
@@ -84,7 +84,6 @@ export const installSkillWithMissingProjection = (
     const skillPackage = writeLocalSkillPackage(workspace.root, { name });
     yield* handleInstall({
       source: Option.some(skillPackage),
-      yes: true,
       force: false,
       preview: false,
     }).pipe(Effect.provide(workspace.layer));
@@ -240,7 +239,6 @@ export const makeOfficialSkillWorkspace = (state: OfficialSkillWorkspaceState) =
         });
         yield* handleInstall({
           source: Option.some(skillPackage),
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));

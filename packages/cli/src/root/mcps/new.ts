@@ -15,8 +15,12 @@ import {
 import { Screen } from "../../screen/index.js";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import {
   previewOrApplyPlan,
   protectedRecoveryValue,
@@ -59,7 +63,6 @@ export const handleMcpServersNew = (args: {
   readonly name: ExtensionName;
   readonly description: string;
   readonly owner: Option.Option<string>;
-  readonly yes: boolean;
   readonly preview: boolean;
 }) =>
   withOperationLifecycle(
@@ -75,7 +78,6 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
   readonly name: ExtensionName;
   readonly description: string;
   readonly owner: Option.Option<string>;
-  readonly yes: boolean;
   readonly preview: boolean;
 }) {
   const fs = yield* FileSystem.FileSystem;
@@ -335,23 +337,19 @@ const newConfig = {
     Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
-  yes: yesFlag,
-  preview: previewFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
-export const newCommand = Command.make(
-  "new",
-  newConfig,
-  ({ name, description, owner, yes, preview }) =>
-    handleMcpServersNew({
-      name: decodeExtensionNameSync(name),
-      description,
-      owner,
-      yes,
-      preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("mcps new")),
+export const newCommand = Command.make("new", newConfig, ({ name, description, owner, preview }) =>
+  handleMcpServersNew({
+    name: decodeExtensionNameSync(name),
+    description,
+    owner,
+    preview,
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("mcps new")),
 ).pipe(
   withArgvTracking(newConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Create a new MCP server in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm mcps new context", description: "Create a new MCP server manifest" },

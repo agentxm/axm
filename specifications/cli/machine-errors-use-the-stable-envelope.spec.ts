@@ -10,19 +10,23 @@ import { afterEach } from "vitest";
 import {
   JsonErrorEnvelopeSchema,
   LOCKFILE_VERSION,
+  PlanResolutionDocumentSchema,
   classifyError,
+  handleDemote,
   handleInstall,
   handleList,
 } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
-import { makeSpecWorkspace } from "../support/install-harness.js";
+import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
+import { parserRejection } from "../support/parser-probe.js";
+import { writeAuthoredSkill } from "../support/publish-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/machine-errors-use-the-stable-envelope",
   title: "A failed machine invocation still emits the stable error envelope",
   statement:
-    "When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output that carries any structured problem the failure names, keeping every diagnostic line on standard error as a structured event.",
+    "When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output that carries any structured problem the failure names, keeping every diagnostic line on standard error as a structured event; when it stops as approval required, it shall write exactly one schema-valid result document that names the block and its recovery.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -34,6 +38,7 @@ export const specification = defineSpecification({
 });
 
 const decodeEnvelope = Schema.decodeUnknownEffect(JsonErrorEnvelopeSchema);
+const decodeResolutionDocument = Schema.decodeUnknownEffect(PlanResolutionDocumentSchema);
 
 const failureRows: ReadonlyArray<{
   readonly label: string;
@@ -66,7 +71,6 @@ describe("Machine error envelope", () => {
 
         const failure = yield* handleInstall({
           source: Option.some(row.source(workspace.root)),
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer), Effect.flip);
@@ -87,6 +91,59 @@ describe("Machine error envelope", () => {
           const event: unknown = JSON.parse(line);
           expect(typeof event).toBe("object");
         }
+      }),
+  );
+
+  it.effect("a flag the route does not register fails into the same envelope before any work", () =>
+    Effect.gen(function* () {
+      const rejection = yield* parserRejection(["skills", "enable", "code-review", "--yes"]);
+
+      const classified = classifyError(rejection, "json");
+
+      expect(classified.exitCode).toBeGreaterThan(0);
+      const parsed: unknown = JSON.parse(classified.stdout ?? "");
+      const envelope = yield* decodeEnvelope(parsed);
+      expect(envelope).toMatchObject({ ok: false, code: "usage" });
+      expect(envelope.detail).toContain("--yes");
+      const stderrLines = classified.stderr ?? [];
+      expect(stderrLines).toHaveLength(1);
+      expect(JSON.parse(stderrLines[0] ?? "")).toMatchObject({ type: "error", code: "usage" });
+    }),
+  );
+
+  it.effect(
+    "an apply stopped as approval required writes one result document naming its recovery",
+    () =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace({
+          machine: true,
+          flags: { json: true },
+          settings: { owner: "@acme", skills: { review: "workspace" } },
+        });
+        cleanups.push(workspace.cleanup);
+        writeAuthoredSkill(workspace.root, { name: "review" });
+        const replacement = writeLocalSkillPackage(workspace.root, {
+          name: "review",
+          body: "Replacement guidance.",
+        });
+
+        yield* handleDemote({
+          fqn: "@acme/skills/review",
+          source: replacement,
+          yes: false,
+          preview: false,
+        }).pipe(Effect.provide(workspace.layer));
+
+        expect(workspace.rendererState.results).toHaveLength(1);
+        const [entry] = workspace.rendererState.results;
+        expect(entry?.ok).toBe(false);
+        const document = yield* decodeResolutionDocument(entry?.data);
+        expect(document.result.outcome).toBe("blocked");
+        expect(document.result.blocking).toMatchObject({
+          class: "approval-required",
+          subject: "replace-workspace-authority",
+          escape: { cmd: expect.stringContaining("--yes") },
+        });
       }),
   );
 

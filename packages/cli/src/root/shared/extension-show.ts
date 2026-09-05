@@ -15,6 +15,7 @@ import {
   type TableView,
 } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
 import {
   CatalogExtensionTypeSchema,
   type CatalogExtensionType,
@@ -342,6 +343,7 @@ export const makeExtensionShowCommand = (args: {
     ),
   ).pipe(
     withArgvTracking(showConfig),
+    withCommandCapabilities(readOnlyCapabilities()),
     Command.withDescription(`Inspect one installed ${label}`),
     Command.withExamples([
       {

@@ -1,5 +1,6 @@
 import { Command } from "effect/unstable/cli";
 import { rulesPublishCommand as publishCommand } from "../publish/per-type-command.js";
+import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
@@ -19,6 +20,7 @@ const showCommand = makeExtensionShowCommand({
 
 export const rulesCommand = Command.make("rules").pipe(
   Command.withDescription("Manage rules capabilities for configured agents"),
+  withCommandCapabilities(groupCapabilities),
   Command.annotate(
     LearnMore,
     formatLearnMore([

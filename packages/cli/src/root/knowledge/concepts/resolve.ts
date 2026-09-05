@@ -4,6 +4,10 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
 import { Screen, rawDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
+import {
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { resolveKnowledgeConcept } from "@agentxm/knowledge-query";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
@@ -93,6 +97,7 @@ export const resolveCommand = Command.make("resolve", resolveConfig, ({ input, f
   ),
 ).pipe(
   withArgvTracking(resolveConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Resolve a concept identity or return bounded candidates"),
   Command.withExamples([
     {

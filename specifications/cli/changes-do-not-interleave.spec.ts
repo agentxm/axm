@@ -94,7 +94,6 @@ describe("Concurrent workspace changes", () => {
         const install = (name: (typeof names)[number]) =>
           handleInstall({
             source: Option.fromUndefinedOr(sources.get(name)),
-            yes: true,
             force: false,
             preview: false,
           }).pipe(Effect.provide(workspace.layer), Effect.exit);

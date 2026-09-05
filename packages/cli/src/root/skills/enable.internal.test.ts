@@ -60,7 +60,6 @@ const defaultArgs = (
   overrides: Partial<EnableHandlerArgs> = {},
 ): EnableHandlerArgs => ({
   name: extensionName(name),
-  yes: true,
   preview: false,
   ...overrides,
 });

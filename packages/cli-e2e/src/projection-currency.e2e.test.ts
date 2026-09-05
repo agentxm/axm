@@ -97,7 +97,7 @@ describe("generated projection currency at the process boundary", () => {
       );
 
       const scaffold = await runCli(
-        ["rules", "new", "review", "--owner", "@test", "--yes", "--non-interactive"],
+        ["rules", "new", "review", "--owner", "@test", "--non-interactive"],
         { cwd: temp.path, env },
       );
       expect(scaffold.exitCode, `${scaffold.stderr}\n${scaffold.stdout}`).toBe(0);
@@ -174,7 +174,7 @@ describe("generated projection currency at the process boundary", () => {
       expect(JSON.parse(sync.stdout)).toMatchObject({ result: { outcome: "no-op" } });
       expect(fs.readFileSync(instructionsPath, "utf8")).toBe(formatted);
 
-      const reinstall = await runCli(["rules", "install", "--yes", "--json", "--non-interactive"], {
+      const reinstall = await runCli(["rules", "install", "--json", "--non-interactive"], {
         cwd: temp.path,
         env,
       });

@@ -11,11 +11,14 @@ import * as Semaphore from "effect/Semaphore";
 
 import {
   applyPlanExecution,
-  promptablePlanExecution,
-  preapprovedPlanExecution,
   previewPlanExecution,
   type ConfirmationRecovery,
 } from "./plan-execution.js";
+import {
+  interactiveOnlyPlanExecution,
+  preapprovedPlanExecution,
+  promptablePlanExecution,
+} from "./plan-execution-fixtures.js";
 import { runWorkspaceTransaction } from "../operations/transaction.js";
 import {
   acquireWorkspaceTransitionLock,
@@ -248,6 +251,192 @@ describe("previewOrApplyPlan", () => {
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer));
   });
+
+  it.effect("applies confirmation-free work from a route with no preapproval capability", () => {
+    let appliedCount = 0;
+    const context = makeTestContext();
+    const plan: Plan = {
+      _tag: "Plan",
+      name: "Reconcile workspace",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "ready",
+              label: "projection",
+              run: Effect.sync(() => {
+                appliedCount += 1;
+                return { result: "success" as const, message: "reconciled" };
+              }),
+            },
+          ],
+        },
+      ],
+    };
+
+    return Effect.gen(function* () {
+      const result = yield* previewOrApplyPlan(plan, {
+        execution: interactiveOnlyPlanExecution({ command: ["sync"], arguments: [] }),
+      });
+
+      expect(deriveOperationOutcome(result)).toBe("applied");
+      expect(appliedCount).toBe(1);
+      expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
+    }).pipe(Effect.provide(context.layer));
+  });
+
+  it.effect(
+    "stops before mutation when a route without preapproval meets an unexpected confirmable condition",
+    () => {
+      let appliedCount = 0;
+      const context = makeTestContext();
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Reconcile workspace",
+        description: Option.none(),
+        riskConditions: [
+          { level: "confirmable", id: "replace-unmanaged-target", detail: "Replace target" },
+        ],
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "projection",
+                run: Effect.sync(() => {
+                  appliedCount += 1;
+                  return { result: "success" as const, message: "reconciled" };
+                }),
+              },
+            ],
+          },
+        ],
+      };
+
+      return Effect.gen(function* () {
+        const result = yield* previewOrApplyPlan(plan, {
+          execution: interactiveOnlyPlanExecution({
+            command: ["sync"],
+            arguments: [{ _tag: "Switch", flag: "--non-interactive", enabled: true }],
+          }),
+        });
+
+        expect(deriveOperationOutcome(result)).toBe("blocked");
+        expect(result.blocking?.class).toBe("approval-required");
+        expect(result.blocking?.detail).toContain("Interactive approval is required");
+        expect(result.blocking?.escape?.cmd).toBe("axm sync");
+        expect(JSON.stringify(result.suggestions)).not.toContain("--yes");
+        expect(appliedCount).toBe(0);
+      }).pipe(Effect.provide(context.layer));
+    },
+  );
+
+  it.effect("never lets preapproval satisfy an interactive-only condition", () => {
+    let appliedCount = 0;
+    const context = makeTestContext();
+    const plan: Plan = {
+      _tag: "Plan",
+      name: "Update skill",
+      description: Option.none(),
+      riskConditions: [
+        {
+          level: "confirmable",
+          consent: "interactive-only",
+          id: "publisher-ownership-change",
+          detail: "Publisher identity changed",
+        },
+      ],
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "ready",
+              label: "review",
+              run: Effect.sync(() => {
+                appliedCount += 1;
+                return { result: "success" as const, message: "updated" };
+              }),
+            },
+          ],
+        },
+      ],
+    };
+
+    return Effect.gen(function* () {
+      const result = yield* previewOrApplyPlan(plan, {
+        execution: applyPlanExecution({
+          approval: "preapproved",
+          recovery: {
+            command: ["skills", "update"],
+            arguments: [{ _tag: "Switch", flag: "--json", enabled: true }],
+          },
+        }),
+      });
+
+      expect(deriveOperationOutcome(result)).toBe("blocked");
+      expect(result.blocking?.class).toBe("approval-required");
+      expect(result.blocking?.subject).toBe("publisher-ownership-change");
+      expect(result.blocking?.escape?.cmd).toBe("axm skills update");
+      expect(JSON.stringify(result.suggestions)).not.toContain("--yes");
+      expect(appliedCount).toBe(0);
+      expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
+    }).pipe(Effect.provide(context.layer));
+  });
+
+  it.effect(
+    "asks for an interactive-only condition when a prompt can open and honors the answer",
+    () => {
+      let appliedCount = 0;
+      const answers: Array<ApplyConfirmation> = ["declined", "approved"];
+      const context = makeTestContext(() => Effect.succeed(answers.shift() ?? "declined"), {
+        confirmationAvailable: true,
+      });
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Update skill",
+        description: Option.none(),
+        riskConditions: [
+          {
+            level: "confirmable",
+            consent: "interactive-only",
+            id: "publisher-ownership-change",
+            detail: "Publisher identity changed",
+          },
+        ],
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "review",
+                run: Effect.sync(() => {
+                  appliedCount += 1;
+                  return { result: "success" as const, message: "updated" };
+                }),
+              },
+            ],
+          },
+        ],
+      };
+      const execution = applyPlanExecution({ approval: "preapproved", recovery: testRecovery });
+
+      return Effect.gen(function* () {
+        const declined = yield* previewOrApplyPlan(plan, { execution });
+        expect(deriveOperationOutcome(declined)).toBe("cancelled");
+        expect(appliedCount).toBe(0);
+
+        const approved = yield* previewOrApplyPlan(plan, { execution });
+        expect(deriveOperationOutcome(approved)).toBe("applied");
+        expect(appliedCount).toBe(1);
+        expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(2);
+      }).pipe(Effect.provide(context.layer));
+    },
+  );
 
   it.effect("fails an applied mutation when required agent projection readback is missing", () => {
     const workspace = makeBaseWorkspaceMock("/tmp/axm-preview/.axm", {

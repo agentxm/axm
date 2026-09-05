@@ -31,7 +31,7 @@ describe("fork and native import", () => {
       fs.writeFileSync(path.join(nativeDir, "SKILL.md"), original);
 
       const imported = await runCli(
-        ["skills", "import", nativeDir, "@test/skills/native-review", "--yes", "--non-interactive"],
+        ["skills", "import", nativeDir, "@test/skills/native-review", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
@@ -57,7 +57,7 @@ describe("fork and native import", () => {
       });
 
       const duplicate = await runCli(
-        ["skills", "import", nativeDir, "@test/skills/native-review", "--yes", "--non-interactive"],
+        ["skills", "import", nativeDir, "@test/skills/native-review", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(duplicate.exitCode).not.toBe(0);
@@ -71,7 +71,6 @@ describe("fork and native import", () => {
           "fork",
           "workspace:@test/skills/native-review",
           "@test/skills/forked-review",
-          "--yes",
           "--non-interactive",
         ],
         { cwd: temp.path },
@@ -141,14 +140,7 @@ describe("fork and native import", () => {
       fs.writeFileSync(nativeFile, original);
 
       const mismatched = await runCli(
-        [
-          "skills",
-          "import",
-          nativeFile,
-          "@test/subagents/wrong-group",
-          "--yes",
-          "--non-interactive",
-        ],
+        ["skills", "import", nativeFile, "@test/subagents/wrong-group", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(mismatched.exitCode).not.toBe(0);
@@ -156,14 +148,7 @@ describe("fork and native import", () => {
       expect(fs.existsSync(path.join(temp.path, "subagents", "wrong-group"))).toBe(false);
 
       const imported = await runCli(
-        [
-          "subagents",
-          "import",
-          nativeFile,
-          "@test/subagents/reviewer",
-          "--yes",
-          "--non-interactive",
-        ],
+        ["subagents", "import", nativeFile, "@test/subagents/reviewer", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
@@ -205,7 +190,7 @@ describe("fork and native import", () => {
       configureOwner(temp.path);
 
       const imported = await runCli(
-        ["mcps", "import", "--as", "@test/mcps/context", "--yes", "--non-interactive", "--json"],
+        ["mcps", "import", "--as", "@test/mcps/context", "--non-interactive", "--json"],
         { cwd: temp.path },
       );
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
@@ -226,13 +211,7 @@ describe("fork and native import", () => {
       });
 
       const forked = await runCli(
-        [
-          "fork",
-          "workspace:@test/mcps/context",
-          "@test/mcps/context-fork",
-          "--yes",
-          "--non-interactive",
-        ],
+        ["fork", "workspace:@test/mcps/context", "@test/mcps/context-fork", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(forked.exitCode, `${forked.stderr}\n${forked.stdout}`).toBe(0);

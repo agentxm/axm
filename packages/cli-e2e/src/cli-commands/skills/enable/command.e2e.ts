@@ -21,7 +21,7 @@ describe("axm skills enable", () => {
       });
 
       // Install a skill
-      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
         cwd: temp.path,
       });
 
@@ -29,7 +29,7 @@ describe("axm skills enable", () => {
       const canonicalSkillDir = path.dirname(fs.realpathSync(agentSkillDir));
 
       // Disable the skill first
-      await runCli(["skills", "disable", "my-skill", "--yes"], {
+      await runCli(["skills", "disable", "my-skill"], {
         cwd: temp.path,
       });
 
@@ -39,7 +39,7 @@ describe("axm skills enable", () => {
       expect(fs.existsSync(agentSkillDir)).toBe(false);
 
       // Enable the skill
-      const result = await runCli(["skills", "enable", "my-skill", "--yes"], {
+      const result = await runCli(["skills", "enable", "my-skill"], {
         cwd: temp.path,
       });
 
@@ -85,12 +85,12 @@ describe("axm skills enable", () => {
         },
       );
 
-      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
         cwd: temp.path,
       });
 
       // Enable without disabling first — should indicate already enabled
-      const result = await runCli(["skills", "enable", "my-skill", "--yes"], {
+      const result = await runCli(["skills", "enable", "my-skill"], {
         cwd: temp.path,
       });
 
@@ -111,7 +111,7 @@ describe("axm skills enable", () => {
         },
       );
 
-      const result = await runCli(["skills", "enable", "nonexistent-skill", "--yes"], {
+      const result = await runCli(["skills", "enable", "nonexistent-skill"], {
         cwd: temp.path,
       });
 
@@ -128,7 +128,7 @@ describe("axm skills enable", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("skills enable");
-      expect(result.stdout).toContain("--yes");
+      expect(result.stdout).not.toContain("--yes");
     });
   });
 });

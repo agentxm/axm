@@ -6,6 +6,11 @@ import { InstallMetaLive } from "../../install-meta/install-meta.js";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { withRuntime } from "../../runtime.js";
 import { UpdateCheckLive } from "../../update-check/update-check.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 
 import { handleUpgrade } from "./handler.js";
 import { SubprocessLive } from "./subprocess.js";
@@ -26,28 +31,26 @@ const upgradeConfig = {
     Flag.withDescription("Reinstall an equal version; never permits a downgrade"),
     Flag.withDefault(false),
   ),
-  dryRun: Flag.boolean("dry-run").pipe(
-    Flag.withDescription(
-      "Report the resolved install method, target, and command without running it",
-    ),
-    Flag.withDefault(false),
+  preview: previewCapabilityFlag(
+    "Report the resolved install method, target, and command without running it",
   ),
 } as const;
 
 export const upgradeCommand = Command.make(
   "upgrade",
   upgradeConfig,
-  ({ dryRun, reinstall, version }) =>
+  ({ preview, reinstall, version }) =>
     Effect.provide(
       handleUpgrade({
         reinstall,
-        dryRun,
+        preview,
         ...(version._tag === "None" ? {} : { requestedVersion: version.value }),
       }),
       upgradeLayer,
     ).pipe(withRuntime("upgrade")),
 ).pipe(
   withArgvTracking(upgradeConfig),
+  withCommandCapabilities(previewableCapabilities("installation")),
   Command.withDescription("Update axm to the promoted stable or an exact version"),
   Command.withExamples([
     { command: "axm upgrade", description: "Download and install the latest version" },
@@ -60,7 +63,7 @@ export const upgradeCommand = Command.make(
       description: "Reinstall an equal version without permitting a downgrade",
     },
     {
-      command: "axm upgrade --dry-run",
+      command: "axm upgrade --preview",
       description: "Show the detected installer and the command it would run, changing nothing",
     },
   ]),

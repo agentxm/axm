@@ -86,7 +86,6 @@ describe("Plan-family lifecycle events", () => {
       }
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: options.preview,
       }).pipe(Effect.provide(workspace.layer));
@@ -170,7 +169,6 @@ describe("Plan-family lifecycle events", () => {
         prepare: (workspace, source) =>
           handleInstall({
             source: Option.some(source),
-            yes: true,
             force: false,
             preview: false,
           }).pipe(Effect.provide(workspace.layer)),

@@ -39,7 +39,6 @@ export interface ExtensionLifecycleContract {
   readonly mutations: ReadonlyArray<LifecycleMutationVerb>;
   readonly scopeSupport: LifecycleScopeSupport;
   readonly updateSelection: LifecycleUpdateSelection;
-  readonly activationConfirmation: boolean;
   readonly preview: true;
   readonly transactionalPostcondition: true;
 }
@@ -55,7 +54,6 @@ export const EXTENSION_LIFECYCLE_CONTRACT: Record<ExtensionType, ExtensionLifecy
     mutations: LIFECYCLE_MUTATION_VERBS,
     scopeSupport: row.placement === "per-agent" ? "agent-capability-dependent" : "native",
     updateSelection: row.placement === "container" ? "all" : "name-filter",
-    activationConfirmation: !(row.placement === "workspace" && row.governs === "package-body"),
     preview: true,
     transactionalPostcondition: true,
   }));

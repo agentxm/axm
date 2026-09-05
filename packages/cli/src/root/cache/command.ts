@@ -8,6 +8,12 @@ import { makeUserArchiveCache } from "@agentxm/registry-client";
 import { withRuntime } from "../../runtime.js";
 import { observeUnit } from "@agentxm/workspace-operations";
 import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import {
+  directWriteCapabilities,
+  groupCapabilities,
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 
 const CacheStatusSchema = Schema.Struct({
   entries: Schema.Number,
@@ -111,6 +117,7 @@ export const cacheStatusCommand = Command.make("status", statusConfig, () =>
   handleCacheStatus().pipe(withRuntime("cache status")),
 ).pipe(
   withArgvTracking(statusConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Show verified registry archive cache usage and limits"),
   Command.withExamples([
     { command: "axm cache status", description: "Show archive cache usage" },
@@ -122,6 +129,7 @@ export const cacheVerifyCommand = Command.make("verify", verifyConfig, () =>
   handleCacheVerify().pipe(withRuntime("cache verify")),
 ).pipe(
   withArgvTracking(verifyConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Verify every cached archive and remove corrupt entries"),
   Command.withExamples([
     { command: "axm cache verify", description: "Verify cached archive integrity" },
@@ -133,6 +141,7 @@ export const cachePruneCommand = Command.make("prune", pruneConfig, () =>
   handleCachePrune().pipe(withRuntime("cache prune")),
 ).pipe(
   withArgvTracking(pruneConfig),
+  withCommandCapabilities(directWriteCapabilities("application-state")),
   Command.withDescription("Remove expired archives and enforce the 2 GiB cache limit"),
   Command.withExamples([
     { command: "axm cache prune", description: "Prune expired and excess cache entries" },
@@ -142,6 +151,7 @@ export const cachePruneCommand = Command.make("prune", pruneConfig, () =>
 
 export const cacheCommand = Command.make("cache").pipe(
   Command.withDescription("Inspect and maintain the verified registry archive cache"),
+  withCommandCapabilities(groupCapabilities),
   Command.withExamples([
     { command: "axm cache status", description: "Show archive cache usage" },
     { command: "axm cache verify", description: "Verify cached archive integrity" },

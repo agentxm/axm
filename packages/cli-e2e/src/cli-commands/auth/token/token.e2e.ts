@@ -8,6 +8,17 @@ import { describe, expect, it } from "vitest";
 import { startHttpRegistry } from "../../../e2e/http-registry-server.js";
 import { runCli } from "../../../e2e/utils.js";
 
+export const executionBinding = {
+  requirements: [
+    "cli/token/returns-effective-token",
+    "cli/credentials-follow-explicit-source-precedence",
+    "cli/token/completes-required-human-verification",
+  ],
+  boundary: "process",
+  rationale:
+    "Observes raw and JSON process stdout and real HTTP verification followed by token creation.",
+} as const;
+
 describe("axm token", () => {
   it("outputs the token when AXM_TOKEN env var is set", async () => {
     const result = await runCli(["token"], {

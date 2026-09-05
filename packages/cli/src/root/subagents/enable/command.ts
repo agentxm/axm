@@ -1,8 +1,12 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { handleEnableSubagent } from "./handler.js";
 
 const enableConfig = {
@@ -10,17 +14,17 @@ const enableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
+  preview: previewCapabilityFlag("Show what would change without enabling"),
 } as const;
 
-export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
-  handleEnableSubagent({ name, yes, preview }).pipe(
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, preview }) =>
+  handleEnableSubagent({ name, preview }).pipe(
     withWorkspace(scope),
     withRuntime("subagents enable"),
   ),
 ).pipe(
   withArgvTracking(enableConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Enable a previously disabled subagent"),
   Command.withExamples([
     {

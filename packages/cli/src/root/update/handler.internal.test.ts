@@ -30,6 +30,7 @@ import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/e
 import {
   decodeVersionRangeSync,
   decodeVersionSync,
+  versionSatisfiesRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
@@ -201,7 +202,6 @@ describe("root update handler", () => {
           calls.push({
             type: "skill",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -219,7 +219,6 @@ describe("root update handler", () => {
           calls.push({
             type: "mcp-server",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -237,7 +236,6 @@ describe("root update handler", () => {
           calls.push({
             type: "subagent",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -255,7 +253,6 @@ describe("root update handler", () => {
           calls.push({
             type: "rule",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -273,7 +270,6 @@ describe("root update handler", () => {
           calls.push({
             type: "hook",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -291,7 +287,6 @@ describe("root update handler", () => {
           calls.push({
             type: "pack",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -313,7 +308,6 @@ describe("root update handler", () => {
           calls.push({
             type: "knowledge",
             source: args.source,
-            yes: false,
             force: false,
             preview: true,
           });
@@ -371,7 +365,6 @@ describe("root update handler", () => {
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
       const flags = {
-        yes: false,
         force: false,
         preview: true,
       } satisfies RootUpdateFlags;
@@ -426,7 +419,6 @@ describe("root update handler", () => {
       const error = yield* provide(
         handleUpdate({
           source: Option.some("./local-path"),
-          yes: false,
           force: false,
           preview: true,
         }).pipe(Effect.flip),
@@ -448,7 +440,7 @@ describe("root update handler", () => {
       });
 
       yield* provide(
-        handleUpdate({ source: Option.none(), yes: false, force: false, preview: true }, "ignore"),
+        handleUpdate({ source: Option.none(), force: false, preview: true }, "ignore"),
       );
 
       expect(calls).toEqual([]);
@@ -488,7 +480,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.some("@acme/skills/reviewer"),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -554,7 +545,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.some("@agentxm/skills/axm"),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -633,7 +623,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.some("@acme/skills/reviewer"),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -701,13 +690,18 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.some("@acme/skills/reviewer"),
-          yes: false,
           force: false,
           preview: true,
         }),
       );
 
-      expect(requestedRange).toBe(">=1.0.0 <2.0.0-0");
+      const effectiveRange = decodeVersionRangeSync(requestedRange);
+      for (const version of ["1.0.0", "1.5.0", "1.999.999"]) {
+        expect(versionSatisfiesRange(decodeVersionSync(version), effectiveRange)).toBe(true);
+      }
+      for (const version of ["0.999.999", "1.0.0-alpha", "1.5.0-beta", "2.0.0-0", "2.0.0"]) {
+        expect(versionSatisfiesRange(decodeVersionSync(version), effectiveRange)).toBe(false);
+      }
       expect(calls).toEqual([]);
       expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
       expect(rendererState.results[0]?.data).toMatchObject({
@@ -801,7 +795,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.some("@acme/skills/reviewer@^1.0.0"),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -905,7 +898,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.some("@acme/skills/reviewer@^1.0.0"),
-          yes: false,
           force: false,
           preview: true,
         }),
@@ -913,7 +905,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.none(),
-          yes: false,
           force: false,
           preview: true,
         }),
@@ -926,7 +917,6 @@ describe("root update handler", () => {
       expect(calls).toContainEqual({
         type: "skill",
         source: "@acme/skills/reviewer@1.5.0",
-        yes: false,
         force: false,
         preview: true,
       });
@@ -969,7 +959,7 @@ describe("root update handler", () => {
 
       yield* provide(
         handleUpdate(
-          { source: Option.some("@acme/skills/reviewer"), yes: true, force: false, preview: false },
+          { source: Option.some("@acme/skills/reviewer"), force: false, preview: false },
           "ignore",
         ),
       );
@@ -990,7 +980,6 @@ describe("root update handler", () => {
         {
           type: "skill",
           source: "@acme/skills/reviewer@1.0.0",
-          yes: false,
           force: false,
           preview: true,
         },
@@ -1010,7 +999,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -1043,7 +1031,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -1096,7 +1083,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -1162,7 +1148,7 @@ describe("root update handler", () => {
       const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
 
       yield* provide(
-        handleUpdate({ source: Option.none(), yes: true, force: false, preview: false }, "ignore"),
+        handleUpdate({ source: Option.none(), force: false, preview: false }, "ignore"),
       );
 
       expect(packPlanCount()).toBe(0);
@@ -1214,9 +1200,7 @@ describe("root update handler", () => {
         skills: { reviewer: "@acme/skills/reviewer" },
       });
 
-      yield* provide(
-        handleUpdate({ source: Option.none(), yes: true, force: false, preview: false }),
-      );
+      yield* provide(handleUpdate({ source: Option.none(), force: false, preview: false }));
 
       expect(logs.warn).toContain("1 newer release held by the 24h minimum release age");
       expect(logs.info).toContain(
@@ -1262,9 +1246,7 @@ describe("root update handler", () => {
         skills: { reviewer: "@acme/skills/reviewer" },
       });
 
-      yield* provide(
-        handleUpdate({ source: Option.none(), yes: true, force: false, preview: false }),
-      );
+      yield* provide(handleUpdate({ source: Option.none(), force: false, preview: false }));
 
       expect(logs.warn).toContain("1 release skipped the 24h minimum release age");
       expect(logs.info).toContain(
@@ -1321,7 +1303,6 @@ describe("root update handler", () => {
       yield* provide(
         handleUpdate({
           source: Option.none(),
-          yes: true,
           force: false,
           preview: false,
         }),

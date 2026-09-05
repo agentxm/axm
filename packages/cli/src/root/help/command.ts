@@ -17,6 +17,7 @@ import {
   type TableView,
 } from "../../screen/index.js";
 import { resolveCliFormat, withArgvTracking } from "../../cli-runtime/index.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   HELP_TOPICS,
@@ -220,6 +221,7 @@ export const makeHelpCommand = (getRootCommand: () => Command.Command.Any) =>
   Command.make("help", helpConfig, ({ path }) => handleHelpPath(path, getRootCommand())).pipe(
     Command.provide(helpRendererLayer),
     withArgvTracking(helpConfig),
+    withCommandCapabilities(readOnlyCapabilities()),
     Command.withDescription("Show general help, a topic page, raw schema, or command help"),
     Command.withShortDescription("Show topic or command help"),
     Command.withExamples([

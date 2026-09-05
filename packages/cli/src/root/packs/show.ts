@@ -21,6 +21,7 @@ import { acceptedCanonicalObservation, WorkspaceMutations } from "@agentxm/works
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 
 const PackMemberSchema = Schema.Struct({
   fqn: Schema.String,
@@ -233,6 +234,7 @@ export const showCommand = Command.make("show", showConfig, ({ target, scope }) 
   handlePacksShow(target).pipe(withWorkspace(scope), withRuntime("packs show")),
 ).pipe(
   withArgvTracking(showConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Inspect desired, accepted, and canonical pack state"),
   Command.withExamples([
     {

@@ -13,13 +13,8 @@ export {
 } from "./non-interactive.js";
 import { nonInteractiveFlag } from "./non-interactive.js";
 
-export const jsonFlag = GlobalFlag.setting("axm-json")({
-  flag: Flag.boolean("json").pipe(
-    Flag.withAlias("j"),
-    Flag.withDescription("Output machine-readable JSON"),
-    Flag.optional,
-  ),
-});
+export { jsonFlag } from "./json-flag.js";
+import { jsonFlag } from "./json-flag.js";
 
 export const verboseFlag = GlobalFlag.setting("axm-verbose")({
   flag: Flag.boolean("verbose").pipe(
@@ -55,6 +50,7 @@ export const directoryFlag = GlobalFlag.setting("axm-directory")({
 });
 
 export { resolveVerbosityFromArgv } from "./resolve-verbosity.js";
+export { isMachineOutput, promptAvailability } from "./interactivity.js";
 
 // ---------------------------------------------------------------------------
 // Verbosity
@@ -75,9 +71,15 @@ export { whenDebug, whenNotQuiet, whenVerbose } from "./verbosity-helpers.js";
 // commands that declare them.
 // ---------------------------------------------------------------------------
 
+/**
+ * Preapproval of one documented confirmation. Only a command whose
+ * capabilities declare a preapprovable confirmation registers this flag, and
+ * it registers it with a description naming that confirmation; see
+ * `root/shared/command-capabilities.ts`.
+ */
 export const yesFlag = Flag.boolean("yes").pipe(
   Flag.withAlias("y"),
-  Flag.withDescription("Auto-accept confirmation prompts"),
+  Flag.withDescription("Approve the documented confirmation in advance"),
   Flag.withDefault(false),
 );
 
@@ -144,6 +146,11 @@ export const ignoreReleaseAgeFlag = makeOverrideFlag("ignore-release-age");
 
 export const acceptWarningsFlag = makeOverrideFlag("accept-warnings");
 
+/**
+ * The one assessment flag. A command that can assess its intended change
+ * without applying it registers exactly this flag; no command spells the
+ * assessment any other way.
+ */
 export const previewFlag = Flag.boolean("preview").pipe(
   Flag.withDescription("Display plan without applying"),
   Flag.withDefault(false),

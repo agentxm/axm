@@ -53,10 +53,11 @@ reachability, projection ownership, or cleanup authority.
 
 ## Authoring inventory
 
-Workspace-authored canonical extension content available for direct editing,
-inspection, versioning, and publication preparation without necessarily being
-desired or active in the workspace. Creating authoring inventory does not by
-itself create a settings entry or managed output.
+Locally available package content in an authored package directory. Inventory
+describes content that inspection can find; workspace declarations establish
+managed membership and activation. Version editing and publication use the
+configured workspace-authorship authority described in
+[Authoring](commands/authoring.md).
 
 ## Bundled extension
 

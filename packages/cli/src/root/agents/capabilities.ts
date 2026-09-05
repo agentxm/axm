@@ -13,6 +13,7 @@ import { makeAppError } from "../../app-error/index.js";
 import { Screen, count, tableDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime } from "../../runtime.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { agentLifecycle, isCatalogAgentId, lifecycleCell } from "./lifecycle.js";
 import { validateAgentIds } from "@agentxm/workspace-configuration";
 import { configurationFailureToAppError } from "../../feature-errors.js";
@@ -128,6 +129,7 @@ export const capabilitiesCommand = Command.make("capabilities", capabilitiesConf
   handleAgentsCapabilities(id).pipe(withRuntime("agents capabilities")),
 ).pipe(
   withArgvTracking(capabilitiesConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription(
     "Show what one coding agent supports, and how far AXM integrates with it",
   ),

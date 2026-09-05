@@ -67,7 +67,6 @@ describe("Add an inline MCP server", () => {
           url: row.url,
           env: [],
           header: [],
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));

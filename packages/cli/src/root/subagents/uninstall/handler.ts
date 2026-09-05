@@ -16,10 +16,7 @@ const uninstallPresentation = operationPresentation(
   "subagent",
 );
 
-export const handleUninstall = (
-  args: UninstallSubagentHandlerArgs,
-  flags: { yes: boolean; preview: boolean },
-) =>
+export const handleUninstall = (args: UninstallSubagentHandlerArgs, flags: { preview: boolean }) =>
   withOperationLifecycle(
     {
       command: "subagents.uninstall",
@@ -30,10 +27,7 @@ export const handleUninstall = (
     handleUninstallBody(args, flags),
   );
 
-const handleUninstallBody = (
-  args: UninstallSubagentHandlerArgs,
-  flags: { yes: boolean; preview: boolean },
-) =>
+const handleUninstallBody = (args: UninstallSubagentHandlerArgs, flags: { preview: boolean }) =>
   Effect.gen(function* () {
     const actions = yield* UninstallSubagentCommandWorkflowActions;
     const presentedActions: typeof actions = {

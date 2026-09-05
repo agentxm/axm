@@ -159,8 +159,10 @@ specification `cli/force-bypasses-only-named-policies` in the
 [specification catalog](../../specifications/catalog.md): `--force` bypasses
 only an explicitly named forceable policy and never a hard invariant.
 
-`--yes` controls interaction. It does not broaden permission, and `--force`
-does not imply it.
+`--yes` approves in advance the one documented confirmation a command
+declares, and only the commands that declare one expose it. It does not
+broaden permission, never satisfies a named policy override or an
+interactive-only trust condition, and `--force` does not imply it.
 
 ## Specify the promises of each feature
 

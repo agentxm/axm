@@ -1,6 +1,7 @@
 import { Command } from "effect/unstable/cli";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 import { addCommand } from "./add.js";
 import { disableCommand } from "./disable.js";
@@ -21,6 +22,7 @@ const showCommand = makeExtensionShowCommand({
 
 export const mcpsCommand = Command.make("mcps").pipe(
   Command.withDescription("Manage MCP servers"),
+  withCommandCapabilities(groupCapabilities),
   Command.annotate(
     LearnMore,
     formatLearnMore([

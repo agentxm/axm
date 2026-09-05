@@ -33,7 +33,7 @@ import {
 } from "@agentxm/registry-auth";
 import { authFailureToAppError, publishFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import {
   effectCliExit,
   recordCommandCompletion,
@@ -90,6 +90,11 @@ import {
   type ExtensionConstraintInvariantFact,
 } from "@agentxm/extension-workspace";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { CompanionPackageSchema } from "@agentxm/extension-model/unstable/package-urls";
 import {
   KNOWLEDGE_SOURCE_DIR,
@@ -390,7 +395,6 @@ export interface RootPublishHandlerArgs {
   readonly onExisting: Option.Option<ExistingVersionPolicy>;
   readonly backfill: boolean;
   readonly acceptWarnings: boolean;
-  readonly yes: boolean;
   readonly preview: boolean;
   readonly scope: WorkspaceScope;
   readonly visibility: Option.Option<ExtensionVisibility>;
@@ -2222,7 +2226,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     candidates.map((candidate) => candidate.fqn),
   );
   const execution = yield* makePlanExecution(
-    args,
+    { preview: args.preview },
     exactRecovery,
     args.acceptWarnings ? ["accept-warnings"] : [],
   );
@@ -2309,13 +2313,15 @@ const runPublish = Effect.fn("Publish.run")(function* (
               const recoveryExecution =
                 recoverySelection.remainingItems.length > 0
                   ? yield* makePlanExecution(
-                      args,
+                      { preview: args.preview },
                       makeExactPublishRecovery(args, recoverySelection.remainingItems),
                     )
                   : undefined;
               const recoveryCmd =
                 recoveryExecution !== undefined && "approvalRecovery" in recoveryExecution
-                  ? renderConfirmationRecoveryCommand(recoveryExecution.approvalRecovery)
+                  ? renderConfirmationRecoveryCommand(recoveryExecution.approvalRecovery, {
+                      approval: "none",
+                    })
                   : undefined;
               const signal = requestedInterruptionSignal() ?? "SIGINT";
               const exitCode = signal === "SIGTERM" ? 143 : 130;
@@ -2515,13 +2521,13 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const recoveryExecution =
     applyExecuted && recoverySelection.remainingItems.length > 0
       ? yield* makePlanExecution(
-          args,
+          { preview: args.preview },
           makeExactPublishRecovery(args, recoverySelection.remainingItems),
         )
       : undefined;
   const partialRecovery =
     recoveryExecution !== undefined && "approvalRecovery" in recoveryExecution
-      ? renderConfirmationRecoveryCommand(recoveryExecution.approvalRecovery)
+      ? renderConfirmationRecoveryCommand(recoveryExecution.approvalRecovery, { approval: "none" })
       : undefined;
   const authorizedPublicationPreview = authorizationOutput?.preview;
   const finalPublicationSetOutput =
@@ -2653,8 +2659,7 @@ const publishConfig = {
     Flag.withDescription("Initial visibility for every new extension in the selection"),
     Flag.optional,
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
-  preview: previewFlag.pipe(Flag.withDescription("Preflight without uploading")),
+  preview: previewCapabilityFlag("Preflight without uploading"),
   includeDependencies: Flag.boolean("include-dependencies").pipe(
     Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
     Flag.withDefault(false),
@@ -2672,7 +2677,6 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     onExisting: parsed.onExisting,
     backfill: parsed.backfill,
     acceptWarnings: parsed.acceptWarnings,
-    yes: parsed.yes,
     preview: parsed.preview,
     scope: "project",
     visibility: parsed.visibility,
@@ -2680,13 +2684,16 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
   }).pipe(withWorkspace("project"), withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),
+  withCommandCapabilities(
+    previewableCapabilities("registry", { inputs: "explicit-or-documented-defaults" }),
+  ),
   Command.withDescription(
     "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
   ),
   Command.withExamples([
     { command: "axm publish", description: "Publish every workspace-sourced extension" },
     {
-      command: "axm publish --owner @acme --on-existing verify --yes",
+      command: "axm publish --owner @acme --on-existing verify",
       description: "Idempotently publish an authored catalog",
     },
     {

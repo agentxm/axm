@@ -5,8 +5,12 @@ import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import {
   buildNewExtensionStep,
   createCanonicalDirectory,
@@ -49,7 +53,6 @@ export const handleRulesNew = (args: {
   readonly name: string;
   readonly owner: Option.Option<string>;
   readonly title: Option.Option<string>;
-  readonly yes: boolean;
   readonly preview: boolean;
 }) =>
   withOperationLifecycle(
@@ -65,7 +68,6 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
   readonly name: string;
   readonly owner: Option.Option<string>;
   readonly title: Option.Option<string>;
-  readonly yes: boolean;
   readonly preview: boolean;
 }) {
   const fs = yield* FileSystem.FileSystem;
@@ -220,10 +222,7 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
     ],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
-    preview: args.preview,
-    yes: args.yes,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
   const suggestions = [
     {
       description: `Write the rule body in \`${joinDisplayPath(path, path.relative(ws.baseDir, targetDir), RULE_SOURCE_DIR, RULE_BODY_FILENAME)}\``,
@@ -242,19 +241,17 @@ const newConfig = {
     Flag.withDescription("Display title for the rule"),
     Flag.optional,
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Create the rule without confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be created without writing files"),
-  ),
+  preview: previewCapabilityFlag("Show what would be created without writing files"),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, title, yes, preview }) =>
-  handleRulesNew({ name, owner, title, yes, preview }).pipe(
+export const newCommand = Command.make("new", newConfig, ({ name, owner, title, preview }) =>
+  handleRulesNew({ name, owner, title, preview }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
     withRuntime("rules new"),
   ),
 ).pipe(
   withArgvTracking(newConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Create a new rule in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm rules new commit-style", description: "Scaffold a new rule" },

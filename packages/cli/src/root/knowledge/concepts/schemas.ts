@@ -146,7 +146,7 @@ export const KnowledgeConceptRelatedOutputSchema = Schema.Struct({
 
 export const KnowledgeConceptStatusOutputSchema = Schema.Struct({
   capabilities: KnowledgeDiscoveryCapabilitiesSchema,
-  readiness: Schema.Literals(["ready", "changing"]),
+  readiness: Schema.Literals(["ready", "changing", "unavailable"]),
   health: Schema.Struct({
     status: Schema.Literals(["healthy", "unhealthy"]),
     diagnostics: Schema.Array(Schema.String),

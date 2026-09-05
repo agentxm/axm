@@ -8,6 +8,11 @@ import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { handle } from "../test-helpers.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import {
+  decodeVersionRangeSync,
+  decodeVersionSync,
+  versionSatisfiesRange,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import { buildDesiredStateGraph, type ProspectivePackRef } from "./desired-state-graph.js";
 
 const writePack = (
@@ -322,10 +327,20 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
         );
         expect(withPackNode?.origins.map((origin) => origin.type)).toEqual(["settings", "pack"]);
         expect(withPackNode?.constraints).toEqual(["^1.1.0", "^1.0.0"]);
-        expect(directOnlyNode).toMatchObject({
-          source: "@acme/knowledge/handbook@>=1.1.0 <2.0.0-0",
-          enabled: true,
-        });
+        for (const node of [withPackNode, directOnlyNode]) {
+          expect(node).toMatchObject({ identity: "@acme/knowledge/handbook", enabled: true });
+          if (node?.source === undefined)
+            throw new Error("Expected the desired Knowledge package source");
+          const versionAt = node.source.lastIndexOf("@");
+          expect(node.source.slice(0, versionAt)).toBe("@acme/knowledge/handbook");
+          const range = decodeVersionRangeSync(node.source.slice(versionAt + 1));
+          for (const version of ["1.1.0", "1.4.0", "1.99.99"]) {
+            expect(versionSatisfiesRange(decodeVersionSync(version), range)).toBe(true);
+          }
+          for (const version of ["1.0.9", "1.1.0-alpha", "1.9.0-beta", "2.0.0-alpha", "2.0.0"]) {
+            expect(versionSatisfiesRange(decodeVersionSync(version), range)).toBe(false);
+          }
+        }
         expect(directOnlyNode?.origins).toEqual([
           expect.objectContaining({ type: "settings", source: knowledge.handbook.source }),
         ]);

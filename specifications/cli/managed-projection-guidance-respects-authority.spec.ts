@@ -94,7 +94,6 @@ describe("Managed projection authoring guidance", () => {
 
         yield* handleInstall({
           source: Option.some(source),
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));

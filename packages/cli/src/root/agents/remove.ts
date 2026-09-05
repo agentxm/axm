@@ -19,7 +19,7 @@ import {
   syncFailureToAppError,
   syncStepFailureAdapter,
 } from "../../feature-errors.js";
-import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { count } from "../../screen/index.js";
 import {
@@ -35,6 +35,11 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { makeAtomicMembershipSteps, validateAgentIds } from "@agentxm/workspace-configuration";
@@ -42,7 +47,6 @@ import { failureToStepFailure, toAppError } from "../../app-error/conversions.js
 
 export interface AgentsRemoveArgs {
   readonly ids: ReadonlyArray<string>;
-  readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
 }
@@ -299,21 +303,21 @@ const removeConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Remove agents from project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
   force: acceptWarningsFlag,
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+  preview: previewCapabilityFlag("Show what would change without applying"),
 } as const;
 
 export const removeCommand = Command.make(
   "remove",
   removeConfig,
-  ({ ids, scope, yes, force, preview }) =>
-    handleAgentsRemove({ ids: [...ids], yes, force, preview }).pipe(
+  ({ ids, scope, force, preview }) =>
+    handleAgentsRemove({ ids: [...ids], force, preview }).pipe(
       withWorkspace(scope),
       withRuntime("agents remove"),
     ),
 ).pipe(
   withArgvTracking(removeConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Remove coding-agent harnesses and clean up AXM-managed artifacts"),
   Command.withExamples([
     { command: "axm agents remove cursor", description: "Remove Cursor from this workspace" },

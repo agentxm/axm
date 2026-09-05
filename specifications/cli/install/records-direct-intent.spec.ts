@@ -1,3 +1,4 @@
+import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -16,9 +17,15 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity"],
-  methods: ["example"],
-  derivedFrom: ["cli/install/direct-intent-recorded-and-realized"],
-  supersedes: ["cli/install/direct-intent-recorded-and-realized"],
+  methods: ["example", "decision-table"],
+  derivedFrom: [
+    "cli/install/direct-intent-recorded-and-realized",
+    "cli/every-type-completes-the-shared-lifecycle",
+  ],
+  supersedes: [
+    "cli/install/direct-intent-recorded-and-realized",
+    "cli/every-type-completes-the-shared-lifecycle",
+  ],
   assumptions: [],
   openQuestions: [],
 });
@@ -40,13 +47,26 @@ describe("Install records direct workspace intent", () => {
 
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
 
       expect(workspace.readSettings()).toMatchObject({
         skills: { "code-review": expect.anything() },
+      });
+    }),
+  );
+  it.effect.each(localLifecycleRows)("records direct intent for a local $label", (row) =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace();
+      cleanups.push(workspace.cleanup);
+      const name = `conformance-${row.label}`;
+      const source = row.writePackage(workspace.root, { name });
+      yield* handleInstall({ source: Option.some(source), force: false, preview: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      expect(workspace.readSettings()).toMatchObject({
+        [row.settingsKey]: { [name]: expect.anything() },
       });
     }),
   );

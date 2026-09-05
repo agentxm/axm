@@ -16,7 +16,12 @@ import {
 } from "./errors.js";
 import { applyProjectionPlans, projectionPlanExclusionWarnings } from "../projection/planning.js";
 import type { StepFailure } from "@agentxm/workspace-operations";
-import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
+import type {
+  JobStepArtifact,
+  JobStepResult,
+  PlannedJobStep,
+  RegistryBindingProposal,
+} from "@agentxm/workspace-operations";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import type { ExtensionTarget, ExtensionTargetFor } from "@agentxm/workspace-state";
@@ -388,11 +393,25 @@ export const buildInstallOperation = <TRef extends ExtensionRef, F = never>(
   const lifecycleWarnings = extensionRefLifecycleWarnings(args.ref);
   const registryLifecycle = extensionRefRegistryLifecycle(args.ref);
 
+  // The proposed Registry identity travels with the step as structured data,
+  // so trust classification compares bindings rather than reading warnings.
+  const registryBinding: RegistryBindingProposal | undefined =
+    args.ref.refType === "registry"
+      ? {
+          extensionType: args.ref.type,
+          target: target.name,
+          owner: args.ref.owner,
+          packageName: args.ref.name,
+          version: args.ref.version,
+          publisherBindingId: args.ref.publisherBindingId,
+        }
+      : undefined;
   const base = {
     key: toStepKey(target),
     label: toLabelWithCompanions(target, companionPkgs),
     run: runInstallOperation(manager, args),
     ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
+    ...(registryBinding === undefined ? {} : { registryBinding }),
   };
   return lifecycleWarnings.length === 0
     ? ({ ...base, readiness: "ready" } satisfies PlannedJobStep)

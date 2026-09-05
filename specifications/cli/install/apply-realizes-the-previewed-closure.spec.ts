@@ -44,7 +44,6 @@ describe("Install apply realizes the previewed closure", () => {
       const run = (preview: boolean) =>
         handleInstall({
           source: Option.some(skillPackage),
-          yes: true,
           force: false,
           preview,
         }).pipe(Effect.provide(workspace.layer));

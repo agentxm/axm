@@ -1,13 +1,13 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  ignoreReleaseAgeFlag,
-  previewFlag,
-  reinstallFlag,
-  yesFlag,
-} from "../../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, reinstallFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { handleInstall } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
@@ -29,25 +29,28 @@ const installConfig = {
     Flag.withDescription("Install every subagent found in the source without prompting"),
     Flag.withDefault(false),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall a subagent that already exists")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be installed without making changes"),
-  ),
+  preview: previewCapabilityFlag("Show what would be installed without making changes"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, subagent, all, yes, force, preview, ignoreReleaseAge }) =>
-    handleInstall({ source, subagents: subagent, all }, { yes, force, preview }).pipe(
+  ({ source, scope, subagent, all, force, preview, ignoreReleaseAge }) =>
+    handleInstall({ source, subagents: subagent, all }, { force, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("subagents install"),
     ),
 ).pipe(
   withArgvTracking(installConfig),
+  withCommandCapabilities(
+    previewableCapabilities("workspace", {
+      inputs: "explicit-or-interactive-selection",
+      trust: ["publisher-change"],
+    }),
+  ),
   Command.withDescription(
     "Reinstall configured subagents from their sources, or install subagents from a registry, GitHub, or local path",
   ),
@@ -73,8 +76,8 @@ export const installCommand = Command.make(
       description: "Install from a local directory during development",
     },
     {
-      command: "axm subagents install owner/repo --all --yes",
-      description: "CI: install all subagents without prompts",
+      command: "axm subagents install owner/repo --all",
+      description: "CI: install every subagent in the source without a selection prompt",
     },
     {
       command: "axm subagents install @acme/subagents/researcher --preview",

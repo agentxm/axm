@@ -4,7 +4,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command } from "effect/unstable/cli";
 import { makeAppError } from "../../app-error/index.js";
 import {
   AuthoringFailureAdapter,
@@ -24,7 +24,6 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -35,12 +34,16 @@ import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspac
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 
 export interface PacksRemoveHandlerArgs {
   readonly pack: string;
   readonly extension: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -225,7 +228,6 @@ const handlePacksRemoveBody = Effect.fn("PacksRemove.handle")(function* (
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
-    yes: args.yes,
     recovery: makeConfirmationRecovery(
       ["packs", "remove"],
       [
@@ -252,22 +254,17 @@ const removeConfig = {
   extension: Argument.string("extension").pipe(
     Argument.withDescription("Extension name or glob pattern"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Remove without confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would change in the manifest without modifying it"),
-  ),
+  preview: previewCapabilityFlag("Show what would change in the manifest without modifying it"),
 } as const;
 
-export const removeCommand = Command.make(
-  "remove",
-  removeConfig,
-  ({ pack, extension, yes, preview }) =>
-    handlePacksRemove({ pack, extension, yes, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRuntime("packs remove"),
-    ),
+export const removeCommand = Command.make("remove", removeConfig, ({ pack, extension, preview }) =>
+  handlePacksRemove({ pack, extension, preview }).pipe(
+    withWorkspace(DEFAULT_WORKSPACE_SCOPE),
+    withRuntime("packs remove"),
+  ),
 ).pipe(
   withArgvTracking(removeConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Remove an extension from a project-workspace pack manifest"),
   Command.withExamples([
     {

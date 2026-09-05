@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -7,19 +8,28 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 
 import {
+  AppError,
+  reportCliError,
+  reportCliDefect,
   TelemetryClient,
   TelemetryClientLive,
   TelemetryErrorsRequest,
   TelemetryEventsRequest,
 } from "axm.sh/specification-harness";
 
+import {
+  captureTelemetry,
+  makeTelemetryOperation,
+  sensitiveSentinels,
+} from "../../support/telemetry-harness.js";
+
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 
 export const specification = defineSpecification({
   requirement: "system/security/telemetry-payloads-respect-data-boundary",
-  title: "Telemetry payloads carry only the fields the published telemetry contract declares",
+  title: "Telemetry excludes extension content and secrets",
   statement:
-    "Every telemetry event AXM sends shall carry only the observation fields for identity, timing, and command context that the published telemetry contract declares, so that extension content, authored instructions and knowledge, credentials, and resolved secret values have no field in which to travel.",
+    "Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.1.0 and contain only identity, timing, and command-observation data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.",
   class: "quality",
   characteristic: "privacy",
   role: "interface",
@@ -27,10 +37,7 @@ export const specification = defineSpecification({
   methods: ["contract", "example"],
   derivedFrom: [],
   supersedes: [],
-  assumptions: [
-    "Values inside the free-form properties field carry only documented observation data; the evidence bounds field names at every level the published contract closes, not the values inside properties.",
-    "The telemetry contract snapshot generated into the CLI is the contract the production telemetry service publishes.",
-  ],
+  assumptions: [],
   openQuestions: [],
 });
 
@@ -119,7 +126,6 @@ describe("Telemetry data boundary", () => {
 
       yield* telemetry.reportError({
         name: "ERR",
-        message: "message",
         level: "error",
         errorClass: "user",
         handled: true,
@@ -130,6 +136,71 @@ describe("Telemetry data boundary", () => {
       expect(request.errors.map((error) => error.name)).toEqual(["ERR"]);
       expect(request.context.command).toBe("install");
     }),
+  );
+
+  it.effect(
+    "actual install events exclude argument values and package content at every payload depth",
+    () =>
+      Effect.gen(function* () {
+        const operation = makeTelemetryOperation();
+        const captured = captureTelemetry();
+        yield* Effect.acquireUseRelease(
+          Effect.succeed(operation),
+          (operation) =>
+            Effect.gen(function* () {
+              const result = yield* operation.run({ client: captured.client });
+              expect(result.exit._tag).toBe("Success");
+              expect(captured.requests.length).toBeGreaterThanOrEqual(2);
+              const payloads = JSON.stringify(captured.requests);
+              for (const secret of sensitiveSentinels) expect(payloads).not.toContain(secret);
+              for (const request of captured.requests) {
+                const decoded = yield* decodeEventsRequest(request.body);
+                for (const event of decoded.events) {
+                  expect(["command_invoked", "command_completed"]).toContain(event.event);
+                }
+              }
+              expect(payloads).toContain("cli.arg.source");
+              expect(payloads).toContain("<redacted>");
+              expect(payloads).toContain("cli.applied_count");
+            }),
+          (operation) => Effect.sync(operation.cleanup),
+        );
+      }),
+  );
+
+  it.effect(
+    "handled errors and defects exclude arbitrary content as well as credential-shaped values",
+    () =>
+      Effect.gen(function* () {
+        const { client, captured } = captureClient();
+        const telemetry = yield* telemetryOver(client);
+        const content = sensitiveSentinels.join(" ");
+        yield* reportCliError(
+          new AppError({
+            code: "validation",
+            title: "Invalid input",
+            detail: content,
+            cause: undefined,
+            metadata: {
+              response: { status: 400, body: { token: sensitiveSentinels[3], content } },
+            },
+          }),
+          "install",
+        ).pipe(Effect.provideService(TelemetryClient, telemetry));
+        yield* reportCliDefect(Cause.die(new Error(content)), "install").pipe(
+          Effect.provideService(TelemetryClient, telemetry),
+        );
+        expect(captured).toHaveLength(2);
+        for (const secret of sensitiveSentinels)
+          expect(JSON.stringify(captured)).not.toContain(secret);
+        const errors = [];
+        for (const request of captured) {
+          const decoded = yield* decodeErrorsRequest(request.body);
+          errors.push(...decoded.errors);
+          expect(decoded.context.command).toBe("install");
+        }
+        expect(errors.map((error) => error.name)).toEqual(["validation", "Defect"]);
+      }),
   );
 
   it.effect("a field outside the contract is rejected by the same check", () =>

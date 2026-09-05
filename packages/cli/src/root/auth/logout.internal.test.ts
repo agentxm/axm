@@ -138,7 +138,7 @@ describe("auth logout handler", () => {
     );
   });
 
-  it.effect("clears credentials even when revoke fails", () => {
+  it.effect("explains local-only sign-out when remote revocation fails", () => {
     const { provide, logs, rendererState } = makeLayers({
       existingCredentials: true,
       revokeFails: true,

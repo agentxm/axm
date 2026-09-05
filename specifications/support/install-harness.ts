@@ -29,6 +29,7 @@ import {
   KnowledgeIndexLive,
   makeWorkspaceHandlerTestContext,
   writeWorkspaceFiles,
+  type FileSystemWriteEvent,
   type TestPromptConfig,
   CodingAgentRepositoryLive,
   makeAxmSkillCompatibilityPolicyLayer,
@@ -70,6 +71,12 @@ export interface SpecWorkspaceOptions {
     readonly nonInteractive?: boolean;
     readonly json?: boolean;
   };
+  /**
+   * Record every mutating file-system call the application makes, so a
+   * specification can show that an assessment attempted no write beneath its
+   * protected state. The recorded events are returned as `writes`.
+   */
+  readonly recordWrites?: boolean;
   /** Initial `axm.json` content beyond the defaults. */
   readonly settings?: Parameters<typeof writeWorkspaceFiles>[1];
   /**
@@ -119,10 +126,14 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
         ? machineScreenLayer(streams, { quiet: options.flags?.quiet === true })
         : humanScreenLayer(streams);
 
+  const writes: Array<FileSystemWriteEvent> = [];
   const context = makeWorkspaceHandlerTestContext({
     ...(options.machine !== undefined ? { machine: options.machine } : {}),
     ...(screenLayer === undefined ? {} : { screenLayer }),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
+    ...(options.recordWrites === true
+      ? { onFileSystemWrite: (event: FileSystemWriteEvent) => void writes.push(event) }
+      : {}),
     flags: { nonInteractive: true, ...options.flags },
     wsOptions: { projectRoot: root, scope: options.scope ?? "project" },
   });
@@ -180,6 +191,10 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     layer,
     provide: Effect.provide(layer),
     rendererState: context.rendererState,
+    /** Every mutating file-system call recorded when `recordWrites` was requested. */
+    writes,
+    promptState: context.promptState,
+    resolvePlanState: context.resolvePlanState,
     /** The recording output streams when `screen` was requested. */
     streams,
     logs: context.logs,

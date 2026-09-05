@@ -158,8 +158,8 @@ the identity or ownership of their members.
 
 These states support one another, but they are not interchangeable. An accepted
 lock row does not make an extension desired. An output is not an authoring
-source. Workspace-authored canonical content may exist as
-authoring inventory without becoming desired. Existing files do not give AXM
+source. Locally authored package files may exist without a desired
+declaration; an authoring command can create both in one operation. Existing files do not give AXM
 permission to overwrite them. The [workspace design](workspace/overview.md)
 defines these boundaries in detail.
 

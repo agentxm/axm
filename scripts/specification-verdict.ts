@@ -6,8 +6,7 @@
  *
  * Compares specification metadata and content between the base revision
  * (default: merge-base with origin/main, falling back to main) and the
- * working tree, then joins current suite evidence from
- * test-results/specifications/junit.xml.
+ * working tree, then joins input-bound native runner receipts.
  */
 
 import { execFileSync } from "node:child_process";
@@ -18,11 +17,14 @@ import { fileURLToPath } from "node:url";
 import { collectCatalog, parseSpecificationFile } from "./specification-catalog-lib.js";
 import {
   computeVerdict,
-  digestContent,
-  parseJunitOutcomes,
   renderVerdictMarkdown,
   type VerdictSource,
 } from "./specification-verdict-lib.js";
+import {
+  captureEvidenceInputs,
+  digestContent,
+  readEvidenceRuns,
+} from "./specification-evidence.js";
 
 const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");
@@ -46,29 +48,17 @@ const resolveBaseRevision = (): string => {
   return "HEAD";
 };
 
-const baseRevision = resolveBaseRevision();
+const baseRevision = git("rev-parse", "--verify", `${resolveBaseRevision()}^{commit}`);
 
 const baseSources: VerdictSource[] = [];
-const listBaseFiles = (): string[] => {
-  try {
-    return git("ls-tree", "-r", "--name-only", baseRevision, "--", "specifications/")
-      .split("\n")
-      .filter((file) => file.endsWith(".spec.ts"));
-  } catch {
-    return [];
-  }
-};
-const baseFiles = listBaseFiles();
+const baseFiles = git("ls-tree", "-r", "--name-only", baseRevision, "--", "specifications/")
+  .split("\n")
+  .filter((file) => file.endsWith(".spec.ts"));
 for (const file of baseFiles) {
-  let content: string;
-  try {
-    content = execFileSync("git", ["show", `${baseRevision}:${file}`], {
-      cwd: repoRoot,
-      encoding: "utf8",
-    });
-  } catch {
-    continue;
-  }
+  const content = execFileSync("git", ["show", `${baseRevision}:${file}`], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
   const parsed = parseSpecificationFile(content, file);
   if (parsed.specification !== undefined) {
     baseSources.push({
@@ -79,15 +69,38 @@ for (const file of baseFiles) {
 }
 
 const headCatalog = collectCatalog({ repoRoot });
+if (headCatalog.issues.length > 0) {
+  throw new Error(
+    `Cannot render a verdict for an invalid specification catalog:\n${headCatalog.issues.map((issue) => issue.message).join("\n")}`,
+  );
+}
 const headSources: VerdictSource[] = headCatalog.specifications.map((specification) => ({
   specification,
   contentDigest: digestContent(fs.readFileSync(path.join(repoRoot, specification.source), "utf8")),
 }));
 
-const junitPath = path.join(repoRoot, "test-results", "specifications", "junit.xml");
-const junitOutcomes = fs.existsSync(junitPath)
-  ? parseJunitOutcomes(fs.readFileSync(junitPath, "utf8"))
-  : new Map();
-
-const verdict = computeVerdict(baseSources, headSources, junitOutcomes);
+const evidence = readEvidenceRuns(repoRoot);
+const changedFiles = [
+  ...new Set([
+    ...git("diff", "--name-only", "-z", baseRevision, "--").split("\0"),
+    ...git("ls-files", "--others", "--exclude-standard", "-z").split("\0"),
+  ]),
+].filter(Boolean);
+const sourceDigests = new Map([
+  ...headSources.map((entry) => [entry.specification.source, entry.contentDigest] as const),
+  ...headCatalog.executionBindings.map(
+    (entry) =>
+      [entry.source, digestContent(fs.readFileSync(path.join(repoRoot, entry.source)))] as const,
+  ),
+]);
+const verdict = computeVerdict(baseSources, headSources, {
+  inputs: captureEvidenceInputs(repoRoot),
+  runs: evidence.runs,
+  executionBindings: headCatalog.executionBindings,
+  sourceDigests,
+  implementationChanges: changedFiles.filter(
+    (file) => !file.startsWith("specifications/") || !file.endsWith(".spec.ts"),
+  ),
+  issues: evidence.issues,
+});
 console.log(renderVerdictMarkdown(verdict));

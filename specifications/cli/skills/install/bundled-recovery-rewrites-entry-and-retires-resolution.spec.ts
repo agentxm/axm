@@ -70,7 +70,6 @@ describe("Bundled official-skill recovery", () => {
       cleanups.push(workspace.cleanup);
       yield* handleInstall({
         source: Option.some("@acme/skills/review-helper"),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

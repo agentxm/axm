@@ -45,12 +45,11 @@ describe("Machine result of a blocked bundled-source update", () => {
       cleanups.push(workspace.cleanup);
       yield* handleSkillsInstall(
         { source: Option.some("@agentxm/skills/axm"), skills: [], all: false, bundled: true },
-        { yes: true, force: false, preview: false },
+        { force: false, preview: false },
       ).pipe(Effect.provide(workspace.layer));
 
       yield* handleUpdate({
         source: Option.some("@agentxm/skills/axm"),
-        yes: mode === "apply",
         force: false,
         preview: mode === "preview",
       }).pipe(Effect.provide(workspace.layer));

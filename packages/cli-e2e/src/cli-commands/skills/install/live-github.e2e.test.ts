@@ -70,13 +70,10 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
       });
       expect(setupResult.exitCode, getOutput(setupResult)).toBe(0);
 
-      const installResult = await runCli(
-        ["skills", "install", QUALITY_MD_SOURCE, "--yes", "--debug"],
-        {
-          cwd: temp.path,
-          timeout: 120000,
-        },
-      );
+      const installResult = await runCli(["skills", "install", QUALITY_MD_SOURCE, "--debug"], {
+        cwd: temp.path,
+        timeout: 120000,
+      });
       expect(installResult.exitCode, getOutput(installResult)).toBe(0);
 
       const installOutput = getOutput(installResult);
@@ -113,13 +110,10 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
       expect(lockEntry["repo"]).toBe("quality.md");
       expect(lockEntry["gitTreeHash"]).toMatch(/^[0-9a-f]{40}$/);
 
-      const secondInstall = await runCli(
-        ["skills", "install", QUALITY_MD_SOURCE, "--yes", "--json"],
-        {
-          cwd: temp.path,
-          timeout: 120000,
-        },
-      );
+      const secondInstall = await runCli(["skills", "install", QUALITY_MD_SOURCE, "--json"], {
+        cwd: temp.path,
+        timeout: 120000,
+      });
       expect(secondInstall.exitCode, getOutput(secondInstall)).toBe(0);
       const settingsAfterSecondInstall = expectRecord(
         JSON.parse(fs.readFileSync(settingsPath, "utf8")),

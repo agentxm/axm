@@ -47,7 +47,7 @@ describe("Targeted update of a bundled official skill", () => {
       cleanups.push(workspace.cleanup);
       yield* handleSkillsInstall(
         { source: Option.some("@agentxm/skills/axm"), skills: [], all: false, bundled: true },
-        { yes: true, force: false, preview: false },
+        { force: false, preview: false },
       ).pipe(Effect.provide(workspace.layer));
       const before = {
         settings: JSON.stringify(workspace.readSettings()),
@@ -59,7 +59,6 @@ describe("Targeted update of a bundled official skill", () => {
       for (const preview of [true, false]) {
         yield* handleUpdate({
           source: Option.some("@agentxm/skills/axm"),
-          yes: !preview,
           force: false,
           preview,
         }).pipe(Effect.provide(workspace.layer));

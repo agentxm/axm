@@ -49,7 +49,6 @@ describe("Non-installable install sources", () => {
 
         const failure = yield* handleInstall({
           source: Option.some(name),
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer), Effect.flip);
@@ -72,7 +71,6 @@ describe("Non-installable install sources", () => {
 
       const failure = yield* handleInstall({
         source: Option.some("@acme/widgets/thing"),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer), Effect.flip);

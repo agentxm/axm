@@ -4,9 +4,12 @@
  * Tests the re-resolution, change detection, selective update, and preview flows.
  */
 
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -18,13 +21,16 @@ import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import { type RegistrySubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import YAML from "yaml";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
+  expectRecord,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
+  stringProperty,
 } from "../../../test-helpers.js";
 import { exactVersion, extensionName, handle, writeWorkspaceFiles } from "../../../test-stubs.js";
 
@@ -54,7 +60,6 @@ const defaultArgs = (overrides: Partial<UpdateHandlerArgs> = {}): UpdateHandlerA
   source: Option.none(),
   subagents: [],
   force: false,
-  yes: false,
   preview: false,
   ...overrides,
 });
@@ -78,6 +83,73 @@ const makeRegistrySubagentRef = (
   integrity: Option.none(),
   packages: [],
 });
+
+/**
+ * Publish a subagent into a file-based Registry with the layout the
+ * production resolver reads: a per-extension index and one archive per
+ * version. Publication predates the deterministic test clock, so every
+ * version is immediately eligible.
+ */
+const writeRegistrySubagent = ({
+  registryRoot,
+  name,
+  versions,
+  publisherBindingId,
+}: {
+  readonly registryRoot: string;
+  readonly name: string;
+  readonly versions: ReadonlyArray<{ readonly version: string; readonly body: string }>;
+  readonly publisherBindingId: string;
+}) => {
+  const dir = path.join(registryRoot, "extensions", "@acme", "subagents", name);
+  fs.mkdirSync(dir, { recursive: true });
+  const entries = versions.map(({ version, body }) => {
+    const staging = fs.mkdtempSync(path.join(os.tmpdir(), "subagents-update-zip-"));
+    try {
+      fs.mkdirSync(path.join(staging, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(staging, "subagent.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "subagent",
+          name,
+          version,
+          description: `The ${name} subagent.`,
+        }),
+      );
+      fs.writeFileSync(
+        path.join(staging, "src", `${name}.md`),
+        `---\nname: ${name}\ndescription: The ${name} subagent.\n---\n\n${body}\n`,
+      );
+      execFileSync("zip", ["-qr", path.join(dir, `${version}.zip`), "subagent.json", "src"], {
+        cwd: staging,
+      });
+    } finally {
+      fs.rmSync(staging, { recursive: true, force: true });
+    }
+    const archive = fs.readFileSync(path.join(dir, `${version}.zip`));
+    return {
+      version,
+      published: "1960-01-01T00:00:00Z",
+      integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
+    };
+  });
+  fs.writeFileSync(
+    path.join(dir, "index.json"),
+    JSON.stringify(
+      {
+        owner: "@acme",
+        type: "subagent",
+        name,
+        publisherBindingId,
+        deprecation: null,
+        versions: entries,
+      },
+      null,
+      2,
+    ),
+  );
+};
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -120,6 +192,7 @@ describe("subagents-update.handler", () => {
       provide,
       logs: handlerTestContext.logs,
       rendererState: handlerTestContext.rendererState,
+      resolvePlanState: handlerTestContext.resolvePlanState,
     };
   };
 
@@ -499,6 +572,137 @@ describe("subagents-update.handler", () => {
             expect.objectContaining({ label: "Skip missing", state: "ready" }),
             expect.objectContaining({ label: "researcher", state: "ready" }),
           ]);
+        }),
+      );
+    });
+  });
+
+  describe("publisher binding change", () => {
+    /**
+     * The accepted resolution of `researcher` was published under one
+     * publisher binding; the Registry now serves a newer version under a
+     * different one.
+     */
+    const publisherChangeWorkspace = () => {
+      const registryRoot = path.join(tempDir, "registry");
+      writeRegistrySubagent({
+        registryRoot,
+        name: "researcher",
+        publisherBindingId: "hbnd_new",
+        versions: [
+          { version: "1.0.0", body: "Research carefully." },
+          { version: "2.0.0", body: "Research thoroughly." },
+        ],
+      });
+      initWorkspace(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        sources: [
+          {
+            name: "local-reg",
+            type: "registry",
+            location: pathToFileURL(registryRoot).href,
+          },
+        ],
+        subagents: { researcher: "local-reg:@acme/subagents/researcher" },
+        subagentLocks: {
+          researcher: {
+            type: "registry",
+            owner: "@acme",
+            name: "researcher",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-accepted",
+            sourceName: "local-reg",
+            publisherBindingId: "hbnd_old",
+          },
+        },
+      });
+    };
+
+    const lockedVersion = () => {
+      const lockfile = expectRecord(
+        YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8")),
+        "Expected lockfile object",
+      );
+      const lockedSubagents = expectRecord(lockfile["subagents"], "Expected lockfile.subagents");
+      return stringProperty(
+        expectRecord(lockedSubagents["researcher"], "Expected researcher lock entry"),
+        "resolvedVersion",
+      );
+    };
+
+    it.effect(
+      "blocks an unattended apply with an interactive recovery that offers no preapproval",
+      () => {
+        const { provide, rendererState, resolvePlanState } = makeLayers({ machine: true });
+        publisherChangeWorkspace();
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleUpdate(defaultArgs());
+
+            expect(resolvePlanState.confirmApplyChangesCalls).toEqual([]);
+            const [entry] = rendererState.results;
+            expect(entry?.data).toMatchObject({
+              result: {
+                outcome: "blocked",
+                blocking: {
+                  class: "approval-required",
+                  subject: "publisher-ownership-change",
+                  detail: expect.stringContaining("Interactive approval is required"),
+                  escape: {
+                    description: expect.stringContaining("Approve interactively"),
+                    cmd: expect.not.stringContaining("--yes"),
+                  },
+                },
+              },
+            });
+            expect(JSON.stringify(entry?.data)).not.toContain("--yes");
+            expect(lockedVersion()).toBe("1.0.0");
+          }),
+        );
+      },
+    );
+
+    it.effect("reports the publisher change in preview and changes nothing", () => {
+      const { provide, rendererState, resolvePlanState } = makeLayers({ machine: true });
+      publisherChangeWorkspace();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpdate(defaultArgs({ preview: true }));
+
+          const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+            planName: "Update subagents",
+            totalSteps: 1,
+          });
+          expect(result).toMatchObject({
+            riskConditions: [
+              expect.objectContaining({
+                level: "confirmable",
+                consent: "interactive-only",
+                id: "publisher-ownership-change",
+              }),
+            ],
+          });
+          expect(resolvePlanState.confirmApplyChangesCalls).toEqual([]);
+          expect(lockedVersion()).toBe("1.0.0");
+        }),
+      );
+    });
+
+    it.effect("applies after a person approves the change at a prompt", () => {
+      const { provide, resolvePlanState } = makeLayers({
+        flags: { nonInteractive: false },
+        prompt: { confirmResponses: [true] },
+      });
+      publisherChangeWorkspace();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpdate(defaultArgs());
+
+          expect(resolvePlanState.confirmApplyChangesCalls).toHaveLength(1);
+          expect(lockedVersion()).toBe("2.0.0");
         }),
       );
     });

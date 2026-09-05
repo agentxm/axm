@@ -8,6 +8,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { ExitCode, makeAppError } from "../../app-error/index.js";
 import { Screen, errorDoc, headlineDoc, successDoc } from "../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../cli-runtime/index.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { type KnowledgeDiagnostic } from "@agentxm/registry-protocol/unstable/knowledge";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 
@@ -134,6 +135,7 @@ export const lintCommand = Command.make("lint", lintConfig, ({ bundle, path, sco
   ),
 ).pipe(
   withArgvTracking(lintConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Validate installed or locally authored Open Knowledge Format bundles"),
   Command.withExamples([
     { command: "axm knowledge lint", description: "Validate all installed knowledge bundles" },

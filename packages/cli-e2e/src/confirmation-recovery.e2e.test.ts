@@ -39,7 +39,7 @@ describe("confirmation recovery", () => {
         `${JSON.stringify({ ...settings, owner: "@test" }, null, 2)}\n`,
       );
       const created = await runCli(
-        ["skills", "new", "recovery-skill", "--owner", "@test", "--yes", "--non-interactive"],
+        ["skills", "new", "recovery-skill", "--owner", "@test", "--non-interactive"],
         { cwd: workspace.path },
       );
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
@@ -94,7 +94,6 @@ describe("confirmation recovery", () => {
           "remove",
           "recovery-pack",
           "@test/skills/pack-member",
-          "--yes",
           "--non-interactive",
           "--json",
         ],

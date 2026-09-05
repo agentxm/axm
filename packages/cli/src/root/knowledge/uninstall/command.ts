@@ -10,6 +10,10 @@ import {
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { emitOperationResolution } from "../../../operation-output.js";
+import {
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
@@ -31,6 +35,37 @@ const withUninstallPresentation = <Args, Parsed, Intent>(
       .pipe(Effect.map((plan) => ({ ...plan, presentation: uninstallPresentation }))),
 });
 
+export interface KnowledgeUninstallHandlerArgs {
+  readonly name: string;
+  readonly preview: boolean;
+}
+
+export const handleKnowledgeUninstall = (args: KnowledgeUninstallHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "knowledge.uninstall",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Uninstall knowledge",
+      presentation: uninstallPresentation,
+    },
+    Effect.gen(function* () {
+      const actions = yield* UninstallKnowledgeCommandWorkflowActions;
+      const execution = yield* makeUninstallPlanExecution(
+        { preview: args.preview },
+        ["knowledge", "uninstall"],
+        [args.name],
+      );
+      const resolution = yield* runUninstallCommandWorkflow(
+        { name: args.name },
+        withUninstallPresentation(actions),
+        { execution },
+      );
+      yield* emitOperationResolution("knowledge.uninstall", resolution, {
+        suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
+      });
+    }),
+  );
+
 const uninstallConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Configured Knowledge bundle name")),
   ...scopeConfig,
@@ -40,33 +75,14 @@ const uninstallConfig = {
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ name, scope, yes, preview }) =>
-    withOperationLifecycle(
-      {
-        command: "knowledge.uninstall",
-        mode: preview ? "preview" : "apply",
-        planName: "Uninstall knowledge",
-        presentation: uninstallPresentation,
-      },
-      Effect.gen(function* () {
-        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
-        const execution = yield* makeUninstallPlanExecution(
-          { yes, preview },
-          ["knowledge", "uninstall"],
-          [name],
-        );
-        const resolution = yield* runUninstallCommandWorkflow(
-          { name },
-          withUninstallPresentation(actions),
-          { execution },
-        );
-        yield* emitOperationResolution("knowledge.uninstall", resolution, {
-          suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
-        });
-      }),
-    ).pipe(withWorkspace(scope), withRuntime("knowledge uninstall")),
+  ({ name, scope, preview }) =>
+    handleKnowledgeUninstall({ name, preview }).pipe(
+      withWorkspace(scope),
+      withRuntime("knowledge uninstall"),
+    ),
 ).pipe(
   withArgvTracking(uninstallConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Uninstall a Knowledge bundle"),
   Command.withExamples([
     {

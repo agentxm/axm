@@ -27,7 +27,7 @@ describe("axm skills install output UX", () => {
       fs.writeFileSync(settingsPath, JSON.stringify({ ...settings, agents: [] }, undefined, 2));
 
       const result = await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"],
         { cwd: temp.path },
       );
 
@@ -63,7 +63,7 @@ describe("axm skills install output UX", () => {
       );
 
       const result = await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"],
         {
           cwd: temp.path,
         },
@@ -95,7 +95,7 @@ describe("axm skills install output UX", () => {
       );
 
       const result = await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--json"],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--json"],
         {
           cwd: temp.path,
         },
@@ -163,7 +163,7 @@ describe("axm skills install output UX", () => {
       );
 
       const result = await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--json"],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--json"],
         {
           cwd: temp.path,
         },
@@ -191,15 +191,12 @@ describe("axm skills install output UX", () => {
         cwd: temp.path,
       });
 
-      await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--json"],
-        {
-          cwd: temp.path,
-        },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--json"], {
+        cwd: temp.path,
+      });
 
       const result = await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--json"],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--json"],
         {
           cwd: temp.path,
         },
@@ -244,18 +241,18 @@ describe("axm skills install output UX", () => {
         cwd: temp.path,
       });
 
-      const bundledUninstall = await runCli(["skills", "uninstall", "axm", "--yes"], {
+      const bundledUninstall = await runCli(["skills", "uninstall", "axm"], {
         cwd: temp.path,
       });
       expect(bundledUninstall.exitCode).toBe(0);
 
       const initialInstall = await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"],
         { cwd: temp.path },
       );
       expect(initialInstall.exitCode).toBe(0);
 
-      const result = await runCli(["skills", "install", "--yes"], {
+      const result = await runCli(["skills", "install"], {
         cwd: temp.path,
       });
 

@@ -108,7 +108,7 @@ describe("axm skills list", () => {
         );
 
         // Install skills first
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
           cwd: temp.path,
         });
 
@@ -135,12 +135,12 @@ describe("axm skills list", () => {
         });
 
         // Install both skills
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
           cwd: temp.path,
         });
 
         // Uninstall my-skill (workspace-scoped, removes from all agents)
-        await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        await runCli(["skills", "uninstall", "my-skill"], {
           cwd: temp.path,
         });
 

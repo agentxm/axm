@@ -56,7 +56,6 @@ const defaultArgs = (
 ): SkillsNewHandlerArgs => ({
   name: extensionName(name),
   owner: Option.none(),
-  yes: false,
   preview: false,
   ...overrides,
 });

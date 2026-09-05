@@ -2,10 +2,18 @@ import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/ext
 import { failureToStepFailure } from "../../../app-error/conversions.js";
 import {
   WorkspaceMutations,
+  acceptedResolutionRef,
   configuredRowsByName,
   type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
-import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-lifecycle";
+import {
+  classifyPublisherBindingTransition,
+  makeConfiguredReleaseAgeEvaluation,
+  publisherTransitionWarning,
+  registryBindingProposal,
+  withPublisherTrustConditions,
+  type PublisherBindingTransition,
+} from "@agentxm/extension-lifecycle";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
@@ -56,7 +64,6 @@ export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
   readonly subagents: readonly string[];
   readonly force: boolean;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -356,28 +363,35 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
 
   // Step 6: Capture services for run closures
   const subagentMgr = yield* SubagentManager;
-  const warningsBySubagent = new Map<string, string>();
 
+  // Classify every proposed Registry acceptance against the accepted
+  // resolution. A replaced publisher binding is a trust decision a person
+  // makes at a prompt; the plan carries it as an interactive-only condition.
+  const warningsBySubagent = new Map<string, string>();
+  const publisherTransitions: Array<PublisherBindingTransition> = [];
   for (const item of resolved) {
+    const proposed = registryBindingProposal(item.ref);
     const accepted = lockedSubagents[item.ref.subagent.name];
-    const lockedEpoch = accepted?.type === "registry" ? accepted.publisherBindingId : undefined;
-    const resolvedEpoch = item.ref.refType === "registry" ? item.ref.publisherBindingId : undefined;
-    const changed =
-      accepted?.type === "registry" &&
-      item.ref.refType === "registry" &&
-      lockedEpoch !== resolvedEpoch;
-    if (changed && args.yes) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Unattended update refused for ${item.ref.owner}/subagents/${item.ref.name}: publisher epoch changed from ${lockedEpoch} to ${resolvedEpoch}`,
-        recover: "Run the update interactively, verify the publisher change, and confirm the plan.",
-      });
-    }
-    if (changed) {
-      warningsBySubagent.set(
-        item.ref.subagent.name,
-        `Publisher identity changed (${lockedEpoch} → ${resolvedEpoch}); confirm only if you trust the current publisher`,
-      );
+    if (proposed === undefined || accepted?.type !== "registry") continue;
+    const transition = classifyPublisherBindingTransition({
+      accepted: yield* acceptedResolutionRef({
+        workspace: ws,
+        type: "subagent",
+        name: proposed.target,
+      }).pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "conflict",
+            detail: `The accepted resolution for subagent "${proposed.target}" could not be read, so the proposed publisher binding cannot be checked`,
+            cause,
+          }),
+        ),
+      ),
+      proposed,
+    });
+    if (Option.isSome(transition)) {
+      publisherTransitions.push(transition.value);
+      warningsBySubagent.set(item.ref.subagent.name, publisherTransitionWarning(transition.value));
     }
   }
 
@@ -468,32 +482,26 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
       ),
     ].map((name) => ({ extensionType: "subagent", name, plannedState: "enabled" as const })),
   );
-  const executionPlan: Plan = {
-    ...plan,
-    riskConditions: [
-      ...(plan.riskConditions ?? []),
-      ...(warningsBySubagent.size > 0
-        ? [
-            {
-              level: "confirmable" as const,
-              id: "publisher-ownership-change",
-              detail: "One or more subagents changed publisher identity.",
-            },
-          ]
-        : []),
-      ...(args.force
-        ? ([
-            {
-              level: "override-required",
-              id: "ignore-pack-version-constraints",
-              policy: "ignore-version-constraints",
-              requiredFlag: "--ignore-version-constraints",
-              detail: "Allow updates outside version constraints declared by installed packs.",
-            },
-          ] as const)
-        : []),
-    ],
-  };
+  const executionPlan: Plan = withPublisherTrustConditions(
+    {
+      ...plan,
+      riskConditions: [
+        ...(plan.riskConditions ?? []),
+        ...(args.force
+          ? ([
+              {
+                level: "override-required",
+                id: "ignore-pack-version-constraints",
+                policy: "ignore-version-constraints",
+                requiredFlag: "--ignore-version-constraints",
+                detail: "Allow updates outside version constraints declared by installed packs.",
+              },
+            ] as const)
+          : []),
+      ],
+    },
+    publisherTransitions,
+  );
   const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
   yield* emitOperationResolution("subagents.update", resolution, {
     suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],

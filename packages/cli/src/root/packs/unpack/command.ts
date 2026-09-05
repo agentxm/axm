@@ -1,7 +1,11 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { handleUnpack } from "./handler.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
@@ -9,20 +13,14 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 const unpackConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Pack name to unpack")),
   scope: scopeFlag.pipe(Flag.withDescription("Unpack project (default) or user-level pack state")),
-  yes: yesFlag.pipe(Flag.withDescription("Eject without confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would change in settings without modifying them"),
-  ),
+  preview: previewCapabilityFlag("Show what would change in settings without modifying them"),
 } as const;
 
-export const unpackCommand = Command.make("unpack", unpackConfig, ({ name, scope, yes, preview }) =>
-  handleUnpack({
-    name,
-    yes,
-    preview,
-  }).pipe(withWorkspace(scope), withRuntime("packs unpack")),
+export const unpackCommand = Command.make("unpack", unpackConfig, ({ name, scope, preview }) =>
+  handleUnpack({ name, preview }).pipe(withWorkspace(scope), withRuntime("packs unpack")),
 ).pipe(
   withArgvTracking(unpackConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Eject pack into individual entries"),
   Command.withExamples([
     {

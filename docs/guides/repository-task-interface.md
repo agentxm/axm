@@ -80,7 +80,24 @@ not sequence a dependency already owned by a target. Host workflows may order
 steps only where failure handling, credentials, platform setup, or external
 state prevents faithful graph representation.
 
-The release promotion target owns public validator preflight before its
+`axm:distribute-release -- <version> <tag> [asset-directory]` owns artifact,
+fixed-cohort npm and Homebrew publication. It depends on cohort builds, checks
+mutable owners before publication, validates deterministic packs, verifies
+immutable reuse and readback, and reports superseded candidates explicitly.
+`axm:update-homebrew-formula -- <version>` consumes the exact local asset set
+from `RELEASE_ASSET_DIR` and a tap checkout from `HOMEBREW_TAP_DIR`; a rejected
+concurrent push is not retried.
+
+`axm:verify-installed-package -- <npm|pnpm|yarn> <version>` installs the exact
+published package in temporary global state and runs its installed executable
+outside the repository, without source export conditions or workspace module
+resolution. Release automation owns the platform matrix and credentials.
+`axm:verify-release-packs` builds and checks the complete candidate cohort,
+including deterministic repacking, compiled executables and dependency closure.
+These targets are uncached because they mutate or observe external state.
+
+The release promotion target consumes the exact validated asset directory and
+owns public validator preflight before its
 conditional update. It checks identity, gzip, Brotli, and Zstandard negotiation
 without sending promotion credentials to the public endpoint. Representation
 disagreement fails before mutation; a later invocation reads the channel again.

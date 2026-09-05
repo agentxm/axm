@@ -1,3 +1,4 @@
+import { decodeStableChannelDocumentSync } from "@agentxm/extension-model/unstable/release-channel";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -5,15 +6,6 @@ import {
   promoteStableRelease,
   type ReleaseChannelPromotionInput,
 } from "./release-channel-promotion.js";
-
-const input: ReleaseChannelPromotionInput = {
-  version: "1.2.3",
-  tag: "cli-v1.2.3",
-  commit: "a".repeat(40),
-  bearerToken: "workflow-token",
-  accessClientId: "access-id",
-  accessClientSecret: "access-secret",
-};
 
 const document = (version = "1.2.3", revision = 2) => ({
   schema: "axm.release-channel/v1",
@@ -47,6 +39,18 @@ const document = (version = "1.2.3", revision = 2) => ({
   },
   promotedAt: "2026-09-03T10:01:00.000Z",
 });
+
+const input: ReleaseChannelPromotionInput = {
+  version: "1.2.3",
+  tag: "cli-v1.2.3",
+  commit: "a".repeat(40),
+  artifacts: decodeStableChannelDocumentSync(document()).artifacts,
+  credentials: () => ({
+    bearerToken: "workflow-token",
+    accessClientId: "access-id",
+    accessClientSecret: "access-secret",
+  }),
+};
 
 describe("release channel promotion", () => {
   it("creates the first channel revision with If-None-Match", async () => {
@@ -182,8 +186,78 @@ describe("release channel promotion", () => {
         }),
       );
 
-    await expect(promoteStableRelease(input, fetchMock)).rejects.toThrow(
-      "did not match the requested release coordinate",
+    await expect(promoteStableRelease(input, fetchMock)).rejects.toThrow("incomplete/uncertain");
+  });
+});
+
+describe("normal promotion recovery", () => {
+  it("reuses an identical validated coordinate without resolving mutation credentials", async () => {
+    const credentials = vi.fn(() => {
+      throw new Error("credentials unavailable");
+    });
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockImplementation(
+        async () => new Response(JSON.stringify(document()), { headers: { etag: '"current"' } }),
+      );
+    await expect(promoteStableRelease({ ...input, credentials }, transport)).resolves.toMatchObject(
+      { outcome: "already-current" },
     );
+    expect(credentials).not.toHaveBeenCalled();
+    expect(transport.mock.calls.every(([, options]) => options?.method !== "PUT")).toBe(true);
+  });
+  it.each(["commit", "hash"])(
+    "rejects a same-version %s conflict before mutation",
+    async (conflict) => {
+      const current = document();
+      if (conflict === "commit") current.release.commit = "d".repeat(40);
+      else current.artifacts.checksumManifest.sha256 = "d".repeat(64);
+      const transport = vi
+        .fn<typeof fetch>()
+        .mockImplementation(
+          async () => new Response(JSON.stringify(current), { headers: { etag: '"current"' } }),
+        );
+      await expect(promoteStableRelease(input, transport)).rejects.toThrow("integrity conflict");
+      expect(transport.mock.calls.every(([, options]) => options?.method !== "PUT")).toBe(true);
+    },
+  );
+  it("confirms a lost PUT response with one public readback and no duplicate mutation", async () => {
+    let submitted = false;
+    const transport = vi.fn<typeof fetch>().mockImplementation(async (_url, options) => {
+      if (options?.method === "PUT") {
+        submitted = true;
+        throw new Error("connection lost");
+      }
+      return submitted
+        ? new Response(JSON.stringify(document()), { headers: { etag: '"current"' } })
+        : new Response(null, { status: 404 });
+    });
+    await expect(promoteStableRelease(input, transport)).resolves.toMatchObject({
+      outcome: "promoted",
+      confirmation: "public-readback",
+      submissionFailure: "connection lost",
+    });
+    expect(transport.mock.calls.filter(([, options]) => options?.method === "PUT")).toHaveLength(1);
+    expect(transport).toHaveBeenCalledTimes(3);
+  });
+  it("retains submission and readback failures as uncertain without retrying PUT", async () => {
+    let submitted = false;
+    const transport = vi.fn<typeof fetch>().mockImplementation(async (_url, options) => {
+      if (options?.method === "PUT") {
+        submitted = true;
+        throw new Error("connection lost");
+      }
+      return new Response(null, { status: submitted ? 503 : 404 });
+    });
+    await expect(promoteStableRelease(input, transport)).rejects.toThrow("incomplete/uncertain");
+    expect(transport.mock.calls.filter(([, options]) => options?.method === "PUT")).toHaveLength(1);
+  });
+  it("does not retry a conditional conflict", async () => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(new Response(null, { status: 412 }));
+    await expect(promoteStableRelease(input, transport)).rejects.toThrow("HTTP 412");
+    expect(transport).toHaveBeenCalledTimes(2);
   });
 });

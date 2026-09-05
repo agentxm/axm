@@ -39,7 +39,6 @@ describe("Creating a workspace-authored pack", () => {
       yield* handlePacksNew({
         name: extensionName("toolkit"),
         owner: Option.none(),
-        yes: true,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
 

@@ -99,7 +99,7 @@ describe("recorded lifecycle event logs", () => {
   const install = (source: string, preview: boolean) =>
     handleInstall(
       { source: Option.some(source), skills: [], all: false },
-      { yes: true, force: false, preview },
+      { force: false, preview },
     );
 
   const record = (name: string, events: ReadonlyArray<OperationEvent>) =>

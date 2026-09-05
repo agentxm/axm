@@ -65,7 +65,7 @@ describe("workspace update handler output", () => {
           type: Option.some("hook"),
           planName: "Update hooks",
           planDescription: Option.some("Update configured hooks packages"),
-          flags: { yes: false, preview: false },
+          flags: { preview: false },
         });
 
         const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
@@ -92,7 +92,7 @@ describe("workspace update handler output", () => {
           type: Option.some("knowledge"),
           planName: "Update Knowledge",
           planDescription: Option.some("Update configured Knowledge bundles"),
-          flags: { yes: false, preview: false },
+          flags: { preview: false },
         });
 
         const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
@@ -119,7 +119,7 @@ describe("workspace update handler output", () => {
           type: Option.some("mcp-server"),
           planName: "Update configured MCP servers",
           planDescription: Option.some("Update configured MCP servers"),
-          flags: { yes: false, preview: false },
+          flags: { preview: false },
         });
 
         const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
@@ -151,7 +151,7 @@ describe("workspace update handler output", () => {
           type: Option.some("mcp-server"),
           planName: "Update configured MCP servers",
           planDescription: Option.some("Update configured MCP servers"),
-          flags: { yes: false, preview: false },
+          flags: { preview: false },
         });
 
         const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
@@ -192,7 +192,7 @@ describe("workspace update handler output", () => {
           type: Option.some("mcp-server"),
           planName: "Update configured MCP servers",
           planDescription: Option.some("Update configured MCP servers"),
-          flags: { yes: false, preview: false },
+          flags: { preview: false },
         });
 
         expect(ctx.rendererState.results[0]?.data).toMatchObject({

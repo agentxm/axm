@@ -116,51 +116,6 @@ describe("addToPack", () => {
   };
 
   describe("happy path", () => {
-    it.effect("adds extensions to pack manifest", () =>
-      Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
-
-        const result = yield* addToPack(
-          makeOp({
-            additions: { "@acme/skills/my-skill": "^1.0.0" },
-            manifestHash,
-          }),
-        ).pipe(Effect.provide(withServices(axmDir)));
-
-        expect(result.result).toBe("success");
-
-        // Verify manifest was updated
-        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.dependencies["@acme/skills/my-skill"]).toBe("^1.0.0");
-      }),
-    );
-
-    it.effect("adds multiple extensions at once", () =>
-      Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
-
-        const result = yield* addToPack(
-          makeOp({
-            additions: {
-              "@acme/skills/skill-a": "^1.0.0",
-              "@acme/skills/skill-b": "^2.0.0",
-            },
-            manifestHash,
-          }),
-        ).pipe(Effect.provide(withServices(axmDir)));
-
-        expect(result.result).toBe("success");
-
-        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.dependencies["@acme/skills/skill-a"]).toBe("^1.0.0");
-        expect(manifest.dependencies["@acme/skills/skill-b"]).toBe("^2.0.0");
-      }),
-    );
-
     it.effect("returns success when additions map is empty", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();

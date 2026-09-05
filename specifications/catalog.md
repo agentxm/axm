@@ -28,6 +28,31 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Source: [`specifications/cli/activation-follows-desired-state.spec.ts`](../specifications/cli/activation-follows-desired-state.spec.ts)
 
+#### Adopt
+
+##### Adopt moves an existing package into workspace authorship
+
+- Requirement: `cli/adopt/moves-package-into-workspace-authorship`
+- Statement: When a person adopts an existing AXM package into an unoccupied authoring location, AXM shall preserve its content in the workspace authoring directory, retain its declared activation (enabling a previously undeclared package), and remove the acquired copy and its external resolution.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/adopt/command.internal.test.ts`, `packages/cli/src/root/adopt/command.ts`
+- Source: [`specifications/cli/adopt/moves-package-into-workspace-authorship.spec.ts`](../specifications/cli/adopt/moves-package-into-workspace-authorship.spec.ts)
+
+##### Adopt preview describes the authorship transition without changing any state
+
+- Requirement: `cli/adopt/preview-is-pure`
+- Statement: When adopt runs in preview mode against a canonical package the workspace could author, it shall report the adoption it would apply with a previewed outcome and shall not move the package, create authored content, or change settings or the lockfile.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/adopt/preview-is-pure.spec.ts`](../specifications/cli/adopt/preview-is-pure.spec.ts)
+
 #### Agent Selection Is Membership Or Filter
 
 ##### Agent selection chooses workspace membership or filters a listing, never one extension
@@ -58,6 +83,18 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
 - Source: [`specifications/cli/agents/add/add-is-idempotent.spec.ts`](../specifications/cli/agents/add/add-is-idempotent.spec.ts)
 
+##### Agent add preview describes the new membership without changing any state
+
+- Requirement: `cli/agents/add/preview-is-pure`
+- Statement: When agents add runs in preview mode for a coding agent the workspace does not yet configure, it shall report the membership and realized outputs it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or any agent's outputs.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/agents/add/records-membership-and-realizes-outputs`
+- Source: [`specifications/cli/agents/add/preview-is-pure.spec.ts`](../specifications/cli/agents/add/preview-is-pure.spec.ts)
+
 ##### Adding a coding agent records it durably and realizes installed extensions for it
 
 - Requirement: `cli/agents/add/records-membership-and-realizes-outputs`
@@ -86,6 +123,18 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/agent-membership.e2e.test.ts`](../packages/cli-e2e/src/agent-membership.e2e.test.ts) — Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.
 - Source: [`specifications/cli/agents/remove/preserves-unowned-agent-content.spec.ts`](../specifications/cli/agents/remove/preserves-unowned-agent-content.spec.ts)
 
+##### Agent remove preview describes the departing membership without changing any state
+
+- Requirement: `cli/agents/remove/preview-is-pure`
+- Statement: When agents remove runs in preview mode for a configured coding agent, it shall report the membership and owned outputs it would remove with a previewed outcome and shall not change settings, the lockfile, canonical content, or any agent's outputs.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/agents/remove/removes-membership-and-owned-outputs`
+- Source: [`specifications/cli/agents/remove/preview-is-pure.spec.ts`](../specifications/cli/agents/remove/preview-is-pure.spec.ts)
+
 ##### Removing a coding agent retires it together with the outputs only it reached
 
 - Requirement: `cli/agents/remove/removes-membership-and-owned-outputs`
@@ -99,6 +148,47 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
 - Additional evidence: process via [`packages/cli-e2e/src/agent-membership.e2e.test.ts`](../packages/cli-e2e/src/agent-membership.e2e.test.ts) — Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.
 - Source: [`specifications/cli/agents/remove/removes-membership-and-owned-outputs.spec.ts`](../specifications/cli/agents/remove/removes-membership-and-owned-outputs.spec.ts)
+
+#### Approval Required Names A Valid Recovery
+
+##### A blocked approval names a recovery the command line will accept
+
+- Requirement: `cli/approval-required-names-a-valid-recovery`
+- Statement: When an apply stops as approval required, its recovery shall name the approval its route supports — a replay carrying the advance-approval flag where the route offers one, otherwise an interactive rerun without machine or non-interactive switches — the named command shall parse on the real command line, and a request whose values cannot be replayed safely shall describe the recovery without echoing those values.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/lockfile-rejections-name-recovery-routes`, `cli/confirmation-flags-have-a-supported-purpose`
+- Source: [`specifications/cli/approval-required-names-a-valid-recovery.spec.ts`](../specifications/cli/approval-required-names-a-valid-recovery.spec.ts)
+
+#### Cache
+
+##### Cache pruning enforces the reported retention limits
+
+- Requirement: `cli/cache/prune/enforces-reported-retention-limits`
+- Statement: The cache prune command shall remove expired archives and enough excess archive storage to satisfy the reported 2 GiB limit, preserve unrelated files, and report the removed and remaining entry and byte totals.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/cache/command.ts`, `packages/registry-client/src/archive-cache.ts`
+- Open questions: Should removal of the oldest archives first and the exact expiration boundary be product guarantees? The current implementation chooses both; this requirement establishes the externally reported limits without fixing those choices.
+- Source: [`specifications/cli/cache/prune/enforces-reported-retention-limits.spec.ts`](../specifications/cli/cache/prune/enforces-reported-retention-limits.spec.ts)
+
+##### Cache verification removes corrupt archives and preserves valid content
+
+- Requirement: `cli/cache/verify/removes-only-corrupt-archives`
+- Statement: The cache verify command shall compare every cached archive with its recorded integrity, remove entries whose integrity is invalid or mismatched, retain matching entries and unrelated files, and report the checked, valid, and removed counts.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/cache/command.ts`, `packages/registry-client/src/archive-cache.ts`
+- Source: [`specifications/cli/cache/verify/removes-only-corrupt-archives.spec.ts`](../specifications/cli/cache/verify/removes-only-corrupt-archives.spec.ts)
 
 #### Changes Do Not Interleave
 
@@ -119,7 +209,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Every supported command presents complete help
 
 - Requirement: `cli/command-help-is-complete`
-- Statement: Every supported command shall present usable help, and the rendered help tree shall list exactly the supported command paths.
+- Statement: Every supported command shall present usable help, the rendered help tree shall list exactly the supported command paths, and no command's help shall list a retired flag spelling.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`
@@ -146,6 +236,107 @@ programmatic interfaces, and supporting system behavior.
 - Limitation: The evidence establishes the pre-launch command surface only; it cannot establish whether alias routes remain prohibited after public launch. Retires when: Public launch, when the alias-route policy is decided and this specification is revised or retired.
 - Source: [`specifications/cli/commands-have-no-alias-routes.spec.ts`](../specifications/cli/commands-have-no-alias-routes.spec.ts)
 
+#### Commands Use Selected Directory
+
+##### Commands use the selected working directory
+
+- Requirement: `cli/commands-use-selected-directory`
+- Statement: AXM shall execute workspace commands in the directory selected by --directory or -C, including when that selection is a symbolic link, and shall use the launch directory when no directory is selected.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI parses global arguments and selects its execution directory before composing workspace services; a real process establishes the selected filesystem boundary.
+- Methods: example, decision-table
+- Derived from: `packages/cli-e2e/src/directory.e2e.test.ts`, `packages/cli/help/topics/basic-usage.md`
+- Open questions: Should repeated or empty directory options be rejected or have an explicit selection policy?
+- Source: [`specifications/cli/commands-use-selected-directory.spec.ts`](../specifications/cli/commands-use-selected-directory.spec.ts)
+
+#### Confirmation Flags Have A Supported Purpose
+
+##### Advance approval is offered only where it settles one documented decision
+
+- Requirement: `cli/confirmation-flags-have-a-supported-purpose`
+- Statement: A command shall accept the advance-approval flag only when it documents the one confirmation that flag settles, an invocation carrying the flag shall change that command's outcome exactly as documented, and every other command shall reject the flag and its short spelling before any work begins.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Derived from: `cli/demote/preview-is-pure`, `cli/setup/unattended-apply-requires-explicit-intent`, `cli/login/preapproval-requests-new-sign-in`
+- Source: [`specifications/cli/confirmation-flags-have-a-supported-purpose.spec.ts`](../specifications/cli/confirmation-flags-have-a-supported-purpose.spec.ts)
+
+#### Confirmation Is Required Only For Actionable Risk
+
+##### A person is asked to confirm only when the plan carries a risk worth confirming
+
+- Requirement: `cli/confirmation-is-required-only-for-actionable-risk`
+- Statement: An apply whose plan carries no confirmable risk shall proceed without asking, an apply with nothing to do shall finish without asking, and an apply whose plan carries a confirmable risk shall ask when a prompt can open, honor a declined answer by changing nothing, and stop as approval required when no prompt can open.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/machine-mode-never-prompts`, `cli/preview-does-not-consume-approval`
+- Source: [`specifications/cli/confirmation-is-required-only-for-actionable-risk.spec.ts`](../specifications/cli/confirmation-is-required-only-for-actionable-risk.spec.ts)
+
+#### Creation Refuses Existing Content
+
+##### Creation refuses existing declarations and authored content
+
+- Requirement: `cli/creation-refuses-existing-content`
+- Statement: When a new-extension command targets a name that is already configured or an authoring directory that already contains content, AXM shall refuse creation without replacing existing files or workspace declarations.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/create-preflight.internal.test.ts`, `packages/cli/src/root/hooks/new.internal.test.ts`, `packages/cli/src/root/mcps/new.internal.test.ts`
+- Source: [`specifications/cli/creation-refuses-existing-content.spec.ts`](../specifications/cli/creation-refuses-existing-content.spec.ts)
+
+#### Creation Uses Configured Workspace Ownership
+
+##### Creation uses the configured workspace owner
+
+- Requirement: `cli/creation-uses-configured-workspace-ownership`
+- Statement: When a person creates an extension, AXM shall use the configured workspace owner, accept an explicitly matching owner with or without its leading @, and refuse creation before changing workspace content when no owner is configured or the explicitly requested owner differs.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`, `packages/cli/src/root/shared/authored-owner.ts`, `packages/cli/src/root/shared/resolve-owner.ts`
+- Source: [`specifications/cli/creation-uses-configured-workspace-ownership.spec.ts`](../specifications/cli/creation-uses-configured-workspace-ownership.spec.ts)
+
+#### Credentials Follow Explicit Source Precedence
+
+##### Explicit token sources take precedence over saved sessions
+
+- Requirement: `cli/credentials-follow-explicit-source-precedence`
+- Statement: For commands using the selected Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE and a valid token file before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using a saved session.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/token-resolution.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts`](../packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts) — Observes raw and JSON process stdout and real HTTP verification followed by token creation.
+- Source: [`specifications/cli/credentials-follow-explicit-source-precedence.spec.ts`](../specifications/cli/credentials-follow-explicit-source-precedence.spec.ts)
+
+#### Credentials Stay With Their Registry
+
+##### Credentials stay within their Registry origin
+
+- Requirement: `cli/credentials-stay-with-their-registry`
+- Statement: When authenticating a Registry request, AXM shall use ambient tokens only for the configured Registry origin and otherwise use credentials saved for the request origin or send no credential.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/token-resolution.internal.test.ts`
+- Source: [`specifications/cli/credentials-stay-with-their-registry.spec.ts`](../specifications/cli/credentials-stay-with-their-registry.spec.ts)
+
 #### Delegated Operations Narrate External Work
 
 ##### A delegating operation narrates the external work it hands off
@@ -158,24 +349,75 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`
+- Limitation: The conditional wait narration obligation has no product polling witness after upgrade stopped polling publication. Retires when: A command that polls an external tool supplies an event-log example for waiting and completion.
 - Limitation: Upgrade is the only delegating operation this specification exercises; another command that delegates to an external tool is covered by the statement but not yet by an example. Retires when: A second command delegates to an external tool and its event log is added to this specification.
 - Source: [`specifications/cli/delegated-operations-narrate-external-work.spec.ts`](../specifications/cli/delegated-operations-narrate-external-work.spec.ts)
 
-#### Every Type Completes The Shared Lifecycle
+#### Demote
 
-##### Every extension type completes the shared install and removal lifecycle
+##### Demote preview describes the authority transition without consuming approval
 
-- Requirement: `cli/every-type-completes-the-shared-lifecycle`
-- Statement: Every extension type shall complete the shared lifecycle: installing shall record intent, an accepted resolution, canonical content, and realized agent surfaces, and uninstalling shall remove that whole footprint while preserving unrelated workspace files.
+- Requirement: `cli/demote/preview-is-pure`
+- Statement: When demote runs in preview mode, it shall report the replacement it would apply with a previewed outcome that is identical with or without advance approval, shall not change settings, the lockfile, authored content, or agent projections, and an unattended apply without advance approval shall stop before changing anything and name the approval it needs.
 - Class: functional
 - Role: experience
-- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `agent-interoperability`
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Assumptions: Process-boundary end-to-end executions supply the shared-lifecycle evidence for the MCP server and pack extension types.
-- Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
-- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Source: [`specifications/cli/every-type-completes-the-shared-lifecycle.spec.ts`](../specifications/cli/every-type-completes-the-shared-lifecycle.spec.ts)
+- Methods: example
+- Source: [`specifications/cli/demote/preview-is-pure.spec.ts`](../specifications/cli/demote/preview-is-pure.spec.ts)
+
+##### Demote returns an authored package to the selected external source
+
+- Requirement: `cli/demote/replaces-workspace-source-with-selected-source`
+- Statement: When a person demotes a workspace-authored extension to a valid external source, AXM shall replace workspace source authority with that source and its content while preserving the configured activation state, and shall refuse a workspace replacement source or a target that is not workspace authored.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/demote/command.internal.test.ts`, `packages/cli/src/root/demote/command.ts`
+- Assumptions: Pack and MCP transitions use registry sources and the other types use local sources; additional registry and Git acquisition behavior is verified by its owning source requirements.
+- Source: [`specifications/cli/demote/replaces-workspace-source-with-selected-source.spec.ts`](../specifications/cli/demote/replaces-workspace-source-with-selected-source.spec.ts)
+
+#### Deprecate
+
+##### Deprecation rejects contradictory or empty guidance
+
+- Requirement: `cli/deprecate/rejects-conflicting-or-empty-guidance`
+- Statement: The deprecate command shall reject a field supplied together with its clearing flag before contacting the Registry and reject an edit that leaves neither a message nor a replacement before attempting a write.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/deprecate/rejects-conflicting-or-empty-guidance.spec.ts`](../specifications/cli/deprecate/rejects-conflicting-or-empty-guidance.spec.ts)
+
+##### Deprecation edits preserve omitted guidance at the observed revision
+
+- Requirement: `cli/deprecate/updates-guidance-at-the-observed-revision`
+- Statement: The deprecate command shall compose the requested message and replacement edits with the observed guidance, preserve omitted and concealed replacement information, condition the write on the observed revision, and report the Registry's acknowledged transition with publisher guidance presented as result information.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts`](../specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts)
+
+#### Disabled Credential Persistence Requires Explicit Token
+
+##### Environments without session storage require explicit tokens
+
+- Requirement: `cli/disabled-credential-persistence-requires-explicit-token`
+- Statement: When persisted credentials are disabled, AXM shall refuse login and saved-session authentication with explicit-token guidance while allowing commands to use an explicitly supplied environment token.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/credential-store.internal.test.ts`
+- Source: [`specifications/cli/disabled-credential-persistence-requires-explicit-token.spec.ts`](../specifications/cli/disabled-credential-persistence-requires-explicit-token.spec.ts)
 
 #### Force Bypasses Only Named Policies
 
@@ -189,6 +431,141 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: contract, decision-table
 - Source: [`specifications/cli/force-bypasses-only-named-policies.spec.ts`](../specifications/cli/force-bypasses-only-named-policies.spec.ts)
+
+#### Fork
+
+##### Fork creates a distinct workspace package while preserving its source
+
+- Requirement: `cli/fork/creates-distinct-workspace-package`
+- Statement: When a person forks one managed AXM package, AXM shall preserve the source and its reusable content while creating a workspace-authored package of the same type under the requested identity, initially disabled unless activation is requested or already configured.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/fork-package.internal.test.ts`, `packages/cli/src/root/fork/command.ts`
+- Source: [`specifications/cli/fork/creates-distinct-workspace-package.spec.ts`](../specifications/cli/fork/creates-distinct-workspace-package.spec.ts)
+
+##### Fork preview describes the new authored package without changing any state
+
+- Requirement: `cli/fork/preview-is-pure`
+- Statement: When fork runs in preview mode against a resolvable source package, it shall report the authored package it would create with a previewed outcome and shall not create authored content or change settings, the lockfile, or the source package.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/fork/preview-is-pure.spec.ts`](../specifications/cli/fork/preview-is-pure.spec.ts)
+
+##### Fork refuses ambiguous sources and incompatible or occupied destinations
+
+- Requirement: `cli/fork/refuses-ambiguous-or-conflicting-packages`
+- Statement: When a fork cannot identify one source package of the requested type or its destination already contains content, AXM shall refuse the operation without changing source packages, destination content, or workspace declarations.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/fork-package.internal.test.ts`, `packages/cli/src/root/fork/command.ts`
+- Source: [`specifications/cli/fork/refuses-ambiguous-or-conflicting-packages.spec.ts`](../specifications/cli/fork/refuses-ambiguous-or-conflicting-packages.spec.ts)
+
+#### Hooks
+
+##### Hooks package disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/hooks/disable/preview-is-pure`
+- Statement: When hooks disable runs in preview mode against an enabled hooks package, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/hooks/disable/preview-is-pure.spec.ts`](../specifications/cli/hooks/disable/preview-is-pure.spec.ts)
+
+##### Hooks package enable preview describes the activation without changing any state
+
+- Requirement: `cli/hooks/enable/preview-is-pure`
+- Statement: When hooks enable runs in preview mode against a disabled hooks package, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/hooks/enable/preview-is-pure.spec.ts`](../specifications/cli/hooks/enable/preview-is-pure.spec.ts)
+
+##### Hooks package install preview describes the installation without changing any state
+
+- Requirement: `cli/hooks/install/preview-is-pure`
+- Statement: When hooks install runs in preview mode against a local hooks package that is not yet installed, it shall report the installation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/install/preview-is-pure`
+- Source: [`specifications/cli/hooks/install/preview-is-pure.spec.ts`](../specifications/cli/hooks/install/preview-is-pure.spec.ts)
+
+##### Creating a hook records editable workspace content
+
+- Requirement: `cli/hooks/new/creates-enabled-workspace-content`
+- Statement: When a person creates a hook, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`
+- Source: [`specifications/cli/hooks/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/hooks/new/creates-enabled-workspace-content.spec.ts)
+
+##### New hook preview describes the scaffold without changing any state
+
+- Requirement: `cli/hooks/new/preview-is-pure`
+- Statement: When hooks new runs in preview mode for a name that is not yet authored, it shall report the package it would create with a previewed outcome and shall not change settings, the authored source root, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`
+- Source: [`specifications/cli/hooks/new/preview-is-pure.spec.ts`](../specifications/cli/hooks/new/preview-is-pure.spec.ts)
+
+##### Hook publish preview reports the admitted hooks without distributing anything
+
+- Requirement: `cli/hooks/publish/preview-is-pure`
+- Statement: When hooks publish runs in preview mode, it shall report the admitted workspace-authored hooks with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/hooks/publish/preview-is-pure.spec.ts`](../specifications/cli/hooks/publish/preview-is-pure.spec.ts)
+
+##### Hooks package uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/hooks/uninstall/preview-is-pure`
+- Statement: When hooks uninstall runs in preview mode against an installed hooks package, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Source: [`specifications/cli/hooks/uninstall/preview-is-pure.spec.ts`](../specifications/cli/hooks/uninstall/preview-is-pure.spec.ts)
+
+##### Hooks package update preview describes the update without changing any state
+
+- Requirement: `cli/hooks/update/preview-is-pure`
+- Statement: When hooks update runs in preview mode against an installed hooks package whose source has changed, it shall report the update it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent hook configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Source: [`specifications/cli/hooks/update/preview-is-pure.spec.ts`](../specifications/cli/hooks/update/preview-is-pure.spec.ts)
 
 #### Install
 
@@ -227,9 +604,9 @@ programmatic interfaces, and supporting system behavior.
 - Role: experience
 - Product goals: `extension-adoption`
 - Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `cli/install/direct-intent-recorded-and-realized`
-- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Methods: example, decision-table
+- Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/install/materializes-canonical-content.spec.ts`](../specifications/cli/install/materializes-canonical-content.spec.ts)
 
@@ -259,7 +636,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Install preview describes the plan without changing any state
 
 - Requirement: `cli/install/preview-is-pure`
-- Statement: When the install command runs in preview mode, it shall report the planned closure with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Statement: When install runs in preview mode, it shall report the planned closure with a previewed outcome, including any publisher change the acceptance would make, and shall not change settings, the lockfile, canonical content, or agent projections.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -270,14 +647,14 @@ programmatic interfaces, and supporting system behavior.
 ##### Install realizes the extension for every configured agent
 
 - Requirement: `cli/install/realizes-for-every-configured-agent`
-- Statement: When a person installs an acquirable extension, the install command shall realize it on the native surface of every configured agent that can represent it and on the universal location.
+- Statement: When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, as permitted by the workspace's activation and instruction settings.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `extension-adoption`
 - Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `cli/install/direct-intent-recorded-and-realized`
-- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Methods: example, decision-table
+- Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/install/realizes-for-every-configured-agent.spec.ts`](../specifications/cli/install/realizes-for-every-configured-agent.spec.ts)
@@ -290,9 +667,9 @@ programmatic interfaces, and supporting system behavior.
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `cli/install/direct-intent-recorded-and-realized`
-- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Methods: example, decision-table
+- Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/install/records-accepted-resolution.spec.ts`](../specifications/cli/install/records-accepted-resolution.spec.ts)
 
@@ -304,9 +681,9 @@ programmatic interfaces, and supporting system behavior.
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `cli/install/direct-intent-recorded-and-realized`
-- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Methods: example, decision-table
+- Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/install/records-direct-intent.spec.ts`](../specifications/cli/install/records-direct-intent.spec.ts)
 
@@ -322,9 +699,11 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/projection-currency.e2e.test.ts`](../packages/cli-e2e/src/projection-currency.e2e.test.ts) — Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.
 - Source: [`specifications/cli/install/reinstall-is-idempotent.spec.ts`](../specifications/cli/install/reinstall-is-idempotent.spec.ts)
 
+#### Install Forms Express Same Intent
+
 ##### Root install and the type command express the same durable intent
 
-- Requirement: `cli/install/root-and-type-forms-express-same-intent`
+- Requirement: `cli/install-forms-express-same-intent`
 - Statement: When the same extension is installed, and then reinstalled at the same constraint, through the root install command and through its type-specific install command, both forms shall produce identical workspace configuration, identical canonical content, identical agent projections, and the same reported outcome.
 - Class: functional
 - Role: experience
@@ -332,7 +711,8 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: model
 - Derived from: `cli/install/reinstall-is-idempotent`
-- Source: [`specifications/cli/install/root-and-type-forms-express-same-intent.spec.ts`](../specifications/cli/install/root-and-type-forms-express-same-intent.spec.ts)
+- Supersedes: `cli/install/root-and-type-forms-express-same-intent`
+- Source: [`specifications/cli/install-forms-express-same-intent.spec.ts`](../specifications/cli/install-forms-express-same-intent.spec.ts)
 
 #### Instructions
 
@@ -349,6 +729,18 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/instructions/management-is-explicit`
 - Source: [`specifications/cli/instructions/disable/disable-is-idempotent.spec.ts`](../specifications/cli/instructions/disable/disable-is-idempotent.spec.ts)
 
+##### Instruction management disable preview describes the cleanup without changing any state
+
+- Requirement: `cli/instructions/disable/preview-is-pure`
+- Statement: When instructions disable runs in preview mode for a workspace with managed instruction files, it shall report the recorded choice and owned aliases it would remove with a previewed outcome and shall not change settings, alias files, ignore regions, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/instructions/disable/removes-only-owned-aliases`
+- Source: [`specifications/cli/instructions/disable/preview-is-pure.spec.ts`](../specifications/cli/instructions/disable/preview-is-pure.spec.ts)
+
 ##### Disabling instruction-file management removes only what AXM owns
 
 - Requirement: `cli/instructions/disable/removes-only-owned-aliases`
@@ -361,6 +753,18 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/instructions/management-is-explicit`
 - Supersedes: `cli/instructions/management-is-explicit`
 - Source: [`specifications/cli/instructions/disable/removes-only-owned-aliases.spec.ts`](../specifications/cli/instructions/disable/removes-only-owned-aliases.spec.ts)
+
+##### Instruction management enable preview describes the aliases without changing any state
+
+- Requirement: `cli/instructions/enable/preview-is-pure`
+- Statement: When instructions enable runs in preview mode for a workspace whose instruction files are unmanaged, it shall report the recorded choice and alias files it would create with a previewed outcome and shall not change settings, alias files, ignore regions, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/instructions/enable/records-choice-and-reconciles-aliases`
+- Source: [`specifications/cli/instructions/enable/preview-is-pure.spec.ts`](../specifications/cli/instructions/enable/preview-is-pure.spec.ts)
 
 ##### Enabling instruction-file management records the explicit choice and reconciles aliases together
 
@@ -418,6 +822,322 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../packages/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
 - Additional evidence: process via [`packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
 - Source: [`specifications/cli/invalid-workspace-state-gates-operations.spec.ts`](../specifications/cli/invalid-workspace-state-gates-operations.spec.ts)
+
+#### Knowledge
+
+##### Continuation cursors preserve query and corpus identity
+
+- Requirement: `cli/knowledge/concepts/cursors-bind-query-and-corpus`
+- Statement: When continuing a Knowledge query, AXM shall return the next page without repeating prior concepts only while the cursor is well formed, no more than twenty-four hours old, and bound to the same query and selected corpus, otherwise requiring the caller to restart.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/cursors-bind-query-and-corpus.spec.ts`](../specifications/cli/knowledge/concepts/cursors-bind-query-and-corpus.spec.ts)
+
+##### Conditional retrieval detects source changes
+
+- Requirement: `cli/knowledge/concepts/get/rejects-changed-revision`
+- Statement: When a caller supplies a previously observed content revision for Knowledge retrieval, AXM shall return the concept only if its current source revision matches and otherwise report a revision conflict with the current revision.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/get/rejects-changed-revision.spec.ts`](../specifications/cli/knowledge/concepts/get/rejects-changed-revision.spec.ts)
+
+##### Query evidence respects requested bounds
+
+- Requirement: `cli/knowledge/concepts/query/bounds-concept-evidence`
+- Statement: When a Knowledge query matches a concept through several fields or passages, AXM shall return one concept result with matching-field and source-location evidence within the caller-selected result, passage-count, and passage-length bounds.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/query/bounds-concept-evidence.spec.ts`](../specifications/cli/knowledge/concepts/query/bounds-concept-evidence.spec.ts)
+
+##### Query filters jointly select matching concepts
+
+- Requirement: `cli/knowledge/concepts/query/combines-typed-filters`
+- Statement: When a Knowledge query supplies text, field, property, metadata, lifecycle, tag, or bundle filters, AXM shall return only concepts satisfying every supplied filter with the selected operator.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`, `packages/cli/src/root/knowledge/concepts/query.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/query/combines-typed-filters.spec.ts`](../specifications/cli/knowledge/concepts/query/combines-typed-filters.spec.ts)
+
+##### Enumeration selects ordinary current concepts by default
+
+- Requirement: `cli/knowledge/concepts/query/enumerates-selected-document-kinds`
+- Statement: When a Knowledge query has no text expression, AXM shall enumerate nondeprecated ordinary concepts in stable bundle and concept order unless the caller explicitly selects another document kind or lifecycle status.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/query/enumerates-selected-document-kinds.spec.ts`](../specifications/cli/knowledge/concepts/query/enumerates-selected-document-kinds.spec.ts)
+
+##### Invalid query filters fail validation
+
+- Requirement: `cli/knowledge/concepts/query/rejects-invalid-filters`
+- Statement: When a Knowledge query contains an unknown field, malformed property pointer, unsupported operator, or empty filter value, AXM shall reject the query as a validation failure.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli/src/root/knowledge/concepts/query.ts`
+- Source: [`specifications/cli/knowledge/concepts/query/rejects-invalid-filters.spec.ts`](../specifications/cli/knowledge/concepts/query/rejects-invalid-filters.spec.ts)
+
+##### Discovery reads only enabled bundles in the selected workspace
+
+- Requirement: `cli/knowledge/concepts/reads-only-enabled-selected-corpus`
+- Statement: When discovering Knowledge, AXM shall read the enabled bundles in the selected workspace regardless of instruction-entry visibility and reflect current source content without changing workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli/src/root/knowledge/inspect.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/reads-only-enabled-selected-corpus.spec.ts`](../specifications/cli/knowledge/concepts/reads-only-enabled-selected-corpus.spec.ts)
+
+##### Discovery refuses an unstable source view
+
+- Requirement: `cli/knowledge/concepts/refuses-changing-corpus`
+- Statement: When Knowledge source bytes continue changing during capture, AXM shall report a corpus-changing conflict instead of returning results from an inconsistent source view.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/knowledge-query/src/knowledge-capture.internal.test.ts`, `packages/knowledge-query/src/knowledge-revision.internal.test.ts`, `packages/cli/src/root/knowledge/concepts/failures.ts`
+- Source: [`specifications/cli/knowledge/concepts/refuses-changing-corpus.spec.ts`](../specifications/cli/knowledge/concepts/refuses-changing-corpus.spec.ts)
+
+##### Related concepts follow authored links with evidence
+
+- Requirement: `cli/knowledge/concepts/related/traverses-authored-links`
+- Statement: When exploring related Knowledge concepts, AXM shall return outgoing links and backlinks within the requested depth with authored-link evidence, suppressing the starting concept, repeated visits, and index backlinks unless requested.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts`](../specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts)
+
+##### Human discovery output preserves text without terminal control
+
+- Requirement: `cli/knowledge/concepts/renders-authored-text-safely`
+- Statement: When rendering bundle-authored Knowledge text for a person, AXM shall preserve ordinary text and line structure while displaying terminal-control and bidirectional-control characters as inert escapes.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/concepts/terminal-text.ts`, `packages/cli/src/root/knowledge/concepts/terminal-text.internal.test.ts`
+- Source: [`specifications/cli/knowledge/concepts/renders-authored-text-safely.spec.ts`](../specifications/cli/knowledge/concepts/renders-authored-text-safely.spec.ts)
+
+##### Exact retrieval does not substitute another concept
+
+- Requirement: `cli/knowledge/concepts/reports-unavailable-exact-references`
+- Statement: When an exact Knowledge reference is absent from the selected corpus, AXM shall report not found without substituting a similarly named concept.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/concepts/get.ts`, `packages/cli/src/root/knowledge/concepts/resolve.ts`, `packages/cli/src/root/knowledge/concepts/related.ts`
+- Source: [`specifications/cli/knowledge/concepts/reports-unavailable-exact-references.spec.ts`](../specifications/cli/knowledge/concepts/reports-unavailable-exact-references.spec.ts)
+
+##### Fuzzy resolution requires opt-in and exposes ambiguity
+
+- Requirement: `cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution`
+- Statement: When resolving text that is not an exact Knowledge reference, AXM shall require explicit fuzzy resolution and return at most ten deterministic candidates without choosing among ambiguous matches.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts`](../specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts)
+
+##### Exact concept references resolve to installed identity
+
+- Requirement: `cli/knowledge/concepts/resolve/resolves-exact-reference`
+- Statement: When given a compact or canonical HTTPS reference to an installed Knowledge concept, AXM shall resolve the exact concept to its installed bundle version and source revision.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts`](../specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts)
+
+##### Search matches the requested lexical expression
+
+- Requirement: `cli/knowledge/concepts/search/matches-lexical-query`
+- Statement: When searching installed Knowledge, AXM shall match all normalized whole-token terms across searchable fields, contiguous phrases within one field, and exact literals within one field.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/search/matches-lexical-query.spec.ts`](../specifications/cli/knowledge/concepts/search/matches-lexical-query.spec.ts)
+
+##### Invalid search expressions fail validation
+
+- Requirement: `cli/knowledge/concepts/search/rejects-invalid-query`
+- Statement: When a Knowledge search expression is empty, has no searchable tokens, or contains an invalid phrase or literal, AXM shall reject it as a validation failure.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/search/rejects-invalid-query.spec.ts`](../specifications/cli/knowledge/concepts/search/rejects-invalid-query.spec.ts)
+
+##### Status distinguishes a ready corpus from unstable and unavailable sources
+
+- Requirement: `cli/knowledge/concepts/status/reports-current-corpus-health`
+- Statement: When reporting Knowledge discovery status, AXM shall distinguish a ready captured corpus, source bytes that keep changing, and stable capture failures, with current counts and identity for readiness or an actionable diagnostic for failure.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/concepts/status.ts`, `packages/cli/src/root/knowledge/concepts/schemas.ts`, `packages/cli/src/root/knowledge/json-output.internal.test.ts`
+- Open questions: When source capture succeeds but OKF inspection contains error findings, should discovery report a ready but unhealthy corpus or refuse that corpus as unavailable?
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/status/reports-current-corpus-health.spec.ts`](../specifications/cli/knowledge/concepts/status/reports-current-corpus-health.spec.ts)
+
+##### Knowledge disable preview describes the exclusion without changing any state
+
+- Requirement: `cli/knowledge/disable/preview-is-pure`
+- Statement: When knowledge disable runs in preview mode against an enabled Knowledge bundle, it shall report the exclusion it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/knowledge/disable/preview-is-pure.spec.ts`](../specifications/cli/knowledge/disable/preview-is-pure.spec.ts)
+
+##### Knowledge enable preview describes the activation without changing any state
+
+- Requirement: `cli/knowledge/enable/preview-is-pure`
+- Statement: When knowledge enable runs in preview mode against a disabled Knowledge bundle, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/knowledge/enable/preview-is-pure.spec.ts`](../specifications/cli/knowledge/enable/preview-is-pure.spec.ts)
+
+##### Knowledge install preview describes the acquisition without changing any state
+
+- Requirement: `cli/knowledge/install/preview-is-pure`
+- Statement: When knowledge install runs in preview mode against an installable Knowledge source, it shall report the bundle it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/knowledge/install/preview-is-pure.spec.ts`](../specifications/cli/knowledge/install/preview-is-pure.spec.ts)
+
+##### Knowledge lint reports source findings without changing content
+
+- Requirement: `cli/knowledge/lint/reports-validation-without-mutation`
+- Statement: When validating installed or explicitly selected authored Knowledge, AXM shall report source-located findings without changing workspace content, returning failure for errors and success for warnings alone.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/json-output.internal.test.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`, `cli/lint/catalog-is-complete`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/lint/reports-validation-without-mutation.spec.ts`](../specifications/cli/knowledge/lint/reports-validation-without-mutation.spec.ts)
+
+##### Creating a knowledge bundle records editable workspace content
+
+- Requirement: `cli/knowledge/new/creates-enabled-workspace-content`
+- Statement: When a person creates a knowledge bundle, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/new.ts`
+- Source: [`specifications/cli/knowledge/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/knowledge/new/creates-enabled-workspace-content.spec.ts)
+
+##### Knowledge new preview describes the scaffold without creating any state
+
+- Requirement: `cli/knowledge/new/preview-is-pure`
+- Statement: When knowledge new runs in preview mode for a bundle name the workspace does not yet author, it shall report the bundle it would create with a previewed outcome and shall not write the authored package, settings, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/new/scaffolds-for-every-configured-agent`
+- Source: [`specifications/cli/knowledge/new/preview-is-pure.spec.ts`](../specifications/cli/knowledge/new/preview-is-pure.spec.ts)
+
+##### Knowledge publish preview reports the admitted bundles without distributing anything
+
+- Requirement: `cli/knowledge/publish/preview-is-pure`
+- Statement: When knowledge publish runs in preview mode, it shall report the admitted workspace-authored knowledge bundles with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/knowledge/publish/preview-is-pure.spec.ts`](../specifications/cli/knowledge/publish/preview-is-pure.spec.ts)
+
+##### Knowledge uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/knowledge/uninstall/preview-is-pure`
+- Statement: When knowledge uninstall runs in preview mode against an installed Knowledge bundle, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/knowledge/uninstall/preview-is-pure.spec.ts`](../specifications/cli/knowledge/uninstall/preview-is-pure.spec.ts)
+
+##### Knowledge update preview describes the newer release without changing any state
+
+- Requirement: `cli/knowledge/update/preview-is-pure`
+- Statement: When knowledge update runs in preview mode against a configured Registry bundle with a newer eligible release, it shall report the update it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/update/advances-resolution-within-intent`
+- Source: [`specifications/cli/knowledge/update/preview-is-pure.spec.ts`](../specifications/cli/knowledge/update/preview-is-pure.spec.ts)
 
 #### Lint
 
@@ -483,10 +1203,10 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/observes-selected-filesystem-view.spec.ts`](../specifications/cli/lint/observes-selected-filesystem-view.spec.ts)
 
-##### Lint reports invariant violations without changing any workspace state
+##### Lint preserves workspace files whether the run succeeds or fails
 
 - Requirement: `cli/lint/reports-facts-without-mutation`
-- Statement: When lint runs without --fix, it shall report every invariant violation as findings and fail the run when errors exist, shall report clean and succeed when none exist, and shall not change any workspace state in either case.
+- Statement: When lint runs without --fix, it shall preserve every workspace file, directory, symbolic link, and file's contents whether the run succeeds or fails.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
@@ -537,6 +1257,134 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/workspace-lockfile-rejections-name-state-and-recovery`
 - Source: [`specifications/cli/lockfile-rejections-name-recovery-routes.spec.ts`](../specifications/cli/lockfile-rejections-name-recovery-routes.spec.ts)
 
+#### Login
+
+##### Login preapproval starts a new sign-in over a valid session in every mode
+
+- Requirement: `cli/login/preapproval-requests-new-sign-in`
+- Statement: When a valid registry session already exists, login with preapproval shall start a new sign-in without asking in interactive, machine-output, and non-interactive modes, while login without preapproval shall keep the session and name the preapproval in modes that cannot ask and shall ask before replacing it in a mode that can.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Source: [`specifications/cli/login/preapproval-requests-new-sign-in.spec.ts`](../specifications/cli/login/preapproval-requests-new-sign-in.spec.ts)
+
+##### Sign-in rejects inconsistent flow options
+
+- Requirement: `cli/login/rejects-inconsistent-flow-options`
+- Statement: When sign-in options combine incompatible start and resume actions or supply a wait timeout without a resume action, AXM shall report usage failure before changing credentials or pending authorization.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Source: [`specifications/cli/login/rejects-inconsistent-flow-options.spec.ts`](../specifications/cli/login/rejects-inconsistent-flow-options.spec.ts)
+
+##### Sign-in resumes only its Registry authorization
+
+- Requirement: `cli/login/resume-requires-matching-pending-authorization`
+- Statement: When login --wait has no pending authorization for the selected Registry, AXM shall report the missing or mismatched authorization without changing saved credentials or another Registry authorization.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
+- Source: [`specifications/cli/login/resume-requires-matching-pending-authorization.spec.ts`](../specifications/cli/login/resume-requires-matching-pending-authorization.spec.ts)
+
+##### Approved device sign-in establishes the selected Registry session
+
+- Requirement: `cli/login/resumes-approved-authorization`
+- Statement: When a pending device authorization is approved, login --wait shall save the issued credentials for its Registry, clear the pending authorization, and make that session available to subsequent commands.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
+- Source: [`specifications/cli/login/resumes-approved-authorization.spec.ts`](../specifications/cli/login/resumes-approved-authorization.spec.ts)
+
+##### Sign-in retains an issued session when identity lookup is unavailable
+
+- Requirement: `cli/login/retains-issued-session-when-identity-unavailable`
+- Statement: When device authorization issues a session but identity lookup is temporarily unavailable, AXM shall retain the usable session without presenting an unverified identity, allowing later identity inspection to report the canonical Registry account.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/device-login.internal.test.ts`
+- Source: [`specifications/cli/login/retains-issued-session-when-identity-unavailable.spec.ts`](../specifications/cli/login/retains-issued-session-when-identity-unavailable.spec.ts)
+
+##### Repeated sign-in preserves pending authorization
+
+- Requirement: `cli/login/reuses-pending-authorization`
+- Statement: When a device authorization is unexpired, AXM shall reuse it for the same Registry and equivalent requested scopes, refuse a conflicting request without changing it, and replace it only when restart is explicitly requested.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Source: [`specifications/cli/login/reuses-pending-authorization.spec.ts`](../specifications/cli/login/reuses-pending-authorization.spec.ts)
+
+##### Unattended device sign-in returns the human action
+
+- Requirement: `cli/login/starts-resumable-device-sign-in`
+- Statement: When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, requested scopes, and resume command without waiting for approval or opening a browser.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
+- Source: [`specifications/cli/login/starts-resumable-device-sign-in.spec.ts`](../specifications/cli/login/starts-resumable-device-sign-in.spec.ts)
+
+##### Denied and expired sign-ins leave saved sessions unchanged
+
+- Requirement: `cli/login/terminal-authorization-failures-preserve-credentials`
+- Statement: When a pending device authorization is denied or expires, login --wait shall report the corresponding failure, remove that pending authorization, and leave saved credentials unchanged.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
+- Source: [`specifications/cli/login/terminal-authorization-failures-preserve-credentials.spec.ts`](../specifications/cli/login/terminal-authorization-failures-preserve-credentials.spec.ts)
+
+##### A bounded wait leaves sign-in resumable
+
+- Requirement: `cli/login/wait-timeout-preserves-authorization`
+- Statement: When login --wait reaches the requested timeout before authorization completes, AXM shall report pending human approval with resume instructions and preserve the pending authorization and existing credentials.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Source: [`specifications/cli/login/wait-timeout-preserves-authorization.spec.ts`](../specifications/cli/login/wait-timeout-preserves-authorization.spec.ts)
+
+#### Logout
+
+##### Sign-out removes only the selected Registry session
+
+- Requirement: `cli/logout/erases-selected-registry-credentials`
+- Statement: When logout finds saved credentials, AXM shall remove the selected Registry session even if remote revocation fails, leaving other Registry credentials available.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/logout.internal.test.ts`
+- Source: [`specifications/cli/logout/erases-selected-registry-credentials.spec.ts`](../specifications/cli/logout/erases-selected-registry-credentials.spec.ts)
+
 #### Managed Projection Guidance Respects Authority
 
 ##### Managed projections name editable sources only when the workspace owns them
@@ -552,6 +1400,18 @@ programmatic interfaces, and supporting system behavior.
 
 #### Mcps
 
+##### Inline MCP server add preview describes the configuration without changing any state
+
+- Requirement: `cli/mcps/add/preview-is-pure`
+- Statement: When mcps add runs in preview mode with a new inline server definition, it shall report the configuration and agent realization it would apply with a previewed outcome and shall not change settings, the lockfile, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/add/records-and-realizes-inline-configuration`
+- Source: [`specifications/cli/mcps/add/preview-is-pure.spec.ts`](../specifications/cli/mcps/add/preview-is-pure.spec.ts)
+
 ##### Adding an inline MCP server records it as authored configuration and realizes it
 
 - Requirement: `cli/mcps/add/records-and-realizes-inline-configuration`
@@ -565,6 +1425,30 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
 - Source: [`specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts`](../specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts)
 
+##### MCP server disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/mcps/disable/preview-is-pure`
+- Statement: When mcps disable runs in preview mode against an enabled MCP server, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/mcps/disable/preview-is-pure.spec.ts`](../specifications/cli/mcps/disable/preview-is-pure.spec.ts)
+
+##### MCP server enable preview describes the activation without changing any state
+
+- Requirement: `cli/mcps/enable/preview-is-pure`
+- Statement: When mcps enable runs in preview mode against a disabled MCP server, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/mcps/enable/preview-is-pure.spec.ts`](../specifications/cli/mcps/enable/preview-is-pure.spec.ts)
+
 ##### An imported MCP server is adopted once and reaches every configured agent
 
 - Requirement: `cli/mcps/import/adoption-reaches-every-configured-agent`
@@ -577,6 +1461,18 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/sync/realizes-desired-state`, `packages/cli/src/root/mcps/import.internal.test.ts`
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so a server present in one file and absent from the other observes adoption reaching a second agent.
 - Source: [`specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts`](../specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts)
+
+##### MCP server import preview describes the adoption without changing any state
+
+- Requirement: `cli/mcps/import/preview-is-pure`
+- Statement: When mcps import runs in preview mode against an unmanaged native MCP server, it shall report the adoption it would apply with a previewed outcome and shall not change settings, the lockfile, or any native agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/import/adoption-reaches-every-configured-agent`
+- Source: [`specifications/cli/mcps/import/preview-is-pure.spec.ts`](../specifications/cli/mcps/import/preview-is-pure.spec.ts)
 
 ##### Inline MCP entries stay authoritative exactly as authored
 
@@ -614,6 +1510,18 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts`](../specifications/cli/mcps/install/local-connection-names-share-source-resolution.spec.ts)
 
+##### MCP server install preview describes the installation without changing any state
+
+- Requirement: `cli/mcps/install/preview-is-pure`
+- Statement: When mcps install runs in preview mode against a Registry MCP server that is not yet installed, it shall report the installation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/install/local-connection-names-share-source-resolution`
+- Source: [`specifications/cli/mcps/install/preview-is-pure.spec.ts`](../specifications/cli/mcps/install/preview-is-pure.spec.ts)
+
 ##### The human MCP inventory shows local name and source as separate columns
 
 - Requirement: `cli/mcps/list/human-inventory-separates-local-name-and-source`
@@ -625,6 +1533,30 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
 - Source: [`specifications/cli/mcps/list/human-inventory-separates-local-name-and-source.spec.ts`](../specifications/cli/mcps/list/human-inventory-separates-local-name-and-source.spec.ts)
+
+##### Creating an MCP server records editable workspace content
+
+- Requirement: `cli/mcps/new/creates-enabled-workspace-content`
+- Statement: When a person creates an MCP server, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/mcps/new.internal.test.ts`
+- Source: [`specifications/cli/mcps/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/mcps/new/creates-enabled-workspace-content.spec.ts)
+
+##### New MCP server preview describes the scaffold without changing any state
+
+- Requirement: `cli/mcps/new/preview-is-pure`
+- Statement: When mcps new runs in preview mode for a name that is not yet authored, it shall report the package it would create with a previewed outcome and shall not change settings, the authored source root, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/mcps/new.internal.test.ts`
+- Source: [`specifications/cli/mcps/new/preview-is-pure.spec.ts`](../specifications/cli/mcps/new/preview-is-pure.spec.ts)
 
 ##### MCP servers reach every configured agent that can represent them
 
@@ -639,6 +1571,18 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.
 - Source: [`specifications/cli/mcps/projects-to-every-configured-agent.spec.ts`](../specifications/cli/mcps/projects-to-every-configured-agent.spec.ts)
 
+##### MCP server publish preview reports the admitted servers without distributing anything
+
+- Requirement: `cli/mcps/publish/preview-is-pure`
+- Statement: When mcps publish runs in preview mode, it shall report the admitted workspace-authored MCP servers with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/mcps/publish/preview-is-pure.spec.ts`](../specifications/cli/mcps/publish/preview-is-pure.spec.ts)
+
 ##### Uninstalling an MCP server preserves native entries AXM does not own
 
 - Requirement: `cli/mcps/uninstall/preserves-unowned-native-entries`
@@ -652,6 +1596,18 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
 - Source: [`specifications/cli/mcps/uninstall/preserves-unowned-native-entries.spec.ts`](../specifications/cli/mcps/uninstall/preserves-unowned-native-entries.spec.ts)
 
+##### MCP server uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/mcps/uninstall/preview-is-pure`
+- Statement: When mcps uninstall runs in preview mode against an installed MCP server, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/uninstall/removes-one-local-connection-at-a-time`
+- Source: [`specifications/cli/mcps/uninstall/preview-is-pure.spec.ts`](../specifications/cli/mcps/uninstall/preview-is-pure.spec.ts)
+
 ##### Uninstall removes one local MCP connection and retains shared source state
 
 - Requirement: `cli/mcps/uninstall/removes-one-local-connection-at-a-time`
@@ -662,6 +1618,18 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/mcps/uninstall/removes-one-local-connection-at-a-time.spec.ts`](../specifications/cli/mcps/uninstall/removes-one-local-connection-at-a-time.spec.ts)
+
+##### MCP server update preview describes the update without changing any state
+
+- Requirement: `cli/mcps/update/preview-is-pure`
+- Statement: When mcps update runs in preview mode against an installed MCP server whose source publishes a newer eligible version, it shall report the update it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent MCP configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/mcps/update/shared-source-update-is-closure-wide`
+- Source: [`specifications/cli/mcps/update/preview-is-pure.spec.ts`](../specifications/cli/mcps/update/preview-is-pure.spec.ts)
 
 ##### Updating one locally named connection advances every connection sharing its source
 
@@ -687,6 +1655,20 @@ programmatic interfaces, and supporting system behavior.
 - Methods: decision-table, example
 - Source: [`specifications/cli/mutations-are-closure-atomic.spec.ts`](../specifications/cli/mutations-are-closure-atomic.spec.ts)
 
+#### Native Imports Preserve Content And Source
+
+##### Native imports create workspace packages without changing original content
+
+- Requirement: `cli/native-imports-preserve-content-and-source`
+- Statement: When a person imports native Skill or Subagent content, AXM shall preserve the original source and its instructions while creating the requested workspace package, disabled unless activation is requested or already configured, and shall reject a managed package or mismatched target type.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/import-native-package.internal.test.ts`, `packages/cli/src/root/import/command.ts`
+- Source: [`specifications/cli/native-imports-preserve-content-and-source.spec.ts`](../specifications/cli/native-imports-preserve-content-and-source.spec.ts)
+
 #### Native Projections Compare By Decoded Value
 
 ##### Structured native projections are compared by decoded value
@@ -703,6 +1685,18 @@ programmatic interfaces, and supporting system behavior.
 
 #### Packs
 
+##### Pack add preview describes the new member without changing the manifest
+
+- Requirement: `cli/packs/add/preview-is-pure`
+- Statement: When packs add runs in preview mode for an installed extension and a workspace-authored pack, it shall report the dependency it would record with a previewed outcome and shall not change the pack manifest, settings, the lockfile, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/packs/add/records-member-as-pack-dependency`
+- Source: [`specifications/cli/packs/add/preview-is-pure.spec.ts`](../specifications/cli/packs/add/preview-is-pure.spec.ts)
+
 ##### Adding an installed extension to an authored pack records it as a pack dependency
 
 - Requirement: `cli/packs/add/records-member-as-pack-dependency`
@@ -717,6 +1711,66 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/packs/add/records-member-as-pack-dependency.spec.ts`](../specifications/cli/packs/add/records-member-as-pack-dependency.spec.ts)
 
+##### Pack add selects the requested members without confusing shared names
+
+- Requirement: `cli/packs/add/selects-members-without-ambiguity`
+- Statement: When adding dependencies to an authored pack, AXM shall resolve the configured pack by its local name or unique full identity, add only members selected by full identity or an unambiguous name or name pattern, and refuse ambiguous or unmatched selections without editing the pack.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/packs/add.ts`, `packages/cli/src/root/packs/configured-pack-selector.ts`
+- Source: [`specifications/cli/packs/add/selects-members-without-ambiguity.spec.ts`](../specifications/cli/packs/add/selects-members-without-ambiguity.spec.ts)
+
+##### Pack disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/packs/disable/preview-is-pure`
+- Statement: When packs disable runs in preview mode against an enabled pack, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/packs/disable/preview-is-pure.spec.ts`](../specifications/cli/packs/disable/preview-is-pure.spec.ts)
+
+##### Pack enable preview describes the activation without changing any state
+
+- Requirement: `cli/packs/enable/preview-is-pure`
+- Statement: When packs enable runs in preview mode against a disabled pack, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/packs/enable/preview-is-pure.spec.ts`](../specifications/cli/packs/enable/preview-is-pure.spec.ts)
+
+##### Pack install preview describes the pack closure without changing any state
+
+- Requirement: `cli/packs/install/preview-is-pure`
+- Statement: When packs install runs in preview mode against a Registry pack, it shall report the pack and members it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/packs/install/preview-is-pure.spec.ts`](../specifications/cli/packs/install/preview-is-pure.spec.ts)
+
+##### Pack new preview describes the scaffold without creating any state
+
+- Requirement: `cli/packs/new/preview-is-pure`
+- Statement: When packs new runs in preview mode for a pack name the workspace does not yet author, it shall report the pack it would create with a previewed outcome and shall not write the authored package, settings, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/packs/new/records-workspace-authorship`
+- Source: [`specifications/cli/packs/new/preview-is-pure.spec.ts`](../specifications/cli/packs/new/preview-is-pure.spec.ts)
+
 ##### Creating a pack records workspace authorship with an empty dependency graph
 
 - Requirement: `cli/packs/new/records-workspace-authorship`
@@ -730,6 +1784,102 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/packs/authored-packs-expand-membership`
 - Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/packs/new/records-workspace-authorship.spec.ts`](../specifications/cli/packs/new/records-workspace-authorship.spec.ts)
+
+##### Pack publish preview reports the admitted packs without distributing anything
+
+- Requirement: `cli/packs/publish/preview-is-pure`
+- Statement: When packs publish runs in preview mode, it shall report the admitted workspace-authored packs with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/packs/publish/preview-is-pure.spec.ts`](../specifications/cli/packs/publish/preview-is-pure.spec.ts)
+
+##### Pack remove preview describes the departing member without changing the manifest
+
+- Requirement: `cli/packs/remove/preview-is-pure`
+- Statement: When packs remove runs in preview mode for a member of a workspace-authored pack, it shall report the dependency it would remove with a previewed outcome and shall not change the pack manifest, settings, the lockfile, or any other workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/packs/add/records-member-as-pack-dependency`
+- Source: [`specifications/cli/packs/remove/preview-is-pure.spec.ts`](../specifications/cli/packs/remove/preview-is-pure.spec.ts)
+
+##### Pack remove changes only the selected dependency declarations
+
+- Requirement: `cli/packs/remove/removes-only-selected-dependencies`
+- Statement: When a person removes matching dependencies from a workspace-authored pack, AXM shall remove only those manifest entries while preserving installed member content and direct workspace declarations, and shall refuse an unmatched selector or an externally sourced pack without changing the manifest.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/packs/remove-from-pack.internal.test.ts`, `packages/cli/src/root/packs/remove.ts`
+- Source: [`specifications/cli/packs/remove/removes-only-selected-dependencies.spec.ts`](../specifications/cli/packs/remove/removes-only-selected-dependencies.spec.ts)
+
+##### Pack uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/packs/uninstall/preview-is-pure`
+- Statement: When packs uninstall runs in preview mode against an installed pack, it shall report the pack and orphaned members it would remove with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/packs/uninstall/preview-is-pure.spec.ts`](../specifications/cli/packs/uninstall/preview-is-pure.spec.ts)
+
+##### Pack unpack preview describes the promotions without changing any state
+
+- Requirement: `cli/packs/unpack/preview-is-pure`
+- Statement: When packs unpack runs in preview mode against an installed pack, it shall report the members it would promote to direct entries and the pack it would remove with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/packs/unpack/preview-is-pure.spec.ts`](../specifications/cli/packs/unpack/preview-is-pure.spec.ts)
+
+##### Unpack keeps members installed as direct declarations
+
+- Requirement: `cli/packs/unpack/promotes-members-without-overwriting-direct-intent`
+- Statement: When a person unpacks a configured pack with complete member resolutions, AXM shall preserve its installed leaf members as direct workspace declarations, retain existing direct declarations unchanged, and remove the pack declaration.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/packs/unpack/handler.internal.test.ts`, `packages/cli/src/root/packs/unpack/handler.ts`
+- Source: [`specifications/cli/packs/unpack/promotes-members-without-overwriting-direct-intent.spec.ts`](../specifications/cli/packs/unpack/promotes-members-without-overwriting-direct-intent.spec.ts)
+
+##### Unpack refuses missing packs and members without usable resolutions
+
+- Requirement: `cli/packs/unpack/refuses-incomplete-membership`
+- Statement: When a requested pack is absent or its membership and accepted member identities cannot be established, AXM shall refuse unpacking without changing workspace declarations, installed content, or accepted resolutions.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/packs/unpack/handler.internal.test.ts`, `packages/cli/src/root/packs/unpack/handler.ts`
+- Source: [`specifications/cli/packs/unpack/refuses-incomplete-membership.spec.ts`](../specifications/cli/packs/unpack/refuses-incomplete-membership.spec.ts)
+
+##### Pack update preview describes the reconciliation without changing any state
+
+- Requirement: `cli/packs/update/preview-is-pure`
+- Statement: When packs update runs in preview mode against a configured pack whose closure is not yet accepted, it shall report the pack and members it would resolve with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/packs/update/preview-is-pure.spec.ts`](../specifications/cli/packs/update/preview-is-pure.spec.ts)
 
 #### Policy Overrides Reach Every Blocked Command
 
@@ -747,6 +1897,20 @@ programmatic interfaces, and supporting system behavior.
 - Limitation: The one-shot meaning is exercised through each handler the flag reaches — root install, root update, sync, the shared workspace install, and the shared workspace update — rather than once per registered command path. Commands routing into the same handler share its behavior by construction, and the registration and parser checks below do cover every path. Retires when: The specification harness exports a driver for every gate-blockable command path, letting the decision table run per path.
 - Source: [`specifications/cli/policy-overrides-reach-every-blocked-command.spec.ts`](../specifications/cli/policy-overrides-reach-every-blocked-command.spec.ts)
 
+#### Preview Does Not Consume Approval
+
+##### A preview reads the same with or without advance approval and spends none of it
+
+- Requirement: `cli/preview-does-not-consume-approval`
+- Statement: When a command that offers both assessment and advance approval runs in preview mode, it shall render the same candidate whether or not approval accompanies the request, shall ask for no confirmation, and a later unattended apply without approval shall still stop as approval required with nothing changed.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/demote/preview-is-pure`, `cli/setup/preview-is-pure`
+- Source: [`specifications/cli/preview-does-not-consume-approval.spec.ts`](../specifications/cli/preview-does-not-consume-approval.spec.ts)
+
 #### Projection Currency Follows State Authority
 
 ##### Generated document currency follows authoritative inputs, not rendered bytes
@@ -762,6 +1926,66 @@ programmatic interfaces, and supporting system behavior.
 - Source: [`specifications/cli/projection-currency-follows-state-authority.spec.ts`](../specifications/cli/projection-currency-follows-state-authority.spec.ts)
 
 #### Publish
+
+##### Pack dependency inclusion adds only workspace-authored members
+
+- Requirement: `cli/publish/dependency-inclusion-adds-only-authored-pack-members`
+- Statement: For a selected pack, publish shall add its workspace-authored dependencies only when dependency inclusion is explicitly requested, retain external dependencies as Registry references, and leave unrelated authored extensions outside the selection.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.ts`
+- Source: [`specifications/cli/publish/dependency-inclusion-adds-only-authored-pack-members.spec.ts`](../specifications/cli/publish/dependency-inclusion-adds-only-authored-pack-members.spec.ts)
+
+##### Existing publications are verified or rejected without being overwritten
+
+- Requirement: `cli/publish/existing-versions-require-explicit-policy`
+- Statement: For an already published version, publish shall reject the error policy, treat the verify policy as a successful no-op only when the newly built archive's SHA-512 integrity matches the published integrity, and reject differing content as integrity drift, with an explicit single selector defaulting to error and bulk selection defaulting to verify.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Source: [`specifications/cli/publish/existing-versions-require-explicit-policy.spec.ts`](../specifications/cli/publish/existing-versions-require-explicit-policy.spec.ts)
+
+##### Publication exclusions use explicit case-sensitive package paths
+
+- Requirement: `cli/publish/ignore-patterns-have-declared-path-semantics`
+- Statement: Publish shall match ignore patterns against case-sensitive archive-relative POSIX paths with only the asterisk acting as a wildcard across directory separators and with question marks, brackets, and negation characters treated literally.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/publish.md`
+- Source: [`specifications/cli/publish/ignore-patterns-have-declared-path-semantics.spec.ts`](../specifications/cli/publish/ignore-patterns-have-declared-path-semantics.spec.ts)
+
+##### Older unpublished versions require explicit backfill
+
+- Requirement: `cli/publish/older-unpublished-versions-require-backfill`
+- Statement: Publish shall reject an unpublished version below the highest published semantic version unless backfill is explicitly requested, and backfill shall permit only an unpublished version without authorizing replacement of an existing release.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/publish/command.ts`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Source: [`specifications/cli/publish/older-unpublished-versions-require-backfill.spec.ts`](../specifications/cli/publish/older-unpublished-versions-require-backfill.spec.ts)
+
+##### Publication results distinguish confirmed, failed, blocked, pending and unresolved work
+
+- Requirement: `cli/publish/outcomes-distinguish-unresolved-uploads`
+- Statement: When publication partially fails or is interrupted, AXM shall report each candidate according to the available evidence, retain acknowledged independent successes, block dependents of failed uploads, distinguish unattempted work from dispatched uploads with unknown outcomes, and provide credential-free recovery for the unfinished selection.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `machine-automation`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/extension-publish/src/settlement.internal.test.ts`
+- Source: [`specifications/cli/publish/outcomes-distinguish-unresolved-uploads.spec.ts`](../specifications/cli/publish/outcomes-distinguish-unresolved-uploads.spec.ts)
 
 ##### One failed publish preflight blocks the whole selection
 
@@ -779,7 +2003,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Publish preview reports the admitted publication set without distributing anything
 
 - Requirement: `cli/publish/preview-is-pure`
-- Statement: When publish runs in preview mode, it shall report the admitted publication set with no execution and shall not upload anything or change settings or the lockfile.
+- Statement: When publish runs in preview mode, it shall report the admitted publication set with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `trustworthy-distribution`
@@ -806,7 +2030,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Publish refuses extensions the workspace does not author
 
 - Requirement: `cli/publish/requires-established-authorship`
-- Statement: Publish shall distribute only extensions the workspace authors: an explicitly selected installed extension shall fail with a conflict that suggests adopting it, a bulk publish shall report it as not authored rather than selecting it, and nothing shall be uploaded either way.
+- Statement: Publish shall distribute only extensions the workspace authors: an explicitly selected acquired extension shall fail with a conflict that suggests adopting it and upload nothing, while bulk publication shall report acquired entries as not authored and may publish eligible authored entries without uploading acquired entries.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
@@ -827,7 +2051,273 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
 - Source: [`specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts`](../specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts)
 
+##### Publication selectors and filters narrow the workspace-authored set
+
+- Requirement: `cli/publish/selectors-and-filters-narrow-authored-candidates`
+- Statement: Root publish shall select the workspace-authored candidates matching either explicit fully qualified or type-qualified selectors and globs, or the owner, type and exclusion filters on an argument-free selection, defaulting to all authored candidates and never adding unrelated candidates.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.ts`
+- Source: [`specifications/cli/publish/selectors-and-filters-narrow-authored-candidates.spec.ts`](../specifications/cli/publish/selectors-and-filters-narrow-authored-candidates.spec.ts)
+
+#### Publisher Changes Require Interactive Approval
+
+##### Accepting a Registry extension from a different publisher needs a person's approval
+
+- Requirement: `cli/publisher-changes-require-interactive-approval`
+- Statement: When an apply would replace an accepted Registry binding with one published under a different publisher for the same extension, every route that can make that acceptance shall report the change in preview without changing anything, shall stop as approval required naming interactive approval when no prompt can open, and shall record the new binding only after a person approves it at a prompt; an acceptance under the same publisher, or a first acceptance, shall not be treated as such a change.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `cli/update/preview-is-pure`, `cli/install/preview-is-pure`, `cli/skills/update/preview-is-pure`, `packages/cli/src/root/skills/update/handler.internal.test.ts`
+- Source: [`specifications/cli/publisher-changes-require-interactive-approval.spec.ts`](../specifications/cli/publisher-changes-require-interactive-approval.spec.ts)
+
+#### Registry Management Preserves Authentication Failures
+
+##### Registry management preserves authentication failures without reporting success
+
+- Requirement: `cli/registry-management-preserves-authentication-failures`
+- Statement: When a Registry lifecycle or visibility command receives an authentication rejection, AXM shall preserve the authentication failure, stop the operation without replaying the rejected request, and emit no successful result.
+- Class: functional
+- Role: experience
+- Product goals: `privacy-and-consent`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/registry-management-preserves-authentication-failures.spec.ts`](../specifications/cli/registry-management-preserves-authentication-failures.spec.ts)
+
+#### Registry Writes Complete Required Verification
+
+##### Challenged Registry writes complete the required verification before retrying
+
+- Requirement: `cli/registry-writes-complete-required-verification`
+- Statement: When yank, unyank, visibility set, or visibility reconcile receives a human-verification challenge, AXM shall present the action, target and verification URL, wait for that challenge's completion, retry the same mutation at most once with its verification identifier while preserving any observed revision, and report no success if verification or the retry fails.
+- Class: functional
+- Role: experience
+- Product goals: `privacy-and-consent`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/step-up.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/registry-writes-complete-required-verification.spec.ts`](../specifications/cli/registry-writes-complete-required-verification.spec.ts)
+
+#### Relative Paths Start In Selected Directory
+
+##### Relative paths start in the selected directory
+
+- Requirement: `cli/relative-paths-start-in-selected-directory`
+- Statement: AXM shall resolve relative command paths and configured local sources from the selected workspace directory.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI parses global arguments and selects its execution directory before composing workspace services; a real process establishes the selected filesystem boundary.
+- Methods: example, decision-table
+- Derived from: `packages/cli-e2e/src/directory.e2e.test.ts`, `packages/cli/help/topics/basic-usage.md`
+- Source: [`specifications/cli/relative-paths-start-in-selected-directory.spec.ts`](../specifications/cli/relative-paths-start-in-selected-directory.spec.ts)
+
+#### Rules
+
+##### Rule disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/rules/disable/preview-is-pure`
+- Statement: When rules disable runs in preview mode against an enabled rule, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/rules/disable/preview-is-pure.spec.ts`](../specifications/cli/rules/disable/preview-is-pure.spec.ts)
+
+##### Rule enable preview describes the activation without changing any state
+
+- Requirement: `cli/rules/enable/preview-is-pure`
+- Statement: When rules enable runs in preview mode against a disabled rule, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`, `cli/skills/enable/preview-is-pure`
+- Source: [`specifications/cli/rules/enable/preview-is-pure.spec.ts`](../specifications/cli/rules/enable/preview-is-pure.spec.ts)
+
+##### Rule install preview describes the installation without changing any state
+
+- Requirement: `cli/rules/install/preview-is-pure`
+- Statement: When rules install runs in preview mode against a local rule package that is not yet installed, it shall report the installation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/install/preview-is-pure`
+- Source: [`specifications/cli/rules/install/preview-is-pure.spec.ts`](../specifications/cli/rules/install/preview-is-pure.spec.ts)
+
+##### Creating a rule records editable workspace content
+
+- Requirement: `cli/rules/new/creates-enabled-workspace-content`
+- Statement: When a person creates a rule, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/rules/new.ts`
+- Source: [`specifications/cli/rules/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/rules/new/creates-enabled-workspace-content.spec.ts)
+
+##### New rule preview describes the scaffold without changing any state
+
+- Requirement: `cli/rules/new/preview-is-pure`
+- Statement: When rules new runs in preview mode for a name that is not yet authored, it shall report the package it would create with a previewed outcome and shall not change settings, the authored source root, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/hooks/new/preview-is-pure`
+- Source: [`specifications/cli/rules/new/preview-is-pure.spec.ts`](../specifications/cli/rules/new/preview-is-pure.spec.ts)
+
+##### Rule publish preview reports the admitted rules without distributing anything
+
+- Requirement: `cli/rules/publish/preview-is-pure`
+- Statement: When rules publish runs in preview mode, it shall report the admitted workspace-authored rules with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/rules/publish/preview-is-pure.spec.ts`](../specifications/cli/rules/publish/preview-is-pure.spec.ts)
+
+##### Rule uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/rules/uninstall/preview-is-pure`
+- Statement: When rules uninstall runs in preview mode against an installed rule, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Source: [`specifications/cli/rules/uninstall/preview-is-pure.spec.ts`](../specifications/cli/rules/uninstall/preview-is-pure.spec.ts)
+
+##### Rule update preview describes the update without changing any state
+
+- Requirement: `cli/rules/update/preview-is-pure`
+- Statement: When rules update runs in preview mode against an installed rule whose source has changed, it shall report the update it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent instruction files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Source: [`specifications/cli/rules/update/preview-is-pure.spec.ts`](../specifications/cli/rules/update/preview-is-pure.spec.ts)
+
+#### Setup
+
+##### Setup initializes the selected workspace
+
+- Requirement: `cli/setup/initializes-selected-workspace`
+- Statement: When setup is approved with explicit scope and agents for an uninitialized directory, AXM shall create the selected workspace settings, lockfile, and bundled AXM skill for those agents while preserving other scopes.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/setup.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/setup/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/setup/command.e2e.ts) — Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.
+- Source: [`specifications/cli/setup/initializes-selected-workspace.spec.ts`](../specifications/cli/setup/initializes-selected-workspace.spec.ts)
+
+##### Setup preview describes the workspace it would create without creating it
+
+- Requirement: `cli/setup/preview-is-pure`
+- Statement: When setup runs in preview mode against an uninitialized directory, it shall report the setup candidate it would apply with a previewed outcome and shall not create workspace settings, the lockfile, the runtime directory, instruction files, or agent projections, whether or not preapproval accompanies the preview.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/setup/preview-is-pure.spec.ts`](../specifications/cli/setup/preview-is-pure.spec.ts)
+
+##### Setup preview resolves its inputs from documented defaults without asking
+
+- Requirement: `cli/setup/preview-resolves-inputs-without-prompts`
+- Statement: When setup runs in preview mode, it shall resolve coding-agent membership and instruction configuration from the explicit request or the documented defaults, shall raise no prompt even in an interactive session, shall resolve the same candidate with or without preapproval, and shall disclose which defaults it used.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/setup/preview-resolves-inputs-without-prompts.spec.ts`](../specifications/cli/setup/preview-resolves-inputs-without-prompts.spec.ts)
+
+##### Repeated setup preserves the existing workspace
+
+- Requirement: `cli/setup/rerun-preserves-existing-configuration`
+- Statement: When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/setup.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/setup/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/setup/command.e2e.ts) — Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.
+- Source: [`specifications/cli/setup/rerun-preserves-existing-configuration.spec.ts`](../specifications/cli/setup/rerun-preserves-existing-configuration.spec.ts)
+
+##### Unattended setup applies only a fully explicit request
+
+- Requirement: `cli/setup/unattended-apply-requires-explicit-intent`
+- Statement: When setup runs unattended against an uninitialized directory, it shall apply only when preapproval, an explicit scope, and at least one explicit coding agent are all present, and a request missing any of them shall terminate with approval required and shall change no state.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/machine-mode-never-prompts`, `packages/cli/src/root/setup.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/setup/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/setup/command.e2e.ts) — Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.
+- Source: [`specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts`](../specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts)
+
 #### Skills
+
+##### Skill disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/skills/disable/preview-is-pure`
+- Statement: When skills disable runs in preview mode against an enabled skill, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`, `cli/activation-follows-desired-state`
+- Source: [`specifications/cli/skills/disable/preview-is-pure.spec.ts`](../specifications/cli/skills/disable/preview-is-pure.spec.ts)
+
+##### Skill enable preview describes the activation without changing any state
+
+- Requirement: `cli/skills/enable/preview-is-pure`
+- Statement: When skills enable runs in preview mode against a disabled skill, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`
+- Source: [`specifications/cli/skills/enable/preview-is-pure.spec.ts`](../specifications/cli/skills/enable/preview-is-pure.spec.ts)
+
+##### Skill import preview describes the conversion without changing any state
+
+- Requirement: `cli/skills/import/preview-is-pure`
+- Statement: When skills import runs in preview mode against a native skill, it shall report the managed package it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, agent projections, or the native source.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli-e2e/src/fork-import.e2e.test.ts`
+- Source: [`specifications/cli/skills/import/preview-is-pure.spec.ts`](../specifications/cli/skills/import/preview-is-pure.spec.ts)
 
 ##### Bundled official-skill recovery rewrites the settings entry to bundled ownership and retires the Registry resolution
 
@@ -855,6 +2345,30 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/skills/install/bundled-recovery-converges`
 - Source: [`specifications/cli/skills/install/preserves-authored-official-skill.spec.ts`](../specifications/cli/skills/install/preserves-authored-official-skill.spec.ts)
 
+##### Skill install preview describes the acquisition without changing any state
+
+- Requirement: `cli/skills/install/preview-is-pure`
+- Statement: When skills install runs in preview mode against an installable source, it shall report the skills it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`
+- Source: [`specifications/cli/skills/install/preview-is-pure.spec.ts`](../specifications/cli/skills/install/preview-is-pure.spec.ts)
+
+##### Skill creation preview describes the scaffold without creating any state
+
+- Requirement: `cli/skills/new/preview-is-pure`
+- Statement: When skills new runs in preview mode with an owner the workspace authors, it shall report the manifest, content, settings entry, and agent locations it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/new/scaffolds-for-every-configured-agent`
+- Source: [`specifications/cli/skills/new/preview-is-pure.spec.ts`](../specifications/cli/skills/new/preview-is-pure.spec.ts)
+
 ##### A new skill is scaffolded for the universal location and every configured agent
 
 - Requirement: `cli/skills/new/scaffolds-for-every-configured-agent`
@@ -868,7 +2382,103 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
 - Source: [`specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts)
 
+##### Skill publish preview reports the admitted skills without distributing anything
+
+- Requirement: `cli/skills/publish/preview-is-pure`
+- Statement: When skills publish runs in preview mode, it shall report the admitted workspace-authored skills with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/skills/publish/preview-is-pure.spec.ts`](../specifications/cli/skills/publish/preview-is-pure.spec.ts)
+
+##### Skill uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/skills/uninstall/preview-is-pure`
+- Statement: When skills uninstall runs in preview mode against an installed skill, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`, `packages/cli/src/root/skills/uninstall/handler.internal.test.ts`
+- Source: [`specifications/cli/skills/uninstall/preview-is-pure.spec.ts`](../specifications/cli/skills/uninstall/preview-is-pure.spec.ts)
+
+##### Skill update preview describes the available update without changing any state
+
+- Requirement: `cli/skills/update/preview-is-pure`
+- Statement: When skills update runs in preview mode while the Registry serves a newer version of an accepted skill, it shall report the update it would apply with a previewed outcome, shall report a changed publisher binding as a condition that only interactive approval satisfies, and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/update/advances-resolution-within-intent`, `packages/cli/src/root/skills/update/handler.internal.test.ts`
+- Source: [`specifications/cli/skills/update/preview-is-pure.spec.ts`](../specifications/cli/skills/update/preview-is-pure.spec.ts)
+
 #### Subagents
+
+##### Subagent disable preview describes the deactivation without changing any state
+
+- Requirement: `cli/subagents/disable/preview-is-pure`
+- Statement: When subagents disable runs in preview mode against an enabled subagent, it shall report the deactivation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/disable/preview-is-pure`, `cli/activation-follows-desired-state`
+- Source: [`specifications/cli/subagents/disable/preview-is-pure.spec.ts`](../specifications/cli/subagents/disable/preview-is-pure.spec.ts)
+
+##### Subagent enable preview describes the activation without changing any state
+
+- Requirement: `cli/subagents/enable/preview-is-pure`
+- Statement: When subagents enable runs in preview mode against a disabled subagent, it shall report the activation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/enable/preview-is-pure`, `cli/activation-follows-desired-state`
+- Source: [`specifications/cli/subagents/enable/preview-is-pure.spec.ts`](../specifications/cli/subagents/enable/preview-is-pure.spec.ts)
+
+##### Subagent import preview describes the conversion without changing any state
+
+- Requirement: `cli/subagents/import/preview-is-pure`
+- Statement: When subagents import runs in preview mode against a native subagent, it shall report the managed package it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, agent projections, or the native source.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/import/preview-is-pure`, `packages/cli-e2e/src/fork-import.e2e.test.ts`
+- Source: [`specifications/cli/subagents/import/preview-is-pure.spec.ts`](../specifications/cli/subagents/import/preview-is-pure.spec.ts)
+
+##### Subagent install preview describes the acquisition without changing any state
+
+- Requirement: `cli/subagents/install/preview-is-pure`
+- Statement: When subagents install runs in preview mode against an installable source, it shall report the subagents it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/preview-is-pure`, `cli/skills/install/preview-is-pure`
+- Source: [`specifications/cli/subagents/install/preview-is-pure.spec.ts`](../specifications/cli/subagents/install/preview-is-pure.spec.ts)
+
+##### Subagent creation preview describes the scaffold without creating any state
+
+- Requirement: `cli/subagents/new/preview-is-pure`
+- Statement: When subagents new runs in preview mode with an owner the workspace authors, it shall report the manifest, content, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/subagents/new/scaffolds-for-every-configured-agent`
+- Source: [`specifications/cli/subagents/new/preview-is-pure.spec.ts`](../specifications/cli/subagents/new/preview-is-pure.spec.ts)
 
 ##### A new subagent is scaffolded and rendered for every configured agent
 
@@ -883,6 +2493,42 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.
 - Open questions: Whether the creation result should list each agent's rendered file as a target, as skill creation lists agent locations, is unresolved; this specification requires only that preview and apply agree and that every configured agent receives its rendering.
 - Source: [`specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts)
+
+##### Subagent publish preview reports the admitted subagents without distributing anything
+
+- Requirement: `cli/subagents/publish/preview-is-pure`
+- Statement: When subagents publish runs in preview mode, it shall report the admitted workspace-authored subagents with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`specifications/cli/subagents/publish/preview-is-pure.spec.ts`](../specifications/cli/subagents/publish/preview-is-pure.spec.ts)
+
+##### Subagent uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/subagents/uninstall/preview-is-pure`
+- Statement: When subagents uninstall runs in preview mode against an installed subagent, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/uninstall/preview-is-pure`, `packages/cli/src/root/subagents/uninstall/handler.internal.test.ts`
+- Source: [`specifications/cli/subagents/uninstall/preview-is-pure.spec.ts`](../specifications/cli/subagents/uninstall/preview-is-pure.spec.ts)
+
+##### Subagent update preview describes the available update without changing any state
+
+- Requirement: `cli/subagents/update/preview-is-pure`
+- Statement: When subagents update runs in preview mode while the Registry serves a newer version of an accepted subagent, it shall report the update it would apply with a previewed outcome, shall report a changed publisher binding as a condition that only interactive approval satisfies, and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/skills/update/preview-is-pure`, `packages/cli/src/root/subagents/update/handler.internal.test.ts`
+- Source: [`specifications/cli/subagents/update/preview-is-pure.spec.ts`](../specifications/cli/subagents/update/preview-is-pure.spec.ts)
 
 #### Sync
 
@@ -908,6 +2554,18 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/sync/preserves-unowned-agent-content.spec.ts`](../specifications/cli/sync/preserves-unowned-agent-content.spec.ts)
 
+##### Sync preview describes the reconciliation without changing any state
+
+- Requirement: `cli/sync/preview-is-pure`
+- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, shall report divergence without exiting successfully when asked to fail on change, and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/realizes-desired-state`
+- Source: [`specifications/cli/sync/preview-is-pure.spec.ts`](../specifications/cli/sync/preview-is-pure.spec.ts)
+
 ##### Sync realizes desired additions and removes what desired state no longer includes
 
 - Requirement: `cli/sync/realizes-desired-state`
@@ -919,6 +2577,71 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/sync/preserves-configuration-and-resolutions`
 - Source: [`specifications/cli/sync/realizes-desired-state.spec.ts`](../specifications/cli/sync/realizes-desired-state.spec.ts)
+
+#### Token
+
+##### Token administration waits for required human verification
+
+- Requirement: `cli/token/completes-required-human-verification`
+- Statement: When the Registry requires human verification for token creation or revocation, AXM shall present the verification action, wait for its approval, and retry the unchanged request with that verification identifier only after approval, without opening a browser in machine mode.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts`](../packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts) — Observes raw and JSON process stdout and real HTTP verification followed by token creation.
+- Source: [`specifications/cli/token/completes-required-human-verification.spec.ts`](../specifications/cli/token/completes-required-human-verification.spec.ts)
+
+##### Token creation requests the selected authority
+
+- Requirement: `cli/token/create/submits-requested-authority`
+- Statement: When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions using the effective credential and report the issued token without replacing the current session.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Source: [`specifications/cli/token/create/submits-requested-authority.spec.ts`](../specifications/cli/token/create/submits-requested-authority.spec.ts)
+
+##### Token listing reports Registry inventory and completeness
+
+- Requirement: `cli/token/list/reports-token-inventory`
+- Statement: When token list succeeds, AXM shall report the Registry token metadata and pagination state without including token secrets.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Source: [`specifications/cli/token/list/reports-token-inventory.spec.ts`](../specifications/cli/token/list/reports-token-inventory.spec.ts)
+
+##### Token revocation names the selected credential
+
+- Requirement: `cli/token/revoke/revokes-only-selected-token`
+- Statement: When token revoke is requested, AXM shall request deletion of the selected token identifier using the effective credential and report success only after the Registry accepts deletion.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Source: [`specifications/cli/token/revoke/revokes-only-selected-token.spec.ts`](../specifications/cli/token/revoke/revokes-only-selected-token.spec.ts)
+
+#### Undeprecate
+
+##### Deprecation removal uses the observed revision
+
+- Requirement: `cli/undeprecate/removes-guidance-at-the-observed-revision`
+- Statement: The undeprecate command shall read the selected extension's deprecation revision, use that exact revision as the removal precondition, and report the Registry's acknowledged transition without silently replacing a rejected precondition.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/undeprecate/removes-guidance-at-the-observed-revision.spec.ts`](../specifications/cli/undeprecate/removes-guidance-at-the-observed-revision.spec.ts)
 
 #### Uninstall
 
@@ -934,6 +2657,32 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/root-uninstall.e2e.test.ts`](../packages/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
 - Source: [`specifications/cli/uninstall/is-idempotent.spec.ts`](../specifications/cli/uninstall/is-idempotent.spec.ts)
 
+##### Uninstall preserves unrelated and unowned files
+
+- Requirement: `cli/uninstall/preserves-unrelated-and-unowned-state`
+- Statement: When an extension is uninstalled, AXM shall preserve unrelated workspace files, unowned agent configuration, and the original local source package.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/every-type-completes-the-shared-lifecycle`
+- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
+- Source: [`specifications/cli/uninstall/preserves-unrelated-and-unowned-state.spec.ts`](../specifications/cli/uninstall/preserves-unrelated-and-unowned-state.spec.ts)
+
+##### Uninstall preview describes the removal without changing any state
+
+- Requirement: `cli/uninstall/preview-is-pure`
+- Statement: When uninstall runs in preview mode against a desired extension, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/uninstall/is-idempotent`
+- Source: [`specifications/cli/uninstall/preview-is-pure.spec.ts`](../specifications/cli/uninstall/preview-is-pure.spec.ts)
+
 ##### Uninstall removes direct intent and keeps state another desired route still reaches
 
 - Requirement: `cli/uninstall/removes-direct-route-and-recomputes-reachability`
@@ -942,7 +2691,11 @@ programmatic interfaces, and supporting system behavior.
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
-- Methods: example
+- Methods: example, decision-table
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/every-type-completes-the-shared-lifecycle`
+- Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
+- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Additional evidence: process via [`packages/cli-e2e/src/root-uninstall.e2e.test.ts`](../packages/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
 - Source: [`specifications/cli/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts`](../specifications/cli/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts)
 
@@ -973,6 +2726,35 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `packages/extension-lifecycle/src/knowledge/manager.ts`, `packages/extension-workspace/src/projection/planning.ts`
 - Source: [`specifications/cli/unreadable-knowledge-is-left-out-and-reported.spec.ts`](../specifications/cli/unreadable-knowledge-is-left-out-and-reported.spec.ts)
 
+#### Unusable Directories Fail Before Command
+
+##### Unusable directories fail before the command runs
+
+- Requirement: `cli/unusable-directories-fail-before-command`
+- Statement: When a selected directory is missing, is a file, or cannot be traversed, AXM shall report a usage failure before executing the command or changing workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI parses global arguments and selects its execution directory before composing workspace services; a real process establishes the selected filesystem boundary.
+- Methods: example, decision-table
+- Derived from: `packages/cli-e2e/src/directory.e2e.test.ts`, `packages/cli/help/topics/basic-usage.md`
+- Source: [`specifications/cli/unusable-directories-fail-before-command.spec.ts`](../specifications/cli/unusable-directories-fail-before-command.spec.ts)
+
+#### Unyank
+
+##### Unyank restores only the explicitly identified version
+
+- Requirement: `cli/unyank/requires-an-exact-version`
+- Statement: The unyank command shall require an exact semantic version, request restoration only for that version, and report restoration only after the Registry acknowledges the request.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/unyank/requires-an-exact-version.spec.ts`](../specifications/cli/unyank/requires-an-exact-version.spec.ts)
+
 #### Update
 
 ##### Update advances the accepted resolution within durable intent
@@ -999,6 +2781,18 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/update/bundled-source-routes-to-recovery.spec.ts`](../specifications/cli/update/bundled-source-routes-to-recovery.spec.ts)
 
+##### Update preview describes the advance without changing any state
+
+- Requirement: `cli/update/preview-is-pure`
+- Statement: When update runs in preview mode against a desired extension with a newer eligible version, it shall report the advance it would apply with a previewed outcome, including any publisher change the acceptance would make, and shall not change settings, the lockfile, canonical content, or agent projections.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/update/advances-resolution-within-intent`
+- Source: [`specifications/cli/update/preview-is-pure.spec.ts`](../specifications/cli/update/preview-is-pure.spec.ts)
+
 ##### Update is blocked for an extension the workspace does not desire
 
 - Requirement: `cli/update/refuses-undesired-extensions`
@@ -1012,6 +2806,18 @@ programmatic interfaces, and supporting system behavior.
 - Source: [`specifications/cli/update/refuses-undesired-extensions.spec.ts`](../specifications/cli/update/refuses-undesired-extensions.spec.ts)
 
 #### Upgrade
+
+##### Availability outcomes retain the observed reason
+
+- Requirement: `cli/upgrade/availability-failures-are-attributed`
+- Statement: When installer preparation or availability blocks an upgrade, human and machine results shall agree with the recorded observation, distinguish affirmative absence from indeterminate failure and formula version mismatch, and report mutation and verification as not attempted.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/upgrade/machine-result-is-upgrade-assessment`
+- Source: [`specifications/cli/upgrade/availability-failures-are-attributed.spec.ts`](../specifications/cli/upgrade/availability-failures-are-attributed.spec.ts)
 
 ##### Upgrade discloses the installer it resolved and the version it selected before mutating
 
@@ -1036,16 +2842,27 @@ programmatic interfaces, and supporting system behavior.
 - Methods: decision-table
 - Source: [`specifications/cli/upgrade/exact-version-bypasses-discovery.spec.ts`](../specifications/cli/upgrade/exact-version-bypasses-discovery.spec.ts)
 
+##### Homebrew checks selected-version availability once
+
+- Requirement: `cli/upgrade/homebrew-checks-availability-once`
+- Statement: When a Homebrew-owned installation requires mutation, upgrade shall perform at most one explicit metadata refresh and one formula query with their own command timeouts, then either proceed on an exact match or stop without publication polling.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/upgrade/installer-availability-gates-mutation`
+- Source: [`specifications/cli/upgrade/homebrew-checks-availability-once.spec.ts`](../specifications/cli/upgrade/homebrew-checks-availability-once.spec.ts)
+
 ##### Installer availability gates upgrade mutation
 
 - Requirement: `cli/upgrade/installer-availability-gates-mutation`
-- Statement: Before mutating an npm-, pnpm-, Yarn-, or Homebrew-owned installation, upgrade shall establish that the selected stable version is available through that installer; lagging, leading, unavailable, or indeterminate publication state shall leave the installation unchanged and report recovery guidance.
+- Statement: Before mutating an npm-, pnpm-, Yarn-, or Homebrew-owned installation, upgrade shall establish that the selected exact version is available through that installer; lagging, leading, unavailable, or indeterminate publication state shall leave the installation unchanged and report recovery guidance.
 - Class: constraint
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
-- Boundary: repository; selection: per-change
-- Boundary rationale: The committed upgrade orchestration shows that the availability decision precedes and gates every manager-owned mutation branch.
-- Methods: contract
+- Boundary: memory; selection: per-change
+- Methods: example
 - Source: [`specifications/cli/upgrade/installer-availability-gates-mutation.spec.ts`](../specifications/cli/upgrade/installer-availability-gates-mutation.spec.ts)
 
 ##### Latest upgrade uses the promoted stable channel
@@ -1058,6 +2875,81 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts`](../specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts)
+
+##### Upgrade preview resolves the installation change without performing it
+
+- Requirement: `cli/upgrade/preview-is-pure`
+- Statement: When upgrade runs in preview mode against an installation with a newer promoted release, it shall report the installer, the target, and the command it would run with a previewed outcome and shall invoke no installer command, persist no install metadata, and write no update-check cache.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/upgrade/discloses-resolved-ownership-before-mutation`
+- Source: [`specifications/cli/upgrade/preview-is-pure.spec.ts`](../specifications/cli/upgrade/preview-is-pure.spec.ts)
+
+#### Version
+
+##### Version changes the selected authored manifest while preserving other content
+
+- Requirement: `cli/version/changes-only-the-authored-manifest-version`
+- Statement: When a person requests a supported version change for a workspace-authored extension, AXM shall update only that package manifest version to the requested semantic version, preserve other manifest fields and files, and leave bytes unchanged when the requested version is already current.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`, `packages/cli/src/root/shared/extension-version.ts`
+- Source: [`specifications/cli/version/changes-only-the-authored-manifest-version.spec.ts`](../specifications/cli/version/changes-only-the-authored-manifest-version.spec.ts)
+
+##### Version preview describes the manifest bump without changing any state
+
+- Requirement: `cli/version/preview-is-pure`
+- Statement: When version runs in preview mode against a workspace-authored extension, it shall report the version it would record with a previewed outcome and shall not change the manifest, settings, the lockfile, or any other authored content.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/version/preview-is-pure.spec.ts`](../specifications/cli/version/preview-is-pure.spec.ts)
+
+##### Version refuses invalid versions and packages outside workspace authorship
+
+- Requirement: `cli/version/refuses-invalid-or-unowned-targets`
+- Statement: When a version request has an invalid target identity or version, or does not identify a matching workspace-authored package, AXM shall refuse it without changing package content or workspace declarations.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`, `packages/cli/src/root/shared/extension-version.ts`
+- Source: [`specifications/cli/version/refuses-invalid-or-unowned-targets.spec.ts`](../specifications/cli/version/refuses-invalid-or-unowned-targets.spec.ts)
+
+#### Visibility
+
+##### Visibility reconciliation applies declared repository intent conditionally
+
+- Requirement: `cli/visibility/reconcile/applies-declared-repository-intent`
+- Statement: The visibility reconcile command shall require project-scoped manifest or workspace visibility intent and established Registry visibility, submit the effective intent with its source fingerprint as repository authority conditional on the observed revision, and report only the acknowledged transition.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
+- Source: [`specifications/cli/visibility/reconcile/applies-declared-repository-intent.spec.ts`](../specifications/cli/visibility/reconcile/applies-declared-repository-intent.spec.ts)
+
+##### Explicit visibility changes carry operator intent and the observed revision
+
+- Requirement: `cli/visibility/set/uses-explicit-intent-and-observed-revision`
+- Statement: The visibility set command shall require established Registry visibility, submit the requested value as operator intent conditional on the observed revision, and report the acknowledged change without silently replacing a rejected precondition.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
+- Source: [`specifications/cli/visibility/set/uses-explicit-intent-and-observed-revision.spec.ts`](../specifications/cli/visibility/set/uses-explicit-intent-and-observed-revision.spec.ts)
 
 #### Whoami
 
@@ -1095,6 +2987,20 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/withheld-releases-name-recovery-from-the-emitting-command.spec.ts`](../specifications/cli/withheld-releases-name-recovery-from-the-emitting-command.spec.ts)
+
+#### Yank
+
+##### Yank submits the explicit version selection and publisher guidance
+
+- Requirement: `cli/yank/submits-the-requested-version-selection`
+- Statement: The yank command shall require an exact version unless all available versions are explicitly selected, submit only that selection with the supplied category and notice, and report the acknowledged selection without claiming that future versions were yanked.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/yank/submits-the-requested-version-selection.spec.ts`](../specifications/cli/yank/submits-the-requested-version-selection.spec.ts)
 
 ### Source resolution
 
@@ -1160,17 +3066,32 @@ programmatic interfaces, and supporting system behavior.
 
 ### CLI
 
+#### Cache
+
+##### Cache status reports archive usage and effective limits
+
+- Requirement: `cli/cache/status/reports-usage-and-effective-limits`
+- Statement: The cache status command shall report the number and total bytes of cached archives together with the effective size and age limits in its machine result.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/cache/command.ts`, `packages/cli/src/root/cache/command.internal.test.ts`
+- Open questions: Is the current 90-day age limit a product commitment or an implementation default that may change?
+- Source: [`specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts`](../specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts)
+
 #### Exit Codes Match Published Reference
 
 ##### The published exit-code reference matches the runtime exit codes
 
 - Requirement: `cli/exit-codes-match-published-reference`
-- Statement: The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows.
+- Statement: The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows, and an invocation the parser rejects or an apply stopped as approval required shall exit with the code whose published meaning names that outcome.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `knowledge-access`
 - Boundary: memory; selection: per-change
-- Methods: model
+- Methods: model, example
 - Source: [`specifications/cli/exit-codes-match-published-reference.spec.ts`](../specifications/cli/exit-codes-match-published-reference.spec.ts)
 
 #### Install
@@ -1186,6 +3107,58 @@ programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Additional evidence: process via [`packages/cli-e2e/src/cli-commands/skills/install/output-ux.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/skills/install/output-ux.e2e.test.ts) — Observes the real process stdout document and stderr diagnostics of the shipped CLI, which the in-memory renderer capture cannot prove.
 - Source: [`specifications/cli/install/machine-result-is-schema-backed.spec.ts`](../specifications/cli/install/machine-result-is-schema-backed.spec.ts)
+
+#### Knowledge
+
+##### Get preserves source content and revision identity
+
+- Requirement: `cli/knowledge/concepts/get/returns-source-backed-document`
+- Statement: When retrieving an installed Knowledge concept, AXM shall return its complete frontmatter and body with source-backed bundle, content, and projection revision identity, including the exact source document when raw output is requested.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/get/returns-source-backed-document.spec.ts`](../specifications/cli/knowledge/concepts/get/returns-source-backed-document.spec.ts)
+
+##### Query bounds follow the published discovery limits
+
+- Requirement: `cli/knowledge/concepts/query/enforces-published-query-bounds`
+- Statement: When a Knowledge query selects output bounds, AXM shall accept only whole-number result limits from 1 through 100, passage limits from 0 through 10, and passage lengths from 1 through 2000.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/knowledge-query/src/knowledge-capabilities.ts`, `packages/cli/help/topics/knowledge.md`
+- Source: [`specifications/cli/knowledge/concepts/query/enforces-published-query-bounds.spec.ts`](../specifications/cli/knowledge/concepts/query/enforces-published-query-bounds.spec.ts)
+
+##### Related traversal validates its depth limit
+
+- Requirement: `cli/knowledge/concepts/related/enforces-published-depth-bounds`
+- Statement: When a caller selects a Knowledge relationship traversal depth, AXM shall accept only whole-number depths from one through three.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/knowledge-query/src/knowledge-capabilities.ts`, `packages/cli/src/root/knowledge/concepts/related.ts`
+- Source: [`specifications/cli/knowledge/concepts/related/enforces-published-depth-bounds.spec.ts`](../specifications/cli/knowledge/concepts/related/enforces-published-depth-bounds.spec.ts)
+
+##### Discovery status describes the supported query contract
+
+- Requirement: `cli/knowledge/concepts/status/publishes-discovery-capabilities`
+- Statement: When reporting Knowledge discovery capabilities, AXM shall identify its query grammar, supported operations and fields, output contract, cursor validity, and output limits consistently with the discovery commands.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/knowledge-query/src/knowledge-capabilities.ts`, `packages/cli/help/topics/knowledge.md`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/status/publishes-discovery-capabilities.spec.ts`](../specifications/cli/knowledge/concepts/status/publishes-discovery-capabilities.spec.ts)
 
 #### Lint
 
@@ -1270,7 +3243,7 @@ programmatic interfaces, and supporting system behavior.
 ##### A failed machine invocation still emits the stable error envelope
 
 - Requirement: `cli/machine-errors-use-the-stable-envelope`
-- Statement: When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output that carries any structured problem the failure names, keeping every diagnostic line on standard error as a structured event.
+- Statement: When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output that carries any structured problem the failure names, keeping every diagnostic line on standard error as a structured event; when it stops as approval required, it shall write exactly one schema-valid result document that names the block and its recovery.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1286,7 +3259,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Machine output mode terminates deterministically instead of prompting
 
 - Requirement: `cli/machine-mode-never-prompts`
-- Statement: When machine output mode is on, a command that needs interactive input shall terminate with a usage failure naming the required input, shall raise no prompt, and shall change no workspace state, while the same request with machine output off shall prompt and honor the answer.
+- Statement: When machine output mode is on, a command that needs interactive input or interactive approval shall terminate with a usage failure naming what it needs, shall raise no prompt even from an interactive terminal, and shall change no workspace state, while the same request with machine output off shall prompt and honor the answer.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
@@ -1361,7 +3334,33 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/non-tty-output-is-plain-and-unpadded.spec.ts`](../specifications/cli/non-tty-output-is-plain-and-unpadded.spec.ts)
 
+#### Preview Uses The Canonical Flag
+
+##### Assessment is spelled --preview everywhere it exists and nowhere else
+
+- Requirement: `cli/preview-uses-the-canonical-flag`
+- Statement: Every command that assesses its change without applying it shall accept --preview and no alternative spelling, every command without an assessment shall reject --preview, and rendered help shall list --preview and --yes on exactly the commands whose capabilities declare them.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: contract
+- Derived from: `cli/command-help-is-complete`
+- Source: [`specifications/cli/preview-uses-the-canonical-flag.spec.ts`](../specifications/cli/preview-uses-the-canonical-flag.spec.ts)
+
 #### Publish
+
+##### The publication archive matches its complete reported inventory
+
+- Requirement: `cli/publish/archive-inventory-matches-published-bytes`
+- Statement: Publish shall include every regular package-root file unless explicitly ignored and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Source: [`specifications/cli/publish/archive-inventory-matches-published-bytes.spec.ts`](../specifications/cli/publish/archive-inventory-matches-published-bytes.spec.ts)
 
 ##### Machine publish outcomes report source state against Git HEAD
 
@@ -1377,6 +3376,18 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
 - Source: [`specifications/cli/publish/outcomes-report-source-state.spec.ts`](../specifications/cli/publish/outcomes-report-source-state.spec.ts)
 
+##### Publication uploads are bound to the reviewed source and visibility
+
+- Requirement: `cli/publish/uploads-the-reviewed-publication-set`
+- Statement: For a remotely authorized publication, AXM shall bind each actual archive upload to its reviewed publication-set-v2 candidate using the granted capability, condition, publication-set digest, descriptor digest, and resolved visibility, and report the Registry's acknowledged outcome.
+- Class: external-conformance
+- Role: interface
+- Product goals: `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Source: [`specifications/cli/publish/uploads-the-reviewed-publication-set.spec.ts`](../specifications/cli/publish/uploads-the-reviewed-publication-set.spec.ts)
+
 #### Sync
 
 ##### Sync reports aggregate projection drift at ownership-unit precision
@@ -1389,6 +3400,21 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: decision-table, contract, example
 - Source: [`specifications/cli/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../specifications/cli/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
+
+#### Token
+
+##### Token output exposes the effective credential on request
+
+- Requirement: `cli/token/returns-effective-token`
+- Statement: When a credential is available, axm token shall return that credential alone as text by default or as a structured token value when JSON output is requested.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts`](../packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts) — Observes raw and JSON process stdout and real HTTP verification followed by token creation.
+- Source: [`specifications/cli/token/returns-effective-token.spec.ts`](../specifications/cli/token/returns-effective-token.spec.ts)
 
 #### Update
 
@@ -1416,6 +3442,34 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: contract
 - Source: [`specifications/cli/upgrade/machine-result-is-upgrade-assessment.spec.ts`](../specifications/cli/upgrade/machine-result-is-upgrade-assessment.spec.ts)
+
+#### Version
+
+##### Machine version output identifies the manifest and before and after versions
+
+- Requirement: `cli/version/machine-result-identifies-manifest-change`
+- Statement: When a version change runs in machine mode, AXM shall emit one plan-result document identifying the selected extension, manifest path, previous and resulting versions, and whether a change was applied or unnecessary.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`
+- Source: [`specifications/cli/version/machine-result-identifies-manifest-change.spec.ts`](../specifications/cli/version/machine-result-identifies-manifest-change.spec.ts)
+
+#### Visibility
+
+##### Visibility status supplies repository intent and reports the Registry evaluation
+
+- Requirement: `cli/visibility/status/reports-repository-intent-and-registry-evaluation`
+- Statement: For a project-scoped visibility status request, AXM shall submit the manifest visibility intent when present, otherwise the workspace default when present, otherwise no intent, and report the selected extension's Registry evaluation through the AgentXM Registry API 0.1.0 contract.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, contract
+- Derived from: `packages/cli/src/root/visibility/handler.ts`, `packages/registry-protocol/src/unstable/publish/visibility.ts`
+- Source: [`specifications/cli/visibility/status/reports-repository-intent-and-registry-evaluation.spec.ts`](../specifications/cli/visibility/status/reports-repository-intent-and-registry-evaluation.spec.ts)
 
 ### Extension identity
 
@@ -1625,16 +3679,15 @@ programmatic interfaces, and supporting system behavior.
 
 #### Security
 
-##### Telemetry payloads carry only the fields the published telemetry contract declares
+##### Telemetry excludes extension content and secrets
 
 - Requirement: `system/security/telemetry-payloads-respect-data-boundary`
-- Statement: Every telemetry event AXM sends shall carry only the observation fields for identity, timing, and command context that the published telemetry contract declares, so that extension content, authored instructions and knowledge, credentials, and resolved secret values have no field in which to travel.
+- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.1.0 and contain only identity, timing, and command-observation data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
 - Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`
 - Boundary: memory; selection: per-change
 - Methods: contract, example
-- Assumptions: Values inside the free-form properties field carry only documented observation data; the evidence bounds field names at every level the published contract closes, not the values inside properties.; The telemetry contract snapshot generated into the CLI is the contract the production telemetry service publishes.
 - Source: [`specifications/system/security/telemetry-payloads-respect-data-boundary.spec.ts`](../specifications/system/security/telemetry-payloads-respect-data-boundary.spec.ts)
 
 ### Version constraints
@@ -1650,7 +3703,6 @@ programmatic interfaces, and supporting system behavior.
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: property, example
-- Open questions: Combining the accepts-everything contributor >=0.0.0 yields an empty constraint that the product's own satisfaction check rejects; the property excludes that contributor pending a defect decision on whether it is in scope.
 - Source: [`specifications/version-constraints/constraint-intersection-preserves-every-limit.spec.ts`](../specifications/version-constraints/constraint-intersection-preserves-every-limit.spec.ts)
 
 #### Range Satisfaction Follows Semver
@@ -1681,8 +3733,7 @@ programmatic interfaces, and supporting system behavior.
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Assumptions: The specification runtime has no system keychain, so the keychain write is reported as failed while the workspace files and the reported result remain observable.
-- Limitation: In-memory execution cannot observe the system keychain, so the namespace under which each connection's secret is kept is not evidenced here; the derivation is verified by an internal test beside the deriving module. Retires when: The specification harness composes an observable secret store whose namespaces specifications can read.
+- Limitation: The native keyring Entry boundary is controlled; actual operating-system keychain availability and access policy are not exercised. Retires when: Run the same credential lifecycle against disposable keychain entries on each supported operating system.
 - Source: [`specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts`](../specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts)
 
 #### Upgrade
@@ -1716,6 +3767,19 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: The module-boundary lint gate declared as bound evidence runs on every change through the required aggregate check.
 - Bound evidence: `lint: @nx/enforce-module-boundaries` — Rejects workspace imports from end-to-end and test-support projects into product source packages, and relative imports that cross a project root, leaving the built CLI output path as the only sanctioned way to reach the shipped surface.
 - Source: [`specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts`](../specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts)
+
+##### Every registered command declares interaction capabilities its flags and evidence agree with
+
+- Requirement: `system/architecture/every-command-declares-interaction-capabilities`
+- Statement: Every registered command node shall declare its interaction capabilities; the declared routes shall be exactly the accepted allocation, each declaration shall agree with its allocation row and with the flags its rendered help lists, every assessment route shall own a preview-purity specification, and every advance-approval route shall have a purpose fixture in the confirmation-flag specification.
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Only the registered command tree, the accepted allocation table, the rendered help, and the specification files on disk, compared together, can show that every route's declaration, grammar, and evidence correspond.
+- Methods: contract, static
+- Derived from: `system/architecture/specification-folders-mirror-command-tree`, `cli/confirmation-flags-have-a-supported-purpose`, `cli/preview-uses-the-canonical-flag`
+- Source: [`specifications/system/architecture/every-command-declares-interaction-capabilities.spec.ts`](../specifications/system/architecture/every-command-declares-interaction-capabilities.spec.ts)
 
 ##### Feature packages stay peers and never depend on one another
 
@@ -1863,6 +3927,21 @@ programmatic interfaces, and supporting system behavior.
 - Limitation: The evidence establishes only that the committed workspace catalog declares the two aliases; it cannot observe whether the exit condition recorded in the dual TypeScript alias decision (docs/architecture/decisions/typescript-dual-alias.md) has been reached. Retires when: TypeScript 7.1 or a later release removes the need for the compatibility split, the dual TypeScript alias decision record is superseded, and the workspace collapses to a single TypeScript dependency, retiring this constraint in the same change.
 - Source: [`specifications/system/process/dual-typescript-alias-retained.spec.ts`](../specifications/system/process/dual-typescript-alias-retained.spec.ts)
 
+##### Evidence reports distinguish current execution from incomplete or absent verification
+
+- Requirement: `system/process/evidence-reports-match-executed-inputs`
+- Statement: When reporting requirement evidence, AXM's repository tools shall identify the executed source and built runtime inputs, observation boundary and selection, distinguishing current complete outcomes from stale, partial, missing, and unverified evidence.
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The repository verdict is the review boundary for native test results and separately bound evidence.
+- Methods: example
+- Derived from: `scripts/specification-verdict-lib.ts`
+- Assumptions: Installed dependencies match the committed lockfile; repository-wide input matching conservatively invalidates unrelated changes.
+- Limitation: Recorded host context establishes only the actual test environment; this report does not infer unobserved platform, human review, external service, or static gate outcomes. Retires when: Each such boundary supplies separately attributable execution or assessment evidence.
+- Source: [`specifications/system/process/evidence-reports-match-executed-inputs.spec.ts`](../specifications/system/process/evidence-reports-match-executed-inputs.spec.ts)
+
 ##### Changes are verified by one aggregate required check before merge
 
 - Requirement: `system/process/merges-require-aggregate-verification`
@@ -1931,19 +4010,6 @@ programmatic interfaces, and supporting system behavior.
 - Bound evidence: `test: axm:test (scripts/release-prepare.tooling.test.ts)` — Drives release preparation against a fake host and checks that the production Registry preflight runs before any candidate state is allocated and stops preparation when it fails, that the exact generated candidate is previewed against the Registry only after versioning, changelog, and bundled-skill generation, and that the production preview publication targets the production Registry in verify-on-existing preview mode with no apply path.
 - Source: [`specifications/system/process/release-preparation-validates-production-gates.spec.ts`](../specifications/system/process/release-preparation-validates-production-gates.spec.ts)
 
-##### Stable promotion precedes independent distribution
-
-- Requirement: `system/process/release-promotion-precedes-independent-distribution`
-- Statement: The canonical release workflow shall upload and validate immutable GitHub assets, then either promote their release coordinate through the conditionally written stable channel or, only during an explicit recovery rerun, verify that the strong-ETag stable channel already names that exact coordinate, and only then publish npm packages or update Homebrew; a normal recovery rerun shall preserve any newer promoted channel.
-- Class: process
-- Role: supporting
-- Product goals: `trustworthy-distribution`, `dependable-change-process`
-- Boundary: repository; selection: per-change
-- Boundary rationale: The workflow and its Nx-owned promotion entry point are the committed ordering and recovery controls for public release distribution.
-- Methods: contract
-- Assumptions: The Control API validates the immutable GitHub asset set before changing the public channel object.
-- Source: [`specifications/system/process/release-promotion-precedes-independent-distribution.spec.ts`](../specifications/system/process/release-promotion-precedes-independent-distribution.spec.ts)
-
 ##### Release promotion checks public validators before conditional updates
 
 - Requirement: `system/process/release-promotion-validates-public-validators`
@@ -1959,6 +4025,45 @@ programmatic interfaces, and supporting system behavior.
 - Bound evidence: `test: axm:test (scripts/release-channel-promotion.tooling.test.ts)` — Exercises identity, gzip, Brotli, and Zstandard public reads before the Control PUT, rejects weak or absent validators, transformation, inconsistent validators or documents, and failed reads without mutation, and preserves conditional creation and newer-channel retention.
 - Source: [`specifications/system/process/release-promotion-validates-public-validators.spec.ts`](../specifications/system/process/release-promotion-validates-public-validators.spec.ts)
 
+##### Release publication preserves newer distribution versions
+
+- Requirement: `system/process/release-publication-preserves-newer-versions`
+- Statement: The canonical release workflow shall serialize active release publications across tags and stop an older candidate as superseded when a newer npm latest, Homebrew formula or stable version is observed, without moving those publications backward or attempting historical distribution repair.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
+- Methods: contract
+- Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises older candidates before publication and at owner write boundaries, equal-version formula conflicts and newer-channel retention.
+- Source: [`specifications/system/process/release-publication-preserves-newer-versions.spec.ts`](../specifications/system/process/release-publication-preserves-newer-versions.spec.ts)
+
+##### Release reruns reuse only identical published content
+
+- Requirement: `system/process/release-publication-reuses-identical-content`
+- Statement: A rerun of one release coordinate shall verify and reuse identical published content, publish missing outputs and reject conflicting bytes or failed existence queries without overwriting published outputs or requiring a promotion bypass.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
+- Methods: contract
+- Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, partial publication reruns, and identical-coordinate promotion without credentials.
+- Source: [`specifications/system/process/release-publication-reuses-identical-content.spec.ts`](../specifications/system/process/release-publication-reuses-identical-content.spec.ts)
+
+##### Release results distinguish distribution and promotion state
+
+- Requirement: `system/process/release-workflow-reports-publication-state`
+- Statement: The canonical release workflow shall report the exact candidate and every publication and verification result separately from confirmed, incomplete or uncertain promotion and superseded candidates, retaining uncertain submission evidence until bounded readback confirms channel state.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
+- Methods: contract
+- Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises publication boundary outcomes, one readback after a lost promotion response, uncertain readback failures, and no repeated conditional mutation.
+- Source: [`specifications/system/process/release-workflow-reports-publication-state.spec.ts`](../specifications/system/process/release-workflow-reports-publication-state.spec.ts)
+
 ##### Releases publish only through the canonical automated workflow
 
 - Requirement: `system/process/releases-publish-through-canonical-workflow`
@@ -1971,6 +4076,36 @@ programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Assumptions: Publishing credentials are available only to the canonical workflow, so no manual or external path can publish release artifacts.
 - Source: [`specifications/system/process/releases-publish-through-canonical-workflow.spec.ts`](../specifications/system/process/releases-publish-through-canonical-workflow.spec.ts)
+
+##### Requirement reports separate changed promises from evidence affected by implementation
+
+- Requirement: `system/process/requirement-diffs-separate-evidence-impact`
+- Statement: When reporting a change, AXM's repository tools shall distinguish added, removed, and revised requirement contracts from changed verification or implementation inputs, including affected evidence for requirements whose contracts remain unchanged.
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The verdict compares the selected Git baseline to the working tree and presents the distinct review questions.
+- Methods: example
+- Derived from: `scripts/specification-verdict-lib.ts`
+- Source: [`specifications/system/process/requirement-diffs-separate-evidence-impact.spec.ts`](../specifications/system/process/requirement-diffs-separate-evidence-impact.spec.ts)
+
+##### Stable promotion follows verified candidate distribution
+
+- Requirement: `system/process/stable-promotion-follows-verified-distribution`
+- Statement: The canonical release workflow shall attempt stable promotion only after publication of the candidate binary/checksum assets, fixed npm cohort, Homebrew formula and official skill, and successful exact-candidate script, published-package, Homebrew and official-skill installation verification; promotion failures shall not prevent that preceding distribution.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The canonical workflow graph defines required release readiness and exact-candidate job inputs.
+- Methods: contract
+- Derived from: `system/process/release-promotion-precedes-independent-distribution`
+- Supersedes: `system/process/release-promotion-precedes-independent-distribution`
+- Assumptions: The release coordinate is immutable and each required verifier reports truthful evidence about its named candidate.
+- Limitation: Repository evidence checks the workflow graph; it does not execute the published installer platform matrix. Retires when: An authorized release supplies successful exact-candidate matrix results and promotion readback.
+- Bound evidence: `test: specifications:test` — Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.
+- Source: [`specifications/system/process/stable-promotion-follows-verified-distribution.spec.ts`](../specifications/system/process/stable-promotion-follows-verified-distribution.spec.ts)
 
 ## Product goals
 

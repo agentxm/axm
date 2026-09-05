@@ -24,9 +24,7 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "Combining the accepts-everything contributor >=0.0.0 yields an empty constraint that the product's own satisfaction check rejects; the property excludes that contributor pending a defect decision on whether it is in scope.",
-  ],
+  openQuestions: [],
 });
 
 interface VersionTriple {
@@ -43,17 +41,21 @@ const tripleArbitrary = FastCheck.record({
 
 const render = ({ major, minor, patch }: VersionTriple): string => `${major}.${minor}.${patch}`;
 
-const contributorArbitrary = FastCheck.tuple(
-  FastCheck.constantFrom("^", "~", ">=", "<", ""),
-  tripleArbitrary,
-)
-  .map(([operator, triple]) => `${operator}${render(triple)}`)
-  // `>=0.0.0` is excluded pending an open defect decision: intersecting the
-  // accepts-everything contributor yields the empty-string constraint, which
-  // the product's own satisfaction check then rejects. The requirement is
-  // stated for every other contributor; the degenerate case is unresolved,
-  // not accepted.
-  .filter((contributor) => contributor !== ">=0.0.0");
+const contributorArbitrary = FastCheck.oneof(
+  FastCheck.tuple(FastCheck.constantFrom("^", "~", ">=", "<", ""), tripleArbitrary).map(
+    ([operator, triple]) => `${operator}${render(triple)}`,
+  ),
+  FastCheck.constantFrom(
+    "*",
+    ">=0.0.0",
+    "1.x",
+    "^1.0.0 || ^3.0.0",
+    ">=1.0.0-alpha",
+    "<1.0.0-beta",
+    "^2.0.0-rc.0",
+    "1.0.0-alpha || >=2.0.0-beta",
+  ),
+);
 
 const satisfies = (version: string, range: string): boolean =>
   versionSatisfiesRange(decodeVersionSync(version), decodeVersionRangeSync(range));
@@ -69,13 +71,47 @@ describe("Version constraint intersection", () => {
       Effect.sync(() => {
         const combined = intersectVersionConstraints(contributors);
         for (const probe of probes) {
-          const version = render(probe);
-          const insideEvery = contributors.every((contributor) => satisfies(version, contributor));
-          const insideCombined = combined !== undefined && satisfies(version, combined);
-          expect(insideCombined).toBe(insideEvery);
+          for (const suffix of ["", "-alpha", "-alpha.1", "-beta", "-rc.0"]) {
+            const version = `${render(probe)}${suffix}`;
+            const insideEvery = contributors.every((contributor) =>
+              satisfies(version, contributor),
+            );
+            const insideCombined = combined !== undefined && satisfies(version, combined);
+            expect(insideCombined).toBe(insideEvery);
+          }
         }
       }),
     { fastCheck: { numRuns: 200 } },
+  );
+
+  it.effect("unrestricted contributors produce a valid range accepting every stable version", () =>
+    Effect.sync(() => {
+      for (const contributors of [[">=0.0.0"], ["*"], ["*", ">=0.0.0"], []]) {
+        const combined = intersectVersionConstraints(contributors);
+        expect(combined).toBeDefined();
+        if (combined === undefined) continue;
+        for (const version of ["0.0.0", "0.0.1", "1.2.3", "999.999.999"]) {
+          expect(satisfies(version, combined)).toBe(true);
+        }
+      }
+    }),
+  );
+
+  it.effect("prereleases satisfy the intersection only when every contributor admits them", () =>
+    Effect.sync(() => {
+      for (const contributors of [
+        [">=1.0.0-alpha", "<2.0.0"],
+        [">=1.0.0-alpha", "<1.0.0-beta"],
+        ["*", ">=1.0.0-alpha"],
+      ]) {
+        const combined = intersectVersionConstraints(contributors);
+        for (const version of ["1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-beta", "1.0.0", "2.0.0"]) {
+          expect(combined !== undefined && satisfies(version, combined)).toBe(
+            contributors.every((contributor) => satisfies(version, contributor)),
+          );
+        }
+      }
+    }),
   );
 
   it.effect("the combination of overlapping ranges accepts what both accept and nothing more", () =>

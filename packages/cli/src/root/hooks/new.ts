@@ -20,8 +20,12 @@ import type {
 import { newHook, preflightCreateOnly, type NewHookOperation } from "@agentxm/extension-authoring";
 import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import type { HookLockEntry } from "@agentxm/workspace-state";
 import type {
   JobStepArtifact,
@@ -97,7 +101,6 @@ export interface HooksNewHandlerArgs {
   readonly runtime: HookRuntime;
   readonly event: HookEvent;
   readonly matcher: Option.Option<string>;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -287,10 +290,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
-    preview: args.preview,
-    yes: args.yes,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
   const suggestions = [
     {
@@ -318,27 +318,24 @@ const newConfig = {
     Flag.withDescription("Raw native matcher for tool.pre/tool.post (e.g., Write|Edit)"),
     Flag.optional,
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Create the hook without confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what files would be created without creating them"),
-  ),
+  preview: previewCapabilityFlag("Show what files would be created without creating them"),
 } as const;
 
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, owner, runtime, event, matcher, yes, preview }) =>
+  ({ name, owner, runtime, event, matcher, preview }) =>
     handleHooksNew({
       name: decodeExtensionNameSync(name),
       owner,
       runtime,
       event,
       matcher,
-      yes,
       preview,
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("hooks new")),
 ).pipe(
   withArgvTracking(newConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Create a new hook in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm hooks new tool-audit", description: "Scaffold a new hook" },

@@ -1,3 +1,4 @@
+import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -16,9 +17,15 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["extension-adoption"],
-  methods: ["example"],
-  derivedFrom: ["cli/install/direct-intent-recorded-and-realized"],
-  supersedes: ["cli/install/direct-intent-recorded-and-realized"],
+  methods: ["example", "decision-table"],
+  derivedFrom: [
+    "cli/install/direct-intent-recorded-and-realized",
+    "cli/every-type-completes-the-shared-lifecycle",
+  ],
+  supersedes: [
+    "cli/install/direct-intent-recorded-and-realized",
+    "cli/every-type-completes-the-shared-lifecycle",
+  ],
   assumptions: [],
   openQuestions: [],
 });
@@ -42,13 +49,27 @@ describe("Install materializes canonical content", () => {
 
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
 
       expect(workspace.snapshotTree("agent_extensions")).toContain(CANONICAL_SKILL_DOCUMENT);
       expect(workspace.readFile(CANONICAL_SKILL_DOCUMENT)).toContain("# code-review");
+    }),
+  );
+  it.effect.each(localLifecycleRows)("materializes the source content for a local $label", (row) =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace();
+      cleanups.push(workspace.cleanup);
+      const name = `conformance-${row.label}`;
+      const source = row.writePackage(workspace.root, { name });
+      yield* handleInstall({ source: Option.some(source), force: false, preview: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      const relativeContent = row.canonicalFile(name);
+      expect(workspace.readFile(`agent_extensions/local/vendor/${name}/${relativeContent}`)).toBe(
+        workspace.readFile(`vendor/${name}/${relativeContent}`),
+      );
     }),
   );
 });

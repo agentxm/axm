@@ -108,17 +108,13 @@ describe("Publishing archive content not represented by Git HEAD", () => {
     }),
   );
 
-  it.effect.each([
-    { label: "without confirmation", yes: false },
-    { label: "with --yes", yes: true },
-  ])("blocks apply without explicit warning acceptance: $label", (testCase) =>
+  it.effect("blocks apply without explicit warning acceptance", () =>
     Effect.gen(function* () {
       const { workspace, registry } = setup();
       const exit = yield* handleRootPublish(
         publishArgs(registry.url, {
           selectors: ["@acme/skills/review"],
           preview: false,
-          yes: testCase.yes,
         }),
       ).pipe(
         Effect.provide(

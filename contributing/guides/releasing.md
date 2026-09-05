@@ -109,24 +109,46 @@ state in the [specification catalog](../../specifications/catalog.md).
 
 6. Let GitHub Actions finish the publish.
 
-   The GitHub Release triggers `publish.yml`, which validates the tag, downloads
-   the matching CI artifacts, uploads release binaries, and then promotes the
-   validated release coordinate through the Control API. Promotion uses native
-   HTTP preconditions: the first revision uses `If-None-Match: *`; later
-   revisions use the strong ETag read from the public stable-channel object.
-   Only after promotion succeeds does the workflow pack and publish every
-   `release:cli` npm package in dependency order and update Homebrew when
-   `HOMEBREW_TAP_TOKEN` is configured.
+   The GitHub Release triggers `publish.yml`, which validates the exact tag and
+   commit, downloads and validates matching CI binaries and checksums, and
+   publishes the assets, fixed npm cohort, and Homebrew formula. Every
+   verification checkout is pinned to the resolved commit. Required evidence
+   includes exact-version bash installations on Linux/macOS, PowerShell and cmd
+   on Windows, clean published npm installations on Linux/macOS/Windows,
+   pnpm and Yarn Classic on Linux, macOS Homebrew installation, and publication
+   and installation of the matching official skill.
 
-   This ordering makes the stable channel the release-selection authority while
-   npm and Homebrew converge independently. A recovery rerun is idempotent. If
-   the channel already names the requested coordinate, promotion returns the
-   verified current state. If a newer release is already promoted, the workflow
-   retains it and may continue repairing lagging distribution channels without
-   rolling the channel back.
+   Only after every required gate succeeds does the final job promote stable.
+   Promotion uses `If-None-Match: *` for first creation and the public strong
+   ETag for replacement, retaining representation preflight and artifact
+   validation. An identical coordinate with identical validated descriptors is
+   confirmed without mutation credentials. A lost submission response gets one
+   bounded public readback and no repeated PUT; unsuccessful readback leaves
+   promotion incomplete/uncertain. Readback does not independently verify an
+   audit event.
 
-   If a release needs recovery after the GitHub Release already exists, run
-   `publish.yml` manually with `workflow_dispatch` and the existing release tag.
+   Recovery uses the same workflow with the existing `release_tag`, without a
+   promotion-bypass input. Identical outputs are verified and reused; missing
+   outputs are published; different content and failed existence reads stop the
+   run. Missing tap credentials fail when a formula write is needed. The
+   complete npm cohort is packed twice and compared before publication, so
+   differing repacks are reproducibility failures.
+
+   Canonical releases share one concurrency group without canceling active
+   runs. npm latest and the tap are checked before publication and at their
+   write boundaries. An older candidate is superseded when newer distribution
+   is observed; it does not repair historical distribution or move channels
+   backward. Concurrent tap changes reject the push and require a fresh run.
+
+   GitHub, npm, Homebrew, and the skill can become visible before stable. The
+   published-release trigger also leaves an initial interval before binary
+   attachment. Default public-script and native-manager installation therefore
+   has its own discovery behavior; it is not stable-only. An interrupted release
+   can remain partly published until a rerun or superseding release. There is
+   no atomic cross-service transaction, automatic rollback, or propagation
+   deadline. The always-run summary distinguishes distribution/verification
+   failure, complete distribution with incomplete promotion, confirmed
+   promotion, and superseded candidates.
 
 ---
 

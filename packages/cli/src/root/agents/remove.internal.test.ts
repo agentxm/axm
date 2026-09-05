@@ -112,7 +112,6 @@ describe("agents remove.handler", () => {
       Effect.gen(function* () {
         yield* handleAgentsRemove({
           ids: ["opencode"],
-          yes: false,
           force: false,
           preview: true,
         });
@@ -137,7 +136,6 @@ describe("agents remove.handler", () => {
       Effect.gen(function* () {
         yield* handleAgentsRemove({
           ids: ["opencode"],
-          yes: false,
           force: false,
           preview: true,
         });
@@ -167,7 +165,6 @@ describe("agents remove.handler", () => {
       Effect.gen(function* () {
         yield* handleAgentsRemove({
           ids: ["opencode"],
-          yes: false,
           force: false,
           preview: false,
         });
@@ -233,7 +230,6 @@ describe("agents remove.handler", () => {
       Effect.gen(function* () {
         yield* handleAgentsRemove({
           ids: ["opencode"],
-          yes: false,
           force: false,
           preview: false,
         });
@@ -275,7 +271,6 @@ describe("agents remove.handler", () => {
       Effect.gen(function* () {
         yield* handleAgentsRemove({
           ids: ["opencode"],
-          yes: false,
           force: false,
           preview: false,
         });

@@ -1,7 +1,12 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { ignoreReleaseAgeFlag, previewFlag, refreshFlag, yesFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, refreshFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { resolveWorkspaceUpdateSelection, updateNameFilterFlag } from "../shared/update-targets.js";
@@ -23,16 +28,15 @@ const updateConfig = {
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific MCP servers by name or glob pattern"),
   ),
-  yes: yesFlag,
   force: refreshFlag,
-  preview: previewFlag,
+  preview: previewCapabilityFlag(),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, name, yes, force, preview, ignoreReleaseAge }) =>
+  ({ source, scope, name, force, preview, ignoreReleaseAge }) =>
     Effect.gen(function* () {
       const selection = yield* resolveWorkspaceUpdateSelection({
         command: COMMAND,
@@ -52,7 +56,7 @@ export const updateCommand = Command.make(
         type: Option.some("mcp-server"),
         planName: PLAN_NAME,
         planDescription: Option.some(PLAN_DESCRIPTION),
-        flags: { yes, preview, force },
+        flags: { preview, force },
         ...(selection.type === "names" ? { names: selection.names } : {}),
       });
     }).pipe(
@@ -62,6 +66,7 @@ export const updateCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(updateConfig),
+  withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription("Update MCP servers"),
   Command.withExamples([
     { command: "axm mcps update", description: "Update configured MCP servers" },

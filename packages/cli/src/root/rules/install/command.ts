@@ -1,12 +1,12 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Option from "effect/Option";
-import {
-  ignoreReleaseAgeFlag,
-  previewFlag,
-  reinstallFlag,
-  yesFlag,
-} from "../../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, reinstallFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
@@ -20,18 +20,15 @@ const installConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall a rule that already exists")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be installed without making changes"),
-  ),
+  preview: previewCapabilityFlag("Show what would be installed without making changes"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview, ignoreReleaseAge }) =>
+  ({ source, scope, force, preview, ignoreReleaseAge }) =>
     Option.match(source, {
       onNone: () =>
         handleWorkspaceInstall({
@@ -39,9 +36,9 @@ export const installCommand = Command.make(
           type: Option.some("rule"),
           planName: "Install configured rules",
           planDescription: Option.some("Install configured rules"),
-          flags: { yes, preview },
+          flags: { preview },
         }),
-      onSome: (value) => handleInstallRule({ source: value }, { yes, force, preview }),
+      onSome: (value) => handleInstallRule({ source: value }, { force, preview }),
     }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
@@ -49,6 +46,7 @@ export const installCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(installConfig),
+  withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription("Install rules"),
   Command.withExamples([
     {

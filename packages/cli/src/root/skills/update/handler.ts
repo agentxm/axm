@@ -1,8 +1,19 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
-import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-lifecycle";
+import {
+  WorkspaceMutations,
+  acceptedResolutionRef,
+  configuredRowsByName,
+} from "@agentxm/workspace-state";
+import {
+  classifyPublisherBindingTransition,
+  makeConfiguredReleaseAgeEvaluation,
+  publisherTransitionWarning,
+  registryBindingProposal,
+  withPublisherTrustConditions,
+  type PublisherBindingTransition,
+} from "@agentxm/extension-lifecycle";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
@@ -79,7 +90,6 @@ export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
   readonly skills: readonly string[];
   readonly force: boolean;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -655,28 +665,38 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
     });
   }
 
+  // Step 7: Classify every proposed Registry acceptance against the accepted
+  // resolution. A replaced publisher binding is a trust decision a person
+  // makes at a prompt; the plan carries it as an interactive-only condition.
   const warningsBySkill = new Map<string, ReadonlyArray<string>>();
+  const publisherTransitions: Array<PublisherBindingTransition> = [];
   for (const item of resolved) {
+    const proposed = registryBindingProposal(item.ref);
     const accepted = lockedSkills[item.ref.skill.name];
-    const lockedEpoch = accepted?.type === "registry" ? accepted.publisherBindingId : undefined;
-    const resolvedEpoch = item.ref.refType === "registry" ? item.ref.publisherBindingId : undefined;
-    const publisherEpochChanged =
-      accepted?.type === "registry" &&
-      item.ref.refType === "registry" &&
-      lockedEpoch !== resolvedEpoch;
-    if (publisherEpochChanged && args.yes) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Unattended update refused for ${item.ref.owner}/skills/${item.ref.name}: publisher epoch changed from ${lockedEpoch} to ${resolvedEpoch}`,
-        recover: "Run the update interactively, verify the publisher change, and confirm the plan.",
-      });
+    const transition =
+      proposed === undefined || accepted?.type !== "registry"
+        ? Option.none<PublisherBindingTransition>()
+        : classifyPublisherBindingTransition({
+            accepted: yield* acceptedResolutionRef({
+              workspace: ws,
+              type: "skill",
+              name: proposed.target,
+            }).pipe(
+              Effect.mapError((cause) =>
+                makeAppError({
+                  code: "conflict",
+                  detail: `The accepted resolution for skill "${proposed.target}" could not be read, so the proposed publisher binding cannot be checked`,
+                  cause,
+                }),
+              ),
+            ),
+            proposed,
+          });
+    if (Option.isSome(transition)) {
+      publisherTransitions.push(transition.value);
     }
-
-    const warnings = publisherEpochChanged
-      ? [
-          `Publisher identity changed (${lockedEpoch} → ${resolvedEpoch}); confirm only if you trust the current publisher`,
-          ...item.warnings,
-        ]
+    const warnings = Option.isSome(transition)
+      ? [publisherTransitionWarning(transition.value), ...item.warnings]
       : item.warnings;
     if (warnings.length > 0) {
       warningsBySkill.set(item.ref.skill.name, warnings);
@@ -801,35 +821,26 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
       ),
     ].map((name) => ({ extensionType: "skill", name, plannedState: "enabled" as const })),
   );
-  const publisherOwnershipChanged = [...warningsBySkill.values()].some((warnings) =>
-    warnings.some((warning) => warning.startsWith("Publisher identity changed")),
+  const executionPlan: Plan = withPublisherTrustConditions(
+    {
+      ...plan,
+      riskConditions: [
+        ...(plan.riskConditions ?? []),
+        ...(args.force
+          ? ([
+              {
+                level: "override-required",
+                id: "ignore-pack-version-constraints",
+                policy: "ignore-version-constraints",
+                requiredFlag: "--ignore-version-constraints",
+                detail: "Allow updates outside version constraints declared by installed packs.",
+              },
+            ] as const)
+          : []),
+      ],
+    },
+    publisherTransitions,
   );
-  const executionPlan: Plan = {
-    ...plan,
-    riskConditions: [
-      ...(plan.riskConditions ?? []),
-      ...(publisherOwnershipChanged
-        ? [
-            {
-              level: "confirmable" as const,
-              id: "publisher-ownership-change",
-              detail: "One or more skills changed publisher identity.",
-            },
-          ]
-        : []),
-      ...(args.force
-        ? ([
-            {
-              level: "override-required",
-              id: "ignore-pack-version-constraints",
-              policy: "ignore-version-constraints",
-              requiredFlag: "--ignore-version-constraints",
-              detail: "Allow updates outside version constraints declared by installed packs.",
-            },
-          ] as const)
-        : []),
-    ],
-  };
   const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
   yield* emitOperationResolution("skills.update", resolution, {
     suggestions: [LIST_INSTALLED_SKILLS],

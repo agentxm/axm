@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
@@ -14,6 +16,7 @@ import { makeOperationResolution, operationPresentation } from "@agentxm/workspa
 import {
   makeConfiguredReleaseAgeEvaluation,
   runInstallCommandWorkflow,
+  withPublisherTrust,
 } from "@agentxm/extension-lifecycle";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
@@ -67,10 +70,18 @@ import { lifecycleFailureToAppError } from "../../feature-errors.js";
 import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 export interface RootUpdateFlags {
-  readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
 }
+
+/**
+ * Wrapping a plan into one atomic graph step hides the member steps' proposed
+ * Registry bindings from the workflow's own trust pass, so a targeted update
+ * classifies its acceptances before the wrap.
+ */
+type TargetedPlanTransform = (
+  plan: Plan,
+) => Effect.Effect<Plan, AppError, WorkspaceMutations | FileSystem.FileSystem | Path.Path>;
 
 export interface RootUpdateHandlerArgs extends RootUpdateFlags {
   readonly source: Option.Option<string>;
@@ -82,7 +93,7 @@ const runUpdateIntent = (
   execution: PlanExecution,
   actions: InstallCommandActions,
   releaseAgeEvaluation?: ReleaseAgeEvaluation,
-  transformPlan?: (plan: Plan) => Effect.Effect<Plan, AppError, WorkspaceMutations>,
+  transformPlan?: TargetedPlanTransform,
 ) =>
   Effect.gen(function* () {
     switch (intent.type) {
@@ -618,13 +629,14 @@ const resolveTargetedUpdate = (
         ref: selected.ref,
         graphComplete: true,
       });
+      const memberPlan = yield* withPublisherTrust({
+        _tag: "Plan",
+        name: `Update ${intent.target}`,
+        description: Option.some(`Update pack-derived member ${intent.target}`),
+        jobs: [{ concurrency: 1, steps: [memberStep] }],
+      } satisfies Plan);
       const plan = yield* wrapTargetedUpdatePlan({
-        plan: {
-          _tag: "Plan",
-          name: `Update ${intent.target}`,
-          description: Option.some(`Update pack-derived member ${intent.target}`),
-          jobs: [{ concurrency: 1, steps: [memberStep] }],
-        },
+        plan: memberPlan,
         context: targetedContext,
       });
       resolution = yield* previewOrApplyPlan(plan, { execution });
@@ -653,13 +665,17 @@ const resolveTargetedUpdate = (
                 presentation: updatePresentation(intent.type),
               } satisfies Plan)
           : (plan) =>
-              wrapTargetedUpdatePlan({
-                plan,
-                context: targetedContext,
-                ...(Option.isNone(intent.versionRange)
-                  ? {}
-                  : { explicitRange: intent.versionRange.value }),
-              }),
+              withPublisherTrust(plan).pipe(
+                Effect.flatMap((classified) =>
+                  wrapTargetedUpdatePlan({
+                    plan: classified,
+                    context: targetedContext,
+                    ...(Option.isNone(intent.versionRange)
+                      ? {}
+                      : { explicitRange: intent.versionRange.value }),
+                  }),
+                ),
+              ),
       );
     }
     const holdbacks =
@@ -742,7 +758,7 @@ const handleUpdateBody = (args: RootUpdateHandlerArgs, actions: InstallCommandAc
           type: Option.none(),
           planName: "Update configured extensions",
           planDescription: Option.some("Update configured workspace extensions"),
-          flags: args,
+          flags: { force: args.force, preview: args.preview },
         },
         actions,
       );
@@ -750,7 +766,7 @@ const handleUpdateBody = (args: RootUpdateHandlerArgs, actions: InstallCommandAc
 
     const source = args.source.value;
     const execution = yield* makePlanExecution(
-      args,
+      { preview: args.preview },
       makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
         recoverySwitch("--refresh", args.force),
         recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),

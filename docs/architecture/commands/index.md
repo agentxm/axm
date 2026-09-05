@@ -29,6 +29,7 @@ response.
   glyph semantics, per-stream color policy, responsive layout, the live
   region, the gallery, supported terminals, and the time-to-first-output
   budget
-- [Interaction](interaction.md) — when AXM may prompt, what non-interactive
-  mode and pre-approval mean, which operations require confirmation, and how
-  a refused confirmation names its recovery
+- [Interaction](interaction.md) — how every command declares its interaction
+  capabilities, when AXM may prompt, what preview and pre-approval mean, which
+  conditions are approved in advance and which only interactively, and how a
+  refused approval names its recovery

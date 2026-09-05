@@ -17,6 +17,7 @@ import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 
 export const WhoamiDataSchema = Schema.Struct({
   user: Schema.String,
@@ -109,6 +110,7 @@ export const whoamiCommand = Command.make("whoami", whoamiConfig, () =>
   handleWhoami().pipe(withRuntime("auth whoami")),
 ).pipe(
   withArgvTracking(whoamiConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Show current authenticated identity"),
   Command.withExamples([
     { command: "axm whoami", description: "Check who you're authenticated as" },

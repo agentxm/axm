@@ -14,7 +14,7 @@ import {
 
 export const handleUninstallPack = (
   args: UninstallPackHandlerArgs,
-  flags: { yes: boolean; preview: boolean },
+  flags: { readonly preview: boolean },
   testHooks?: { readonly beforeApply?: () => Effect.Effect<void, never> },
 ) =>
   withOperationLifecycle(
@@ -28,7 +28,7 @@ export const handleUninstallPack = (
 
 const handleUninstallPackBody = (
   args: UninstallPackHandlerArgs,
-  flags: { yes: boolean; preview: boolean },
+  flags: { readonly preview: boolean },
   testHooks?: { readonly beforeApply?: () => Effect.Effect<void, never> },
 ) =>
   Effect.gen(function* () {

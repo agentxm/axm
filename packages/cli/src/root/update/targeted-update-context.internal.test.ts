@@ -6,6 +6,12 @@ import type {
   DesiredStateGraph,
 } from "@agentxm/workspace-state";
 
+import {
+  decodeVersionRangeSync,
+  decodeVersionSync,
+  versionSatisfiesRange,
+} from "@agentxm/extension-model/unstable/version-constraints";
+
 import { classifyTargetedUpdate } from "./targeted-update-context.js";
 
 const target = {
@@ -55,6 +61,20 @@ const node = (origins: ReadonlyArray<TestOrigin>): DesiredExtensionNode => ({
       : origin,
   ),
 });
+
+const expectRangeMembership = (
+  range: unknown,
+  allowed: ReadonlyArray<string>,
+  excluded: ReadonlyArray<string>,
+) => {
+  const decoded = decodeVersionRangeSync(range);
+  for (const version of allowed) {
+    expect(versionSatisfiesRange(decodeVersionSync(version), decoded)).toBe(true);
+  }
+  for (const version of excluded) {
+    expect(versionSatisfiesRange(decodeVersionSync(version), decoded)).toBe(false);
+  }
+};
 
 describe("classifyTargetedUpdate", () => {
   it("blocks an inline MCP target as configuration authority", () => {
@@ -119,10 +139,14 @@ describe("classifyTargetedUpdate", () => {
       ownership: "direct-only",
       activation: "enabled",
       authority: "direct",
-      effectiveConstraint: ">=1.0.0 <2.0.0-0",
       direct: { source: "registry", enabled: true, constraint: "^1.0.0" },
       effects: { settings: "unchanged", acceptedResolution: "may-update" },
     });
+    expectRangeMembership(
+      context.public.effectiveConstraint,
+      ["1.0.0", "1.5.0", "1.999.999"],
+      ["0.999.999", "1.0.0-alpha", "1.5.0-beta", "2.0.0-0", "2.0.0"],
+    );
   });
 
   it("matches a bundled official skill and blocks Registry-oriented update truthfully", () => {
@@ -234,10 +258,14 @@ describe("classifyTargetedUpdate", () => {
       ],
     });
 
-    expect(context.public.effectiveConstraint).toBe(">=1.4.0 <1.8.0 >=1.0.0 <2.0.0-0");
-    expect(context.public.packs.map((pack) => pack.fqn)).toEqual([
-      "@acme/packs/reviewers",
-      "@acme/packs/toolkit",
+    expectRangeMembership(
+      context.public.effectiveConstraint,
+      ["1.4.0", "1.5.0", "1.7.999"],
+      ["1.3.999", "1.4.0-alpha", "1.5.0-beta", "1.8.0-0", "1.8.0", "2.0.0"],
+    );
+    expect(context.public.packs.map(({ fqn, constraint }) => ({ fqn, constraint }))).toEqual([
+      { fqn: "@acme/packs/reviewers", constraint: ">=1.4.0 <1.8.0" },
+      { fqn: "@acme/packs/toolkit", constraint: "^1.0.0" },
     ]);
   });
 
@@ -268,9 +296,13 @@ describe("classifyTargetedUpdate", () => {
     expect(context.public).toMatchObject({
       ownership: "combined",
       authority: "direct",
-      effectiveConstraint: ">=1.5.0 <2.0.0-0 <1.9.0",
       effects: { settings: "may-update", packManifest: "unchanged" },
     });
+    expectRangeMembership(
+      context.public.effectiveConstraint,
+      ["1.5.0", "1.6.0", "1.8.999"],
+      ["1.4.999", "1.5.0-alpha", "1.6.0-beta", "1.9.0-0", "1.9.0", "2.0.0"],
+    );
   });
 
   it("blocks an effectively disabled target", () => {

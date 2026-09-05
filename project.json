@@ -51,8 +51,11 @@
       "inputs": [
         "{workspaceRoot}/allurerc.ts",
         "{workspaceRoot}/vitest.reporting.ts",
+        "{workspaceRoot}/scripts/specification-evidence*.ts",
         "{workspaceRoot}/tsconfig*.json",
-        { "externalDependencies": ["@typescript/native"] }
+        {
+          "externalDependencies": ["@typescript/native"]
+        }
       ],
       "outputs": ["{workspaceRoot}/out-tsc/reporting"],
       "options": {
@@ -203,7 +206,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "bash scripts/update-homebrew-formula.sh",
+        "command": "bun scripts/update-homebrew-formula.ts",
         "cwd": "."
       }
     },
@@ -234,6 +237,42 @@
       "cache": false,
       "options": {
         "command": "bun --conditions=axm-source scripts/specification-verdict.ts",
+        "cwd": "."
+      }
+    },
+    "distribute-release": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [
+        {
+          "projects": ["tag:release:cli"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "command": "bun scripts/distribute-release.ts",
+        "cwd": "."
+      }
+    },
+    "verify-installed-package": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "bun scripts/verify-installed-package.ts",
+        "cwd": "."
+      }
+    },
+    "verify-release-packs": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [
+        {
+          "projects": ["tag:release:cli"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "command": "bun scripts/verify-release-packs.ts",
         "cwd": "."
       }
     }

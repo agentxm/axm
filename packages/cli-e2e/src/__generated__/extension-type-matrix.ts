@@ -20,7 +20,6 @@ export const EXTENSION_TYPE_MATRIX = [
     mutations: ["install", "update", "enable", "disable", "uninstall"],
     scopeSupport: "agent-capability-dependent",
     updateSelection: "name-filter",
-    activationConfirmation: true,
     configuredAgentPolicy: "per-agent",
     e2eObligations: [
       "6.1-e2e-install-row",
@@ -43,7 +42,6 @@ export const EXTENSION_TYPE_MATRIX = [
     mutations: ["install", "update", "enable", "disable", "uninstall"],
     scopeSupport: "agent-capability-dependent",
     updateSelection: "name-filter",
-    activationConfirmation: true,
     configuredAgentPolicy: "per-agent",
     e2eObligations: [
       "6.1-e2e-install-row",
@@ -66,7 +64,6 @@ export const EXTENSION_TYPE_MATRIX = [
     mutations: ["install", "update", "enable", "disable", "uninstall"],
     scopeSupport: "agent-capability-dependent",
     updateSelection: "name-filter",
-    activationConfirmation: true,
     configuredAgentPolicy: "per-agent",
     e2eObligations: [
       "6.1-e2e-install-row",
@@ -89,7 +86,6 @@ export const EXTENSION_TYPE_MATRIX = [
     mutations: ["install", "update", "enable", "disable", "uninstall"],
     scopeSupport: "native",
     updateSelection: "name-filter",
-    activationConfirmation: true,
     configuredAgentPolicy: "workspace-capability",
     e2eObligations: [
       "6.1-e2e-install-row",
@@ -112,7 +108,6 @@ export const EXTENSION_TYPE_MATRIX = [
     mutations: ["install", "update", "enable", "disable", "uninstall"],
     scopeSupport: "agent-capability-dependent",
     updateSelection: "name-filter",
-    activationConfirmation: true,
     configuredAgentPolicy: "per-agent",
     e2eObligations: [
       "6.1-e2e-install-row",
@@ -135,7 +130,6 @@ export const EXTENSION_TYPE_MATRIX = [
     mutations: ["install", "update", "enable", "disable", "uninstall"],
     scopeSupport: "native",
     updateSelection: "name-filter",
-    activationConfirmation: false,
     configuredAgentPolicy: "not-applicable",
     e2eObligations: [
       "6.1-e2e-install-row",
@@ -158,7 +152,6 @@ export const EXTENSION_TYPE_MATRIX = [
     mutations: ["install", "update", "enable", "disable", "uninstall"],
     scopeSupport: "native",
     updateSelection: "all",
-    activationConfirmation: true,
     configuredAgentPolicy: "not-applicable",
     e2eObligations: [
       "6.1-e2e-install-row",

@@ -1,8 +1,9 @@
 # Upgrade AXM
 
-`axm upgrade` selects the highest published stable `cli-v<semver>` release,
-then compares it with the running AXM version before deciding whether any
-installer may mutate the installation.
+`axm upgrade` selects the release named by the public stable channel, then
+compares it with the running AXM version before deciding whether its owning
+installer may mutate the installation. `axm upgrade <version>` selects an exact
+stable version without changing the channel.
 
 ## Version behavior
 
@@ -18,13 +19,23 @@ Supported owners are the AXM installer, Homebrew, npm, pnpm, and Yarn Classic
 1.x. Modern Yarn releases do not provide the required global-install command
 and therefore require manual action.
 
-## Homebrew convergence
+## Installer availability
 
-For a Homebrew-managed installation, the GitHub-selected target stays fixed for
-the invocation. AXM explicitly refreshes Homebrew metadata and requires
-`agentxm/tap/axm` to advertise that exact version before mutation. A temporarily
-older formula is retried for up to 90 seconds; a newer formula stops the command
-without silently installing a different release.
+The selected target stays fixed for the invocation. npm, pnpm, and Yarn check
+that exact published package version, even when their latest tag is newer.
+Yarn Classic checks the published version inventory because its single-version
+field can echo an unpublished requested version.
+
+For Homebrew, AXM prepares the tap when needed, refreshes metadata once, and
+queries `agentxm/tap/axm` once. An exact formula match permits mutation. An
+older formula stops immediately with both versions and guidance to retry after
+publication. A newer formula stops with guidance to reconcile the mismatch;
+AXM cannot use the formula to select an arbitrary historical version.
+
+Preparation failures, timeouts, and malformed queries are indeterminate.
+Affirmative absence is unavailable. Both leave the installation untouched and
+preserve command evidence. Each command has its own timeout; there is no
+publication polling or shared publication deadline.
 
 Before and after mutation, AXM records the version reported by Homebrew's stable
 `bin/axm` entrypoint and by a fresh PATH resolution. Both must report the exact
@@ -53,7 +64,7 @@ $env:AXM_INSTALL_VERSION='0.23.0'; irm https://axm.sh/install.ps1 | iex
 
 ## Preview
 
-`axm upgrade --dry-run` resolves the installation owner and the target release
+`axm upgrade --preview` resolves the installation owner and the target release
 and reports what it would do, then stops. It runs no installer command, writes
 no install metadata, and does not refresh the update-check cache. Its
 disposition is `previewed`, and `details.messages` names the exact command the
@@ -68,9 +79,9 @@ would use it, not by the preview.
 
 `axm upgrade` publishes what it is doing while it runs. The step performing the
 upgrade names the target version and the detected installer; each command handed
-to that installer appears beneath it as it runs; and a Homebrew formula that has
-not published yet appears as a wait naming the tap, not as silence. The script
-installation path reports downloaded bytes.
+to that installer appears beneath it as it runs. An unavailable Homebrew formula
+ends the request after the single check. The script installation path reports
+downloaded bytes.
 
 At default verbosity the settled output names the detected install method, each
 delegated command, and the executable that was verified with the version it

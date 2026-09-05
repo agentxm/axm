@@ -150,6 +150,6 @@ Behavior tests prove canonical prose preservation, contributor independence,
 deterministic ordering, formatting changes, malformed and duplicate markers,
 owned alias drift, unowned alias collisions, stale-alias discovery after a
 removed nested root, a removed agent, and a changed canonical filename, cleanup
-without a managed `.gitignore` region, dry-run parity with apply,
+without a managed `.gitignore` region, preview parity with apply,
 configured-agent transitions, safe disablement, scope isolation, nested
 working-tree boundaries, and idempotent reconciliation.

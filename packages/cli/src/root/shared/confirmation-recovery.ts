@@ -15,6 +15,7 @@ import {
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
+  type ConfirmableRiskApproval,
   type ConfirmationRecovery,
   type ConfirmationRecoveryArgument,
   type ConfiguredAgentOperation,
@@ -27,6 +28,19 @@ import {
   toExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+
+/**
+ * The parsed intent a command converts into a plan execution.
+ *
+ * `yes` is present only on the routes whose capabilities declare a
+ * preapprovable confirmation and therefore register `--yes`. Every other
+ * route omits it, so the conversion below cannot manufacture preapproval a
+ * command never offered, and a downstream planner never sees the raw flag.
+ */
+export interface CommandExecutionIntent {
+  readonly preview: boolean;
+  readonly yes?: boolean;
+}
 
 export const makeConfirmationRecovery = (
   command: ReadonlyArray<string>,
@@ -62,20 +76,28 @@ const explicitGlobalArguments = Effect.gen(function* () {
   ];
 });
 
+/** The one conversion from a command's parsed intent to a kernel approval decision. */
+export const confirmableRiskApproval = (intent: CommandExecutionIntent): ConfirmableRiskApproval =>
+  intent.yes === true
+    ? "preapproved"
+    : intent.yes === false
+      ? "prompt-if-interactive"
+      : "interactive-only";
+
 export const makePlanExecution = (
-  flags: { readonly yes: boolean; readonly preview: boolean },
+  intent: CommandExecutionIntent,
   recovery: ConfirmationRecovery,
   acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
   configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>,
 ): Effect.Effect<PlanExecution> => {
-  if (flags.preview)
+  if (intent.preview)
     return Effect.succeed({
       ...previewPlanExecution,
       ...(configuredAgentOperations === undefined ? {} : { configuredAgentOperations }),
     });
   return Effect.map(explicitGlobalArguments, (globalArguments) =>
     applyPlanExecution({
-      approval: flags.yes ? "preapproved" : "prompt-if-interactive",
+      approval: confirmableRiskApproval(intent),
       acceptedPolicies: new Set(acceptedPolicies),
       recovery: {
         ...recovery,
@@ -110,13 +132,13 @@ const configuredAgentOperation = (
 };
 
 export const makePublicPositionalPlanExecution = (
-  flags: { readonly yes: boolean; readonly preview: boolean },
+  intent: CommandExecutionIntent,
   command: ReadonlyArray<string>,
   positionals: ReadonlyArray<string>,
   acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
 ): Effect.Effect<PlanExecution> =>
   makePlanExecution(
-    flags,
+    intent,
     makeConfirmationRecovery(
       command,
       positionals.map((value) => recoveryPositional(publicRecoveryValue(value))),
@@ -128,27 +150,27 @@ export const makePublicPositionalPlanExecution = (
   );
 
 export const makeInstallPlanExecution = (
-  flags: { readonly yes: boolean; readonly preview: boolean; readonly force?: boolean },
+  intent: CommandExecutionIntent & { readonly force?: boolean },
   command: ReadonlyArray<string>,
   locators: ReadonlyArray<string>,
   arguments_: ReadonlyArray<ConfirmationRecoveryArgument> = [],
 ): Effect.Effect<PlanExecution> =>
   makePlanExecution(
-    flags,
+    intent,
     makeConfirmationRecovery(command, [
-      recoverySwitch("--reinstall", flags.force === true),
+      recoverySwitch("--reinstall", intent.force === true),
       ...arguments_,
       ...locators.map((value) => recoveryPositional(credentialFreeLocatorRecoveryValue(value))),
     ]),
   );
 
 export const makeUninstallPlanExecution = (
-  flags: { readonly yes: boolean; readonly preview: boolean },
+  intent: CommandExecutionIntent,
   command: ReadonlyArray<string>,
   positionals: ReadonlyArray<string>,
 ): Effect.Effect<PlanExecution> =>
   makePlanExecution(
-    flags,
+    intent,
     makeConfirmationRecovery(command, [
       ...positionals.map((value) => recoveryPositional(publicRecoveryValue(value))),
     ]),

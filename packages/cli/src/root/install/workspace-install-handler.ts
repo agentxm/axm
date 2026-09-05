@@ -52,7 +52,6 @@ const workspaceInstallCommand = (
   });
 
 export interface WorkspaceInstallFlags {
-  readonly yes: boolean;
   readonly preview: boolean;
   readonly force?: boolean;
 }
@@ -124,7 +123,7 @@ const handleWorkspaceInstallBody = (
     }
 
     const execution = yield* makePlanExecution(
-      args.flags,
+      { preview: args.flags.preview },
       makeConfirmationRecovery(workspaceInstallCommand(args.type), [
         recoverySwitch("--reinstall", args.flags.force === true),
         recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),

@@ -12,6 +12,10 @@ import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import * as Schema from "effect/Schema";
 import { withRuntime } from "../../runtime.js";
+import {
+  directWriteCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 
 export const LogoutResultSchema = Schema.Struct({
   status: Schema.Literals(["not-logged-in", "logged-out", "logged-out-local-only"] as const),
@@ -112,6 +116,7 @@ export const logoutCommand = Command.make("logout", logoutConfig, () =>
   handleLogout().pipe(withRuntime("auth logout")),
 ).pipe(
   withArgvTracking(logoutConfig),
+  withCommandCapabilities(directWriteCapabilities("credentials")),
   Command.withDescription("Sign out of a registry"),
   Command.withExamples([
     { command: "axm logout", description: "Sign out of the current registry" },

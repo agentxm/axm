@@ -35,7 +35,6 @@ import { PackManager } from "@agentxm/extension-workspace";
 
 export interface UnpackHandlerArgs {
   readonly name: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 

@@ -1,4 +1,5 @@
 import { Command } from "effect/unstable/cli";
+import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { disableCommand } from "./disable.js";
@@ -18,6 +19,7 @@ const showCommand = makeExtensionShowCommand({
 
 export const hooksCommand = Command.make("hooks").pipe(
   Command.withDescription("Manage hook extensions"),
+  withCommandCapabilities(groupCapabilities),
   Command.withExamples([
     {
       command: "axm hooks install @acme/hooks/workspace-baseline",

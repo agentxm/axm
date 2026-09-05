@@ -21,7 +21,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { afterEach, beforeEach } from "vitest";
 import { previewOrApplyPlan, deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
+import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
@@ -304,7 +304,6 @@ describe("skills install handler — error propagation", () => {
           // "nonexistent-skill" is a bare name — it will go through resolveSkillRegistrySourceByName
           // which will fail with REGISTRY_SKILL_NOT_FOUND when no registry has it
           const error = yield* handleInstall(defaultArgs("nonexistent-skill"), {
-            yes: false,
             force: false,
             preview: false,
           }).pipe(Effect.flip);
@@ -323,7 +322,6 @@ describe("skills install handler — error propagation", () => {
       Effect.gen(function* () {
         // Empty string cannot be parsed — parseInputPattern returns Option.none()
         const error = yield* handleInstall(defaultArgs(""), {
-          yes: false,
           force: false,
           preview: false,
         }).pipe(Effect.flip);
@@ -362,7 +360,6 @@ describe("skills install handler — error propagation", () => {
 
       return provide(
         handleInstall(defaultArgs("effect-basics", { all: true }), {
-          yes: false,
           force: false,
           preview: false,
         }),
@@ -390,7 +387,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("effect-basics"), {
-          yes: false,
           force: false,
           preview: false,
         });
@@ -422,7 +418,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("effect-basics"), {
-          yes: false,
           force: false,
           preview: false,
         });
@@ -455,7 +450,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@myorg/skills/effect-basics@1.0.0"), {
-          yes: true,
           force: false,
           preview: false,
         });
@@ -485,7 +479,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@myorg/skills/effect-basics@1.0.0"), {
-          yes: true,
           force: false,
           preview: false,
         });
@@ -503,7 +496,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@myorg/skills"), {
-          yes: false,
           force: false,
           preview: false,
         });
@@ -522,7 +514,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@myorg/skills"), {
-          yes: false,
           force: false,
           preview: false,
         });
@@ -544,7 +535,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         const error = yield* handleInstall(defaultArgs("/path/does/not/exist"), {
-          yes: false,
           force: false,
           preview: false,
         }).pipe(Effect.flip);
@@ -568,7 +558,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         const error = yield* handleInstall(defaultArgs(sourceDir, { skills: ["missing"] }), {
-          yes: false,
           force: false,
           preview: false,
         }).pipe(Effect.flip);
@@ -592,7 +581,6 @@ describe("skills install handler — error propagation", () => {
             all: false,
           },
           {
-            yes: false,
             force: false,
             preview: false,
           },
@@ -616,7 +604,6 @@ describe("skills install handler — error propagation", () => {
             all: true,
           },
           {
-            yes: false,
             force: false,
             preview: false,
           },
@@ -635,7 +622,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         const error = yield* handleInstall(defaultArgs("@acme/skills/axm", { bundled: true }), {
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.flip);
@@ -654,7 +640,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@agentxm/skills/axm", { bundled: true }), {
-          yes: false,
           force: false,
           preview: true,
         });
@@ -676,7 +661,6 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleInstall(defaultArgs("@agentxm/skills/axm", { bundled: true }), {
-          yes: true,
           force: false,
           preview: false,
         });
@@ -736,8 +720,8 @@ describe("skills install handler — error propagation", () => {
     return provide(
       Effect.gen(function* () {
         for (const flags of [
-          { yes: false, force: false, preview: true },
-          { yes: true, force: true, preview: false },
+          { force: false, preview: true },
+          { force: true, preview: false },
         ]) {
           yield* handleInstall(defaultArgs("@agentxm/skills/axm", { bundled: true }), flags);
           const result = rendererState.results.at(-1);

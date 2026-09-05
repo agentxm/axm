@@ -22,7 +22,7 @@ describe("confirmation recovery CLI boundary", () => {
       const execution = yield* makePlanExecution(
         { yes: false, preview: false },
         makeConfirmationRecovery(
-          ["skills", "enable"],
+          ["demote"],
           [recoveryPositional(publicRecoveryValue("code review"))],
         ),
       );
@@ -32,9 +32,14 @@ describe("confirmation recovery CLI boundary", () => {
         confirmableRiskApproval: "prompt-if-interactive",
       });
       if (!("approvalRecovery" in execution)) return;
-      expect(renderConfirmationRecoveryCommand(execution.approvalRecovery)).toBe(
-        "axm skills enable --scope user --json --non-interactive --verbose --yes 'code review'",
-      );
+      expect(
+        renderConfirmationRecoveryCommand(execution.approvalRecovery, {
+          approval: "preapprovable",
+        }),
+      ).toBe("axm demote --scope user --json --non-interactive --verbose --yes 'code review'");
+      expect(
+        renderConfirmationRecoveryCommand(execution.approvalRecovery, { approval: "interactive" }),
+      ).toBe("axm demote --scope user --verbose 'code review'");
     }).pipe(
       Effect.provide(
         Layer.mergeAll(
@@ -47,10 +52,13 @@ describe("confirmation recovery CLI boundary", () => {
     ),
   );
 
-  it.effect("maps preview and --yes to the shared execution request", () =>
+  it.effect("maps the parsed intent to the shared execution request", () =>
     Effect.gen(function* () {
       const recovery = makeConfirmationRecovery(["install"], []);
       expect((yield* makePlanExecution({ yes: false, preview: true }, recovery)).request).toEqual({
+        mode: "preview",
+      });
+      expect((yield* makePlanExecution({ preview: true }, recovery)).request).toEqual({
         mode: "preview",
       });
       expect(
@@ -59,13 +67,19 @@ describe("confirmation recovery CLI boundary", () => {
         mode: "apply",
         confirmableRiskApproval: "preapproved",
       });
+      // A route without a preapproval capability never expresses one: its
+      // apply can only be approved at a prompt.
+      expect((yield* makePlanExecution({ preview: false }, recovery)).request).toMatchObject({
+        mode: "apply",
+        confirmableRiskApproval: "interactive-only",
+      });
     }),
   );
 
   it.effect("classifies an uninstall target as planned absent", () =>
     Effect.gen(function* () {
       const execution = yield* makeUninstallPlanExecution(
-        { yes: true, preview: false },
+        { preview: false },
         ["skills", "uninstall"],
         ["review"],
       );

@@ -9,6 +9,7 @@ import {
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import {
   augmentInventory,
   inventoryActivation,
@@ -90,6 +91,7 @@ export const listCommand = Command.make("list", listConfig, ({ scope }) =>
   ),
 ).pipe(
   withArgvTracking(listConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("List detected rules and their lifecycle classification"),
   Command.withExamples([
     {

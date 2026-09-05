@@ -1,7 +1,11 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { handleUninstallPack } from "./handler.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
@@ -13,22 +17,20 @@ const uninstallConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip the 'are you sure?' confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be removed without making changes"),
-  ),
+  preview: previewCapabilityFlag("Show what would be removed without making changes"),
 } as const;
 
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ name, scope, yes, preview }) =>
-    handleUninstallPack({ name }, { yes, preview }).pipe(
+  ({ name, scope, preview }) =>
+    handleUninstallPack({ name }, { preview }).pipe(
       withWorkspace(scope),
       withRuntime("packs uninstall"),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Uninstall a pack"),
   Command.withExamples([
     {
@@ -38,10 +40,6 @@ export const uninstallCommand = Command.make(
     {
       command: "axm packs uninstall my-pack --preview",
       description: "Check what would be removed first",
-    },
-    {
-      command: "axm packs uninstall my-pack --yes",
-      description: "Remove without confirmation (scripts/CI)",
     },
     {
       command: "axm packs uninstall acme-*",

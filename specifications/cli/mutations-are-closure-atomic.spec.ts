@@ -71,7 +71,6 @@ describe("Failed workspace mutations", () => {
 
       const failure = yield* handleInstall({
         source: Option.some(source),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer), Effect.flip);

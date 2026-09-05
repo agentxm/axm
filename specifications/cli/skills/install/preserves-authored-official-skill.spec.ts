@@ -30,7 +30,7 @@ export const specification = defineSpecification({
 const bundledInstall = (preview: boolean, force: boolean) =>
   handleSkillsInstall(
     { source: Option.some("@agentxm/skills/axm"), skills: [], all: false, bundled: true },
-    { yes: !preview, force, preview },
+    { force, preview },
   );
 
 describe("Bundled official-skill recovery over an authored official skill", () => {

@@ -62,13 +62,12 @@ describe("Uninstall an MCP server beside unowned native entries", () => {
           url: Option.none(),
           env: [],
           header: [],
-          yes: true,
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));
         addUnownedNativeEntry(workspace);
 
-        yield* handleUninstallMcpServer({ serverName: "demo" }, { yes: true, preview: false }).pipe(
+        yield* handleUninstallMcpServer({ serverName: "demo" }, { preview: false }).pipe(
           Effect.provide(workspace.layer),
         );
 

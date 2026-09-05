@@ -5,7 +5,6 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type { InstructionsConfig, InstructionsConfigValue } from "@agentxm/workspace-state";
-import { previewFlag } from "../cli-flags/index.js";
 import { withArgvTracking } from "../cli-runtime/index.js";
 import { Screen, inventoryDoc, type ViewColumn } from "../screen/index.js";
 import type {
@@ -28,6 +27,12 @@ import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "./shared/command-capabilities.js";
 import { previewOrApplyLocalPlan } from "./shared/local-plan.js";
 import { withOperationLifecycle } from "./shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
@@ -465,14 +470,14 @@ const instructionsEnableConfig = {
     Flag.withDescription("Manage propagated alias files in .gitignore"),
     Flag.withDefault(true),
   ),
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
+  preview: previewCapabilityFlag("Show what would change without enabling"),
 } as const;
 
 const instructionsDisableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable project (default) or user-level configuration"),
   ),
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without disabling")),
+  preview: previewCapabilityFlag("Show what would change without disabling"),
 } as const;
 
 const instructionsEnableCommand = Command.make(
@@ -485,6 +490,7 @@ const instructionsEnableCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(instructionsEnableConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Enable instruction-file management"),
   Command.withExamples([
     { command: "axm instructions enable", description: "Enable instruction files" },
@@ -505,6 +511,7 @@ const instructionsDisableCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(instructionsDisableConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Disable instruction-file management"),
   Command.withExamples([
     { command: "axm instructions disable", description: "Disable instruction files" },
@@ -517,6 +524,7 @@ export const instructionsCommand = Command.make(
   ({ scope }) => handleInstructionsStatus().pipe(withWorkspace(scope), withRuntime("instructions")),
 ).pipe(
   withArgvTracking(instructionsStatusConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Inspect and manage workspace instruction files"),
   Command.withExamples([
     { command: "axm instructions", description: "Inspect instruction files" },

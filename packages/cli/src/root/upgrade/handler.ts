@@ -21,8 +21,6 @@ import {
   makeThrottledUnitProgress,
   observeChildUnit,
   observeUnit,
-  publishWaitEnded,
-  publishWaiting,
 } from "@agentxm/workspace-operations";
 import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import { InstallMeta } from "../../install-meta/install-meta.js";
@@ -57,7 +55,7 @@ export interface UpgradeHandlerArgs {
   /** Optional exact stable version. Omit to use the promoted stable channel. */
   readonly requestedVersion?: string | undefined;
   /** Resolve and report the upgrade without performing it. */
-  readonly dryRun?: boolean;
+  readonly preview?: boolean;
   /** Test/internal override for an observed local version. */
   readonly localVersion?: string | null;
 }
@@ -184,7 +182,9 @@ const UpgradeCoreResultSchema = Schema.Struct({
   homebrewFailure: Schema.optional(HomebrewFailureSchema),
   observedFormulaVersion: Schema.optional(Schema.NullOr(Schema.String)),
 });
-export type UpgradeCoreResult = typeof UpgradeCoreResultSchema.Type;
+export type UpgradeCoreResult = typeof UpgradeCoreResultSchema.Type & {
+  readonly availability?: InstallerAvailability;
+};
 
 const UpgradePlanStepArtifactSchema = Schema.Struct({
   path: Schema.optional(Schema.String),
@@ -344,8 +344,6 @@ export type UpgradeDocument = typeof UpgradeDocumentSchema.Type;
 
 const HOMEBREW_TAP = "agentxm/tap";
 const HOMEBREW_FORMULA = `${HOMEBREW_TAP}/axm`;
-const HOMEBREW_CONVERGENCE_MS = 90_000;
-const HOMEBREW_RETRY_MS = 2_000;
 const NPM_PACKAGE = "axm.sh";
 const HOMEBREW_ENV = { HOMEBREW_NO_AUTO_UPDATE: "1" } as const;
 
@@ -596,8 +594,7 @@ const commandOutcome = (result: CommandResult): string | null => {
  * nested under the step that delegated it. Every command AXM hands to another
  * tool is separately observable while it runs — the reader sees which tool is
  * working, not one unchanging line for the whole delegation. The record index
- * names the unit, so repeated commands (a convergence poll re-running `brew
- * update`) stay distinct.
+ * names the unit, so repeated verification commands stay distinct.
  */
 const runRecorded = (
   records: Array<CommandRecord>,
@@ -763,28 +760,28 @@ const parsePublishedVersion = (stdout: string): string | null => {
 
 const packageAvailabilityCommand = (
   method: Extract<InstallMethodType, { readonly _tag: "Npm" | "Pnpm" | "Yarn" }>,
-  requestedVersion: string | undefined,
+  targetVersion: string,
 ): RecommendedCommand => {
-  const packageReference =
-    requestedVersion === undefined ? NPM_PACKAGE : `${NPM_PACKAGE}@${requestedVersion}`;
+  const packageReference = `${NPM_PACKAGE}@${targetVersion}`;
   switch (method._tag) {
     case "Npm":
       return recommended("npm", ["view", packageReference, "version", "--json"]);
     case "Pnpm":
       return recommended("pnpm", ["view", packageReference, "version", "--json"]);
     case "Yarn":
-      return recommended("yarn", ["info", packageReference, "version", "--json"]);
+      // Yarn Classic synthesizes the requested version even when it does not exist.
+      // Its published version inventory establishes membership instead.
+      return recommended("yarn", ["info", packageReference, "versions", "--json"]);
   }
 };
 
 const queryPackageAvailability = (
   method: Extract<InstallMethodType, { readonly _tag: "Npm" | "Pnpm" | "Yarn" }>,
   targetVersion: string,
-  requestedVersion: string | undefined,
   records: Array<CommandRecord>,
 ) =>
   Effect.gen(function* () {
-    const command = packageAvailabilityCommand(method, requestedVersion);
+    const command = packageAvailabilityCommand(method, targetVersion);
     const response = yield* runRecorded(records, "detection", command.executable, command.args, {
       timeoutMs: 10_000,
     });
@@ -796,14 +793,66 @@ const queryPackageAvailability = (
       } satisfies InstallerAvailability;
     }
     if (response.exitCode !== 0) {
+      const error = Schema.decodeUnknownOption(
+        Schema.fromJsonString(
+          Schema.Struct({
+            error: Schema.Struct({
+              code: Schema.String,
+              summary: Schema.optional(Schema.String),
+              message: Schema.optional(Schema.String),
+            }),
+          }),
+        ),
+      )(response.stdout);
+      const absent =
+        Option.isSome(error) &&
+        ((method._tag === "Npm" &&
+          ["E404", "ETARGET"].includes(error.value.error.code) &&
+          error.value.error.summary?.includes(`No match found for version ${targetVersion}`) ===
+            true) ||
+          (method._tag === "Pnpm" &&
+            error.value.error.code === "ERR_PNPM_PACKAGE_NOT_FOUND" &&
+            error.value.error.message?.includes(
+              `No matching version found for ${NPM_PACKAGE}@${targetVersion}`,
+            ) === true));
       return {
-        state: requestedVersion === undefined ? "indeterminate" : "unavailable",
+        state: absent ? "unavailable" : "indeterminate",
         observedVersion: null,
         details: [
-          requestedVersion === undefined
-            ? "The owning package manager did not report its latest AXM version."
-            : `The owning package manager does not expose AXM ${targetVersion}.`,
+          absent
+            ? `The owning package manager does not expose AXM ${targetVersion}; retry after publication.`
+            : `Availability of AXM ${targetVersion} could not be established; resolve the recorded package manager query failure before retrying.`,
         ],
+      } satisfies InstallerAvailability;
+    }
+    if (method._tag === "Yarn") {
+      const inventory = Schema.decodeUnknownOption(
+        Schema.fromJsonString(
+          Schema.Struct({
+            type: Schema.Literal("inspect"),
+            data: Schema.Array(Schema.String),
+          }),
+        ),
+      )(response.stdout);
+      if (
+        Option.isNone(inventory) ||
+        inventory.value.data.some((version) => semver.valid(version) === null)
+      ) {
+        return {
+          state: "indeterminate",
+          observedVersion: null,
+          details: [
+            `Yarn did not return a valid published version inventory for AXM ${targetVersion}; inspect the recorded query before retrying.`,
+          ],
+        } satisfies InstallerAvailability;
+      }
+      const available = inventory.value.data.includes(targetVersion);
+      return {
+        state: available ? "ready" : "unavailable",
+        observedVersion: available ? targetVersion : null,
+        details: available
+          ? []
+          : [`Yarn does not expose AXM ${targetVersion}; retry after publication.`],
       } satisfies InstallerAvailability;
     }
 
@@ -816,15 +865,7 @@ const queryPackageAvailability = (
       } satisfies InstallerAvailability;
     }
 
-    const comparison = semver.compare(observedVersion, targetVersion);
-    const state =
-      comparison === 0
-        ? "ready"
-        : requestedVersion !== undefined
-          ? "unavailable"
-          : comparison < 0
-            ? "lagging"
-            : "leading";
+    const state = observedVersion === targetVersion ? "ready" : "indeterminate";
     return {
       state,
       observedVersion,
@@ -935,143 +976,90 @@ const HomebrewInfoSchema = Schema.Struct({
   ),
 });
 
-interface HomebrewAvailability {
-  readonly ready: boolean;
+interface HomebrewAvailability extends InstallerAvailability {
   readonly failure?: HomebrewFailure;
   readonly observedVersion: string | null;
   readonly details: ReadonlyArray<string>;
 }
 
-const queryHomebrewFormula = (records: Array<CommandRecord>, timeoutMs?: number) =>
+const checkHomebrewFormula = (records: Array<CommandRecord>, targetVersion: string) =>
   Effect.gen(function* () {
-    const result = yield* runRecorded(
+    const refresh = yield* runRecorded(records, "preparation", "brew", ["update"], {
+      env: HOMEBREW_ENV,
+    });
+    if (refresh.executionState !== "exited" || refresh.exitCode !== 0) {
+      return {
+        state: "indeterminate",
+        failure: "refresh-failed",
+        observedVersion: null,
+        details: [
+          "Homebrew metadata refresh did not complete, so AXM did not attempt a package mutation.",
+          "Resolve the recorded brew update failure, then rerun axm upgrade.",
+        ],
+      } satisfies HomebrewAvailability;
+    }
+    const query = yield* runRecorded(
       records,
       "detection",
       "brew",
       ["info", "--json=v2", HOMEBREW_FORMULA],
-      { env: HOMEBREW_ENV, ...(timeoutMs === undefined ? {} : { timeoutMs }) },
+      { env: HOMEBREW_ENV },
     );
-    if (result.executionState !== "exited" || result.exitCode !== 0) return null;
-    const decoded = Schema.decodeUnknownOption(Schema.fromJsonString(HomebrewInfoSchema))(
-      result.stdout,
-    );
-    if (Option.isNone(decoded) || decoded.value.formulae.length !== 1) return null;
-    const formula = decoded.value.formulae[0];
-    if (formula === undefined || formula.full_name !== HOMEBREW_FORMULA) return null;
-    return semver.valid(formula.versions.stable);
-  });
-
-const remainingConvergenceMs = (startedAt: bigint, now: bigint): number =>
-  Math.max(0, HOMEBREW_CONVERGENCE_MS - Number((now - startedAt) / 1_000_000n));
-
-/**
- * Poll until Homebrew advertises the selected version. The poll blocks on a
- * publication AXM does not control, so it is published as a wait rather than
- * left as silence: the reader learns the command is not stuck, it is waiting
- * on the tap, and on what.
- */
-const convergeHomebrewFormula = (records: Array<CommandRecord>, targetVersion: string) => {
-  let announcedWait = false;
-  return Effect.gen(function* () {
-    let convergenceStartedAt: bigint | null = null;
-    let observedVersion: string | null = null;
-
-    while (true) {
-      const remaining =
-        convergenceStartedAt === null
-          ? undefined
-          : remainingConvergenceMs(convergenceStartedAt, yield* Clock.monotonicTimeNanos);
-      if (remaining !== undefined && remaining <= 0) {
-        return {
-          ready: false,
-          failure: "target-formula-unavailable",
-          observedVersion,
-          details: [
-            `Homebrew still advertises ${observedVersion ?? "an unknown release"}; selected AXM ${targetVersion} did not become available within 90 seconds.`,
-            "Wait for the Homebrew formula publication to complete, then rerun axm upgrade.",
-          ],
-        } satisfies HomebrewAvailability;
-      }
-
-      const timeoutMs = remaining === undefined ? undefined : Math.max(1, remaining);
-      const refresh = yield* runRecorded(records, "preparation", "brew", ["update"], {
-        env: HOMEBREW_ENV,
-        ...(timeoutMs === undefined ? {} : { timeoutMs }),
-      });
-      if (refresh.executionState !== "exited" || refresh.exitCode !== 0) {
-        return {
-          ready: false,
-          failure: "refresh-failed",
-          observedVersion,
-          details: [
-            "Homebrew metadata refresh did not complete, so AXM did not attempt a package mutation.",
-            "Resolve the reported Homebrew update failure, then rerun axm upgrade.",
-          ],
-        } satisfies HomebrewAvailability;
-      }
-
-      const queryTimeoutMs =
-        convergenceStartedAt === null
-          ? undefined
-          : remainingConvergenceMs(convergenceStartedAt, yield* Clock.monotonicTimeNanos);
-      if (queryTimeoutMs !== undefined && queryTimeoutMs <= 0) continue;
-      observedVersion = yield* queryHomebrewFormula(
-        records,
-        queryTimeoutMs === undefined ? undefined : Math.max(1, queryTimeoutMs),
-      );
-      if (observedVersion === null) {
-        return {
-          ready: false,
-          failure: "formula-query-failed",
-          observedVersion,
-          details: [
-            `Homebrew did not return a valid ${HOMEBREW_FORMULA} formula version after refresh.`,
-            `Inspect the tap with brew info ${HOMEBREW_FORMULA}, then rerun axm upgrade after it is healthy.`,
-          ],
-        } satisfies HomebrewAvailability;
-      }
-      const comparison = semver.compare(observedVersion, targetVersion);
-      if (comparison === 0) {
-        return {
-          ready: true,
-          observedVersion,
-          details: [],
-        } satisfies HomebrewAvailability;
-      }
-      if (comparison > 0) {
-        return {
-          ready: false,
-          failure: "formula-ahead-of-target",
-          observedVersion,
-          details: [
-            `Homebrew advertises AXM ${observedVersion}, which is newer than the immutable selected target ${targetVersion}.`,
-            "Rerun axm upgrade so release selection can choose from the current publication state.",
-          ],
-        } satisfies HomebrewAvailability;
-      }
-
-      convergenceStartedAt ??= yield* Clock.monotonicTimeNanos;
-      if (!announcedWait) {
-        announcedWait = true;
-        yield* publishWaiting({
-          blockingClass: "external-blocked",
-          subject: HOMEBREW_FORMULA,
-          detail: `Homebrew has AXM ${observedVersion}; waiting for ${targetVersion}`,
-        });
-      }
-      const afterQueryRemaining = remainingConvergenceMs(
-        convergenceStartedAt,
-        yield* Clock.monotonicTimeNanos,
-      );
-      if (afterQueryRemaining <= 0) continue;
-      yield* Effect.sleep(Math.min(HOMEBREW_RETRY_MS, afterQueryRemaining));
+    const decoded =
+      query.executionState === "exited" && query.exitCode === 0
+        ? Schema.decodeUnknownOption(Schema.fromJsonString(HomebrewInfoSchema))(query.stdout)
+        : Option.none();
+    if (Option.isSome(decoded) && decoded.value.formulae.length === 0) {
+      return {
+        state: "unavailable",
+        failure: "target-formula-unavailable",
+        observedVersion: null,
+        details: [
+          `Homebrew does not expose the selected AXM ${targetVersion} formula; retry after publication.`,
+        ],
+      } satisfies HomebrewAvailability;
     }
-  }).pipe(
-    Effect.ensuring(
-      Effect.suspend(() => (announcedWait ? publishWaitEnded(HOMEBREW_FORMULA) : Effect.void)),
-    ),
-  );
-};
+    const formula =
+      Option.isSome(decoded) && decoded.value.formulae.length === 1
+        ? decoded.value.formulae[0]
+        : undefined;
+    const observedVersion =
+      formula?.full_name === HOMEBREW_FORMULA ? semver.valid(formula.versions.stable) : null;
+    if (observedVersion === null) {
+      return {
+        state: "indeterminate",
+        failure: "formula-query-failed",
+        observedVersion: null,
+        details: [
+          `Homebrew did not return a valid ${HOMEBREW_FORMULA} formula version after refresh.`,
+          `Inspect the recorded brew info query, then retry after the query is healthy.`,
+        ],
+      } satisfies HomebrewAvailability;
+    }
+    const comparison = semver.compare(observedVersion, targetVersion);
+    if (comparison === 0)
+      return { state: "ready", observedVersion, details: [] } satisfies HomebrewAvailability;
+    if (comparison > 0) {
+      return {
+        state: "leading",
+        failure: "formula-ahead-of-target",
+        observedVersion,
+        details: [
+          `Homebrew advertises AXM ${observedVersion}, which is newer than selected AXM ${targetVersion}.`,
+          "The current formula cannot install this selected target; reconcile the formula and selected release before retrying.",
+        ],
+      } satisfies HomebrewAvailability;
+    }
+    return {
+      state: "lagging",
+      failure: "target-formula-unavailable",
+      observedVersion,
+      details: [
+        `Homebrew advertises AXM ${observedVersion}; selected AXM ${targetVersion} is not yet available.`,
+        "Retry after Homebrew formula publication completes.",
+      ],
+    } satisfies HomebrewAvailability;
+  });
 
 type HomebrewPhase = "pre-mutation" | "post-primary" | "post-fallback";
 
@@ -1305,6 +1293,7 @@ const handleHomebrew = (input: BaseResultInput) =>
         backupPath: null,
         homebrewFailure: "tap-query-failed",
         observedFormulaVersion: null,
+        availability: { state: "indeterminate", observedVersion: null, details: [] },
       } satisfies UpgradeCoreResult;
     }
 
@@ -1330,12 +1319,13 @@ const handleHomebrew = (input: BaseResultInput) =>
           backupPath: null,
           homebrewFailure: "tap-preparation-failed",
           observedFormulaVersion: null,
+          availability: { state: "indeterminate", observedVersion: null, details: [] },
         } satisfies UpgradeCoreResult;
       }
     }
 
-    const availability = yield* convergeHomebrewFormula(records, input.targetVersion);
-    if (!availability.ready) {
+    const availability = yield* checkHomebrewFormula(records, input.targetVersion);
+    if (availability.state !== "ready") {
       return {
         ...baseResult(input),
         resultStatus: "upgrade-incomplete",
@@ -1349,6 +1339,7 @@ const handleHomebrew = (input: BaseResultInput) =>
         backupPath: null,
         homebrewFailure: availability.failure,
         observedFormulaVersion: availability.observedVersion,
+        availability,
       } satisfies UpgradeCoreResult;
     }
 
@@ -1382,6 +1373,7 @@ const handleHomebrew = (input: BaseResultInput) =>
         backupPath: null,
         homebrewFailure: "delegation-failed",
         observedFormulaVersion: availability.observedVersion,
+        availability,
       } satisfies UpgradeCoreResult;
     }
 
@@ -1411,6 +1403,7 @@ const handleHomebrew = (input: BaseResultInput) =>
         backupPath: null,
         homebrewFailure: "delegation-failed",
         observedFormulaVersion: availability.observedVersion,
+        availability,
       } satisfies UpgradeCoreResult;
     }
 
@@ -1453,6 +1446,7 @@ const handleHomebrew = (input: BaseResultInput) =>
           backupPath: null,
           homebrewFailure: "delegation-failed",
           observedFormulaVersion: availability.observedVersion,
+          availability,
         } satisfies UpgradeCoreResult;
       }
     }
@@ -1481,6 +1475,7 @@ const handleHomebrew = (input: BaseResultInput) =>
         backupPath: null,
         homebrewFailure: failure.failure,
         observedFormulaVersion: availability.observedVersion,
+        availability,
       } satisfies UpgradeCoreResult;
     }
 
@@ -1499,6 +1494,7 @@ const handleHomebrew = (input: BaseResultInput) =>
       details: metadata ? [] : ["AXM was updated, but install metadata could not be persisted."],
       backupPath: null,
       observedFormulaVersion: availability.observedVersion,
+      availability,
     } satisfies UpgradeCoreResult;
   });
 
@@ -2070,7 +2066,9 @@ const resultMessage = (result: UpgradeCoreResult): string => {
   if (result.homebrewFailure !== undefined) {
     switch (result.homebrewFailure) {
       case "target-formula-unavailable":
-        return `Homebrew did not make selected AXM ${result.targetVersion ?? ""} available within 90 seconds`;
+        return result.availability?.state === "lagging"
+          ? `Homebrew formula ${result.observedFormulaVersion ?? ""} is behind selected AXM ${result.targetVersion ?? ""}; no changes made`
+          : `Homebrew does not expose selected AXM ${result.targetVersion ?? ""}; no changes made`;
       case "formula-ahead-of-target":
         return `Homebrew formula ${result.observedFormulaVersion ?? ""} is ahead of selected AXM ${result.targetVersion ?? ""}; no changes made`;
       case "refresh-failed":
@@ -2089,6 +2087,15 @@ const resultMessage = (result: UpgradeCoreResult): string => {
       case "manager-path-disagreement":
         break;
     }
+  }
+  if (
+    result.availability !== undefined &&
+    !["ready", "not-required"].includes(result.availability.state)
+  ) {
+    return (
+      result.availability.details[0] ??
+      "Installer availability could not be established; no changes made"
+    );
   }
   switch (result.resultStatus) {
     case "preview":
@@ -2259,27 +2266,6 @@ const assessmentOutcome = (result: UpgradeCoreResult): UpgradeAssessmentResult["
   }
 };
 
-const homebrewAvailability = (result: UpgradeCoreResult): InstallerAvailability | null => {
-  if (result.installMethod !== "homebrew" || result.observedFormulaVersion === undefined)
-    return null;
-  const observedVersion = result.observedFormulaVersion;
-  if (observedVersion === null) {
-    return {
-      state: "indeterminate",
-      observedVersion: null,
-      details: [],
-    };
-  }
-  const targetVersion = result.targetVersion;
-  if (targetVersion === null) return null;
-  const comparison = semver.compare(observedVersion, targetVersion);
-  return {
-    state: comparison === 0 ? "ready" : comparison < 0 ? "lagging" : "leading",
-    observedVersion,
-    details: [],
-  };
-};
-
 const toUpgradeAssessment = (input: {
   readonly result: UpgradeCoreResult;
   readonly resolution: VersionResolutionResult;
@@ -2288,7 +2274,7 @@ const toUpgradeAssessment = (input: {
   readonly availability: InstallerAvailability;
 }): UpgradeAssessmentResult => {
   const plan = withUpgradePlanFields(input.result);
-  const availability = homebrewAvailability(input.result) ?? input.availability;
+  const availability = input.result.availability ?? input.availability;
   return {
     contract: "axm.upgrade-assessment/v1",
     outcome: assessmentOutcome(input.result),
@@ -2371,7 +2357,10 @@ const upgradeSuggestions = (result: UpgradeCoreResult): ReadonlyArray<SuggestedA
       ];
     case "formula-ahead-of-target":
       return [
-        { description: "Rerun release selection against the current formula", cmd: "axm upgrade" },
+        {
+          description:
+            "Reconcile the current Homebrew formula with the selected release before retrying",
+        },
       ];
     case "formula-query-failed":
       return [
@@ -2437,7 +2426,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   const localVersion = observedLocal === null ? null : semver.valid(observedLocal);
 
   const installMethod = yield* InstallMethod;
-  const dryRun = args.dryRun === true;
+  const preview = args.preview === true;
   const detectionCommands: Array<CommandRecord> = [];
   // Detection, channel resolution, availability, and the upgrade itself are
   // the units of one observed operation; assessment and rendering follow it.
@@ -2447,9 +2436,9 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   const upgraded = yield* withLiveOperation(
     {
       command: "upgrade",
-      name: dryRun ? "Preview AXM upgrade" : "Upgrade AXM",
-      mode: dryRun ? "preview" : "apply",
-      ...(dryRun ? { successOutcome: "previewed" as const } : {}),
+      name: preview ? "Preview AXM upgrade" : "Upgrade AXM",
+      mode: preview ? "preview" : "apply",
+      ...(preview ? { successOutcome: "previewed" as const } : {}),
     },
     Effect.gen(function* () {
       // Detection and its ownership disambiguation are one unit: the probes
@@ -2510,7 +2499,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       const targetVersion = resolution.targetVersion;
       // A preview leaves no trace: the channel cache is durable state the
       // command was not asked to change.
-      if (resolution.channel !== null && !dryRun) {
+      if (resolution.channel !== null && !preview) {
         const updateCheck = yield* UpdateCheck;
         yield* updateCheck.writeCache(resolution.channel, resolution.etag);
       }
@@ -2537,30 +2526,28 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       // A preview resolves ownership and the target and stops: publication
       // state is established by the run that would use it.
       const availability: InstallerAvailability =
-        selectedAction !== "mutate" || dryRun
+        selectedAction !== "mutate" || preview
           ? { state: "not-required", observedVersion: null, details: [] }
           : method._tag === "Npm" || method._tag === "Pnpm" || method._tag === "Yarn"
             ? yield* observeUnit(
                 { id: "availability", label: `${methodLabel(methodName(method))} availability` },
-                queryPackageAvailability(
-                  method,
-                  targetVersion,
-                  args.requestedVersion,
-                  detectionCommands,
-                ),
+                queryPackageAvailability(method, targetVersion, detectionCommands),
               )
             : { state: "ready", observedVersion: targetVersion, details: [] };
       // The availability gate exists to stop a mutation that would fail. A
       // preview performs none, so it is not gated by publication state it
       // deliberately did not establish.
       const action =
-        !dryRun && selectedAction === "mutate" && availability.state !== "ready"
+        !preview && selectedAction === "mutate" && availability.state !== "ready"
           ? "manual"
           : selectedAction;
 
-      if (dryRun && action === "mutate") {
-        const preview = previewResult(input, platform.value.binaryName);
-        return { result: preview, resolution, availability };
+      if (preview && action === "mutate") {
+        return {
+          result: previewResult(input, platform.value.binaryName),
+          resolution,
+          availability,
+        };
       }
 
       const resultEffect = (() => {
@@ -2573,9 +2560,10 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
             return Effect.succeed(noMutationResult(input, "downgrade-refused", null));
           case "manual":
             if (selectedAction === "mutate") {
-              return Effect.succeed(
-                noMutationResult(input, "manual-action-required", null, availability.details),
-              );
+              return Effect.succeed({
+                ...noMutationResult(input, "manual-action-required", null, availability.details),
+                availability,
+              });
             }
             return Effect.succeed(
               noMutationResult(input, "manual-action-required", recoveryInstaller(targetVersion)),

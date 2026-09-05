@@ -6,6 +6,7 @@ import type { Command } from "effect/unstable/cli";
 import {
   captureHelpDoc,
   collectCommandPaths,
+  collectHelpFiles,
   formatCommandPath,
   rootCommand,
 } from "axm.sh/specification-harness";
@@ -16,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "cli/command-help-is-complete",
   title: "Every supported command presents complete help",
   statement:
-    "Every supported command shall present usable help, and the rendered help tree shall list exactly the supported command paths.",
+    "Every supported command shall present usable help, the rendered help tree shall list exactly the supported command paths, and no command's help shall list a retired flag spelling.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access"],
@@ -69,6 +70,16 @@ describe("Command help completeness", () => {
         const doc = yield* captureHelpDoc(command.path);
         expect(doc.usage.length, formatCommandPath(command.path)).toBeGreaterThan(0);
       }
+    }),
+  );
+
+  it.effect("no command lists the retired --dry-run spelling", () =>
+    Effect.gen(function* () {
+      const helpFiles = yield* collectHelpFiles();
+      const listing = [...helpFiles].flatMap(([commandPath, doc]) =>
+        doc.flags.some((flag) => flag.name === "dry-run") ? [commandPath] : [],
+      );
+      expect(listing).toEqual([]);
     }),
   );
 

@@ -255,7 +255,7 @@ const cacheStatusFamily = defineResultFamily({
   requiredTopLevelKeys: ["entries", "bytes", "maxBytes", "maxAgeDays"],
   scenarios: ["populated cache", "empty cache"],
   rationale: "Cache status is a read query.",
-  commandCoverage: ["packages/cli/src/root/cache/command.internal.test.ts"],
+  commandCoverage: ["specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts"],
 });
 
 const cacheVerifyFamily = defineResultFamily({
@@ -264,7 +264,7 @@ const cacheVerifyFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["valid", "invalid entries"],
   rationale: "Cache verification returns a purpose-built verification result.",
-  commandCoverage: ["packages/cli/src/root/cache/command.internal.test.ts"],
+  commandCoverage: ["specifications/cli/cache/verify/removes-only-corrupt-archives.spec.ts"],
 });
 
 const cachePruneFamily = defineResultFamily({
@@ -274,7 +274,7 @@ const cachePruneFamily = defineResultFamily({
   scenarios: ["pruned", "no-op"],
   rationale: "Cache pruning reports cache-specific byte and entry counts.",
   humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/cache/command.internal.test.ts"],
+  commandCoverage: ["specifications/cli/cache/prune/enforces-reported-retention-limits.spec.ts"],
 });
 
 const discoverFamily = defineResultFamily({
@@ -406,7 +406,10 @@ const knowledgeConceptResolveFamily = defineResultFamily({
   optionalTopLevelKeys: ["candidate", "candidates", "reason"],
   scenarios: ["resolved", "ambiguous", "not found", "corpus changing"],
   rationale: "Concept resolution returns one identity or bounded candidates.",
-  commandCoverage: ["packages/knowledge-query/src/knowledge-graph.internal.test.ts"],
+  commandCoverage: [
+    "specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts",
+    "specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts",
+  ],
 });
 
 const knowledgeConceptRelatedFamily = defineResultFamily({
@@ -428,7 +431,9 @@ const knowledgeConceptRelatedFamily = defineResultFamily({
   ],
   scenarios: ["related concepts", "empty", "missing root", "corpus changing"],
   rationale: "Related traversal returns bounded graph results and corpus identity.",
-  commandCoverage: ["packages/knowledge-query/src/knowledge-graph.internal.test.ts"],
+  commandCoverage: [
+    "specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts",
+  ],
 });
 
 const knowledgeConceptStatusFamily = defineResultFamily({
@@ -446,7 +451,8 @@ const knowledgeConceptStatusFamily = defineResultFamily({
   scenarios: [
     "selected corpus",
     "empty corpus",
-    "unhealthy corpus",
+    "changing corpus",
+    "unavailable corpus after capture failure",
     "cross-scope collisions not determined",
   ],
   rationale: "Discovery status exposes the canonical capabilities and selected corpus identity.",
@@ -519,7 +525,9 @@ const visibilityEvaluationFamily = defineResultFamily({
   scenarios: ["matching intent", "drift", "unconfigured", "not established", "unavailable"],
   rationale:
     "Visibility status reports repository intent and authoritative Registry state without mutation.",
-  commandCoverage: ["packages/cli/src/app.internal.test.ts"],
+  commandCoverage: [
+    "specifications/cli/visibility/status/reports-repository-intent-and-registry-evaluation.spec.ts",
+  ],
 });
 
 const visibilityMutationFamily = defineResultFamily({
@@ -530,7 +538,10 @@ const visibilityMutationFamily = defineResultFamily({
   rationale:
     "Visibility administration reports the conditional whole-Extension mutation and resulting revision.",
   humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/app.internal.test.ts"],
+  commandCoverage: [
+    "specifications/cli/visibility/set/uses-explicit-intent-and-observed-revision.spec.ts",
+    "specifications/cli/visibility/reconcile/applies-declared-repository-intent.spec.ts",
+  ],
 });
 
 const lifecycleTransitionFamily = defineResultFamily({
@@ -541,7 +552,10 @@ const lifecycleTransitionFamily = defineResultFamily({
   rationale:
     "Deprecation administration reports the authoritative conditional Registry transition without a local workspace artifact.",
   humanOutputKind: "mutation",
-  commandCoverage: ["packages/cli/src/root/lifecycle/command.internal.test.ts"],
+  commandCoverage: [
+    "specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts",
+    "specifications/cli/undeprecate/removes-guidance-at-the-observed-revision.spec.ts",
+  ],
 });
 
 const formatterPaths = [

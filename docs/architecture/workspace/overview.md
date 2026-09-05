@@ -145,9 +145,12 @@ Changing an extension among workspace-authored, external, and bundled authority
 is an explicit operation. A lock row or recommended Pack does not silently
 change authority.
 
-Workspace-authored content may exist as authoring inventory without being
-desired or active. Its presence does not create settings or accepted lock state, and
-AXM does not delete it merely because it is unreachable from desired state.
+Locally authored package files can exist without a workspace declaration.
+Filesystem presence alone does not establish managed membership or an accepted
+external resolution. Authoring commands can create content and declarations
+together; their specifications define the resulting activation state. Cleanup
+uses ownership and desired state rather than treating an unconfigured authored
+directory as disposable.
 
 Externally acquired content is managed installed state only when AXM can relate
 it to accepted source and resolution evidence. If that authority cannot be

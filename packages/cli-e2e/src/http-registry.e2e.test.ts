@@ -207,13 +207,13 @@ const scaffoldAndPublish = async (
   try {
     await initWorkspace(workspace.path, location);
 
-    const created = await runCli(
-      [plural, "new", name, "--owner", OWNER, ...newArgsFor(type), "--yes"],
-      { cwd: workspace.path, env: registryEnv(location) },
-    );
+    const created = await runCli([plural, "new", name, "--owner", OWNER, ...newArgsFor(type)], {
+      cwd: workspace.path,
+      env: registryEnv(location),
+    });
     expect(created.exitCode, created.stderr).toBe(0);
 
-    const published = await runCli([plural, "publish", `${OWNER}/${plural}/${name}`, "--yes"], {
+    const published = await runCli([plural, "publish", `${OWNER}/${plural}/${name}`], {
       cwd: workspace.path,
       env: registryEnv(location),
     });
@@ -235,13 +235,13 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(workspace.path, registry.url);
-      const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+      const created = await runCli(["skills", "new", name, "--owner", OWNER], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
       });
       expect(created.exitCode, created.stderr).toBe(0);
       const published = await runCli(
-        ["skills", "publish", `${OWNER}/skills/${name}`, "--visibility", "private", "--yes"],
+        ["skills", "publish", `${OWNER}/skills/${name}`, "--visibility", "private"],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(published.exitCode, published.stderr).toBe(0);
@@ -346,12 +346,12 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(publisher.path, registry.url);
-      const created = await runCli(["skills", "new", "review", "--owner", OWNER, "--yes"], {
+      const created = await runCli(["skills", "new", "review", "--owner", OWNER], {
         cwd: publisher.path,
         env,
       });
       expect(created.exitCode, created.stderr).toBe(0);
-      const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
+      const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`], {
         cwd: publisher.path,
         env,
       });
@@ -360,7 +360,7 @@ describe("HTTP registry transport", () => {
       if (firstPublished === undefined) throw new Error("Expected first published skill version");
 
       await initWorkspace(consumer.path, registry.url);
-      const installed = await runCli(["install", `${OWNER}/skills/review`, "--yes"], {
+      const installed = await runCli(["install", `${OWNER}/skills/review`], {
         cwd: consumer.path,
         env,
       });
@@ -372,7 +372,7 @@ describe("HTTP registry transport", () => {
         env,
       });
       expect(bumped.exitCode, bumped.stderr).toBe(0);
-      const secondPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
+      const secondPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`], {
         cwd: publisher.path,
         env,
       });
@@ -380,7 +380,7 @@ describe("HTTP registry transport", () => {
       const secondPublished = registry.publishes[1];
       if (secondPublished === undefined) throw new Error("Expected second published skill version");
 
-      const root = await runCli(["update", "--yes", "--json"], { cwd: consumer.path, env });
+      const root = await runCli(["update", "--json"], { cwd: consumer.path, env });
       expect(root.exitCode, `${root.stderr}\n${root.stdout}`).toBe(0);
       expect(structuredPlanResult(root.stdout)).toMatchObject({
         outcome: "no-op",
@@ -390,7 +390,7 @@ describe("HTTP registry transport", () => {
         ],
       });
 
-      const targeted = await runCli(["update", `${OWNER}/skills/review`, "--yes", "--json"], {
+      const targeted = await runCli(["update", `${OWNER}/skills/review`, "--json"], {
         cwd: consumer.path,
         env,
       });
@@ -408,7 +408,7 @@ describe("HTTP registry transport", () => {
       });
 
       const bypass = await runCli(
-        ["update", `${OWNER}/skills/review`, "--ignore-release-age", "--yes", "--json"],
+        ["update", `${OWNER}/skills/review`, "--ignore-release-age", "--json"],
         { cwd: consumer.path, env },
       );
       expect(bypass.exitCode, `${bypass.stderr}\n${bypass.stdout}`).toBe(0);
@@ -428,7 +428,7 @@ describe("HTTP registry transport", () => {
       });
 
       const secondRun = await runCli(
-        ["update", `${OWNER}/skills/review`, "--ignore-release-age", "--yes", "--json"],
+        ["update", `${OWNER}/skills/review`, "--ignore-release-age", "--json"],
         { cwd: consumer.path, env },
       );
       expect(secondRun.exitCode, `${secondRun.stderr}\n${secondRun.stdout}`).toBe(0);
@@ -452,18 +452,18 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(workspace.path, registry.url);
-      const createReview = await runCli(["skills", "new", "review", "--owner", OWNER, "--yes"], {
+      const createReview = await runCli(["skills", "new", "review", "--owner", OWNER], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
       });
       expect(createReview.exitCode, createReview.stderr).toBe(0);
-      const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
+      const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
       });
       expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
 
-      const createDeploy = await runCli(["skills", "new", "deploy", "--owner", OWNER, "--yes"], {
+      const createDeploy = await runCli(["skills", "new", "deploy", "--owner", OWNER], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
       });
@@ -475,7 +475,7 @@ describe("HTTP registry transport", () => {
       expect(bumpReview.exitCode, bumpReview.stderr).toBe(0);
 
       const published = await runCli(
-        ["publish", "--owner", OWNER, "--visibility", "private", "--yes", "--json"],
+        ["publish", "--owner", OWNER, "--visibility", "private", "--json"],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(published.exitCode, `${published.stderr}\n${published.stdout}`).toBe(0);
@@ -525,13 +525,13 @@ describe("HTTP registry transport", () => {
       try {
         await initWorkspace(workspace.path, registry.url);
         const created = await runCli(
-          ["skills", "new", `blocked-${publishPreviewMode}`, "--owner", OWNER, "--yes"],
+          ["skills", "new", `blocked-${publishPreviewMode}`, "--owner", OWNER],
           { cwd: workspace.path, env: registryEnv(registry.url) },
         );
         expect(created.exitCode, created.stderr).toBe(0);
 
         const published = await runCli(
-          ["skills", "publish", `${OWNER}/skills/blocked-${publishPreviewMode}`, "--yes", "--json"],
+          ["skills", "publish", `${OWNER}/skills/blocked-${publishPreviewMode}`, "--json"],
           { cwd: workspace.path, env: registryEnv(registry.url) },
         );
         expect(published.exitCode).not.toBe(0);
@@ -567,13 +567,13 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       const created = await runCli(
-        ["skills", "new", "preview-service-unavailable", "--owner", OWNER, "--yes"],
+        ["skills", "new", "preview-service-unavailable", "--owner", OWNER],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(created.exitCode, created.stderr).toBe(0);
 
       const target = `${OWNER}/skills/preview-service-unavailable`;
-      const structured = await runCli(["skills", "publish", target, "--yes", "--json"], {
+      const structured = await runCli(["skills", "publish", target, "--json"], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
       });
@@ -596,7 +596,7 @@ describe("HTTP registry transport", () => {
       });
       expect(execution["failure"]).not.toHaveProperty("body");
 
-      const human = await runCli(["skills", "publish", target, "--yes"], {
+      const human = await runCli(["skills", "publish", target], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
       });
@@ -626,26 +626,23 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(workspace.path, registry.url);
-      const createdSkill = await runCli(
-        ["skills", "new", "pack-member", "--owner", OWNER, "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const createdSkill = await runCli(["skills", "new", "pack-member", "--owner", OWNER], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(createdSkill.exitCode, createdSkill.stderr).toBe(0);
-      const createdPack = await runCli(
-        ["packs", "new", "ordered-pack", "--owner", OWNER, "--yes"],
-        {
-          cwd: workspace.path,
-          env: registryEnv(registry.url),
-        },
-      );
+      const createdPack = await runCli(["packs", "new", "ordered-pack", "--owner", OWNER], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(createdPack.exitCode, createdPack.stderr).toBe(0);
-      const added = await runCli(
-        ["packs", "add", "ordered-pack", `${OWNER}/skills/pack-member`, "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const added = await runCli(["packs", "add", "ordered-pack", `${OWNER}/skills/pack-member`], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(added.exitCode, added.stderr).toBe(0);
 
-      const published = await runCli(["publish", "--owner", OWNER, "--yes", "--json"], {
+      const published = await runCli(["publish", "--owner", OWNER, "--json"], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
       });
@@ -672,7 +669,7 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       for (const name of ["retry-first", "retry-second"]) {
-        const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+        const created = await runCli(["skills", "new", name, "--owner", OWNER], {
           cwd: workspace.path,
           env: registryEnv(registry.url),
         });
@@ -680,13 +677,7 @@ describe("HTTP registry transport", () => {
       }
 
       const initial = await runCli(
-        [
-          "publish",
-          `${OWNER}/skills/retry-first`,
-          `${OWNER}/skills/retry-second`,
-          "--yes",
-          "--json",
-        ],
+        ["publish", `${OWNER}/skills/retry-first`, `${OWNER}/skills/retry-second`, "--json"],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(initial.exitCode, initial.stderr).toBe(0);
@@ -754,7 +745,7 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(workspace.path, registry.url);
-      const created = await runCli(["skills", "new", "ambiguous", "--owner", OWNER, "--yes"], {
+      const created = await runCli(["skills", "new", "ambiguous", "--owner", OWNER], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
       });
@@ -762,7 +753,7 @@ describe("HTTP registry transport", () => {
 
       const hung = registry.nextHungPublish();
       const interrupted = await interruptOnHungPublish(
-        ["publish", `${OWNER}/skills/ambiguous`, "--yes", "--json"],
+        ["publish", `${OWNER}/skills/ambiguous`, "--json"],
         hung,
       );
       expect(interrupted.code, interrupted.stdout + interrupted.stderr).toBe(130);
@@ -825,19 +816,19 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       for (const name of ["failing-member", "independent-member"]) {
-        const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+        const created = await runCli(["skills", "new", name, "--owner", OWNER], {
           cwd: workspace.path,
           env: registryEnv(registry.url),
         });
         expect(created.exitCode, created.stderr).toBe(0);
       }
-      const createdPack = await runCli(
-        ["packs", "new", "blocked-pack", "--owner", OWNER, "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const createdPack = await runCli(["packs", "new", "blocked-pack", "--owner", OWNER], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(createdPack.exitCode, createdPack.stderr).toBe(0);
       const added = await runCli(
-        ["packs", "add", "blocked-pack", `${OWNER}/skills/failing-member`, "--yes"],
+        ["packs", "add", "blocked-pack", `${OWNER}/skills/failing-member`],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(added.exitCode, added.stderr).toBe(0);
@@ -848,7 +839,6 @@ describe("HTTP registry transport", () => {
           `${OWNER}/packs/blocked-pack`,
           `${OWNER}/skills/independent-member`,
           "--include-dependencies",
-          "--yes",
           "--json",
         ],
         { cwd: workspace.path, env: registryEnv(registry.url) },
@@ -906,11 +896,11 @@ describe("HTTP registry transport", () => {
       await initWorkspace(httpWorkspace.path, registry.url);
       await initWorkspace(fileWorkspace.path, `file://${fileRegistry.path}`);
 
-      const httpInstall = await runCli(["install", fqn, "--yes"], {
+      const httpInstall = await runCli(["install", fqn], {
         cwd: httpWorkspace.path,
         env: registryEnv(registry.url),
       });
-      const fileInstall = await runCli(["install", fqn, "--yes"], {
+      const fileInstall = await runCli(["install", fqn], {
         cwd: fileWorkspace.path,
         env: registryEnv(`file://${fileRegistry.path}`),
       });
@@ -945,15 +935,15 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(publisher.path, registry.url);
-      const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+      const created = await runCli(["skills", "new", name, "--owner", OWNER], {
         cwd: publisher.path,
         env,
       });
       expect(created.exitCode, created.stderr).toBe(0);
-      const firstPublish = await runCli(
-        ["skills", "publish", fqn, "--visibility", "private", "--yes"],
-        { cwd: publisher.path, env },
-      );
+      const firstPublish = await runCli(["skills", "publish", fqn, "--visibility", "private"], {
+        cwd: publisher.path,
+        env,
+      });
       expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
       const firstVersion = registry.publishes[0]?.version;
       if (firstVersion === undefined) throw new Error("Expected a published private version");
@@ -967,7 +957,7 @@ describe("HTTP registry transport", () => {
       }
 
       const latestRequestOffset = registry.requests.length;
-      const latest = await runCli(["install", fqn, "--yes"], {
+      const latest = await runCli(["install", fqn], {
         cwd: latestConsumer.path,
         env,
       });
@@ -982,7 +972,7 @@ describe("HTTP registry transport", () => {
       );
 
       const exactRequestOffset = registry.requests.length;
-      const exact = await runCli(["install", `${fqn}@${firstVersion}`, "--yes"], {
+      const exact = await runCli(["install", `${fqn}@${firstVersion}`], {
         cwd: exactConsumer.path,
         env,
       });
@@ -994,11 +984,11 @@ describe("HTTP registry transport", () => {
         }),
       );
 
-      const anonymous = await runCli(["install", fqn, "--yes", "--json"], {
+      const anonymous = await runCli(["install", fqn, "--json"], {
         cwd: anonymousConsumer.path,
         env: anonymousRegistryEnv(registry.url),
       });
-      const nonOwner = await runCli(["install", fqn, "--yes", "--json"], {
+      const nonOwner = await runCli(["install", fqn, "--json"], {
         cwd: nonOwnerConsumer.path,
         env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "other-token" },
       });
@@ -1016,14 +1006,14 @@ describe("HTTP registry transport", () => {
       expect(hasLoginSuggestion(nonOwnerError)).toBe(false);
 
       const anonymousFinalize = await runCli(
-        ["rules", "install", `${OWNER}/rules/finalize-missing`, "--yes", "--json"],
+        ["rules", "install", `${OWNER}/rules/finalize-missing`, "--json"],
         {
           cwd: anonymousConsumer.path,
           env: anonymousRegistryEnv(registry.url),
         },
       );
       const nonOwnerFinalize = await runCli(
-        ["rules", "install", `${OWNER}/rules/finalize-missing`, "--yes", "--json"],
+        ["rules", "install", `${OWNER}/rules/finalize-missing`, "--json"],
         {
           cwd: nonOwnerConsumer.path,
           env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "other-token" },
@@ -1061,7 +1051,7 @@ describe("HTTP registry transport", () => {
       await scaffoldAndPublish(registry.url, "skills", "skill", name);
       await initWorkspace(consumer.path, registry.url);
       const requestOffset = registry.requests.length;
-      const installed = await runCli(["install", fqn, "--yes"], {
+      const installed = await runCli(["install", fqn], {
         cwd: consumer.path,
         env: anonymousRegistryEnv(registry.url),
       });

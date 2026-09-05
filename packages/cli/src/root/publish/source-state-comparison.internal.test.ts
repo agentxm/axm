@@ -48,7 +48,6 @@ const args = (
   onExisting: Option.none(),
   backfill: false,
   acceptWarnings: false,
-  yes: true,
   preview: true,
   scope: "project",
   visibility: Option.none(),

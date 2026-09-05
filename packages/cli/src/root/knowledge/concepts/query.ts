@@ -7,6 +7,10 @@ import { makeAppError } from "../../../app-error/index.js";
 import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
+import {
   KNOWLEDGE_LIFECYCLE_FILTER_FIELDS,
   KNOWLEDGE_METADATA_FILTER_FIELDS,
   KNOWLEDGE_SEARCHABLE_FIELDS,
@@ -433,6 +437,7 @@ export const queryCommand = Command.make(
     }).pipe(withWorkspace(scope), withRuntime("knowledge concepts query")),
 ).pipe(
   withArgvTracking(queryConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("Run a structured query over installed knowledge concepts"),
   Command.withExamples([
     {

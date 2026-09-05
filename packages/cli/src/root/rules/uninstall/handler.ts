@@ -19,7 +19,6 @@ const uninstallPresentation = operationPresentation(
 export const handleUninstallRule = (
   args: UninstallRuleHandlerArgs,
   flags: {
-    readonly yes: boolean;
     readonly preview: boolean;
   },
 ) =>
@@ -36,7 +35,6 @@ export const handleUninstallRule = (
 const handleUninstallRuleBody = (
   args: UninstallRuleHandlerArgs,
   flags: {
-    readonly yes: boolean;
     readonly preview: boolean;
   },
 ) =>

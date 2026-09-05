@@ -62,7 +62,7 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: true, preview: false });
+        yield* handleMcpsImport({ preview: false });
 
         expect(logs.success).toEqual(["No unmanaged MCP servers imported."]);
       }),
@@ -75,7 +75,7 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: true, preview: false });
+        yield* handleMcpsImport({ preview: false });
 
         expect(logs.success).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
@@ -93,7 +93,7 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: true, preview: false });
+        yield* handleMcpsImport({ preview: false });
 
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Import MCP servers",
@@ -149,7 +149,7 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: false, preview: true });
+        yield* handleMcpsImport({ preview: true });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
@@ -171,9 +171,9 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: true, preview: false });
+        yield* handleMcpsImport({ preview: false });
         const settingsAfterImport = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
-        yield* handleMcpsImport({ yes: true, preview: false });
+        yield* handleMcpsImport({ preview: false });
 
         expect(rendererState.results[1]?.data).toMatchObject({
           result: {
@@ -199,7 +199,7 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: true, preview: false });
+        yield* handleMcpsImport({ preview: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
@@ -220,7 +220,7 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: true, preview: false });
+        yield* handleMcpsImport({ preview: false });
 
         expect(logs.success).toEqual(["Imported 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
@@ -259,7 +259,7 @@ describe("mcps import output", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleMcpsImport({ yes: false, preview: false });
+          yield* handleMcpsImport({ preview: false });
 
           expect(promptState.confirmCalls).toEqual([]);
           expect(rendererState.results[0]?.data).toMatchObject({
@@ -301,7 +301,7 @@ describe("mcps import output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleMcpsImport(
-          { yes: true, preview: false },
+          { preview: false },
           {
             beforeAdoptionWrite: (adoption) =>
               adoption.name === "zebra"
@@ -334,7 +334,7 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport({ yes: false, preview: false });
+        yield* handleMcpsImport({ preview: false });
 
         expect(promptState.confirmCalls).toEqual([]);
         expect(rendererState.results[0]?.data).toMatchObject({
@@ -362,9 +362,7 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        const error = yield* Effect.flip(
-          handleMcpsImport({ yes: true, preview: false, enable: true }),
-        );
+        const error = yield* Effect.flip(handleMcpsImport({ preview: false, enable: true }));
         if (!(error instanceof AppError)) throw new Error("Expected an AppError");
 
         expect(error.code).toBe("usage");

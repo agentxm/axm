@@ -56,7 +56,6 @@ const defaultArgs = (
   overrides: Partial<EnableSubagentHandlerArgs> = {},
 ): EnableSubagentHandlerArgs => ({
   name,
-  yes: true,
   preview: false,
   ...overrides,
 });

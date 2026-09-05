@@ -98,6 +98,18 @@ const startDeviceAuthServer = async (initialOutcome: DeviceOutcome = "pending") 
   };
 };
 
+export const executionBinding = {
+  requirements: [
+    "cli/login/starts-resumable-device-sign-in",
+    "cli/login/resumes-approved-authorization",
+    "cli/login/terminal-authorization-failures-preserve-credentials",
+    "cli/login/resume-requires-matching-pending-authorization",
+  ],
+  boundary: "process",
+  rationale:
+    "Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.",
+} as const;
+
 describe("axm login", () => {
   it("shows the device-code login flags and examples", async () => {
     const result = await runCli(["login", "--help"]);
@@ -106,7 +118,7 @@ describe("axm login", () => {
     const output = result.stdout + result.stderr;
     expect(output).toContain("Use OAuth device-code sign-in; recommended for SSH and");
     expect(output).toContain("headless environments");
-    expect(output).toContain("Log in again without prompting when already authenticated");
+    expect(output).toContain("Start a new sign-in without prompting when a valid session");
     expect(output).toContain("axm login");
     expect(output).toContain("axm login --device-code");
     expect(output).toContain("--wait");

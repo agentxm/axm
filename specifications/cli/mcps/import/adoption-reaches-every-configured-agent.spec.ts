@@ -86,7 +86,7 @@ describe("Importing a natively configured MCP server", () => {
   };
 
   const importServers = (workspace: SpecWorkspace, preview: boolean) =>
-    handleMcpsImport({ yes: true, preview }).pipe(Effect.provide(workspace.layer));
+    handleMcpsImport({ preview }).pipe(Effect.provide(workspace.layer));
 
   const sync = (workspace: SpecWorkspace, preview: boolean) =>
     handleSync({ preview }).pipe(Effect.provide(workspace.layer));

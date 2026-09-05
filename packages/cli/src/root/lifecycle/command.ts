@@ -8,6 +8,11 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 import { Screen, headlineDoc, successDoc } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
+  directWriteCapabilities,
+  withCommandCapabilities,
+  type CommandCapabilities,
+} from "../shared/command-capabilities.js";
+import {
   ExtensionFqnSchema,
   formatFqn,
   parseFqn,
@@ -392,10 +397,23 @@ const extensionRefConfig = {
   ),
 } as const;
 
+/**
+ * Deprecate reads the current deprecation, then writes the merged guidance;
+ * the invocation's effect is the Registry write it always attempts.
+ */
+const deprecateCapabilities: CommandCapabilities = {
+  preview: false,
+  preapproval: null,
+  trust: [],
+  inputs: "explicit",
+  effect: "registry",
+};
+
 export const yankCommand = Command.make("yank", yankConfig, (input) =>
   handleYank(input).pipe(withRuntime("yank")),
 ).pipe(
   withArgvTracking(yankConfig),
+  withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Exclude extension versions from fresh resolution"),
   Command.withExamples([
     { command: "axm yank @acme/skills/code-review@1.2.3", description: "Yank one version" },
@@ -410,6 +428,7 @@ export const unyankCommand = Command.make("unyank", exactRefConfig, ({ ref }) =>
   handleUnyank(ref).pipe(withRuntime("unyank")),
 ).pipe(
   withArgvTracking(exactRefConfig),
+  withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Restore one exact version to fresh resolution"),
   Command.withExamples([
     {
@@ -423,6 +442,7 @@ export const deprecateCommand = Command.make("deprecate", deprecateConfig, (inpu
   handleDeprecate(input).pipe(withRuntime("deprecate")),
 ).pipe(
   withArgvTracking(deprecateConfig),
+  withCommandCapabilities(deprecateCapabilities),
   Command.withDescription("Create or edit warning-only extension deprecation guidance"),
   Command.withExamples([
     {
@@ -437,6 +457,7 @@ export const undeprecateCommand = Command.make("undeprecate", extensionRefConfig
   handleUndeprecate(ref).pipe(withRuntime("undeprecate")),
 ).pipe(
   withArgvTracking(extensionRefConfig),
+  withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Restore a deprecated extension identity"),
   Command.withExamples([
     {

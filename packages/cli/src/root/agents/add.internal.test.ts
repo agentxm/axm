@@ -224,7 +224,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: true,
           force: false,
           preview: false,
         });
@@ -246,7 +245,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: true,
           force: false,
           preview: false,
         });
@@ -284,7 +282,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: false,
           force: false,
           preview: false,
         });
@@ -312,7 +309,6 @@ describe("agents add.handler", () => {
         handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: true,
           force: false,
           preview: false,
         }),
@@ -335,7 +331,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: false,
           force: false,
           preview: true,
         });
@@ -354,7 +349,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: true,
           force: false,
           preview: false,
         });
@@ -399,7 +393,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: true,
           force: false,
           preview: false,
         });
@@ -458,7 +451,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["cursor"],
           detected: false,
-          yes: true,
           force: false,
           preview: false,
         });
@@ -498,7 +490,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: [],
           detected: true,
-          yes: false,
           force: false,
           preview: false,
         });
@@ -518,7 +509,7 @@ describe("agents add.handler", () => {
     );
   });
 
-  it.effect("requires the named warning policy even when --yes is present", () => {
+  it.effect("requires the named warning policy before configuring a retired agent", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
 
@@ -527,7 +518,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["gemini-cli"],
           detected: false,
-          yes: true,
           force: false,
           preview: false,
         });
@@ -540,7 +530,6 @@ describe("agents add.handler", () => {
         yield* handleAgentsAdd({
           ids: ["gemini-cli"],
           detected: false,
-          yes: false,
           force: true,
           preview: false,
         });

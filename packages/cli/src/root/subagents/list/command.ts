@@ -2,6 +2,10 @@ import { Command, Flag } from "effect/unstable/cli";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { agentFlag } from "../../../cli-flags/index.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
+import {
+  readOnlyCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleListSubagents } from "./handler.js";
 
@@ -19,6 +23,7 @@ export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =
   ),
 ).pipe(
   withArgvTracking(listConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("List detected subagents and their lifecycle classification"),
   Command.withExamples([
     { command: "axm subagents list", description: "Inventory detected subagents" },

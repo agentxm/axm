@@ -84,7 +84,6 @@ describe("mcps add output", () => {
           url: Option.none(),
           env: ["CONTEXT_TOKEN"],
           header: [],
-          yes: false,
           force: false,
           preview: false,
         });
@@ -113,7 +112,6 @@ describe("mcps add output", () => {
           url: Option.some("https://example.test/mcp"),
           env: [],
           header: [],
-          yes: true,
           force: false,
           preview: false,
         });
@@ -186,7 +184,6 @@ describe("mcps add output", () => {
             url: Option.none(),
             env: ["API_TOKEN=literal-secret"],
             header: [],
-            yes: true,
             force: false,
             preview: false,
           }),
@@ -213,7 +210,6 @@ describe("mcps add output", () => {
             url: Option.some("wss://example.test/mcp"),
             env: [],
             header: [],
-            yes: true,
             force: false,
             preview: false,
           }),
@@ -242,7 +238,6 @@ describe("mcps add output", () => {
             url: Option.none(),
             env: [],
             header: [],
-            yes: true,
             force: false,
             preview: false,
           }),
@@ -272,7 +267,6 @@ describe("mcps add output", () => {
           url: Option.none(),
           env: ["FOO=${BAR:-fallback}"],
           header: [],
-          yes: true,
           force: false,
           preview: false,
         });

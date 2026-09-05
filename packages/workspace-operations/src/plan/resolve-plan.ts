@@ -421,33 +421,48 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     });
   }
 
+  // Step 5b: Confirmation. A condition that consents only at a prompt — a
+  // publisher change, or any confirmable condition met by a command with no
+  // preapprovable confirmation — is never satisfied by preapproval. A
+  // preapprovable condition is satisfied by explicit preapproval; otherwise
+  // it is asked when a prompt can open and blocks when one cannot, naming
+  // the recovery its route actually supports.
   const hasSteps = candidatePlan.jobs.some((job) => job.steps.length > 0);
-  if (
-    hasSteps &&
-    hasConfirmableRisk &&
-    applyExecution.request.confirmableRiskApproval === "prompt-if-interactive"
-  ) {
-    if (!(yield* interaction.isConfirmationAvailable)) {
-      const confirmable = riskConditions.find((condition) => condition.level === "confirmable");
-      const escapes = confirmationRecoverySuggestions(applyExecution.approvalRecovery);
-      return makeOperationResolution<Output>({
-        ...resolutionBase,
-        atomicity: { declared: atomicity, applied: "closure-atomic" },
-        units: plannedUnits(candidatePlan.jobs),
-        blocking: {
-          class: "approval-required",
-          subject: confirmable?.id ?? candidatePlan.name,
-          phase: "confirmation",
-          detail: confirmable?.detail ?? "This plan requires confirmation before it can apply.",
-          ...(escapes[0] === undefined ? {} : { escape: escapes[0] }),
-        },
-        suggestions: escapes,
-      });
-    }
-    yield* enterPhase("confirmation");
-    const confirmation = yield* interaction.confirmApplyChanges(applyExecution.approvalRecovery);
-    if (confirmation !== "approved") {
-      return notExecuted({ declined: true });
+  if (hasSteps && hasConfirmableRisk) {
+    const approval = applyExecution.request.confirmableRiskApproval;
+    const interactiveOnly = riskConditions.find(
+      (condition) => condition.level === "confirmable" && condition.consent === "interactive-only",
+    );
+    const requiresPrompt = interactiveOnly !== undefined || approval === "interactive-only";
+    if (requiresPrompt || approval === "prompt-if-interactive") {
+      if (!(yield* interaction.isConfirmationAvailable)) {
+        const confirmable =
+          interactiveOnly ?? riskConditions.find((condition) => condition.level === "confirmable");
+        const escapes = confirmationRecoverySuggestions(
+          applyExecution.approvalRecovery,
+          requiresPrompt ? "interactive" : "preapprovable",
+        );
+        return makeOperationResolution<Output>({
+          ...resolutionBase,
+          atomicity: { declared: atomicity, applied: "closure-atomic" },
+          units: plannedUnits(candidatePlan.jobs),
+          blocking: {
+            class: "approval-required",
+            subject: confirmable?.id ?? candidatePlan.name,
+            phase: "confirmation",
+            detail: requiresPrompt
+              ? `${confirmable?.detail ?? "This plan requires confirmation before it can apply."} Interactive approval is required; preapproval does not apply.`
+              : (confirmable?.detail ?? "This plan requires confirmation before it can apply."),
+            ...(escapes[0] === undefined ? {} : { escape: escapes[0] }),
+          },
+          suggestions: escapes,
+        });
+      }
+      yield* enterPhase("confirmation");
+      const confirmation = yield* interaction.confirmApplyChanges(applyExecution.approvalRecovery);
+      if (confirmation !== "approved") {
+        return notExecuted({ declined: true });
+      }
     }
   }
 

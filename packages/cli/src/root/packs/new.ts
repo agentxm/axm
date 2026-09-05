@@ -22,11 +22,15 @@ import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/
 import { newPack, preflightCreateOnly, type NewPackOperation } from "@agentxm/extension-authoring";
 import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
@@ -39,7 +43,6 @@ import { PackManager } from "@agentxm/extension-workspace";
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<Handle>;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -153,10 +156,7 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
-    preview: args.preview,
-    yes: args.yes,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
   yield* emitOperationResolution("packs.new", resolution, {
     suggestions: [
@@ -173,21 +173,18 @@ const newConfig = {
     Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Create the pack without confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what files would be created without creating them"),
-  ),
+  preview: previewCapabilityFlag("Show what files would be created without creating them"),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, preview }) =>
+export const newCommand = Command.make("new", newConfig, ({ name, owner, preview }) =>
   handlePacksNew({
     name: decodeExtensionNameSync(name),
     owner: Option.map(owner, (s) => normalizeHandle(s.startsWith("@") ? s : `@${s}`)),
-    yes,
     preview,
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs new")),
 ).pipe(
   withArgvTracking(newConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Create a new empty pack in the project-workspace authoring root"),
   Command.withExamples([
     {

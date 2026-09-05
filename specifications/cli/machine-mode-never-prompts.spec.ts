@@ -2,21 +2,25 @@ import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import {
+  ResolvePlanInteractionLive,
   SetupDocumentSchema,
   classifyError,
   getAppError,
+  handleDemote,
   handleSetup,
   handleSkillsInstall,
 } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
+import { writeAuthoredSkill } from "../support/publish-harness.js";
 import { makeSetupSpecContext } from "../support/setup-harness.js";
 import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
@@ -24,7 +28,7 @@ export const specification = defineSpecification({
   requirement: "cli/machine-mode-never-prompts",
   title: "Machine output mode terminates deterministically instead of prompting",
   statement:
-    "When machine output mode is on, a command that needs interactive input shall terminate with a usage failure naming the required input, shall raise no prompt, and shall change no workspace state, while the same request with machine output off shall prompt and honor the answer.",
+    "When machine output mode is on, a command that needs interactive input or interactive approval shall terminate with a usage failure naming what it needs, shall raise no prompt even from an interactive terminal, and shall change no workspace state, while the same request with machine output off shall prompt and honor the answer.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation"],
@@ -110,7 +114,7 @@ describe("Machine mode never prompts", () => {
 
         const failure = yield* handleSkillsInstall(
           { source: Option.some(source), skills: [], all: false },
-          { yes: true, force: false, preview: false },
+          { force: false, preview: false },
         ).pipe(Effect.provide(workspace.layer), Effect.flip);
 
         const error = getAppError(failure);
@@ -135,7 +139,7 @@ describe("Machine mode never prompts", () => {
 
       yield* handleSkillsInstall(
         { source: Option.some(source), skills: ["alpha"], all: false },
-        { yes: true, force: false, preview: false },
+        { force: false, preview: false },
       ).pipe(Effect.provide(workspace.layer));
 
       expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
@@ -144,6 +148,53 @@ describe("Machine mode never prompts", () => {
       expect(workspace.exists(".claude/skills/alpha")).toBe(true);
       expect(workspace.exists(".claude/skills/beta")).toBe(false);
     }),
+  );
+
+  it.effect(
+    "an apply that needs approval reports approval required without raising any prompt, even from an interactive terminal",
+    () =>
+      Effect.gen(function* () {
+        // The session is interactive-capable and no non-interactive flag is
+        // given: machine output alone must keep the confirmation closed. The
+        // application's own interaction port decides whether a prompt can
+        // open, so a canned answer stands ready to expose any prompt raised.
+        const workspace = makeSpecWorkspace({
+          machine: true,
+          flags: { nonInteractive: false, json: true },
+          prompt: { confirmResponses: [true] },
+          settings: { owner: "@acme", skills: { review: "workspace" } },
+        });
+        cleanups.push(workspace.cleanup);
+        writeAuthoredSkill(workspace.root, { name: "review" });
+        const replacement = writeLocalSkillPackage(workspace.root, {
+          name: "review",
+          body: "Replacement guidance.",
+        });
+        const before = snapshotWorkspaceContent(workspace.root);
+
+        yield* handleDemote({
+          fqn: "@acme/skills/review",
+          source: replacement,
+          yes: false,
+          preview: false,
+        }).pipe(Effect.provide(Layer.provideMerge(ResolvePlanInteractionLive, workspace.layer)));
+
+        expect(workspace.promptState.confirmCalls).toEqual([]);
+        const [entry] = workspace.rendererState.results;
+        expect(entry?.ok).toBe(false);
+        expect(entry?.data).toMatchObject({
+          result: {
+            outcome: "blocked",
+            counts: { committed: 0 },
+            blocking: {
+              class: "approval-required",
+              subject: "replace-workspace-authority",
+              escape: { cmd: expect.stringContaining("--yes") },
+            },
+          },
+        });
+        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+      }),
   );
 
   it.effect("the same request prompts and honors the answer when machine output is off", () =>

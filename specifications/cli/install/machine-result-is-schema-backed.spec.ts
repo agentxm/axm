@@ -40,18 +40,23 @@ describe("Machine install result contract", () => {
 
   const machineInstall = (options?: { readonly preview?: boolean }) =>
     Effect.gen(function* () {
-      const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+      const workspace = makeSpecWorkspace({
+        machine: true,
+        flags: { json: true },
+        screen: { kind: "machine" },
+      });
       cleanups.push(workspace.cleanup);
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
         source: Option.some(skillPackage),
-        yes: true,
         force: false,
         preview: options?.preview === true,
       }).pipe(Effect.provide(workspace.layer));
-      const [entry] = workspace.rendererState.results;
-      expect(entry).toBeDefined();
-      return entry?.data;
+      const stdout = (workspace.streams?.lines("stdout") ?? []).join("\n");
+      // Parsing the complete stream rejects a second document, progress text,
+      // and trailing non-JSON output without constraining pretty-printing.
+      const document: unknown = JSON.parse(stdout);
+      return document;
     });
 
   it.effect("emits exactly one document that satisfies the published plan schema", () =>

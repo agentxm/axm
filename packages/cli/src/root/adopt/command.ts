@@ -4,10 +4,12 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError } from "../../app-error/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { buildAuthoredExtensionStep } from "@agentxm/extension-workspace";
 import {
   extensionTypeToPlural,
@@ -28,12 +30,19 @@ import {
 } from "@agentxm/workspace-state";
 
 import { emitOperationResolution } from "../../operation-output.js";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import {
+  CodingAgentRepository,
   HookManager,
   KnowledgeManager,
   McpServerManager,
@@ -66,8 +75,26 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
     parsed.name,
   );
   const targetDir = path.join(ws.layout.authoredRoot(parsed.type), parsed.name);
-  const markAuthored = (() => {
-    const entry = { source: "workspace" as const, enabled: true };
+  const enabled = yield* Effect.gen(function* () {
+    switch (parsed.type) {
+      case "skill":
+        return (yield* ws.getConfiguredSkillEntries())[parsed.name]?.enabled ?? true;
+      case "mcp-server":
+        return (yield* ws.getConfiguredMcpServerEntries())[parsed.name]?.enabled ?? true;
+      case "subagent":
+        return (yield* ws.getConfiguredSubagentEntries())[parsed.name]?.enabled ?? true;
+      case "rule":
+        return (yield* ws.getConfiguredRuleEntries())[parsed.name]?.enabled ?? true;
+      case "hook":
+        return (yield* ws.getConfiguredHookEntries())[parsed.name]?.enabled ?? true;
+      case "knowledge":
+        return (yield* ws.getConfiguredKnowledgeEntries())[parsed.name]?.enabled ?? true;
+      case "pack":
+        return (yield* ws.getConfiguredPackEntries())[parsed.name]?.enabled ?? true;
+    }
+  }).pipe(Effect.mapError(toAppError));
+  const setAuthoredActivation = (active: boolean) => {
+    const entry = { source: "workspace" as const, enabled: active };
     switch (parsed.type) {
       case "skill":
         return ws.setSkillEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
@@ -86,7 +113,27 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
       case "pack":
         return ws.setPackEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
     }
-  })();
+  };
+  const retireExternalResolution = Effect.gen(function* () {
+    switch (parsed.type) {
+      case "skill":
+        return yield* ws.removeSkillLock(parsed.name);
+      case "mcp-server":
+        // Resolve the old connection before its workspace declaration replaces
+        // it, preserving any resolution still shared by another connection.
+        return yield* ws.removeMcpServer(parsed.name);
+      case "subagent":
+        return yield* ws.removeSubagentLock(parsed.name);
+      case "rule":
+        return yield* ws.removeRuleLock(parsed.name);
+      case "hook":
+        return yield* ws.removeHookLock(parsed.name);
+      case "knowledge":
+        return yield* ws.removeKnowledgeLock(parsed.name);
+      case "pack":
+        return yield* ws.removePackLock(parsed.name);
+    }
+  }).pipe(Effect.mapError(toAppError));
   const preflight = Effect.gen(function* () {
     const targetExists = yield* fs
       .exists(targetDir)
@@ -129,9 +176,10 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
     versionRange: Option.none<string>(),
     label: `Adopt ${fqn}`,
     message: `Adopted ${fqn}`,
-    enabled: true,
+    enabled,
     allowConfiguredSourceTransition: true,
-    markAuthored,
+    markAuthored: Effect.andThen(retireExternalResolution, setAuthoredActivation(true)),
+    finalizeAuthored: setAuthoredActivation(enabled),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     preflight,
@@ -156,12 +204,39 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
         ...common,
         target: { type: "skill", name: parsed.name },
       });
-    case "mcp-server":
+    case "mcp-server": {
+      const agentRepo = yield* CodingAgentRepository;
+      const httpClient = yield* HttpClient.HttpClient;
+      const nonInteractive = yield* isNonInteractiveOptional;
       return buildAuthoredExtensionStep(yield* McpServerManager, {
         toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "mcp-server", name: parsed.name },
+        materializeInstall: (ref) =>
+          installMcpServer({
+            name: "install-mcp-server",
+            args: {
+              ref,
+              nonInteractive,
+              force: false,
+              allowWorkspaceSourceTransition: true,
+              versionRange: Option.none(),
+              skipSettings: Option.none(),
+              skipStateWrites: true,
+              env: Option.none(),
+            },
+          }).pipe(
+            Effect.asVoid,
+            Effect.mapError(toAppError),
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(WorkspaceMutations, ws),
+            Effect.provideService(CodingAgentRepository, agentRepo),
+            Effect.provideService(HttpClient.HttpClient, httpClient),
+            provideLifecycleFailureAdapter,
+          ),
       });
+    }
     case "subagent":
       return buildAuthoredExtensionStep(yield* SubagentManager, {
         toStepFailure: failureToStepFailure,
@@ -195,11 +270,12 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
   }
 });
 
-export const handleAdopt = (args: {
+export interface AdoptHandlerArgs {
   readonly fqn: string;
-  readonly yes: boolean;
   readonly preview: boolean;
-}) =>
+}
+
+export const handleAdopt = (args: AdoptHandlerArgs) =>
   withOperationLifecycle(
     {
       command: "adopt",
@@ -209,11 +285,7 @@ export const handleAdopt = (args: {
     handleAdoptBody(args),
   );
 
-const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: {
-  readonly fqn: string;
-  readonly yes: boolean;
-  readonly preview: boolean;
-}) {
+const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerArgs) {
   const step = yield* adoptStep(args.fqn);
   const plan: Plan = {
     _tag: "Plan",
@@ -228,7 +300,11 @@ const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: {
     }),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
-  const execution = yield* makePublicPositionalPlanExecution(args, ["adopt"], [args.fqn]);
+  const execution = yield* makePublicPositionalPlanExecution(
+    { preview: args.preview },
+    ["adopt"],
+    [args.fqn],
+  );
   const resolution = yield* previewOrApplyPlan(plan, { execution });
   yield* emitOperationResolution("adopt", resolution);
 });
@@ -237,14 +313,14 @@ const config = {
   fqn: Argument.string("extension").pipe(
     Argument.withDescription("Canonical extension FQN (@owner/<plural-type>/name)"),
   ),
-  yes: yesFlag,
-  preview: previewFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
-export const adoptCommand = Command.make("adopt", config, ({ fqn, yes, preview }) =>
-  handleAdopt({ fqn, yes, preview }).pipe(withWorkspace("project"), withRuntime("adopt")),
+export const adoptCommand = Command.make("adopt", config, ({ fqn, preview }) =>
+  handleAdopt({ fqn, preview }).pipe(withWorkspace("project"), withRuntime("adopt")),
 ).pipe(
   withArgvTracking(config),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Adopt a canonical package into project-workspace authorship"),
   Command.withExamples([
     {

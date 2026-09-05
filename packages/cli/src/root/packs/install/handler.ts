@@ -14,7 +14,6 @@ import {
 } from "./command-actions.js";
 
 export interface InstallPackFlags {
-  readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
 }

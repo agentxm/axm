@@ -10,10 +10,61 @@ import { ignoreReleaseAgeFlag } from "../../../cli-flags/index.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
+import {
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../../shared/command-capabilities.js";
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
 import { InstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
+
+export interface KnowledgeInstallHandlerArgs {
+  readonly source: Option.Option<string>;
+  readonly preview: boolean;
+}
+
+export const handleKnowledgeInstall = (args: KnowledgeInstallHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "knowledge.install",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Install Knowledge",
+    },
+    Option.match(args.source, {
+      onNone: () =>
+        handleWorkspaceInstall({
+          command: "knowledge.install",
+          type: Option.some("knowledge"),
+          planName: "Install Knowledge",
+          planDescription: Option.some("Install configured Knowledge bundles"),
+          flags: { preview: args.preview },
+        }),
+      onSome: (value) =>
+        Effect.gen(function* () {
+          const actions = yield* InstallKnowledgeCommandWorkflowActions;
+          const execution = yield* makeInstallPlanExecution(
+            { preview: args.preview },
+            ["knowledge", "install"],
+            [value],
+          );
+          const resolution = yield* runInstallCommandWorkflow({ source: value }, actions, {
+            execution,
+            transformPlan: (plan) =>
+              Effect.succeed({
+                ...plan,
+                presentation: operationPresentation(
+                  { imperative: "install", past: "Installed", gerund: "Installing" },
+                  "knowledge",
+                ),
+              } satisfies Plan),
+          });
+          yield* emitOperationResolution("knowledge.install", resolution, {
+            suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
+          });
+        }),
+    }),
+  );
 
 const installConfig = {
   source: Argument.string("source").pipe(
@@ -28,55 +79,15 @@ const installConfig = {
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, preview, ignoreReleaseAge }) =>
-    withOperationLifecycle(
-      {
-        command: "knowledge.install",
-        mode: preview ? "preview" : "apply",
-        planName: "Install Knowledge",
-      },
-      Option.match(source, {
-        onNone: () =>
-          handleWorkspaceInstall({
-            command: "knowledge.install",
-            type: Option.some("knowledge"),
-            planName: "Install Knowledge",
-            planDescription: Option.some("Install configured Knowledge bundles"),
-            flags: { yes, preview },
-          }),
-        onSome: (value) =>
-          Effect.gen(function* () {
-            const actions = yield* InstallKnowledgeCommandWorkflowActions;
-            const execution = yield* makeInstallPlanExecution(
-              { yes, preview },
-              ["knowledge", "install"],
-              [value],
-            );
-            const resolution = yield* runInstallCommandWorkflow({ source: value }, actions, {
-              execution,
-              transformPlan: (plan) =>
-                Effect.succeed({
-                  ...plan,
-                  presentation: operationPresentation(
-                    { imperative: "install", past: "Installed", gerund: "Installing" },
-                    "knowledge",
-                  ),
-                } satisfies Plan),
-            });
-            yield* emitOperationResolution("knowledge.install", resolution, {
-              suggestions: [
-                { description: "Browse installed Knowledge", cmd: "axm knowledge list" },
-              ],
-            });
-          }),
-      }),
-    ).pipe(
+  ({ source, scope, preview, ignoreReleaseAge }) =>
+    handleKnowledgeInstall({ source, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("knowledge install"),
     ),
 ).pipe(
   withArgvTracking(installConfig),
+  withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription("Install or restore Knowledge bundles"),
   Command.withExamples([
     {

@@ -67,13 +67,10 @@ describe("axm subagents publish", () => {
       configureWorkspaceRegistry(temp.path, registryDir.path, "@test");
       createManagedSubagent(temp.path, "@test", "researcher", "1.0.0");
 
-      const publishResult = await runCli(
-        ["subagents", "publish", "@test/subagents/researcher", "--yes"],
-        {
-          cwd: temp.path,
-          env: { AXM_TOKEN: "e2e-test-token" },
-        },
-      );
+      const publishResult = await runCli(["subagents", "publish", "@test/subagents/researcher"], {
+        cwd: temp.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
       expect(publishResult.exitCode).toBe(0);
 
       const extensionDir = path.join(

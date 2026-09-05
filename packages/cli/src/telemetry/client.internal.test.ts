@@ -112,8 +112,6 @@ describe("TelemetryClientLive", () => {
 
         yield* telemetry.reportError({
           name: "WORKSPACE_NOT_FOUND",
-          message: "WorkspaceMutations not initialized",
-          details: ["some detail"],
           category: "not_found",
           level: "error",
           errorClass: "user",
@@ -134,8 +132,8 @@ describe("TelemetryClientLive", () => {
           expect(errors).toHaveLength(1);
           const error = expectRecord(at(errors, 0));
           expect(property(error, "name")).toBe("WORKSPACE_NOT_FOUND");
-          expect(property(error, "message")).toBe("WorkspaceMutations not initialized");
-          expect(property(error, "details")).toEqual(["some detail"]);
+          expect(property(error, "message")).toBe("WORKSPACE_NOT_FOUND");
+          expect(error).not.toHaveProperty("details");
         }
         expect(property(body, "level")).toBe("error");
         expect(property(body, "errorClass")).toBe("user");
@@ -161,7 +159,6 @@ describe("TelemetryClientLive", () => {
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
           name: "ERR",
-          message: "msg",
           level: "error",
           errorClass: "user",
           handled: true,
@@ -186,7 +183,6 @@ describe("TelemetryClientLive", () => {
 
         yield* telemetry.reportError({
           name: "ERR",
-          message: "msg",
           level: "error",
           errorClass: "user",
           handled: true,
@@ -210,7 +206,6 @@ describe("TelemetryClientLive", () => {
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
           name: "ERR",
-          message: "msg",
           level: "error",
           errorClass: "user",
           handled: true,
@@ -306,7 +301,6 @@ describe("TelemetryClientLive", () => {
 
         yield* telemetry.reportError({
           name: "ERR",
-          message: "msg",
           level: "error",
           errorClass: "user",
           handled: true,
@@ -367,7 +361,6 @@ describe("TelemetryClientLive", () => {
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
           name: "ERR",
-          message: "msg",
           level: "error",
           errorClass: "user",
           handled: true,
@@ -399,7 +392,6 @@ describe("TelemetryClientLive", () => {
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
           name: "ERR",
-          message: "msg",
           level: "error",
           errorClass: "user",
           handled: true,
@@ -436,7 +428,6 @@ describe("TelemetryClientLive", () => {
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
           name: "ERR",
-          message: "msg",
           level: "error",
           errorClass: "user",
           handled: true,
@@ -481,7 +472,6 @@ describe("TelemetryClientLive", () => {
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
           name: "ERR",
-          message: "msg",
           level: "error",
           errorClass: "user",
           handled: true,

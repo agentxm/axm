@@ -47,7 +47,6 @@ describe("Inline MCP configuration during workspace install", () => {
 
       yield* handleInstall({
         source: Option.none(),
-        yes: true,
         force: false,
         preview: false,
       }).pipe(Effect.provide(workspace.layer));

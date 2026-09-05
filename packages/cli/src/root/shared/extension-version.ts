@@ -175,6 +175,18 @@ export const resolveManifestVersionInfo = (
     }
 
     const { manifest } = yield* readManifestRecord(manifestPath);
+    if (
+      manifest["owner"] !== fqn.owner ||
+      manifest["type"] !== fqn.type ||
+      manifest["name"] !== fqn.name
+    ) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Manifest identity does not match ${fqnInput}: ${manifestPath}`,
+        recover:
+          "Use the package's actual identity or repair its manifest before changing its version.",
+      });
+    }
     const version = yield* decodeExactVersion(manifest["version"], manifestPath);
 
     return {

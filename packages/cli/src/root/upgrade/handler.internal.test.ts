@@ -11,7 +11,6 @@ import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as TestClock from "effect/testing/TestClock";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as semver from "semver";
@@ -92,9 +91,11 @@ const homebrewInfo = (version: string) =>
 
 const makeSubprocess = (
   responder: (invocation: Invocation, index: number) => CommandResult | "never" = (invocation) =>
-    invocation.args.includes("--json")
-      ? commandResult(JSON.stringify(TARGET_VERSION))
-      : commandResult(),
+    invocation.executable === "yarn" && invocation.args.includes("versions")
+      ? commandResult(JSON.stringify({ type: "inspect", data: [TARGET_VERSION] }))
+      : invocation.args.includes("--json")
+        ? commandResult(JSON.stringify(TARGET_VERSION))
+        : commandResult(),
   resolveExecutable: (executable: string) => string | null = (executable) =>
     `/resolved/${executable}`,
 ) => {
@@ -588,7 +589,7 @@ describe("delegated upgrades", () => {
     }).pipe(Effect.provide(harness.layer));
   });
 
-  it.effect("refuses mutation while the owning package manager lags the canonical target", () => {
+  it.effect("refuses mutation when an exact package query returns a different version", () => {
     const subprocess = makeSubprocess((invocation) =>
       invocation.args.includes("--json")
         ? commandResult(JSON.stringify(LOCAL_VERSION))
@@ -599,8 +600,8 @@ describe("delegated upgrades", () => {
       yield* handleUpgrade({ reinstall: false });
       const result = resultFrom(harness.renderer);
       expect(result).toMatchObject({
-        disposition: "installer-lagging",
-        installerAvailability: { state: "lagging", observedVersion: LOCAL_VERSION },
+        disposition: "installer-indeterminate",
+        installerAvailability: { state: "indeterminate", observedVersion: LOCAL_VERSION },
         mutationState: "not-attempted",
       });
       expect(
@@ -831,7 +832,7 @@ describe("delegated upgrades", () => {
     }),
   );
 
-  it.effect("waits for the exact Homebrew formula inside the publication window", () =>
+  it.effect("stops after one observation even when a later query could match", () =>
     Effect.gen(function* () {
       let formulaQueries = 0;
       const subprocess = makeSubprocess((invocation) => {
@@ -855,23 +856,17 @@ describe("delegated upgrades", () => {
         new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
         { subprocess },
       );
-      const fiber = yield* handleUpgrade({ reinstall: false }).pipe(
-        Effect.provide(harness.layer),
-        Effect.forkChild,
-      );
-
-      yield* TestClock.adjust("2 seconds");
-      yield* Fiber.join(fiber);
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
 
       expect(resultFrom(harness.renderer)).toMatchObject({
-        resultStatus: "upgraded",
-        observedFormulaVersion: TARGET_VERSION,
+        resultStatus: "upgrade-incomplete",
+        observedFormulaVersion: LOCAL_VERSION,
       });
-      expect(formulaQueries).toBe(2);
+      expect(formulaQueries).toBe(1);
     }),
   );
 
-  it.effect("stops without mutation when the selected formula misses the deadline", () =>
+  it.effect("stops without mutation when the selected formula is behind", () =>
     Effect.gen(function* () {
       const subprocess = makeSubprocess((invocation) => {
         if (invocation.executable === "brew" && invocation.args[0] === "tap") {
@@ -889,13 +884,7 @@ describe("delegated upgrades", () => {
         new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
         { subprocess },
       );
-      const fiber = yield* handleUpgrade({ reinstall: false }).pipe(
-        Effect.provide(harness.layer),
-        Effect.forkChild,
-      );
-
-      yield* TestClock.adjust("91 seconds");
-      yield* Fiber.join(fiber);
+      yield* handleUpgrade({ reinstall: false }).pipe(Effect.provide(harness.layer));
 
       expect(resultFrom(harness.renderer)).toMatchObject({
         resultStatus: "upgrade-incomplete",
@@ -918,8 +907,8 @@ describe("delegated upgrades", () => {
       const infoCalls = harness.subprocess.calls.filter(
         (invocation) => invocation.executable === "brew" && invocation.args[0] === "info",
       );
-      expect(updateCalls).toHaveLength(45);
-      expect(infoCalls).toHaveLength(45);
+      expect(updateCalls).toHaveLength(1);
+      expect(infoCalls).toHaveLength(1);
     }),
   );
 
@@ -1221,7 +1210,7 @@ describe("upgrade preview", () => {
         new Homebrew({ execPath: `/opt/homebrew/Cellar/axm/${LOCAL_VERSION}/bin/axm` }),
         { subprocess },
       );
-      yield* handleUpgrade({ reinstall: false, dryRun: true }).pipe(Effect.provide(harness.layer));
+      yield* handleUpgrade({ reinstall: false, preview: true }).pipe(Effect.provide(harness.layer));
 
       expect(resultFrom(harness.renderer)).toMatchObject({
         installMethod: "homebrew",
@@ -1239,7 +1228,7 @@ describe("upgrade preview", () => {
     Effect.gen(function* () {
       const subprocess = makeSubprocess();
       const harness = makeHarness(new Script({ execPath: "/usr/local/bin/axm" }), { subprocess });
-      yield* handleUpgrade({ reinstall: false, dryRun: true }).pipe(Effect.provide(harness.layer));
+      yield* handleUpgrade({ reinstall: false, preview: true }).pipe(Effect.provide(harness.layer));
 
       const result = resultFrom(harness.renderer);
       expect(result.installMethod).toBe("script");
@@ -1254,7 +1243,7 @@ describe("upgrade preview", () => {
       const harness = makeHarness(new Homebrew({ execPath: "/opt/homebrew/bin/axm" }), {
         version: LOCAL_VERSION,
       });
-      yield* handleUpgrade({ reinstall: false, dryRun: true }).pipe(Effect.provide(harness.layer));
+      yield* handleUpgrade({ reinstall: false, preview: true }).pipe(Effect.provide(harness.layer));
 
       expect(resultFrom(harness.renderer)).toMatchObject({
         resultStatus: "already-up-to-date",

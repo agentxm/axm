@@ -6,7 +6,7 @@ import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { ignoreReleaseAgeFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
@@ -44,6 +44,12 @@ import {
 import { emitOperationResolution } from "../../operation-output.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  preapprovalCapabilityFlag,
+  previewCapabilityFlag,
+  withCommandCapabilities,
+  type CommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import {
   HookManager,
@@ -264,12 +270,30 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
   } satisfies PlannedJobStep;
 });
 
-export const handleDemote = (args: {
+/**
+ * Demote replaces workspace source authority, a confirmable condition a
+ * person can approve in advance because the command names exactly what the
+ * approval covers. Preview assesses the same plan without consuming it.
+ */
+const demoteCapabilities = {
+  preview: true,
+  preapproval: {
+    purpose:
+      "Approve replacing workspace source authority with the externally sourced package in advance",
+  },
+  trust: [],
+  inputs: "explicit",
+  effect: "workspace",
+} as const satisfies CommandCapabilities;
+
+export interface DemoteHandlerArgs {
   readonly fqn: string;
   readonly source: string;
   readonly yes: boolean;
   readonly preview: boolean;
-}) =>
+}
+
+export const handleDemote = (args: DemoteHandlerArgs) =>
   withOperationLifecycle(
     {
       command: "demote",
@@ -279,12 +303,7 @@ export const handleDemote = (args: {
     handleDemoteBody(args),
   );
 
-const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: {
-  readonly fqn: string;
-  readonly source: string;
-  readonly yes: boolean;
-  readonly preview: boolean;
-}) {
+const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: DemoteHandlerArgs) {
   const step = yield* demotionStep(args.fqn, args.source);
   const plan: Plan = {
     _tag: "Plan",
@@ -307,7 +326,7 @@ const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: {
     ],
   };
   const execution = yield* makePlanExecution(
-    args,
+    { preview: args.preview, yes: args.yes },
     makeConfirmationRecovery(
       ["demote"],
       [
@@ -327,19 +346,23 @@ const config = {
   source: Argument.string("source").pipe(
     Argument.withDescription("Replacement registry, git, or local source"),
   ),
-  yes: yesFlag,
-  preview: previewFlag,
+  yes: preapprovalCapabilityFlag(demoteCapabilities),
+  preview: previewCapabilityFlag(),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
-export const demoteCommand = Command.make("demote", config, (parsed) =>
-  handleDemote(parsed).pipe(
-    withReleaseAgePosture(parsed.ignoreReleaseAge),
-    withWorkspace("project"),
-    withRuntime("demote"),
-  ),
+export const demoteCommand = Command.make(
+  "demote",
+  config,
+  ({ fqn, source, yes, preview, ignoreReleaseAge }) =>
+    handleDemote({ fqn, source, yes, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace("project"),
+      withRuntime("demote"),
+    ),
 ).pipe(
   withArgvTracking(config),
+  withCommandCapabilities(demoteCapabilities),
   Command.withDescription("Explicitly remove project-workspace source authority"),
   Command.withExamples([
     {

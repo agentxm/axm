@@ -8,7 +8,6 @@ import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-source
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
 import type { EnableSkillOperation } from "@agentxm/extension-lifecycle";
 import { enableSkill } from "@agentxm/extension-lifecycle";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
@@ -17,13 +16,17 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
 import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export interface EnableHandlerArgs {
   readonly name: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -119,14 +122,14 @@ const enableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
+  preview: previewCapabilityFlag("Show what would change without enabling"),
 } as const;
 
-export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
-  handleEnable({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("skills enable")),
+export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, preview }) =>
+  handleEnable({ name, preview }).pipe(withWorkspace(scope), withRuntime("skills enable")),
 ).pipe(
   withArgvTracking(enableConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Enable a previously disabled skill"),
   Command.withExamples([
     {

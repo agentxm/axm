@@ -28,6 +28,7 @@ import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-s
 
 import { axmGlobalFlags, baseLayer, runtimeBaseLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
+import { groupCapabilities, withCommandCapabilities } from "./root/shared/command-capabilities.js";
 
 import { setupCommand } from "./root/setup.js";
 import { instructionsCommand } from "./root/instructions.js";
@@ -86,6 +87,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
     "Open extension manager for AI coding agents.\n  Manage skills, MCP servers, subagents, rules, hooks, knowledge, and packs across your AI coding agents from a single CLI.",
   ),
+  withCommandCapabilities(groupCapabilities),
   Command.withExamples([
     { command: "axm setup", description: "Start managing extensions in your project" },
     {

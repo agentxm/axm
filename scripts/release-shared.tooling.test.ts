@@ -74,18 +74,12 @@ describe("release tag helpers", () => {
     }
   });
 
-  it("keeps the canonical publish workflow aligned with the release package order", () => {
+  it("uses the shared cohort in the canonical publication helper", () => {
     const workflow = readFileSync(".github/workflows/publish.yml", "utf8");
-    const packageBlock = /release_packages=\(\n(?<packages>[\s\S]*?)\n\s+\)/u.exec(workflow)
-      ?.groups?.["packages"];
-    if (packageBlock === undefined)
-      throw new Error("Missing release_packages block in publish.yml.");
-
-    const workflowPackages = [...packageBlock.matchAll(/"(?<name>[^"]+)"/gu)].flatMap(
-      (match) => match.groups?.["name"] ?? [],
-    );
-
-    expect(workflowPackages).toEqual(RELEASE_PACKAGES.map(({ name }) => name));
+    expect(workflow).toContain("axm:distribute-release");
+    const publisher = readFileSync("scripts/distribute-release.ts", "utf8");
+    expect(publisher).toContain("RELEASE_PACKAGES");
+    expect(workflow).not.toContain("release_packages=(");
   });
 
   it("matches prepared and GitHub squash-merged release subjects", () => {

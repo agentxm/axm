@@ -6,7 +6,6 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   previewOrApplyPlan,
@@ -40,6 +39,11 @@ import { acquireExternalSource, resolveSource } from "@agentxm/extension-sources
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
@@ -52,7 +56,6 @@ interface ImportHandlerArgs {
   readonly source: string;
   readonly target: string;
   readonly enable: boolean;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -266,8 +269,7 @@ const config = {
     Flag.withDescription("Enable and materialize a newly imported extension"),
     Flag.withDefault(false),
   ),
-  yes: yesFlag,
-  preview: previewFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
 const makeNativeImportCommand = (type: NativeImportType) => {
@@ -281,6 +283,7 @@ const makeNativeImportCommand = (type: NativeImportType) => {
     ),
   ).pipe(
     withArgvTracking(config),
+    withCommandCapabilities(previewableCapabilities("authored-source")),
     Command.withDescription(
       `Convert a native ${noun} into a project-workspace AXM ${noun} package`,
     ),

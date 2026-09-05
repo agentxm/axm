@@ -13,8 +13,12 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -25,7 +29,6 @@ import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export const handleDisableMcpServer = (args: {
   readonly name: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }) =>
   withOperationLifecycle(
@@ -39,7 +42,6 @@ export const handleDisableMcpServer = (args: {
 
 const handleDisableMcpServerBody = Effect.fn("DisableMcpServer.handle")(function* (args: {
   readonly name: string;
-  readonly yes: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -105,20 +107,14 @@ const disableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  preview: previewFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
-export const disableCommand = Command.make(
-  "disable",
-  disableConfig,
-  ({ name, scope, yes, preview }) =>
-    handleDisableMcpServer({ name, yes, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("mcps disable"),
-    ),
+export const disableCommand = Command.make("disable", disableConfig, ({ name, scope, preview }) =>
+  handleDisableMcpServer({ name, preview }).pipe(withWorkspace(scope), withRuntime("mcps disable")),
 ).pipe(
   withArgvTracking(disableConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Disable an MCP server"),
   Command.withExamples([
     { command: "axm mcps disable context", description: "Disable an MCP server" },

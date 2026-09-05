@@ -20,7 +20,7 @@ import {
 } from "@agentxm/extension-workspace";
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
-import { ignoreReleaseAgeFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   RenderedFilePathSchema,
@@ -49,6 +49,11 @@ import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import {
   workspaceCanonicalNodePath,
@@ -230,7 +235,6 @@ const runMaterializeSteps = Effect.fn("PacksActivation.runMaterializeSteps")(fun
 interface PackActivationArgs {
   readonly name: string;
   readonly enabled: boolean;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -415,21 +419,21 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
 const activationConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the pack")),
   scope: scopeFlag.pipe(Flag.withDescription("Use project (default) or user-level configuration")),
-  yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+  preview: previewCapabilityFlag("Show what would change without applying"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 const makeActivationCommand = (enabled: boolean) => {
   const verb = enabled ? "enable" : "disable";
-  return Command.make(verb, activationConfig, ({ name, scope, yes, preview, ignoreReleaseAge }) =>
-    handlePackActivation({ name, enabled, yes, preview }).pipe(
+  return Command.make(verb, activationConfig, ({ name, scope, preview, ignoreReleaseAge }) =>
+    handlePackActivation({ name, enabled, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime(`packs ${verb}`),
     ),
   ).pipe(
     withArgvTracking(activationConfig),
+    withCommandCapabilities(previewableCapabilities("workspace")),
     Command.withDescription(
       `${enabled ? "Enable" : "Disable"} a pack without changing locked versions`,
     ),

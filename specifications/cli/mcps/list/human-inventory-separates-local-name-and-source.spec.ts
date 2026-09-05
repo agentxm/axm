@@ -43,7 +43,7 @@ describe("List locally named MCP connections for a person", () => {
             localName: Option.some(localName),
             env: [],
           },
-          { yes: true, force: false, preview: false },
+          { force: false, preview: false },
         ).pipe(Effect.provide(workspace.layer));
       }
       workspace.rendererState.tables.length = 0;

@@ -1,16 +1,16 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  ignoreReleaseAgeFlag,
-  previewFlag,
-  reinstallFlag,
-  yesFlag,
-} from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { handleInstall } from "./handler.js";
 
 const installConfig = {
@@ -23,25 +23,23 @@ const installConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall an extension that already exists")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what would be installed without making changes"),
-  ),
+  preview: previewCapabilityFlag("Show what would be installed without making changes"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview, ignoreReleaseAge }) =>
-    handleInstall({ source, yes, force, preview }).pipe(
+  ({ source, scope, force, preview, ignoreReleaseAge }) =>
+    handleInstall({ source, force, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("install"),
     ),
 ).pipe(
   withArgvTracking(installConfig),
+  withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription(
     "Install extensions from a registry FQN or source locator, or reinstall configured extensions",
   ),

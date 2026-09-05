@@ -24,7 +24,6 @@ import {
 import { makeAppError } from "../../../app-error/index.js";
 
 export interface InstallMcpServerFlags {
-  readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
 }

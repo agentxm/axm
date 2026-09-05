@@ -13,6 +13,7 @@ import {
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import {
   augmentInventory,
   inventoryState,
@@ -97,6 +98,7 @@ export const listCommand = Command.make("list", listConfig, ({ scope }) =>
   handleList().pipe(withWorkspace({ scope, allowUninitialized: true }), withRuntime("packs list")),
 ).pipe(
   withArgvTracking(listConfig),
+  withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("List detected packs and their lifecycle classification"),
   Command.withExamples([
     { command: "axm packs list", description: "Inventory detected packs" },

@@ -72,7 +72,7 @@ const unagedWorkspace = (cleanups: Array<() => void>, scenario: Scenario = {}) =
 type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 
 const configuredInstall = (workspace: SpecWorkspace) =>
-  handleInstall({ source: Option.none(), yes: true, force: false, preview: false }).pipe(
+  handleInstall({ source: Option.none(), force: false, preview: false }).pipe(
     Effect.provide(workspace.layer),
   );
 

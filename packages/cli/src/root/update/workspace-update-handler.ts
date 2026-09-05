@@ -23,7 +23,7 @@ import {
   makeInstallCommandActions,
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
-import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
+import { ReleaseAgePosture, withPublisherTrust } from "@agentxm/extension-lifecycle";
 
 const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>): SubjectType =>
   Option.match(type, {
@@ -32,7 +32,6 @@ const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>)
   });
 
 export interface WorkspaceUpdateFlags {
-  readonly yes: boolean;
   readonly preview: boolean;
   readonly force?: boolean;
 }
@@ -142,8 +141,12 @@ const handleWorkspaceUpdateBody = (
         ),
       ),
     );
+    // Every Registry acceptance the collectors proposed is classified against
+    // the accepted resolution, so a publisher change carries the same
+    // interactive-only condition here as on the install workflow routes.
+    const plan = yield* withPublisherTrust(planResult.plan);
     const execution = yield* makePlanExecution(
-      args.flags,
+      { preview: args.flags.preview },
       makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
         recoverySwitch("--refresh", args.flags.force === true),
         recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
@@ -165,7 +168,7 @@ const handleWorkspaceUpdateBody = (
             .map((name) => ({ extensionType, name, plannedState: "enabled" as const })),
       }),
     );
-    const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
+    const resolution = yield* previewOrApplyPlan(plan, { execution });
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(
         operationResolutionSummary(resolution, {

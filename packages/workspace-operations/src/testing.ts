@@ -12,3 +12,8 @@ export {
   ResolvePlanInteractionTest,
   type ResolvePlanInteractionTestState,
 } from "./plan/resolve-plan-interaction.js";
+export {
+  interactiveOnlyPlanExecution,
+  preapprovedPlanExecution,
+  promptablePlanExecution,
+} from "./plan/plan-execution-fixtures.js";

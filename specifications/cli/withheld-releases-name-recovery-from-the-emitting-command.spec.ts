@@ -53,7 +53,6 @@ const heldNewerRelease = (cleanups: Array<() => void>) =>
     cleanups.push(workspace.cleanup);
     yield* handleInstall({
       source: Option.none(),
-      yes: true,
       force: false,
       preview: false,
     }).pipe(Effect.provide(workspace.layer), Effect.orDie);
@@ -90,7 +89,7 @@ const withholdingCommands: ReadonlyArray<{
     command: "axm update",
     others: ["axm install", "axm sync", "axm skills update"],
     run: (workspace) =>
-      handleUpdate({ source: Option.none(), yes: true, force: false, preview: false }).pipe(
+      handleUpdate({ source: Option.none(), force: false, preview: false }).pipe(
         Effect.provide(workspace.layer),
       ),
   },
@@ -103,7 +102,7 @@ const withholdingCommands: ReadonlyArray<{
         type: Option.some("skill"),
         planName: "Update skills",
         planDescription: Option.some("Update configured skills"),
-        flags: { yes: true, preview: false },
+        flags: { preview: false },
       }).pipe(Effect.provide(workspace.layer)),
   },
 ];
@@ -116,7 +115,7 @@ const refusingCommands: ReadonlyArray<{
   {
     command: "axm install",
     run: (workspace) =>
-      handleInstall({ source: Option.none(), yes: true, force: false, preview: false }).pipe(
+      handleInstall({ source: Option.none(), force: false, preview: false }).pipe(
         Effect.provide(workspace.layer),
       ),
   },

@@ -8,8 +8,12 @@ import * as Result from "effect/Result";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { CodingAgentRepository, McpServerManager } from "@agentxm/extension-workspace";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { Screen, count } from "../../screen/index.js";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
@@ -63,7 +67,6 @@ import {
 } from "../../feature-errors.js";
 
 export interface McpsImportArgs {
-  readonly yes: boolean;
   readonly preview: boolean;
   readonly as?: Option.Option<string>;
   readonly enable?: boolean;
@@ -426,7 +429,6 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (
     });
     const packageResolution = yield* previewOrApplyLocalPlan(packagePlan, {
       preview: args.preview,
-      yes: args.yes,
       recovery: makeConfirmationRecovery(["mcps", "import"], []),
     });
     yield* emitOperationResolution("mcps.import", packageResolution);
@@ -435,7 +437,6 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (
   const plan = makePlan(preflight, ws, fs, path, hooks);
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
-    yes: args.yes,
     recovery: makeConfirmationRecovery(["mcps", "import"], []),
   });
   const appliedCount = importedCount(resolution, preflight.candidates.length);
@@ -462,8 +463,7 @@ const importConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Import to project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
-  preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+  preview: previewCapabilityFlag("Show what would change without applying"),
   as: Flag.string("as").pipe(
     Flag.withDescription("Create one managed MCP package at the target FQN"),
     Flag.optional,
@@ -477,13 +477,14 @@ const importConfig = {
 export const importCommand = Command.make(
   "import",
   importConfig,
-  ({ scope, yes, preview, as, enable }) =>
-    handleMcpsImport({ yes, preview, as, enable }).pipe(
+  ({ scope, preview, as, enable }) =>
+    handleMcpsImport({ preview, as, enable }).pipe(
       withWorkspace(scope),
       withRuntime("mcps import"),
     ),
 ).pipe(
   withArgvTracking(importConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Import unmanaged MCP servers as inline settings entries"),
   Command.withExamples([
     {

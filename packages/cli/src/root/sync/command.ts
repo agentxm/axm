@@ -5,6 +5,11 @@ import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { handleSync } from "./handler.js";
 
 const syncConfig = {
@@ -20,10 +25,7 @@ const syncConfig = {
     Flag.optional,
   ),
   scope: scopeFlag.pipe(Flag.withDescription("Sync project (default) or user-level configuration")),
-  preview: Flag.boolean("preview").pipe(
-    Flag.withDescription("Preview the materialization plan without applying it"),
-    Flag.withDefault(false),
-  ),
+  preview: previewCapabilityFlag("Preview the materialization plan without applying it"),
   failOnChange: Flag.boolean("fail-on-change").pipe(
     Flag.withDescription("Exit 1 when preview finds reconciliation work"),
     Flag.withDefault(false),
@@ -42,6 +44,7 @@ export const syncCommand = Command.make(
     ),
 ).pipe(
   withArgvTracking(syncConfig),
+  withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Materialize configured workspace files"),
   Command.withExamples([
     {

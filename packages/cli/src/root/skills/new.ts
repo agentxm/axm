@@ -26,7 +26,6 @@ import {
 } from "@agentxm/extension-workspace";
 import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
-import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
@@ -35,6 +34,11 @@ import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "../shared/command-capabilities.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import {
@@ -53,7 +57,6 @@ const MAX_NAME_LENGTH = 64;
 export interface SkillsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<string>;
-  readonly yes: boolean;
   readonly preview: boolean;
 }
 
@@ -279,10 +282,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
-    preview: args.preview,
-    yes: args.yes,
-  });
+  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
   const suggestions = [
     {
@@ -298,21 +298,18 @@ const newConfig = {
     Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Create the skill without confirmation")),
-  preview: previewFlag.pipe(
-    Flag.withDescription("Show what files would be created without creating them"),
-  ),
+  preview: previewCapabilityFlag("Show what files would be created without creating them"),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, preview }) =>
+export const newCommand = Command.make("new", newConfig, ({ name, owner, preview }) =>
   handleSkillsNew({
     name: decodeExtensionNameSync(name),
     owner,
-    yes,
     preview,
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("skills new")),
 ).pipe(
   withArgvTracking(newConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Create a new skill in the project-workspace authoring root"),
   Command.withExamples([
     { command: "axm skills new my-skill", description: "Scaffold a new skill" },

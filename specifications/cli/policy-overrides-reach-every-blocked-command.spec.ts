@@ -1,34 +1,24 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { CliConfig, Command, GlobalFlag } from "effect/unstable/cli";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import {
-  TEST_VERSION,
   collectHelpFiles,
   handleInstall,
   handleSkillsInstall,
   handleSync,
   handleUpdate,
   handleWorkspaceUpdate,
-  makeAxmSkillCompatibilityPolicyLayer,
-  makeCliTestContext,
-  rootCommand,
 } from "axm.sh/specification-harness";
-import {
-  AuthLoginInteractionTest,
-  DeviceLoginInteractionTest,
-} from "@agentxm/registry-auth/testing";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../support/install-harness.js";
+import { probeFlag } from "../support/parser-probe.js";
 import { makeSpecRegistry } from "../support/registry-fixture.js";
 
 export const specification = defineSpecification({
@@ -140,7 +130,6 @@ const heldNewerRelease = (
     const { registry, workspace } = makeUnagedWorkspace(cleanups, posture, [{ version: "1.0.0" }]);
     yield* handleInstall({
       source: Option.none(),
-      yes: true,
       force: false,
       preview: false,
     }).pipe(Effect.provide(workspace.layer), Effect.orDie);
@@ -171,8 +160,8 @@ const heldOnlyRelease = (
 
 /**
  * One driver per handler the override reaches. Every registered command the
- * gate can block routes into one of these. `--yes` is always given, so a hold
- * that survives is a hold `--yes` did not lift.
+ * gate can block routes into one of these. None of them offers advance
+ * approval, so a hold that survives is a hold no confirmation could lift.
  */
 const blockedForms: ReadonlyArray<{
   readonly form: string;
@@ -186,7 +175,7 @@ const blockedForms: ReadonlyArray<{
     form: "root install",
     fixture: heldNewerRelease,
     run: (workspace) =>
-      handleInstall({ source: Option.none(), yes: true, force: false, preview: false }).pipe(
+      handleInstall({ source: Option.none(), force: false, preview: false }).pipe(
         Effect.provide(workspace.layer),
       ),
   },
@@ -194,7 +183,7 @@ const blockedForms: ReadonlyArray<{
     form: "root update",
     fixture: heldNewerRelease,
     run: (workspace) =>
-      handleUpdate({ source: Option.none(), yes: true, force: false, preview: false }).pipe(
+      handleUpdate({ source: Option.none(), force: false, preview: false }).pipe(
         Effect.provide(workspace.layer),
       ),
   },
@@ -209,7 +198,7 @@ const blockedForms: ReadonlyArray<{
     run: (workspace) =>
       handleSkillsInstall(
         { source: Option.none(), skills: [], all: false },
-        { yes: true, force: false, preview: false },
+        { force: false, preview: false },
       ).pipe(Effect.provide(workspace.layer)),
   },
   {
@@ -221,7 +210,7 @@ const blockedForms: ReadonlyArray<{
         type: Option.some("skill"),
         planName: "Update skills",
         planDescription: Option.some("Update configured skills"),
-        flags: { yes: true, preview: false },
+        flags: { preview: false },
       }).pipe(Effect.provide(workspace.layer)),
   },
 ];
@@ -281,21 +270,6 @@ describe("The one-shot release-age override", () => {
   it.effect("is accepted by the parser on every command that registers it", () =>
     Effect.gen(function* () {
       const helpFiles = yield* collectHelpFiles();
-      const directory = fs.realpathSync(
-        fs.mkdtempSync(path.join(os.tmpdir(), "axm-spec-override-")),
-      );
-      cleanups.push(() => fs.rmSync(directory, { recursive: true, force: true }));
-      const context = makeCliTestContext({ machine: true, flags: { json: true } });
-      // The product registers help as its only built-in flag; the parser
-      // default would add a version flag colliding with the verbose alias.
-      const parserLayer = Layer.mergeAll(
-        context.baseLayer,
-        CliConfig.layer({ builtIns: [GlobalFlag.Help] }),
-        makeAxmSkillCompatibilityPolicyLayer(TEST_VERSION),
-        AuthLoginInteractionTest().layer,
-        DeviceLoginInteractionTest().layer,
-      );
-
       const unrecognized: string[] = [];
       for (const [commandPath, doc] of helpFiles) {
         if (!doc.flags.some((flag) => `--${flag.name}` === OVERRIDE)) continue;
@@ -303,16 +277,7 @@ describe("The one-shot release-age override", () => {
           .replace(/^axm ?/u, "")
           .split(" ")
           .filter(Boolean);
-        // `--help` settles parsing before the command runs, so this reads the
-        // parser's flag surface without performing any workspace work.
-        const outcome = yield* Command.runWith(rootCommand, {
-          version: TEST_VERSION,
-          renderErrors: false,
-        })(["--directory", directory, ...args, OVERRIDE, "--help"]).pipe(
-          Effect.provide(parserLayer),
-          Effect.result,
-        );
-        if (Result.isFailure(outcome) && JSON.stringify(outcome).includes("UnrecognizedOption")) {
+        if ((yield* probeFlag(args, OVERRIDE)) === "unrecognized") {
           unrecognized.push(commandPath);
         }
       }

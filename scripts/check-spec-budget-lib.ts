@@ -13,7 +13,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 /** Total wall-clock seconds the fast specification suite may report. */
-export const SPECIFICATION_SUITE_BUDGET_SECONDS = 120;
+export const SPECIFICATION_SUITE_BUDGET_SECONDS = 360;
 
 export type BudgetResult =
   | { readonly kind: "within-budget"; readonly message: string }

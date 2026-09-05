@@ -511,19 +511,25 @@ const resolveInstructionSetup = (args: {
   readonly workspaceRoot: string;
 }) =>
   Effect.gen(function* () {
-    const nonInteractive = args.options.nonInteractive === true;
+    // Unattended resolution takes the documented defaults: instruction sync
+    // on, sourced from the default file. A preview resolves the same inputs
+    // an approved unattended apply would, so it never asks and its candidate
+    // is identical with or without preapproval.
+    const unattended =
+      args.options.nonInteractive === true ||
+      args.options.yes === true ||
+      args.options.preview === true;
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const defaultSyncEnabled = currentInstructionSyncEnabled(args.existingSettings);
-    const syncEnabled =
-      nonInteractive || args.options.yes === true
-        ? true
-        : Option.isSome(interaction)
-          ? yield* interaction.value.confirmInstructionSync({ enabled: defaultSyncEnabled })
-          : defaultSyncEnabled;
+    const syncEnabled = unattended
+      ? true
+      : Option.isSome(interaction)
+        ? yield* interaction.value.confirmInstructionSync({ enabled: defaultSyncEnabled })
+        : defaultSyncEnabled;
     const defaultFileName = currentInstructionFileName(args.existingSettings);
     const choices = yield* instructionSourceChoices(args.workspaceRoot, defaultFileName);
     const selectedFileName =
-      syncEnabled && !nonInteractive && args.options.yes !== true && Option.isSome(interaction)
+      syncEnabled && !unattended && Option.isSome(interaction)
         ? yield* interaction.value.selectInstructionSource({
             defaultFileName,
             choices: choices.map(({ fileName, exists, lines }) => ({ fileName, exists, lines })),

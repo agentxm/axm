@@ -3,6 +3,29 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
+export const executionBinding = {
+  requirements: [
+    "cli/knowledge/lint/reports-validation-without-mutation",
+    "cli/knowledge/concepts/search/matches-lexical-query",
+    "cli/knowledge/concepts/search/rejects-invalid-query",
+    "cli/knowledge/concepts/query/combines-typed-filters",
+    "cli/knowledge/concepts/query/enumerates-selected-document-kinds",
+    "cli/knowledge/concepts/query/bounds-concept-evidence",
+    "cli/knowledge/concepts/get/returns-source-backed-document",
+    "cli/knowledge/concepts/get/rejects-changed-revision",
+    "cli/knowledge/concepts/resolve/resolves-exact-reference",
+    "cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution",
+    "cli/knowledge/concepts/related/traverses-authored-links",
+    "cli/knowledge/concepts/cursors-bind-query-and-corpus",
+    "cli/knowledge/concepts/reads-only-enabled-selected-corpus",
+    "cli/knowledge/concepts/status/reports-current-corpus-health",
+    "cli/knowledge/concepts/status/publishes-discovery-capabilities",
+  ],
+  boundary: "process",
+  rationale:
+    "Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.",
+} as const;
+
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
@@ -239,7 +262,7 @@ describe("axm knowledge lifecycle", () => {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
       });
-      const install = await runCli(["knowledge", "install", "--yes", "--non-interactive"], {
+      const install = await runCli(["knowledge", "install", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(install.exitCode, install.stdout + install.stderr).toBe(0);
@@ -252,10 +275,9 @@ describe("axm knowledge lifecycle", () => {
         sourceConceptPath,
         "---\ntype: reference\ndescription: Architecture\ntags: [platform]\nresource: ./missing.txt\n---\n# Architecture\n",
       );
-      const updateMissingResource = await runCli(
-        ["knowledge", "update", "--yes", "--non-interactive"],
-        { cwd: temp.path },
-      );
+      const updateMissingResource = await runCli(["knowledge", "update", "--non-interactive"], {
+        cwd: temp.path,
+      });
       expect(
         updateMissingResource.exitCode,
         updateMissingResource.stdout + updateMissingResource.stderr,
@@ -279,7 +301,7 @@ describe("axm knowledge lifecycle", () => {
         message: focusedDiagnostic.message,
       });
       fs.writeFileSync(sourceConceptPath, installedConcept);
-      const restoreConcept = await runCli(["knowledge", "update", "--yes", "--non-interactive"], {
+      const restoreConcept = await runCli(["knowledge", "update", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(restoreConcept.exitCode, restoreConcept.stdout + restoreConcept.stderr).toBe(0);
@@ -369,7 +391,7 @@ describe("axm knowledge lifecycle", () => {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
       });
-      const install = await runCli(["knowledge", "install", "--yes", "--non-interactive"], {
+      const install = await runCli(["knowledge", "install", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(install.exitCode, install.stdout + install.stderr).toBe(0);
@@ -468,7 +490,7 @@ describe("axm knowledge lifecycle", () => {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
       });
-      const install = await runCli(["knowledge", "install", "--yes", "--non-interactive"], {
+      const install = await runCli(["knowledge", "install", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(install.exitCode, install.stdout + install.stderr).toBe(0);
@@ -605,7 +627,7 @@ describe("axm knowledge lifecycle", () => {
       );
       const revision = JSON.parse(get.stdout).result.concept.ref.contentRevision;
       fs.appendFileSync(path.join(sourceRoot, "src", "architecture.md"), "\nChanged.\n");
-      const updateRevision = await runCli(["knowledge", "update", "--yes", "--non-interactive"], {
+      const updateRevision = await runCli(["knowledge", "update", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(updateRevision.exitCode, updateRevision.stdout + updateRevision.stderr).toBe(0);
@@ -674,7 +696,7 @@ describe("axm knowledge lifecycle", () => {
         },
       });
 
-      const install = await runCli(["knowledge", "install", "--yes", "--non-interactive"], {
+      const install = await runCli(["knowledge", "install", "--non-interactive"], {
         cwd: temp.path,
       });
       expect({
@@ -706,7 +728,7 @@ describe("axm knowledge lifecycle", () => {
         ...readJson(path.join(sourceRoot, "knowledge.json")),
         description: "Updated platform guidance.",
       });
-      const update = await runCli(["knowledge", "update", "--yes", "--non-interactive"], {
+      const update = await runCli(["knowledge", "update", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(update.exitCode).toBe(0);
@@ -756,10 +778,9 @@ describe("axm knowledge lifecycle", () => {
         ...readJson(path.join(sourceRoot, "knowledge.json")),
         instructionEntry: false,
       });
-      const applyManifestDefault = await runCli(
-        ["knowledge", "update", "--yes", "--non-interactive"],
-        { cwd: temp.path },
-      );
+      const applyManifestDefault = await runCli(["knowledge", "update", "--non-interactive"], {
+        cwd: temp.path,
+      });
       expect(
         applyManifestDefault.exitCode,
         applyManifestDefault.stdout + applyManifestDefault.stderr,
@@ -787,10 +808,9 @@ describe("axm knowledge lifecycle", () => {
       const includeOverride = await runCli(["sync", "--non-interactive"], { cwd: temp.path });
       expect(includeOverride.exitCode, includeOverride.stdout + includeOverride.stderr).toBe(0);
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain("[platform]");
-      const updateWithIncludeOverride = await runCli(
-        ["knowledge", "update", "--yes", "--non-interactive"],
-        { cwd: temp.path },
-      );
+      const updateWithIncludeOverride = await runCli(["knowledge", "update", "--non-interactive"], {
+        cwd: temp.path,
+      });
       expect(
         updateWithIncludeOverride.exitCode,
         updateWithIncludeOverride.stdout + updateWithIncludeOverride.stderr,
@@ -861,10 +881,9 @@ describe("axm knowledge lifecycle", () => {
       expect(restoreOverride.exitCode, restoreOverride.stdout + restoreOverride.stderr).toBe(0);
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain("[platform]");
 
-      const uninstall = await runCli(
-        ["knowledge", "uninstall", "platform", "--yes", "--non-interactive"],
-        { cwd: temp.path },
-      );
+      const uninstall = await runCli(["knowledge", "uninstall", "platform", "--non-interactive"], {
+        cwd: temp.path,
+      });
       expect(uninstall.exitCode).toBe(0);
       expect(fs.existsSync(canonical)).toBe(false);
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(

@@ -75,7 +75,6 @@ describe("mcps enable/disable output", () => {
       Effect.gen(function* () {
         yield* handleEnableMcpServer({
           name: "context",
-          yes: false,
           preview: false,
         });
 
@@ -96,7 +95,6 @@ describe("mcps enable/disable output", () => {
       Effect.gen(function* () {
         yield* handleEnableMcpServer({
           name: "context",
-          yes: true,
           preview: false,
         });
 
@@ -129,7 +127,6 @@ describe("mcps enable/disable output", () => {
       Effect.gen(function* () {
         yield* handleEnableMcpServer({
           name: "context",
-          yes: true,
           preview: false,
         });
 
@@ -153,7 +150,6 @@ describe("mcps enable/disable output", () => {
       Effect.gen(function* () {
         yield* handleDisableMcpServer({
           name: "context",
-          yes: false,
           preview: false,
         });
 
@@ -174,7 +170,6 @@ describe("mcps enable/disable output", () => {
       Effect.gen(function* () {
         yield* handleDisableMcpServer({
           name: "context",
-          yes: true,
           preview: false,
         });
 

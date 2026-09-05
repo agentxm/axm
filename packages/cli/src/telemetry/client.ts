@@ -27,8 +27,6 @@ export interface TelemetryClientService {
   ) => Effect.Effect<void>;
   readonly reportError: (error: {
     readonly name: string;
-    readonly message: string;
-    readonly details?: ReadonlyArray<string>;
     readonly category?: string;
     readonly level: "error" | "fatal";
     readonly errorClass: TelemetryErrorClass;
@@ -50,10 +48,12 @@ export class TelemetryClient extends ServiceMap.Service<TelemetryClient, Telemet
   "axm.sh/telemetry/client/TelemetryClient",
 ) {}
 
-export const TelemetryClientTest = Layer.succeed(TelemetryClient, {
+const disabledTelemetry: TelemetryClientService = {
   trackEvent: () => Effect.void,
   reportError: () => Effect.void,
-});
+};
+
+export const TelemetryClientTest = Layer.succeed(TelemetryClient, disabledTelemetry);
 
 const DEFAULT_BASE_URL = "https://t.agentxm.ai";
 export const TELEMETRY_EVENT_TIMEOUT = "250 millis";
@@ -89,10 +89,7 @@ export const makeTelemetryClient = (
   Effect.gen(function* () {
     const inTest = yield* isTest;
     if (options.mode === "off" || inTest) {
-      return {
-        trackEvent: () => Effect.void,
-        reportError: () => Effect.void,
-      };
+      return disabledTelemetry;
     }
 
     const httpClient = yield* HttpClient.HttpClient;
@@ -142,21 +139,20 @@ export const makeTelemetryClient = (
           );
         }
         return yield* fireAndForget(send);
-      }).pipe(Effect.withSpan("TelemetryClient.trackEvent"));
+      }).pipe(swallowFailure, Effect.withSpan("TelemetryClient.trackEvent"));
     };
 
-    // Uses swallowFailure (not fireAndForget) so error reports complete before process exit.
+    // Await error delivery before exit, but bound both transport and collection.
     const reportError: TelemetryClientService["reportError"] = (error) =>
       Effect.gen(function* () {
         const now = DateTime.formatIso(yield* DateTime.now);
         const payload = {
           errors: [
             {
-              message: error.message,
+              // Free text can contain package content or secrets even after
+              // credential-pattern redaction. Only the category crosses here.
+              message: error.name,
               name: error.name,
-              ...(error.details !== undefined && error.details.length > 0
-                ? { details: error.details }
-                : {}),
             },
           ],
           level: error.level,
@@ -172,11 +168,16 @@ export const makeTelemetryClient = (
           context: { ...context, command: error.command || options.command },
         };
 
-        return yield* swallowFailure(client.ErrorsIngest({ payload }));
-      }).pipe(Effect.withSpan("TelemetryClient.reportError"));
+        return yield* client.ErrorsIngest({ payload });
+      }).pipe(
+        Effect.timeoutOption(TELEMETRY_EVENT_TIMEOUT),
+        swallowFailure,
+        Effect.asVoid,
+        Effect.withSpan("TelemetryClient.reportError"),
+      );
 
     return { trackEvent, reportError };
-  });
+  }).pipe(Effect.catchCause(() => Effect.succeed(disabledTelemetry)));
 
 export const TelemetryClientLive = (
   options: TelemetryClientOptions,

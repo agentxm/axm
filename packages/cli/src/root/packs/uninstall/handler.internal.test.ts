@@ -286,7 +286,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"), {
-            yes: false,
             preview: false,
           });
 
@@ -310,7 +309,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("@acme/packs/my-pack"), {
-            yes: false,
             preview: false,
           });
 
@@ -328,7 +326,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-pack"), {
-            yes: false,
             preview: false,
           });
 
@@ -364,7 +361,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("toolkit"), {
-            yes: false,
             preview: true,
           });
 
@@ -400,7 +396,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("toolkit"), {
-            yes: false,
             preview: true,
           });
 
@@ -411,7 +406,6 @@ describe("packs uninstall handler", () => {
           expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
 
           yield* handleUninstallPack(defaultArgs("toolkit"), {
-            yes: true,
             preview: false,
           });
 
@@ -446,7 +440,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("toolkit"), {
-            yes: true,
             preview: false,
           });
 
@@ -476,11 +469,9 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("toolkit"), {
-            yes: false,
             preview: true,
           });
           yield* handleUninstallPack(defaultArgs("toolkit"), {
-            yes: true,
             preview: false,
           });
 
@@ -519,7 +510,7 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(
             defaultArgs("toolkit"),
-            { yes: true, preview: false },
+            { preview: false },
             {
               beforeApply: () =>
                 Effect.sync(() => {
@@ -559,7 +550,7 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(
             defaultArgs("toolkit"),
-            { yes: true, preview: false },
+            { preview: false },
             {
               beforeApply: () =>
                 Effect.sync(() => {
@@ -593,7 +584,6 @@ describe("packs uninstall handler", () => {
         return provide(
           Effect.gen(function* () {
             yield* handleUninstallPack(defaultArgs(selector), {
-              yes: true,
               preview: false,
             });
 
@@ -616,7 +606,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("@other/packs/toolkit"), {
-            yes: true,
             preview: false,
           });
 
@@ -638,7 +627,6 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           const error = yield* Effect.flip(
             handleUninstallPack(defaultArgs("@acme/skills/toolkit"), {
-              yes: true,
               preview: false,
             }),
           );
@@ -669,7 +657,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"), {
-            yes: false,
             preview: false,
           });
 
@@ -705,7 +692,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("pack-a"), {
-            yes: false,
             preview: false,
           });
 
@@ -736,7 +722,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"), {
-            yes: false,
             preview: false,
           });
 
@@ -770,7 +755,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"), {
-            yes: false,
             preview: false,
           });
 
@@ -804,7 +788,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("acme-*"), {
-            yes: false,
             preview: false,
           });
 
@@ -825,7 +808,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
-            yes: false,
             preview: false,
           });
 
@@ -842,7 +824,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
-            yes: false,
             preview: false,
           });
 
@@ -863,7 +844,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
-            yes: false,
             preview: true,
           });
 
@@ -879,7 +859,6 @@ describe("packs uninstall handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
-            yes: false,
             preview: true,
           });
 

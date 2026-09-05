@@ -99,16 +99,11 @@ export interface LoginScopeOptions {
 }
 
 export interface MeResponse {
-  readonly userId: string;
   readonly userHandle: Handle;
-  readonly email: string;
   readonly tokenType: string;
   readonly scopes: ReadonlyArray<string>;
-  readonly orgs: ReadonlyArray<{ readonly id: string; readonly handle: Handle }>;
-}
-
-export interface WhoamiResponse {
-  readonly handle: Handle;
+  readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null };
+  readonly expiresAt: DateTime.Utc | null;
 }
 
 export interface TokenPermissionsRequest {
@@ -260,7 +255,6 @@ export interface AuthClientService {
   ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
   readonly revokeToken: (token: string) => Effect.Effect<void, AuthError>;
   readonly getMe: (accessToken: string) => Effect.Effect<MeResponse, AuthError>;
-  readonly getWhoami: (accessToken: string) => Effect.Effect<WhoamiResponse, AuthError>;
   readonly createToken: (
     accessToken: string,
     params: CreateTokenParams,
@@ -884,30 +878,12 @@ export const AuthClientLive = Layer.effect(
           );
 
         return {
-          userId: decoded.user.id,
           userHandle: normalizeHandle(decoded.user.handle),
-          email: decoded.user.email ?? "",
           tokenType: decoded.token.type,
           scopes: decoded.token.scopes,
-          orgs: [],
+          resourceRestrictions: decoded.token.resource_restrictions,
+          expiresAt: decoded.token.expires_at,
         } satisfies MeResponse;
-      },
-    );
-
-    const getWhoami: AuthClientService["getWhoami"] = Effect.fn("AuthClient.getWhoami")(
-      function* (accessToken) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
-        const decoded = yield* authedClient
-          .AuthGetWhoami(undefined)
-          .pipe(
-            Effect.mapError((error) =>
-              mapRegistryAuthError(registryUrl, "Could not read authenticated identity", error),
-            ),
-          );
-
-        return {
-          handle: normalizeHandle(decoded.handle),
-        } satisfies WhoamiResponse;
       },
     );
 
@@ -1078,7 +1054,6 @@ export const AuthClientLive = Layer.effect(
       refreshToken,
       revokeToken,
       getMe,
-      getWhoami,
       createToken,
       listTokens,
       waitForStepUpRequest,
@@ -1140,13 +1115,6 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
       ),
     revokeToken: () => Effect.void,
     getMe: () =>
-      Effect.fail(
-        new RegistryAuthFailed({
-          category: "auth",
-          detail: "Not implemented in test",
-        }),
-      ),
-    getWhoami: () =>
       Effect.fail(
         new RegistryAuthFailed({
           category: "auth",

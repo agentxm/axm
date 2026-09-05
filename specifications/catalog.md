@@ -1059,6 +1059,30 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts`](../specifications/cli/upgrade/latest-uses-promoted-stable-channel.spec.ts)
 
+#### Whoami
+
+##### Identity inspection recovers an expired stored session
+
+- Requirement: `cli/whoami/refreshes-rejected-stored-credentials`
+- Statement: When the Registry rejects identity credentials with HTTP 401, whoami shall recover a stored session by refreshing and persisting its replacement credentials and retrying once, report authentication required when rejection remains, and leave ambient credentials and other failures without refresh retries.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/whoami/refreshes-rejected-stored-credentials.spec.ts`](../specifications/cli/whoami/refreshes-rejected-stored-credentials.spec.ts)
+
+##### Identity inspection reports safe effective authority
+
+- Requirement: `cli/whoami/reports-safe-effective-identity`
+- Statement: When authenticated, whoami shall report the handle, Registry, credential type, effective scopes, enforced extension restrictions, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output, excluding email, credential identifiers, token material, and internal permission markers.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Source: [`specifications/cli/whoami/reports-safe-effective-identity.spec.ts`](../specifications/cli/whoami/reports-safe-effective-identity.spec.ts)
+
 #### Withheld Releases Name Recovery From The Emitting Command
 
 ##### A withheld release names recovery from the command that withheld it

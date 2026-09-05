@@ -60,7 +60,11 @@ export { handleRootVersion, handleVersion } from "./root/shared/version-command.
 export { handleLogin, LoginNoOpDocumentSchema } from "./root/auth/login.js";
 // The credential store port and the session shape the login specifications
 // observe; specs may not import the auth root directly.
-export { CredentialStore, type MeResponse } from "@agentxm/registry-auth";
+export {
+  CredentialStore,
+  type MeResponse,
+  type CreatePublishAuthorizationRequestParams,
+} from "@agentxm/registry-auth";
 export { handleEnableHook } from "./root/hooks/enable.js";
 export { handleDisableHook } from "./root/hooks/disable.js";
 export { handleHooksNew } from "./root/hooks/new.js";
@@ -311,3 +315,40 @@ export {
   type CredentialFile,
   type PendingDeviceLogin,
 } from "@agentxm/registry-auth";
+
+export { handleKnowledgeConceptSearch } from "./root/knowledge/concepts/search.js";
+export { handleKnowledgeConceptQuery } from "./root/knowledge/concepts/query.js";
+export { handleKnowledgeConceptGet } from "./root/knowledge/concepts/get.js";
+export { handleKnowledgeConceptResolve } from "./root/knowledge/concepts/resolve.js";
+export { handleKnowledgeConceptRelated } from "./root/knowledge/concepts/related.js";
+export { handleKnowledgeConceptStatus } from "./root/knowledge/concepts/status.js";
+export {
+  KnowledgeConceptQueryPageSchema,
+  KnowledgeConceptGetOutputSchema,
+  KnowledgeConceptResolveOutputSchema,
+  KnowledgeConceptRelatedOutputSchema,
+  KnowledgeConceptStatusOutputSchema,
+} from "./root/knowledge/concepts/schemas.js";
+export { handleKnowledgeLint, KnowledgeLintQueryResultSchema } from "./root/knowledge/lint.js";
+export {
+  handleYank,
+  handleUnyank,
+  handleDeprecate,
+  handleUndeprecate,
+  LifecycleTransitionOutputSchema,
+} from "./root/lifecycle/command.js";
+export {
+  handleVisibilityStatus,
+  handleVisibilitySet,
+  handleVisibilityReconcile,
+} from "./root/visibility/handler.js";
+export {
+  handleCacheStatus,
+  handleCacheVerify,
+  handleCachePrune,
+  CacheStatusOutputSchema,
+  CacheVerifyOutputSchema,
+  CachePruneOutputSchema,
+} from "./root/cache/command.js";
+
+export { resolveAxmCacheRoot } from "@agentxm/registry-client";

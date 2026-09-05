@@ -6,6 +6,9 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 import YAML from "yaml";
 
+import { toAppError } from "../../../app-error/conversions.js";
+import { sanitizeKnowledgeTerminalText } from "./terminal-text.js";
+
 import { Screen, rawDoc } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
@@ -95,10 +98,16 @@ export const handleKnowledgeConceptStatus = Effect.fn("Knowledge.concepts.status
         }
       : {
           capabilities: KNOWLEDGE_DISCOVERY_CAPABILITIES,
-          readiness: "changing" as const,
+          readiness: Result.isFailure(capturedResult)
+            ? ("unavailable" as const)
+            : ("changing" as const),
           health: {
             status: "unhealthy" as const,
-            diagnostics: ["The installed Knowledge corpus kept changing during capture."],
+            diagnostics: [
+              Result.isFailure(capturedResult)
+                ? `${toAppError(capturedResult.failure).detail} Correct the source problem and retry.`
+                : "The installed Knowledge corpus kept changing during capture. Retry after updates finish.",
+            ],
           },
           bundleCount: 0,
           conceptCount: 0,
@@ -107,7 +116,7 @@ export const handleKnowledgeConceptStatus = Effect.fn("Knowledge.concepts.status
   if (yield* screen.document(output, KnowledgeConceptStatusOutputSchema)) return;
   yield* screen.result(
     rawDoc(
-      `Knowledge discovery ${output.capabilities.version}\nStatus   ${output.readiness}\nBundles  ${String(output.bundleCount)}\nConcepts ${String(output.conceptCount)}\n${output.corpusFingerprint === undefined ? "" : `Corpus   ${output.corpusFingerprint}\n`}`,
+      `Knowledge discovery ${output.capabilities.version}\nStatus   ${output.readiness}\nBundles  ${String(output.bundleCount)}\nConcepts ${String(output.conceptCount)}\n${output.corpusFingerprint === undefined ? "" : `Corpus   ${output.corpusFingerprint}\n`}${output.health.diagnostics.map((diagnostic) => `${sanitizeKnowledgeTerminalText(diagnostic)}\n`).join("")}`,
     ),
   );
 });

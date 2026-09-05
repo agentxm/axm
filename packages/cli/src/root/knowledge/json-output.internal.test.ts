@@ -17,11 +17,7 @@ import {
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
-import {
-  expectAppliedPlanResult,
-  getAppError,
-  makeWorkspaceHandlerTestContext,
-} from "../../test-helpers.js";
+import { expectAppliedPlanResult, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { setKnowledgeEnabled } from "./activation.js";
 import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeConceptGet } from "./concepts/get.js";
@@ -340,21 +336,6 @@ describe("knowledge JSON output", () => {
           bundleCount: 1,
           conceptCount: 2,
         });
-      }),
-    );
-  });
-
-  it.effect("search rejects empty and malformed parsed queries as validation errors", () => {
-    const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
-    return provide(
-      Effect.gen(function* () {
-        for (const query of ["", " \t ", '""', 'literal:""', '"unterminated']) {
-          const exit = yield* handleKnowledgeConceptSearch(query, "project").pipe(Effect.exit);
-          expect(Exit.isFailure(exit)).toBe(true);
-          if (Exit.isFailure(exit)) {
-            expect(getAppError(Cause.squash(exit.cause)).code).toBe("validation");
-          }
-        }
       }),
     );
   });

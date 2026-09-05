@@ -1,3 +1,4 @@
+import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -18,9 +19,15 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
-  methods: ["example"],
-  derivedFrom: ["cli/install/direct-intent-recorded-and-realized"],
-  supersedes: ["cli/install/direct-intent-recorded-and-realized"],
+  methods: ["example", "decision-table"],
+  derivedFrom: [
+    "cli/install/direct-intent-recorded-and-realized",
+    "cli/every-type-completes-the-shared-lifecycle",
+  ],
+  supersedes: [
+    "cli/install/direct-intent-recorded-and-realized",
+    "cli/every-type-completes-the-shared-lifecycle",
+  ],
   assumptions: [],
   openQuestions: [],
 });
@@ -59,5 +66,28 @@ describe("Install records the accepted resolution", () => {
         treeIntegrity: expect.anything(),
       });
     }),
+  );
+  it.effect.each(localLifecycleRows)(
+    "records the accepted source and content identity for a local $label",
+    (row) =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace();
+        cleanups.push(workspace.cleanup);
+        const name = `conformance-${row.label}`;
+        const source = row.writePackage(workspace.root, { name });
+        yield* handleInstall({ source: Option.some(source), force: false, preview: false }).pipe(
+          Effect.provide(workspace.layer),
+        );
+        const parsed: unknown = YAML.parse(workspace.readLockfileText());
+        const lockfile = yield* decodeLockfile(parsed);
+        expect(lockfile[row.settingsKey]?.[name]).toMatchObject({
+          type: "local",
+          extensionType: row.type,
+          workspaceName: name,
+          packageName: name,
+          contentIdentity: expect.any(String),
+          treeIntegrity: expect.anything(),
+        });
+      }),
   );
 });

@@ -7,12 +7,13 @@ import { getAppError, handleRootPublish } from "axm.sh/specification-harness";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 import { makeFileRegistry, makePublishLayer, publishArgs } from "../../support/publish-harness.js";
+import { writeAuthoredSkill } from "../../support/publish-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/publish/requires-established-authorship",
   title: "Publish refuses extensions the workspace does not author",
   statement:
-    "Publish shall distribute only extensions the workspace authors: an explicitly selected installed extension shall fail with a conflict that suggests adopting it, a bulk publish shall report it as not authored rather than selecting it, and nothing shall be uploaded either way.",
+    "Publish shall distribute only extensions the workspace authors: an explicitly selected acquired extension shall fail with a conflict that suggests adopting it and upload nothing, while bulk publication shall report acquired entries as not authored and may publish eligible authored entries without uploading acquired entries.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
@@ -102,5 +103,36 @@ describe("Publishing content the workspace does not author", () => {
           },
         });
       }),
+  );
+
+  it.effect("a mixed bulk selection uploads authored content and never the acquired entry", () =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace({
+        machine: true,
+        flags: { json: true },
+        settings: { skills: { review: "@acme/skills/review", authored: "workspace" } },
+      });
+      cleanups.push(workspace.cleanup);
+      writeAuthoredSkill(workspace.root, { name: "authored" });
+      const registry = makeFileRegistry(workspace.root);
+      yield* handleRootPublish(publishArgs(registry.url, { preview: false })).pipe(
+        Effect.provide(makePublishLayer(workspace)),
+      );
+      expect(registry.storedFiles()).toContain("extensions/@acme/skills/authored/1.0.0.zip");
+      expect(registry.storedFiles().some((file) => file.includes("/review/"))).toBe(false);
+      expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
+        counts: { selected: 1, published: 1 },
+        selection: {
+          decisions: expect.arrayContaining([
+            expect.objectContaining({ id: "@acme/skills/review", disposition: "not-authored" }),
+          ]),
+        },
+        execution: {
+          outcomes: expect.arrayContaining([
+            expect.objectContaining({ id: "@acme/skills/authored", status: "success" }),
+          ]),
+        },
+      });
+    }),
   );
 });

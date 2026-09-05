@@ -1,3 +1,4 @@
+import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -17,9 +18,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
-  methods: ["example"],
-  derivedFrom: [],
-  supersedes: [],
+  methods: ["example", "decision-table"],
+  derivedFrom: ["cli/every-type-completes-the-shared-lifecycle"],
+  supersedes: ["cli/every-type-completes-the-shared-lifecycle"],
   assumptions: [],
   openQuestions: [],
 });
@@ -114,5 +115,26 @@ describe("Uninstall a directly desired extension", () => {
         expect(entry?.data).toMatchObject({ result: { outcome: "applied" } });
         expect(JSON.stringify(entry?.data)).toContain("retained");
       }),
+  );
+  it.effect.each(localLifecycleRows)("removes the unneeded $label footprint", (row) =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace();
+      cleanups.push(workspace.cleanup);
+      const name = `conformance-${row.label}`;
+      const source = row.writePackage(workspace.root, { name });
+      yield* handleInstall({ source: Option.some(source), force: false, preview: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      expect(
+        workspace.exists(`agent_extensions/local/vendor/${name}/${row.canonicalFile(name)}`),
+      ).toBe(true);
+      yield* uninstall(workspace, `@acme/${row.plural}/${name}`);
+      expect(workspace.readSettings()).not.toMatchObject({
+        [row.settingsKey]: { [name]: expect.anything() },
+      });
+      expect(workspace.readLockfileText()).not.toContain(name);
+      expect(workspace.exists(`agent_extensions/local/vendor/${name}`)).toBe(false);
+      row.expectUnrealized(workspace, name);
+    }),
   );
 });

@@ -114,6 +114,11 @@ export const captureEvidenceInputs = (repoRoot: string): EvidenceInputs => {
   const git = (...args: string[]): string =>
     execFileSync("git", args, {
       cwd: repoRoot,
+      // A Git hook supplies repository selectors such as GIT_DIR. The
+      // caller-selected root must own this observation even inside a hook.
+      env: Object.fromEntries(
+        Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+      ),
       encoding: "utf8",
       maxBuffer: 32 * 1024 * 1024,
     });

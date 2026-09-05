@@ -1,3 +1,4 @@
+import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -12,13 +13,19 @@ export const specification = defineSpecification({
   requirement: "cli/install/realizes-for-every-configured-agent",
   title: "Install realizes the extension for every configured agent",
   statement:
-    "When a person installs an acquirable extension, the install command shall realize it on the native surface of every configured agent that can represent it and on the universal location.",
+    "When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, as permitted by the workspace's activation and instruction settings.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "extension-adoption"],
-  methods: ["example"],
-  derivedFrom: ["cli/install/direct-intent-recorded-and-realized"],
-  supersedes: ["cli/install/direct-intent-recorded-and-realized"],
+  methods: ["example", "decision-table"],
+  derivedFrom: [
+    "cli/install/direct-intent-recorded-and-realized",
+    "cli/every-type-completes-the-shared-lifecycle",
+  ],
+  supersedes: [
+    "cli/install/direct-intent-recorded-and-realized",
+    "cli/every-type-completes-the-shared-lifecycle",
+  ],
   assumptions: [
     "Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.",
   ],
@@ -56,8 +63,24 @@ describe("Install realizes the extension for configured agents", () => {
       }).pipe(Effect.provide(workspace.layer));
 
       for (const location of REALIZED_LOCATIONS) {
-        expect(workspace.exists(location), location).toBe(true);
+        expect(workspace.readFile(`${location}/SKILL.md`), location).toBe(
+          workspace.readFile(`vendor/${SKILL}/src/SKILL.md`),
+        );
       }
     }),
+  );
+  it.effect.each(localLifecycleRows)(
+    "realizes the applicable agent surfaces for a local $label",
+    (row) =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace();
+        cleanups.push(workspace.cleanup);
+        const name = `conformance-${row.label}`;
+        const source = row.writePackage(workspace.root, { name });
+        yield* handleInstall({ source: Option.some(source), force: false, preview: false }).pipe(
+          Effect.provide(workspace.layer),
+        );
+        row.expectRealized(workspace, name);
+      }),
   );
 });

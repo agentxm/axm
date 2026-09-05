@@ -1,9 +1,4 @@
-/**
- * Unit tests for the hooks new handler.
- *
- * Tests owner resolution, name validation, manifest creation, entrypoint,
- * settings registration, eager materialization, and error paths.
- */
+/** Internal artifact assembly and invalid branded-input defense for hook creation. */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -49,8 +44,6 @@ const defaultArgs = (
   ...overrides,
 });
 
-const hookDir = (tempDir: string, name: string) => path.join(tempDir, "hooks", name);
-
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
@@ -83,55 +76,6 @@ describe("hooks-new.handler", () => {
   };
 
   describe("success", () => {
-    it.effect("creates manifest, entrypoint, settings entry, and materialized hook config", () => {
-      const { provide, logs, rendererState } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleHooksNew(defaultArgs("tool-audit"));
-
-          // Manifest
-          const manifestPath = path.join(hookDir(tempDir, "tool-audit"), "hook.json");
-          expect(fs.existsSync(manifestPath)).toBe(true);
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.owner).toBe("@acme");
-          expect(manifest.type).toBe("hook");
-          expect(manifest.name).toBe("tool-audit");
-          expect(manifest.runtime).toBe("bash");
-          expect(manifest.entrypoint).toBe("src/hook.sh");
-          expect(manifest.bindings).toEqual([{ on: "tool.pre", matcherRaw: "Write|Edit" }]);
-
-          // Entrypoint
-          const entrypointPath = path.join(hookDir(tempDir, "tool-audit"), "src", "hook.sh");
-          expect(fs.existsSync(entrypointPath)).toBe(true);
-
-          // Settings registration (workspace source)
-          const settingsPath = path.join(tempDir, "axm.json");
-          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.hooks?.["tool-audit"]).toBe("workspace");
-
-          const lockfile = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
-          expect(lockfile).not.toContain("tool-audit:");
-
-          const claudeSettingsPath = path.join(tempDir, ".claude", "settings.json");
-          expect(fs.existsSync(claudeSettingsPath)).toBe(true);
-          const claudeSettings = fs.readFileSync(claudeSettingsPath, "utf-8");
-          expect(claudeSettings).toContain("hooks/tool-audit/src/hook.sh");
-
-          expect(logs.success).toEqual(["Created 1 hook"]);
-          expect(rendererState.summaries.some((m) => m.includes("@acme/hooks/tool-audit"))).toBe(
-            true,
-          );
-          expect(rendererState.suggestions).toEqual([
-            {
-              description: "Edit `hooks/tool-audit/src/hook.sh` to implement the hook",
-            },
-          ]);
-        }),
-      );
-    });
-
     it.effect("emits scaffold plan JSON with artifact in machine mode", () => {
       const { provide, logs, rendererState } = makeLayers({ machine: true });
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
@@ -178,56 +122,6 @@ describe("hooks-new.handler", () => {
         }),
       );
     });
-
-    it.effect("drops the matcher default for non-tool events", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleHooksNew(defaultArgs("on-start", { event: "session.start" }));
-
-          const manifestPath = path.join(hookDir(tempDir, "on-start"), "hook.json");
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.bindings).toEqual([{ on: "session.start" }]);
-        }),
-      );
-    });
-  });
-
-  describe("owner override", () => {
-    it.effect("normalizes an owner override matching the workspace owner", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@corp" });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleHooksNew(defaultArgs("tool-audit", { owner: Option.some("corp") }));
-
-          const manifestPath = path.join(hookDir(tempDir, "tool-audit"), "hook.json");
-          expect(fs.existsSync(manifestPath)).toBe(true);
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.owner).toBe("@corp");
-        }),
-      );
-    });
-  });
-
-  describe("no owner configured", () => {
-    it.effect("fails when no owner is configured and no --owner override", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"));
-
-      return provide(
-        Effect.gen(function* () {
-          const error = yield* handleHooksNew(defaultArgs("tool-audit")).pipe(Effect.flip);
-          expect(getAppError(error)).toMatchObject({
-            code: "validation",
-            detail: expect.stringContaining("No owner configured"),
-          });
-        }),
-      );
-    });
   });
 
   describe("name validation", () => {
@@ -242,41 +136,6 @@ describe("hooks-new.handler", () => {
             name: "BadHook" as ExtensionName,
           }).pipe(Effect.flip);
           expect(getAppError(error).code).toBe("validation");
-        }),
-      );
-    });
-  });
-
-  describe("hook already exists", () => {
-    it.effect("fails when the hook is already configured", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleHooksNew(defaultArgs("tool-audit"));
-          const error = yield* handleHooksNew(defaultArgs("tool-audit")).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("conflict");
-        }),
-      );
-    });
-  });
-
-  describe("preview mode", () => {
-    it.effect("performs no writes when preview mode is active", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleHooksNew(defaultArgs("tool-audit", { preview: true }));
-
-          const manifestPath = path.join(hookDir(tempDir, "tool-audit"), "hook.json");
-          expect(fs.existsSync(manifestPath)).toBe(false);
-
-          const settingsPath = path.join(tempDir, "axm.json");
-          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.hooks?.["tool-audit"]).toBeUndefined();
         }),
       );
     });

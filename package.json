@@ -82,6 +82,7 @@
   },
   "packageManager": "pnpm@11.20.0",
   "devDependencies": {
+    "@agentxm/client-e2e-utils": "workspace:*",
     "@agentxm/extension-model": "workspace:*",
     "@agentxm/extension-workspace": "workspace:*",
     "@agentxm/registry-protocol": "workspace:*",

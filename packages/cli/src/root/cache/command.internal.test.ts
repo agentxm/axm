@@ -64,23 +64,4 @@ describe("cache commands", () => {
       }),
     );
   });
-
-  it.effect("keeps machine-readable status flat inside the ordinary result envelope", () => {
-    const context = makeCliTestContext({ machine: true });
-    const provide = makeEffectProvide(context.baseLayer);
-    const { rendererState } = context;
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleCacheStatus();
-
-        expect(rendererState.results).toEqual([
-          {
-            data: { entries: 0, bytes: 0, maxBytes: 2_147_483_648, maxAgeDays: 90 },
-            schema: expect.anything(),
-          },
-        ]);
-      }),
-    );
-  });
 });

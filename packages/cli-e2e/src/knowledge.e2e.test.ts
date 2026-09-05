@@ -3,6 +3,29 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
+export const executionBinding = {
+  requirements: [
+    "cli/knowledge/lint/reports-validation-without-mutation",
+    "cli/knowledge/concepts/search/matches-lexical-query",
+    "cli/knowledge/concepts/search/rejects-invalid-query",
+    "cli/knowledge/concepts/query/combines-typed-filters",
+    "cli/knowledge/concepts/query/enumerates-selected-document-kinds",
+    "cli/knowledge/concepts/query/bounds-concept-evidence",
+    "cli/knowledge/concepts/get/returns-source-backed-document",
+    "cli/knowledge/concepts/get/rejects-changed-revision",
+    "cli/knowledge/concepts/resolve/resolves-exact-reference",
+    "cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution",
+    "cli/knowledge/concepts/related/traverses-authored-links",
+    "cli/knowledge/concepts/cursors-bind-query-and-corpus",
+    "cli/knowledge/concepts/reads-only-enabled-selected-corpus",
+    "cli/knowledge/concepts/status/reports-current-corpus-health",
+    "cli/knowledge/concepts/status/publishes-discovery-capabilities",
+  ],
+  boundary: "process",
+  rationale:
+    "Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.",
+} as const;
+
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));

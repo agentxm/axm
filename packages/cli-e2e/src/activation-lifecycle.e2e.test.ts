@@ -11,7 +11,7 @@ import { createTempDir, runCli } from "./e2e/utils.js";
  */
 export const executionBinding = {
   requirements: [
-    "cli/every-type-completes-the-shared-lifecycle",
+    "cli/uninstall/removes-direct-route-and-recomputes-reachability",
     "cli/activation-follows-desired-state",
   ],
   boundary: "process",

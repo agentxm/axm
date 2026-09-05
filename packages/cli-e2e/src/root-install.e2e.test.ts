@@ -25,7 +25,8 @@ export const executionBinding = {
     "cli/install/records-accepted-resolution",
     "cli/install/materializes-canonical-content",
     "cli/install/realizes-for-every-configured-agent",
-    "cli/every-type-completes-the-shared-lifecycle",
+    "cli/uninstall/removes-direct-route-and-recomputes-reachability",
+    "cli/uninstall/preserves-unrelated-and-unowned-state",
   ],
   boundary: "process",
   rationale:
@@ -656,6 +657,10 @@ describe("axm install", () => {
         expect(uninstallPreviewJson).toContain(memberName(row));
       }
 
+      const unownedDirectory = path.join(workspace.path, ".claude/skills/hand-written");
+      fs.mkdirSync(unownedDirectory, { recursive: true });
+      fs.writeFileSync(path.join(unownedDirectory, "SKILL.md"), "# Hand written\n");
+      fs.writeFileSync(path.join(workspace.path, "NOTES.md"), "unrelated project file\n");
       const uninstalled = await runJsonCommand(workspace.path, ["packs", "uninstall", packName]);
       expect(uninstalled.stdout.result.outcome).toBe("applied");
       for (const row of leafRows) {
@@ -664,6 +669,14 @@ describe("axm install", () => {
           `${row.type} exclusive canonical root removed`,
         ).toBe(false);
       }
+      expect(fs.readFileSync(path.join(unownedDirectory, "SKILL.md"), "utf8")).toBe(
+        "# Hand written\n",
+      );
+      expect(fs.readFileSync(path.join(workspace.path, "NOTES.md"), "utf8")).toBe(
+        "unrelated project file\n",
+      );
+      fs.rmSync(unownedDirectory, { recursive: true });
+      fs.rmSync(path.join(workspace.path, "NOTES.md"));
       await expectCleanWorkspace(workspace.path, "all leaf members uninstalled");
     } finally {
       registryDir.cleanup();

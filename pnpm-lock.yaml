@@ -143,6 +143,9 @@ importers:
 
   .:
     devDependencies:
+      '@agentxm/client-e2e-utils':
+        specifier: workspace:*
+        version: link:packages/e2e-utils
       '@agentxm/extension-model':
         specifier: workspace:*
         version: link:packages/extension-model

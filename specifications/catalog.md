@@ -30,6 +30,18 @@ programmatic interfaces, and supporting system behavior.
 
 #### Adopt
 
+##### Adopt moves an existing package into workspace authorship
+
+- Requirement: `cli/adopt/moves-package-into-workspace-authorship`
+- Statement: When a person adopts an existing AXM package into an unoccupied authoring location, AXM shall preserve its content in the workspace authoring directory, retain its declared activation (enabling a previously undeclared package), and remove the acquired copy and its external resolution.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/adopt/command.internal.test.ts`, `packages/cli/src/root/adopt/command.ts`
+- Source: [`specifications/cli/adopt/moves-package-into-workspace-authorship.spec.ts`](../specifications/cli/adopt/moves-package-into-workspace-authorship.spec.ts)
+
 ##### Adopt preview describes the authorship transition without changing any state
 
 - Requirement: `cli/adopt/preview-is-pure`
@@ -151,6 +163,33 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/lockfile-rejections-name-recovery-routes`, `cli/confirmation-flags-have-a-supported-purpose`
 - Source: [`specifications/cli/approval-required-names-a-valid-recovery.spec.ts`](../specifications/cli/approval-required-names-a-valid-recovery.spec.ts)
 
+#### Cache
+
+##### Cache pruning enforces the reported retention limits
+
+- Requirement: `cli/cache/prune/enforces-reported-retention-limits`
+- Statement: The cache prune command shall remove expired archives and enough excess archive storage to satisfy the reported 2 GiB limit, preserve unrelated files, and report the removed and remaining entry and byte totals.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/cache/command.ts`, `packages/registry-client/src/archive-cache.ts`
+- Open questions: Should removal of the oldest archives first and the exact expiration boundary be product guarantees? The current implementation chooses both; this requirement establishes the externally reported limits without fixing those choices.
+- Source: [`specifications/cli/cache/prune/enforces-reported-retention-limits.spec.ts`](../specifications/cli/cache/prune/enforces-reported-retention-limits.spec.ts)
+
+##### Cache verification removes corrupt archives and preserves valid content
+
+- Requirement: `cli/cache/verify/removes-only-corrupt-archives`
+- Statement: The cache verify command shall compare every cached archive with its recorded integrity, remove entries whose integrity is invalid or mismatched, retain matching entries and unrelated files, and report the checked, valid, and removed counts.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/cache/command.ts`, `packages/registry-client/src/archive-cache.ts`
+- Source: [`specifications/cli/cache/verify/removes-only-corrupt-archives.spec.ts`](../specifications/cli/cache/verify/removes-only-corrupt-archives.spec.ts)
+
 #### Changes Do Not Interleave
 
 ##### Concurrent changes to one workspace never interleave
@@ -197,6 +236,22 @@ programmatic interfaces, and supporting system behavior.
 - Limitation: The evidence establishes the pre-launch command surface only; it cannot establish whether alias routes remain prohibited after public launch. Retires when: Public launch, when the alias-route policy is decided and this specification is revised or retired.
 - Source: [`specifications/cli/commands-have-no-alias-routes.spec.ts`](../specifications/cli/commands-have-no-alias-routes.spec.ts)
 
+#### Commands Use Selected Directory
+
+##### Commands use the selected working directory
+
+- Requirement: `cli/commands-use-selected-directory`
+- Statement: AXM shall execute workspace commands in the directory selected by --directory or -C, including when that selection is a symbolic link, and shall use the launch directory when no directory is selected.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI parses global arguments and selects its execution directory before composing workspace services; a real process establishes the selected filesystem boundary.
+- Methods: example, decision-table
+- Derived from: `packages/cli-e2e/src/directory.e2e.test.ts`, `packages/cli/help/topics/basic-usage.md`
+- Open questions: Should repeated or empty directory options be rejected or have an explicit selection policy?
+- Source: [`specifications/cli/commands-use-selected-directory.spec.ts`](../specifications/cli/commands-use-selected-directory.spec.ts)
+
 #### Confirmation Flags Have A Supported Purpose
 
 ##### Advance approval is offered only where it settles one documented decision
@@ -224,6 +279,34 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/machine-mode-never-prompts`, `cli/preview-does-not-consume-approval`
 - Source: [`specifications/cli/confirmation-is-required-only-for-actionable-risk.spec.ts`](../specifications/cli/confirmation-is-required-only-for-actionable-risk.spec.ts)
+
+#### Creation Refuses Existing Content
+
+##### Creation refuses existing declarations and authored content
+
+- Requirement: `cli/creation-refuses-existing-content`
+- Statement: When a new-extension command targets a name that is already configured or an authoring directory that already contains content, AXM shall refuse creation without replacing existing files or workspace declarations.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/create-preflight.internal.test.ts`, `packages/cli/src/root/hooks/new.internal.test.ts`, `packages/cli/src/root/mcps/new.internal.test.ts`
+- Source: [`specifications/cli/creation-refuses-existing-content.spec.ts`](../specifications/cli/creation-refuses-existing-content.spec.ts)
+
+#### Creation Uses Configured Workspace Ownership
+
+##### Creation uses the configured workspace owner
+
+- Requirement: `cli/creation-uses-configured-workspace-ownership`
+- Statement: When a person creates an extension, AXM shall use the configured workspace owner, accept an explicitly matching owner with or without its leading @, and refuse creation before changing workspace content when no owner is configured or the explicitly requested owner differs.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`, `packages/cli/src/root/shared/authored-owner.ts`, `packages/cli/src/root/shared/resolve-owner.ts`
+- Source: [`specifications/cli/creation-uses-configured-workspace-ownership.spec.ts`](../specifications/cli/creation-uses-configured-workspace-ownership.spec.ts)
 
 #### Credentials Follow Explicit Source Precedence
 
@@ -283,6 +366,45 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/demote/preview-is-pure.spec.ts`](../specifications/cli/demote/preview-is-pure.spec.ts)
 
+##### Demote returns an authored package to the selected external source
+
+- Requirement: `cli/demote/replaces-workspace-source-with-selected-source`
+- Statement: When a person demotes a workspace-authored extension to a valid external source, AXM shall replace workspace source authority with that source and its content while preserving the configured activation state, and shall refuse a workspace replacement source or a target that is not workspace authored.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/demote/command.internal.test.ts`, `packages/cli/src/root/demote/command.ts`
+- Assumptions: Pack and MCP transitions use registry sources and the other types use local sources; additional registry and Git acquisition behavior is verified by its owning source requirements.
+- Source: [`specifications/cli/demote/replaces-workspace-source-with-selected-source.spec.ts`](../specifications/cli/demote/replaces-workspace-source-with-selected-source.spec.ts)
+
+#### Deprecate
+
+##### Deprecation rejects contradictory or empty guidance
+
+- Requirement: `cli/deprecate/rejects-conflicting-or-empty-guidance`
+- Statement: The deprecate command shall reject a field supplied together with its clearing flag before contacting the Registry and reject an edit that leaves neither a message nor a replacement before attempting a write.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/deprecate/rejects-conflicting-or-empty-guidance.spec.ts`](../specifications/cli/deprecate/rejects-conflicting-or-empty-guidance.spec.ts)
+
+##### Deprecation edits preserve omitted guidance at the observed revision
+
+- Requirement: `cli/deprecate/updates-guidance-at-the-observed-revision`
+- Statement: The deprecate command shall compose the requested message and replacement edits with the observed guidance, preserve omitted and concealed replacement information, condition the write on the observed revision, and report the Registry's acknowledged transition with publisher guidance presented as result information.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts`](../specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts)
+
 #### Disabled Credential Persistence Requires Explicit Token
 
 ##### Environments without session storage require explicit tokens
@@ -296,22 +418,6 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `packages/registry-auth/src/credential-store.internal.test.ts`
 - Source: [`specifications/cli/disabled-credential-persistence-requires-explicit-token.spec.ts`](../specifications/cli/disabled-credential-persistence-requires-explicit-token.spec.ts)
-
-#### Every Type Completes The Shared Lifecycle
-
-##### Every extension type completes the shared install and removal lifecycle
-
-- Requirement: `cli/every-type-completes-the-shared-lifecycle`
-- Statement: Every extension type shall complete the shared lifecycle: installing shall record intent, an accepted resolution, canonical content, and realized agent surfaces, and uninstalling shall remove that whole footprint while preserving unrelated workspace files.
-- Class: functional
-- Role: experience
-- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Assumptions: Process-boundary end-to-end executions supply the shared-lifecycle evidence for the MCP server and pack extension types.
-- Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
-- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Source: [`specifications/cli/every-type-completes-the-shared-lifecycle.spec.ts`](../specifications/cli/every-type-completes-the-shared-lifecycle.spec.ts)
 
 #### Force Bypasses Only Named Policies
 
@@ -328,6 +434,18 @@ programmatic interfaces, and supporting system behavior.
 
 #### Fork
 
+##### Fork creates a distinct workspace package while preserving its source
+
+- Requirement: `cli/fork/creates-distinct-workspace-package`
+- Statement: When a person forks one managed AXM package, AXM shall preserve the source and its reusable content while creating a workspace-authored package of the same type under the requested identity, initially disabled unless activation is requested or already configured.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/fork-package.internal.test.ts`, `packages/cli/src/root/fork/command.ts`
+- Source: [`specifications/cli/fork/creates-distinct-workspace-package.spec.ts`](../specifications/cli/fork/creates-distinct-workspace-package.spec.ts)
+
 ##### Fork preview describes the new authored package without changing any state
 
 - Requirement: `cli/fork/preview-is-pure`
@@ -338,6 +456,18 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/fork/preview-is-pure.spec.ts`](../specifications/cli/fork/preview-is-pure.spec.ts)
+
+##### Fork refuses ambiguous sources and incompatible or occupied destinations
+
+- Requirement: `cli/fork/refuses-ambiguous-or-conflicting-packages`
+- Statement: When a fork cannot identify one source package of the requested type or its destination already contains content, AXM shall refuse the operation without changing source packages, destination content, or workspace declarations.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/fork-package.internal.test.ts`, `packages/cli/src/root/fork/command.ts`
+- Source: [`specifications/cli/fork/refuses-ambiguous-or-conflicting-packages.spec.ts`](../specifications/cli/fork/refuses-ambiguous-or-conflicting-packages.spec.ts)
 
 #### Hooks
 
@@ -376,6 +506,18 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/install/preview-is-pure`
 - Source: [`specifications/cli/hooks/install/preview-is-pure.spec.ts`](../specifications/cli/hooks/install/preview-is-pure.spec.ts)
+
+##### Creating a hook records editable workspace content
+
+- Requirement: `cli/hooks/new/creates-enabled-workspace-content`
+- Statement: When a person creates a hook, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`
+- Source: [`specifications/cli/hooks/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/hooks/new/creates-enabled-workspace-content.spec.ts)
 
 ##### New hook preview describes the scaffold without changing any state
 
@@ -462,9 +604,9 @@ programmatic interfaces, and supporting system behavior.
 - Role: experience
 - Product goals: `extension-adoption`
 - Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `cli/install/direct-intent-recorded-and-realized`
-- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Methods: example, decision-table
+- Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/install/materializes-canonical-content.spec.ts`](../specifications/cli/install/materializes-canonical-content.spec.ts)
 
@@ -505,14 +647,14 @@ programmatic interfaces, and supporting system behavior.
 ##### Install realizes the extension for every configured agent
 
 - Requirement: `cli/install/realizes-for-every-configured-agent`
-- Statement: When a person installs an acquirable extension, the install command shall realize it on the native surface of every configured agent that can represent it and on the universal location.
+- Statement: When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, as permitted by the workspace's activation and instruction settings.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `extension-adoption`
 - Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `cli/install/direct-intent-recorded-and-realized`
-- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Methods: example, decision-table
+- Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/install/realizes-for-every-configured-agent.spec.ts`](../specifications/cli/install/realizes-for-every-configured-agent.spec.ts)
@@ -525,9 +667,9 @@ programmatic interfaces, and supporting system behavior.
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `cli/install/direct-intent-recorded-and-realized`
-- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Methods: example, decision-table
+- Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/install/records-accepted-resolution.spec.ts`](../specifications/cli/install/records-accepted-resolution.spec.ts)
 
@@ -539,9 +681,9 @@ programmatic interfaces, and supporting system behavior.
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `cli/install/direct-intent-recorded-and-realized`
-- Supersedes: `cli/install/direct-intent-recorded-and-realized`
+- Methods: example, decision-table
+- Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/install/records-direct-intent.spec.ts`](../specifications/cli/install/records-direct-intent.spec.ts)
 
@@ -683,6 +825,211 @@ programmatic interfaces, and supporting system behavior.
 
 #### Knowledge
 
+##### Continuation cursors preserve query and corpus identity
+
+- Requirement: `cli/knowledge/concepts/cursors-bind-query-and-corpus`
+- Statement: When continuing a Knowledge query, AXM shall return the next page without repeating prior concepts only while the cursor is well formed, no more than twenty-four hours old, and bound to the same query and selected corpus, otherwise requiring the caller to restart.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/cursors-bind-query-and-corpus.spec.ts`](../specifications/cli/knowledge/concepts/cursors-bind-query-and-corpus.spec.ts)
+
+##### Conditional retrieval detects source changes
+
+- Requirement: `cli/knowledge/concepts/get/rejects-changed-revision`
+- Statement: When a caller supplies a previously observed content revision for Knowledge retrieval, AXM shall return the concept only if its current source revision matches and otherwise report a revision conflict with the current revision.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/get/rejects-changed-revision.spec.ts`](../specifications/cli/knowledge/concepts/get/rejects-changed-revision.spec.ts)
+
+##### Query evidence respects requested bounds
+
+- Requirement: `cli/knowledge/concepts/query/bounds-concept-evidence`
+- Statement: When a Knowledge query matches a concept through several fields or passages, AXM shall return one concept result with matching-field and source-location evidence within the caller-selected result, passage-count, and passage-length bounds.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/query/bounds-concept-evidence.spec.ts`](../specifications/cli/knowledge/concepts/query/bounds-concept-evidence.spec.ts)
+
+##### Query filters jointly select matching concepts
+
+- Requirement: `cli/knowledge/concepts/query/combines-typed-filters`
+- Statement: When a Knowledge query supplies text, field, property, metadata, lifecycle, tag, or bundle filters, AXM shall return only concepts satisfying every supplied filter with the selected operator.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`, `packages/cli/src/root/knowledge/concepts/query.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/query/combines-typed-filters.spec.ts`](../specifications/cli/knowledge/concepts/query/combines-typed-filters.spec.ts)
+
+##### Enumeration selects ordinary current concepts by default
+
+- Requirement: `cli/knowledge/concepts/query/enumerates-selected-document-kinds`
+- Statement: When a Knowledge query has no text expression, AXM shall enumerate nondeprecated ordinary concepts in stable bundle and concept order unless the caller explicitly selects another document kind or lifecycle status.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/query/enumerates-selected-document-kinds.spec.ts`](../specifications/cli/knowledge/concepts/query/enumerates-selected-document-kinds.spec.ts)
+
+##### Invalid query filters fail validation
+
+- Requirement: `cli/knowledge/concepts/query/rejects-invalid-filters`
+- Statement: When a Knowledge query contains an unknown field, malformed property pointer, unsupported operator, or empty filter value, AXM shall reject the query as a validation failure.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli/src/root/knowledge/concepts/query.ts`
+- Source: [`specifications/cli/knowledge/concepts/query/rejects-invalid-filters.spec.ts`](../specifications/cli/knowledge/concepts/query/rejects-invalid-filters.spec.ts)
+
+##### Discovery reads only enabled bundles in the selected workspace
+
+- Requirement: `cli/knowledge/concepts/reads-only-enabled-selected-corpus`
+- Statement: When discovering Knowledge, AXM shall read the enabled bundles in the selected workspace regardless of instruction-entry visibility and reflect current source content without changing workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli/src/root/knowledge/inspect.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/reads-only-enabled-selected-corpus.spec.ts`](../specifications/cli/knowledge/concepts/reads-only-enabled-selected-corpus.spec.ts)
+
+##### Discovery refuses an unstable source view
+
+- Requirement: `cli/knowledge/concepts/refuses-changing-corpus`
+- Statement: When Knowledge source bytes continue changing during capture, AXM shall report a corpus-changing conflict instead of returning results from an inconsistent source view.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/knowledge-query/src/knowledge-capture.internal.test.ts`, `packages/knowledge-query/src/knowledge-revision.internal.test.ts`, `packages/cli/src/root/knowledge/concepts/failures.ts`
+- Source: [`specifications/cli/knowledge/concepts/refuses-changing-corpus.spec.ts`](../specifications/cli/knowledge/concepts/refuses-changing-corpus.spec.ts)
+
+##### Related concepts follow authored links with evidence
+
+- Requirement: `cli/knowledge/concepts/related/traverses-authored-links`
+- Statement: When exploring related Knowledge concepts, AXM shall return outgoing links and backlinks within the requested depth with authored-link evidence, suppressing the starting concept, repeated visits, and index backlinks unless requested.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts`](../specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts)
+
+##### Human discovery output preserves text without terminal control
+
+- Requirement: `cli/knowledge/concepts/renders-authored-text-safely`
+- Statement: When rendering bundle-authored Knowledge text for a person, AXM shall preserve ordinary text and line structure while displaying terminal-control and bidirectional-control characters as inert escapes.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/concepts/terminal-text.ts`, `packages/cli/src/root/knowledge/concepts/terminal-text.internal.test.ts`
+- Source: [`specifications/cli/knowledge/concepts/renders-authored-text-safely.spec.ts`](../specifications/cli/knowledge/concepts/renders-authored-text-safely.spec.ts)
+
+##### Exact retrieval does not substitute another concept
+
+- Requirement: `cli/knowledge/concepts/reports-unavailable-exact-references`
+- Statement: When an exact Knowledge reference is absent from the selected corpus, AXM shall report not found without substituting a similarly named concept.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/concepts/get.ts`, `packages/cli/src/root/knowledge/concepts/resolve.ts`, `packages/cli/src/root/knowledge/concepts/related.ts`
+- Source: [`specifications/cli/knowledge/concepts/reports-unavailable-exact-references.spec.ts`](../specifications/cli/knowledge/concepts/reports-unavailable-exact-references.spec.ts)
+
+##### Fuzzy resolution requires opt-in and exposes ambiguity
+
+- Requirement: `cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution`
+- Statement: When resolving text that is not an exact Knowledge reference, AXM shall require explicit fuzzy resolution and return at most ten deterministic candidates without choosing among ambiguous matches.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts`](../specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts)
+
+##### Exact concept references resolve to installed identity
+
+- Requirement: `cli/knowledge/concepts/resolve/resolves-exact-reference`
+- Statement: When given a compact or canonical HTTPS reference to an installed Knowledge concept, AXM shall resolve the exact concept to its installed bundle version and source revision.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts`](../specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts)
+
+##### Search matches the requested lexical expression
+
+- Requirement: `cli/knowledge/concepts/search/matches-lexical-query`
+- Statement: When searching installed Knowledge, AXM shall match all normalized whole-token terms across searchable fields, contiguous phrases within one field, and exact literals within one field.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/search/matches-lexical-query.spec.ts`](../specifications/cli/knowledge/concepts/search/matches-lexical-query.spec.ts)
+
+##### Invalid search expressions fail validation
+
+- Requirement: `cli/knowledge/concepts/search/rejects-invalid-query`
+- Statement: When a Knowledge search expression is empty, has no searchable tokens, or contains an invalid phrase or literal, AXM shall reject it as a validation failure.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/search/rejects-invalid-query.spec.ts`](../specifications/cli/knowledge/concepts/search/rejects-invalid-query.spec.ts)
+
+##### Status distinguishes a ready corpus from unstable and unavailable sources
+
+- Requirement: `cli/knowledge/concepts/status/reports-current-corpus-health`
+- Statement: When reporting Knowledge discovery status, AXM shall distinguish a ready captured corpus, source bytes that keep changing, and stable capture failures, with current counts and identity for readiness or an actionable diagnostic for failure.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/concepts/status.ts`, `packages/cli/src/root/knowledge/concepts/schemas.ts`, `packages/cli/src/root/knowledge/json-output.internal.test.ts`
+- Open questions: When source capture succeeds but OKF inspection contains error findings, should discovery report a ready but unhealthy corpus or refuse that corpus as unavailable?
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/status/reports-current-corpus-health.spec.ts`](../specifications/cli/knowledge/concepts/status/reports-current-corpus-health.spec.ts)
+
 ##### Knowledge disable preview describes the exclusion without changing any state
 
 - Requirement: `cli/knowledge/disable/preview-is-pure`
@@ -718,6 +1065,31 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/install/preview-is-pure`
 - Source: [`specifications/cli/knowledge/install/preview-is-pure.spec.ts`](../specifications/cli/knowledge/install/preview-is-pure.spec.ts)
+
+##### Knowledge lint reports source findings without changing content
+
+- Requirement: `cli/knowledge/lint/reports-validation-without-mutation`
+- Statement: When validating installed or explicitly selected authored Knowledge, AXM shall report source-located findings without changing workspace content, returning failure for errors and success for warnings alone.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/json-output.internal.test.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`, `cli/lint/catalog-is-complete`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/lint/reports-validation-without-mutation.spec.ts`](../specifications/cli/knowledge/lint/reports-validation-without-mutation.spec.ts)
+
+##### Creating a knowledge bundle records editable workspace content
+
+- Requirement: `cli/knowledge/new/creates-enabled-workspace-content`
+- Statement: When a person creates a knowledge bundle, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/knowledge/new.ts`
+- Source: [`specifications/cli/knowledge/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/knowledge/new/creates-enabled-workspace-content.spec.ts)
 
 ##### Knowledge new preview describes the scaffold without creating any state
 
@@ -1162,6 +1534,18 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
 - Source: [`specifications/cli/mcps/list/human-inventory-separates-local-name-and-source.spec.ts`](../specifications/cli/mcps/list/human-inventory-separates-local-name-and-source.spec.ts)
 
+##### Creating an MCP server records editable workspace content
+
+- Requirement: `cli/mcps/new/creates-enabled-workspace-content`
+- Statement: When a person creates an MCP server, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/mcps/new.internal.test.ts`
+- Source: [`specifications/cli/mcps/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/mcps/new/creates-enabled-workspace-content.spec.ts)
+
 ##### New MCP server preview describes the scaffold without changing any state
 
 - Requirement: `cli/mcps/new/preview-is-pure`
@@ -1271,6 +1655,20 @@ programmatic interfaces, and supporting system behavior.
 - Methods: decision-table, example
 - Source: [`specifications/cli/mutations-are-closure-atomic.spec.ts`](../specifications/cli/mutations-are-closure-atomic.spec.ts)
 
+#### Native Imports Preserve Content And Source
+
+##### Native imports create workspace packages without changing original content
+
+- Requirement: `cli/native-imports-preserve-content-and-source`
+- Statement: When a person imports native Skill or Subagent content, AXM shall preserve the original source and its instructions while creating the requested workspace package, disabled unless activation is requested or already configured, and shall reject a managed package or mismatched target type.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/import-native-package.internal.test.ts`, `packages/cli/src/root/import/command.ts`
+- Source: [`specifications/cli/native-imports-preserve-content-and-source.spec.ts`](../specifications/cli/native-imports-preserve-content-and-source.spec.ts)
+
 #### Native Projections Compare By Decoded Value
 
 ##### Structured native projections are compared by decoded value
@@ -1312,6 +1710,18 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `cli/packs/authored-packs-expand-membership`
 - Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
 - Source: [`specifications/cli/packs/add/records-member-as-pack-dependency.spec.ts`](../specifications/cli/packs/add/records-member-as-pack-dependency.spec.ts)
+
+##### Pack add selects the requested members without confusing shared names
+
+- Requirement: `cli/packs/add/selects-members-without-ambiguity`
+- Statement: When adding dependencies to an authored pack, AXM shall resolve the configured pack by its local name or unique full identity, add only members selected by full identity or an unambiguous name or name pattern, and refuse ambiguous or unmatched selections without editing the pack.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/packs/add.ts`, `packages/cli/src/root/packs/configured-pack-selector.ts`
+- Source: [`specifications/cli/packs/add/selects-members-without-ambiguity.spec.ts`](../specifications/cli/packs/add/selects-members-without-ambiguity.spec.ts)
 
 ##### Pack disable preview describes the deactivation without changing any state
 
@@ -1399,6 +1809,18 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/packs/add/records-member-as-pack-dependency`
 - Source: [`specifications/cli/packs/remove/preview-is-pure.spec.ts`](../specifications/cli/packs/remove/preview-is-pure.spec.ts)
 
+##### Pack remove changes only the selected dependency declarations
+
+- Requirement: `cli/packs/remove/removes-only-selected-dependencies`
+- Statement: When a person removes matching dependencies from a workspace-authored pack, AXM shall remove only those manifest entries while preserving installed member content and direct workspace declarations, and shall refuse an unmatched selector or an externally sourced pack without changing the manifest.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/extension-authoring/src/packs/remove-from-pack.internal.test.ts`, `packages/cli/src/root/packs/remove.ts`
+- Source: [`specifications/cli/packs/remove/removes-only-selected-dependencies.spec.ts`](../specifications/cli/packs/remove/removes-only-selected-dependencies.spec.ts)
+
 ##### Pack uninstall preview describes the removal without changing any state
 
 - Requirement: `cli/packs/uninstall/preview-is-pure`
@@ -1422,6 +1844,30 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/install/preview-is-pure`
 - Source: [`specifications/cli/packs/unpack/preview-is-pure.spec.ts`](../specifications/cli/packs/unpack/preview-is-pure.spec.ts)
+
+##### Unpack keeps members installed as direct declarations
+
+- Requirement: `cli/packs/unpack/promotes-members-without-overwriting-direct-intent`
+- Statement: When a person unpacks a configured pack with complete member resolutions, AXM shall preserve its installed leaf members as direct workspace declarations, retain existing direct declarations unchanged, and remove the pack declaration.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/packs/unpack/handler.internal.test.ts`, `packages/cli/src/root/packs/unpack/handler.ts`
+- Source: [`specifications/cli/packs/unpack/promotes-members-without-overwriting-direct-intent.spec.ts`](../specifications/cli/packs/unpack/promotes-members-without-overwriting-direct-intent.spec.ts)
+
+##### Unpack refuses missing packs and members without usable resolutions
+
+- Requirement: `cli/packs/unpack/refuses-incomplete-membership`
+- Statement: When a requested pack is absent or its membership and accepted member identities cannot be established, AXM shall refuse unpacking without changing workspace declarations, installed content, or accepted resolutions.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/packs/unpack/handler.internal.test.ts`, `packages/cli/src/root/packs/unpack/handler.ts`
+- Source: [`specifications/cli/packs/unpack/refuses-incomplete-membership.spec.ts`](../specifications/cli/packs/unpack/refuses-incomplete-membership.spec.ts)
 
 ##### Pack update preview describes the reconciliation without changing any state
 
@@ -1481,6 +1927,66 @@ programmatic interfaces, and supporting system behavior.
 
 #### Publish
 
+##### Pack dependency inclusion adds only workspace-authored members
+
+- Requirement: `cli/publish/dependency-inclusion-adds-only-authored-pack-members`
+- Statement: For a selected pack, publish shall add its workspace-authored dependencies only when dependency inclusion is explicitly requested, retain external dependencies as Registry references, and leave unrelated authored extensions outside the selection.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.ts`
+- Source: [`specifications/cli/publish/dependency-inclusion-adds-only-authored-pack-members.spec.ts`](../specifications/cli/publish/dependency-inclusion-adds-only-authored-pack-members.spec.ts)
+
+##### Existing publications are verified or rejected without being overwritten
+
+- Requirement: `cli/publish/existing-versions-require-explicit-policy`
+- Statement: For an already published version, publish shall reject the error policy, treat the verify policy as a successful no-op only when the newly built archive's SHA-512 integrity matches the published integrity, and reject differing content as integrity drift, with an explicit single selector defaulting to error and bulk selection defaulting to verify.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Source: [`specifications/cli/publish/existing-versions-require-explicit-policy.spec.ts`](../specifications/cli/publish/existing-versions-require-explicit-policy.spec.ts)
+
+##### Publication exclusions use explicit case-sensitive package paths
+
+- Requirement: `cli/publish/ignore-patterns-have-declared-path-semantics`
+- Statement: Publish shall match ignore patterns against case-sensitive archive-relative POSIX paths with only the asterisk acting as a wildcard across directory separators and with question marks, brackets, and negation characters treated literally.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/publish.md`
+- Source: [`specifications/cli/publish/ignore-patterns-have-declared-path-semantics.spec.ts`](../specifications/cli/publish/ignore-patterns-have-declared-path-semantics.spec.ts)
+
+##### Older unpublished versions require explicit backfill
+
+- Requirement: `cli/publish/older-unpublished-versions-require-backfill`
+- Statement: Publish shall reject an unpublished version below the highest published semantic version unless backfill is explicitly requested, and backfill shall permit only an unpublished version without authorizing replacement of an existing release.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/publish/command.ts`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Source: [`specifications/cli/publish/older-unpublished-versions-require-backfill.spec.ts`](../specifications/cli/publish/older-unpublished-versions-require-backfill.spec.ts)
+
+##### Publication results distinguish confirmed, failed, blocked, pending and unresolved work
+
+- Requirement: `cli/publish/outcomes-distinguish-unresolved-uploads`
+- Statement: When publication partially fails or is interrupted, AXM shall report each candidate according to the available evidence, retain acknowledged independent successes, block dependents of failed uploads, distinguish unattempted work from dispatched uploads with unknown outcomes, and provide credential-free recovery for the unfinished selection.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `machine-automation`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/extension-publish/src/settlement.internal.test.ts`
+- Source: [`specifications/cli/publish/outcomes-distinguish-unresolved-uploads.spec.ts`](../specifications/cli/publish/outcomes-distinguish-unresolved-uploads.spec.ts)
+
 ##### One failed publish preflight blocks the whole selection
 
 - Requirement: `cli/publish/preflight-blocks-the-whole-selection`
@@ -1524,7 +2030,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Publish refuses extensions the workspace does not author
 
 - Requirement: `cli/publish/requires-established-authorship`
-- Statement: Publish shall distribute only extensions the workspace authors: an explicitly selected installed extension shall fail with a conflict that suggests adopting it, a bulk publish shall report it as not authored rather than selecting it, and nothing shall be uploaded either way.
+- Statement: Publish shall distribute only extensions the workspace authors: an explicitly selected acquired extension shall fail with a conflict that suggests adopting it and upload nothing, while bulk publication shall report acquired entries as not authored and may publish eligible authored entries without uploading acquired entries.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
@@ -1545,6 +2051,18 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
 - Source: [`specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts`](../specifications/cli/publish/requires-explicit-acceptance-for-non-head-source.spec.ts)
 
+##### Publication selectors and filters narrow the workspace-authored set
+
+- Requirement: `cli/publish/selectors-and-filters-narrow-authored-candidates`
+- Statement: Root publish shall select the workspace-authored candidates matching either explicit fully qualified or type-qualified selectors and globs, or the owner, type and exclusion filters on an argument-free selection, defaulting to all authored candidates and never adding unrelated candidates.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.ts`
+- Source: [`specifications/cli/publish/selectors-and-filters-narrow-authored-candidates.spec.ts`](../specifications/cli/publish/selectors-and-filters-narrow-authored-candidates.spec.ts)
+
 #### Publisher Changes Require Interactive Approval
 
 ##### Accepting a Registry extension from a different publisher needs a person's approval
@@ -1558,6 +2076,49 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example, decision-table
 - Derived from: `cli/update/preview-is-pure`, `cli/install/preview-is-pure`, `cli/skills/update/preview-is-pure`, `packages/cli/src/root/skills/update/handler.internal.test.ts`
 - Source: [`specifications/cli/publisher-changes-require-interactive-approval.spec.ts`](../specifications/cli/publisher-changes-require-interactive-approval.spec.ts)
+
+#### Registry Management Preserves Authentication Failures
+
+##### Registry management preserves authentication failures without reporting success
+
+- Requirement: `cli/registry-management-preserves-authentication-failures`
+- Statement: When a Registry lifecycle or visibility command receives an authentication rejection, AXM shall preserve the authentication failure, stop the operation without replaying the rejected request, and emit no successful result.
+- Class: functional
+- Role: experience
+- Product goals: `privacy-and-consent`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/registry-management-preserves-authentication-failures.spec.ts`](../specifications/cli/registry-management-preserves-authentication-failures.spec.ts)
+
+#### Registry Writes Complete Required Verification
+
+##### Challenged Registry writes complete the required verification before retrying
+
+- Requirement: `cli/registry-writes-complete-required-verification`
+- Statement: When yank, unyank, visibility set, or visibility reconcile receives a human-verification challenge, AXM shall present the action, target and verification URL, wait for that challenge's completion, retry the same mutation at most once with its verification identifier while preserving any observed revision, and report no success if verification or the retry fails.
+- Class: functional
+- Role: experience
+- Product goals: `privacy-and-consent`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/step-up.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/registry-writes-complete-required-verification.spec.ts`](../specifications/cli/registry-writes-complete-required-verification.spec.ts)
+
+#### Relative Paths Start In Selected Directory
+
+##### Relative paths start in the selected directory
+
+- Requirement: `cli/relative-paths-start-in-selected-directory`
+- Statement: AXM shall resolve relative command paths and configured local sources from the selected workspace directory.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI parses global arguments and selects its execution directory before composing workspace services; a real process establishes the selected filesystem boundary.
+- Methods: example, decision-table
+- Derived from: `packages/cli-e2e/src/directory.e2e.test.ts`, `packages/cli/help/topics/basic-usage.md`
+- Source: [`specifications/cli/relative-paths-start-in-selected-directory.spec.ts`](../specifications/cli/relative-paths-start-in-selected-directory.spec.ts)
 
 #### Rules
 
@@ -1596,6 +2157,18 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/install/preview-is-pure`
 - Source: [`specifications/cli/rules/install/preview-is-pure.spec.ts`](../specifications/cli/rules/install/preview-is-pure.spec.ts)
+
+##### Creating a rule records editable workspace content
+
+- Requirement: `cli/rules/new/creates-enabled-workspace-content`
+- Statement: When a person creates a rule, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/rules/new.ts`
+- Source: [`specifications/cli/rules/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/rules/new/creates-enabled-workspace-content.spec.ts)
 
 ##### New rule preview describes the scaffold without changing any state
 
@@ -2056,6 +2629,20 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
 - Source: [`specifications/cli/token/revoke/revokes-only-selected-token.spec.ts`](../specifications/cli/token/revoke/revokes-only-selected-token.spec.ts)
 
+#### Undeprecate
+
+##### Deprecation removal uses the observed revision
+
+- Requirement: `cli/undeprecate/removes-guidance-at-the-observed-revision`
+- Statement: The undeprecate command shall read the selected extension's deprecation revision, use that exact revision as the removal precondition, and report the Registry's acknowledged transition without silently replacing a rejected precondition.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/undeprecate/removes-guidance-at-the-observed-revision.spec.ts`](../specifications/cli/undeprecate/removes-guidance-at-the-observed-revision.spec.ts)
+
 #### Uninstall
 
 ##### Uninstalling an extension the workspace does not desire is a safe no-op
@@ -2069,6 +2656,20 @@ programmatic interfaces, and supporting system behavior.
 - Methods: decision-table
 - Additional evidence: process via [`packages/cli-e2e/src/root-uninstall.e2e.test.ts`](../packages/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
 - Source: [`specifications/cli/uninstall/is-idempotent.spec.ts`](../specifications/cli/uninstall/is-idempotent.spec.ts)
+
+##### Uninstall preserves unrelated and unowned files
+
+- Requirement: `cli/uninstall/preserves-unrelated-and-unowned-state`
+- Statement: When an extension is uninstalled, AXM shall preserve unrelated workspace files, unowned agent configuration, and the original local source package.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/every-type-completes-the-shared-lifecycle`
+- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
+- Source: [`specifications/cli/uninstall/preserves-unrelated-and-unowned-state.spec.ts`](../specifications/cli/uninstall/preserves-unrelated-and-unowned-state.spec.ts)
 
 ##### Uninstall preview describes the removal without changing any state
 
@@ -2090,7 +2691,11 @@ programmatic interfaces, and supporting system behavior.
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
-- Methods: example
+- Methods: example, decision-table
+- Derived from: `cli/every-type-completes-the-shared-lifecycle`
+- Supersedes: `cli/every-type-completes-the-shared-lifecycle`
+- Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
+- Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Additional evidence: process via [`packages/cli-e2e/src/root-uninstall.e2e.test.ts`](../packages/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
 - Source: [`specifications/cli/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts`](../specifications/cli/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts)
 
@@ -2120,6 +2725,35 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `packages/extension-lifecycle/src/knowledge/manager.ts`, `packages/extension-workspace/src/projection/planning.ts`
 - Source: [`specifications/cli/unreadable-knowledge-is-left-out-and-reported.spec.ts`](../specifications/cli/unreadable-knowledge-is-left-out-and-reported.spec.ts)
+
+#### Unusable Directories Fail Before Command
+
+##### Unusable directories fail before the command runs
+
+- Requirement: `cli/unusable-directories-fail-before-command`
+- Statement: When a selected directory is missing, is a file, or cannot be traversed, AXM shall report a usage failure before executing the command or changing workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI parses global arguments and selects its execution directory before composing workspace services; a real process establishes the selected filesystem boundary.
+- Methods: example, decision-table
+- Derived from: `packages/cli-e2e/src/directory.e2e.test.ts`, `packages/cli/help/topics/basic-usage.md`
+- Source: [`specifications/cli/unusable-directories-fail-before-command.spec.ts`](../specifications/cli/unusable-directories-fail-before-command.spec.ts)
+
+#### Unyank
+
+##### Unyank restores only the explicitly identified version
+
+- Requirement: `cli/unyank/requires-an-exact-version`
+- Statement: The unyank command shall require an exact semantic version, request restoration only for that version, and report restoration only after the Registry acknowledges the request.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/unyank/requires-an-exact-version.spec.ts`](../specifications/cli/unyank/requires-an-exact-version.spec.ts)
 
 #### Update
 
@@ -2256,6 +2890,18 @@ programmatic interfaces, and supporting system behavior.
 
 #### Version
 
+##### Version changes the selected authored manifest while preserving other content
+
+- Requirement: `cli/version/changes-only-the-authored-manifest-version`
+- Statement: When a person requests a supported version change for a workspace-authored extension, AXM shall update only that package manifest version to the requested semantic version, preserve other manifest fields and files, and leave bytes unchanged when the requested version is already current.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`, `packages/cli/src/root/shared/extension-version.ts`
+- Source: [`specifications/cli/version/changes-only-the-authored-manifest-version.spec.ts`](../specifications/cli/version/changes-only-the-authored-manifest-version.spec.ts)
+
 ##### Version preview describes the manifest bump without changing any state
 
 - Requirement: `cli/version/preview-is-pure`
@@ -2266,6 +2912,44 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/version/preview-is-pure.spec.ts`](../specifications/cli/version/preview-is-pure.spec.ts)
+
+##### Version refuses invalid versions and packages outside workspace authorship
+
+- Requirement: `cli/version/refuses-invalid-or-unowned-targets`
+- Statement: When a version request has an invalid target identity or version, or does not identify a matching workspace-authored package, AXM shall refuse it without changing package content or workspace declarations.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`, `packages/cli/src/root/shared/extension-version.ts`
+- Source: [`specifications/cli/version/refuses-invalid-or-unowned-targets.spec.ts`](../specifications/cli/version/refuses-invalid-or-unowned-targets.spec.ts)
+
+#### Visibility
+
+##### Visibility reconciliation applies declared repository intent conditionally
+
+- Requirement: `cli/visibility/reconcile/applies-declared-repository-intent`
+- Statement: The visibility reconcile command shall require project-scoped manifest or workspace visibility intent and established Registry visibility, submit the effective intent with its source fingerprint as repository authority conditional on the observed revision, and report only the acknowledged transition.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
+- Source: [`specifications/cli/visibility/reconcile/applies-declared-repository-intent.spec.ts`](../specifications/cli/visibility/reconcile/applies-declared-repository-intent.spec.ts)
+
+##### Explicit visibility changes carry operator intent and the observed revision
+
+- Requirement: `cli/visibility/set/uses-explicit-intent-and-observed-revision`
+- Statement: The visibility set command shall require established Registry visibility, submit the requested value as operator intent conditional on the observed revision, and report the acknowledged change without silently replacing a rejected precondition.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
+- Source: [`specifications/cli/visibility/set/uses-explicit-intent-and-observed-revision.spec.ts`](../specifications/cli/visibility/set/uses-explicit-intent-and-observed-revision.spec.ts)
 
 #### Whoami
 
@@ -2303,6 +2987,20 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/withheld-releases-name-recovery-from-the-emitting-command.spec.ts`](../specifications/cli/withheld-releases-name-recovery-from-the-emitting-command.spec.ts)
+
+#### Yank
+
+##### Yank submits the explicit version selection and publisher guidance
+
+- Requirement: `cli/yank/submits-the-requested-version-selection`
+- Statement: The yank command shall require an exact version unless all available versions are explicitly selected, submit only that selection with the supplied category and notice, and report the acknowledged selection without claiming that future versions were yanked.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Source: [`specifications/cli/yank/submits-the-requested-version-selection.spec.ts`](../specifications/cli/yank/submits-the-requested-version-selection.spec.ts)
 
 ### Source resolution
 
@@ -2368,6 +3066,21 @@ programmatic interfaces, and supporting system behavior.
 
 ### CLI
 
+#### Cache
+
+##### Cache status reports archive usage and effective limits
+
+- Requirement: `cli/cache/status/reports-usage-and-effective-limits`
+- Statement: The cache status command shall report the number and total bytes of cached archives together with the effective size and age limits in its machine result.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/src/root/cache/command.ts`, `packages/cli/src/root/cache/command.internal.test.ts`
+- Open questions: Is the current 90-day age limit a product commitment or an implementation default that may change?
+- Source: [`specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts`](../specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts)
+
 #### Exit Codes Match Published Reference
 
 ##### The published exit-code reference matches the runtime exit codes
@@ -2394,6 +3107,58 @@ programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Additional evidence: process via [`packages/cli-e2e/src/cli-commands/skills/install/output-ux.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/skills/install/output-ux.e2e.test.ts) — Observes the real process stdout document and stderr diagnostics of the shipped CLI, which the in-memory renderer capture cannot prove.
 - Source: [`specifications/cli/install/machine-result-is-schema-backed.spec.ts`](../specifications/cli/install/machine-result-is-schema-backed.spec.ts)
+
+#### Knowledge
+
+##### Get preserves source content and revision identity
+
+- Requirement: `cli/knowledge/concepts/get/returns-source-backed-document`
+- Statement: When retrieving an installed Knowledge concept, AXM shall return its complete frontmatter and body with source-backed bundle, content, and projection revision identity, including the exact source document when raw output is requested.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/get/returns-source-backed-document.spec.ts`](../specifications/cli/knowledge/concepts/get/returns-source-backed-document.spec.ts)
+
+##### Query bounds follow the published discovery limits
+
+- Requirement: `cli/knowledge/concepts/query/enforces-published-query-bounds`
+- Statement: When a Knowledge query selects output bounds, AXM shall accept only whole-number result limits from 1 through 100, passage limits from 0 through 10, and passage lengths from 1 through 2000.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/knowledge-query/src/knowledge-capabilities.ts`, `packages/cli/help/topics/knowledge.md`
+- Source: [`specifications/cli/knowledge/concepts/query/enforces-published-query-bounds.spec.ts`](../specifications/cli/knowledge/concepts/query/enforces-published-query-bounds.spec.ts)
+
+##### Related traversal validates its depth limit
+
+- Requirement: `cli/knowledge/concepts/related/enforces-published-depth-bounds`
+- Statement: When a caller selects a Knowledge relationship traversal depth, AXM shall accept only whole-number depths from one through three.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/knowledge-query/src/knowledge-capabilities.ts`, `packages/cli/src/root/knowledge/concepts/related.ts`
+- Source: [`specifications/cli/knowledge/concepts/related/enforces-published-depth-bounds.spec.ts`](../specifications/cli/knowledge/concepts/related/enforces-published-depth-bounds.spec.ts)
+
+##### Discovery status describes the supported query contract
+
+- Requirement: `cli/knowledge/concepts/status/publishes-discovery-capabilities`
+- Statement: When reporting Knowledge discovery capabilities, AXM shall identify its query grammar, supported operations and fields, output contract, cursor validity, and output limits consistently with the discovery commands.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/knowledge-query/src/knowledge-capabilities.ts`, `packages/cli/help/topics/knowledge.md`
+- Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
+- Source: [`specifications/cli/knowledge/concepts/status/publishes-discovery-capabilities.spec.ts`](../specifications/cli/knowledge/concepts/status/publishes-discovery-capabilities.spec.ts)
 
 #### Lint
 
@@ -2585,6 +3350,18 @@ programmatic interfaces, and supporting system behavior.
 
 #### Publish
 
+##### The publication archive matches its complete reported inventory
+
+- Requirement: `cli/publish/archive-inventory-matches-published-bytes`
+- Statement: Publish shall include every regular package-root file unless explicitly ignored and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Source: [`specifications/cli/publish/archive-inventory-matches-published-bytes.spec.ts`](../specifications/cli/publish/archive-inventory-matches-published-bytes.spec.ts)
+
 ##### Machine publish outcomes report source state against Git HEAD
 
 - Requirement: `cli/publish/outcomes-report-source-state`
@@ -2598,6 +3375,18 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; every scenario substitutes the comparison outcome rather than running Git.
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects that in-memory execution cannot expose.
 - Source: [`specifications/cli/publish/outcomes-report-source-state.spec.ts`](../specifications/cli/publish/outcomes-report-source-state.spec.ts)
+
+##### Publication uploads are bound to the reviewed source and visibility
+
+- Requirement: `cli/publish/uploads-the-reviewed-publication-set`
+- Statement: For a remotely authorized publication, AXM shall bind each actual archive upload to its reviewed publication-set-v2 candidate using the granted capability, condition, publication-set digest, descriptor digest, and resolved visibility, and report the Registry's acknowledged outcome.
+- Class: external-conformance
+- Role: interface
+- Product goals: `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Source: [`specifications/cli/publish/uploads-the-reviewed-publication-set.spec.ts`](../specifications/cli/publish/uploads-the-reviewed-publication-set.spec.ts)
 
 #### Sync
 
@@ -2653,6 +3442,34 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: contract
 - Source: [`specifications/cli/upgrade/machine-result-is-upgrade-assessment.spec.ts`](../specifications/cli/upgrade/machine-result-is-upgrade-assessment.spec.ts)
+
+#### Version
+
+##### Machine version output identifies the manifest and before and after versions
+
+- Requirement: `cli/version/machine-result-identifies-manifest-change`
+- Statement: When a version change runs in machine mode, AXM shall emit one plan-result document identifying the selected extension, manifest path, previous and resulting versions, and whether a change was applied or unnecessary.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`
+- Source: [`specifications/cli/version/machine-result-identifies-manifest-change.spec.ts`](../specifications/cli/version/machine-result-identifies-manifest-change.spec.ts)
+
+#### Visibility
+
+##### Visibility status supplies repository intent and reports the Registry evaluation
+
+- Requirement: `cli/visibility/status/reports-repository-intent-and-registry-evaluation`
+- Statement: For a project-scoped visibility status request, AXM shall submit the manifest visibility intent when present, otherwise the workspace default when present, otherwise no intent, and report the selected extension's Registry evaluation through the AgentXM Registry API 0.1.0 contract.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, contract
+- Derived from: `packages/cli/src/root/visibility/handler.ts`, `packages/registry-protocol/src/unstable/publish/visibility.ts`
+- Source: [`specifications/cli/visibility/status/reports-repository-intent-and-registry-evaluation.spec.ts`](../specifications/cli/visibility/status/reports-repository-intent-and-registry-evaluation.spec.ts)
 
 ### Extension identity
 

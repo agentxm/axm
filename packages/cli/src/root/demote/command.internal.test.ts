@@ -80,34 +80,4 @@ describe("demote command", () => {
       }),
     );
   });
-
-  it.effect("replaces workspace authority only after explicit consent", () => {
-    const context = makeWorkspaceHandlerTestContext({
-      wsOptions: { projectRoot: tempDir },
-    });
-    const sourceLayer = Layer.provide(SourceHostProvidersLive, context.fullLayer);
-    const foundation = Layer.mergeAll(context.fullLayer, sourceLayer, CodingAgentRepositoryLive);
-    const provide = makeEffectProvide(Layer.provideMerge(SkillManagerLive, foundation));
-    const replacement = path.join(tempDir, "replacement", "review");
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleDemote({
-          fqn: "@acme/skills/review",
-          source: replacement,
-          yes: true,
-          preview: false,
-        });
-
-        const settings = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(SettingsSchema))(
-          fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),
-        );
-        expect(settings.skills?.["review"]).toEqual({
-          source: "./replacement/review",
-          enabled: true,
-        });
-        expect(fs.existsSync(path.join(tempDir, "skills", "review"))).toBe(false);
-      }),
-    );
-  });
 });

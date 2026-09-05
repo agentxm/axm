@@ -1,12 +1,10 @@
 import * as fs from "node:fs";
-import { toAppError } from "../../app-error/conversions.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import YAML from "yaml";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
@@ -50,44 +48,6 @@ describe("mcps-new.handler", () => {
     };
   };
 
-  it.effect("creates MCP manifest, registers it, writes lockfile, and emits edit hint", () => {
-    const { provide, logs, rendererState } = makeLayers();
-    initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: [] });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleMcpServersNew({
-          name: extensionName("context"),
-          description: "Context server",
-          owner: Option.none(),
-          preview: false,
-        });
-
-        const packageDir = path.join(tempDir, "mcps", "context");
-        const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, "mcp.json"), "utf-8"));
-        expect(manifest).toMatchObject({
-          owner: "@acme",
-          type: "mcp-server",
-          name: "context",
-          version: "0.1.0",
-          description: "Context server",
-        });
-
-        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
-        expect(settings.mcpServers?.context).toBe("workspace");
-
-        const lockfile = YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8"));
-        expect(lockfile.mcpServers?.context).toBeUndefined();
-        expect(logs.success).toEqual(["Created 1 MCP server"]);
-        expect(rendererState.suggestions).toEqual([
-          {
-            description: "Edit `mcps/context/mcp.json` to configure the MCP server",
-          },
-        ]);
-      }),
-    );
-  });
-
   it.effect("emits JSON artifact targets for created source and workspace config", () => {
     const { provide, logs, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: ["claude-code"] });
@@ -122,38 +82,6 @@ describe("mcps-new.handler", () => {
           ),
         );
         expect(property(mcpConfigTarget, "agentIds")).toEqual(["claude-code"]);
-      }),
-    );
-  });
-
-  it.effect("guides the user when the managed MCP server directory already exists", () => {
-    const { provide } = makeLayers();
-    initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: [] });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleMcpServersNew({
-          name: extensionName("context"),
-          description: "Context server",
-          owner: Option.none(),
-          preview: false,
-        });
-
-        const error = yield* handleMcpServersNew({
-          name: extensionName("context"),
-          description: "Context server",
-          owner: Option.none(),
-          preview: false,
-        }).pipe(Effect.flip);
-
-        expect(toAppError(error)).toMatchObject({
-          code: "conflict",
-          suggestions: [
-            {
-              description: "Choose a different name or remove the existing mcp server first",
-            },
-          ],
-        });
       }),
     );
   });

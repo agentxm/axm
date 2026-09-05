@@ -1,3 +1,4 @@
+import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-auth/testing";
 /**
  * Publish fixtures for CLI specifications.
  *
@@ -17,7 +18,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 
-import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-auth/testing";
 import {
   GitDirectoryComparison,
   type GitDirectoryComparisonService,

@@ -4,6 +4,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeDirectoryFixture, unattendedProjectSetup } from "../support/directory-harness.js";
 import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
+import { makeEnvironmentProcessFixture } from "../support/environment-process-fixture.js";
+import { makeSpecRegistry } from "../support/registry-fixture.js";
 import { writeLocalSkillPackage } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
@@ -21,6 +23,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "packages/cli-e2e/src/directory.e2e.test.ts",
     "packages/cli/help/topics/basic-usage.md",
+    "packages/cli/help/topics/environment.md",
   ],
   supersedes: [],
   assumptions: [],
@@ -65,6 +68,53 @@ describe("Relative paths start in the selected directory", () => {
       expect(lint.stdout).not.toContain("workspace/settings-schema-valid");
       expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
     } finally {
+      fixture.cleanup();
+    }
+  });
+  it("resolves a relative Registry environment location from the selected directory", async () => {
+    const fixture = makeEnvironmentProcessFixture();
+    const selectedRegistry = makeSpecRegistry();
+    const invokingRegistry = makeSpecRegistry();
+    try {
+      selectedRegistry.writeSkill("environment-directory", [
+        { version: "1.0.0", body: "Selected execution directory source" },
+      ]);
+      invokingRegistry.writeSkill("environment-directory", [
+        { version: "1.0.0", body: "Invoking directory distractor source" },
+      ]);
+      fs.cpSync(selectedRegistry.root, path.join(fixture.selected, "registry"), {
+        recursive: true,
+      });
+      fs.cpSync(invokingRegistry.root, path.join(fixture.invoking, "registry"), {
+        recursive: true,
+      });
+      fs.writeFileSync(path.join(fixture.selected, "axm.json"), JSON.stringify({ agents: [] }));
+      const before = snapshotWorkspaceContent(fixture.invoking);
+      const result = await fixture.run(
+        [
+          "-C",
+          "../selected",
+          "install",
+          "@acme/skills/environment-directory",
+          "--non-interactive",
+          "--json",
+        ],
+        { AXM_REGISTRY_LOCATION: "./registry" },
+      );
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+      const acquired = fs.readFileSync(
+        path.join(
+          fixture.selected,
+          "agent_extensions/agentxm/@acme/skills/environment-directory/src/SKILL.md",
+        ),
+        "utf8",
+      );
+      expect(acquired).toContain("Selected execution directory source");
+      expect(acquired).not.toContain("Invoking directory distractor source");
+      expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
+    } finally {
+      selectedRegistry.cleanup();
+      invokingRegistry.cleanup();
       fixture.cleanup();
     }
   });

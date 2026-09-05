@@ -15,6 +15,7 @@ import * as path from "node:path";
 
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
+import type * as FileSystem from "effect/FileSystem";
 
 import * as Effect from "effect/Effect";
 
@@ -77,6 +78,8 @@ export interface SpecWorkspaceOptions {
    * protected state. The recorded events are returned as `writes`.
    */
   readonly recordWrites?: boolean;
+  /** Override selected real filesystem operations before workspace service construction. */
+  readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
   /** Initial `axm.json` content beyond the defaults. */
   readonly settings?: Parameters<typeof writeWorkspaceFiles>[1];
   /**
@@ -131,6 +134,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     ...(options.machine !== undefined ? { machine: options.machine } : {}),
     ...(screenLayer === undefined ? {} : { screenLayer }),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
+    ...(options.fileSystemLayer === undefined ? {} : { fileSystemLayer: options.fileSystemLayer }),
     ...(options.recordWrites === true
       ? { onFileSystemWrite: (event: FileSystemWriteEvent) => void writes.push(event) }
       : {}),

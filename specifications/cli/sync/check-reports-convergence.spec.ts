@@ -9,7 +9,7 @@ import { snapshotProtectedState } from "../../support/preview-purity.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/check-reports-convergence",
-  title: "A sync check reports whether reconciliation is needed",
+  title: "A sync check reports whether managed output needs updating",
   statement:
     "When sync --preview --fail-on-change can assess workspace reconciliation, AXM shall return exit status 0 with a no-op result when no reconciliation is needed and exit status 1 with divergence and the complete preview plan when changes are needed.",
   class: "functional",

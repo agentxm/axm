@@ -15,6 +15,11 @@ import {
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
 import { snapshotWorkspaceContent } from "../../../support/workspace-fixtures.js";
+import {
+  WORKSPACE_PROTECTED_STATE,
+  expectProtectedStateUntouched,
+  snapshotProtectedState,
+} from "../../../support/preview-purity.js";
 
 export const specification = defineSpecification({
   requirement: "cli/instructions/enable/records-choice-and-reconciles-aliases",
@@ -104,5 +109,57 @@ describe("Enabling instruction-file management", () => {
       expect(document.result.outcome).toBe("failed");
       expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
     }),
+  );
+  it.effect(
+    "refuses malformed ownership markers before changing settings or any affected alias",
+    () =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace({
+          machine: true,
+          recordWrites: true,
+          settings: {
+            agents: ["claude-code"],
+            instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
+          },
+        });
+        cleanups.push(workspace.cleanup);
+        fs.mkdirSync(path.join(workspace.root, ".git"));
+        fs.writeFileSync(
+          path.join(workspace.root, "AGENTS.md"),
+          "Preserved authored instructions.\n",
+        );
+        fs.writeFileSync(path.join(workspace.root, "unrelated.txt"), "Unrelated human bytes.\n");
+        fs.symlinkSync("AGENTS.md", path.join(workspace.root, "GEMINI.md"));
+        const malformed =
+          "dist/\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/GEMINI.md\n";
+        fs.writeFileSync(path.join(workspace.root, ".gitignore"), malformed);
+        // A real reconciliation would create CLAUDE.md, remove stale GEMINI.md,
+        // and rewrite the ignore region. Ambiguous ownership must stop all three.
+        const protectedPaths = [...WORKSPACE_PROTECTED_STATE, "GEMINI.md", "unrelated.txt"];
+        const before = snapshotProtectedState(workspace.root, protectedPaths);
+        const allBytesBefore = snapshotWorkspaceContent(workspace.root);
+        workspace.writes.splice(0);
+
+        yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: true }).pipe(
+          Effect.provide(workspace.layer),
+        );
+
+        const document = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+          workspace.rendererState.results.at(-1)?.data,
+        );
+        expect(document.result.outcome).toBe("blocked");
+        expect(document.result.counts.committed).toBe(0);
+        expect(document.result.blocking?.detail).toContain("malformed AXM ownership markers");
+        expectProtectedStateUntouched({
+          root: workspace.root,
+          before,
+          writes: workspace.writes,
+          protectedPaths,
+        });
+        expect(snapshotWorkspaceContent(workspace.root)).toEqual(allBytesBefore);
+        expect(workspace.exists("CLAUDE.md")).toBe(false);
+        expect(fs.readlinkSync(path.join(workspace.root, "GEMINI.md"))).toBe("AGENTS.md");
+        expect(workspace.readFile(".gitignore")).toBe(malformed);
+      }),
   );
 });

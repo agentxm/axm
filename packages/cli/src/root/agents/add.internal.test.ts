@@ -32,7 +32,7 @@ import {
 } from "@agentxm/extension-workspace";
 
 const cursorSuggestion = {
-  description: "Allow AXM in Cursor by adding `axm` to `~/.cursor/permissions.json`",
+  description: "Allow AXM in Cursor by adding `axm` to `.cursor/sandbox.json`",
   url: "https://cursor.com/docs/cli/reference/permissions.md",
 };
 

@@ -1,3 +1,7 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { makeEnvironmentProcessFixture } from "../../support/environment-process-fixture.js";
+import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import { describe, expect, it } from "@effect/vitest";
@@ -18,8 +22,14 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
-  methods: ["decision-table"],
-  derivedFrom: ["cli/lint/official-skill-findings-follow-declared-intent"],
+  boundary: "process",
+  boundaryRationale:
+    "A fresh built CLI invocation with startup checks disabled establishes that the registered lint path still reports a missing official skill and preserves the workspace; existing direct cases distinguish the remaining compatibility states.",
+  methods: ["decision-table", "example"],
+  derivedFrom: [
+    "cli/lint/official-skill-findings-follow-declared-intent",
+    "packages/cli/help/topics/upgrade.md",
+  ],
   supersedes: ["cli/lint/official-skill-findings-follow-declared-intent"],
   assumptions: [],
   openQuestions: [],
@@ -61,4 +71,31 @@ describe("Declared official AXM skill", () => {
       expect(Exit.isSuccess(result.exit)).toBe(testCase.succeeds);
     }),
   );
+  it("disabling the startup update check does not hide local compatibility findings", async () => {
+    const fixture = makeEnvironmentProcessFixture();
+    try {
+      fs.writeFileSync(
+        path.join(fixture.invoking, "axm.json"),
+        JSON.stringify({ agents: [], skills: { axm: "@agentxm/skills/axm" } }),
+      );
+      const before = snapshotWorkspaceContent(fixture.invoking);
+      const result = await fixture.run(["lint", "--json"], { AXM_NO_UPDATE_CHECK: "1" });
+      const document: unknown = JSON.parse(result.stdout);
+      expect(document).toMatchObject({
+        result: {
+          axmSkillCompatibility: { reasonCode: "axm-skill-missing" },
+          findings: expect.arrayContaining([
+            expect.objectContaining({
+              ruleId: "workspace/axm-skill-compatible",
+              severity: "error",
+            }),
+          ]),
+        },
+      });
+      expect(result.exitCode).toBe(1);
+      expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
+    } finally {
+      fixture.cleanup();
+    }
+  });
 });

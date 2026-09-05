@@ -41,6 +41,7 @@ describe("resolveBuiltInRegistryLocation", () => {
     const location = resolveBuiltInRegistryLocation(
       { AXM_REGISTRY_LOCATION: "https://registry.example.test" },
       "https://registry.agentxm.ai",
+      process.cwd(),
     );
 
     expect(location).toBe("https://registry.example.test/");
@@ -51,13 +52,18 @@ describe("resolveBuiltInRegistryLocation", () => {
     const location = resolveBuiltInRegistryLocation(
       { AXM_REGISTRY_LOCATION: registryPath },
       "https://registry.agentxm.ai",
+      process.cwd(),
     );
 
     expect(location).toBe(pathToFileURL(registryPath).href);
   });
 
   it("falls back to AXM_REGISTRY_URL when AXM_REGISTRY_LOCATION is unset", () => {
-    const location = resolveBuiltInRegistryLocation({}, "https://registry.example.test");
+    const location = resolveBuiltInRegistryLocation(
+      {},
+      "https://registry.example.test",
+      process.cwd(),
+    );
 
     expect(location).toBe("https://registry.example.test/");
   });
@@ -66,6 +72,7 @@ describe("resolveBuiltInRegistryLocation", () => {
     const location = resolveBuiltInRegistryLocation(
       { AXM_REGISTRY_LOCATION: "" },
       "https://registry.example.test",
+      process.cwd(),
     );
 
     expect(location).toBe("https://registry.example.test/");

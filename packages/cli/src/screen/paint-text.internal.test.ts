@@ -352,7 +352,7 @@ describe("paintText", () => {
     });
   });
 
-  it("paints seven-bit glyphs on request", () => {
+  it("paints the ASCII document layout", () => {
     const lines = paintText(everyNodeDocument, { width: 80, colors: false, glyphs: asciiGlyphs });
     expect(lines.slice(0, 7)).toEqual([
       "+ Ready",
@@ -366,7 +366,5 @@ describe("paintText", () => {
     expect(lines).toContain("`- root  managed");
     expect(lines).toContain("   `- child");
     expect(lines).toContain("  Inspect - axm list");
-    const ascii = lines.join("\n").replace(/部署/gu, "");
-    expect(/^[\x20-\x7e\n]*$/u.test(ascii)).toBe(true);
   });
 });

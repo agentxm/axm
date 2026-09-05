@@ -470,6 +470,8 @@ export const makeCliTestContext = (opts?: {
   readonly screenLayer?: Layer.Layer<Screen> | undefined;
   /** Observe every mutating file-system call the application makes. */
   readonly onFileSystemWrite?: ((event: FileSystemWriteEvent) => void) | undefined;
+  /** Override filesystem operations before workspace services capture the platform. */
+  readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
   const rendererLayer = opts?.screenLayer ?? renderer.layer;
@@ -528,10 +530,17 @@ export const makeCliTestContext = (opts?: {
       }),
   });
   const authLoginPresenterTest = AuthLoginPresenterTest();
+  const fileSystemPlatformLayer =
+    opts?.fileSystemLayer === undefined
+      ? NodeServices.layer
+      : Layer.provideMerge(opts.fileSystemLayer, NodeServices.layer);
   const platformLayer =
     opts?.onFileSystemWrite === undefined
-      ? NodeServices.layer
-      : Layer.provideMerge(recordingFileSystemLayer(opts.onFileSystemWrite), NodeServices.layer);
+      ? fileSystemPlatformLayer
+      : Layer.provideMerge(
+          recordingFileSystemLayer(opts.onFileSystemWrite),
+          fileSystemPlatformLayer,
+        );
   const baseLayer = Layer.mergeAll(
     platformLayer,
     Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
@@ -595,6 +604,8 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly httpClient?: HttpClient.HttpClient | undefined;
   readonly screenLayer?: Layer.Layer<Screen> | undefined;
   readonly onFileSystemWrite?: ((event: FileSystemWriteEvent) => void) | undefined;
+  /** Override filesystem operations before workspace services capture the platform. */
+  readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
   readonly wsOptions?:
     | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
         readonly projectRoot?: string;

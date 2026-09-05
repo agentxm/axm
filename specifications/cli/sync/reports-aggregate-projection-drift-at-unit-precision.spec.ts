@@ -13,7 +13,7 @@ import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/reports-aggregate-projection-drift-at-unit-precision",
-  title: "Sync reports aggregate projection drift at ownership-unit precision",
+  title: "Sync identifies the shared output that needs updating",
   statement:
     "When an aggregate projection like an instruction file's rules or knowledge region drifts, a sync preview shall report it as stale or missing at the owning managed unit and region, and shall not attribute the cause to any individual contributing extension.",
   class: "functional",

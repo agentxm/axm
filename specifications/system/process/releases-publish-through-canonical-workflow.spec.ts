@@ -10,7 +10,7 @@ import { defineSpecification } from "@agentxm/extension-model/unstable/specifica
 
 export const specification = defineSpecification({
   requirement: "system/process/releases-publish-through-canonical-workflow",
-  title: "Releases publish only through the canonical automated workflow",
+  title: "One automated workflow publishes releases",
   statement:
     "Release artifacts shall be published only by the canonical publish.yml workflow, triggered by a published release or an explicit release tag and validating release assets before completion, and no other workflow shall publish release artifacts.",
   class: "process",

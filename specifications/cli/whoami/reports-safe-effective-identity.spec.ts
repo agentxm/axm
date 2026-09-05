@@ -17,7 +17,7 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/whoami/reports-safe-effective-identity",
-  title: "Identity inspection reports safe effective authority",
+  title: "Identity inspection shows the active identity and permissions",
   statement:
     "When authenticated, whoami shall report the handle, Registry, credential type, effective scopes, enforced extension restrictions, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output, excluding email, credential identifiers, token material, and internal permission markers.",
   class: "functional",

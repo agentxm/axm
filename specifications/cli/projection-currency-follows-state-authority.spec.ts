@@ -3,12 +3,20 @@ import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as PlatformError from "effect/PlatformError";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { handleLint, handleSync, LintResultDocumentSchema } from "axm.sh/specification-harness";
+import {
+  handleInstructionsEnable,
+  handleLint,
+  handleSync,
+  LintResultDocumentSchema,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../support/install-harness.js";
@@ -26,6 +34,14 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [],
+  limitations: [
+    {
+      limitation:
+        "The instruction-copy example injects symlink refusal at the production filesystem port while exercising real handler, copy, and currency behavior on the host filesystem. It does not establish Windows permissions, native symlink probing, or Windows filesystem behavior; the dedicated Windows instruction suite supplies that evidence separately.",
+      retirementCondition:
+        "Retain the same instruction-copy currency observations through real symlink-unavailable environments on each supported platform, alongside separately attributable Windows execution.",
+    },
+  ],
 });
 
 const writeAuthoredRule = (workspaceRoot: string, body: string): void => {
@@ -314,5 +330,80 @@ describe("Generated document projection currency", () => {
       yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
       expect(workspace.readFile("AGENTS.md")).toContain("Required guidance.");
     }),
+  );
+  it.effect(
+    "preserves rewritten instruction copies until their source changes or the copy is missing",
+    () =>
+      Effect.gen(function* () {
+        const rejectedSymlinkTargets: Array<string> = [];
+        // The platform override precedes workspace layer construction, so the
+        // handler and captured transaction capabilities see the same filesystem.
+        const copyFileSystemLayer = Layer.effect(
+          FileSystem.FileSystem,
+          Effect.map(FileSystem.FileSystem, (filesystem) => ({
+            ...filesystem,
+            symlink: (_fromPath: string, toPath: string) =>
+              Effect.gen(function* () {
+                rejectedSymlinkTargets.push(toPath);
+                return yield* PlatformError.systemError({
+                  _tag: "PermissionDenied",
+                  module: "FileSystem",
+                  method: "symlink",
+                  pathOrDescriptor: toPath,
+                  description: "This fixture exercises instruction-copy fallback.",
+                });
+              }),
+          })),
+        );
+        const workspace = makeSpecWorkspace({
+          machine: true,
+          settings: { agents: ["claude-code"] },
+          fileSystemLayer: copyFileSystemLayer,
+        });
+        cleanups.push(workspace.cleanup);
+        const source = path.join(workspace.root, "AGENTS.md");
+        const target = path.join(workspace.root, "CLAUDE.md");
+        fs.writeFileSync(source, "Initial authored instruction body.\n");
+
+        yield* Effect.gen(function* () {
+          yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: false });
+          expect(rejectedSymlinkTargets.length).toBeGreaterThan(0);
+          expect(fs.lstatSync(target).isSymbolicLink()).toBe(false);
+          const generated = fs.readFileSync(target, "utf8");
+          expect(generated).toContain("Initial authored instruction body.");
+          const rewritten = generated.replace(
+            "Initial authored instruction body.",
+            "Repository-formatted instruction body.",
+          );
+          expect(rewritten).not.toBe(generated);
+          fs.writeFileSync(target, rewritten);
+
+          yield* handleInstructionsEnable({
+            fileName: "AGENTS.md",
+            gitignore: false,
+            preview: true,
+          });
+          expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
+            result: { outcome: "no-op" },
+          });
+          yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: false });
+          expect(fs.readFileSync(target, "utf8")).toBe(rewritten);
+          expect(fs.readFileSync(source, "utf8")).toBe("Initial authored instruction body.\n");
+
+          fs.writeFileSync(source, "Revised authored instruction body.\n");
+          yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: false });
+          const regenerated = fs.readFileSync(target, "utf8");
+          expect(fs.lstatSync(target).isSymbolicLink()).toBe(false);
+          expect(regenerated).toContain("Revised authored instruction body.");
+          expect(regenerated).not.toContain("Repository-formatted instruction body.");
+          expect(fs.readFileSync(source, "utf8")).toBe("Revised authored instruction body.\n");
+
+          fs.rmSync(target);
+          yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: false });
+          expect(fs.lstatSync(target).isSymbolicLink()).toBe(false);
+          expect(fs.readFileSync(target, "utf8")).toBe(regenerated);
+          expect(fs.readFileSync(source, "utf8")).toBe("Revised authored instruction body.\n");
+        }).pipe(Effect.provide(workspace.layer));
+      }),
   );
 });

@@ -20,7 +20,7 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/visibility/reconcile/applies-declared-repository-intent",
-  title: "Visibility reconciliation applies declared repository intent conditionally",
+  title: "Visibility reconciliation applies repository intent at the observed Registry revision",
   statement:
     "The visibility reconcile command shall require project-scoped manifest or workspace visibility intent and established Registry visibility, submit the effective intent with its source fingerprint as repository authority conditional on the observed revision, and report only the acknowledged transition.",
   class: "functional",

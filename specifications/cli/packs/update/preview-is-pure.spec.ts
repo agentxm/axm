@@ -15,7 +15,7 @@ import { makeSpecRegistry } from "../../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/packs/update/preview-is-pure",
-  title: "Pack update preview describes the reconciliation without changing any state",
+  title: "Pack update preview describes the pack and members without changing state",
   statement:
     "When packs update runs in preview mode against a configured pack whose closure is not yet accepted, it shall report the pack and members it would resolve with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.",
   class: "functional",

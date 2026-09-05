@@ -16,7 +16,7 @@ import { makeSpecRegistry } from "../../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/packs/install/preview-is-pure",
-  title: "Pack install preview describes the pack closure without changing any state",
+  title: "Pack install preview describes the pack and members without changing state",
   statement:
     "When packs install runs in preview mode against a Registry pack, it shall report the pack and members it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.",
   class: "functional",

@@ -329,7 +329,9 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   const resolution = yield* previewOrApplyPlan(plan, { execution });
   const outcome = deriveOperationOutcome(resolution);
   const suggestions =
-    outcome === "applied" || outcome === "partial" ? buildPermissionSuggestions(agentIds) : [];
+    outcome === "applied" || outcome === "partial"
+      ? buildPermissionSuggestions(agentIds, ws.scope)
+      : [];
   yield* emitOperationResolution("agents.add", resolution, { suggestions });
 });
 

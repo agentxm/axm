@@ -825,26 +825,6 @@ describe("agent instructions", () => {
     ),
   );
 
-  it.effect("removes only current AXM-owned aliases", () =>
-    run(
-      Effect.gen(function* () {
-        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-        fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
-
-        const snapshot = yield* observe({ configuredAgents: ["claude-code"] });
-        const previewed = yield* removeManagedInstructionTargets({ snapshot, dryRun: true });
-        expect(previewed).toEqual([path.join(tempDir, "CLAUDE.md")]);
-        expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(true);
-
-        const removed = yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
-
-        expect(removed).toEqual([path.join(tempDir, "CLAUDE.md")]);
-        expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
-        expect(fs.readFileSync(path.join(tempDir, "AGENTS.md"), "utf-8")).toBe("# Workspace\n");
-      }),
-    ),
-  );
-
   it.effect("preflights every alias before removing any owned target", () =>
     run(
       Effect.gen(function* () {

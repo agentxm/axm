@@ -11,7 +11,7 @@ import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install
 
 export const specification = defineSpecification({
   requirement: "cli/install/apply-realizes-the-previewed-closure",
-  title: "Applying an install realizes exactly the closure its preview described",
+  title: "An unchanged install request applies the plan shown in its preview",
   statement:
     "When an install preview is followed by an apply of the same request against an unchanged workspace, the install command shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards.",
   class: "functional",

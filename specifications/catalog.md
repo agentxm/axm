@@ -200,6 +200,22 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/lockfile-rejections-name-recovery-routes`, `cli/confirmation-flags-have-a-supported-purpose`
 - Source: [`specifications/cli/approval-required-names-a-valid-recovery.spec.ts`](../specifications/cli/approval-required-names-a-valid-recovery.spec.ts)
 
+#### Ascii Human Output Preserves Content
+
+##### ASCII output changes display symbols while preserving content
+
+- Requirement: `cli/ascii-human-output-preserves-content`
+- Statement: In human output, AXM shall use seven-bit ASCII display symbols without transliterating content when AXM_ASCII is non-empty, TERM is dumb, or the declared locale inputs consistently name non-UTF-8 locales, and shall otherwise use Unicode display symbols when locale inputs are absent or consistently name UTF-8 locales.
+- Class: human-factors
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/screen/output-policy.internal.test.ts`, `packages/cli/src/screen/paint-text.internal.test.ts`
+- Open questions: Which locale input controls glyph selection when LC_ALL, LC_CTYPE, and LANG disagree? Earlier environment prose described a non-UTF-8 input selecting ASCII, while the resolver and an internal example select Unicode if any input names UTF-8; this requirement does not decide mixed-locale precedence.; Does ASCII output cover animated progress-frame and prompt symbols beyond painted documents? This requirement covers symbols in rendered human documents.
+- Limitation: Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover nonempty status, change, tree, separator, and content examples, not an actual terminal font, locale installation, animated frame, prompt, or every authored document. Retires when: Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.
+- Source: [`specifications/cli/ascii-human-output-preserves-content.spec.ts`](../specifications/cli/ascii-human-output-preserves-content.spec.ts)
+
 #### Authoring Uses Project Workspace
 
 ##### Authoring commands use the project workspace
@@ -407,7 +423,7 @@ programmatic interfaces, and supporting system behavior.
 
 #### Demote
 
-##### Demote preview describes the authority transition without consuming approval
+##### Demote preview describes replacement without requiring approval
 
 - Requirement: `cli/demote/preview-is-pure`
 - Statement: When demote runs in preview mode, it shall report the replacement it would apply with a previewed outcome that is identical with or without advance approval, shall not change settings, the lockfile, authored content, or agent projections, and an unattended apply without advance approval shall stop before changing anything and name the approval it needs.
@@ -456,6 +472,23 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example, contract
 - Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
 - Source: [`specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts`](../specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts)
+
+#### Diagnostic Controls Select The Requested Detail
+
+##### Quiet takes precedence over debug and verbose diagnostics
+
+- Requirement: `cli/diagnostic-controls-select-the-requested-detail`
+- Statement: For human error diagnostics produced after command flags have been parsed and the command runtime initialized, AXM shall select quiet before debug before verbose before ordinary detail, with --quiet or -q requesting quiet, --debug or AXM_DEBUG requesting debug, --verbose, -v, or AXM_VERBOSE requesting verbose, and only the environment values 1 and true enabling those requests.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI parses the actual global flags, reads the controlled process environment, produces a settings parse failure, and renders its available cause and stack through the production error screen.
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/cli-flags/index.ts`, `packages/cli/src/runtime.ts`, `packages/cli/src/cli-runtime/runtime-envelope.ts`, `packages/cli/src/app-error/render.internal.test.ts`
+- Open questions: The earlier public quiet description covered narration, tables, progress, and required actions as well as error detail; complete human-output suppression across commands needs separate allocation and evidence.; What diagnostic selection is promised for failures before parsed command runtime initialization, including raw arguments after -- and parser failures?
+- Limitation: These process examples distinguish detail levels using one production settings-error path. They do not prescribe exact cause text, stack frames, log messages, logger severity names, or every flag and environment combination. Retires when: Add distinct producer or combination evidence when a reviewed source reveals behavior not distinguished by these examples.
+- Source: [`specifications/cli/diagnostic-controls-select-the-requested-detail.spec.ts`](../specifications/cli/diagnostic-controls-select-the-requested-detail.spec.ts)
 
 #### Disabled Credential Persistence Requires Explicit Token
 
@@ -694,7 +727,7 @@ programmatic interfaces, and supporting system behavior.
 
 #### Install
 
-##### Applying an install realizes exactly the closure its preview described
+##### An unchanged install request applies the plan shown in its preview
 
 - Requirement: `cli/install/apply-realizes-the-previewed-closure`
 - Statement: When an install preview is followed by an apply of the same request against an unchanged workspace, the install command shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards.
@@ -721,7 +754,7 @@ programmatic interfaces, and supporting system behavior.
 - Open questions: The plan result names the entry's state (skipped) but carries the reason only as prose in the unit's message; no structured field says the entry is inline workspace configuration that sync reconciles. Until the plan-result contract names that reason, this specification asserts the skipped state and the presence of guidance and leaves the message wording non-normative.
 - Source: [`specifications/cli/install/inline-mcp-configuration-is-skipped.spec.ts`](../specifications/cli/install/inline-mcp-configuration-is-skipped.spec.ts)
 
-##### Install materializes the extension's canonical content inside the workspace
+##### Installing an extension places its source content in the workspace
 
 - Requirement: `cli/install/materializes-canonical-content`
 - Statement: When a person installs an acquirable extension, the install command shall materialize the extension's canonical content inside the workspace's managed extension tree.
@@ -845,7 +878,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Installed extensions, coding agents, and instruction files stay in the selected scope
 
 - Requirement: `cli/installed-state-stays-in-selected-scope`
-- Statement: Installed-extension operations, coding-agent listing and membership changes, and instruction-file inspection, enablement, and disablement shall use the selected project or user workspace and its native files for workspace results and changes, default to project scope when no workspace scope is selected, and preserve the other scope's workspace and native files.
+- Statement: Installed-extension operations, coding-agent listing and membership changes, and instruction-file inspection, enablement, and disablement shall use the selected project or user workspace and its native files for workspace results and changes, default to project scope when no workspace scope is selected, name only selected-scope native files in any permission guidance they emit, and preserve the other scope's workspace and native files.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -949,7 +982,7 @@ programmatic interfaces, and supporting system behavior.
 
 #### Invalid Ownership Markers Block Reconciliation
 
-##### Invalid ownership markers block reconciliation without altering the document
+##### Invalid ownership markers prevent changes to generated documents
 
 - Requirement: `cli/invalid-ownership-markers-block-reconciliation`
 - Statement: When a generated document carries an ownership marker AXM cannot validate, lint shall report the invalid ownership and reconciliation shall report a blocked outcome, and neither shall alter the document.
@@ -1346,13 +1379,14 @@ programmatic interfaces, and supporting system behavior.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: decision-table
-- Derived from: `cli/lint/official-skill-findings-follow-declared-intent`
+- Boundary: process; selection: per-change
+- Boundary rationale: A fresh built CLI invocation with startup checks disabled establishes that the registered lint path still reports a missing official skill and preserves the workspace; existing direct cases distinguish the remaining compatibility states.
+- Methods: decision-table, example
+- Derived from: `cli/lint/official-skill-findings-follow-declared-intent`, `packages/cli/help/topics/upgrade.md`
 - Supersedes: `cli/lint/official-skill-findings-follow-declared-intent`
 - Source: [`specifications/cli/lint/declared-official-skill-must-be-compatible.spec.ts`](../specifications/cli/lint/declared-official-skill-must-be-compatible.spec.ts)
 
-##### Lint fix repairs only state determined by local authority
+##### Lint fix requires known ownership and unambiguous content
 
 - Requirement: `cli/lint/fix-repairs-only-determined-state`
 - Statement: When lint runs with --fix, it shall repair only state that local authority fully determines, such as a missing instruction alias, and shall fail with a conflict without touching the workspace when a target is unowned or its desired content is ambiguous.
@@ -1686,7 +1720,7 @@ programmatic interfaces, and supporting system behavior.
 
 #### Managed Projection Guidance Respects Authority
 
-##### Managed projections name editable sources only when the workspace owns them
+##### Managed output points to an editable source or to the fork command
 
 - Requirement: `cli/managed-projection-guidance-respects-authority`
 - Statement: A managed projection shall direct edits to its source only when the workspace authors that extension, and for an acquired extension shall mark the canonical content immutable and point to axm fork instead.
@@ -1999,7 +2033,7 @@ programmatic interfaces, and supporting system behavior.
 
 #### Native Projections Compare By Decoded Value
 
-##### Structured native projections are compared by decoded value
+##### Structured native configuration changes follow values rather than formatting
 
 - Requirement: `cli/native-projections-compare-by-decoded-value`
 - Statement: When a structured native projection is re-serialized with an equivalent decoded value, reconciliation shall report it current and preserve the file, and when its decoded value diverges from the desired configuration, reconciliation shall report the divergence in preview and restore the desired value on apply.
@@ -2075,7 +2109,7 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/skills/enable/preview-is-pure`
 - Source: [`specifications/cli/packs/enable/preview-is-pure.spec.ts`](../specifications/cli/packs/enable/preview-is-pure.spec.ts)
 
-##### Pack install preview describes the pack closure without changing any state
+##### Pack install preview describes the pack and members without changing state
 
 - Requirement: `cli/packs/install/preview-is-pure`
 - Statement: When packs install runs in preview mode against a Registry pack, it shall report the pack and members it would install with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
@@ -2222,7 +2256,7 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `packages/cli/src/root/packs/unpack/handler.internal.test.ts`, `packages/cli/src/root/packs/unpack/handler.ts`
 - Source: [`specifications/cli/packs/unpack/refuses-incomplete-membership.spec.ts`](../specifications/cli/packs/unpack/refuses-incomplete-membership.spec.ts)
 
-##### Pack update preview describes the reconciliation without changing any state
+##### Pack update preview describes the pack and members without changing state
 
 - Requirement: `cli/packs/update/preview-is-pure`
 - Statement: When packs update runs in preview mode against a configured pack whose closure is not yet accepted, it shall report the pack and members it would resolve with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
@@ -2275,6 +2309,7 @@ programmatic interfaces, and supporting system behavior.
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
+- Limitation: The instruction-copy example injects symlink refusal at the production filesystem port while exercising real handler, copy, and currency behavior on the host filesystem. It does not establish Windows permissions, native symlink probing, or Windows filesystem behavior; the dedicated Windows instruction suite supplies that evidence separately. Retires when: Retain the same instruction-copy currency observations through real symlink-unavailable environments on each supported platform, alongside separately attributable Windows execution.
 - Additional evidence: process via [`packages/cli-e2e/src/projection-currency.e2e.test.ts`](../packages/cli-e2e/src/projection-currency.e2e.test.ts) — Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.
 - Source: [`specifications/cli/projection-currency-follows-state-authority.spec.ts`](../specifications/cli/projection-currency-follows-state-authority.spec.ts)
 
@@ -2536,7 +2571,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: The built CLI parses global arguments and selects its execution directory before composing workspace services; a real process establishes the selected filesystem boundary.
 - Methods: example, decision-table
-- Derived from: `packages/cli-e2e/src/directory.e2e.test.ts`, `packages/cli/help/topics/basic-usage.md`
+- Derived from: `packages/cli-e2e/src/directory.e2e.test.ts`, `packages/cli/help/topics/basic-usage.md`, `packages/cli/help/topics/environment.md`
 - Source: [`specifications/cli/relative-paths-start-in-selected-directory.spec.ts`](../specifications/cli/relative-paths-start-in-selected-directory.spec.ts)
 
 #### Rules
@@ -2986,7 +3021,7 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/sync/preserves-unowned-agent-content.spec.ts`](../specifications/cli/sync/preserves-unowned-agent-content.spec.ts)
 
-##### Sync preview describes the reconciliation without changing any state
+##### Sync preview describes required changes without applying them
 
 - Requirement: `cli/sync/preview-is-pure`
 - Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.
@@ -3025,7 +3060,7 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/auth.e2e.test.ts`](../packages/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/token/completes-required-human-verification.spec.ts`](../specifications/cli/token/completes-required-human-verification.spec.ts)
 
-##### Token creation requests the selected authority
+##### Token creation requests the chosen lifetime and permissions
 
 - Requirement: `cli/token/create/submits-requested-authority`
 - Statement: When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions using the effective credential and report the issued token without replacing the current session.
@@ -3539,7 +3574,7 @@ programmatic interfaces, and supporting system behavior.
 
 #### Visibility
 
-##### Visibility reconciliation applies declared repository intent conditionally
+##### Visibility reconciliation applies repository intent at the observed Registry revision
 
 - Requirement: `cli/visibility/reconcile/applies-declared-repository-intent`
 - Statement: The visibility reconcile command shall require project-scoped manifest or workspace visibility intent and established Registry visibility, submit the effective intent with its source fingerprint as repository authority conditional on the observed revision, and report only the acknowledged transition.
@@ -3576,7 +3611,7 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/whoami/refreshes-rejected-stored-credentials.spec.ts`](../specifications/cli/whoami/refreshes-rejected-stored-credentials.spec.ts)
 
-##### Identity inspection reports safe effective authority
+##### Identity inspection shows the active identity and permissions
 
 - Requirement: `cli/whoami/reports-safe-effective-identity`
 - Statement: When authenticated, whoami shall report the handle, Registry, credential type, effective scopes, enforced extension restrictions, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output, excluding email, credential identifiers, token material, and internal permission markers.
@@ -3696,6 +3731,22 @@ programmatic interfaces, and supporting system behavior.
 
 ### CLI
 
+#### Ascii Controls Preserve Machine Output
+
+##### ASCII display controls leave machine documents unchanged
+
+- Requirement: `cli/ascii-controls-preserve-machine-output`
+- Statement: When JSON output is selected, AXM shall leave result and diagnostic documents unchanged by AXM_ASCII, TERM, LC_ALL, LC_CTYPE, and LANG display-symbol inputs.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI receives the actual environment inputs while producing a successful help-topic result and a Unicode-bearing help refusal on its real machine channels.
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/environment.md`
+- Limitation: These examples compare one successful result and one expected failure; they do not claim every command, lifecycle-progress event, or runtime formatter is covered. Retires when: Add a distinct command or event example when source review identifies a display-symbol input reaching an uncovered machine producer.
+- Source: [`specifications/cli/ascii-controls-preserve-machine-output.spec.ts`](../specifications/cli/ascii-controls-preserve-machine-output.spec.ts)
+
 #### Cache
 
 ##### Cache status reports archive usage and effective limits
@@ -3710,6 +3761,72 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `packages/cli/src/root/cache/command.ts`, `packages/cli/src/root/cache/command.internal.test.ts`
 - Open questions: Is the current 90-day age limit a product commitment or an implementation default that may change?
 - Source: [`specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts`](../specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts)
+
+#### Environment Disables Startup Update Check
+
+##### The environment can disable the startup update check
+
+- Requirement: `cli/environment-disables-startup-update-check`
+- Statement: When AXM_NO_UPDATE_CHECK is 1, AXM shall omit the informational startup update notification and its release requests regardless of output or interaction mode, while allowing an explicitly invoked command to perform its required network operations.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/help/topics/upgrade.md`, `packages/cli/src/update-check-startup.internal.test.ts`, `packages/cli/src/update-check/update-check.internal.test.ts`
+- Open questions: Must agent sessions always skip startup checks when AXM_NO_UPDATE_CHECK is not 1? Earlier environment help said they skip, but the current runtime and its internal test permit agent checks even without a TTY.; Does suppression also prohibit reading an existing update cache, beyond the absence of requests and notifications promised here?
+- Limitation: The primary decision table uses a populated fresh cache and a controlled HTTP port; it establishes notification suppression and command-network independence, but does not by itself establish the absence of a background refresh when a cache is missing or stale. Retires when: Add a scheduler-coordinated missing/stale-cache control that observes the live startup wrapper's detached request and completion without wall-clock sleeps or leaked fibers.
+- Source: [`specifications/cli/environment-disables-startup-update-check.spec.ts`](../specifications/cli/environment-disables-startup-update-check.spec.ts)
+
+#### Environment Relocates User Resources
+
+##### The selected application home contains user resources
+
+- Requirement: `cli/environment-relocates-user-resources`
+- Statement: When AXM_USER_HOME is non-empty, AXM shall use that home for its user workspace, restricted-file credentials, pending device login, install metadata, and default self-managed executable without falling back to the platform home for those resources.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: process; selection: per-change
+- Boundary rationale: Fresh CLI setup invocations establish relocated workspace placement; real credential, pending-login, and install-metadata services read and write disposable homes; the installer control establishes executable placement.
+- Methods: example, decision-table
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/workspace-state/src/workspace/paths.internal.test.ts`, `packages/registry-auth/src/credential-store.internal.test.ts`, `packages/registry-auth/src/pending-device-login-store.internal.test.ts`, `packages/cli/src/install-meta/install-meta.internal.test.ts`
+- Open questions: What is the canonical restricted-file credential subdirectory? Earlier environment help named the .axm application home, while current storage uses .config/axm.; Should an empty AXM_USER_HOME use the platform home consistently for credentials and pending login as earlier environment help promised? Their current environment reader preserves an empty string.; Does AXM_USER_HOME also relocate platform-style caches? The cache resolver and its internal witness do so, while earlier environment help said platform caches keep platform locations.
+- Limitation: The default executable example runs the actual shell installer only on macOS/Linux and uses a version-answering executable fixture. These examples supply no Windows process evidence for user-workspace, PowerShell/cmd default executable, or install-metadata relocation; direct live-adapter cases do not establish that process population. Retires when: Add equivalent populated platform-versus-application-home process controls for the supported Windows installer shells and built CLI, while retaining actual installed-binary evidence for product startup.
+- Limitation: This owner concerns application resources, not the OS keychain. It does not claim that AXM_USER_HOME changes the logged-in operating-system account or keychain namespace. Retires when: Retain that ownership distinction while changes to the application-home implementation are reviewed.
+- Source: [`specifications/cli/environment-relocates-user-resources.spec.ts`](../specifications/cli/environment-relocates-user-resources.spec.ts)
+
+#### Environment Selects Built In Extension Source
+
+##### The environment selects the built-in extension source
+
+- Requirement: `cli/environment-selects-built-in-extension-source`
+- Statement: For extension resolution through the built-in AgentXM source, AXM shall use a non-empty AXM_REGISTRY_LOCATION before AXM_REGISTRY_URL, and otherwise use AXM_REGISTRY_URL or https://registry.agentxm.ai when that variable is unset or empty.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `machine-automation`
+- Boundary: process; selection: per-change
+- Boundary rationale: Fresh built CLI invocations resolve and acquire distinct package bytes from real file Registries and a controlled HTTP origin, so an environment value merely parsed but ignored cannot satisfy the cases.
+- Methods: decision-table, example
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/runtime.internal.test.ts`
+- Open questions: Does AXM_REGISTRY_LOCATION also select non-resolution Registry commands such as view, authentication, and publication? Those commands currently use separate service-target selection; this requirement does not allocate their target policy.
+- Source: [`specifications/cli/environment-selects-built-in-extension-source.spec.ts`](../specifications/cli/environment-selects-built-in-extension-source.spec.ts)
+
+#### Environment Selects Registry Services
+
+##### Registry services use the selected environment origin
+
+- Requirement: `cli/environment-selects-registry-services`
+- Statement: When AXM_REGISTRY_LOCATION is unset, AXM shall direct default Registry service and authentication requests to a non-empty AXM_REGISTRY_URL, or to https://registry.agentxm.ai when AXM_REGISTRY_URL is unset or empty.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `extension-adoption`
+- Boundary: process; selection: per-change
+- Boundary rationale: A built CLI view retrieves distinct metadata from a local HTTP origin; separate runtime-layer cases retain production environment decoding and AuthClient request construction while controlling the HTTP transport to avoid real Registry access.
+- Methods: example, decision-table
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/runtime.ts`
+- Open questions: When AXM_REGISTRY_LOCATION and AXM_REGISTRY_URL name different origins, which origin should view and authentication use? Extension-source precedence alone does not settle this service-target policy.
+- Source: [`specifications/cli/environment-selects-registry-services.spec.ts`](../specifications/cli/environment-selects-registry-services.spec.ts)
 
 #### Exit Codes Match Published Reference
 
@@ -3914,10 +4031,10 @@ programmatic interfaces, and supporting system behavior.
 
 #### Machine Mode Never Prompts
 
-##### Machine output mode terminates deterministically instead of prompting
+##### Machine output reports missing input or approval without prompting
 
 - Requirement: `cli/machine-mode-never-prompts`
-- Statement: When machine output mode is on, a command that needs interactive input or interactive approval shall terminate with a usage failure naming what it needs, shall raise no prompt even from an interactive terminal, and shall change no workspace state, while the same request with machine output off shall prompt and honor the answer.
+- Statement: When machine output mode is on, a command that cannot proceed without interactive input or approval shall stop without prompting, identify what it needs, and change no workspace state even from an interactive terminal, while with machine output off and an interactive prompt available the same request shall prompt and honor the answer.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
@@ -3990,6 +4107,7 @@ programmatic interfaces, and supporting system behavior.
 - Product goals: `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example
+- Open questions: When a stream is a capable terminal, should CI prohibit styling even when FORCE_COLOR explicitly requests it? Earlier environment help described unconditional plain CI output, while the resolver permits that terminal override; this requirement governs pipes and does not decide terminal precedence.
 - Source: [`specifications/cli/non-tty-output-is-plain-and-unpadded.spec.ts`](../specifications/cli/non-tty-output-is-plain-and-unpadded.spec.ts)
 
 #### Preview Uses The Canonical Flag
@@ -4081,7 +4199,7 @@ programmatic interfaces, and supporting system behavior.
 
 #### Sync
 
-##### A sync check reports whether reconciliation is needed
+##### A sync check reports whether managed output needs updating
 
 - Requirement: `cli/sync/check-reports-convergence`
 - Statement: When sync --preview --fail-on-change can assess workspace reconciliation, AXM shall return exit status 0 with a no-op result when no reconciliation is needed and exit status 1 with divergence and the complete preview plan when changes are needed.
@@ -4094,7 +4212,7 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/sync/preview-is-pure`, `packages/cli/src/root/sync/handler.internal.test.ts`, `packages/cli/help/topics/workspace-state.md`
 - Source: [`specifications/cli/sync/check-reports-convergence.spec.ts`](../specifications/cli/sync/check-reports-convergence.spec.ts)
 
-##### Sync reports aggregate projection drift at ownership-unit precision
+##### Sync identifies the shared output that needs updating
 
 - Requirement: `cli/sync/reports-aggregate-projection-drift-at-unit-precision`
 - Statement: When an aggregate projection like an instruction file's rules or knowledge region drifts, a sync preview shall report it as stale or missing at the owning managed unit and region, and shall not attribute the cause to any individual contributing extension.
@@ -4441,6 +4559,21 @@ programmatic interfaces, and supporting system behavior.
 ### System
 
 #### Installability
+
+##### Public installers install the requested release version
+
+- Requirement: `system/installability/native-installers-use-requested-version`
+- Statement: When AXM_INSTALL_VERSION names an exact unprefixed major.minor.patch release without prerelease or build metadata, the public installers shall select that immutable release without stable-channel discovery and shall install only an executable reporting that version.
+- Class: functional
+- Role: interface
+- Product goals: `platform-reach`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The actual public shell installer runs with a controlled downloader; exact and mutable release URLs return different checksum-valid executable bytes, and independent filesystem readback establishes which release was committed.
+- Methods: example
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/help/topics/upgrade.md`, `packages/cli/site-content/install.sh`, `packages/cli/site-content/install.ps1`
+- Open questions: When AXM_INSTALL_VERSION is unset, does latest stable mean GitHub's latest release or the separately promoted AXM stable-channel document? Current public installers use GitHub latest; the accepted upgrade owner requires the promoted channel for axm upgrade.; What observable refusal and recovery must an invalid AXM_INSTALL_VERSION produce? The public source declares the supported value domain but does not state pre-request rejection, exact diagnostics, or preservation timing.; Are prerelease and build-metadata versions supported by the public installers? The stated unprefixed-semver domain is broader than the accepted exact-upgrade stable-version domain; do not import upgrade's restriction without a decision.
+- Limitation: The direct cases run the shell installer on macOS/Linux. Existing PowerShell/cmd installed-product evidence verifies installation but does not discriminate immutable-version routing from latest routing; that missing URL-and-version control remains explicit. Retires when: Add the same selected-versus-newer transport control to the actual PowerShell installer and its cmd entrypoint on the supported Windows matrix.
+- Source: [`specifications/system/installability/native-installers-use-requested-version.spec.ts`](../specifications/system/installability/native-installers-use-requested-version.spec.ts)
 
 ##### Native installers use the selected destination directory
 
@@ -4859,7 +4992,7 @@ programmatic interfaces, and supporting system behavior.
 - Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises publication boundary outcomes, one readback after a lost promotion response, uncertain readback failures, and no repeated conditional mutation.
 - Source: [`specifications/system/process/release-workflow-reports-publication-state.spec.ts`](../specifications/system/process/release-workflow-reports-publication-state.spec.ts)
 
-##### Releases publish only through the canonical automated workflow
+##### One automated workflow publishes releases
 
 - Requirement: `system/process/releases-publish-through-canonical-workflow`
 - Statement: Release artifacts shall be published only by the canonical publish.yml workflow, triggered by a published release or an explicit release tag and validating release assets before completion, and no other workflow shall publish release artifacts.

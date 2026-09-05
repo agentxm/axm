@@ -12,6 +12,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 import { pathToFileURL } from "node:url";
+import { resolve as resolvePath } from "node:path";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
@@ -188,26 +189,30 @@ interface RuntimeEnvConfig {
 const getNonEmptyEnv = (env: NodeJS.ProcessEnv, name: string): Option.Option<string> =>
   Option.fromUndefinedOr(env[name]).pipe(Option.filter((value) => value.length > 0));
 
-const normalizeRegistryLocation = (location: string): string => {
+const normalizeRegistryLocation = (location: string, executionDirectory: string): string => {
   try {
     return new URL(location).href;
   } catch {
-    return pathToFileURL(location).href;
+    return pathToFileURL(resolvePath(executionDirectory, location)).href;
   }
 };
 
 export const resolveBuiltInRegistryLocation = (
   env: NodeJS.ProcessEnv,
   registryUrl: string,
+  executionDirectory: string,
 ): string =>
   Option.match(getNonEmptyEnv(env, "AXM_REGISTRY_LOCATION"), {
-    onNone: () => normalizeRegistryLocation(registryUrl),
-    onSome: normalizeRegistryLocation,
+    onNone: () => normalizeRegistryLocation(registryUrl, executionDirectory),
+    onSome: (location) => normalizeRegistryLocation(location, executionDirectory),
   });
 
 export const resolveBuiltInSources = Effect.gen(function* () {
   const registryUrl = yield* RegistryUrl;
-  return getBuiltInSources(resolveBuiltInRegistryLocation(process.env, registryUrl));
+  const executionDirectory = yield* ExecutionDirectory;
+  return getBuiltInSources(
+    resolveBuiltInRegistryLocation(process.env, registryUrl, executionDirectory.path),
+  );
 });
 
 export const getBuiltInSources = (registryLocation: string): ReadonlyArray<SourceHostConfig> => [
@@ -217,17 +222,22 @@ export const getBuiltInSources = (registryLocation: string): ReadonlyArray<Sourc
   { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
 ];
 
-const readRuntimeEnvConfig = Effect.gen(function* () {
-  const registryUrl = yield* RegistryUrl;
-  return {
-    registryLocation: resolveBuiltInRegistryLocation(process.env, registryUrl),
-    registryUrl,
-    doNotTrack: Option.fromUndefinedOr(process.env["DO_NOT_TRACK"]),
-    telemetry: Option.fromUndefinedOr(process.env["AXM_TELEMETRY"]),
-    verbose: Option.fromUndefinedOr(process.env["AXM_VERBOSE"]),
-    debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
-  };
-});
+const readRuntimeEnvConfig = (executionDirectory: string) =>
+  Effect.gen(function* () {
+    const registryUrl = yield* RegistryUrl;
+    return {
+      registryLocation: resolveBuiltInRegistryLocation(
+        process.env,
+        registryUrl,
+        executionDirectory,
+      ),
+      registryUrl,
+      doNotTrack: Option.fromUndefinedOr(process.env["DO_NOT_TRACK"]),
+      telemetry: Option.fromUndefinedOr(process.env["AXM_TELEMETRY"]),
+      verbose: Option.fromUndefinedOr(process.env["AXM_VERBOSE"]),
+      debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
+    };
+  });
 
 const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig => ({
   mode: resolveTelemetryMode({
@@ -298,9 +308,9 @@ const envToBool = (opt: Option.Option<string>): boolean =>
     onSome: (v) => v === "1" || v === "true",
   });
 
-const resolveRuntimeConfig = () =>
+const resolveRuntimeConfig = (executionDirectory: string) =>
   Effect.gen(function* () {
-    const envConfig = yield* readRuntimeEnvConfig;
+    const envConfig = yield* readRuntimeEnvConfig(executionDirectory);
 
     return {
       envConfig,
@@ -318,8 +328,8 @@ export const withWorkspace =
   (options: WorkspaceScope | CliWorkspaceOptions) =>
   <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
     Effect.gen(function* () {
-      const envConfig = yield* readRuntimeEnvConfig;
       const executionDirectory = yield* ExecutionDirectory;
+      const envConfig = yield* readRuntimeEnvConfig(executionDirectory.path);
       const configured = typeof options === "string" ? { scope: options } : options;
       const resolved = {
         ...configured,
@@ -398,7 +408,7 @@ export const withRuntime =
       }
       yield* fs.stat(`${canonical}${path.sep}.`).pipe(Effect.mapError(directoryError));
       const executionDirectory = { path: decodeAbsolutePathSync(canonical) };
-      const config = yield* resolveRuntimeConfig();
+      const config = yield* resolveRuntimeConfig(executionDirectory.path);
       const format = yield* resolveCliFormat;
       const foundationLayer = makeFoundationLayer(format, {
         envVerbose: config.envVerbose,

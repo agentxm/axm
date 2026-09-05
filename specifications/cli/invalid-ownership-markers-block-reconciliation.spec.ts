@@ -15,7 +15,7 @@ import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/invalid-ownership-markers-block-reconciliation",
-  title: "Invalid ownership markers block reconciliation without altering the document",
+  title: "Invalid ownership markers prevent changes to generated documents",
   statement:
     "When a generated document carries an ownership marker AXM cannot validate, lint shall report the invalid ownership and reconciliation shall report a blocked outcome, and neither shall alter the document.",
   class: "functional",

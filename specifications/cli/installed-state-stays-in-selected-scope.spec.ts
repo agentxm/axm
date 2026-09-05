@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/installed-state-stays-in-selected-scope",
   title: "Installed extensions, coding agents, and instruction files stay in the selected scope",
   statement:
-    "Installed-extension operations, coding-agent listing and membership changes, and instruction-file inspection, enablement, and disablement shall use the selected project or user workspace and its native files for workspace results and changes, default to project scope when no workspace scope is selected, and preserve the other scope's workspace and native files.",
+    "Installed-extension operations, coding-agent listing and membership changes, and instruction-file inspection, enablement, and disablement shall use the selected project or user workspace and its native files for workspace results and changes, default to project scope when no workspace scope is selected, name only selected-scope native files in any permission guidance they emit, and preserve the other scope's workspace and native files.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -171,6 +171,17 @@ const makeConfigurationScopeFixture = async (selection: ConfigurationSelection) 
       fs.writeFileSync(path.join(native, sources[scope]), bodies[scope]);
       fs.writeFileSync(path.join(native, "untouched.txt"), `${scope} unowned native content\n`);
     }
+    const permissionPaths = {
+      project: path.join(fixture.selected, "opencode.json"),
+      user: path.join(fixture.home, ".config", "opencode", "opencode.json"),
+    };
+    for (const scope of ["project", "user"] as const) {
+      fs.mkdirSync(path.dirname(permissionPaths[scope]), { recursive: true });
+      fs.writeFileSync(
+        permissionPaths[scope],
+        `${JSON.stringify({ permission: { bash: "ask" }, description: `${scope} authored config` })}\n`,
+      );
+    }
     // Detection evidence exists only in the user scope, independently of membership.
     fs.mkdirSync(path.join(fixture.home, ".gemini"));
     const scope = selection === "default" ? "project" : selection;
@@ -198,6 +209,7 @@ const makeConfigurationScopeFixture = async (selection: ConfigurationSelection) 
       run,
       readSettings,
       expectedSettings: settings[scope],
+      permissionPaths,
       sources,
       bodies,
     };
@@ -209,6 +221,12 @@ const makeConfigurationScopeFixture = async (selection: ConfigurationSelection) 
 
 const decodeAgentScopeResult = Schema.decodeUnknownSync(
   Schema.Struct({ ok: Schema.Literal(true), result: AgentsListOutputSchema }),
+);
+const decodeScopeGuidance = Schema.decodeUnknownSync(
+  Schema.Struct({
+    ok: Schema.Literal(true),
+    suggestions: Schema.Array(Schema.Struct({ description: Schema.String })),
+  }),
 );
 const decodeInstructionScopeResult = Schema.decodeUnknownSync(
   Schema.Struct({ ok: Schema.Literal(true), result: InstructionsStatusOutputSchema }),
@@ -233,9 +251,29 @@ describe("Agent membership and instruction files stay in the selected scope", ()
         expect(snapshotWorkspaceContent(fixture.selectedNative)).toEqual(selectedBefore);
         expect(snapshotWorkspaceContent(fixture.otherNative)).toEqual(otherBefore);
 
+        const permissionFilesBefore = ["project", "user"].map((scope) =>
+          fs.readFileSync(
+            scope === "project" ? fixture.permissionPaths.project : fixture.permissionPaths.user,
+            "utf8",
+          ),
+        );
         const added = await fixture.run(["agents", "add", "opencode"]);
 
         expect(added.exitCode, added.stdout + added.stderr).toBe(0);
+        const addedEnvelope: unknown = JSON.parse(added.stdout);
+        const guidance = decodeScopeGuidance(addedEnvelope).suggestions.find((suggestion) =>
+          suggestion.description.includes("OpenCode"),
+        );
+        expect(guidance).toBeDefined();
+        // Observe the native config path without fixing the prose or Markdown layout.
+        const namedPaths = guidance?.description.match(/(?:~\/)?[A-Za-z0-9_./-]+\.json\b/gu) ?? [];
+        expect(namedPaths).toEqual([
+          fixture.scope === "project" ? "opencode.json" : "~/.config/opencode/opencode.json",
+        ]);
+        expect([
+          fs.readFileSync(fixture.permissionPaths.project, "utf8"),
+          fs.readFileSync(fixture.permissionPaths.user, "utf8"),
+        ]).toEqual(permissionFilesBefore);
         expect(fixture.readSettings()).toEqual({
           ...fixture.expectedSettings,
           agents: [...fixture.expectedSettings.agents, "opencode"],

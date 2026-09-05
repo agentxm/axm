@@ -18,7 +18,7 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/sync/preview-is-pure",
-  title: "Sync preview describes the reconciliation without changing any state",
+  title: "Sync preview describes required changes without applying them",
   statement:
     "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.",
   class: "functional",

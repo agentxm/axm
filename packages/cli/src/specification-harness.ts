@@ -61,10 +61,16 @@ export { handleLogin, LoginNoOpDocumentSchema } from "./root/auth/login.js";
 // The credential store port and the session shape the login specifications
 // observe; specs may not import the auth root directly.
 export {
+  AuthClient,
   CredentialStore,
   type MeResponse,
   type CreatePublishAuthorizationRequestParams,
 } from "@agentxm/registry-auth";
+export {
+  AuthClientLive,
+  CredentialStoreLive,
+  PendingDeviceLoginStoreLive,
+} from "@agentxm/registry-auth/live";
 export { handleEnableHook } from "./root/hooks/enable.js";
 export { handleDisableHook } from "./root/hooks/disable.js";
 export { handleHooksNew } from "./root/hooks/new.js";
@@ -208,8 +214,8 @@ export {
   Script,
   type InstallMethodType,
 } from "./install-method/install-method.js";
-export { InstallMeta, type InstallMetaData } from "./install-meta/install-meta.js";
-export { UpdateCheck } from "./update-check/update-check.js";
+export { InstallMeta, InstallMetaLive, type InstallMetaData } from "./install-meta/install-meta.js";
+export { UpdateCheck, UpdateCheckLive } from "./update-check/update-check.js";
 // Integration ports the setup harness composes; specs may not import the
 // integration roots directly, so the harness re-exports the needed surface.
 export { AgentExecutableResolver } from "@agentxm/agent-integration";
@@ -371,3 +377,7 @@ export {
 export { AgentsListOutputSchema } from "./root/agents/list.js";
 export { Unknown } from "./install-method/install-method.js";
 export { mcpRegistryResolutionKey } from "@agentxm/workspace-state";
+
+// Production environment and startup boundaries for environment specifications.
+export { runtimeBaseLayer, resolveBuiltInSources } from "./runtime.js";
+export { withUpdateCheck } from "./update-check-startup.js";

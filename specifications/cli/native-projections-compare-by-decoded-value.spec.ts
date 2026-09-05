@@ -13,7 +13,7 @@ import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/native-projections-compare-by-decoded-value",
-  title: "Structured native projections are compared by decoded value",
+  title: "Structured native configuration changes follow values rather than formatting",
   statement:
     "When a structured native projection is re-serialized with an equivalent decoded value, reconciliation shall report it current and preserve the file, and when its decoded value diverges from the desired configuration, reconciliation shall report the divergence in preview and restore the desired value on apply.",
   class: "functional",

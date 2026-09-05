@@ -15,7 +15,7 @@ import { handleCreateToken } from "axm.sh/specification-harness";
 
 export const specification = defineSpecification({
   requirement: "cli/token/create/submits-requested-authority",
-  title: "Token creation requests the selected authority",
+  title: "Token creation requests the chosen lifetime and permissions",
   statement:
     "When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions using the effective credential and report the issued token without replacing the current session.",
   class: "functional",

@@ -16,29 +16,23 @@ const toCatalogAgentId = (id: string): Option.Option<AgentId> => decodeAgentIdOp
 
 const withoutHomePrefix = (path: string): string => (path.startsWith("~/") ? path.slice(2) : path);
 
-const matchingProjectConfig = (
-  shellTarget: string | undefined,
-  configFiles: ReadonlyArray<ConfigFileLocation>,
-): ConfigFileLocation | undefined => {
-  if (shellTarget === undefined) return undefined;
-
-  const normalizedTarget = withoutHomePrefix(shellTarget);
-  return configFiles.find(
-    (configFile) => configFile.scope === "project" && configFile.path === normalizedTarget,
-  );
-};
-
 const preferredTarget = (
   permissions: PermissionsExtensionCapability,
+  scope: ConfigFileLocation["scope"],
 ): ConfigFileLocation | undefined => {
-  const configFiles = "configFiles" in permissions.native ? permissions.native.configFiles : [];
+  const configFiles = (
+    "configFiles" in permissions.native ? permissions.native.configFiles : []
+  ).filter((configFile) => configFile.scope === scope);
   const shellTarget = permissions.axm.writer?.grants["shell"]?.target;
 
   return (
-    matchingProjectConfig(shellTarget, configFiles) ??
     configFiles.find((configFile) => configFile.path === shellTarget) ??
-    configFiles.find((configFile) => configFile.scope === "project") ??
-    configFiles.find((configFile) => configFile.scope === "user")
+    (shellTarget === undefined
+      ? undefined
+      : configFiles.find(
+          (configFile) => withoutHomePrefix(configFile.path) === withoutHomePrefix(shellTarget),
+        )) ??
+    configFiles[0]
   );
 };
 
@@ -60,6 +54,7 @@ const descriptionExample = (example: string | undefined): string | undefined =>
  */
 export const buildPermissionSuggestions = (
   agentIds: ReadonlyArray<string>,
+  scope: ConfigFileLocation["scope"],
 ): ReadonlyArray<SuggestedAction> =>
   agentIds.flatMap((id) =>
     Option.match(toCatalogAgentId(id), {
@@ -74,7 +69,7 @@ export const buildPermissionSuggestions = (
           return [];
         }
 
-        const target = preferredTarget(permissions);
+        const target = preferredTarget(permissions, scope);
         const example =
           "grammar" in permissions.native ? permissions.native.grammar?.example : undefined;
         const inlineExample = descriptionExample(example);

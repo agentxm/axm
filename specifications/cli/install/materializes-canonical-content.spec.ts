@@ -15,7 +15,7 @@ import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/materializes-canonical-content",
-  title: "Install materializes the extension's canonical content inside the workspace",
+  title: "Installing an extension places its source content in the workspace",
   statement:
     "When a person installs an acquirable extension, the install command shall materialize the extension's canonical content inside the workspace's managed extension tree.",
   class: "functional",

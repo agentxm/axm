@@ -15,7 +15,7 @@ import { writeAuthoredSkill } from "../../support/publish-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/demote/preview-is-pure",
-  title: "Demote preview describes the authority transition without consuming approval",
+  title: "Demote preview describes replacement without requiring approval",
   statement:
     "When demote runs in preview mode, it shall report the replacement it would apply with a previewed outcome that is identical with or without advance approval, shall not change settings, the lockfile, authored content, or agent projections, and an unattended apply without advance approval shall stop before changing anything and name the approval it needs.",
   class: "functional",

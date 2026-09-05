@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -9,6 +10,7 @@ import {
   handleInstructionsEnable,
   handleInstructionsDisable,
   handleInstructionsStatus,
+  InstructionsStatusOutputSchema,
 } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
@@ -148,5 +150,93 @@ describe("Instruction-file status", () => {
       });
       expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
     }),
+  );
+  it.effect("reports a missing selected source without creating the source or its alias", () =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace({
+        machine: true,
+        settings: {
+          agents: ["claude-code"],
+          instructionFiles: { fileName: "TEAM.md", gitignoreAliases: false },
+        },
+      });
+      cleanups.push(workspace.cleanup);
+      fs.writeFileSync(path.join(workspace.root, "unrelated.txt"), "Authored unrelated bytes.\n");
+      const before = snapshotWorkspaceContent(workspace.root);
+
+      yield* handleInstructionsStatus().pipe(Effect.provide(workspace.layer));
+
+      const report = yield* Schema.decodeUnknownEffect(InstructionsStatusOutputSchema)(
+        workspace.rendererState.results.at(-1)?.data,
+      );
+      expect(report.enabled).toBe(true);
+      expect(report.sourceFileName).toBe("TEAM.md");
+      expect(report.missingSources).toEqual([path.join(workspace.root, "TEAM.md")]);
+      expect(report.items).toEqual([
+        expect.objectContaining({
+          agentId: "claude-code",
+          sourceFile: path.join(workspace.root, "TEAM.md"),
+          targetFile: path.join(workspace.root, "CLAUDE.md"),
+          health: "missing-source",
+          ownership: "absent",
+          observedForm: "none",
+        }),
+      ]);
+      expect(report.staleTargets).toEqual([]);
+      expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+    }),
+  );
+
+  it.effect(
+    "distinguishes supported instruction sources from native rules directories it does not write",
+    () =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace({
+          machine: true,
+          settings: {
+            agents: ["cursor", "roo", "codex"],
+            instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+          },
+        });
+        cleanups.push(workspace.cleanup);
+        fs.writeFileSync(path.join(workspace.root, "AGENTS.md"), "Shared authored instructions.\n");
+        const before = snapshotWorkspaceContent(workspace.root);
+
+        yield* handleInstructionsStatus().pipe(Effect.provide(workspace.layer));
+
+        const report = yield* Schema.decodeUnknownEffect(InstructionsStatusOutputSchema)(
+          workspace.rendererState.results.at(-1)?.data,
+        );
+        expect(report.missingSources).toEqual([]);
+        expect(report.items.map((item) => item.agentId).sort()).toEqual(["codex", "cursor", "roo"]);
+        expect(report.items.find((item) => item.agentId === "roo")).toMatchObject({
+          mechanism: "adapter",
+          health: "unsupported",
+          ownership: "absent",
+          observedForm: "none",
+        });
+        expect(report.items.find((item) => item.agentId === "roo")?.details).toContain(
+          ".roo/rules",
+        );
+        expect(report.items.find((item) => item.agentId === "cursor")).toMatchObject({
+          sourceFile: path.join(workspace.root, "AGENTS.md"),
+          targetFile: path.join(workspace.root, "AGENTS.md"),
+          mechanism: "native",
+          health: "ok",
+        });
+        expect(report.items.find((item) => item.agentId === "cursor")?.details).toContain(
+          ".cursor/rules",
+        );
+        expect(report.items.find((item) => item.agentId === "cursor")?.details).toMatch(
+          /not (?:yet )?synced by AXM/u,
+        );
+        expect(report.items.find((item) => item.agentId === "codex")).toMatchObject({
+          mechanism: "native",
+          health: "ok",
+        });
+        expect(workspace.exists(".roo")).toBe(false);
+        expect(workspace.exists(".cursor")).toBe(false);
+        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+      }),
   );
 });

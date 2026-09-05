@@ -14,7 +14,7 @@ import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/managed-projection-guidance-respects-authority",
-  title: "Managed projections name editable sources only when the workspace owns them",
+  title: "Managed output points to an editable source or to the fork command",
   statement:
     "A managed projection shall direct edits to its source only when the workspace authors that extension, and for an acquired extension shall mark the canonical content immutable and point to axm fork instead.",
   class: "functional",

@@ -26,9 +26,9 @@ import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/machine-mode-never-prompts",
-  title: "Machine output mode terminates deterministically instead of prompting",
+  title: "Machine output reports missing input or approval without prompting",
   statement:
-    "When machine output mode is on, a command that needs interactive input or interactive approval shall terminate with a usage failure naming what it needs, shall raise no prompt even from an interactive terminal, and shall change no workspace state, while the same request with machine output off shall prompt and honor the answer.",
+    "When machine output mode is on, a command that cannot proceed without interactive input or approval shall stop without prompting, identify what it needs, and change no workspace state even from an interactive terminal, while with machine output off and an interactive prompt available the same request shall prompt and honor the answer.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation"],

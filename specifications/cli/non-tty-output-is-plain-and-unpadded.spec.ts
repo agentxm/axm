@@ -27,7 +27,9 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [],
+  openQuestions: [
+    "When a stream is a capable terminal, should CI prohibit styling even when FORCE_COLOR explicitly requests it? Earlier environment help described unconditional plain CI output, while the resolver permits that terminal override; this requirement governs pipes and does not decide terminal precedence.",
+  ],
 });
 
 const COLUMNS = 60;

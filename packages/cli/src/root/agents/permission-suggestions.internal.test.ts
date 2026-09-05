@@ -8,10 +8,9 @@ const decodeSuggestion = Schema.decodeUnknownSync(SuggestedActionSchema);
 
 describe("buildPermissionSuggestions", () => {
   it("returns one suggestion per agent with a permissions capability", () => {
-    expect(buildPermissionSuggestions(AGENT_IDS)).toEqual([
+    expect(buildPermissionSuggestions(AGENT_IDS, "project")).toEqual([
       {
-        description:
-          "Allow AXM in Antigravity by adding `command(axm)` to `~/.gemini/antigravity-cli/settings.json`",
+        description: "Configure Antigravity to allow AXM without per-call prompts",
         url: "https://antigravity.google/docs/cli-permissions",
       },
       {
@@ -27,12 +26,11 @@ describe("buildPermissionSuggestions", () => {
         url: "https://www.codebuddy.ai/docs/cli/settings",
       },
       {
-        description:
-          'Allow AXM in Codex by adding `[permissions.agentxm.filesystem.":workspace_roots"] "." = "write"` to `~/.codex/axm.config.toml`',
+        description: "Configure Codex to allow AXM without per-call prompts",
         url: "https://learn.chatgpt.com/docs/config-file/config-reference",
       },
       {
-        description: "Allow AXM in Cursor by adding `axm` to `~/.cursor/permissions.json`",
+        description: "Allow AXM in Cursor by adding `axm` to `.cursor/sandbox.json`",
         url: "https://cursor.com/docs/cli/reference/permissions.md",
       },
       {
@@ -70,15 +68,14 @@ describe("buildPermissionSuggestions", () => {
         url: "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/",
       },
       {
-        description:
-          "Allow AXM in Devin Desktop (Windsurf) by adding `axm` to `VS Code settings (Settings UI)`",
+        description: "Configure Devin Desktop (Windsurf) to allow AXM without per-call prompts",
         url: "https://docs.devin.ai/desktop/terminal",
       },
     ]);
   });
 
   it("includes agents with supported permission-rule metadata", () => {
-    expect(buildPermissionSuggestions(["opencode"])).toEqual([
+    expect(buildPermissionSuggestions(["opencode"], "project")).toEqual([
       {
         description: "Allow AXM in OpenCode by adding a permission rule to `opencode.json`",
         url: "https://opencode.ai/docs/permissions/",
@@ -87,26 +84,43 @@ describe("buildPermissionSuggestions", () => {
   });
 
   it("omits agents whose permissions capability is unsupported", () => {
-    expect(buildPermissionSuggestions(["pi"])).toEqual([]);
+    expect(buildPermissionSuggestions(["pi"], "project")).toEqual([]);
   });
 
-  it("prefers project scope over user scope when both are defined", () => {
-    expect(buildPermissionSuggestions(["claude-code"])[0]).toEqual({
+  it("uses the selected project permission target when both scopes are modeled", () => {
+    expect(buildPermissionSuggestions(["claude-code"], "project")[0]).toEqual({
       description: "Allow AXM in Claude Code by adding `Bash(axm:*)` to `.claude/settings.json`",
       url: "https://code.claude.com/docs/en/permissions",
     });
   });
 
-  it("falls back to user scope when project scope is absent", () => {
-    expect(buildPermissionSuggestions(["windsurf"])[0]).toEqual({
+  it("uses user-only permission guidance when user scope is selected", () => {
+    expect(buildPermissionSuggestions(["windsurf"], "user")[0]).toEqual({
       description:
         "Allow AXM in Devin Desktop (Windsurf) by adding `axm` to `VS Code settings (Settings UI)`",
       url: "https://docs.devin.ai/desktop/terminal",
     });
   });
 
+  it("selects the user-native target without applying the project writer target", () => {
+    expect(buildPermissionSuggestions(["opencode"], "user")).toEqual([
+      {
+        description:
+          "Allow AXM in OpenCode by adding a permission rule to `~/.config/opencode/opencode.json`",
+        url: "https://opencode.ai/docs/permissions/",
+      },
+    ]);
+  });
+
+  it("keeps guidance without naming a different scope's config file", () => {
+    const suggestions = buildPermissionSuggestions(["codex"], "project");
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.description).not.toContain("~/.codex/");
+    expect(suggestions[0]?.url).toBe("https://learn.chatgpt.com/docs/config-file/config-reference");
+  });
+
   it("uses Devin's catalog permission writer dialect", () => {
-    expect(buildPermissionSuggestions(["devin"])).toEqual([
+    expect(buildPermissionSuggestions(["devin"], "project")).toEqual([
       {
         description: "Allow AXM in Devin CLI by adding `Exec(axm)` to `.devin/config.json`",
         url: "https://docs.devin.ai/cli/reference/permissions",
@@ -115,8 +129,10 @@ describe("buildPermissionSuggestions", () => {
   });
 
   it("produces descriptions that pass SuggestedAction validation", () => {
-    for (const suggestion of buildPermissionSuggestions(AGENT_IDS)) {
-      expect(decodeSuggestion(suggestion)).toEqual(suggestion);
+    for (const scope of ["project", "user"] as const) {
+      for (const suggestion of buildPermissionSuggestions(AGENT_IDS, scope)) {
+        expect(decodeSuggestion(suggestion)).toEqual(suggestion);
+      }
     }
   });
 });

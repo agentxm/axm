@@ -1,0 +1,31 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "0.2.1",
+  "description": "Consistent, evidence-aware Operational Incident Records, Defect Reports, and Changes across repositories and trackers",
+  "keywords": [
+    "work-management",
+    "software-work-items",
+    "defect-report",
+    "bug-report",
+    "change",
+    "bugfix",
+    "operational-incident",
+    "triage",
+    "templates",
+    "tracker-neutral"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "packs/work-management"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "type": "pack",
+  "name": "work-management",
+  "dependencies": {
+    "@craigsmitham/knowledge/work-management": ">=0.1.0",
+    "@craigsmitham/skills/manage-work-items": ">=0.1.1"
+  }
+}

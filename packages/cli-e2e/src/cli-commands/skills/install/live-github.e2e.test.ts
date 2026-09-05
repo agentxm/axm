@@ -57,7 +57,13 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
   it("installs quality.md into a temporary workspace and materializes configured agents", async () => {
     const temp = createTempDir("axm-quality-md-live-");
     try {
-      const setupArgs = ["setup", "--yes", ...AGENTS.flatMap((agent) => ["--agent", agent])];
+      const setupArgs = [
+        "setup",
+        "--yes",
+        "--scope",
+        "project",
+        ...AGENTS.flatMap((agent) => ["--agent", agent]),
+      ];
       const setupResult = await runCli(setupArgs, {
         cwd: temp.path,
         timeout: 60000,
@@ -81,11 +87,10 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
 
       const canonicalSkillDir = path.join(
         temp.path,
-        ".axm",
-        "extensions",
-        "external",
-        "skills",
-        "quality",
+        "agent_extensions",
+        "github",
+        "qualitymd",
+        "quality.md",
       );
       expect(fs.existsSync(path.join(canonicalSkillDir, "SKILL.md"))).toBe(true);
 
@@ -94,12 +99,12 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
       assertSymlink(temp.path, ".cursor/skills/quality");
       assertSymlink(temp.path, ".github/skills/quality");
 
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const settings = expectRecord(JSON.parse(fs.readFileSync(settingsPath, "utf8")), "settings");
       const settingsSkills = expectRecord(settings["skills"], "settings.skills");
       expect(settingsSkills["quality"]).toBe("github:qualitymd/quality.md");
 
-      const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lockPath = path.join(temp.path, "axm-lock.yaml");
       const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")), "lockfile");
       const lockSkills = expectRecord(lock["skills"], "lockfile.skills");
       const lockEntry = expectRecord(lockSkills["quality"], "lockfile.skills.quality");
@@ -107,7 +112,32 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
       expect(lockEntry["owner"]).toBe("qualitymd");
       expect(lockEntry["repo"]).toBe("quality.md");
       expect(lockEntry["gitTreeHash"]).toMatch(/^[0-9a-f]{40}$/);
-      expect(lockEntry["agents"]).toEqual(expect.arrayContaining(["universal", ...AGENTS]));
+
+      const secondInstall = await runCli(
+        ["skills", "install", QUALITY_MD_SOURCE, "--yes", "--json"],
+        {
+          cwd: temp.path,
+          timeout: 120000,
+        },
+      );
+      expect(secondInstall.exitCode, getOutput(secondInstall)).toBe(0);
+      const settingsAfterSecondInstall = expectRecord(
+        JSON.parse(fs.readFileSync(settingsPath, "utf8")),
+        "settings",
+      );
+      expect(expectRecord(settingsAfterSecondInstall["skills"], "settings.skills")["quality"]).toBe(
+        "github:qualitymd/quality.md",
+      );
+
+      const claudeProjection = path.join(temp.path, ".claude", "skills", "quality");
+      fs.rmSync(claudeProjection, { recursive: true, force: true });
+      expect(fs.existsSync(claudeProjection)).toBe(false);
+      const syncResult = await runCli(["sync", "--json"], {
+        cwd: temp.path,
+        timeout: 120000,
+      });
+      expect(syncResult.exitCode, getOutput(syncResult)).toBe(0);
+      assertSymlink(temp.path, ".claude/skills/quality");
 
       const listResult = await runCli(["skills", "list"], {
         cwd: temp.path,

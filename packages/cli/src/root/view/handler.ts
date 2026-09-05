@@ -1,23 +1,31 @@
 import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { DateTimeUtcSchema } from "@agentxm/client-core/unstable/date-time";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import { RegistryUrl } from "@agentxm/registry-client";
+import { makeAppError } from "../../app-error/index.js";
+import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
+import { Screen, rawDoc, tableViewDoc, type TableView } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
   type ExtensionFqnParts,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   resolveIdentifier,
   type IdentifierResourceType,
   type ResolvedIdentifier,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { createRegistryClient, type ExtensionIndex } from "@agentxm/client-core/unstable/registry";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-sources";
+import { createRegistryClient } from "@agentxm/registry-client";
+import { type ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
+import {
+  DeprecationViewSchema,
+  type DeprecationView,
+} from "@agentxm/extension-model/unstable/extensions/deprecation";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { installCommandFor } from "../shared/per-type-install.js";
 
@@ -33,7 +41,16 @@ interface TargetRegistry {
   readonly registryUrl: string;
 }
 
-const supportedFields = ["version", "versions", "latest", "description", "owner", "type"] as const;
+const supportedFields = [
+  "version",
+  "versions",
+  "latest",
+  "description",
+  "owner",
+  "type",
+  "visibility",
+  "deprecation",
+] as const;
 type SupportedField = (typeof supportedFields)[number];
 
 const isSupportedField = (field: string): field is SupportedField =>
@@ -53,11 +70,18 @@ const ViewDocumentFields = {
   latest: Schema.optional(ViewVersionSchema),
   versions: Schema.Array(ViewVersionSchema),
   install: Schema.String,
+  visibility: Schema.Literals(["public", "private"] as const),
+  deprecation: Schema.NullOr(DeprecationViewSchema),
 } satisfies Schema.Struct.Fields;
 export const ViewDocumentSchema = Schema.Struct(ViewDocumentFields);
 export type ViewDocument = typeof ViewDocumentSchema.Type;
 
-export const ViewFieldValueSchema = Schema.Union([Schema.String, Schema.Array(Schema.String)]);
+export const ViewFieldValueSchema = Schema.Union([
+  Schema.String,
+  Schema.Array(Schema.String),
+  Schema.Null,
+  DeprecationViewSchema,
+]);
 export type ViewFieldValue = typeof ViewFieldValueSchema.Type;
 
 type ViewDocumentData = Schema.Struct.Type<typeof ViewDocumentFields>;
@@ -79,7 +103,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (Option.isNone(registry)) {
       const registryUrl = yield* RegistryUrl;
       return {
-        registryName: "default",
+        registryName: "agentxm",
         registryUrl,
       } satisfies TargetRegistry;
     }
@@ -140,6 +164,7 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
           input: handle,
           resourceType: type.value,
           scope: "both",
+          registrySourceName: "agentxm",
         }),
       );
       const owner = Option.getOrUndefined(resolved.owner);
@@ -181,13 +206,14 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
 const resolveBareViewHandle = (handle: string) =>
   Effect.gen(function* () {
     const attempts = yield* Effect.forEach(
-      ["skill", "command", "subagent"] as const,
+      ["skill", "subagent"] as const,
       (resourceType) =>
         Effect.scoped(
           resolveIdentifier({
             input: handle,
             resourceType,
             scope: "both",
+            registrySourceName: "agentxm",
           }),
         ).pipe(Effect.result),
       { concurrency: "unbounded" },
@@ -203,7 +229,7 @@ const resolveBareViewHandle = (handle: string) =>
 
     if (matches.length > 1) {
       return yield* makeAppError({
-        code: "internal",
+        code: "validation",
         detail: `"${handle}" matches more than one extension: ${matches.map((match) => match.fqn).join(", ")}`,
         suggestions: [{ description: "Re-run with --type or the fully-qualified name." }],
       });
@@ -220,7 +246,10 @@ const resolveBareViewHandle = (handle: string) =>
     });
   });
 
-const toDocumentData = (index: ExtensionIndex): ViewDocumentData => {
+const toDocumentData = (
+  index: ExtensionIndex,
+  visibility: "public" | "private",
+): ViewDocumentData => {
   const [latest] = index.versions;
   const handle = `${index.owner}/${extensionTypeToPlural[index.type]}/${index.name}`;
   return {
@@ -237,13 +266,12 @@ const toDocumentData = (index: ExtensionIndex): ViewDocumentData => {
       published: entry.published,
     })),
     install: installCommandFor(index.type, handle),
+    visibility,
+    deprecation: index.deprecation,
   };
 };
 
-const fieldValue = (
-  data: ViewDocumentData,
-  field: SupportedField,
-): string | ReadonlyArray<string> | undefined => {
+const fieldValue = (data: ViewDocumentData, field: SupportedField): ViewFieldValue | undefined => {
   switch (field) {
     case "version":
     case "latest":
@@ -256,15 +284,38 @@ const fieldValue = (
       return data.owner;
     case "type":
       return data.type;
+    case "visibility":
+      return data.visibility;
+    case "deprecation":
+      return data.deprecation;
   }
+};
+
+const deprecationReplacementText = (deprecation: DeprecationView): string => {
+  const replacement = deprecation.replacement;
+  if (replacement === undefined) return "-";
+  if (replacement.status === "available") return replacement.fqn;
+  return replacement.fqn === undefined
+    ? "unavailable or not visible"
+    : `${replacement.fqn} (unavailable)`;
 };
 
 const emitFieldValue = (field: SupportedField, value: ViewFieldValue) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    const emitted = yield* renderer.result(value, ViewFieldValueSchema);
+    const screen = yield* Screen;
+    const emitted = yield* screen.document(value, ViewFieldValueSchema);
     if (emitted) return;
-    yield* renderer.raw(typeof value === "string" ? `${value}\n` : `${value.join("\n")}\n`);
+    yield* screen.result(
+      rawDoc(
+        typeof value === "string"
+          ? `${value}\n`
+          : Array.isArray(value)
+            ? `${value.join("\n")}\n`
+            : value === null
+              ? "active\n"
+              : `${JSON.stringify(value, null, 2)}\n`,
+      ),
+    );
   });
 
 export const handleView = (args: ViewHandlerArgs) =>
@@ -290,7 +341,7 @@ export const handleDefaultRegistryFqnView = (args: {
       handle: args.handle,
       field: args.field,
       targetRegistry: {
-        registryName: "default",
+        registryName: "agentxm",
         registryUrl,
       },
       parts: args.parts,
@@ -304,29 +355,38 @@ const handleResolvedView = (args: {
   readonly parts: ExtensionFqnParts;
 }) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const client = yield* createRegistryClient(args.targetRegistry.registryUrl);
     const subject = `${args.handle} from ${args.targetRegistry.registryName}`;
-    const indexOption = yield* renderer.withSpinner(
-      `Loading ${subject}`,
-      () => client.getExtensionIndex(args.parts),
-      { successMessage: `Loaded ${subject}` },
+    const index = yield* withLiveOperation(
+      { command: "view", name: `View ${args.handle}`, mode: "preview" },
+      observeUnit(
+        { id: "index", label: subject },
+        client.getExtensionIndex(args.parts).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () =>
+                makeAppError({
+                  code: "not_found",
+                  detail: `Extension ${args.handle} not found on registry "${args.targetRegistry.registryName}".`,
+                  suggestions: [
+                    {
+                      description: "Sign in if this extension is private.",
+                      cmd: "axm login",
+                    },
+                  ],
+                }),
+              onSome: Effect.succeed,
+            }),
+          ),
+        ),
+      ),
     );
 
-    if (Option.isNone(indexOption)) {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: `Extension ${args.handle} not found on registry "${args.targetRegistry.registryName}".`,
-        suggestions: [
-          {
-            description: "Sign in if this extension is private.",
-            cmd: "axm login",
-          },
-        ],
-      });
-    }
-
-    const data = toDocumentData(indexOption.value);
+    // Public index responses already carry the visibility the caller is
+    // authorized to observe. Do not follow an anonymous read with the
+    // protected visibility-management endpoint.
+    const data = toDocumentData(index, index.visibility ?? "public");
 
     if (Option.isSome(args.field)) {
       const field = args.field.value;
@@ -339,7 +399,7 @@ const handleResolvedView = (args: {
       const value = fieldValue(data, field);
       if (value === undefined) {
         return yield* makeAppError({
-          code: "internal",
+          code: "validation",
           detail: `Field "${field}" is not available for ${data.handle}`,
         });
       }
@@ -347,7 +407,7 @@ const handleResolvedView = (args: {
       return;
     }
 
-    if (yield* renderer.result(data, ViewDocumentSchema)) {
+    if (yield* screen.document(data, ViewDocumentSchema)) {
       return;
     }
 
@@ -358,16 +418,36 @@ const handleResolvedView = (args: {
         ? versions.join(", ")
         : `${versions.slice(0, 5).join(", ")} (${versions.length} total)`;
 
-    yield* renderer.table(
-      [
-        { field: "Handle", value: data.handle },
-        { field: "Type", value: data.type },
-        { field: "Owner", value: data.owner },
-        { field: "Latest", value: latest },
-        { field: "Versions", value: versionSummary },
-        { field: "Description", value: data.description ?? "" },
-        { field: "Install", value: data.install },
-      ],
-      ViewTable,
+    yield* screen.result(
+      tableViewDoc(
+        [
+          { field: "Handle", value: data.handle },
+          { field: "Type", value: data.type },
+          { field: "Owner", value: data.owner },
+          { field: "Latest", value: latest },
+          { field: "Versions", value: versionSummary },
+          { field: "Description", value: data.description ?? "" },
+          { field: "Visibility", value: data.visibility },
+          {
+            field: "Lifecycle",
+            value: data.deprecation === null ? "active" : "deprecated",
+          },
+          ...(data.deprecation === null
+            ? []
+            : [
+                {
+                  field: "Deprecated at",
+                  value: DateTime.formatIso(data.deprecation.deprecatedAt),
+                },
+                { field: "Deprecation message", value: data.deprecation.message ?? "-" },
+                {
+                  field: "Replacement",
+                  value: deprecationReplacementText(data.deprecation),
+                },
+              ]),
+          { field: "Install", value: data.install },
+        ],
+        ViewTable,
+      ),
     );
   });

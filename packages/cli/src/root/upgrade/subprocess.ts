@@ -1,16 +1,19 @@
 import * as Duration from "effect/Duration";
+import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import type { ChildProcessSpawner as ChildProcessSpawnerService } from "effect/unstable/process/ChildProcessSpawner";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 
-import { type AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
-
 export interface CommandResult {
-  readonly exitCode: number;
+  readonly executionState: "not-started" | "exited" | "timed-out";
+  readonly exitCode: number | null;
   readonly stdout: string;
   readonly stderr: string;
   readonly stdoutTruncated?: boolean;
@@ -18,6 +21,7 @@ export interface CommandResult {
 }
 
 export interface RunCommandOptions {
+  readonly cwd?: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly timeoutMs?: number;
   readonly redactValues?: ReadonlyArray<string>;
@@ -28,7 +32,8 @@ export interface SubprocessService {
     command: string,
     args: ReadonlyArray<string>,
     options?: RunCommandOptions,
-  ) => Effect.Effect<CommandResult, AppError>;
+  ) => Effect.Effect<CommandResult>;
+  readonly resolveExecutable: (command: string) => Effect.Effect<string | null>;
 }
 
 export class Subprocess extends ServiceMap.Service<Subprocess, SubprocessService>()(
@@ -92,65 +97,113 @@ const collectBytes = <E>(stream: Stream.Stream<Uint8Array, E>) =>
     return new TextDecoder("utf-8").decode(bytes);
   });
 
+const unavailableResult = (
+  executionState: "not-started" | "timed-out",
+  detail: string,
+): CommandResult => ({
+  executionState,
+  exitCode: null,
+  stdout: "",
+  stderr: detail,
+});
+
 const makeRunCommand =
   (spawner: ChildProcessSpawnerService["Service"]): SubprocessService["run"] =>
   (command, args, options) => {
     const timeoutMs = options?.timeoutMs ?? defaultTimeoutMs;
 
     return Effect.gen(function* () {
-      const handle = yield* spawner.spawn(
-        ChildProcess.make(command, args, {
-          env: { ...(options?.env ?? {}) },
-          extendEnv: true,
-        }),
-      );
+      const spawned = yield* spawner
+        .spawn(
+          ChildProcess.make(command, args, {
+            cwd: options?.cwd,
+            env: { ...(options?.env ?? {}) },
+            extendEnv: true,
+          }),
+        )
+        .pipe(Effect.option);
+      if (Option.isNone(spawned)) {
+        return unavailableResult("not-started", `Failed to execute ${command}`);
+      }
 
-      const result = yield* Effect.all(
+      const completed = yield* Effect.all(
         {
-          stdout: collectBytes(handle.stdout),
-          stderr: collectBytes(handle.stderr),
-          exitCode: handle.exitCode,
+          stdout: collectBytes(spawned.value.stdout),
+          stderr: collectBytes(spawned.value.stderr),
+          exitCode: spawned.value.exitCode,
         },
         { concurrency: "unbounded" },
+      ).pipe(
+        Effect.option,
+        Effect.timeoutOrElse({
+          duration: Duration.millis(timeoutMs),
+          orElse: () => Effect.succeed(Option.none()),
+        }),
       );
+      if (Option.isNone(completed)) {
+        return unavailableResult("timed-out", `Timed out executing ${command}`);
+      }
 
-      const stdout = sanitizeExternalOutput(result.stdout, options?.redactValues ?? []);
-      const stderr = sanitizeExternalOutput(result.stderr, options?.redactValues ?? []);
+      const stdout = sanitizeExternalOutput(completed.value.stdout, options?.redactValues ?? []);
+      const stderr = sanitizeExternalOutput(completed.value.stderr, options?.redactValues ?? []);
       return {
-        exitCode: Number(result.exitCode),
+        executionState: "exited",
+        exitCode: Number(completed.value.exitCode),
         stdout: stdout.value,
         stderr: stderr.value,
         stdoutTruncated: stdout.truncated,
         stderrTruncated: stderr.truncated,
-      };
-    }).pipe(
-      Effect.scoped,
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to execute ${command}`,
-          suggestions: [{ description: "Check that the command is installed and on PATH." }],
-          cause,
-        }),
-      ),
-      Effect.timeoutOrElse({
-        duration: Duration.millis(timeoutMs),
-        orElse: () =>
-          Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: `Timed out executing ${command}`,
-              suggestions: [{ description: "Check the package manager state and try again." }],
-            }),
-          ),
-      }),
-    );
+      } satisfies CommandResult;
+    }).pipe(Effect.scoped);
   };
+
+const makeResolveExecutable =
+  (fs: FileSystem.FileSystem, pathService: Path.Path): SubprocessService["resolveExecutable"] =>
+  (command) =>
+    Effect.gen(function* () {
+      // Both strings have defaults and no decoder constraints. Config errors
+      // here can only indicate a broken provider invariant.
+      // eslint-disable-next-line no-restricted-syntax -- Defaulted string decoding is total, so failure means the Config provider violated its contract.
+      const pathValue = yield* Config.string("PATH").pipe(Config.withDefault(""), Effect.orDie);
+      const extensions =
+        process.platform === "win32"
+          ? yield* Config.string("PATHEXT").pipe(
+              Config.withDefault(".COM;.EXE;.BAT;.CMD"),
+              Config.map((value) => value.split(";")),
+              // eslint-disable-next-line no-restricted-syntax -- Defaulted string decoding is total, so failure means the Config provider violated its contract.
+              Effect.orDie,
+            )
+          : [""];
+      const candidates = pathService.isAbsolute(command)
+        ? [command]
+        : pathValue
+            .split(process.platform === "win32" ? ";" : ":")
+            .filter((entry) => entry.length > 0)
+            .flatMap((entry) =>
+              extensions.map((extension) => pathService.join(entry, `${command}${extension}`)),
+            );
+      for (const candidate of candidates) {
+        const info = yield* fs.stat(candidate).pipe(Effect.option);
+        if (
+          Option.isSome(info) &&
+          info.value.type === "File" &&
+          (process.platform === "win32" || (info.value.mode & 0o111) !== 0)
+        ) {
+          return candidate;
+        }
+      }
+      return null;
+    });
 
 export const SubprocessLive = Layer.effect(
   Subprocess,
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    return { run: makeRunCommand(spawner) };
+    const fs = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    return {
+      run: makeRunCommand(spawner),
+      resolveExecutable: makeResolveExecutable(fs, pathService),
+    };
   }),
 );

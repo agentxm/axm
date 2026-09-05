@@ -7,6 +7,13 @@
     "ignoreDeprecations": "6.0",
     "rootDir": "."
   },
-  "include": ["src/**/*.test.ts", "scripts/**/*.ts", "vitest.config.ts"],
-  "references": [{ "path": "./tsconfig.lib.json" }]
+  "include": ["src/**/*.internal.test.ts", "scripts/**/*.ts", "vitest.config.ts"],
+  "references": [
+    {
+      "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "../../tsconfig.json"
+    }
+  ]
 }

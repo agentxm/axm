@@ -9,7 +9,7 @@ import {
   extensionTypePluralSegments,
   extensionTypeToPlural,
   type ExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 
 /** Plural type segments whose command group exposes an `install` subcommand. */
 export const perTypeInstallPluralSegments: ReadonlyArray<string> = extensionTypePluralSegments;

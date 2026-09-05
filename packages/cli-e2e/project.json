@@ -8,48 +8,57 @@
   "targets": {
     "e2e-main": {
       "cache": true,
+      "parallelism": false,
       "dependsOn": ["cli:build"],
-      "inputs": ["default", "^production"],
+      "inputs": ["...", "^production", "hostPlatform"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e"]
+    },
+    "e2e-windows": {
+      "cache": true,
+      "dependsOn": ["cli:build"],
+      "inputs": ["default", "^production", "hostPlatform"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e-windows"],
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm exec vitest run",
+        "command": "pnpm exec vitest run --config vitest.windows.config.ts",
         "cwd": "packages/cli-e2e"
       }
     },
     "e2e": {
       "cache": false,
-      "dependsOn": ["cli:compile"],
-      "executor": "nx:run-commands",
-      "options": {
-        "cwd": "packages/cli-e2e",
-        "parallel": false,
-        "commands": [
-          "pnpm exec vitest run",
-          "pnpm exec vitest run --config vitest.binary.config.ts",
-          "pnpm exec vitest run --config vitest.install.config.ts"
-        ]
-      }
+      "dependsOn": ["e2e-main", "binary-smoke", "install-suite"],
+      "executor": "nx:noop"
     },
     "binary-smoke": {
       "cache": true,
+      "parallelism": false,
       "dependsOn": ["cli:compile"],
-      "inputs": ["default", "^production"],
+      "inputs": ["default", "^production", "hostPlatform"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e-binary"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",
-        "cwd": "packages/cli-e2e"
+        "cwd": "packages/cli-e2e",
+        "env": {
+          "AXM_BINARY_SOURCE": "compiled"
+        }
       }
     },
     "binary-smoke-artifact": {
-      "dependsOn": ["utils:build"],
       "executor": "nx:run-commands",
+      "cache": false,
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",
-        "cwd": "packages/cli-e2e"
+        "cwd": "packages/cli-e2e",
+        "env": {
+          "AXM_BINARY_SOURCE": "artifact"
+        }
       }
     },
     "install-suite": {
-      "dependsOn": ["utils:build", "cli:compile-host"],
+      "cache": false,
+      "parallelism": false,
+      "dependsOn": ["cli:compile-host"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.install.config.ts",
@@ -57,12 +66,9 @@
       }
     },
     "install-verification": {
-      "dependsOn": ["utils:build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "scripts/run-install-verification.ts"],
-        "cwd": "packages/cli-e2e"
-      }
+      "cache": false,
+      "dependsOn": ["install-suite"],
+      "executor": "nx:noop"
     }
   }
 }

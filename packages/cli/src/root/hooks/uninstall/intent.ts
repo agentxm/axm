@@ -1,4 +1,4 @@
-import type { HookExtensionTarget } from "@agentxm/client-core/unstable/workspace";
+import type { HookExtensionTarget } from "@agentxm/workspace-state";
 
 export interface UninstallHookCommandIntent {
   readonly targets: ReadonlyArray<HookExtensionTarget>;

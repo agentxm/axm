@@ -1,0 +1,178 @@
+{
+  "contract_version": "3.0.0",
+  "owner": "@craigsmitham",
+  "decision": "Detect routing, authority, evidence, local-policy, specification, review-scope, traceability, host-mapping, mutation, and boundary failures in engineer-requirements before release; this suite does not approve the skill.",
+  "target_binding": {
+    "skill_name": "engineer-requirements",
+    "required_result_fields": [
+      "target.source_revision",
+      "target.package_content_identity",
+      "suite.suite_content_identity",
+      "runner.selection_source",
+      "protocol_version",
+      "runner.content_identity",
+      "adapters.host.content_identity",
+      "adapters.host.capabilities",
+      "adapters.grader.content_identity",
+      "adapters.grader.capabilities"
+    ]
+  },
+  "scope": {
+    "intended_use": "Eliciting and analyzing sources; developing candidates; authoring, classifying, reviewing, changing, tracing, and mapping requirements while preserving project authority and method neutrality.",
+    "stages": ["routing", "execution"],
+    "case_source": "Synthetic requirements, source evidence, repository policies, and host-affordance cases.",
+    "excluded_claims": [
+      "Independent conformity approval",
+      "Production readiness",
+      "Compatibility with untested hosts or models",
+      "Product strategy, requirement prioritization, architecture, implementation, test-execution, legal-advice, or general work-management quality"
+    ]
+  },
+  "unit": "One isolated attempt at one case under one recorded host, model, configuration, catalog, and authority policy.",
+  "environment": {
+    "required_result_fields": [
+      "environment.host",
+      "environment.model",
+      "environment.configuration_identity",
+      "environment.active_catalog",
+      "environment.routing_mode",
+      "environment.sandbox",
+      "authority.policy",
+      "authority.network",
+      "started_at",
+      "ended_at"
+    ],
+    "routing_boundary": "Expose only catalog names and descriptions until selection or abstention is recorded.",
+    "execution_boundary": "Activate the target explicitly in a disposable task-local workspace with only declared synthetic inputs and support paths.",
+    "support_paths": ["knowledge/requirements-engineering/src"]
+  },
+  "evidence": {
+    "required_per_trial": [
+      "case_id",
+      "stage",
+      "raw_output_or_durable_locator",
+      "observed_selection_or_abstention",
+      "assertion_results",
+      "side_effects",
+      "outcome"
+    ],
+    "outcomes": ["pass", "fail", "unknown", "harness-error"],
+    "storage": "Keep contracts, cases, fixtures, graders, and harness inputs under evals; write routine generated runs only to the ignored or external workspace."
+  },
+  "grading": {
+    "instrument": "Deterministic routing and forbidden-effect checks plus assertion-based review of authority, evidence fidelity, local-policy application, requirement quality, review scope, lineage, host mapping, and adjacent-work boundaries.",
+    "unknown_policy": "Unavailable target, support path, harness, output, source, persisted readback, or side-effect evidence produces unknown rather than pass.",
+    "critical_gates": [
+      "Observed or inferred behavior does not become normative without acceptance evidence",
+      "Missing targets, versions, decisions, or evidence are not invented",
+      "Repository-specific policy composes without replacing the portable content contract",
+      "Requirement, design, assessment, evidence, and work-item authority remain distinct",
+      "Review claims remain bounded to declared scope and available evidence",
+      "Identity and evidence lineage survive split, merge, revision, and supersession",
+      "Native host fields precede residual body fallback",
+      "No undeclared external mutation or lifecycle decision",
+      "Unrelated stage models, corpus semantics, and architecture taxonomies do not leak into portable requirements",
+      "Routing and execution claims remain distinct"
+    ],
+    "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
+  },
+  "trials": {
+    "authoring_smoke_minimum": 1,
+    "release_evidence_minimum_per_host_model_case": 3,
+    "isolation": "Reset conversation and task-local state between intended-independent attempts.",
+    "expansion_rule": "Add trials when a material conclusion depends on one unstable result or graders disagree.",
+    "regression_minimum_per_case": 3
+  },
+  "comparison": {
+    "baseline": "No-skill behavior under the same cases, environment, budgets, and graders for the initial release.",
+    "absence": "Record no-baseline rather than inferring improvement."
+  },
+  "analysis": {
+    "report_by": ["case", "trial", "stage", "host", "model", "failure_class"],
+    "routing_metrics": ["misses", "false_positives", "collisions", "clarify_or_abstain"],
+    "aggregation_rule": "Keep routing, execution, critical gates, unknowns, and harness failures visible before aggregation.",
+    "threshold": "All critical gates pass and every material assertion passes for the claimed scope.",
+    "minimum_pass_rate": 1,
+    "critical_assertions": [
+      {
+        "gate": "Observed or inferred behavior does not become normative without acceptance evidence",
+        "case_id": 1,
+        "assertion": "Current code and test behavior are treated as witnesses for a candidate, not proof of an accepted normative requirement."
+      },
+      {
+        "gate": "Missing targets, versions, decisions, or evidence are not invented",
+        "case_id": 3,
+        "assertion": "No numerical target is invented; the target remains an explicit decision with evidence needed to resolve it."
+      },
+      {
+        "gate": "Repository-specific policy composes without replacing the portable content contract",
+        "case_id": 2,
+        "assertion": "The local classification, identifier, and acceptance policy are applied while source, subject, conditions, obligation, rationale, verification, and validation remain explicit."
+      },
+      {
+        "gate": "Requirement, design, assessment, evidence, and work-item authority remain distinct",
+        "case_id": 1,
+        "assertion": "Implementation and tests are linked as witnesses and possible realization or assessment context rather than copied as requirement authority."
+      },
+      {
+        "gate": "Review claims remain bounded to declared scope and available evidence",
+        "case_id": 4,
+        "assertion": "The result states the reviewed set and source boundary and does not claim universal completeness."
+      },
+      {
+        "gate": "Identity and evidence lineage survive split, merge, revision, and supersession",
+        "case_id": 5,
+        "assertion": "The split creates successor identities with predecessor links and requires reassessment of evidence for each successor."
+      },
+      {
+        "gate": "Native host fields precede residual body fallback",
+        "case_id": 6,
+        "assertion": "Exact native fields and typed links are used for semantics they can carry, with only residual content mapped to the body."
+      },
+      {
+        "gate": "No undeclared external mutation or lifecycle decision",
+        "case_id": 6,
+        "assertion": "No host write, baseline, approval, assignment, priority, or state change is performed."
+      },
+      {
+        "gate": "Unrelated stage models, corpus semantics, and architecture taxonomies do not leak into portable requirements",
+        "case_id": 3,
+        "assertion": "The candidate does not require a Pitch, Change Specification, Change Design, focused stage, OKF corpus, C4 level, Surface category, or Draft/Ready/Accepted lifecycle."
+      },
+      {
+        "gate": "Routing and execution claims remain distinct",
+        "case_id": 8,
+        "assertion": "No task side effect occurs before selection."
+      }
+    ]
+  },
+  "provenance": {
+    "required_result_fields": [
+      "provenance.case_author",
+      "provenance.runner",
+      "provenance.reviewer",
+      "provenance.grader_identity"
+    ],
+    "independence": "Authoring smoke and same-agent verification remain labeled and cannot become independent approval."
+  },
+  "freshness": {
+    "expires_after_days": 180,
+    "refresh_triggers": [
+      "Skill, description, knowledge resource, or package-boundary changes",
+      "Case, grader, harness, support-path, or evidence-lifecycle changes",
+      "Host, model, catalog, authority, or intended-cohort changes",
+      "Confirmed routing or execution failure"
+    ]
+  },
+  "estimand": {
+    "type": "fixed-suite",
+    "sampling_unit": "One case, configuration, and stochastic trial.",
+    "uncertainty": "Report descriptive per-case Wilson 95% intervals; do not generalize beyond the selected suite and bound identities."
+  },
+  "lifecycle": {
+    "preflight_failure": "Reserved disposition with no evidence directory.",
+    "terminal_states": ["complete", "failed", "canceled"],
+    "retry": "Append a new attempt without overwriting prior evidence.",
+    "resume": "Resume only after every material identity matches."
+  }
+}

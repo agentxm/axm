@@ -1,0 +1,25 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "1.0.0",
+  "description": "Effect v4 guidance: a rule requiring v4 conventions and a standalone knowledge bundle of concise evaluation checklists",
+  "keywords": [
+    "effect",
+    "effect-v4",
+    "typescript",
+    "functional-programming"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "packs/effect-v4"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "type": "pack",
+  "name": "effect-v4",
+  "dependencies": {
+    "@craigsmitham/knowledge/effect-v4": ">=1.0.0",
+    "@craigsmitham/rules/use-effect-v4": ">=0.1.0"
+  }
+}

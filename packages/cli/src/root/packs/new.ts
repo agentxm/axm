@@ -3,36 +3,38 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { buildNewExtensionStep } from "@agentxm/extension-workspace";
 import {
-  buildNewExtensionStep,
   computeSourceHash,
+  computePackPathsForLayout,
+  WorkspaceMutations,
+} from "@agentxm/workspace-state";
+import { type WorkspacePackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import {
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
   type ExtensionName,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
-import {
-  PACK_MANIFEST_FILENAME,
-  packManifestArtifact,
-  packManifestPath,
-} from "@agentxm/client-core/unstable/packs";
-import type { NewPackOperation, WorkspacePackRef } from "@agentxm/client-core/unstable/packs";
-import { newPack, PackManager } from "@agentxm/client-core/unstable/packs";
-import { computePackPaths } from "@agentxm/client-core/unstable/packs";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+} from "@agentxm/extension-model/unstable/extensions";
+import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { newPack, preflightCreateOnly, type NewPackOperation } from "@agentxm/extension-authoring";
+import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
+import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
+import { PackManager } from "@agentxm/extension-workspace";
 
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
@@ -41,7 +43,17 @@ export interface PacksNewHandlerArgs {
   readonly preview: boolean;
 }
 
-export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: PacksNewHandlerArgs) {
+export const handlePacksNew = (args: PacksNewHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "packs.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New pack",
+    },
+    handlePacksNewBody(args),
+  );
+
+const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNewHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -51,36 +63,21 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const owner = Option.isSome(args.owner)
     ? args.owner.value
     : yield* resolveOwnerForNewContent("pack creation");
+  yield* requireAuthoredOwner(owner);
 
   const fqn = formatFqn({ owner, type: "pack", name: args.name });
-  const manifestDisplayPath = packManifestPath(owner, args.name);
   const base = ws.baseDir;
 
   // Check if pack already exists
-  const packDir = computePackPaths(path.join, base, owner, args.name);
-  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
-
-  const exists = yield* fs.exists(manifestPath).pipe(
-    Effect.mapError((e) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to check if pack exists: ${manifestPath}`,
-        cause: e,
-      }),
-    ),
-  );
-
-  if (exists) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `Pack '${fqn}' already exists at ${packDir.canonicalPath}`,
-      suggestions: [
-        {
-          description: "Choose a different name or remove the existing pack first",
-        },
-      ],
-    });
-  }
+  const packDir = computePackPathsForLayout(path.join, ws.layout, "workspace", owner, args.name);
+  const authoredPath = path.relative(base, packDir.canonicalPath);
+  const configuredPacks = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
+  yield* preflightCreateOnly({
+    subject: "Pack",
+    name: args.name,
+    configured: Object.hasOwn(configuredPacks, args.name),
+    destinations: [packDir.canonicalPath],
+  });
 
   // Build operation
   const op = {
@@ -100,26 +97,45 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     location: packDir.canonicalPath,
     pack: { name: args.name, dependencies: {} },
   };
+  const artifact = {
+    path: authoredPath,
+    scope: ws.scope,
+    change: "created" as const,
+    version: "0.0.1",
+    fileCount: 1,
+    targets: [
+      {
+        path: path.join(authoredPath, PACK_MANIFEST_FILENAME),
+        change: "created" as const,
+      },
+      { path: workspaceSettingsPath(ws.scope), change: "created" as const },
+    ],
+  };
 
   const step = buildNewExtensionStep(manager, {
+    toStepFailure: failureToStepFailure,
     ref,
     target: { type: "pack", owner, name: args.name },
     versionRange: Option.none(),
     label: fqn,
     message: `Created pack ${fqn}`,
-    markAuthored: ws.setPackEntry(args.name, { source: `workspace:${fqn}` }),
-    buildArtifact: () =>
-      Effect.succeed(
-        packManifestArtifact({
-          owner,
-          name: args.name,
-          scope: ws.scope,
-          change: "created",
-          version: "0.0.1",
-          fileCount: 1,
-        }),
-      ),
+    preflight: Effect.gen(function* () {
+      const current = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
+      yield* preflightCreateOnly({
+        subject: "Pack",
+        name: args.name,
+        configured: Object.hasOwn(current, args.name),
+        destinations: [packDir.canonicalPath],
+      }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+    }),
+    markAuthored: ws
+      .setPackEntry(args.name, { source: "workspace", enabled: true })
+      .pipe(Effect.mapError(toAppError)),
+    plannedArtifact: artifact,
+    buildArtifact: () => Effect.succeed(artifact),
     scaffold: newPack(op).pipe(
+      provideAuthoringFailureAdapter,
+      Effect.mapError(toAppError),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -130,36 +146,25 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     _tag: "Plan",
     name: "New pack",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "pack",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
-    displayApplied: false,
+    yes: args.yes,
   });
 
-  const suggestions = [
-    {
-      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "packs", args.name, PACK_MANIFEST_FILENAME)}\` to fill in pack contents`,
-    },
-  ];
-
-  const emitted = yield* emitPlanResolutionResult(
-    "packs.new",
-    resolution,
-    resolution._tag === "ExecutedPlan"
-      ? { summary: `-> ${manifestDisplayPath}   0.0.1 | 1 file`, suggestions }
-      : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created pack ${fqn}`,
-      summary: `-> ${manifestDisplayPath}   0.0.1 | 1 file`,
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("packs.new", resolution, {
+    suggestions: [
+      {
+        description: `Edit \`${joinDisplayPath(path, authoredPath, PACK_MANIFEST_FILENAME)}\` to fill in pack contents`,
+      },
+    ],
+  });
 });
 
 const newConfig = {
@@ -180,10 +185,10 @@ export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, pr
     owner: Option.map(owner, (s) => normalizeHandle(s.startsWith("@") ? s : `@${s}`)),
     yes,
     preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("packs new")),
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs new")),
 ).pipe(
   withArgvTracking(newConfig),
-  Command.withDescription("Create a new empty pack"),
+  Command.withDescription("Create a new empty pack in the project-workspace authoring root"),
   Command.withExamples([
     {
       command: "axm packs new frontend-tools",

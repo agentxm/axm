@@ -2,16 +2,19 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   installableExtensionTypePluralSegments,
   InstallableExtensionTypePluralSchema,
   isInstallableExtensionTypePlural,
-  RegistrySourceRefSchema,
   toInstallableExtensionType,
   type InstallableExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import {
+  parseSourceQualifiedRegistrySourcePatternParts,
+  RegistrySourceRefSchema,
+} from "@agentxm/extension-model/unstable/extensions";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 
 import { perTypeInstallPluralSegments } from "../shared/per-type-install.js";
 
@@ -29,6 +32,7 @@ export interface RootInstallIntent {
 
 const rootInstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
 const supportedRootInstallTypes = rootInstallableTypeSegments.join(", ");
+const locatorDiscoveryTypes = "skills, MCP servers, subagents, rules, hooks, and knowledge";
 
 const rootInstallRegistryOnlyHowToFix = (source: string): string => {
   const parsed = parseInputPattern(source);
@@ -43,7 +47,7 @@ const rootInstallRegistryOnlyHowToFix = (source: string): string => {
     case "git-scp-address":
     case "shorthand-input":
     case "slash-pattern":
-      return `Use \`axm install ${source}\` to install every extension AXM can discover from the source.`;
+      return `Use \`axm install ${source}\` to discover and install ${locatorDiscoveryTypes} from the source. MCP servers and packs require a registry FQN.`;
     case "name-input":
     case "glob-input":
       return `Root install needs a registry FQN or source locator. For bare names, use the matching per-type command — for example \`axm skills install ${source}\`. Per-type install exists for ${perTypeInstallPluralSegments.join(", ")}.`;
@@ -59,8 +63,9 @@ export const resolveRootInstallIntent = (input: string) =>
     const source = input.trim();
     const segments = source.split("/");
     const pluralType = segments.length === 3 ? segments[1] : undefined;
+    const sourceQualifiedRegistry = parseSourceQualifiedRegistrySourcePatternParts(source);
 
-    if (!source.startsWith("@")) {
+    if (!source.startsWith("@") && sourceQualifiedRegistry === undefined) {
       const parsedInput = parseInputPattern(source);
       if (Option.isSome(parsedInput)) {
         switch (parsedInput.value.pattern.pattern) {

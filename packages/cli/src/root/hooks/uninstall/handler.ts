@@ -1,30 +1,56 @@
 import * as Effect from "effect/Effect";
-import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { runUninstallCommandWorkflow } from "@agentxm/extension-lifecycle";
+
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import {
   UninstallHookCommandWorkflowActions,
   type UninstallHookHandlerArgs,
 } from "./command-actions.js";
 
+const uninstallPresentation = operationPresentation(
+  { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
+  "hook",
+);
+
 export const handleUninstallHook = (
   args: UninstallHookHandlerArgs,
   flags: {
     readonly yes: boolean;
-    readonly force: boolean;
     readonly preview: boolean;
-    readonly sourceDisposition?: "keep" | "delete";
+  },
+) =>
+  withOperationLifecycle(
+    {
+      command: "hooks.uninstall",
+      mode: flags.preview ? "preview" : "apply",
+      planName: "Uninstall hook",
+      presentation: uninstallPresentation,
+    },
+    handleUninstallHookBody(args, flags),
+  );
+
+const handleUninstallHookBody = (
+  args: UninstallHookHandlerArgs,
+  flags: {
+    readonly yes: boolean;
+    readonly preview: boolean;
   },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallHookCommandWorkflowActions;
-    const resolution = yield* runUninstallCommandWorkflow(args, actions, {
-      ...flags,
-      displayApplied: false,
-    });
-    yield* emitAppliedPlanOutcome({
-      command: "hooks.uninstall",
-      headline: "Uninstalled hooks package " + args.name,
-      resolution,
+    const presentedActions: typeof actions = {
+      ...actions,
+      buildUninstallPlan: (intent, workflowFlags) =>
+        actions
+          .buildUninstallPlan(intent, workflowFlags)
+          .pipe(Effect.map((plan) => ({ ...plan, presentation: uninstallPresentation }))),
+    };
+    const execution = yield* makeUninstallPlanExecution(flags, ["hooks", "uninstall"], [args.name]);
+    const resolution = yield* runUninstallCommandWorkflow(args, presentedActions, { execution });
+    yield* emitOperationResolution("hooks.uninstall", resolution, {
       suggestions: [{ description: "Inspect installed hooks packages", cmd: "axm hooks list" }],
     });
   });

@@ -1,9 +1,8 @@
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { OperationLifecycle } from "@agentxm/workspace-operations";
 import * as Effect from "effect/Effect";
-
-import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
-import { emitNoOpResult } from "../../json-output.js";
+import * as Option from "effect/Option";
+import { emitNoOpOperation } from "../../operation-output.js";
 
 export const emitNoOpOutcome = <TCommand extends string>(
   command: TCommand,
@@ -16,22 +15,12 @@ export const emitNoOpOutcome = <TCommand extends string>(
   },
 ) =>
   Effect.gen(function* () {
-    const emitted = yield* emitNoOpResult(command, args);
-    if (emitted) {
-      return;
-    }
-
-    const renderer = yield* CliRenderer;
-    const verbosity = yield* Verbosity;
-    yield* renderer.success(
-      args.message,
-      verbosity.level === "quiet"
-        ? undefined
-        : {
-            ...(args.suggestions === undefined ? {} : { suggestions: args.suggestions }),
-            ...(args.withoutSuggestions === undefined
-              ? {}
-              : { withoutSuggestions: args.withoutSuggestions }),
-          },
-    );
+    const lifecycle = yield* Effect.serviceOption(OperationLifecycle);
+    return yield* emitNoOpOperation(command, {
+      ...args,
+      mode: Option.match(lifecycle, {
+        onNone: () => "apply" as const,
+        onSome: ({ mode }) => mode,
+      }),
+    });
   });

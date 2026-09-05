@@ -1,0 +1,68 @@
+[
+  {
+    "_tag": "OperationStarted",
+    "seq": 1,
+    "atMs": 0,
+    "operationId": "operation-3",
+    "name": "Install skills",
+    "mode": "preview"
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 2,
+    "atMs": 0,
+    "phase": "resolution"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 3,
+    "atMs": 0,
+    "unitId": "extension-sources",
+    "label": "extension sources",
+    "index": 0
+  },
+  {
+    "_tag": "UnitResolved",
+    "seq": 4,
+    "atMs": 0,
+    "unitId": "extension-sources",
+    "label": "extension sources",
+    "state": "committed",
+    "index": 0
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 5,
+    "atMs": 0,
+    "phase": "planning"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 6,
+    "atMs": 0,
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
+    "index": 1
+  },
+  {
+    "_tag": "UnitResolved",
+    "seq": 7,
+    "atMs": 0,
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
+    "state": "committed",
+    "index": 1
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 8,
+    "atMs": 0,
+    "phase": "preview"
+  },
+  {
+    "_tag": "OperationSettled",
+    "seq": 9,
+    "atMs": 0,
+    "outcome": "previewed"
+  }
+]

@@ -1,0 +1,172 @@
+/** Deterministic Knowledge discovery table reconciliation. */
+
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
+import { projectionGeneration, reconcileManagedRegionFile } from "../projection/adapters.js";
+import {
+  MARKER_KIND_POINT,
+  MARKER_VERSION,
+  serializeMarker,
+} from "../projection/marker-grammar.js";
+import type { ResolvedKnowledgeDiscoveryConfig } from "@agentxm/workspace-state";
+
+const KNOWLEDGE_REGION = "knowledge";
+export const KNOWLEDGE_REGION_OWNER = "@agentxm/knowledge/discovery";
+
+export interface KnowledgeDiscoveryBundle {
+  readonly owner: string;
+  readonly name: string;
+  readonly sourceDir: string;
+  readonly description?: string;
+}
+
+export interface KnowledgeDiscoveryArtifact {
+  readonly path: string;
+  readonly change: "created" | "updated" | "removed" | "unchanged";
+  readonly mechanism?: "symlink" | "copy";
+}
+
+export interface KnowledgeDiscoveryResult {
+  readonly changed: boolean;
+  readonly artifacts: ReadonlyArray<KnowledgeDiscoveryArtifact>;
+  readonly observedRegion: Option.Option<string>;
+}
+
+const portable = (value: string): string => value.replaceAll("\\", "/");
+
+const normalizeCell = (value: string | undefined): string => {
+  const normalized = value?.replace(/\s+/g, " ").trim();
+  if (normalized === undefined || normalized.length === 0) return "—";
+  return normalized.replaceAll("\\", "\\\\").replaceAll("|", "\\|");
+};
+
+const escapeLinkLabel = (value: string): string =>
+  normalizeCell(value).replaceAll("[", "\\[").replaceAll("]", "\\]");
+
+export const renderKnowledgeBaseTable = (args: {
+  readonly bundles: ReadonlyArray<KnowledgeDiscoveryBundle>;
+  readonly instructionsPath: string;
+  readonly path: Path.Path;
+}): string => {
+  const bundles = [...args.bundles].sort(
+    (left, right) => left.owner.localeCompare(right.owner) || left.name.localeCompare(right.name),
+  );
+  const owners = new Map<string, Array<KnowledgeDiscoveryBundle>>();
+  for (const bundle of bundles) {
+    const owned = owners.get(bundle.owner) ?? [];
+    owned.push(bundle);
+    owners.set(bundle.owner, owned);
+  }
+  const sections = [...owners].map(([owner, owned]) => {
+    const markers = owned.map((bundle) =>
+      serializeMarker(
+        {
+          kind: MARKER_KIND_POINT,
+          v: MARKER_VERSION,
+          pointKind: "knowledge",
+          ext: `${bundle.owner}/knowledge/${bundle.name}`,
+        },
+        { kind: "block", open: "<!--", close: "-->" },
+      ),
+    );
+    const rows = owned.map((bundle) => {
+      const target = args.path.join(bundle.sourceDir, "index.md");
+      const relative = portable(
+        args.path.relative(args.path.dirname(args.instructionsPath), target),
+      );
+      const name = escapeLinkLabel(bundle.name);
+      return `| [${name}](${relative}) | ${normalizeCell(bundle.description)} |`;
+    });
+    return [
+      `### ${escapeLinkLabel(owner)}`,
+      "",
+      ...markers,
+      "",
+      "| Bundle | Description |",
+      "| --- | --- |",
+      ...rows,
+    ].join("\n");
+  });
+  return [
+    "## Knowledge Bundles",
+    "Use `axm knowledge concepts --help` to search, read, and explore these bundles.",
+    ...sections,
+  ].join("\n\n");
+};
+
+export const reconcileKnowledgeDiscovery = (args: {
+  readonly scopeRoot: string;
+  readonly config: ResolvedKnowledgeDiscoveryConfig;
+  readonly bundles: ReadonlyArray<KnowledgeDiscoveryBundle>;
+  readonly instructionsPath: string;
+  readonly instructionManagementEnabled?: boolean;
+  readonly preserveInstructionsSource?: boolean;
+  readonly dryRun?: boolean;
+  readonly symlinkSupported?: boolean;
+}): Effect.Effect<
+  KnowledgeDiscoveryResult,
+  ExtensionManagerFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const manageInstructions = args.instructionManagementEnabled === true;
+    if (!manageInstructions) {
+      return { changed: false, artifacts: [], observedRegion: Option.none() };
+    }
+    const tableDesired = manageInstructions && args.config.instructions && args.bundles.length > 0;
+    const instructionRelative = portable(path.relative(args.scopeRoot, args.instructionsPath));
+    const renderedRegion = tableDesired
+      ? renderKnowledgeBaseTable({
+          bundles: args.bundles,
+          instructionsPath: args.instructionsPath,
+          path,
+        })
+      : "";
+    const generation = projectionGeneration([
+      "knowledge-discovery-region-v1",
+      instructionRelative,
+      KNOWLEDGE_REGION_OWNER,
+      JSON.stringify(args.config),
+      ...[...args.bundles]
+        .sort(
+          (left, right) =>
+            left.owner.localeCompare(right.owner) || left.name.localeCompare(right.name),
+        )
+        .flatMap((bundle) => [
+          bundle.owner,
+          bundle.name,
+          bundle.sourceDir,
+          bundle.description ?? "",
+        ]),
+    ]);
+    const reconciliation = yield* reconcileManagedRegionFile({
+      targetPath: args.instructionsPath,
+      displayPath: instructionRelative,
+      region: KNOWLEDGE_REGION,
+      owner: KNOWLEDGE_REGION_OWNER,
+      rendered: renderedRegion,
+      generation,
+      ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
+      removeEmptyFile: true,
+      preserveEmptyFile: args.preserveInstructionsSource === true,
+      unsupportedTargetDetail: `Knowledge discovery target does not support managed regions: ${instructionRelative}`,
+    });
+    const instructionsChanged = reconciliation.changed;
+    const artifacts: Array<KnowledgeDiscoveryArtifact> = [];
+    if (instructionsChanged) {
+      artifacts.push({
+        path: instructionRelative,
+        change: !reconciliation.existed
+          ? "created"
+          : reconciliation.updated.trim().length === 0
+            ? "removed"
+            : "updated",
+      });
+    }
+    const changed = artifacts.length > 0;
+    return { changed, artifacts, observedRegion: reconciliation.observedRegion };
+  });

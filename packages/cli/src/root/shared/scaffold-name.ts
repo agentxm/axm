@@ -1,4 +1,4 @@
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 
 export const SCAFFOLD_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 export const SCAFFOLD_NAME_MAX_LENGTH = 64;

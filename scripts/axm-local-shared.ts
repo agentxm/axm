@@ -2,10 +2,12 @@ import * as path from "node:path";
 
 export const AXM_LOCAL_DEFAULT_REGISTRY_LOCATION = "http://localhost:4300";
 export const AXM_LOCAL_DEFAULT_TELEMETRY = "0";
+export const AXM_SOURCE_CONDITION_ARGUMENT = "--conditions=axm-source";
 
 export interface AxmLocalInvocation {
   readonly command: string;
   readonly args: ReadonlyArray<string>;
+  readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
 }
 
@@ -27,6 +29,7 @@ export const resolveAxmLocalRepoRoot = (scriptPath: string): string =>
 export const createAxmLocalInvocation = (input: {
   readonly scriptPath: string;
   readonly argv: ReadonlyArray<string>;
+  readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
 }): AxmLocalInvocation => {
   const repoRoot = resolveAxmLocalRepoRoot(input.scriptPath);
@@ -42,7 +45,8 @@ export const createAxmLocalInvocation = (input: {
 
   return {
     command: "bun",
-    args: [cliEntrypoint, ...input.argv],
+    args: [AXM_SOURCE_CONDITION_ARGUMENT, cliEntrypoint, ...input.argv],
+    cwd: input.cwd,
     env: {
       ...input.env,
       AXM_REGISTRY_LOCATION: registryLocation,

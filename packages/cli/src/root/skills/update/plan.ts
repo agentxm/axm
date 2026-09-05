@@ -9,15 +9,15 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
-import {
-  trustRecordKey,
-  type ExtensionTrustRecord,
-  type WorkspaceTrustState,
-} from "@agentxm/client-core/unstable/trust";
+import type * as Option from "effect/Option";
+import type {
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+  StepFailure,
+} from "@agentxm/workspace-operations";
+import type { InstallSkillOperation } from "@agentxm/extension-lifecycle";
+import type { SkillLockEntry, SkillsLockMap } from "@agentxm/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -29,7 +29,9 @@ export type UpdateOperation = InstallSkillOperation;
  * A function that creates a run closure for an operation.
  * The closure must have all services already provided (R = never).
  */
-export type MakeRunClosure = (op: UpdateOperation) => Effect.Effect<JobStepResult, AppError, never>;
+export type MakeRunClosure = (
+  op: UpdateOperation,
+) => Effect.Effect<JobStepResult, StepFailure, never>;
 
 // -----------------------------------------------------------------------------
 // Version comparison
@@ -41,25 +43,19 @@ export type MakeRunClosure = (op: UpdateOperation) => Effect.Effect<JobStepResul
  *
  * Returns `true` when the skill has changed and should be updated.
  */
-const hasChanged = (op: InstallSkillOperation, trust: ExtensionTrustRecord): boolean => {
+const hasChanged = (op: InstallSkillOperation, accepted: SkillLockEntry): boolean => {
   const { ref } = op.args;
 
   if (ref.refType === "git-hosted") {
-    const trustedRevision = Option.fromUndefinedOr(trust.immutableRevision);
-    const opHash = ref.gitTreeSha;
-
-    // If either hash is missing, treat as needing update
-    if (Option.isNone(trustedRevision) || Option.isNone(opHash)) return true;
-
-    return trustedRevision.value !== opHash.value;
+    return !(
+      accepted.type !== "registry" &&
+      accepted.type !== "local" &&
+      accepted.resolvedTree === ref.gitTreeSha
+    );
   }
 
   if (ref.refType === "registry") {
-    return (
-      trust.authority !== "registry" ||
-      trust.resolvedVersion === undefined ||
-      ref.version !== trust.resolvedVersion
-    );
+    return accepted.type !== "registry" || ref.version !== accepted.resolvedVersion;
   }
 
   // Local sources: always update (no version tracking)
@@ -80,7 +76,7 @@ const hasChanged = (op: InstallSkillOperation, trust: ExtensionTrustRecord): boo
  */
 export const buildUpdatePlan = (
   ops: ReadonlyArray<UpdateOperation>,
-  trustState: WorkspaceTrustState,
+  acceptedResolutions: SkillsLockMap,
   name: string,
   description: Option.Option<string>,
   makeRunClosure: MakeRunClosure,
@@ -92,8 +88,8 @@ export const buildUpdatePlan = (
     {
       concurrency: "unbounded",
       steps: ops.map((op): PlannedJobStep => {
-        const trust = trustState.records[trustRecordKey("skill", op.args.ref.skill.name)];
-        const needsUpdate = trust === undefined || op.args.force || hasChanged(op, trust);
+        const accepted = acceptedResolutions[op.args.ref.skill.name];
+        const needsUpdate = accepted === undefined || op.args.force || hasChanged(op, accepted);
 
         if (!needsUpdate) {
           return {
@@ -101,6 +97,7 @@ export const buildUpdatePlan = (
             label: op.args.ref.skill.name,
             run: Effect.succeed<JobStepResult>({
               result: "success",
+              disposition: "unchanged",
               message: "already up to date",
             }),
           };

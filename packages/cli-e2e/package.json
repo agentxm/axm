@@ -11,6 +11,7 @@
     "@agentxm/client-e2e-utils": "workspace:*",
     "@typescript/native": "catalog:",
     "fflate": "catalog:",
+    "prettier": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"

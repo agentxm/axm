@@ -1,0 +1,26 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@agentxm",
+  "type": "skill",
+  "name": "author-agent-skill",
+  "version": "0.11.0",
+  "description": "Creates or revises portable Agent Skills and their versioned evaluation contracts, cases, fixtures, graders, and harness inputs",
+  "keywords": [
+    "agent-skills",
+    "skill-authoring",
+    "skill-creator",
+    "skill-design",
+    "skill-remediation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/agent-extensions",
+    "directory": "skills/author-agent-skill"
+  },
+  "homepage": "https://github.com/agentxm/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@agentxm/packs/agent-engineering"
+  ],
+  "standalone": false
+}

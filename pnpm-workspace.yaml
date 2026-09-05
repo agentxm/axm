@@ -1,48 +1,80 @@
 packages:
   - packages/*
+  - specifications
+
+verifyDepsBeforeRun: error
+
+peerDependencyRules:
+  allowedVersions:
+    "i18next>typescript": "6"
 
 catalog:
   "@effect/eslint-plugin": ^0.3.2
-  "@effect/language-service": ^0.87.0
-  "@effect/openapi-generator": 4.0.0-beta.101
-  "@effect/platform-node": 4.0.0-beta.101
-  "@effect/tsgo": ^0.24.3
-  "@effect/vitest": 4.0.0-beta.101
+  "@effect/language-service": ^0.87.2
+  "@effect/openapi-generator": 4.0.0-rc.112
+  "@effect/platform-node": 4.0.0-rc.112
+  "@effect/tsgo": ^0.36.5
+  "@effect/vitest": 4.0.0-rc.112
   "@eslint/js": ^10.0.0
-  "@nx/eslint": 23.1.0
-  "@nx/eslint-plugin": 23.1.0
-  "@nx/js": 23.1.0
-  "@nx/vitest": 23.1.0
+  "@nx/eslint": 23.1.1
+  "@nx/eslint-plugin": 23.1.1
+  "@nx/js": 23.1.1
+  "@nx/vitest": 23.1.1
   "@swc-node/register": ^1.11.1
-  "@swc/core": ^1.15.43
+  "@swc/core": ^1.15.47
   "@types/bun": ^1.3.14
   "@types/semver": ^7.5.8
-  "@typescript-eslint/parser": ^8.64.0
+  "@typescript-eslint/parser": ^8.66.0
   "@typescript/native": npm:typescript@^7.0.2
-  effect: 4.0.0-beta.101
+  allure: ^3.16.0
+  allure-js-commons: ^3.11.0
+  allure-vitest: ^3.11.0
+  effect: 4.0.0-rc.112
   eslint: ^10.3.0
   execa: ^9.6.1
   fflate: ^0.8.3
   gray-matter: ^4.0.3
   husky: ^9.1.7
+  jsonc-eslint-parser: ^2.4.2
   jsonc-parser: ^3.3.1
-  lint-staged: ^17.0.8
-  nx: 23.1.0
+  smol-toml: ^1.7.1
+  lint-staged: ^17.3.0
+  nx: 23.1.1
   packageurl-js: ^2.0.1
-  prettier: ^3.9.5
+  prettier: ^3.9.6
   semver: ^7.8.5
   simple-git: ^3.36.0
   swagger2openapi: ^7.0.8
   typescript: npm:@typescript/typescript6@^6.0.2
-  typescript-eslint: ^8.64.0
-  vite: ^8.1.4
+  typescript-eslint: ^8.66.0
+  vite: ^8.2.0
   vitest: ^4.1.10
   yaml: ^2.9.0
 
-onlyBuiltDependencies:
-  - "@swc/core"
-  - esbuild
-  - nx
+allowBuilds:
+  "@swc/core": true
+  esbuild: true
+  msgpackr-extract: false
+  nx: true
 
-patchedDependencies:
-  "@effect/openapi-generator@4.0.0-beta.101": patches/@effect__openapi-generator@4.0.0-beta.101.patch
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - "@agentxm/*"
+  - "@effect/openapi-generator@4.0.0-rc.112"
+  - "@effect/platform-node-shared@4.0.0-rc.112"
+  - "@effect/platform-node@4.0.0-rc.112"
+  - "@effect/vitest@4.0.0-rc.112"
+  - axm.sh
+  - effect@4.0.0-rc.112
+
+overrides:
+  "@babel/plugin-transform-modules-systemjs@<7.29.4": 7.29.4
+  axios@<1.18.0: 1.18.0
+  brace-expansion@>=1.0.0 <1.1.18: 1.1.18
+  brace-expansion@>=2.0.0 <2.1.4: 2.1.4
+  brace-expansion@>=5.0.0 <5.0.9: 5.0.9
+  flatted@<3.4.2: 3.4.2
+  js-yaml@>=3.0.0 <3.15.1: 3.15.1
+  picomatch@>=4.0.0 <4.0.5: 4.0.5
+  postcss@>=8.0.0 <8.5.23: 8.5.23
+  undici@>=8.0.0 <8.9.0: 8.9.0

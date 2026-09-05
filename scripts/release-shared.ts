@@ -1,16 +1,151 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { readEnvWithDefault } from "@agentxm/client-utils/unstable/env";
+import * as Option from "effect/Option";
+
+import {
+  AXM_SKILL_CLI_VERSION_METADATA_KEY,
+  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  evaluateAxmSkillCompatibility,
+} from "@agentxm/extension-workspace";
+import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
 
 import { capture, run, tryCapture } from "./release-command.js";
 
-export const RELEASE_PACKAGE_JSON_PATHS = [
-  "packages/utils/package.json",
-  "packages/core/package.json",
-  "packages/cli/package.json",
-] as const;
+const readEnvWithDefault = (env: NodeJS.ProcessEnv, name: string, fallback: string): string => {
+  const value = env[name];
+  return typeof value === "string" && value.length > 0 ? value : fallback;
+};
 
-export const AXM_SKILL_MANIFEST_PATH = ".axm/extensions/@agentxm/skills/axm/skill.json";
-export const AXM_SKILL_DOCUMENT_PATH = ".axm/extensions/@agentxm/skills/axm/src/SKILL.md";
+export type ReleasePackage = {
+  readonly name: string;
+  readonly path: string;
+  readonly project: string;
+  readonly tarballPrefix: string;
+};
+
+// Dependency order is intentional: local preview publishing must make every
+// internal dependency available before publishing its consumers.
+export const RELEASE_PACKAGES: readonly ReleasePackage[] = [
+  {
+    name: "@agentxm/extension-model",
+    path: "packages/extension-model/package.json",
+    project: "extension-model",
+    tarballPrefix: "agentxm-extension-model-",
+  },
+  {
+    name: "@agentxm/agent-integration",
+    path: "packages/agent-integration/package.json",
+    project: "agent-integration",
+    tarballPrefix: "agentxm-agent-integration-",
+  },
+  {
+    name: "@agentxm/registry-protocol",
+    path: "packages/registry-protocol/package.json",
+    project: "registry-protocol",
+    tarballPrefix: "agentxm-registry-protocol-",
+  },
+  {
+    name: "@agentxm/knowledge-query",
+    path: "packages/knowledge-query/package.json",
+    project: "knowledge-query",
+    tarballPrefix: "agentxm-knowledge-query-",
+  },
+  {
+    name: "@agentxm/registry-client",
+    path: "packages/registry-client/package.json",
+    project: "registry-client",
+    tarballPrefix: "agentxm-registry-client-",
+  },
+  {
+    name: "@agentxm/workspace-state",
+    path: "packages/workspace-state/package.json",
+    project: "workspace-state",
+    tarballPrefix: "agentxm-workspace-state-",
+  },
+  {
+    name: "@agentxm/extension-sources",
+    path: "packages/extension-sources/package.json",
+    project: "extension-sources",
+    tarballPrefix: "agentxm-extension-sources-",
+  },
+  {
+    name: "@agentxm/registry-auth",
+    path: "packages/registry-auth/package.json",
+    project: "registry-auth",
+    tarballPrefix: "agentxm-registry-auth-",
+  },
+  {
+    name: "@agentxm/workspace-operations",
+    path: "packages/workspace-operations/package.json",
+    project: "workspace-operations",
+    tarballPrefix: "agentxm-workspace-operations-",
+  },
+  {
+    name: "@agentxm/extension-workspace",
+    path: "packages/extension-workspace/package.json",
+    project: "extension-workspace",
+    tarballPrefix: "agentxm-extension-workspace-",
+  },
+  {
+    name: "@agentxm/extension-authoring",
+    path: "packages/extension-authoring/package.json",
+    project: "extension-authoring",
+    tarballPrefix: "agentxm-extension-authoring-",
+  },
+  {
+    name: "@agentxm/extension-discovery",
+    path: "packages/extension-discovery/package.json",
+    project: "extension-discovery",
+    tarballPrefix: "agentxm-extension-discovery-",
+  },
+  {
+    name: "@agentxm/extension-lifecycle",
+    path: "packages/extension-lifecycle/package.json",
+    project: "extension-lifecycle",
+    tarballPrefix: "agentxm-extension-lifecycle-",
+  },
+  {
+    name: "@agentxm/extension-publish",
+    path: "packages/extension-publish/package.json",
+    project: "extension-publish",
+    tarballPrefix: "agentxm-extension-publish-",
+  },
+  {
+    name: "@agentxm/workspace-configuration",
+    path: "packages/workspace-configuration/package.json",
+    project: "workspace-configuration",
+    tarballPrefix: "agentxm-workspace-configuration-",
+  },
+  {
+    name: "@agentxm/workspace-inspection",
+    path: "packages/workspace-inspection/package.json",
+    project: "workspace-inspection",
+    tarballPrefix: "agentxm-workspace-inspection-",
+  },
+  {
+    name: "@agentxm/workspace-lint",
+    path: "packages/workspace-lint/package.json",
+    project: "workspace-lint",
+    tarballPrefix: "agentxm-workspace-lint-",
+  },
+  {
+    name: "@agentxm/workspace-sync",
+    path: "packages/workspace-sync/package.json",
+    project: "workspace-sync",
+    tarballPrefix: "agentxm-workspace-sync-",
+  },
+  {
+    name: "axm.sh",
+    path: "packages/cli/package.json",
+    project: "cli",
+    tarballPrefix: "axm.sh-",
+  },
+];
+
+export const RELEASE_PACKAGE_JSON_PATHS = RELEASE_PACKAGES.map(({ path }) => path);
+
+export const AXM_SKILL_MANIFEST_PATH = "skills/axm/skill.json";
+export const AXM_SKILL_DOCUMENT_PATH = "skills/axm/src/SKILL.md";
+export const AXM_SKILL_GENERATED_PATH = "packages/cli/src/__generated__/bundled-axm-skill.ts";
 
 const RELEASE_VERSION_JSON_PATHS = [
   ...RELEASE_PACKAGE_JSON_PATHS,
@@ -24,7 +159,7 @@ export type GitHubRun = {
   url: string;
 };
 
-const NX_ENV = {
+export const RELEASE_PROCESS_ENV = {
   ...process.env,
   NX_TUI: "false",
   NX_DEFAULT_OUTPUT_STYLE: "static",
@@ -42,6 +177,26 @@ const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
 
 export const RELEASE_REPO = readEnvWithDefault(process.env, "GITHUB_REPOSITORY", "agentxm/axm");
 
+export const AXM_SKILL_HANDLE = "@agentxm/skills/axm";
+export const PRODUCTION_REGISTRY_URL = "https://registry.agentxm.ai";
+export const productionRegistryPreviewArgs = (directory?: string): readonly string[] => [
+  "axm:local",
+  ...(directory === undefined ? [] : ["-C", directory]),
+  "skills",
+  "publish",
+  AXM_SKILL_HANDLE,
+  "--registry-url",
+  PRODUCTION_REGISTRY_URL,
+  "--on-existing",
+  "verify",
+  "--preview",
+  "--yes",
+  "--json",
+  "--non-interactive",
+];
+
+export const PRODUCTION_REGISTRY_PREVIEW_ARGS = productionRegistryPreviewArgs();
+
 export const fail = (message: string): never => {
   console.error(message);
   process.exit(1);
@@ -49,7 +204,7 @@ export const fail = (message: string): never => {
 };
 
 export const runNx = (...args: readonly string[]) =>
-  run("pnpm", ["exec", "nx", ...args, "--outputStyle=static"], NX_ENV);
+  run("pnpm", ["exec", "nx", ...args, "--outputStyle=static"], RELEASE_PROCESS_ENV);
 
 const readVersionFromJson = (content: string, source: string): string => {
   const parsed: unknown = JSON.parse(content);
@@ -71,18 +226,74 @@ export const readPackageVersion = (path: string): string =>
 export const readPackageVersionAtRef = (ref: string, path: string): string =>
   readVersionFromJson(git("show", `${ref}:${path}`), `${ref}:${path}`);
 
-const readSkillCliVersionFromContent = (content: string, source: string): string => {
-  const match = /^cli-version:[ \t]*["']?([^"'\s]+)["']?[ \t]*$/m.exec(content);
-  return match?.[1] ?? fail(`Missing cli-version release stamp in ${source}.`);
+export interface GeneratedAxmSkillCompatibility extends AxmSkillCompatibilityDeclaration {
+  readonly version: string;
+}
+
+const readGeneratedStringConstant = (content: string, name: string, source: string): string => {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`^export const ${escapedName} = ("(?:[^"\\\\]|\\\\.)*");$`, "m").exec(
+    content,
+  );
+  if (match?.[1] === undefined) throw new Error(`Missing ${name} in ${source}.`);
+
+  const parsed: unknown = JSON.parse(match[1]);
+  if (typeof parsed !== "string") throw new Error(`Expected ${name} to be a string in ${source}.`);
+  return parsed;
 };
 
-export const readSkillCliVersion = (path: string = AXM_SKILL_DOCUMENT_PATH): string =>
-  readSkillCliVersionFromContent(readFileSync(path, "utf8"), path);
+export const readGeneratedSkillCompatibilityFromContent = (
+  content: string,
+  source: string,
+): GeneratedAxmSkillCompatibility => ({
+  version: readGeneratedStringConstant(content, "AXM_SKILL_VERSION", source),
+  cliVersion: readGeneratedStringConstant(content, "AXM_SKILL_CLI_VERSION", source),
+  cliVersionRange: readGeneratedStringConstant(content, "AXM_SKILL_CLI_VERSION_RANGE", source),
+});
 
-export const readSkillCliVersionAtRef = (
+const readGeneratedSkillCompatibility = (
+  path: string = AXM_SKILL_GENERATED_PATH,
+): GeneratedAxmSkillCompatibility =>
+  readGeneratedSkillCompatibilityFromContent(readFileSync(path, "utf8"), path);
+
+const readGeneratedSkillCompatibilityAtRef = (
+  ref: string,
+  path: string = AXM_SKILL_GENERATED_PATH,
+): GeneratedAxmSkillCompatibility =>
+  readGeneratedSkillCompatibilityFromContent(git("show", `${ref}:${path}`), `${ref}:${path}`);
+
+export interface AxmSkillCompatibilityDeclaration {
+  readonly cliVersion: string;
+  readonly cliVersionRange: string;
+}
+
+export const readSkillCompatibilityFromContent = (
+  content: string,
+  source: string,
+): AxmSkillCompatibilityDeclaration => {
+  const parsedSkill = Option.getOrNull(parseSkillMd(content, "axm"));
+  if (parsedSkill === null) throw new Error(`Invalid AXM skill document in ${source}.`);
+
+  const metadata = Option.getOrNull(parsedSkill.metadata);
+  const cliVersion = metadata?.[AXM_SKILL_CLI_VERSION_METADATA_KEY];
+  const cliVersionRange = metadata?.[AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY];
+  if (cliVersion === undefined || cliVersionRange === undefined) {
+    throw new Error(`Missing AXM skill compatibility declaration in ${source}.`);
+  }
+
+  return { cliVersion, cliVersionRange };
+};
+
+export const readSkillCompatibility = (
+  path: string = AXM_SKILL_DOCUMENT_PATH,
+): AxmSkillCompatibilityDeclaration =>
+  readSkillCompatibilityFromContent(readFileSync(path, "utf8"), path);
+
+export const readSkillCompatibilityAtRef = (
   ref: string,
   path: string = AXM_SKILL_DOCUMENT_PATH,
-): string => readSkillCliVersionFromContent(git("show", `${ref}:${path}`), `${ref}:${path}`);
+): AxmSkillCompatibilityDeclaration =>
+  readSkillCompatibilityFromContent(git("show", `${ref}:${path}`), `${ref}:${path}`);
 
 const replaceExactlyOnce = (
   content: string,
@@ -103,20 +314,98 @@ export const writeSkillVersion = (version: string, path: string = AXM_SKILL_MANI
   const content = readFileSync(path, "utf8");
   const updated = replaceExactlyOnce(
     content,
-    /^[ \t]*"version"[ \t]*:[ \t]*"[^"]+"[ \t]*,?[ \t]*$/gm,
-    `  "version": "${version}"`,
+    /^([ \t]*"version"[ \t]*:[ \t]*)"[^"]+"([ \t]*,?[ \t]*)$/gm,
+    `$1"${version}"$2`,
     path,
   );
   writeFileSync(path, updated, "utf8");
 };
 
-export const stampSkillCliVersion = (version: string, path: string = AXM_SKILL_DOCUMENT_PATH) => {
+const requireCompatibleSkillDeclaration = (
+  version: string,
+  declaration: AxmSkillCompatibilityDeclaration,
+  source: string,
+): AxmSkillCompatibilityDeclaration => {
+  const result = evaluateAxmSkillCompatibility({
+    cliVersion: version,
+    skill: {
+      manifestVersion: version,
+      metadata: {
+        [AXM_SKILL_CLI_VERSION_METADATA_KEY]: declaration.cliVersion,
+        [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: declaration.cliVersionRange,
+      },
+      source,
+    },
+  });
+  if (result.status !== "compatible") {
+    throw new Error(
+      `Incompatible AXM skill declaration in ${source}: ${result.reasonCode ?? "unknown"}: ${result.detail ?? "no detail"}`,
+    );
+  }
+  return declaration;
+};
+
+/**
+ * The release's minor band, e.g. `0.27.11` -> `>=0.27.0 <0.28.0`.
+ *
+ * An exact pin declares the skill compatible with exactly one CLI build, so
+ * every patch release reports a false incompatibility in each workspace until
+ * that workspace updates its installed skill. The band stays bounded and
+ * wildcard-free, as `validateAxmSkillCliVersionRange` requires, while
+ * tolerating patch drift within the minor.
+ */
+const minorBandRange = (version: string): string => {
+  const match = /^(\d+)\.(\d+)\./.exec(version);
+  const major = match?.[1];
+  const minor = match?.[2];
+  if (major === undefined || minor === undefined) {
+    return fail(`Cannot derive a compatibility range from version: ${version}`);
+  }
+  return `>=${major}.${minor}.0 <${major}.${Number(minor) + 1}.0`;
+};
+
+/**
+ * An exact pin widens to the release's minor band. A previously managed minor
+ * band rolls forward when the release crosses that boundary. Any other range
+ * is an intentional declaration and is preserved verbatim — the compatibility
+ * guard then fails the release when it no longer covers the release version.
+ */
+export const transitionSkillCompatibility = (
+  current: AxmSkillCompatibilityDeclaration,
+  releaseVersion: string,
+): AxmSkillCompatibilityDeclaration => {
+  requireCompatibleSkillDeclaration(current.cliVersion, current, "current AXM skill");
+  const currentMinorBand = minorBandRange(current.cliVersion);
+  const next = {
+    cliVersion: releaseVersion,
+    cliVersionRange:
+      current.cliVersionRange === current.cliVersion || current.cliVersionRange === currentMinorBand
+        ? minorBandRange(releaseVersion)
+        : current.cliVersionRange,
+  } satisfies AxmSkillCompatibilityDeclaration;
+  return requireCompatibleSkillDeclaration(releaseVersion, next, "next AXM skill");
+};
+
+export const stampSkillCompatibility = (
+  version: string,
+  path: string = AXM_SKILL_DOCUMENT_PATH,
+) => {
   validateReleaseVersion(version);
   const content = readFileSync(path, "utf8");
-  const updated = replaceExactlyOnce(
+  const next = transitionSkillCompatibility(
+    readSkillCompatibilityFromContent(content, path),
+    version,
+  );
+  const withVersion = replaceExactlyOnce(
     content,
-    /^cli-version:[ \t]*.+$/gm,
-    `cli-version: "${version}"`,
+    /^[ \t]*axm\.sh\/cli-version:[ \t]*.+$/gm,
+    `  ${AXM_SKILL_CLI_VERSION_METADATA_KEY}: "${next.cliVersion}"`,
+    path,
+  );
+  const updated = replaceExactlyOnce(
+    withVersion,
+    /^[ \t]*axm\.sh\/cli-version-range:[ \t]*.+$/gm,
+    `  ${AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY}: "${next.cliVersionRange}"`,
     path,
   );
   writeFileSync(path, updated, "utf8");
@@ -172,26 +461,70 @@ const requireMatchingVersions = (
   return firstVersion;
 };
 
+const requireMatchingReleaseCompatibility = (
+  versions: ReadonlyArray<readonly [path: string, version: string]>,
+  declaration: AxmSkillCompatibilityDeclaration,
+  generated: GeneratedAxmSkillCompatibility,
+  source: string,
+): string => {
+  const version = requireMatchingVersions(versions, source);
+  requireCompatibleSkillDeclaration(version, declaration, source);
+  validateGeneratedSkillCompatibility(version, declaration, generated, source);
+
+  return version;
+};
+
+const failOnReleaseCompatibilityError = (validate: () => string): string => {
+  try {
+    return validate();
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : String(error));
+  }
+};
+
+export const validateGeneratedSkillCompatibility = (
+  version: string,
+  declaration: AxmSkillCompatibilityDeclaration,
+  generated: GeneratedAxmSkillCompatibility,
+  source: string,
+): void => {
+  if (
+    generated.version !== version ||
+    generated.cliVersion !== declaration.cliVersion ||
+    generated.cliVersionRange !== declaration.cliVersionRange
+  ) {
+    throw new Error(
+      `Generated AXM skill mismatch in ${source}: generated version=${generated.version}, cli-version=${generated.cliVersion}, cli-version-range=${generated.cliVersionRange}; canonical version=${version}, cli-version=${declaration.cliVersion}, cli-version-range=${declaration.cliVersionRange}.`,
+    );
+  }
+};
+
 export const requireMatchingReleasePackageVersions = (): string =>
-  requireMatchingVersions(
-    [
-      ...RELEASE_VERSION_JSON_PATHS.map(
-        (filePath) => [filePath, readPackageVersion(filePath)] as const,
-      ),
-      [AXM_SKILL_DOCUMENT_PATH, readSkillCliVersion()] as const,
-    ],
-    "working tree",
+  failOnReleaseCompatibilityError(() =>
+    requireMatchingReleaseCompatibility(
+      [
+        ...RELEASE_VERSION_JSON_PATHS.map(
+          (filePath) => [filePath, readPackageVersion(filePath)] as const,
+        ),
+      ],
+      readSkillCompatibility(),
+      readGeneratedSkillCompatibility(),
+      "working tree",
+    ),
   );
 
 export const requireMatchingReleasePackageVersionsAtRef = (ref: string): string =>
-  requireMatchingVersions(
-    [
-      ...RELEASE_VERSION_JSON_PATHS.map(
-        (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
-      ),
-      [AXM_SKILL_DOCUMENT_PATH, readSkillCliVersionAtRef(ref)] as const,
-    ],
-    ref,
+  failOnReleaseCompatibilityError(() =>
+    requireMatchingReleaseCompatibility(
+      [
+        ...RELEASE_VERSION_JSON_PATHS.map(
+          (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
+        ),
+      ],
+      readSkillCompatibilityAtRef(ref),
+      readGeneratedSkillCompatibilityAtRef(ref),
+      ref,
+    ),
   );
 
 export const requireReleaseCommitMessage = (tag: string) => {
@@ -310,6 +643,9 @@ export const requireNoExistingGitHubRelease = (tag: string) => {
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+export const releaseCommitSubjectPattern = (tag: string): string =>
+  `^release: ${escapeRegex(tag)}(?: \\(#[0-9]+\\))?$`;
+
 export const releaseCommitOnOriginMain = (tag: string): string => {
   const output = git(
     "log",
@@ -317,7 +653,7 @@ export const releaseCommitOnOriginMain = (tag: string): string => {
     "--format=%H",
     "--perl-regexp",
     "--grep",
-    `^release: ${escapeRegex(tag)}$`,
+    releaseCommitSubjectPattern(tag),
     "-n",
     "2",
   );

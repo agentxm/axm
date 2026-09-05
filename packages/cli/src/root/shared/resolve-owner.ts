@@ -1,22 +1,22 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { type AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  CredentialStore,
-  getCurrentUserHandle,
-  RegistryUrl,
-} from "@agentxm/client-core/unstable/auth";
-import { type Handle } from "@agentxm/client-core/unstable/extensions";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { type AppError, makeAppError } from "../../app-error/index.js";
+import { CredentialStore, getCurrentUserHandle } from "@agentxm/registry-auth";
+import { registryAuthFailureToAppError } from "../../feature-errors.js";
+import { RegistryUrl } from "@agentxm/registry-client";
+import { type Handle } from "@agentxm/extension-model/unstable/extensions";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { workspaceSettingsPath } from "./workspace-display-paths.js";
+import { toAppError } from "../../app-error/conversions.js";
 
-const makeOwnerRequiredError = (action: string): AppError =>
+const makeOwnerRequiredError = (action: string, scope: WorkspaceScope): AppError =>
   makeAppError({
-    code: "internal",
+    code: "validation",
     detail: `No owner configured for ${action}`,
     suggestions: [
       {
-        description:
-          "Set `owner` in `.axm/settings.json`, pass an explicit owner flag, or sign in.",
+        description: `Set \`owner\` in \`${workspaceSettingsPath(scope)}\`, pass an explicit owner flag, or sign in.`,
         cmd: "axm login",
       },
     ],
@@ -37,14 +37,16 @@ export const resolveOwnerForNewContent = (
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
 
-    const configured = yield* ws.getConfiguredOwner();
+    const configured = yield* ws.getConfiguredOwner().pipe(Effect.mapError(toAppError));
     if (Option.isSome(configured)) return configured.value;
 
     const registryUrl = yield* RegistryUrl;
-    const loggedIn = yield* getCurrentUserHandle(registryUrl);
+    const loggedIn = yield* getCurrentUserHandle(registryUrl).pipe(
+      Effect.mapError(registryAuthFailureToAppError),
+    );
     if (Option.isSome(loggedIn)) return loggedIn.value;
 
     if (fallback && Option.isSome(fallback)) return fallback.value;
 
-    return yield* makeOwnerRequiredError(action);
+    return yield* makeOwnerRequiredError(action, ws.scope);
   });

@@ -1,6 +1,14 @@
 # Skills
 
-Skill packages live in `./.axm/extensions/<@owner>/skills/<skill-name>`.
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
+Project-authored skill packages live in `./skills/<skill-name>`; acquired skills
+use the source-qualified canonical scheme. A Registry skill such as
+`@acme/skills/review` lives at
+`./agent_extensions/agentxm/@acme/skills/review`; a portable GitHub skill at
+`github:remix-run/react-router//.agents/skills/react-router@main` lives at
+`./agent_extensions/github/remix-run/react-router/.agents/skills/react-router`.
 
 ## skill.json
 
@@ -10,9 +18,34 @@ Run `axm help skill-schema` to print the raw JSON Schema.
 
 ## `src/`
 
-The `src/` directory holds `SKILL.md` and any other files described by the [agentskills.io](https://agentskills.io) specification.
+For an AgentXM skill package, the `src/` directory holds `SKILL.md` and any
+other files described by the [agentskills.io](https://agentskills.io)
+specification. A portable Agent Skill acquired directly from Git or a local
+source is preserved exactly at its selected source path: `SKILL.md`,
+`references/`, and other sibling content remain at that canonical root, and AXM
+does not fabricate `skill.json` or a publisher identity.
 
-`SKILL.md` is Markdown with YAML frontmatter. Only `name` is required, and it must match both the manifest's `name` and the skill directory name. Everything else in the frontmatter passes through verbatim to the rendered agent file.
+`SKILL.md` is Markdown with YAML frontmatter. `name` and `description` are
+required, and `name` must match both the manifest's `name` and the agent-facing
+skill directory name. AXM validates the pinned Agent Skills fields: `name`,
+`description`, `license`, `compatibility`, `metadata`, and the experimental
+`allowed-tools`. The Markdown body and every other file under `src/` remain
+opaque and are materialized faithfully.
+
+## File references
+
+Within one skill, reference supporting files relative to the skill root (the
+package's `src/` directory). Use forward-slash paths that an agent can open
+directly:
+
+```markdown
+Read `references/policy.md`, then run `scripts/validate.sh`.
+```
+
+Do not use absolute machine paths or agent-specific projections such as
+`.agents/skills` or `.claude/skills`. For a required file owned by another
+extension in the same pack, use the canonical cross-extension convention in
+`axm help packs`.
 
 ## Writing the `description` for model invocation
 
@@ -39,59 +72,47 @@ description: Reviews TypeScript diffs for Effect idioms and common bugs. Use whe
 Weaker: `description: Helps with code.` — no triggers, so the model rarely
 knows when to load it.
 
-This applies only to model invocation. A `user-invocable`-only skill is run
-explicitly by name and does not rely on description matching.
-
-## Invocation modes
-
-A skill can be invoked by the **model** (loaded automatically when its `description` matches the task) or by the **user** (run explicitly, e.g. `/skill-name`). By default it's **both**. Two optional frontmatter booleans narrow this:
-
-| Frontmatter                      | Model | User | Use for                                                                        |
-| -------------------------------- | ----- | ---- | ------------------------------------------------------------------------------ |
-| _(omit both)_                    | yes   | yes  | Default — most skills                                                          |
-| `disable-model-invocation: true` | no    | yes  | Side-effecting actions (deploy, commit, release) you don't want auto-triggered |
-| `user-invocable: false`          | yes   | no   | Background knowledge that isn't a meaningful command                           |
-
-```yaml
----
-name: deploy-prod
-description: Deploy the current branch to production.
-disable-model-invocation: true
----
-```
-
-These are **best-effort passthrough**: AXM copies them verbatim but does not validate them, and only some agents honor them (Claude Code, Cursor, VS Code Copilot). Others ignore the keys and keep the skill model-invokable (opencode, Amp, Antigravity), or gate invocation through their own config instead (Codex). Treat them as a portability hint, **not** an access-control guarantee.
-
-**When user-only behavior must hold across every agent, ship a `command` extension instead** — it materializes into each agent's native command system rather than relying on frontmatter the agent may ignore. See `axm help commands`.
+Invocation behavior outside the standard frontmatter is agent-specific. Keep
+such configuration outside `SKILL.md`; AXM does not accept vendor-only
+frontmatter fields in a portable skill.
 
 ## Authoring and editing skills
 
 The contents of `src/` are symlinked by AXM into each configured agent's skill directory, so you do not need to run `axm sync` after an edit. Run `axm sync` only if symlinks or copies are broken.
 
-If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md` in `.axm/extensions/...` and run `axm sync`; do not edit the copied agent-side file.
+If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md`
+in its authored package and run `axm sync`; do not edit the copied agent-side
+file. Acquired packages are immutable accepted state—fork one before editing it.
 
 ## Unmanaged skills
 
-When `axm lint` reports `workspace/skills-managed`, choose one resolution per skill or related group:
+Agent-native skills without AXM ownership remain outside reconciliation. Choose one resolution per skill or related group:
 
 - **Adopt** when the skill has an AXM-resolvable source and you want AXM to track updates: `axm skills install <source>`.
-- **Copy** when there is no clean source, or you want to own, customize, or publish it: `axm skills copy`, then `axm skills publish`.
-- **Ignore** when another tool owns its lifecycle, such as a managed marker, same-prefix family, or cross-tool config reference: add names or globs to `skillsConfig.ignore`.
-- **Prune** when it is orphaned and unused: `axm skills prune <name>` or `axm prune`.
+- **Import** unmanaged/native content when you want to own, customize, or publish it: `axm skills import <source> <extension>`, then `axm skills publish`.
+- **Fork** an existing managed AXM skill when you want a separately authored derivative: `axm fork <source> <extension>`.
+- **Leave it unowned** when another tool owns its lifecycle. AXM does not delete it.
 
-Prefer ignore for tool-managed skills. Copy only when you deliberately take ownership away from that tool. See `axm help settings` for `skillsConfig.ignore`.
+Import only when you deliberately create an AXM-owned copy. The native source
+remains unchanged. Sync removes obsolete output only when the projection
+adapter proves unit-local AXM ownership; unknown artifacts are retained.
 
 ## Lockfile and integrity
 
-AXM records two different identities for registry-installed skills:
+AXM records accepted immutable resolution for externally sourced skills:
 
 - **`integrity`** — the SRI sha512 of the published archive. AXM verifies it against the downloaded bytes before extracting, every time it fetches. This is the supply-chain guarantee: a tampered or corrupted download fails the install.
-- **Content identity** — a SHA-256 marker used with source identity in `.axm/trust.json` to decide whether canonical content is safe to reuse. Receipt history may also record it as `sourceHash`.
+- **Git identity** — immutable commit, tree, and content identity for Git-hosted sources.
+- **Local-source identity** — relative locator and content identity for an accepted local source.
 
-After install, remote-source canonical files under `.axm/extensions/` are
-AXM-managed. If their content identity changes, `axm sync` resolves the declared
-source instead of projecting untrusted local edits. Workspace-authored packages
-remain local authority and are re-materialized from their current source.
+After install, remote-source canonical files under `agent_extensions/` are
+observed materialization. Lockfile v7 records the source type, exact source
+name and endpoint or coordinate, requested intent, immutable resolution,
+package format, and strict integrity of their complete package tree. If any
+path or byte changes locally, AXM preserves the
+drift and blocks affected lint, inspection, reconciliation, projection, and
+lifecycle work until reinstall, update, or fork resolves it. Workspace-authored
+packages remain local authority.
 
 ## Recommended packs
 
@@ -107,11 +128,13 @@ When a pack lists this skill as a dependency and the skill lists that pack as re
 
 Always declare `recommendedPacks` for packs you publish under the same owner that bundle this skill — it costs nothing and earns the Official badge in the registry.
 
-See `axm help packs` for pack authoring and `standalone` semantics.
+Keep the skill self-contained. `recommendedPacks` does not install the pack or
+its members. If the skill requires another extension, follow `axm help packs`
+for the only supported direct-sibling pack composition.
 
 ## Where to go next
 
 - `axm skills --help` — full skill subcommand surface
 - `axm help authoring` — writing the registry `description`, keywords, and README
 - `axm help packs` — bundling skill extensions with extension packs
-- `axm help workspace-state` — desired, observed, trust, and receipt semantics
+- `axm help workspace-state` — desired, accepted-resolution, and observed semantics

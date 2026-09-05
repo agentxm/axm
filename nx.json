@@ -1,19 +1,38 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "defaultBase": "main",
-  "parallel": 6,
+  "parallel": 2,
+  "maxCacheSize": "2GB",
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
       "options": {
-        "build": {
-          "targetName": "build",
-          "configName": "tsconfig.lib.json"
-        },
-        "typecheck": {
-          "targetName": "typecheck",
-          "configName": "tsconfig.json"
-        }
+        "typecheck": false,
+        "build": false
+      }
+    },
+    "./scripts/typecheck-plugin.ts",
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint"
+      }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "include": ["packages/**/vitest.config.ts", "specifications/vitest.config.ts"],
+      "exclude": ["packages/cli-e2e/**"],
+      "options": {
+        "testTargetName": "test",
+        "testMode": "run"
+      }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "include": ["packages/cli-e2e/vitest.config.ts"],
+      "options": {
+        "testTargetName": "e2e-main",
+        "testMode": "run"
       }
     }
   ],
@@ -23,40 +42,48 @@
     }
   },
   "namedInputs": {
-    "sharedGlobals": ["{workspaceRoot}/tsconfig*.json"],
+    "sharedGlobals": ["{workspaceRoot}/tsconfig*.json", "{workspaceRoot}/vitest.reporting.ts"],
+    "hostPlatform": [{ "runtime": "node -p \"process.platform + '/' + process.arch\"" }],
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
       "default",
       "!{projectRoot}/dist/**",
+      "!{projectRoot}/scripts/**",
+      "!{projectRoot}/**/__tests__/**",
       "!{projectRoot}/**/*.test.ts",
       "!{projectRoot}/**/*.e2e.test.ts",
       "!{projectRoot}/**/*.spec.ts",
       "!{projectRoot}/**/*.type-test.ts",
-      "!{projectRoot}/vitest*.config.ts"
+      "!{projectRoot}/vitest*.config.ts",
+      "!{projectRoot}/**/*.bench.ts"
     ]
   },
   "targetDefaults": {
+    "@nx/js:tsc": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist"]
+    },
     "@nx/eslint:lint": {
       "cache": true,
       "options": {
         "maxWarnings": 192
       },
-      "inputs": [
-        "default",
-        "^default",
-        "^production",
-        "{workspaceRoot}/eslint.config.mjs",
-        "{workspaceRoot}/tools/eslint-rules/**/*"
-      ]
+      "inputs": ["default", "^default", "^production", "{workspaceRoot}/eslint.config.mjs"]
     },
     "test": {
       "cache": true,
       "dependsOn": ["^build"],
-      "inputs": ["default", "^production"]
+      "outputs": ["{workspaceRoot}/test-results/{projectName}"]
+    },
+    "nx-release-publish": {
+      "cache": false,
+      "dependsOn": ["build"]
     }
   },
   "release": {
-    "projects": ["utils", "core", "cli"],
+    "projects": ["tag:release:cli"],
     "projectsRelationship": "fixed",
     "versionPlans": true,
     "releaseTag": {

@@ -1,0 +1,55 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-workspace",
+  "projectType": "library",
+  "root": "packages/extension-workspace",
+  "sourceRoot": "packages/extension-workspace/src",
+  "tags": ["type:lib", "layer:kernel", "scope:extension-workspace", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/extension-workspace/src/index.ts",
+        "outputPath": "packages/extension-workspace/dist",
+        "tsConfig": "packages/extension-workspace/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    },
+    "generate": {
+      "executor": "nx:noop",
+      "dependsOn": ["generate:e2e-extension-matrix"]
+    },
+    "generate:e2e-extension-matrix": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": [
+        "{projectRoot}/scripts/generate-e2e-extension-matrix.ts",
+        "{workspaceRoot}/packages/extension-model/src/unstable/extensions/common.ts",
+        "{workspaceRoot}/packages/workspace-state/src/workspace/configured-agent-outcomes.ts",
+        "{projectRoot}/src/extension-types/parity/**/*.ts",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{workspaceRoot}/packages/cli-e2e/src/__generated__/extension-type-matrix.ts"],
+      "options": {
+        "command": ["bun", "scripts/generate-e2e-extension-matrix.ts"],
+        "cwd": "packages/extension-workspace"
+      }
+    },
+    "test-windows": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"],
+      "outputs": ["{workspaceRoot}/test-results/extension-workspace-windows"],
+      "options": {
+        "command": "pnpm exec vitest run --config vitest.windows.config.ts",
+        "cwd": "packages/extension-workspace"
+      }
+    }
+  }
+}

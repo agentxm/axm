@@ -3,26 +3,43 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { disableMcpServer } from "@agentxm/client-core/unstable/mcps";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { Screen } from "../../screen/index.js";
+import { disableMcpServer } from "@agentxm/extension-lifecycle";
 import {
   previewOrApplyPlan,
+  operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
-export const handleDisableMcpServer = Effect.fn("DisableMcpServer.handle")(function* (args: {
+export const handleDisableMcpServer = (args: {
   readonly name: string;
   readonly yes: boolean;
-  readonly force: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "mcps.disable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Disable MCP server",
+    },
+    handleDisableMcpServerBody(args),
+  );
+
+const handleDisableMcpServerBody = Effect.fn("DisableMcpServer.handle")(function* (args: {
+  readonly name: string;
+  readonly yes: boolean;
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -44,17 +61,18 @@ export const handleDisableMcpServer = Effect.fn("DisableMcpServer.handle")(funct
   }
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
 
   const step: PlannedJobStep = {
     readiness: "ready",
     label: args.name,
     run: disableMcpServer({ name: "disable-mcp-server", args: { serverName: args.name } }).pipe(
+      provideLifecycleFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
-      Effect.provideService(CliRenderer, renderer),
+      Effect.provideService(Screen, screen),
       Effect.provideService(CodingAgentRepository, agentRepo),
     ),
   };
@@ -62,13 +80,19 @@ export const handleDisableMcpServer = Effect.fn("DisableMcpServer.handle")(funct
     _tag: "Plan",
     name: "Disable MCP server",
     description: Option.some(`Disable ${args.name}`),
+    presentation: operationPresentation(
+      { imperative: "disable", past: "Disabled", gerund: "Disabling" },
+      "mcp-server",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
-  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
-  yield* emitAppliedPlanOutcome({
-    command: "mcps.disable",
-    headline: `Disabled MCP server ${args.name}`,
-    resolution,
+  const execution = yield* makePublicPositionalPlanExecution(
+    args,
+    ["mcps", "disable"],
+    [args.name],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("mcps.disable", resolution, {
     suggestions: [
       { description: "Inspect MCP servers", cmd: "axm mcps list" },
       { description: "Undo", cmd: `axm mcps enable ${args.name}` },
@@ -82,15 +106,14 @@ const disableConfig = {
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Disable without confirmation")),
-  force: forceFlag,
   preview: previewFlag,
 } as const;
 
 export const disableCommand = Command.make(
   "disable",
   disableConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleDisableMcpServer({ name, yes, force, preview }).pipe(
+  ({ name, scope, yes, preview }) =>
+    handleDisableMcpServer({ name, yes, preview }).pipe(
       withWorkspace(scope),
       withRuntime("mcps disable"),
     ),

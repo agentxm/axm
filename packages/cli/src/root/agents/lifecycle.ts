@@ -11,7 +11,7 @@ import {
   AGENT_IDS,
   type AgentId,
   type AgentLifecycle,
-} from "@agentxm/client-core/unstable/agent-capabilities";
+} from "@agentxm/extension-model/unstable/agent-capabilities";
 
 const catalogAgentIds = new Set<string>(AGENT_IDS);
 

@@ -1,0 +1,26 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "specifications",
+  "projectType": "library",
+  "root": "specifications",
+  "sourceRoot": "specifications",
+  "tags": ["type:specification", "scope:specifications"],
+  "targets": {
+    "generate": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/**/*.ts",
+        "{workspaceRoot}/scripts/specification-catalog.ts",
+        "{workspaceRoot}/scripts/specification-catalog-lib.ts",
+        "{workspaceRoot}/packages/cli-e2e/src/**/*.ts",
+        "{workspaceRoot}/packages/extension-model/src/unstable/specifications/**/*.ts"
+      ],
+      "outputs": ["{projectRoot}/catalog.md"],
+      "options": {
+        "command": "bun --conditions=axm-source scripts/specification-catalog.ts",
+        "cwd": "."
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "grader_version": "1.0.0",
+  "required_fields": ["title", "detail"],
+  "unknown_when": "The final Markdown or parsed input is unavailable."
+}

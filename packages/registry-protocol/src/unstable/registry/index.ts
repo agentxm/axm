@@ -1,0 +1,64 @@
+/**
+ * Area barrel for the package public surface.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+export {
+  type DiscoverPackagesResponse,
+  DiscoverPackagesResponseSchema,
+  type DiscoveryExtensionResult,
+  DiscoveryExtensionResultSchema,
+  type DiscoveryPackageResult,
+  DiscoveryPackageResultSchema,
+  type DiscoveryResolvedExtension,
+  DiscoveryResolvedExtensionSchema,
+} from "./discover-schema.js";
+export {
+  MAX_PUBLICATION_SET_CANDIDATES,
+  PUBLICATION_SET_CONTRACT,
+  type PackDependencyDescriptor,
+  type PackDependencyFinding,
+  PackDependencyFindingSchema,
+  type PreviewPublicationSetRequest,
+  PreviewPublicationSetRequestSchema,
+  type PreviewPublicationSetResponse,
+  PreviewPublicationSetResponseSchema,
+  type ProspectivePackDependencyState,
+  type ProspectivePublicationCandidate,
+  type PublicationCandidateResult,
+  type PublicationDependencySnapshot,
+  type PublicationDependencyVersionSnapshot,
+  type PublicationDescriptor,
+  type PublicationPackResult,
+  type PublicationTarget,
+  type PublicationVisibilityInput,
+  PublicationVisibilityInputSchema,
+  type Sha256Hex,
+  Sha256HexSchema,
+  archiveSha256Hex,
+  comparePublicationTargets,
+  evaluateProspectivePackDependencies,
+  evaluateProspectivePackDependencyState,
+  normalizePublicationDescriptor,
+  normalizePublicationSet,
+  publicationDescriptorDigest,
+  publicationSetDigest,
+  publicationTargetKey,
+  validatePublicationDescriptors,
+  validatePublicationSetResponse,
+} from "./publication-set.js";
+export {
+  type DeprecationManagementView,
+  DeprecationManagementViewSchema,
+  type DeprecationReplacementIntent,
+  DeprecationReplacementIntentSchema,
+  DeprecationRevisionSchema,
+  type DeprecationTransition,
+  DeprecationTransitionSchema,
+  type ExtensionIndex,
+  ExtensionIndexSchema,
+  type VersionEntry,
+  VersionEntrySchema,
+  packagesToPackageUrlParts,
+} from "./schema.js";

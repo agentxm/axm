@@ -1,231 +1,19 @@
-import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
-import { expectDefined, getOutput } from "../../../test-helpers.js";
+import { getOutput } from "../../../test-helpers.js";
 
-const TEST_NAMESPACE = "@test";
-
-const writeJson = (filePath: string, value: unknown) => {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
-};
-
-const computePackageContentIdentity = (packageDir: string): string => {
-  const files: Array<{ readonly absolutePath: string; readonly relativePath: string }> = [];
-  const visit = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolutePath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        visit(absolutePath);
-      } else if (entry.isFile()) {
-        files.push({
-          absolutePath,
-          relativePath: path.relative(packageDir, absolutePath),
-        });
-      }
-    }
-  };
-  visit(packageDir);
-  files.sort((left, right) =>
-    left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
-  );
-  const packageHash = crypto.createHash("sha256");
-  for (const file of files) {
-    packageHash.update(file.relativePath);
-    packageHash.update("\0");
-    packageHash.update(fs.readFileSync(file.absolutePath));
-    packageHash.update("\0");
-  }
-  return crypto.createHash("sha256").update(packageHash.digest("hex")).digest("hex");
-};
-
-const setupCrossTypeManagedState = (workspacePath: string) => {
-  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
-  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-
-  delete settings.skills?.axm;
-  settings.owner = TEST_NAMESPACE;
-  settings.skills = {
-    ...(settings.skills ?? {}),
-    "managed-skill": `workspace:${TEST_NAMESPACE}/skills/managed-skill`,
-  };
-  settings.commands = {
-    ...(settings.commands ?? {}),
-    "managed-command": `workspace:${TEST_NAMESPACE}/commands/managed-command`,
-  };
-  settings.mcpServers = {
-    ...(settings.mcpServers ?? {}),
-    "managed-mcp": `workspace:${TEST_NAMESPACE}/mcps/managed-mcp`,
-  };
-  settings.packs = {
-    ...(settings.packs ?? {}),
-    "managed-pack": `workspace:${TEST_NAMESPACE}/packs/managed-pack`,
-  };
-
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-
-  writeJson(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "skills",
-      "managed-skill",
-      "skill.json",
-    ),
-    {
-      owner: TEST_NAMESPACE,
-      type: "skill",
-      name: "managed-skill",
-      version: "1.0.0",
-    },
-  );
-  fs.mkdirSync(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "skills",
-      "managed-skill",
-      "src",
-    ),
-    { recursive: true },
-  );
-  fs.writeFileSync(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "skills",
-      "managed-skill",
-      "src",
-      "SKILL.md",
-    ),
-    "---\nname: managed-skill\ndescription: Managed skill fixture\n---\n",
-  );
-
-  writeJson(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "commands",
-      "managed-command",
-      "command.json",
-    ),
-    {
-      owner: TEST_NAMESPACE,
-      type: "command",
-      name: "managed-command",
-      version: "1.0.0",
-    },
-  );
-  fs.mkdirSync(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "commands",
-      "managed-command",
-      "src",
-    ),
-    { recursive: true },
-  );
-  fs.writeFileSync(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "commands",
-      "managed-command",
-      "src",
-      "managed-command.md",
-    ),
-    "---\nname: managed-command\ndescription: Managed command fixture\n---\n",
-  );
-
-  writeJson(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "mcps",
-      "managed-mcp",
-      "mcp.json",
-    ),
-    {
-      owner: TEST_NAMESPACE,
-      type: "mcp-server",
-      name: "managed-mcp",
-      version: "1.0.0",
-      server: {
-        name: "io.agentxm.test/managed-mcp",
-        description: "Managed MCP server fixture",
-        version: "1.0.0",
-        packages: [
-          {
-            registryType: "npm",
-            identifier: "@test/managed-mcp",
-            version: "1.0.0",
-            transport: { type: "stdio" },
-          },
-        ],
-      },
-    },
-  );
-
-  const packDir = path.join(
-    workspacePath,
-    ".axm",
-    "extensions",
-    TEST_NAMESPACE,
-    "packs",
-    "managed-pack",
-  );
-  writeJson(path.join(packDir, "pack.json"), {
-    owner: TEST_NAMESPACE,
-    type: "pack",
-    name: "managed-pack",
-    version: "1.0.0",
-    dependencies: {},
-  });
-
-  const trustPath = path.join(workspacePath, ".axm", "trust.json");
-  const trust = fs.existsSync(trustPath)
-    ? JSON.parse(fs.readFileSync(trustPath, "utf-8"))
-    : { trustStateVersion: 1, records: {} };
-  trust.records = {
-    ...trust.records,
-    "pack:managed-pack": {
-      extensionType: "pack",
-      name: "managed-pack",
-      authority: "workspace",
-      sourceIdentity: `workspace:${TEST_NAMESPACE}/packs/managed-pack`,
-      resolvedVersion: "1.0.0",
-      contentIdentity: computePackageContentIdentity(packDir),
-    },
-  };
-  writeJson(trustPath, trust);
-};
-
-describe("lockfile rebuild on missing/invalid lockfile", () => {
-  it("regenerates full active-scope snapshot across extension types when lockfile is deleted", async () => {
+describe("authoritative lockfile recovery boundary", () => {
+  it("creates a new v7 lockfile containing only the requested external resolution", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
-      setupCrossTypeManagedState(temp.path);
-
-      const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      const lockfilePath = path.join(temp.path, "axm-lock.yaml");
       fs.rmSync(lockfilePath, { force: true });
 
       const result = await runCli(
@@ -234,26 +22,23 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
       );
 
       expect(result.exitCode, getOutput(result)).toBe(0);
-
-      const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
-      expect(lock.skills?.["managed-skill"]).toBeDefined();
-      expect(lock.skills?.["another-skill"]).toBeDefined();
-      expect(lock.commands?.["managed-command"]).toBeDefined();
-      expect(lock.mcpServers?.["managed-mcp"]).toBeDefined();
-      expect(lock.packs?.["managed-pack"]).toBeDefined();
+      const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf8"));
+      expect(lock.lockfileVersion).toBe(7);
+      expect(Object.keys(lock.skills)).toEqual(["another-skill"]);
+      expect(lock.skills["another-skill"]).toMatchObject({ type: "local" });
     } finally {
       temp.cleanup();
     }
   });
 
-  it("backs up invalid lockfile to OS tmp dir before regeneration", async () => {
+  it("blocks mutation when the authoritative lockfile is invalid", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
-      setupCrossTypeManagedState(temp.path);
-
-      const axmDir = path.join(temp.path, ".axm");
-      const lockfilePath = path.join(axmDir, "axm-lock.yaml");
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      const lockfilePath = path.join(temp.path, "axm-lock.yaml");
       const invalidLockfile = "lockfileVersion: [broken\n";
       fs.writeFileSync(lockfilePath, invalidLockfile);
 
@@ -262,40 +47,25 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
         { cwd: temp.path },
       );
 
-      expect(result.exitCode, getOutput(result)).toBe(0);
-
-      // Backups go to an OS tmp dir; the CLI surfaces the path in its
-      // reconcile success message.
-      const backupMatch = getOutput(result).match(
-        /backed up invalid lockfile to (\S+axm-lock\.yaml)\)/,
+      expect(result.exitCode).toBe(9);
+      expect(getOutput(result)).toContain(
+        `Workspace lockfile at ${fs.realpathSync(lockfilePath)} is not valid YAML`,
       );
-      const backupPath = expectDefined(backupMatch?.[1], "expected backup path in CLI output");
-      expect(fs.readFileSync(backupPath, "utf-8")).toBe(invalidLockfile);
-
-      // No sibling `.bak.<ts>` files in the workspace (the old behavior).
-      const siblingBackups = fs
-        .readdirSync(axmDir)
-        .filter((file) => /^axm-lock\.yaml\.bak\.\d{14}$/.test(file));
-      expect(siblingBackups).toHaveLength(0);
-
-      const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
-      expect(lock.commands?.["managed-command"]).toBeDefined();
-      expect(lock.mcpServers?.["managed-mcp"]).toBeDefined();
-      expect(lock.packs?.["managed-pack"]).toBeDefined();
-      expect(lock.skills?.["another-skill"]).toBeDefined();
+      expect(fs.readFileSync(lockfilePath, "utf8")).toBe(invalidLockfile);
+      expect(fs.existsSync(path.join(temp.path, "agent_extensions", "local"))).toBe(false);
     } finally {
       temp.cleanup();
     }
   });
 
-  it("keeps --preview strict dry-run even with invalid lockfile", async () => {
+  it("keeps preview side-effect free while reporting an invalid lockfile blocker", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
-      setupCrossTypeManagedState(temp.path);
-
-      const axmDir = path.join(temp.path, ".axm");
-      const lockfilePath = path.join(axmDir, "axm-lock.yaml");
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      const lockfilePath = path.join(temp.path, "axm-lock.yaml");
       const invalidLockfile = "lockfileVersion: [broken\n";
       fs.writeFileSync(lockfilePath, invalidLockfile);
 
@@ -312,20 +82,11 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
         { cwd: temp.path },
       );
 
-      expect(result.exitCode).toBe(0);
-      expect(getOutput(result)).toContain("Would install");
-      expect(fs.readFileSync(lockfilePath, "utf-8")).toBe(invalidLockfile);
-
-      const backupFiles = fs
-        .readdirSync(axmDir)
-        .filter((file) => /^axm-lock\.yaml\.bak\.\d{14}$/.test(file));
-      expect(backupFiles).toHaveLength(0);
-
-      expect(
-        fs.existsSync(
-          path.join(temp.path, ".axm", "extensions", "external", "skills", "another-skill"),
-        ),
-      ).toBe(false);
+      expect(result.exitCode).toBe(9);
+      expect(getOutput(result)).toContain(
+        `Workspace lockfile at ${fs.realpathSync(lockfilePath)} is not valid YAML`,
+      );
+      expect(fs.readFileSync(lockfilePath, "utf8")).toBe(invalidLockfile);
     } finally {
       temp.cleanup();
     }

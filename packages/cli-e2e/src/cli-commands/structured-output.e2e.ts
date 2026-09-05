@@ -6,6 +6,8 @@
  * Parse and usage failures emit schema-conformant NDJSON diagnostics on stderr.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../e2e/utils.js";
 
@@ -17,6 +19,14 @@ const getJsonLines = (output: string): ReadonlyArray<string> =>
 
 const parseJson = (output: string): Record<string, unknown> => JSON.parse(output);
 
+const machineDocumentKind = (
+  document: Record<string, unknown>,
+): "result-envelope-v1" | "error-envelope-v1" | "help-document-v1" | "version-document-v1" => {
+  if (document["type"] === "help") return "help-document-v1";
+  if (document["type"] === "version") return "version-document-v1";
+  return Object.hasOwn(document, "result") ? "result-envelope-v1" : "error-envelope-v1";
+};
+
 describe("structured output (--json)", () => {
   it("logout --json emits a structured result document", async () => {
     const temp = createTempDir();
@@ -27,24 +37,13 @@ describe("structured output (--json)", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(parseJson(result.stdout)).toMatchObject({
+      const document = parseJson(result.stdout);
+      expect(machineDocumentKind(document)).toBe("result-envelope-v1");
+      expect(document).toMatchObject({
         ok: true,
         result: {
-          outcome: "no-op",
-          planName: "Log out of AXM registry",
           status: "not-logged-in",
           registryHost: "registry.agentxm.ai",
-          steps: [
-            {
-              label: "Registry credentials",
-              status: "unchanged",
-              artifact: {
-                path: "registry.agentxm.ai",
-                scope: "user",
-                change: "unchanged",
-              },
-            },
-          ],
         },
         suggestions: [{ description: "Log in to this registry", cmd: "axm login" }],
       });
@@ -63,7 +62,9 @@ describe("structured output (--json)", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(parseJson(result.stdout)).toEqual({
+      const document = parseJson(result.stdout);
+      expect(machineDocumentKind(document)).toBe("result-envelope-v1");
+      expect(document).toEqual({
         ok: true,
         result: { data: { token: "test-json-token" } },
       });
@@ -76,7 +77,9 @@ describe("structured output (--json)", () => {
     const result = await runCli(["--help", "--json"]);
 
     expect(result.exitCode).toBe(0);
-    expect(parseJson(result.stdout)).toMatchObject({
+    const document = parseJson(result.stdout);
+    expect(machineDocumentKind(document)).toBe("help-document-v1");
+    expect(document).toMatchObject({
       type: "help",
       usage: "axm <subcommand> [flags]",
     });
@@ -86,7 +89,9 @@ describe("structured output (--json)", () => {
     const result = await runCli(["--version", "--json"]);
 
     expect(result.exitCode).toBe(0);
-    expect(parseJson(result.stdout)).toMatchObject({
+    const document = parseJson(result.stdout);
+    expect(machineDocumentKind(document)).toBe("version-document-v1");
+    expect(document).toMatchObject({
       type: "version",
       name: "axm",
     });
@@ -101,12 +106,14 @@ describe("structured output (--json)", () => {
           env: { AXM_TOKEN: "" },
         });
 
-        expect(result.exitCode).toBe(4);
-        expect(parseJson(result.stdout)).toMatchObject({
+        expect(result.exitCode).toBe(13);
+        const document = parseJson(result.stdout);
+        expect(machineDocumentKind(document)).toBe("error-envelope-v1");
+        expect(document).toMatchObject({
           ok: false,
-          code: "auth",
+          code: "auth_required",
         });
-        expect(result.stderr).toContain("Set the AXM_TOKEN environment variable");
+        expect(result.stderr).toContain("axm login --device-code --json");
       } finally {
         temp.cleanup();
       }
@@ -116,7 +123,9 @@ describe("structured output (--json)", () => {
       const result = await runCli(["token", "--nonexistent-flag", "--json"]);
 
       expect(result.exitCode).toBe(2);
-      expect(parseJson(result.stdout)).toMatchObject({
+      const document = parseJson(result.stdout);
+      expect(machineDocumentKind(document)).toBe("error-envelope-v1");
+      expect(document).toMatchObject({
         ok: false,
         code: "usage",
         title: "Usage Error",
@@ -127,13 +136,47 @@ describe("structured output (--json)", () => {
     });
   });
 
+  it("keeps semantic failures in the result envelope with a nonzero exit", async () => {
+    const temp = createTempDir();
+    try {
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(setup.exitCode, setup.stderr).toBe(0);
+      const settingsPath = path.join(temp.path, "axm.json");
+      const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      if (typeof settings !== "object" || settings === null || Array.isArray(settings)) {
+        throw new Error("Expected object settings");
+      }
+      fs.writeFileSync(
+        settingsPath,
+        JSON.stringify({ ...settings, skills: { missing: "@acme/skills/missing" } }, null, 2),
+      );
+
+      const result = await runCli(["lint", "--json"], { cwd: temp.path });
+      const document = parseJson(result.stdout);
+
+      expect(result.exitCode).toBe(1);
+      expect(machineDocumentKind(document)).toBe("result-envelope-v1");
+      expect(document).toMatchObject({
+        ok: false,
+        result: { summary: { exitCategory: "errors" } },
+      });
+    } finally {
+      temp.cleanup();
+    }
+  });
+
   it("parent commands still show structured help and exit 0 in json mode", async () => {
-    const result = await runCli(["auth", "--json"]);
+    const result = await runCli(["cache", "--json"]);
 
     expect(result.exitCode).toBe(0);
-    expect(parseJson(result.stdout)).toMatchObject({
+    const document = parseJson(result.stdout);
+    expect(machineDocumentKind(document)).toBe("help-document-v1");
+    expect(document).toMatchObject({
       type: "help",
-      usage: "axm auth <subcommand> [flags]",
+      usage: "axm cache <subcommand> [flags]",
     });
   });
 

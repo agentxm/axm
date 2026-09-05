@@ -2,15 +2,15 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   installableExtensionTypePluralSegments,
   isInstallableExtensionTypePlural,
-  RegistrySourceRefSchema,
   toInstallableExtensionType,
   type InstallableExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { RegistrySourceRefSchema } from "@agentxm/extension-model/unstable/extensions";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
 
@@ -27,7 +27,7 @@ const rootUninstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
 const supportedRootUninstallTypes = rootUninstallableTypeSegments.join(", ");
 
 const genericPerTypeUninstallGuidance =
-  "Use the matching per-type uninstall command instead: `axm skills uninstall <name>`, `axm commands uninstall <name>`, `axm subagents uninstall <name>`, `axm packs uninstall <name>`, or `axm mcps uninstall <name>`.";
+  "Use the matching per-type uninstall command instead: `axm skills uninstall <name>`, `axm subagents uninstall <name>`, `axm packs uninstall <name>`, or `axm mcps uninstall <name>`.";
 
 const rootUninstallRegistryOnlyHowToFix = (source: string): string => {
   const parsed = parseInputPattern(source);
@@ -39,7 +39,7 @@ const rootUninstallRegistryOnlyHowToFix = (source: string): string => {
   switch (parsed.value.pattern.pattern) {
     case "name-input":
     case "glob-input":
-      return `Root uninstall only accepts registry FQNs. Use the matching per-type command instead: \`axm skills uninstall ${source}\`, \`axm commands uninstall ${source}\`, \`axm subagents uninstall ${source}\`, \`axm packs uninstall ${source}\`, or \`axm mcps uninstall ${source}\`.`;
+      return `Root uninstall only accepts registry FQNs. Use the matching per-type command instead: \`axm skills uninstall ${source}\`, \`axm subagents uninstall ${source}\`, \`axm packs uninstall ${source}\`, or \`axm mcps uninstall ${source}\`.`;
     case "file-path-pattern":
     case "url-input":
     case "git-scp-address":
@@ -48,7 +48,7 @@ const rootUninstallRegistryOnlyHowToFix = (source: string): string => {
     case "registry-pattern-input":
       return `Use \`axm uninstall ${rootUninstallFqnGrammar}\`. ${genericPerTypeUninstallGuidance}`;
     case "workspace-pattern-input":
-      return "Workspace locators require an explicit source disposition. Use the matching per-type uninstall command.";
+      return "Use the matching per-type uninstall command for a workspace-authored extension.";
   }
 };
 

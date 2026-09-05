@@ -1,7 +1,7 @@
 {
   "name": "axm.sh",
-  "version": "0.24.10",
-  "description": "Extension manager for AI coding agents — install skills, subagents, slash commands, and MCP servers across Claude Code, Codex, Cursor, Copilot, and more.",
+  "version": "0.28.7",
+  "description": "Extension manager for AI coding agents — install skills, subagents, MCP servers, rules, hooks, knowledge, and packs across Claude Code, Codex, Cursor, Copilot, and more.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -30,7 +30,6 @@
     "skills",
     "subagent",
     "subagents",
-    "slash-commands",
     "pack",
     "claude-code",
     "github-copilot-cli",
@@ -43,27 +42,35 @@
     "goose",
     "qwen-code"
   ],
-  "bin": {
-    "axm": "./dist/src/main.js"
-  },
   "exports": {
     "./app": {
       "types": "./dist/src/app.d.ts",
+      "experimental": "./dist/src/app.js",
       "default": "./dist/src/app.js"
     },
     "./runtime": {
       "types": "./dist/src/runtime.d.ts",
+      "experimental": "./dist/src/runtime.js",
       "default": "./dist/src/runtime.js"
-    }
+    },
+    "./specification-harness": {
+      "types": "./dist/src/specification-harness.d.ts",
+      "experimental": "./dist/src/specification-harness.js",
+      "default": "./dist/src/specification-harness.js"
+    },
+    "./unstable/site-content/schemas/*": "./site-content/__generated__/schemas/*",
+    "./unstable/site-content/*": "./site-content/*"
   },
   "files": [
     "dist/src/",
-    "!dist/src/test-helpers.*",
-    "!dist/src/test-stubs.*",
-    "!**/*.map"
+    "!**/*.map",
+    "site-content/"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "bin": {
+      "axm": "./dist/src/main.js"
+    }
   },
   "nx": {
     "includedScripts": []
@@ -72,20 +79,38 @@
     "node": ">=22.19.0"
   },
   "dependencies": {
-    "@agentxm/client-core": "workspace:^",
-    "@agentxm/client-utils": "workspace:^",
+    "@agentxm/agent-integration": "workspace:^",
+    "@agentxm/extension-authoring": "workspace:^",
+    "@agentxm/extension-discovery": "workspace:^",
+    "@agentxm/extension-lifecycle": "workspace:^",
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-publish": "workspace:^",
+    "@agentxm/extension-sources": "workspace:^",
+    "@agentxm/extension-workspace": "workspace:^",
+    "@agentxm/knowledge-query": "workspace:^",
+    "@agentxm/registry-auth": "workspace:^",
+    "@agentxm/registry-client": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-configuration": "workspace:^",
+    "@agentxm/workspace-inspection": "workspace:^",
+    "@agentxm/workspace-lint": "workspace:^",
+    "@agentxm/workspace-operations": "workspace:^",
+    "@agentxm/workspace-state": "workspace:^",
+    "@agentxm/workspace-sync": "workspace:^",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
-    "gray-matter": "catalog:",
+    "marked": "^18.0.9",
     "semver": "catalog:",
-    "simple-git": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {
+    "@effect/openapi-generator": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
+    "fflate": "catalog:",
+    "swagger2openapi": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

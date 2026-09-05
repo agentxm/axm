@@ -2,24 +2,15 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  extensionTypeToPlural,
-  fqnInvalidErrorToAppError,
-  parseFqn,
-} from "@agentxm/client-core/unstable/extensions";
-import type { PublishableType } from "./command.js";
+import { makeAppError } from "../../app-error/index.js";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
+import type { PublishableType } from "@agentxm/extension-publish";
 
-import { scopeFlag } from "../../cli-flags.js";
-import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
-import {
-  allowOlderFlag,
-  allowUnsafeArchiveFlag,
-  onExistingFlag,
-  skipExistingFlag,
-} from "../shared/publish-flags.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
+import { backfillFlag, onExistingFlag } from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
 type PerTypePublishType = PublishableType;
@@ -41,21 +32,16 @@ const normalizeSelector = (type: PerTypePublishType, selector: string) =>
 
 export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   const plural = extensionTypeToPlural[type];
-  const config = {
-    extensions: Argument.string("extensions").pipe(
+  const commonConfig = {
+    extensions: Argument.string("name").pipe(
       Argument.withDescription("Bare names, globs, or fully-qualified extension names"),
       Argument.atLeast(0),
     ),
-    authored: Flag.boolean("authored").pipe(
-      Flag.withDescription("Publish extensions authored in this workspace"),
-    ),
-    all: Flag.boolean("all").pipe(Flag.withDescription(`Publish all managed ${plural} packages`)),
     owner: Flag.string("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
     exclude: Flag.string("exclude").pipe(
       Flag.withDescription("Exclude a matching name, glob, or FQN"),
       Flag.atLeast(0),
     ),
-    scope: scopeFlag,
     registry: Flag.string("registry").pipe(
       Flag.withDescription("Target a specific named registry"),
       Flag.optional,
@@ -65,35 +51,73 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       Flag.optional,
     ),
     onExisting: onExistingFlag,
-    skipExisting: skipExistingFlag,
-    allowOlder: allowOlderFlag,
-    allowUnsafeArchive: allowUnsafeArchiveFlag,
+    backfill: backfillFlag,
+    acceptWarnings: acceptWarningsFlag,
     visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
-      Flag.withDescription("Initial visibility for one explicit publish"),
+      Flag.withDescription("Initial visibility for every new extension in the selection"),
       Flag.optional,
     ),
-    includeDependencies: Flag.boolean("include-dependencies").pipe(
-      Flag.withDescription("For packs, include workspace-sourced dependencies"),
-    ),
-    includeDependency: Flag.string("include-dependency").pipe(
-      Flag.withDescription("For packs, explicitly include a non-workspace dependency"),
-      Flag.atLeast(0),
-    ),
     yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
-    force: forceFlag.pipe(
-      Flag.withDescription("Proceed past blocked plan steps; never overwrites a published version"),
-    ),
     preview: previewFlag.pipe(Flag.withDescription("Preflight without uploading")),
   } as const;
 
+  const examples = [
+    {
+      command: `axm ${plural} publish`,
+      description: `Publish every workspace-sourced ${plural} package`,
+    },
+    {
+      command: `axm ${plural} publish example-* --on-existing verify`,
+      description: `Publish matching ${plural} packages`,
+    },
+  ];
+
+  if (type === "pack") {
+    const config = {
+      ...commonConfig,
+      includeDependencies: Flag.boolean("include-dependencies").pipe(
+        Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
+        Flag.withDefault(false),
+      ),
+    } as const;
+    return Command.make("publish", config, (parsed) =>
+      Effect.gen(function* () {
+        const selectors = yield* Effect.forEach(parsed.extensions, (selector) =>
+          normalizeSelector(type, selector),
+        );
+        const excludes = yield* Effect.forEach(parsed.exclude, (selector) =>
+          normalizeSelector(type, selector),
+        );
+        yield* handleRootPublish({
+          selectors,
+          owners: [...parsed.owner],
+          types: selectors.length === 0 ? [type] : [],
+          excludes,
+          registry: parsed.registry,
+          registryUrl: parsed.registryUrl,
+          onExisting: parsed.onExisting,
+          backfill: parsed.backfill,
+          acceptWarnings: parsed.acceptWarnings,
+          yes: parsed.yes,
+          preview: parsed.preview,
+          scope: "project",
+          visibility: parsed.visibility,
+          includeDependencies: parsed.includeDependencies,
+          recoveryCommand: [plural, "publish"],
+          recoverySelectors: [...parsed.extensions],
+          recoveryExcludes: [...parsed.exclude],
+        });
+      }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
+    ).pipe(
+      withArgvTracking(config),
+      Command.withDescription(`Publish project-workspace ${plural} to a registry`),
+      Command.withExamples(examples),
+    );
+  }
+
+  const config = commonConfig;
   return Command.make("publish", config, (parsed) =>
     Effect.gen(function* () {
-      if (type !== "pack" && (parsed.includeDependencies || parsed.includeDependency.length > 0)) {
-        return yield* makeAppError({
-          code: "usage",
-          detail: "Dependency publication flags are only valid for packs",
-        });
-      }
       const selectors = yield* Effect.forEach(parsed.extensions, (selector) =>
         normalizeSelector(type, selector),
       );
@@ -102,51 +126,34 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       );
       yield* handleRootPublish({
         selectors,
-        authored: parsed.authored,
-        all: parsed.all,
         owners: [...parsed.owner],
         types: selectors.length === 0 ? [type] : [],
         excludes,
         registry: parsed.registry,
         registryUrl: parsed.registryUrl,
         onExisting: parsed.onExisting,
-        skipExisting: parsed.skipExisting,
-        allowOlder: parsed.allowOlder,
-        allowUnsafeArchive: parsed.allowUnsafeArchive,
+        backfill: parsed.backfill,
+        acceptWarnings: parsed.acceptWarnings,
         yes: parsed.yes,
-        force: parsed.force,
         preview: parsed.preview,
-        scope: parsed.scope,
+        scope: "project",
         visibility: parsed.visibility,
-        includeDependencies: parsed.includeDependencies,
-        includeDependency: [...parsed.includeDependency],
+        includeDependencies: false,
+        recoveryCommand: [plural, "publish"],
+        recoverySelectors: [...parsed.extensions],
+        recoveryExcludes: [...parsed.exclude],
       });
-    }).pipe(
-      withWorkspace(parsed.scope),
-      Effect.provide(AuthLayer),
-      withRuntime(`${plural} publish`),
-    ),
+    }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
   ).pipe(
     withArgvTracking(config),
-    Command.withDescription(`Publish ${plural} to a registry`),
-    Command.withExamples([
-      {
-        command: `axm ${plural} publish`,
-        description: `Publish every workspace-sourced ${plural} package`,
-      },
-      {
-        command: `axm ${plural} publish example-* --on-existing verify`,
-        description: `Publish matching ${plural} packages`,
-      },
-    ]),
+    Command.withDescription(`Publish project-workspace ${plural} to a registry`),
+    Command.withExamples(examples),
   );
 };
 
 export const skillsPublishCommand = makePerTypePublishCommand("skill");
-export const commandsPublishCommand = makePerTypePublishCommand("command");
 export const mcpsPublishCommand = makePerTypePublishCommand("mcp-server");
 export const subagentsPublishCommand = makePerTypePublishCommand("subagent");
-export const filesPublishCommand = makePerTypePublishCommand("files");
 export const hooksPublishCommand = makePerTypePublishCommand("hook");
 export const knowledgePublishCommand = makePerTypePublishCommand("knowledge");
 export const packsPublishCommand = makePerTypePublishCommand("pack");

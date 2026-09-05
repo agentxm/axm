@@ -56,13 +56,17 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          install: "false"
 
-      - name: Classify changed paths and affected projects
+      - name: Classify changed paths
         id: classify
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: pnpm run classify:ci -- --base "$BASE_SHA" --head "$HEAD_SHA"
+        run: >-
+          pnpm --config.verify-deps-before-run=warn run classify:ci --
+          --base "$BASE_SHA" --head "$HEAD_SHA"
 
   format:
     name: Format
@@ -79,11 +83,29 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
 
-      - name: Create local main ref for formatting diff
-        run: git fetch --no-tags origin main:main
-
       - name: Verify formatting
         run: pnpm run format:check
+
+  specification-verdict:
+    name: Specification verdict
+    needs: classify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
+      - name: Create local main ref for the requirement diff
+        run: git fetch --no-tags origin main:main
+
+      - name: Render the per-change specification verdict
+        run: pnpm exec nx run axm:specification-verdict -- --base "$(git merge-base main HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
 
   extension-lint:
     name: AXM extension lint
@@ -98,27 +120,8 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
 
-      - name: Build CLI dependencies
-        run: pnpm exec nx run cli:build --outputStyle=static
-
       - name: Lint bundled AXM skill
-        run: |
-          { pnpm --silent axm:local lint --json --quiet --non-interactive 2>/dev/null || true; } |
-            jq -e '
-              [
-                .result.findings[]
-                | select(.severity == "error")
-                | select(
-                    ((.path // "") + " " + (.displayRoot // ""))
-                    | contains(".axm/extensions/@agentxm/skills/axm")
-                  )
-              ] as $errors
-              | if ($errors | length) == 0 then
-                  "Bundled AXM skill passed lint"
-                else
-                  $errors, error("Bundled AXM skill has lint errors")
-                end
-            '
+        run: pnpm exec nx run axm:lint-bundled-skill --outputStyle=static
 
   documentation:
     name: Documentation integrity
@@ -153,6 +156,9 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Run actionlint from the pinned CI image
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
+        # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: scripts/container-environment.sh ci actionlint
 
   image:
@@ -190,7 +196,31 @@ jobs:
       - name: Create local main ref for affected diff
         run: git fetch --no-tags origin main:main
 
-      - name: Verify affected changes in pinned CI image
+      - name: Restore pnpm store
+        id: pnpm-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          key: axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Restore Nx cache
+        id: nx-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/axm-ci-cache/nx
+          key: >-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{
+            hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-${{
+            github.event.pull_request.head.sha }}
+          restore-keys: |
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Determine release verification mode
+        id: release-mode
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
@@ -203,13 +233,66 @@ jobs:
             git log --format=%s "main..$HEAD_SHA" | grep --fixed-strings --line-regexp --quiet -- "$release_subject"; then
             release_preparation=true
           fi
-          scripts/container-environment.sh ci bash -lc \
-            "set -euo pipefail
+          echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
+
+      - name: Verify affected changes in pinned CI image
+        id: verify
+        env:
+          AXM_CI_PNPM_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          AXM_CI_NX_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/nx
+          AXM_CONTAINER_NX_PARALLEL: "3"
+          AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
+          AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
+          NX_BASE: ${{ github.event.pull_request.base.sha }}
+          NX_HEAD: ${{ github.event.pull_request.head.sha }}
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
+        # installs no host toolchain, so no pnpm exists to resolve container:ci.
+        run: |
+          scripts/container-environment.sh ci bash -lc '
+            set -euo pipefail
             pnpm install --frozen-lockfile
-            if [[ '$release_preparation' != 'true' ]]; then
+            if [[ "$AXM_RELEASE_PREPARATION" != "true" ]]; then
               pnpm release:plan:check
             fi
-            pnpm run ci:affected"
+            pnpm run verify:clean
+            pnpm run verify:affected:report
+          '
+
+      - name: Publish verification summary
+        if: always()
+        env:
+          NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}
+          NX_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/nx
+          PNPM_CACHE_HIT: ${{ steps.pnpm-cache.outputs.cache-hit }}
+          PNPM_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          cache_status() {
+            case "$1" in
+              true) printf 'Exact hit' ;;
+              false) printf 'Fallback hit' ;;
+              *) printf 'Miss' ;;
+            esac
+          }
+          cache_size() {
+            if [[ -d "$1" ]]; then
+              du -sh "$1" | cut -f1
+            else
+              printf '0 B'
+            fi
+          }
+          verify_outcome=${VERIFY_OUTCOME:-not run}
+          {
+            echo "## Hosted PR verification"
+            echo
+            echo "| Signal | Result |"
+            echo "| --- | --- |"
+            echo "| Outcome | $verify_outcome |"
+            echo "| pnpm cache | $(cache_status "$PNPM_CACHE_HIT") ($(cache_size "$PNPM_CACHE_PATH")) |"
+            echo "| Nx cache | $(cache_status "$NX_CACHE_HIT") ($(cache_size "$NX_CACHE_PATH")) |"
+            echo "| Concurrency | Nx 3; Vitest 2 |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JUnit artifacts
         if: always()
@@ -217,6 +300,15 @@ jobs:
         with:
           name: test-results-pr
           path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-report-pr
+          path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -229,7 +321,7 @@ jobs:
           include_passed: true
 
   verify-main-trusted:
-    name: Verify full workspace (trusted-ci)
+    name: Verify workspace (trusted-ci)
     needs: classify
     if: >-
       github.event_name == 'push' ||
@@ -245,15 +337,49 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Verify main in pinned CI image
-        run: scripts/container-environment.sh ci bash -lc 'pnpm install --frozen-lockfile && pnpm run ci'
+      - name: Verify workspace in pinned CI image
+        id: verify
+        env:
+          AXM_CONTAINER_NX_PARALLEL: "2"
+          AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
+        # installs no host toolchain, so no pnpm exists to resolve container:ci.
+        run: >-
+          scripts/container-environment.sh ci bash -lc
+          'pnpm install --frozen-lockfile && pnpm run ci:workspace:report'
+
+      - name: Publish workspace verification summary
+        if: always()
+        env:
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          {
+            echo "## Trusted workspace verification"
+            echo
+            echo "| Signal | Result |"
+            echo "| --- | --- |"
+            echo "| Outcome | ${VERIFY_OUTCOME:-not run} |"
+            echo "| Scope | Clean checkout, formatting, lint, typecheck, build, and unit tests |"
+            echo "| Concurrency | Nx 2; Vitest 2 |"
+            echo "| Cache | Persistent image-and-lockfile-scoped pnpm and Nx volumes |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JUnit artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-results-main-trusted
+          name: test-results-main-trusted-workspace
           path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-report-main-trusted-workspace
+          path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -262,7 +388,78 @@ jobs:
         uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
         with:
           report_paths: "test-results/**/junit.xml"
-          check_name: Test Results
+          check_name: Workspace Test Results
+          include_passed: true
+
+  verify-e2e-main-trusted:
+    name: Verify CLI E2E (trusted-ci)
+    needs: verify-main-trusted
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.runner == 'trusted-ci')
+    runs-on:
+      group: trusted-ci
+      labels: self-hosted
+    timeout-minutes: 45
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Verify fresh CLI E2E targets in pinned CI image
+        id: verify
+        env:
+          AXM_CONTAINER_NX_PARALLEL: "2"
+          AXM_CONTAINER_VITEST_MAX_WORKERS: "4"
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
+        # installs no host toolchain, so no pnpm exists to resolve container:ci.
+        run: >-
+          scripts/container-environment.sh ci bash -lc
+          'pnpm install --frozen-lockfile && NX_SKIP_NX_CACHE=true pnpm run test:e2e:report'
+
+      - name: Publish E2E verification summary
+        if: always()
+        env:
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          {
+            echo "## Trusted CLI E2E verification"
+            echo
+            echo "| Signal | Result |"
+            echo "| --- | --- |"
+            echo "| Outcome | ${VERIFY_OUTCOME:-not run} |"
+            echo "| Freshness | Nx task cache bypassed for required E2E evidence |"
+            echo "| Concurrency | Exclusive E2E targets; Vitest 4 within the main suite |"
+            echo "| Cache | Persistent pnpm store; workspace build cache intentionally bypassed |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload JUnit artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-main-trusted-e2e
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-report-main-trusted-e2e
+          path: test-results/allure-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publish JUnit report
+        if: always()
+        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
+        with:
+          report_paths: "test-results/**/junit.xml"
+          check_name: CLI E2E Test Results
           include_passed: true
 
   verify-main-hosted:
@@ -279,7 +476,12 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Verify main in pinned CI image
-        run: scripts/container-environment.sh ci bash -lc 'pnpm install --frozen-lockfile && pnpm run ci'
+        # Host-adapter boundary in docs/guides/repository-task-interface.md:
+        # this job
+        # installs no host toolchain, so no pnpm exists to resolve container:ci.
+        run: >-
+          scripts/container-environment.sh ci bash -lc
+          'pnpm install --frozen-lockfile && pnpm run ci:report'
 
       - name: Upload JUnit artifacts
         if: always()
@@ -290,12 +492,74 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-report-main-hosted
+          path: test-results/allure-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Publish JUnit report
         if: always()
         uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
         with:
           report_paths: "test-results/**/junit.xml"
           check_name: Test Results
+          include_passed: true
+
+  windows-workspace:
+    name: Windows workspace lifecycle
+    needs: classify
+    runs-on: windows-latest
+    timeout-minutes: 25
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
+      - name: Verify Windows instruction fallback
+        run: pnpm nx run extension-workspace:test-windows --outputStyle=static
+
+      - name: Verify Windows workspace mutations
+        run: pnpm nx run cli-e2e:e2e-windows --outputStyle=static
+
+      - name: Generate Windows Allure report
+        if: always()
+        run: pnpm exec nx run axm:allure-report --outputStyle=static
+
+      - name: Upload Windows diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-windows-workspace-${{ github.sha }}
+          path: |
+            test-results/extension-workspace-windows/
+            test-results/cli-e2e-windows/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Windows Allure report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-report-windows-workspace-${{ github.sha }}
+          path: test-results/allure-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publish Windows JUnit report
+        if: always()
+        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
+        with:
+          report_paths: "test-results/*-windows/junit.xml"
+          check_name: Windows Workspace Test Results
           include_passed: true
 
   binary-smoke:
@@ -325,22 +589,35 @@ jobs:
         uses: ./.github/actions/setup-workspace
 
       - name: Compile host binary
-        run: pnpm exec nx run cli:compile --outputStyle=static -- --host-only
+        run: pnpm exec nx run cli:compile-host --outputStyle=static
 
       - name: Mark binary executable
         if: runner.os != 'Windows'
-        run: chmod +x packages/cli/dist/bin/${{ matrix.binary_name }}
+        run: chmod +x packages/cli/dist/host-bin/${{ matrix.binary_name }}
 
       - name: Run binary smoke test
         env:
-          AXM_BINARY_PATH: ${{ github.workspace }}/packages/cli/dist/bin/${{ matrix.binary_name }}
+          AXM_BINARY_PATH: ${{ github.workspace }}/packages/cli/dist/host-bin/${{ matrix.binary_name }}
         run: pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static
+
+      - name: Generate Allure report
+        if: always()
+        run: pnpm exec nx run axm:allure-report --outputStyle=static
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-report-binary-${{ matrix.binary_name }}-${{ github.sha }}
+          path: test-results/allure-report/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload compiled binary
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: axm-binary-${{ matrix.binary_name }}-${{ github.sha }}
-          path: packages/cli/dist/bin/${{ matrix.binary_name }}
+          path: packages/cli/dist/host-bin/${{ matrix.binary_name }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 90
@@ -351,13 +628,16 @@ jobs:
     needs:
       - classify
       - format
+      - specification-verdict
       - extension-lint
       - documentation
       - workflow-validation
       - image
       - verify-pr
       - verify-main-trusted
+      - verify-e2e-main-trusted
       - verify-main-hosted
+      - windows-workspace
       - binary-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -367,4 +647,23 @@ jobs:
           RESULTS: >-
             ${{ toJSON(needs) }}
         run: |
-          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$RESULTS"
+          failures=$(jq -r '
+            to_entries[]
+            | select(.value.result != "success" and .value.result != "skipped")
+            | "- `\(.key)`: \(.value.result)"
+          ' <<<"$RESULTS")
+          if [[ -n "$failures" ]]; then
+            {
+              echo "## Required CI failures"
+              echo
+              printf '%s\n' "$failures"
+            } >> "$GITHUB_STEP_SUMMARY"
+            failure_count=$(wc -l <<<"$failures" | tr -d ' ')
+            echo "::error title=Required CI failed::${failure_count} applicable job(s) did not succeed"
+            exit 1
+          fi
+          {
+            echo "## Required CI"
+            echo
+            echo "All applicable jobs succeeded."
+          } >> "$GITHUB_STEP_SUMMARY"

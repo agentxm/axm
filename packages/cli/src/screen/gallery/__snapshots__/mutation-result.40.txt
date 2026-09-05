@@ -1,0 +1,38 @@
+✔ Installed 3 skills  2.4s
++ @craigsmitham/effect-v4
+  0.4.2
+  created
+  14 files
+  agent_extensions/agentxm/@craigsmitham
+  /skills/effect-v4
+    claude-code: projected at
+    .claude/skills/effect-v4 — rendered
+    codex: projected at
+    .codex/skills/effect-v4 — rendered
+~ @craigsmitham/field-notes
+  0.2.3 → 0.2.4
+  updated
+  6 files
+  agent_extensions/agentxm/@craigsmitham
+  /skills/field-notes
+    cursor: blocked at
+    .cursor/skills/field-notes —
+    hand-authored file at the target
+    path
+– @agentxm/knowledge/legacy
+  1.0.0
+  removed
+  agent_extensions/agentxm/@agentxm/know
+  ledge/legacy
+= 5 skills already current
+  --verbose to list
+1 warning
+  ▲ Skill package pins a pre-release
+    Effect version
+    @craigsmitham/effect-v4
+Agents: claude-code, codex, cursor
+Next
+  Inspect installed skills
+    axm skills list
+  Resolve the blocked cursor projection
+    axm sync --agent cursor

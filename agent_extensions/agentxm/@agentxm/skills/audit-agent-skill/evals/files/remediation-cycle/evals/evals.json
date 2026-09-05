@@ -1,0 +1,43 @@
+{
+  "skill_name": "format-release-notes",
+  "suite_version": "0.2.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "routing",
+      "prompt": "Format and normalize notes/v0.3.md into our local release-note format.",
+      "expected_selection": "format-release-notes",
+      "catalog_neighbors": ["publish-release-notes"],
+      "assertions": ["The formatting skill is selected for a local normalization request."]
+    },
+    {
+      "id": 2,
+      "stage": "routing",
+      "prompt": "Publish these release notes to the hosted changelog.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["publish-release-notes"],
+      "assertions": ["The formatting skill abstains from a publishing request."]
+    },
+    {
+      "id": 3,
+      "stage": "execution",
+      "prompt": "Normalize the supplied Markdown file.",
+      "expected_output": "A new normalized local file preserving Markdown structure and factual wording.",
+      "assertions": [
+        "A normalized local file is produced.",
+        "Markdown structure and factual wording are preserved."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "execution",
+      "prompt": "Normalize notes/missing.md, which does not exist.",
+      "expected_output": "Stop without writing and identify the missing input path.",
+      "assertions": [
+        "The response identifies the missing input path.",
+        "No output file is written."
+      ]
+    }
+  ]
+}

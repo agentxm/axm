@@ -5,47 +5,58 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
-  normalizeHandle,
-  parseRegistrySourcePatternParts,
-} from "@agentxm/client-core/unstable/extensions";
-import type { RemoveFromPackOperation } from "@agentxm/client-core/unstable/packs";
-import { removeFromPack } from "@agentxm/client-core/unstable/packs";
+  AuthoringFailureAdapter,
+  removeFromPack,
+  type RemoveFromPackOperation,
+} from "@agentxm/extension-authoring";
+import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
-  packManifestPath,
-} from "@agentxm/client-core/unstable/packs";
-import { computePackPaths } from "@agentxm/client-core/unstable/packs";
-import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { expandGlobs, isGlobPattern } from "../../utils/index.js";
+import { count } from "../../screen/index.js";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
 import {
-  forceFlag,
-  previewFlag,
-  Verbosity,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { emitPlanResolutionResult } from "../../json-output.js";
+  operationPresentation,
+  type Plan,
+  type PlannedJobStep,
+} from "@agentxm/workspace-operations";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
+import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 
 export interface PacksRemoveHandlerArgs {
   readonly pack: string;
   readonly extension: string;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
 const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
 
-export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
+export const handlePacksRemove = (args: PacksRemoveHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "packs.remove",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Remove from pack",
+    },
+    handlePacksRemoveBody(args),
+  );
+
+const handlePacksRemoveBody = Effect.fn("PacksRemove.handle")(function* (
   args: PacksRemoveHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
@@ -53,63 +64,54 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const path = yield* Path.Path;
 
   // Step 1: Find the pack
-  const configuredPacks = yield* ws.getConfiguredPackEntries();
-  const packEntry = configuredPacks[args.pack];
-
-  if (packEntry === undefined) {
-    return yield* makeAppError({
-      code: "not_found",
-      detail: `Pack '${args.pack}' not found`,
-      suggestions: [
-        {
-          description: "Create a pack first",
-          cmd: "axm packs new <name>",
-        },
-      ],
-    });
-  }
+  const configuredPacks = yield* ws.records
+    .rows("pack")
+    .pipe(Effect.map((rows) => Object.values(configuredRowsByName(rows))));
+  const configuredOwner = yield* ws.getConfiguredOwner();
+  const selection = yield* resolveConfiguredPackSelector({
+    configured: configuredPacks,
+    ...(Option.isNone(configuredOwner) ? {} : { configuredOwner: configuredOwner.value }),
+    selector: args.pack,
+    recovery: { command: "remove", extension: args.extension },
+  });
+  const packName = selection.configuredName;
+  const packEntry = selection.entry;
 
   // Resolve pack owner
-  const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
+  const packSource = packEntry.source;
+  if (packSource === undefined) {
+    return yield* makeAppError({ code: "validation", detail: `Pack "${packName}" has no source.` });
+  }
   if (!isWorkspaceSourceLocator(packSource)) {
     return yield* makeAppError({
       code: "conflict",
-      detail: `Cannot edit non-workspace pack "${args.pack}"`,
+      detail: `Cannot edit non-workspace pack "${packName}"`,
       recover: "Adopt or copy the pack into workspace authorship before editing its manifest.",
     });
   }
-  const packOwnerFromSource = parseRegistrySourcePatternParts(
-    packSource.slice("workspace:".length),
-  )?.owner;
-  const packOwner =
-    packOwnerFromSource !== undefined
-      ? normalizeHandle(packOwnerFromSource)
-      : yield* ws.getConfiguredOwner().pipe(
-          Effect.flatMap(
-            Option.match({
-              onNone: () =>
-                Effect.fail(
-                  makeAppError({
-                    code: "internal",
-                    detail: `Pack "${args.pack}" has a non-registry source and no workspace owner is configured`,
-                    suggestions: [
-                      {
-                        description:
-                          "Set `owner` in `.axm/settings.json` before modifying this pack.",
-                        cmd: "axm setup",
-                      },
-                    ],
-                  }),
-                ),
-              onSome: Effect.succeed,
-            }),
-          ),
-        );
-  const base = ws.baseDir;
+  const packOwner = yield* Option.match(configuredOwner, {
+    onNone: () =>
+      Effect.fail(
+        makeAppError({
+          code: "validation",
+          detail: `Pack "${packName}" has a workspace source and no workspace owner is configured`,
+          suggestions: [
+            {
+              description: `Set \`owner\` in \`${workspaceSettingsPath(ws.scope)}\` before modifying this pack.`,
+              cmd: "axm setup",
+            },
+          ],
+        }),
+      ),
+    onSome: Effect.succeed,
+  });
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packOwner, args.pack);
-  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
+  const manifestPath = path.join(
+    workspaceAuthoredRoot(path, ws, "pack", packOwner),
+    packName,
+    PACK_MANIFEST_FILENAME,
+  );
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((e) =>
@@ -161,14 +163,14 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   if (matchedNames.length === 0) {
     if (isGlob) {
       return yield* makeAppError({
-        code: "internal",
+        code: "not_found",
         detail: `No extensions in pack match '${args.extension}'`,
         suggestions: [{ description: "Check pack contents" }],
       });
     }
 
     return yield* makeAppError({
-      code: "internal",
+      code: "not_found",
       detail: `Extension '${args.extension}' is not in the pack`,
       suggestions: [
         {
@@ -182,7 +184,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const op = {
     name: "remove-from-pack",
     args: {
-      packName: args.pack,
+      packName,
       packOwner,
       removals: matchedNames,
       manifestHash,
@@ -191,9 +193,14 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   // Build Plan directly with inline run closure
   const provideServices = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
+    effect: Effect.Effect<
+      A,
+      E,
+      FileSystem.FileSystem | Path.Path | WorkspaceMutations | AuthoringFailureAdapter
+    >,
   ): Effect.Effect<A, E, never> =>
     effect.pipe(
+      provideAuthoringFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -201,58 +208,51 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: args.pack,
+    label: packName,
     run: provideServices(removeFromPack(op)),
   };
 
   const plan: Plan = {
     _tag: "Plan",
     name: "Remove from pack",
-    description: Option.some(`Remove ${count(matchedNames.length, "extension")} from ${args.pack}`),
+    description: Option.some(`Remove ${count(matchedNames.length, "extension")} from ${packName}`),
+    presentation: operationPresentation(
+      { imperative: "remove", past: "Removed", gerund: "Removing" },
+      "pack",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
-    displayApplied: false,
+    yes: args.yes,
+    recovery: makeConfirmationRecovery(
+      ["packs", "remove"],
+      [
+        recoveryPositional(publicRecoveryValue(args.pack)),
+        recoveryPositional(publicRecoveryValue(args.extension)),
+      ],
+    ),
   });
-  const suggestions = [
-    { description: "Inspect installed packs", cmd: "axm packs list" },
-    {
-      description: "Add to pack",
-      cmd: `axm packs add ${args.pack} <extension>`,
-    },
-  ];
-  const summary = `-> ${packManifestPath(packOwner, args.pack)}   1 file`;
-  const emitted = yield* emitPlanResolutionResult(
-    "packs.remove",
-    resolution,
-    resolution._tag === "ExecutedPlan" ? { summary, suggestions } : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    const renderer = yield* CliRenderer;
-    const verbosity = yield* Verbosity;
-    yield* renderer.success(
-      `Removed ${count(matchedNames.length, "extension")} from pack ${args.pack}`,
-      verbosity.level === "quiet"
-        ? undefined
-        : {
-            summary,
-            suggestions,
-            withoutSuggestions: emitted,
-          },
-    );
-  }
+  yield* emitOperationResolution("packs.remove", resolution, {
+    suggestions: [
+      { description: "Inspect installed packs", cmd: "axm packs list" },
+      {
+        description: "Add to pack",
+        cmd: `axm packs add ${packName} <extension>`,
+      },
+    ],
+  });
 });
 
 const removeConfig = {
-  pack: Argument.string("pack").pipe(Argument.withDescription("Name of the pack")),
+  pack: Argument.string("name").pipe(
+    Argument.withDescription("Configured pack name or unique configured pack FQN"),
+  ),
   extension: Argument.string("extension").pipe(
     Argument.withDescription("Extension name or glob pattern"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Remove without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Remove even if it would leave the pack empty")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would change in the manifest without modifying it"),
   ),
@@ -261,14 +261,14 @@ const removeConfig = {
 export const removeCommand = Command.make(
   "remove",
   removeConfig,
-  ({ pack, extension, yes, force, preview }) =>
-    handlePacksRemove({ pack, extension, yes, force, preview }).pipe(
+  ({ pack, extension, yes, preview }) =>
+    handlePacksRemove({ pack, extension, yes, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
       withRuntime("packs remove"),
     ),
 ).pipe(
   withArgvTracking(removeConfig),
-  Command.withDescription("Remove an extension from a pack manifest"),
+  Command.withDescription("Remove an extension from a project-workspace pack manifest"),
   Command.withExamples([
     {
       command: "axm packs remove frontend-tools @acme/skills/code-review",

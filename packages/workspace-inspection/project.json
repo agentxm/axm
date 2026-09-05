@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-inspection",
+  "projectType": "library",
+  "root": "packages/workspace-inspection",
+  "sourceRoot": "packages/workspace-inspection/src",
+  "tags": ["type:lib", "layer:feature", "scope:workspace-inspection", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/workspace-inspection/src/index.ts",
+        "outputPath": "packages/workspace-inspection/dist",
+        "tsConfig": "packages/workspace-inspection/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

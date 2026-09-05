@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-discovery",
+  "projectType": "library",
+  "root": "packages/extension-discovery",
+  "sourceRoot": "packages/extension-discovery/src",
+  "tags": ["type:lib", "layer:feature", "scope:extension-discovery", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/extension-discovery/src/index.ts",
+        "outputPath": "packages/extension-discovery/dist",
+        "tsConfig": "packages/extension-discovery/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

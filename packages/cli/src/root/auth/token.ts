@@ -2,35 +2,28 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
+import { AuthClient, authLoginRequired, resolveRequiredToken } from "@agentxm/registry-auth";
+import { RegistryUrl } from "@agentxm/registry-client";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import { jsonFlag } from "../../cli-flags/index.js";
+import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
-  AuthClient,
-  AuthLoginInteraction,
-  RegistryUrl,
-  resolveRequiredToken,
-} from "@agentxm/client-core/unstable/auth";
-import {
-  errAuthRequired,
-  makeAppError,
-  type AppError,
-} from "@agentxm/client-core/unstable/app-error";
-import { jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { DateTimeUtcSchema } from "@agentxm/client-core/unstable/date-time";
-import {
-  CliRenderer,
-  type DetailView,
-  type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  OperationPlanFields,
-  makeSingleStepOperationPlan,
-  type SuggestedAction,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { withAuthRuntime } from "../../runtime.js";
+  Screen,
+  fieldsDoc,
+  inventoryDoc,
+  type ViewColumn,
+  type ViewField,
+} from "../../screen/index.js";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { coerceAuthFailure } from "../../feature-errors.js";
+import { withRuntime } from "../../runtime.js";
+import { runWithStepUp } from "../step-up.js";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { observeUnit } from "@agentxm/workspace-operations";
 
 export const TokenDataSchema = Schema.Struct({
   token: Schema.String,
@@ -50,11 +43,11 @@ export const CreatedTokenDataSchema = Schema.Struct({
   expiresAt: DateTimeUtcSchema,
 });
 export const CreatedTokenResultSchema = Schema.Struct({
-  ...OperationPlanFields,
   status: Schema.Literal("created"),
   tokenId: Schema.String,
   name: Schema.String,
   expiresAt: DateTimeUtcSchema,
+  stepUpCompleted: Schema.Boolean,
 });
 const CreatedTokenDocumentFields = {
   result: CreatedTokenResultSchema,
@@ -82,7 +75,6 @@ export const TokenListDocumentSchema = Schema.Struct(TokenListDocumentFields);
 export type TokenListDocument = typeof TokenListDocumentSchema.Type;
 
 export const RevokeTokenResultSchema = Schema.Struct({
-  ...OperationPlanFields,
   status: Schema.Literal("revoked"),
   tokenId: Schema.String,
   stepUpCompleted: Schema.Boolean,
@@ -109,14 +101,12 @@ const createTokenSuggestions = (tokenId: string): ReadonlyArray<SuggestedAction>
   { description: "Revoke this token", cmd: `axm token revoke ${tokenId}` },
 ];
 
-const CreatedTokenDetail = {
-  fields: {
-    id: { label: "ID" },
-    name: { label: "Name" },
-    token: { label: "Token" },
-    expiresAt: { label: "Expires" },
-  },
-} as const satisfies DetailView<CreatedTokenDetailItem>;
+const CreatedTokenFields = [
+  { label: "ID", value: (row: CreatedTokenDetailItem) => row.id },
+  { label: "Name", value: (row: CreatedTokenDetailItem) => row.name },
+  { label: "Token", value: (row: CreatedTokenDetailItem) => row.token },
+  { label: "Expires", value: (row: CreatedTokenDetailItem) => row.expiresAt },
+] satisfies ReadonlyArray<ViewField<CreatedTokenDetailItem>>;
 
 interface TokenTableItem {
   readonly id: string;
@@ -126,15 +116,13 @@ interface TokenTableItem {
   readonly lastUsedAt: string;
 }
 
-const TokenListTable = {
-  columns: {
-    id: { header: "ID" },
-    name: { header: "Name" },
-    type: { header: "Type" },
-    expiresAt: { header: "Expires" },
-    lastUsedAt: { header: "Last used" },
-  },
-} as const satisfies TableView<TokenTableItem>;
+const TokenListColumns = [
+  { header: "ID", priority: "required", value: (row: TokenTableItem) => row.id },
+  { header: "Name", value: (row: TokenTableItem) => row.name },
+  { header: "Type", value: (row: TokenTableItem) => row.type },
+  { header: "Expires", value: (row: TokenTableItem) => row.expiresAt },
+  { header: "Last used", priority: "optional", value: (row: TokenTableItem) => row.lastUsedAt },
+] satisfies ReadonlyArray<ViewColumn<TokenTableItem>>;
 
 export interface CreateTokenHandlerArgs {
   readonly name: string;
@@ -194,265 +182,217 @@ const compactPermissions = (args: CreateTokenHandlerArgs) => ({
   ...(args.bypassMfa ? { bypass_mfa: true } : {}),
 });
 
-interface StepUpRequired {
-  readonly authUrl: string;
-  readonly doneUrl: string;
-}
+export const handleToken = Effect.fn("AuthToken.handle")(
+  function* () {
+    const registryUrl = yield* RegistryUrl;
+    const screen = yield* Screen;
+    const json = Option.getOrElse(yield* jsonFlag, () => false);
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+    // Step 1: Resolve token
+    const token = yield* resolveRequiredToken(registryUrl, {
+      missingTokenError: authLoginRequired("No token available"),
+    });
 
-const readString = (record: Record<string, unknown>, key: string) => {
-  const value = record[key];
-  return typeof value === "string" ? value : null;
-};
+    // Step 2: Output raw token to stdout, unless --json was explicitly requested
+    if (json && (yield* screen.document({ data: { token: token.token } }, TokenDocumentSchema)))
+      return;
 
-const readStepUpRequired = (error: AppError): StepUpRequired | null => {
-  const body = error.metadata?.response?.body;
-  if (!isRecord(body) || readString(body, "code") !== "eotp") {
-    return null;
-  }
+    yield* screen.result([{ _tag: "raw", content: token.token + "\n" }]);
+  },
+  Effect.mapError(coerceAuthFailure),
+  Effect.asVoid,
+);
 
-  const authUrl = readString(body, "authUrl");
-  const doneUrl = readString(body, "doneUrl");
-  return authUrl !== null && doneUrl !== null ? { authUrl, doneUrl } : null;
-};
+export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
+  function* (args: CreateTokenHandlerArgs) {
+    const registryUrl = yield* RegistryUrl;
+    const authClient = yield* AuthClient;
+    const screen = yield* Screen;
+    const token = yield* resolveRequiredToken(registryUrl, {
+      missingTokenError: authLoginRequired("Not authenticated"),
+    });
 
-export const handleToken = Effect.fn("AuthToken.handle")(function* () {
-  const registryUrl = yield* RegistryUrl;
-  const renderer = yield* CliRenderer;
-  const json = Option.getOrElse(yield* jsonFlag, () => false);
+    const expiresIn = yield* parseExpiresInSeconds(args.expires).pipe(
+      Effect.flatMap(validateExpiresInSeconds),
+    );
 
-  // Step 1: Resolve token
-  const token = yield* resolveRequiredToken(registryUrl, {
-    missingTokenError: errAuthRequired("No token available"),
-  });
-
-  // Step 2: Output raw token to stdout, unless --json was explicitly requested
-  if (json && (yield* renderer.result({ data: { token: token.token } }, TokenDocumentSchema)))
-    return;
-
-  yield* renderer.raw(token.token + "\n");
-}, Effect.asVoid);
-
-export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
-  args: CreateTokenHandlerArgs,
-) {
-  const registryUrl = yield* RegistryUrl;
-  const authClient = yield* AuthClient;
-  const renderer = yield* CliRenderer;
-  const token = yield* resolveRequiredToken(registryUrl, {
-    missingTokenError: errAuthRequired("Not authenticated"),
-  });
-
-  const expiresIn = yield* parseExpiresInSeconds(args.expires).pipe(
-    Effect.flatMap(validateExpiresInSeconds),
-  );
-
-  const created = yield* renderer.withSpinner(
-    `Creating registry token "${args.name}"`,
-    () =>
-      authClient.createToken(token.token, {
-        name: args.name,
-        expiresIn,
-        permissions: compactPermissions(args),
-      }),
-    { successMessage: `Created registry token "${args.name}"` },
-  );
-  const suggestions = createTokenSuggestions(created.id);
-
-  if (
-    yield* renderer.result(
+    const createResult = yield* runWithStepUp(
+      (stepUpRequestId) =>
+        authClient.createToken(
+          token.token,
+          {
+            name: args.name,
+            expiresIn,
+            permissions: compactPermissions(args),
+          },
+          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+        ),
       {
-        result: {
-          ...makeSingleStepOperationPlan({
-            planName: "Create AXM access token",
-            planDescription: "Create a registry access token",
-            message: `Created token ${created.id}`,
-            stepLabel: "Registry access token",
-            stepStatus: "applied",
-            stepMessage: `Created token ${created.id}`,
-            artifact: {
-              path: created.id,
-              scope: "user",
-              change: "created",
-            },
-          }),
-          status: "created",
-          tokenId: created.id,
-          name: created.name,
-          expiresAt: created.expiresAt,
-        },
-        data: {
-          id: created.id,
-          token: created.token,
-          name: created.name,
-          scopes: created.scopes,
-          createdAt: created.createdAt,
-          expiresAt: created.expiresAt,
-        },
+        command: "auth.token.create",
+        name: `Create registry token "${args.name}"`,
+        waiting: `verification to create registry token "${args.name}"`,
       },
-      CreatedTokenDocumentSchema,
-      { suggestions },
-    )
-  ) {
-    return;
-  }
+    );
+    const created = createResult.value;
+    const suggestions = createTokenSuggestions(created.id);
 
-  yield* renderer.detail(
-    {
+    if (
+      yield* screen.document(
+        {
+          result: {
+            status: "created",
+            tokenId: created.id,
+            name: created.name,
+            expiresAt: created.expiresAt,
+            stepUpCompleted: createResult.stepUpCompleted,
+          },
+          data: {
+            id: created.id,
+            token: created.token,
+            name: created.name,
+            scopes: created.scopes,
+            createdAt: created.createdAt,
+            expiresAt: created.expiresAt,
+          },
+        },
+        CreatedTokenDocumentSchema,
+        { suggestions },
+      )
+    ) {
+      return;
+    }
+
+    const detail = {
       id: created.id,
       name: created.name,
       token: created.token,
       expiresAt: DateTime.formatIso(created.expiresAt),
-    },
-    CreatedTokenDetail,
-    "Created token",
-  );
-  yield* renderer.suggestions(suggestions);
-}, Effect.asVoid);
+    };
+    yield* screen.result([
+      { _tag: "headline", tone: "ok", text: "Created token" },
+      ...fieldsDoc(detail, CreatedTokenFields),
+      { _tag: "next", actions: suggestions },
+    ]);
+  },
+  Effect.mapError(coerceAuthFailure),
+  Effect.asVoid,
+);
 
-export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
-  const registryUrl = yield* RegistryUrl;
-  const authClient = yield* AuthClient;
-  const renderer = yield* CliRenderer;
-  const token = yield* resolveRequiredToken(registryUrl, {
-    missingTokenError: errAuthRequired("Not authenticated"),
-  });
-
-  const result = yield* renderer.withSpinner(
-    "Loading registry tokens",
-    () => authClient.listTokens(token.token),
-    { successMessage: "Loaded registry tokens" },
-  );
-
-  if (
-    yield* renderer.result(
-      {
-        items: result.tokens.map((item) => ({
-          id: item.id,
-          name: item.name,
-          type: item.type,
-          scopes: item.scopes,
-          createdAt: item.createdAt,
-          expiresAt: item.expiresAt,
-          lastUsedAt: item.lastUsedAt,
-        })),
-        count: result.tokens.length,
-        hasMore: result.hasMore,
-        cursor: result.cursor,
-      },
-      TokenListDocumentSchema,
-    )
-  ) {
-    return;
-  }
-
-  if (result.tokens.length === 0) {
-    yield* renderer.list("token", {
-      items: [],
-      count: 0,
-      emptyMessage: "No tokens found",
+export const handleListTokens = Effect.fn("AuthTokenList.handle")(
+  function* () {
+    const registryUrl = yield* RegistryUrl;
+    const authClient = yield* AuthClient;
+    const screen = yield* Screen;
+    const token = yield* resolveRequiredToken(registryUrl, {
+      missingTokenError: authLoginRequired("Not authenticated"),
     });
-    return;
-  }
 
-  yield* renderer.table(
-    result.tokens.map((item) => ({
+    const result = yield* withLiveOperation(
+      { command: "auth.token.list", name: "List registry tokens", mode: "preview" },
+      observeUnit({ id: "tokens", label: "registry tokens" }, authClient.listTokens(token.token)),
+    );
+
+    if (
+      yield* screen.document(
+        {
+          items: result.tokens.map((item) => ({
+            id: item.id,
+            name: item.name,
+            type: item.type,
+            scopes: item.scopes,
+            createdAt: item.createdAt,
+            expiresAt: item.expiresAt,
+            lastUsedAt: item.lastUsedAt,
+          })),
+          count: result.tokens.length,
+          hasMore: result.hasMore,
+          cursor: result.cursor,
+        },
+        TokenListDocumentSchema,
+      )
+    ) {
+      return;
+    }
+
+    if (result.tokens.length === 0) {
+      yield* screen.result(
+        inventoryDoc({
+          rows: [],
+          columns: TokenListColumns,
+          summary: "",
+          empty: "No tokens found",
+        }),
+      );
+      return;
+    }
+
+    const rows = result.tokens.map((item) => ({
       id: item.id,
       name: item.name ?? "",
       type: item.type,
       expiresAt: DateTime.formatIso(item.expiresAt),
       lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
-    })),
-    TokenListTable,
-    "Tokens",
-  );
-}, Effect.asVoid);
-
-export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (tokenId: string) {
-  const registryUrl = yield* RegistryUrl;
-  const authClient = yield* AuthClient;
-  const interaction = yield* AuthLoginInteraction;
-  const renderer = yield* CliRenderer;
-  const jsonMode = Option.getOrElse(yield* jsonFlag, () => false);
-  const token = yield* resolveRequiredToken(registryUrl, {
-    missingTokenError: errAuthRequired("Not authenticated"),
-  });
-
-  let stepUpCompleted = false;
-  const revokeSpinner = yield* renderer.spinner(`Revoking registry token ${tokenId}`);
-  const revokeResult = yield* Effect.result(authClient.deleteToken(token.token, tokenId)).pipe(
-    Effect.onInterrupt(() =>
-      revokeSpinner.cancel(`Cancelled registry token ${tokenId} revocation`),
-    ),
-  );
-  if (Result.isFailure(revokeResult)) {
-    const stepUp = readStepUpRequired(revokeResult.failure);
-    if (stepUp === null) {
-      yield* revokeSpinner.error(`Failed to revoke registry token ${tokenId}`);
-      return yield* revokeResult.failure;
-    }
-    yield* revokeSpinner.stop(`Additional authorization required for token ${tokenId}`);
-
-    const opened = yield* interaction.openBrowser(stepUp.authUrl);
-    if (!jsonMode) {
-      yield* renderer.step(
-        opened
-          ? "Opening browser to complete step-up authentication..."
-          : "Complete step-up authentication in your browser.",
-      );
-      yield* renderer.step(`Visit: ${stepUp.authUrl}`);
-    }
-
-    const stepUpToken = yield* renderer.withSpinner(
-      `Waiting for authorization to revoke token ${tokenId}`,
-      () => authClient.pollStepUpChallenge(token.token, stepUp.doneUrl),
-      { successMessage: `Authorized token ${tokenId} revocation` },
+    }));
+    yield* screen.result(
+      inventoryDoc({
+        rows,
+        columns: TokenListColumns,
+        summary: "Tokens",
+        empty: "No tokens found",
+      }),
     );
-    yield* renderer.withSpinner(
-      `Revoking registry token ${tokenId}`,
-      () => authClient.deleteToken(token.token, tokenId, { stepUpToken }),
-      { successMessage: `Revoked registry token ${tokenId}` },
-    );
-    stepUpCompleted = true;
-  } else {
-    yield* revokeSpinner.stop(`Revoked registry token ${tokenId}`);
-  }
+  },
+  Effect.mapError(coerceAuthFailure),
+  Effect.asVoid,
+);
 
-  if (
-    yield* renderer.result(
-      {
-        result: {
-          ...makeSingleStepOperationPlan({
-            planName: "Revoke AXM access token",
-            planDescription: "Revoke a registry access token",
-            message: `Revoked token ${tokenId}`,
-            stepLabel: "Registry access token",
-            stepStatus: "applied",
-            stepMessage: `Revoked token ${tokenId}`,
-            artifact: {
-              path: tokenId,
-              scope: "user",
-              change: "removed",
-            },
-          }),
-          status: "revoked",
+export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
+  function* (tokenId: string) {
+    const registryUrl = yield* RegistryUrl;
+    const authClient = yield* AuthClient;
+    const screen = yield* Screen;
+    const token = yield* resolveRequiredToken(registryUrl, {
+      missingTokenError: authLoginRequired("Not authenticated"),
+    });
+
+    const revokeResult = yield* runWithStepUp(
+      (stepUpRequestId) =>
+        authClient.deleteToken(
+          token.token,
           tokenId,
-          stepUpCompleted,
-        },
+          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+        ),
+      {
+        command: "auth.token.revoke",
+        name: `Revoke registry token ${tokenId}`,
+        waiting: `verification to revoke token ${tokenId}`,
       },
-      RevokeTokenDocumentSchema,
-      { suggestions: RevokeTokenSuggestions },
-    )
-  ) {
-    return;
-  }
+    );
 
-  yield* renderer.success(`Revoked token ${tokenId}.`, {
-    suggestions: RevokeTokenSuggestions,
-  });
-}, Effect.asVoid);
+    if (
+      yield* screen.document(
+        {
+          result: {
+            status: "revoked",
+            tokenId,
+            stepUpCompleted: revokeResult.stepUpCompleted,
+          },
+        },
+        RevokeTokenDocumentSchema,
+        { suggestions: RevokeTokenSuggestions },
+      )
+    ) {
+      return;
+    }
+
+    yield* screen.result([
+      { _tag: "headline", tone: "ok", text: `Revoked token ${tokenId}.` },
+      { _tag: "next", actions: RevokeTokenSuggestions },
+    ]);
+  },
+  Effect.mapError(coerceAuthFailure),
+  Effect.asVoid,
+);
 
 const tokenConfig = {} as const;
 
@@ -487,6 +427,7 @@ const createTokenConfig = {
   ),
   bypassMfa: Flag.boolean("bypass-mfa").pipe(
     Flag.withDescription("Allow this automation token to bypass step-up MFA"),
+    Flag.withDefault(false),
   ),
 } as const;
 
@@ -503,7 +444,7 @@ const createTokenCommand = Command.make(
       orgPermission,
       cidr,
       bypassMfa,
-    }).pipe(withAuthRuntime("auth token create")),
+    }).pipe(withRuntime("auth token create")),
 ).pipe(
   withArgvTracking(createTokenConfig),
   Command.withDescription("Create a granular access token"),
@@ -522,7 +463,7 @@ const createTokenCommand = Command.make(
 const listTokenConfig = {} as const;
 
 const listTokenCommand = Command.make("list", listTokenConfig, () =>
-  handleListTokens().pipe(withAuthRuntime("auth token list")),
+  handleListTokens().pipe(withRuntime("auth token list")),
 ).pipe(
   withArgvTracking(listTokenConfig),
   Command.withDescription("List granular access tokens"),
@@ -536,7 +477,7 @@ const revokeTokenConfig = {
 } as const;
 
 const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
-  handleRevokeToken(id).pipe(withAuthRuntime("auth token revoke")),
+  handleRevokeToken(id).pipe(withRuntime("auth token revoke")),
 ).pipe(
   withArgvTracking(revokeTokenConfig),
   Command.withDescription("Revoke a granular access token"),
@@ -546,17 +487,16 @@ const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
 );
 
 export const tokenCommand = Command.make("token", tokenConfig, () =>
-  handleToken().pipe(withAuthRuntime("auth token")),
+  handleToken().pipe(withRuntime("auth token")),
 ).pipe(
   withArgvTracking(tokenConfig),
   Command.withSubcommands([createTokenCommand, listTokenCommand, revokeTokenCommand]),
   Command.withDescription("Output current auth token to stdout"),
   Command.withExamples([
     {
-      command: "axm auth token",
+      command: "axm token",
       description: "Print your auth token (e.g., for piping to another tool)",
     },
-    { command: "axm token", description: "Same command via shortcut" },
-    { command: "axm auth token --json", description: "Get the token as structured JSON" },
+    { command: "axm token --json", description: "Get the token as structured JSON" },
   ]),
 );

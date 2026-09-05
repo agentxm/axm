@@ -3,11 +3,9 @@ import { rulesPublishCommand as publishCommand } from "../publish/per-type-comma
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
-import { rulesVersionCommand as versionCommand } from "../shared/version-command.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
 import { installCommand } from "./install/command.js";
-import { instructionsCommand } from "./instructions.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { uninstallCommand } from "./uninstall/command.js";
@@ -24,17 +22,11 @@ export const rulesCommand = Command.make("rules").pipe(
   Command.annotate(
     LearnMore,
     formatLearnMore([
-      ["axm help rules", "Managing workspace instruction files with AXM"],
+      ["axm help rules", "Managing Rule extensions with AXM"],
       ["axm help rule-schema", "Print the rule manifest JSON Schema"],
     ]),
   ),
-  Command.withExamples([
-    { command: "axm rules list", description: "Inventory detected rules" },
-    {
-      command: "axm rules instructions",
-      description: "Inspect instruction files",
-    },
-  ]),
+  Command.withExamples([{ command: "axm rules list", description: "Inventory detected rules" }]),
   Command.withSubcommands([
     newCommand,
     installCommand,
@@ -44,8 +36,6 @@ export const rulesCommand = Command.make("rules").pipe(
     enableCommand,
     disableCommand,
     updateCommand,
-    instructionsCommand,
-    versionCommand,
     publishCommand,
   ]),
 );

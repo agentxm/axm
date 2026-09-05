@@ -3,15 +3,13 @@ import { Command } from "effect/unstable/cli";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { knowledgePublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
-import { knowledgeVersionCommand as versionCommand } from "../shared/version-command.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
 import { installCommand } from "./install/command.js";
 import { lintCommand } from "./lint.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
-import { openCommand } from "./open.js";
-import { searchCommand } from "./search.js";
+import { conceptsCommand } from "./concepts/_concepts.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { updateCommand } from "./update.js";
 
@@ -34,7 +32,7 @@ export const knowledgeCommand = Command.make("knowledge").pipe(
   Command.withExamples([
     { command: "axm knowledge list", description: "List installed knowledge bundles" },
     {
-      command: 'axm knowledge search "authentication"',
+      command: 'axm knowledge concepts search "authentication"',
       description: "Search installed knowledge concepts",
     },
   ]),
@@ -45,12 +43,10 @@ export const knowledgeCommand = Command.make("knowledge").pipe(
     uninstallCommand,
     listCommand,
     showCommand,
-    searchCommand,
-    openCommand,
+    conceptsCommand,
     lintCommand,
     enableCommand,
     disableCommand,
-    versionCommand,
     publishCommand,
   ]),
 );

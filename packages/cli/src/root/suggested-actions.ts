@@ -1,4 +1,4 @@
-import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const SET_UP_AXM_WORKSPACE = {
   description: "Set up AXM in this workspace",
@@ -18,16 +18,6 @@ export const INSTALL_EXTENSION_FROM_REGISTRY = {
 export const INSTALL_SKILL_FROM_REGISTRY = {
   description: "Install with an explicit source like github:owner/repo or @owner/skills/name",
   cmd: "axm skills install <source>",
-} as const satisfies SuggestedAction;
-
-export const INSTALL_COMMAND_FROM_REGISTRY = {
-  description: "Install a command from a registry like @owner/commands/name",
-  cmd: "axm commands install <source>",
-} as const satisfies SuggestedAction;
-
-export const INSTALL_FILES_FROM_REGISTRY = {
-  description: "Install a files package from a registry like @owner/files/name",
-  cmd: "axm files install <source>",
 } as const satisfies SuggestedAction;
 
 export const INSTALL_HOOK_FROM_REGISTRY = {
@@ -60,16 +50,16 @@ export const SCAFFOLD_MANAGED_SKILL = {
   cmd: "axm skills new",
 } as const satisfies SuggestedAction;
 
-// Registry sources are declared by hand under `sources` in .axm/settings.json;
+// Registry sources are declared by hand under `sources` in workspace settings;
 // there is no command that edits them, so both actions point at the topic that
 // documents the file.
 export const ADD_REGISTRY_SOURCE = {
-  description: "Add a registry under `sources` in .axm/settings.json",
+  description: "Add a registry under `sources` in workspace settings",
   cmd: "axm help settings",
 } as const satisfies SuggestedAction;
 
 export const REVIEW_REGISTRY_SOURCES = {
-  description: "Review the registries declared under `sources` in .axm/settings.json",
+  description: "Review the registries declared under `sources` in workspace settings",
   cmd: "axm help settings",
 } as const satisfies SuggestedAction;
 

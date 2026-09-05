@@ -1,37 +1,26 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import * as Option from "effect/Option";
 
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { handleUnpack } from "./handler.js";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const unpackConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Pack name to unpack")),
-  strictAgentSync: Flag.boolean("strict-agent-sync").pipe(
-    Flag.withDescription("Fail when MCP agent sync has strict-policy failures"),
-  ),
+  scope: scopeFlag.pipe(Flag.withDescription("Unpack project (default) or user-level pack state")),
   yes: yesFlag.pipe(Flag.withDescription("Eject without confirmation")),
-  force: forceFlag.pipe(
-    Flag.withDescription("Eject even if it would overwrite existing individual entries"),
-  ),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would change in settings without modifying them"),
   ),
 } as const;
 
-export const unpackCommand = Command.make(
-  "unpack",
-  unpackConfig,
-  ({ name, strictAgentSync, yes, force, preview }) =>
-    handleUnpack({
-      name,
-      strictAgentSync: Option.liftPredicate(strictAgentSync, Boolean),
-      yes,
-      force,
-      preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs unpack")),
+export const unpackCommand = Command.make("unpack", unpackConfig, ({ name, scope, yes, preview }) =>
+  handleUnpack({
+    name,
+    yes,
+    preview,
+  }).pipe(withWorkspace(scope), withRuntime("packs unpack")),
 ).pipe(
   withArgvTracking(unpackConfig),
   Command.withDescription("Eject pack into individual entries"),

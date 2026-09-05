@@ -1,0 +1,34 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@craigsmitham",
+  "name": "field-notes",
+  "version": "0.2.2",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action",
+  "keywords": [
+    "field-notes",
+    "observation",
+    "continuous-improvement",
+    "friction",
+    "developer-experience",
+    "retrospective",
+    "resilience-engineering",
+    "target-condition"
+  ],
+  "license": "CC-BY-SA-4.0",
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "recommendedPacks": [
+    "@craigsmitham/packs/field-notes"
+  ],
+  "standalone": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "knowledge/field-notes"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.scripts-base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["**/*.ts"],
+  "references": []
+}

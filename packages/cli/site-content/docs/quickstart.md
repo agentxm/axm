@@ -149,7 +149,7 @@ Verify authentication:
 
 ```bash
 axm whoami
-# Expected: displays your handle and account
+# Expected: displays your handle, Registry, credential type, scopes, restrictions, and expiry
 ```
 
 ### Non-interactive (CI, scripts, agents)

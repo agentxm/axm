@@ -158,7 +158,7 @@ export { UpdateCheck } from "./update-check/update-check.js";
 // Integration ports the setup harness composes; specs may not import the
 // integration roots directly, so the harness re-exports the needed surface.
 export { AgentExecutableResolver } from "@agentxm/agent-integration";
-export { RegistryUrl } from "@agentxm/registry-client";
+export { RegistryUrl, RegistryProblem } from "@agentxm/registry-client";
 // Extension-sources surface the locator-grammar and publish specifications and
 // the install harness consume; specs may not import the integration root or its
 // /live module directly, so the harness re-exports it (the Live through the
@@ -224,3 +224,5 @@ export {
   SkillManagerLive,
   SubagentManagerLive,
 } from "./test-helpers.js";
+
+export { handleWhoami, WhoamiDocumentSchema } from "./root/auth/whoami.js";

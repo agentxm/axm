@@ -80,12 +80,11 @@ const makeLayers = (opts?: {
             }),
           )
         : Effect.succeed({
-            userId: "user-1",
             userHandle: handle("@alice"),
-            email: "alice@example.com",
             tokenType: "session",
             scopes: ["extensions:read"],
-            orgs: [],
+            resourceRestrictions: { extensions: null },
+            expiresAt: null,
           }),
   });
 
@@ -209,12 +208,11 @@ describe("runDeviceLogin", () => {
         }),
       getMe: (_accessToken: string) =>
         Effect.succeed({
-          userId: "user-1",
           userHandle: handle("@alice"),
-          email: "alice@example.com",
           tokenType: "session",
           scopes: ["extensions:read"],
-          orgs: [],
+          resourceRestrictions: { extensions: null },
+          expiresAt: null,
         }),
     });
 

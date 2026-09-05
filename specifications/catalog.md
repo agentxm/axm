@@ -158,6 +158,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`
+- Limitation: The conditional wait narration obligation has no product polling witness after upgrade stopped polling publication. Retires when: A command that polls an external tool supplies an event-log example for waiting and completion.
 - Limitation: Upgrade is the only delegating operation this specification exercises; another command that delegates to an external tool is covered by the statement but not yet by an example. Retires when: A second command delegates to an external tool and its event log is added to this specification.
 - Source: [`specifications/cli/delegated-operations-narrate-external-work.spec.ts`](../specifications/cli/delegated-operations-narrate-external-work.spec.ts)
 
@@ -1013,6 +1014,18 @@ programmatic interfaces, and supporting system behavior.
 
 #### Upgrade
 
+##### Availability outcomes retain the observed reason
+
+- Requirement: `cli/upgrade/availability-failures-are-attributed`
+- Statement: When installer preparation or availability blocks an upgrade, human and machine results shall agree with the recorded observation, distinguish affirmative absence from indeterminate failure and formula version mismatch, and report mutation and verification as not attempted.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/upgrade/machine-result-is-upgrade-assessment`
+- Source: [`specifications/cli/upgrade/availability-failures-are-attributed.spec.ts`](../specifications/cli/upgrade/availability-failures-are-attributed.spec.ts)
+
 ##### Upgrade discloses the installer it resolved and the version it selected before mutating
 
 - Requirement: `cli/upgrade/discloses-resolved-ownership-before-mutation`
@@ -1036,16 +1049,27 @@ programmatic interfaces, and supporting system behavior.
 - Methods: decision-table
 - Source: [`specifications/cli/upgrade/exact-version-bypasses-discovery.spec.ts`](../specifications/cli/upgrade/exact-version-bypasses-discovery.spec.ts)
 
+##### Homebrew checks selected-version availability once
+
+- Requirement: `cli/upgrade/homebrew-checks-availability-once`
+- Statement: When a Homebrew-owned installation requires mutation, upgrade shall perform at most one explicit metadata refresh and one formula query with their own command timeouts, then either proceed on an exact match or stop without publication polling.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/upgrade/installer-availability-gates-mutation`
+- Source: [`specifications/cli/upgrade/homebrew-checks-availability-once.spec.ts`](../specifications/cli/upgrade/homebrew-checks-availability-once.spec.ts)
+
 ##### Installer availability gates upgrade mutation
 
 - Requirement: `cli/upgrade/installer-availability-gates-mutation`
-- Statement: Before mutating an npm-, pnpm-, Yarn-, or Homebrew-owned installation, upgrade shall establish that the selected stable version is available through that installer; lagging, leading, unavailable, or indeterminate publication state shall leave the installation unchanged and report recovery guidance.
+- Statement: Before mutating an npm-, pnpm-, Yarn-, or Homebrew-owned installation, upgrade shall establish that the selected exact version is available through that installer; lagging, leading, unavailable, or indeterminate publication state shall leave the installation unchanged and report recovery guidance.
 - Class: constraint
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
-- Boundary: repository; selection: per-change
-- Boundary rationale: The committed upgrade orchestration shows that the availability decision precedes and gates every manager-owned mutation branch.
-- Methods: contract
+- Boundary: memory; selection: per-change
+- Methods: example
 - Source: [`specifications/cli/upgrade/installer-availability-gates-mutation.spec.ts`](../specifications/cli/upgrade/installer-availability-gates-mutation.spec.ts)
 
 ##### Latest upgrade uses the promoted stable channel
@@ -1931,19 +1955,6 @@ programmatic interfaces, and supporting system behavior.
 - Bound evidence: `test: axm:test (scripts/release-prepare.tooling.test.ts)` — Drives release preparation against a fake host and checks that the production Registry preflight runs before any candidate state is allocated and stops preparation when it fails, that the exact generated candidate is previewed against the Registry only after versioning, changelog, and bundled-skill generation, and that the production preview publication targets the production Registry in verify-on-existing preview mode with no apply path.
 - Source: [`specifications/system/process/release-preparation-validates-production-gates.spec.ts`](../specifications/system/process/release-preparation-validates-production-gates.spec.ts)
 
-##### Stable promotion precedes independent distribution
-
-- Requirement: `system/process/release-promotion-precedes-independent-distribution`
-- Statement: The canonical release workflow shall upload and validate immutable GitHub assets, then either promote their release coordinate through the conditionally written stable channel or, only during an explicit recovery rerun, verify that the strong-ETag stable channel already names that exact coordinate, and only then publish npm packages or update Homebrew; a normal recovery rerun shall preserve any newer promoted channel.
-- Class: process
-- Role: supporting
-- Product goals: `trustworthy-distribution`, `dependable-change-process`
-- Boundary: repository; selection: per-change
-- Boundary rationale: The workflow and its Nx-owned promotion entry point are the committed ordering and recovery controls for public release distribution.
-- Methods: contract
-- Assumptions: The Control API validates the immutable GitHub asset set before changing the public channel object.
-- Source: [`specifications/system/process/release-promotion-precedes-independent-distribution.spec.ts`](../specifications/system/process/release-promotion-precedes-independent-distribution.spec.ts)
-
 ##### Release promotion checks public validators before conditional updates
 
 - Requirement: `system/process/release-promotion-validates-public-validators`
@@ -1959,6 +1970,45 @@ programmatic interfaces, and supporting system behavior.
 - Bound evidence: `test: axm:test (scripts/release-channel-promotion.tooling.test.ts)` — Exercises identity, gzip, Brotli, and Zstandard public reads before the Control PUT, rejects weak or absent validators, transformation, inconsistent validators or documents, and failed reads without mutation, and preserves conditional creation and newer-channel retention.
 - Source: [`specifications/system/process/release-promotion-validates-public-validators.spec.ts`](../specifications/system/process/release-promotion-validates-public-validators.spec.ts)
 
+##### Release publication preserves newer distribution versions
+
+- Requirement: `system/process/release-publication-preserves-newer-versions`
+- Statement: The canonical release workflow shall serialize active release publications across tags and stop an older candidate as superseded when a newer npm latest, Homebrew formula or stable version is observed, without moving those publications backward or attempting historical distribution repair.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
+- Methods: contract
+- Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises older candidates before publication and at owner write boundaries, equal-version formula conflicts and newer-channel retention.
+- Source: [`specifications/system/process/release-publication-preserves-newer-versions.spec.ts`](../specifications/system/process/release-publication-preserves-newer-versions.spec.ts)
+
+##### Release reruns reuse only identical published content
+
+- Requirement: `system/process/release-publication-reuses-identical-content`
+- Statement: A rerun of one release coordinate shall verify and reuse identical published content, publish missing outputs and reject conflicting bytes or failed existence queries without overwriting published outputs or requiring a promotion bypass.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
+- Methods: contract
+- Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, partial publication reruns, and identical-coordinate promotion without credentials.
+- Source: [`specifications/system/process/release-publication-reuses-identical-content.spec.ts`](../specifications/system/process/release-publication-reuses-identical-content.spec.ts)
+
+##### Release results distinguish distribution and promotion state
+
+- Requirement: `system/process/release-workflow-reports-publication-state`
+- Statement: The canonical release workflow shall report the exact candidate and every publication and verification result separately from confirmed, incomplete or uncertain promotion and superseded candidates, retaining uncertain submission evidence until bounded readback confirms channel state.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
+- Methods: contract
+- Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises publication boundary outcomes, one readback after a lost promotion response, uncertain readback failures, and no repeated conditional mutation.
+- Source: [`specifications/system/process/release-workflow-reports-publication-state.spec.ts`](../specifications/system/process/release-workflow-reports-publication-state.spec.ts)
+
 ##### Releases publish only through the canonical automated workflow
 
 - Requirement: `system/process/releases-publish-through-canonical-workflow`
@@ -1971,6 +2021,23 @@ programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Assumptions: Publishing credentials are available only to the canonical workflow, so no manual or external path can publish release artifacts.
 - Source: [`specifications/system/process/releases-publish-through-canonical-workflow.spec.ts`](../specifications/system/process/releases-publish-through-canonical-workflow.spec.ts)
+
+##### Stable promotion follows verified candidate distribution
+
+- Requirement: `system/process/stable-promotion-follows-verified-distribution`
+- Statement: The canonical release workflow shall attempt stable promotion only after publication of the candidate binary/checksum assets, fixed npm cohort, Homebrew formula and official skill, and successful exact-candidate script, published-package, Homebrew and official-skill installation verification; promotion failures shall not prevent that preceding distribution.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The canonical workflow graph defines required release readiness and exact-candidate job inputs.
+- Methods: contract
+- Derived from: `system/process/release-promotion-precedes-independent-distribution`
+- Supersedes: `system/process/release-promotion-precedes-independent-distribution`
+- Assumptions: The release coordinate is immutable and each required verifier reports truthful evidence about its named candidate.
+- Limitation: Repository evidence checks the workflow graph; it does not execute the published installer platform matrix. Retires when: An authorized release supplies successful exact-candidate matrix results and promotion readback.
+- Bound evidence: `test: specifications:test` — Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.
+- Source: [`specifications/system/process/stable-promotion-follows-verified-distribution.spec.ts`](../specifications/system/process/stable-promotion-follows-verified-distribution.spec.ts)
 
 ## Product goals
 

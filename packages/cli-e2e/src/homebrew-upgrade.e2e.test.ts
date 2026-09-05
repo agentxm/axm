@@ -10,10 +10,10 @@ const writeExecutable = (filePath: string, content: string): void => {
   fs.writeFileSync(filePath, content, { mode: 0o755 });
 };
 
-describe("Homebrew upgrade convergence", () => {
-  it.skipIf(process.platform === "win32")(
-    "recovers an exit-0 unchanged upgrade and verifies both installed identities",
-    async () => {
+describe("Homebrew upgrade verification", () => {
+  it.skipIf(process.platform === "win32").each(["matching", "lagging", "refresh-failed"] as const)(
+    "verifies installer-owned behavior when Homebrew is %s",
+    async (scenario) => {
       const fixture = createTempDir();
       try {
         const versionResult = await runCli(["--version"]);
@@ -36,7 +36,7 @@ describe("Homebrew upgrade convergence", () => {
 printf '%s\\n' "$*" >> "$AXM_E2E_LOG"
 case "$1" in
   tap) printf '%s\\n' 'agentxm/tap' ;;
-  update) ;;
+  update) if [ "$AXM_E2E_SCENARIO" = refresh-failed ]; then echo "fixture refresh failure" >&2; exit 1; fi ;;
   info) printf '{"formulae":[{"full_name":"agentxm/tap/axm","versions":{"stable":"%s"}}]}\\n' "$AXM_E2E_TARGET" ;;
   --prefix) printf '%s\\n' "$AXM_E2E_PREFIX" ;;
   upgrade) ;;
@@ -64,12 +64,36 @@ esac
             PATH: `${fakeBin}${path.delimiter}${process.env["PATH"] ?? ""}`,
             AXM_E2E_STATE: statePath,
             AXM_E2E_LOG: logPath,
-            AXM_E2E_TARGET: targetVersion,
+            AXM_E2E_TARGET: scenario === "lagging" ? localVersion : targetVersion,
+            AXM_E2E_SCENARIO: scenario,
             AXM_E2E_PREFIX: brewPrefix,
             npm_config_user_agent: "",
           },
         });
 
+        if (scenario !== "matching") {
+          expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(1);
+          const state = scenario === "lagging" ? "lagging" : "indeterminate";
+          const blocked: unknown = JSON.parse(result.stdout);
+          expect(blocked).toMatchObject({
+            ok: false,
+            result: {
+              disposition: `installer-${state}`,
+              installerAvailability: { state },
+              mutation: { state: "not-attempted" },
+              verification: { state: "not-attempted" },
+            },
+          });
+          const commands = fs.readFileSync(logPath, "utf8").trim().split("\n");
+          expect(commands).toEqual(
+            scenario === "lagging"
+              ? ["tap", "update", "info --json=v2 agentxm/tap/axm"]
+              : ["tap", "update"],
+          );
+          expect(fs.readFileSync(statePath, "utf8").trim()).toBe(localVersion);
+          expect(result.stderr).not.toContain('"Waiting"');
+          return;
+        }
         expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0);
         const document: unknown = JSON.parse(result.stdout);
         expect(document).toMatchObject({

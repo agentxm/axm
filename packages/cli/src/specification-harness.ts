@@ -149,6 +149,9 @@ export {
 } from "./root/upgrade/subprocess.js";
 export {
   Homebrew,
+  Npm,
+  Pnpm,
+  Yarn,
   InstallMethod,
   Script,
   type InstallMethodType,

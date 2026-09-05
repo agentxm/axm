@@ -10,15 +10,20 @@ export interface ReleaseChannelPromotionInput {
   readonly version: string;
   readonly tag: string;
   readonly commit: string;
-  readonly bearerToken: string;
-  readonly accessClientId: string;
-  readonly accessClientSecret: string;
+  readonly artifacts: StableChannelDocumentV1["artifacts"];
+  readonly credentials: () => {
+    readonly bearerToken: string;
+    readonly accessClientId: string;
+    readonly accessClientSecret: string;
+  };
 }
 
 export interface ReleaseChannelPromotionResult {
   readonly outcome: "promoted" | "already-current" | "newer-channel-retained";
   readonly document: StableChannelDocumentV1;
   readonly etag: string;
+  readonly confirmation?: "public-readback";
+  readonly submissionFailure?: string;
 }
 
 const requireStrongEtag = (response: Response): string => {
@@ -47,6 +52,7 @@ const verifyStableChannelRepresentations = async (
     const response = await fetchImplementation(STABLE_CHANNEL_URL, {
       headers: { Accept: "application/json", "Accept-Encoding": encoding },
       cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
     });
     if (response.status !== 200) {
       throw new Error(
@@ -101,7 +107,7 @@ const stableParts = (version: string): readonly [bigint, bigint, bigint] => {
   return [BigInt(major), BigInt(minor), BigInt(patch)];
 };
 
-const compareStableVersions = (left: string, right: string): number => {
+export const compareStableVersions = (left: string, right: string): number => {
   const leftParts = stableParts(left);
   const rightParts = stableParts(right);
   for (let index = 0; index < leftParts.length; index += 1) {
@@ -111,6 +117,43 @@ const compareStableVersions = (left: string, right: string): number => {
     if (leftPart < rightPart) return -1;
   }
   return 0;
+};
+
+const requireMatchingCandidate = (
+  document: StableChannelDocumentV1,
+  input: ReleaseChannelPromotionInput,
+): void => {
+  if (
+    document.version !== input.version ||
+    document.release.tag !== input.tag ||
+    document.release.commit !== input.commit
+  ) {
+    throw new Error(
+      "Release coordinate integrity conflict: channel does not match the requested release coordinate.",
+    );
+  }
+  const expected = input.artifacts;
+  const actual = document.artifacts;
+  if (
+    actual.checksumManifest.name !== expected.checksumManifest.name ||
+    actual.checksumManifest.url !== expected.checksumManifest.url ||
+    actual.checksumManifest.sha256 !== expected.checksumManifest.sha256 ||
+    actual.binaries.length !== expected.binaries.length ||
+    expected.binaries.some(
+      (binary) =>
+        !actual.binaries.some(
+          (other) =>
+            other.target === binary.target &&
+            other.name === binary.name &&
+            other.url === binary.url &&
+            other.sha256 === binary.sha256,
+        ),
+    )
+  ) {
+    throw new Error(
+      "Release artifact integrity conflict: channel descriptors differ from validated candidate assets.",
+    );
+  }
 };
 
 /** Promote a validated GitHub release coordinate through the Control API. */
@@ -123,6 +166,7 @@ export const promoteStableRelease = async (
   const currentResponse = await fetchImplementation(STABLE_CHANNEL_URL, {
     headers: { Accept: "application/json", "Accept-Encoding": "identity" },
     cache: "no-store",
+    signal: AbortSignal.timeout(30_000),
   });
 
   let precondition: Readonly<Record<string, string>>;
@@ -137,50 +181,92 @@ export const promoteStableRelease = async (
     }
     requireUntransformed(currentResponse, "identity");
     await verifyStableChannelRepresentations(await identity.text(), etag, fetchImplementation);
+    if (compareStableVersions(current.version, input.version) === 0) {
+      requireMatchingCandidate(current, input);
+      return { outcome: "already-current", document: current, etag };
+    }
     precondition = { "If-Match": etag };
   } else {
     throw new Error(`Stable channel read failed with HTTP ${String(currentResponse.status)}.`);
   }
 
-  const response = await fetchImplementation(RELEASE_CHANNEL_CONTROL_URL, {
-    method: "PUT",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${input.bearerToken}`,
-      "CF-Access-Client-Id": input.accessClientId,
-      "CF-Access-Client-Secret": input.accessClientSecret,
-      ...precondition,
-    },
-    body: JSON.stringify({
-      version: input.version,
-      tag: input.tag,
-      commit: input.commit,
-    }),
-  });
+  const credentials = input.credentials();
+  let response: Response;
+  try {
+    response = await fetchImplementation(RELEASE_CHANNEL_CONTROL_URL, {
+      method: "PUT",
+      signal: AbortSignal.timeout(30_000),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${credentials.bearerToken}`,
+        "CF-Access-Client-Id": credentials.accessClientId,
+        "CF-Access-Client-Secret": credentials.accessClientSecret,
+        ...precondition,
+      },
+      body: JSON.stringify({ version: input.version, tag: input.tag, commit: input.commit }),
+    });
+  } catch (cause) {
+    return reconcileSubmittedPromotion(input, fetchImplementation, cause);
+  }
   if (response.status !== 200 && response.status !== 201) {
-    const body = await response.text();
-    throw new Error(
-      `Stable channel promotion failed with HTTP ${String(response.status)}: ${body.slice(0, 500)}`,
+    const failure = new Error(
+      `Stable channel promotion failed with HTTP ${String(response.status)}.`,
+    );
+    if (response.status >= 500)
+      return reconcileSubmittedPromotion(input, fetchImplementation, failure);
+    throw failure;
+  }
+  try {
+    const responseCopy = response.clone();
+    const document = await decodeControlDocument(response);
+    const etag = requireStrongEtag(response);
+    requireMatchingCandidate(document, input);
+    const body: unknown = await responseCopy.json();
+    const rawOutcome =
+      body !== null && typeof body === "object" ? Reflect.get(body, "outcome") : undefined;
+    return {
+      outcome: rawOutcome === "already-current" ? "already-current" : "promoted",
+      document,
+      etag,
+    };
+  } catch (cause) {
+    return reconcileSubmittedPromotion(input, fetchImplementation, cause);
+  }
+};
+
+/** One bounded readback after submission; never retry the conditional mutation. */
+const reconcileSubmittedPromotion = async (
+  input: ReleaseChannelPromotionInput,
+  fetchImplementation: typeof fetch,
+  submissionFailure: unknown,
+): Promise<ReleaseChannelPromotionResult> => {
+  try {
+    const response = await fetchImplementation(STABLE_CHANNEL_URL, {
+      headers: { Accept: "application/json", "Accept-Encoding": "identity" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (response.status !== 200) throw new Error(`Readback HTTP ${String(response.status)}`);
+    const etag = requireStrongEtag(response);
+    requireUntransformed(response, "identity");
+    const document = decodeStableChannelDocumentSync(await readJson(response));
+    requireMatchingCandidate(document, input);
+    return {
+      outcome: "promoted",
+      document,
+      etag,
+      confirmation: "public-readback",
+      submissionFailure:
+        submissionFailure instanceof Error
+          ? submissionFailure.message
+          : "Promotion transport failed",
+    };
+  } catch (readbackFailure) {
+    throw new AggregateError(
+      [submissionFailure, readbackFailure],
+      "Stable promotion is incomplete/uncertain: submitted request could not be confirmed by public readback. No mutation retry was attempted.",
+      { cause: readbackFailure },
     );
   }
-
-  const responseCopy = response.clone();
-  const document = await decodeControlDocument(response);
-  const etag = requireStrongEtag(response);
-  if (
-    document.version !== input.version ||
-    document.release.tag !== input.tag ||
-    document.release.commit !== input.commit
-  ) {
-    throw new Error("Control API readback did not match the requested release coordinate.");
-  }
-  const body = await responseCopy.json().catch(() => null);
-  const rawOutcome =
-    body !== null && typeof body === "object" ? Reflect.get(body, "outcome") : undefined;
-  return {
-    outcome: rawOutcome === "already-current" ? "already-current" : "promoted",
-    document,
-    etag,
-  };
 };

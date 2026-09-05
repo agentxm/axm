@@ -158,8 +158,8 @@ if (
   const releaseCorepackSetupCount =
     releaseWorkflow.split(`corepack prepare pnpm@${packageManagerPnpmVersion} --activate`).length -
     1;
-  if (releaseCorepackSetupCount !== 1) {
-    errors.push("the Windows release verification job must activate packageManager pnpm");
+  if (releaseCorepackSetupCount !== 2) {
+    errors.push("both Windows release verification jobs must activate packageManager pnpm");
   }
   requireText(
     releaseWorkflow,
@@ -168,10 +168,11 @@ if (
   );
 }
 
-// The installer-verification matrix cannot use the setup-workspace composite —
-// publish.yml records why — so it is the one job that duplicates mise.toml's
+// The Windows release-verification matrices cannot use the setup-workspace
+// composite — publish.yml records why — so those jobs duplicate mise.toml's
 // toolchain versions instead of reading them. Hold the duplication to the
-// authority so an installer is never verified on an undeclared toolchain.
+// authority so an installer or package is never verified on an undeclared
+// toolchain.
 if (miseNodeVersion !== undefined) {
   requireText(
     releaseWorkflow,

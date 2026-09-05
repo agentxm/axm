@@ -34,10 +34,16 @@ import {
   type CommandResult,
   type InstallMethodType,
   type OperationEvent,
+  type RunCommandOptions,
 } from "axm.sh/specification-harness";
 
 import { stableChannelDocument } from "./release-channel-fixture.js";
-import { machineScreenLayer, makeRecordingStreams, type RecordedWrite } from "./screen-harness.js";
+import {
+  humanScreenLayer,
+  machineScreenLayer,
+  makeRecordingStreams,
+  type RecordedWrite,
+} from "./screen-harness.js";
 
 export const LOCAL_VERSION = loadVersion();
 /** A target the local version is always behind, so the upgrade path is taken. */
@@ -49,6 +55,7 @@ const BINARY = new TextEncoder().encode("fixture-binary");
 export interface Invocation {
   readonly executable: string;
   readonly args: ReadonlyArray<string>;
+  readonly options: RunCommandOptions | undefined;
 }
 
 const exited = (stdout: string, exitCode = 0): CommandResult => ({
@@ -63,30 +70,25 @@ const homebrewInfo = (version: string): string =>
     formulae: [{ full_name: "agentxm/tap/axm", versions: { stable: version } }],
   });
 
-/**
- * A Homebrew installer that answers every command the upgrade path issues.
- * `laggingFormulaQueries` makes the first N formula queries advertise the
- * installed version, so the convergence poll blocks the way it does when a
- * tap has not finished publishing.
- */
-export const homebrewInstaller = (options?: { readonly laggingFormulaQueries?: number }) => {
+/** Substituted installer responses retain the real command and rendering boundary. */
+export interface InstallerOptions {
+  readonly formulaVersion?: string;
+  readonly respond?: (invocation: Invocation) => CommandResult | undefined;
+  readonly refreshDelayMs?: number;
+}
+
+export const homebrewInstaller = (options?: InstallerOptions) => {
   const calls: Array<Invocation> = [];
-  let formulaQueries = 0;
   const respond = (invocation: Invocation): CommandResult => {
+    const response = options?.respond?.(invocation);
+    if (response !== undefined) return response;
     if (invocation.args[0] === "--version") return exited(`${TARGET_VERSION}\n`);
     if (invocation.executable !== "brew") return exited("");
     switch (invocation.args[0]) {
       case "tap":
         return exited("agentxm/tap\n");
       case "info": {
-        formulaQueries += 1;
-        return exited(
-          homebrewInfo(
-            formulaQueries <= (options?.laggingFormulaQueries ?? 0)
-              ? LOCAL_VERSION
-              : TARGET_VERSION,
-          ),
-        );
+        return exited(homebrewInfo(options?.formulaVersion ?? TARGET_VERSION));
       }
       case "--prefix":
         return exited("/opt/homebrew\n");
@@ -97,10 +99,17 @@ export const homebrewInstaller = (options?: { readonly laggingFormulaQueries?: n
   return {
     calls,
     layer: Layer.succeed(Subprocess, {
-      run: (executable: string, args: ReadonlyArray<string>) =>
-        Effect.sync(() => {
-          const invocation = { executable, args: [...args] };
+      run: (executable: string, args: ReadonlyArray<string>, commandOptions?: RunCommandOptions) =>
+        Effect.gen(function* () {
+          const invocation = { executable, args: [...args], options: commandOptions };
           calls.push(invocation);
+          if (
+            executable === "brew" &&
+            args[0] === "update" &&
+            options?.refreshDelayMs !== undefined
+          ) {
+            yield* Effect.sleep(options.refreshDelayMs);
+          }
           return respond(invocation);
         }),
       resolveExecutable: () => Effect.succeed(HOMEBREW_EXECUTABLE),
@@ -153,13 +162,16 @@ export interface UpgradeRun {
   readonly calls: ReadonlyArray<Invocation>;
   /** The decoded result document written to standard output. */
   readonly document: unknown;
+  readonly humanOutput: string;
 }
 
-export interface UpgradeRunOptions {
+export interface UpgradeRunOptions extends InstallerOptions {
+  readonly human?: boolean;
+  readonly requestedVersion?: string;
+  readonly localVersion?: string;
   readonly method?: InstallMethodType;
   readonly dryRun?: boolean;
-  readonly laggingFormulaQueries?: number;
-  /** Test-clock advance in milliseconds while the command runs, for a blocking poll. */
+  /** Test-clock advance in milliseconds while the command runs, for a delayed command. */
   readonly advanceMs?: number;
 }
 
@@ -170,14 +182,10 @@ export interface UpgradeRunOptions {
 export const runUpgrade = (options?: UpgradeRunOptions) =>
   Effect.gen(function* () {
     const streams = makeRecordingStreams();
-    const installer = homebrewInstaller(
-      options?.laggingFormulaQueries === undefined
-        ? undefined
-        : { laggingFormulaQueries: options.laggingFormulaQueries },
-    );
+    const installer = homebrewInstaller(options);
     const layer = Layer.mergeAll(
       NodeServices.layer,
-      machineScreenLayer(streams),
+      options?.human === true ? humanScreenLayer(streams) : machineScreenLayer(streams),
       TestFlagsLayer(),
       Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
       Layer.succeed(UpdateCheck, {
@@ -210,17 +218,23 @@ export const runUpgrade = (options?: UpgradeRunOptions) =>
 
     const fiber = yield* handleUpgrade({
       reinstall: false,
+      ...(options?.requestedVersion === undefined
+        ? {}
+        : { requestedVersion: options.requestedVersion }),
+      ...(options?.localVersion === undefined ? {} : { localVersion: options.localVersion }),
       ...(options?.dryRun === true ? { dryRun: true } : {}),
     }).pipe(Effect.provide(layer), Effect.forkChild);
     if (options?.advanceMs !== undefined) yield* TestClock.adjust(options.advanceMs);
     yield* Fiber.join(fiber);
 
-    const events = yield* recordedEvents(streams.log);
+    const events = options?.human === true ? [] : yield* recordedEvents(streams.log);
     const stdout = streams.log.find((entry) => entry.channel === "stdout");
     return {
       events,
       calls: installer.calls,
-      document: stdout === undefined ? undefined : JSON.parse(stdout.content),
+      document:
+        stdout === undefined || options?.human === true ? undefined : JSON.parse(stdout.content),
+      humanOutput: streams.log.map((entry) => entry.content).join(""),
     };
   });
 

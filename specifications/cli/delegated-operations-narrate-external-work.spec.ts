@@ -21,6 +21,12 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
+        "The conditional wait narration obligation has no product polling witness after upgrade stopped polling publication.",
+      retirementCondition:
+        "A command that polls an external tool supplies an event-log example for waiting and completion.",
+    },
+    {
+      limitation:
         "Upgrade is the only delegating operation this specification exercises; another command that delegates to an external tool is covered by the statement but not yet by an example.",
       retirementCondition:
         "A second command delegates to an external tool and its event log is added to this specification.",
@@ -63,27 +69,6 @@ describe("Delegated external work", () => {
         );
         expect(resolved).toBeDefined();
       }
-    }),
-  );
-
-  it.effect("publishes a wait with its blocking class and subject while a poll blocks", () =>
-    Effect.gen(function* () {
-      const { events } = yield* runUpgrade({
-        laggingFormulaQueries: 1,
-        advanceMs: 2_000,
-      });
-
-      const waiting = events.filter((event) => event._tag === "Waiting");
-      expect(waiting).toHaveLength(1);
-      const [wait] = waiting;
-      expect(wait?.blockingClass).toBe("external-blocked");
-      expect(wait?.subject).toBe("agentxm/tap/axm");
-      expect(wait?.detail.length).toBeGreaterThan(0);
-
-      const ended = events.filter((event) => event._tag === "WaitEnded");
-      expect(ended).toHaveLength(1);
-      expect(ended[0]?.subject).toBe(wait?.subject);
-      expect(ended[0]?.seq).toBeGreaterThan(wait?.seq ?? 0);
     }),
   );
 

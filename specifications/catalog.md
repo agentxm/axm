@@ -1907,6 +1907,21 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: The Control API validates the immutable GitHub asset set before changing the public channel object.
 - Source: [`specifications/system/process/release-promotion-precedes-independent-distribution.spec.ts`](../specifications/system/process/release-promotion-precedes-independent-distribution.spec.ts)
 
+##### Release promotion checks public validators before conditional updates
+
+- Requirement: `system/process/release-promotion-validates-public-validators`
+- Statement: Before conditionally updating an existing stable channel, release promotion shall verify that public reads negotiating identity, gzip, Brotli, and Zstandard return the same strong ETag and untransformed document, and shall perform no mutation if any read fails or disagrees.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The committed promotion entry point owns this release gate; bound tooling tests drive its network boundary with controlled responses without publishing a release.
+- Methods: contract
+- Derived from: `system/process/release-promotion-precedes-independent-distribution`
+- Assumptions: A concurrent channel change may invalidate the preflight and requires a new invocation.
+- Bound evidence: `test: axm:test (scripts/release-channel-promotion.tooling.test.ts)` — Exercises identity, gzip, Brotli, and Zstandard public reads before the Control PUT, rejects weak or absent validators, transformation, inconsistent validators or documents, and failed reads without mutation, and preserves conditional creation and newer-channel retention.
+- Source: [`specifications/system/process/release-promotion-validates-public-validators.spec.ts`](../specifications/system/process/release-promotion-validates-public-validators.spec.ts)
+
 ##### Releases publish only through the canonical automated workflow
 
 - Requirement: `system/process/releases-publish-through-canonical-workflow`

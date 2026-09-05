@@ -73,6 +73,13 @@ not sequence a dependency already owned by a target. Host workflows may order
 steps only where failure handling, credentials, platform setup, or external
 state prevents faithful graph representation.
 
+The release promotion target owns public validator preflight before its
+conditional update. It checks identity, gzip, Brotli, and Zstandard negotiation
+without sending promotion credentials to the public endpoint. Representation
+disagreement fails before mutation; a later invocation reads the channel again.
+First-channel creation and retaining an already newer channel do not update an
+existing object and keep their existing conditional-create and no-op paths.
+
 ## Cache, freshness, and evidence
 
 Deterministic tasks may be cached only when their resolved inputs cover every

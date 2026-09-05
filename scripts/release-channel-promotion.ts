@@ -29,6 +29,40 @@ const requireStrongEtag = (response: Response): string => {
   return etag;
 };
 
+const requireUntransformed = (response: Response, encoding: string): void => {
+  const actual = response.headers.get("content-encoding")?.trim().toLowerCase();
+  if (actual !== undefined && actual !== "identity") {
+    throw new Error(`Stable channel representation for ${encoding} was transformed.`);
+  }
+};
+
+const verifyStableChannelRepresentations = async (
+  body: string,
+  etag: string,
+  fetchImplementation: typeof fetch,
+): Promise<void> => {
+  // Sequential reads compare one public object, not independent work. A
+  // concurrent promotion invalidates the preflight; the caller must rerun.
+  for (const encoding of ["gzip", "br", "zstd"]) {
+    const response = await fetchImplementation(STABLE_CHANNEL_URL, {
+      headers: { Accept: "application/json", "Accept-Encoding": encoding },
+      cache: "no-store",
+    });
+    if (response.status !== 200) {
+      throw new Error(
+        `Stable channel read for ${encoding} failed with HTTP ${String(response.status)}.`,
+      );
+    }
+    const representationEtag = requireStrongEtag(response);
+    requireUntransformed(response, encoding);
+    if (representationEtag !== etag || (await response.text()) !== body) {
+      throw new Error(
+        `Stable channel representation for ${encoding} was inconsistent; rerun the preflight.`,
+      );
+    }
+  }
+};
+
 const readJson = async (response: Response): Promise<unknown> => {
   try {
     return await response.json();
@@ -87,7 +121,7 @@ export const promoteStableRelease = async (
   validateCoordinate(input);
 
   const currentResponse = await fetchImplementation(STABLE_CHANNEL_URL, {
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", "Accept-Encoding": "identity" },
     cache: "no-store",
   });
 
@@ -95,11 +129,14 @@ export const promoteStableRelease = async (
   if (currentResponse.status === 404) {
     precondition = { "If-None-Match": "*" };
   } else if (currentResponse.status === 200) {
+    const identity = currentResponse.clone();
     const current = decodeStableChannelDocumentSync(await readJson(currentResponse));
     const etag = requireStrongEtag(currentResponse);
     if (compareStableVersions(current.version, input.version) > 0) {
       return { outcome: "newer-channel-retained", document: current, etag };
     }
+    requireUntransformed(currentResponse, "identity");
+    await verifyStableChannelRepresentations(await identity.text(), etag, fetchImplementation);
     precondition = { "If-Match": etag };
   } else {
     throw new Error(`Stable channel read failed with HTTP ${String(currentResponse.status)}.`);

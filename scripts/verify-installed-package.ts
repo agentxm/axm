@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { delimiter, isAbsolute, join } from "node:path";
 import * as semver from "semver";
 
 const [manager, version] = process.argv.slice(2);
@@ -27,9 +27,17 @@ delete env["FORCE_COLOR"];
 delete env["CLICOLOR_FORCE"];
 const execute = (executable: string, args: ReadonlyArray<string>, verify = false) => {
   const windows = process.platform === "win32";
+  const searchPath = env["PATH"];
+  // Resolve batch launchers before changing cwd: npm.cmd uses its own directory
+  // to locate npm's JavaScript entrypoints.
+  const command =
+    windows && !isAbsolute(executable)
+      ? Bun.which(`${executable}.cmd`, searchPath === undefined ? {} : { PATH: searchPath })
+      : executable;
+  if (command === null) throw new Error(`Cannot resolve ${executable}.cmd on PATH.`);
   // Only fixed command names, validated semver and locally generated paths reach cmd.
   const result = spawnSync(
-    windows ? `"${executable}"` : executable,
+    windows ? `"${command}"` : command,
     windows ? args.map((arg) => `"${arg}"`) : [...args],
     {
       cwd,

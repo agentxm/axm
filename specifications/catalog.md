@@ -225,6 +225,35 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/machine-mode-never-prompts`, `cli/preview-does-not-consume-approval`
 - Source: [`specifications/cli/confirmation-is-required-only-for-actionable-risk.spec.ts`](../specifications/cli/confirmation-is-required-only-for-actionable-risk.spec.ts)
 
+#### Credentials Follow Explicit Source Precedence
+
+##### Explicit token sources take precedence over saved sessions
+
+- Requirement: `cli/credentials-follow-explicit-source-precedence`
+- Statement: For commands using the selected Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE and a valid token file before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using a saved session.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/token-resolution.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts`](../packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts) — Observes raw and JSON process stdout and real HTTP verification followed by token creation.
+- Source: [`specifications/cli/credentials-follow-explicit-source-precedence.spec.ts`](../specifications/cli/credentials-follow-explicit-source-precedence.spec.ts)
+
+#### Credentials Stay With Their Registry
+
+##### Credentials stay within their Registry origin
+
+- Requirement: `cli/credentials-stay-with-their-registry`
+- Statement: When authenticating a Registry request, AXM shall use ambient tokens only for the configured Registry origin and otherwise use credentials saved for the request origin or send no credential.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/token-resolution.internal.test.ts`
+- Source: [`specifications/cli/credentials-stay-with-their-registry.spec.ts`](../specifications/cli/credentials-stay-with-their-registry.spec.ts)
+
 #### Delegated Operations Narrate External Work
 
 ##### A delegating operation narrates the external work it hands off
@@ -253,6 +282,20 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`specifications/cli/demote/preview-is-pure.spec.ts`](../specifications/cli/demote/preview-is-pure.spec.ts)
+
+#### Disabled Credential Persistence Requires Explicit Token
+
+##### Environments without session storage require explicit tokens
+
+- Requirement: `cli/disabled-credential-persistence-requires-explicit-token`
+- Statement: When persisted credentials are disabled, AXM shall refuse login and saved-session authentication with explicit-token guidance while allowing commands to use an explicitly supplied environment token.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/credential-store.internal.test.ts`
+- Source: [`specifications/cli/disabled-credential-persistence-requires-explicit-token.spec.ts`](../specifications/cli/disabled-credential-persistence-requires-explicit-token.spec.ts)
 
 #### Every Type Completes The Shared Lifecycle
 
@@ -514,9 +557,11 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/projection-currency.e2e.test.ts`](../packages/cli-e2e/src/projection-currency.e2e.test.ts) — Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.
 - Source: [`specifications/cli/install/reinstall-is-idempotent.spec.ts`](../specifications/cli/install/reinstall-is-idempotent.spec.ts)
 
+#### Install Forms Express Same Intent
+
 ##### Root install and the type command express the same durable intent
 
-- Requirement: `cli/install/root-and-type-forms-express-same-intent`
+- Requirement: `cli/install-forms-express-same-intent`
 - Statement: When the same extension is installed, and then reinstalled at the same constraint, through the root install command and through its type-specific install command, both forms shall produce identical workspace configuration, identical canonical content, identical agent projections, and the same reported outcome.
 - Class: functional
 - Role: experience
@@ -524,7 +569,8 @@ programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: model
 - Derived from: `cli/install/reinstall-is-idempotent`
-- Source: [`specifications/cli/install/root-and-type-forms-express-same-intent.spec.ts`](../specifications/cli/install/root-and-type-forms-express-same-intent.spec.ts)
+- Supersedes: `cli/install/root-and-type-forms-express-same-intent`
+- Source: [`specifications/cli/install-forms-express-same-intent.spec.ts`](../specifications/cli/install-forms-express-same-intent.spec.ts)
 
 #### Instructions
 
@@ -785,10 +831,10 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/observes-selected-filesystem-view.spec.ts`](../specifications/cli/lint/observes-selected-filesystem-view.spec.ts)
 
-##### Lint reports invariant violations without changing any workspace state
+##### Lint preserves workspace files whether the run succeeds or fails
 
 - Requirement: `cli/lint/reports-facts-without-mutation`
-- Statement: When lint runs without --fix, it shall report every invariant violation as findings and fail the run when errors exist, shall report clean and succeed when none exist, and shall not change any workspace state in either case.
+- Statement: When lint runs without --fix, it shall preserve every workspace file, directory, symbolic link, and file's contents whether the run succeeds or fails.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
@@ -850,7 +896,122 @@ programmatic interfaces, and supporting system behavior.
 - Product goals: `machine-automation`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
 - Source: [`specifications/cli/login/preapproval-requests-new-sign-in.spec.ts`](../specifications/cli/login/preapproval-requests-new-sign-in.spec.ts)
+
+##### Sign-in rejects inconsistent flow options
+
+- Requirement: `cli/login/rejects-inconsistent-flow-options`
+- Statement: When sign-in options combine incompatible start and resume actions or supply a wait timeout without a resume action, AXM shall report usage failure before changing credentials or pending authorization.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Source: [`specifications/cli/login/rejects-inconsistent-flow-options.spec.ts`](../specifications/cli/login/rejects-inconsistent-flow-options.spec.ts)
+
+##### Sign-in resumes only its Registry authorization
+
+- Requirement: `cli/login/resume-requires-matching-pending-authorization`
+- Statement: When login --wait has no pending authorization for the selected Registry, AXM shall report the missing or mismatched authorization without changing saved credentials or another Registry authorization.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
+- Source: [`specifications/cli/login/resume-requires-matching-pending-authorization.spec.ts`](../specifications/cli/login/resume-requires-matching-pending-authorization.spec.ts)
+
+##### Approved device sign-in establishes the selected Registry session
+
+- Requirement: `cli/login/resumes-approved-authorization`
+- Statement: When a pending device authorization is approved, login --wait shall save the issued credentials for its Registry, clear the pending authorization, and make that session available to subsequent commands.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
+- Source: [`specifications/cli/login/resumes-approved-authorization.spec.ts`](../specifications/cli/login/resumes-approved-authorization.spec.ts)
+
+##### Sign-in retains an issued session when identity lookup is unavailable
+
+- Requirement: `cli/login/retains-issued-session-when-identity-unavailable`
+- Statement: When device authorization issues a session but identity lookup is temporarily unavailable, AXM shall retain the usable session without presenting an unverified identity, allowing later identity inspection to report the canonical Registry account.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/device-login.internal.test.ts`
+- Source: [`specifications/cli/login/retains-issued-session-when-identity-unavailable.spec.ts`](../specifications/cli/login/retains-issued-session-when-identity-unavailable.spec.ts)
+
+##### Repeated sign-in preserves pending authorization
+
+- Requirement: `cli/login/reuses-pending-authorization`
+- Statement: When a device authorization is unexpired, AXM shall reuse it for the same Registry and equivalent requested scopes, refuse a conflicting request without changing it, and replace it only when restart is explicitly requested.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Source: [`specifications/cli/login/reuses-pending-authorization.spec.ts`](../specifications/cli/login/reuses-pending-authorization.spec.ts)
+
+##### Unattended device sign-in returns the human action
+
+- Requirement: `cli/login/starts-resumable-device-sign-in`
+- Statement: When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, requested scopes, and resume command without waiting for approval or opening a browser.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
+- Source: [`specifications/cli/login/starts-resumable-device-sign-in.spec.ts`](../specifications/cli/login/starts-resumable-device-sign-in.spec.ts)
+
+##### Denied and expired sign-ins leave saved sessions unchanged
+
+- Requirement: `cli/login/terminal-authorization-failures-preserve-credentials`
+- Statement: When a pending device authorization is denied or expires, login --wait shall report the corresponding failure, remove that pending authorization, and leave saved credentials unchanged.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
+- Source: [`specifications/cli/login/terminal-authorization-failures-preserve-credentials.spec.ts`](../specifications/cli/login/terminal-authorization-failures-preserve-credentials.spec.ts)
+
+##### A bounded wait leaves sign-in resumable
+
+- Requirement: `cli/login/wait-timeout-preserves-authorization`
+- Statement: When login --wait reaches the requested timeout before authorization completes, AXM shall report pending human approval with resume instructions and preserve the pending authorization and existing credentials.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Source: [`specifications/cli/login/wait-timeout-preserves-authorization.spec.ts`](../specifications/cli/login/wait-timeout-preserves-authorization.spec.ts)
+
+#### Logout
+
+##### Sign-out removes only the selected Registry session
+
+- Requirement: `cli/logout/erases-selected-registry-credentials`
+- Statement: When logout finds saved credentials, AXM shall remove the selected Registry session even if remote revocation fails, leaving other Registry credentials available.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/logout.internal.test.ts`
+- Source: [`specifications/cli/logout/erases-selected-registry-credentials.spec.ts`](../specifications/cli/logout/erases-selected-registry-credentials.spec.ts)
 
 #### Managed Projection Guidance Respects Authority
 
@@ -1486,6 +1647,19 @@ programmatic interfaces, and supporting system behavior.
 
 #### Setup
 
+##### Setup initializes the selected workspace
+
+- Requirement: `cli/setup/initializes-selected-workspace`
+- Statement: When setup is approved with explicit scope and agents for an uninitialized directory, AXM shall create the selected workspace settings, lockfile, and bundled AXM skill for those agents while preserving other scopes.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/setup.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/setup/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/setup/command.e2e.ts) — Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.
+- Source: [`specifications/cli/setup/initializes-selected-workspace.spec.ts`](../specifications/cli/setup/initializes-selected-workspace.spec.ts)
+
 ##### Setup preview describes the workspace it would create without creating it
 
 - Requirement: `cli/setup/preview-is-pure`
@@ -1508,6 +1682,19 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/setup/preview-resolves-inputs-without-prompts.spec.ts`](../specifications/cli/setup/preview-resolves-inputs-without-prompts.spec.ts)
 
+##### Repeated setup preserves the existing workspace
+
+- Requirement: `cli/setup/rerun-preserves-existing-configuration`
+- Statement: When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/setup.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/setup/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/setup/command.e2e.ts) — Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.
+- Source: [`specifications/cli/setup/rerun-preserves-existing-configuration.spec.ts`](../specifications/cli/setup/rerun-preserves-existing-configuration.spec.ts)
+
 ##### Unattended setup applies only a fully explicit request
 
 - Requirement: `cli/setup/unattended-apply-requires-explicit-intent`
@@ -1517,7 +1704,8 @@ programmatic interfaces, and supporting system behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/machine-mode-never-prompts`
+- Derived from: `cli/machine-mode-never-prompts`, `packages/cli/src/root/setup.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/setup/command.e2e.ts`](../packages/cli-e2e/src/cli-commands/setup/command.e2e.ts) — Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.
 - Source: [`specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts`](../specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts)
 
 #### Skills
@@ -1816,6 +2004,57 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/sync/preserves-configuration-and-resolutions`
 - Source: [`specifications/cli/sync/realizes-desired-state.spec.ts`](../specifications/cli/sync/realizes-desired-state.spec.ts)
+
+#### Token
+
+##### Token administration waits for required human verification
+
+- Requirement: `cli/token/completes-required-human-verification`
+- Statement: When the Registry requires human verification for token creation or revocation, AXM shall present the verification action, wait for its approval, and retry the unchanged request with that verification identifier only after approval, without opening a browser in machine mode.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts`](../packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts) — Observes raw and JSON process stdout and real HTTP verification followed by token creation.
+- Source: [`specifications/cli/token/completes-required-human-verification.spec.ts`](../specifications/cli/token/completes-required-human-verification.spec.ts)
+
+##### Token creation requests the selected authority
+
+- Requirement: `cli/token/create/submits-requested-authority`
+- Statement: When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions using the effective credential and report the issued token without replacing the current session.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Source: [`specifications/cli/token/create/submits-requested-authority.spec.ts`](../specifications/cli/token/create/submits-requested-authority.spec.ts)
+
+##### Token listing reports Registry inventory and completeness
+
+- Requirement: `cli/token/list/reports-token-inventory`
+- Statement: When token list succeeds, AXM shall report the Registry token metadata and pagination state without including token secrets.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Source: [`specifications/cli/token/list/reports-token-inventory.spec.ts`](../specifications/cli/token/list/reports-token-inventory.spec.ts)
+
+##### Token revocation names the selected credential
+
+- Requirement: `cli/token/revoke/revokes-only-selected-token`
+- Statement: When token revoke is requested, AXM shall request deletion of the selected token identifier using the effective credential and report success only after the Registry accepts deletion.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Source: [`specifications/cli/token/revoke/revokes-only-selected-token.spec.ts`](../specifications/cli/token/revoke/revokes-only-selected-token.spec.ts)
 
 #### Uninstall
 
@@ -2373,6 +2612,21 @@ programmatic interfaces, and supporting system behavior.
 - Methods: decision-table, contract, example
 - Source: [`specifications/cli/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../specifications/cli/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
 
+#### Token
+
+##### Token output exposes the effective credential on request
+
+- Requirement: `cli/token/returns-effective-token`
+- Statement: When a credential is available, axm token shall return that credential alone as text by default or as a structured token value when JSON output is requested.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts`](../packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts) — Observes raw and JSON process stdout and real HTTP verification followed by token creation.
+- Source: [`specifications/cli/token/returns-effective-token.spec.ts`](../specifications/cli/token/returns-effective-token.spec.ts)
+
 #### Update
 
 ##### Machine update output names the bundled source as the blocker with every effect unchanged
@@ -2608,16 +2862,15 @@ programmatic interfaces, and supporting system behavior.
 
 #### Security
 
-##### Telemetry payloads carry only the fields the published telemetry contract declares
+##### Telemetry excludes extension content and secrets
 
 - Requirement: `system/security/telemetry-payloads-respect-data-boundary`
-- Statement: Every telemetry event AXM sends shall carry only the observation fields for identity, timing, and command context that the published telemetry contract declares, so that extension content, authored instructions and knowledge, credentials, and resolved secret values have no field in which to travel.
+- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.1.0 and contain only identity, timing, and command-observation data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
 - Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`
 - Boundary: memory; selection: per-change
 - Methods: contract, example
-- Assumptions: Values inside the free-form properties field carry only documented observation data; the evidence bounds field names at every level the published contract closes, not the values inside properties.; The telemetry contract snapshot generated into the CLI is the contract the production telemetry service publishes.
 - Source: [`specifications/system/security/telemetry-payloads-respect-data-boundary.spec.ts`](../specifications/system/security/telemetry-payloads-respect-data-boundary.spec.ts)
 
 ### Version constraints
@@ -2633,7 +2886,6 @@ programmatic interfaces, and supporting system behavior.
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: property, example
-- Open questions: Combining the accepts-everything contributor >=0.0.0 yields an empty constraint that the product's own satisfaction check rejects; the property excludes that contributor pending a defect decision on whether it is in scope.
 - Source: [`specifications/version-constraints/constraint-intersection-preserves-every-limit.spec.ts`](../specifications/version-constraints/constraint-intersection-preserves-every-limit.spec.ts)
 
 #### Range Satisfaction Follows Semver
@@ -2664,8 +2916,7 @@ programmatic interfaces, and supporting system behavior.
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Assumptions: The specification runtime has no system keychain, so the keychain write is reported as failed while the workspace files and the reported result remain observable.
-- Limitation: In-memory execution cannot observe the system keychain, so the namespace under which each connection's secret is kept is not evidenced here; the derivation is verified by an internal test beside the deriving module. Retires when: The specification harness composes an observable secret store whose namespaces specifications can read.
+- Limitation: The native keyring Entry boundary is controlled; actual operating-system keychain availability and access policy are not exercised. Retires when: Run the same credential lifecycle against disposable keychain entries on each supported operating system.
 - Source: [`specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts`](../specifications/cli/mcps/secret-namespaces-include-local-and-source-identity.spec.ts)
 
 #### Upgrade
@@ -2859,6 +3110,21 @@ programmatic interfaces, and supporting system behavior.
 - Limitation: The evidence establishes only that the committed workspace catalog declares the two aliases; it cannot observe whether the exit condition recorded in the dual TypeScript alias decision (docs/architecture/decisions/typescript-dual-alias.md) has been reached. Retires when: TypeScript 7.1 or a later release removes the need for the compatibility split, the dual TypeScript alias decision record is superseded, and the workspace collapses to a single TypeScript dependency, retiring this constraint in the same change.
 - Source: [`specifications/system/process/dual-typescript-alias-retained.spec.ts`](../specifications/system/process/dual-typescript-alias-retained.spec.ts)
 
+##### Evidence reports distinguish current execution from incomplete or absent verification
+
+- Requirement: `system/process/evidence-reports-match-executed-inputs`
+- Statement: When reporting requirement evidence, AXM's repository tools shall identify the executed source and built runtime inputs, observation boundary and selection, distinguishing current complete outcomes from stale, partial, missing, and unverified evidence.
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The repository verdict is the review boundary for native test results and separately bound evidence.
+- Methods: example
+- Derived from: `scripts/specification-verdict-lib.ts`
+- Assumptions: Installed dependencies match the committed lockfile; repository-wide input matching conservatively invalidates unrelated changes.
+- Limitation: Recorded host context establishes only the actual test environment; this report does not infer unobserved platform, human review, external service, or static gate outcomes. Retires when: Each such boundary supplies separately attributable execution or assessment evidence.
+- Source: [`specifications/system/process/evidence-reports-match-executed-inputs.spec.ts`](../specifications/system/process/evidence-reports-match-executed-inputs.spec.ts)
+
 ##### Changes are verified by one aggregate required check before merge
 
 - Requirement: `system/process/merges-require-aggregate-verification`
@@ -2993,6 +3259,19 @@ programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Assumptions: Publishing credentials are available only to the canonical workflow, so no manual or external path can publish release artifacts.
 - Source: [`specifications/system/process/releases-publish-through-canonical-workflow.spec.ts`](../specifications/system/process/releases-publish-through-canonical-workflow.spec.ts)
+
+##### Requirement reports separate changed promises from evidence affected by implementation
+
+- Requirement: `system/process/requirement-diffs-separate-evidence-impact`
+- Statement: When reporting a change, AXM's repository tools shall distinguish added, removed, and revised requirement contracts from changed verification or implementation inputs, including affected evidence for requirements whose contracts remain unchanged.
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The verdict compares the selected Git baseline to the working tree and presents the distinct review questions.
+- Methods: example
+- Derived from: `scripts/specification-verdict-lib.ts`
+- Source: [`specifications/system/process/requirement-diffs-separate-evidence-impact.spec.ts`](../specifications/system/process/requirement-diffs-separate-evidence-impact.spec.ts)
 
 ##### Stable promotion follows verified candidate distribution
 

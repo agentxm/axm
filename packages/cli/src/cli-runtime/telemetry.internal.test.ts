@@ -22,7 +22,6 @@ interface Capture {
   readonly events: Array<{ event: string; properties?: TelemetryProperties }>;
   readonly errors: Array<{
     name: string;
-    message: string;
     level: "error" | "fatal";
     errorClass: "internal" | "user" | "external";
     handled: boolean;
@@ -41,7 +40,6 @@ const makeCaptureLayer = (): readonly [Layer.Layer<TelemetryClient>, Capture] =>
       Effect.sync(() => {
         capture.errors.push({
           name: error.name,
-          message: error.message,
           level: error.level,
           errorClass: error.errorClass,
           handled: error.handled,
@@ -88,7 +86,6 @@ describe("cli telemetry helpers", () => {
       expect(capture.errors).toEqual([
         {
           name: "not_found",
-          message: "WorkspaceMutations not initialized",
           level: "error",
           errorClass: "user",
           handled: true,
@@ -118,7 +115,6 @@ describe("cli telemetry helpers", () => {
       ).pipe(Effect.provide(layer));
 
       expect(JSON.stringify(capture.errors)).not.toContain(secret);
-      expect(capture.errors[0]?.message).toContain("[REDACTED]");
     }),
   );
 
@@ -155,7 +151,6 @@ describe("cli telemetry helpers", () => {
       expect(capture.errors).toEqual([
         {
           name: "Defect",
-          message: "boom",
           level: "fatal",
           errorClass: "internal",
           handled: false,
@@ -175,7 +170,6 @@ describe("cli telemetry helpers", () => {
       );
 
       expect(JSON.stringify(capture.errors)).not.toContain(secret);
-      expect(capture.errors[0]?.message).toContain("[REDACTED]");
     }),
   );
 

@@ -69,6 +69,8 @@ const environmentWithHome = (home: string): Record<string, string> =>
     ),
     ["HOME", home] as const,
     ["AXM_USER_HOME", home] as const,
+    ["AXM_TELEMETRY", "0"] as const,
+    ["AXM_REGISTRY_LOCATION", "https://registry.invalid"] as const,
   ]);
 
 export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {

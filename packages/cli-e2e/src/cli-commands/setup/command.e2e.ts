@@ -7,6 +7,17 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../e2e/utils.js";
 
+export const executionBinding = {
+  requirements: [
+    "cli/setup/initializes-selected-workspace",
+    "cli/setup/unattended-apply-requires-explicit-intent",
+    "cli/setup/rerun-preserves-existing-configuration",
+  ],
+  boundary: "process",
+  rationale:
+    "Exercises selected-directory argv parsing, real bundled files, and repeated setup across separate CLI processes.",
+} as const;
+
 const approvedProjectSetup = [
   "setup",
   "--yes",

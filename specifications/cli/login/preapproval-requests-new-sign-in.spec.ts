@@ -12,6 +12,13 @@ import {
   NEW_ACCESS_TOKEN,
   makeLoginSpecContext,
 } from "../../support/login-harness.js";
+import { CredentialStore } from "axm.sh/specification-harness";
+import {
+  authCredentialFile,
+  authRegistry,
+  loginOptions,
+  makeAuthSpecContext,
+} from "../../support/auth-harness.js";
 import { probeFlag } from "../../support/parser-probe.js";
 
 export const specification = defineSpecification({
@@ -23,7 +30,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["machine-automation", "safe-repetition"],
   methods: ["example"],
-  derivedFrom: [],
+  derivedFrom: ["packages/cli/src/root/auth/login.internal.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -43,6 +50,28 @@ const signInAgain = {
 };
 
 describe("Login preapproval over a valid session", () => {
+  it.effect("unattended JSON without preapproval reports one account and starts no browser", () => {
+    const context = makeAuthSpecContext({ credentials: authCredentialFile });
+    return context.provide(
+      Effect.gen(function* () {
+        const store = yield* CredentialStore;
+        const before = yield* store.load(authRegistry);
+        yield* handleLogin(loginOptions);
+        expect(yield* store.load(authRegistry)).toEqual(before);
+        expect(context.requestedScopes).toEqual([]);
+        expect(context.interactionState.openBrowserCalls).toEqual([]);
+        expect(context.deviceInteractionState.openBrowserCalls).toEqual([]);
+        expect(context.rendererState.results).toHaveLength(1);
+        expect(context.rendererState.results[0]?.data).toEqual({
+          result: {
+            status: "already-logged-in",
+            registryHost: "registry.example.test",
+            handle: "@alice",
+          },
+        });
+      }),
+    );
+  });
   it.effect("an interactive session with preapproval signs in again without asking", () =>
     Effect.gen(function* () {
       const context = makeLoginSpecContext({ validSession: true });

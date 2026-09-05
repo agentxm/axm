@@ -12,11 +12,7 @@ import {
   type OperationEvent,
   type OperationLifecycleService,
 } from "@agentxm/workspace-operations";
-import {
-  collectSensitiveStrings,
-  errorClassForAppErrorCode,
-  redactSensitiveText,
-} from "../app-error/index.js";
+import { errorClassForAppErrorCode } from "../app-error/index.js";
 import type { ExpectedCliError } from "./runtime-envelope.js";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import { TelemetryClient } from "../telemetry/index.js";
@@ -47,7 +43,7 @@ export const trackCliCommand = ({
   Effect.gen(function* () {
     const telemetry = yield* TelemetryClient;
     yield* telemetry.trackEvent(event, { "cli.command": command, ...(properties ?? {}) });
-  });
+  }).pipe(Effect.catchCause(() => Effect.void));
 
 // ---------------------------------------------------------------------------
 // command_completed
@@ -119,9 +115,8 @@ export const reportCliError = (
         const telemetry = yield* TelemetryClient;
         yield* telemetry.reportError({
           name: resolved.code,
-          message: redactSensitiveText(resolved.detail, {
-            secrets: collectSensitiveStrings(resolved.metadata),
-          }),
+          // Error details can quote arbitrary package content or resolved input.
+          // Telemetry reports the stable category; local output owns the detail.
           category: resolved.code,
           level: "error",
           errorClass: errorClassForAppErrorCode(resolved.code),
@@ -256,11 +251,6 @@ export const observeLifecycleForTelemetry = (
 // Defect reporting
 // ---------------------------------------------------------------------------
 
-const defectMessage = (cause: Cause.Cause<unknown>): string => {
-  const squashed = Cause.squash(cause);
-  return redactSensitiveText(squashed instanceof Error ? squashed.message : String(squashed));
-};
-
 export const reportCliDefect = (
   cause: Cause.Cause<unknown>,
   command: string,
@@ -271,7 +261,6 @@ export const reportCliDefect = (
         const telemetry = yield* TelemetryClient;
         yield* telemetry.reportError({
           name: "Defect",
-          message: defectMessage(cause),
           level: "fatal",
           errorClass: "internal",
           handled: false,

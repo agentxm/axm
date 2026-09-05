@@ -11,6 +11,7 @@ import { handleSetup } from "axm.sh/specification-harness";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { probeFlag } from "../../support/parser-probe.js";
 import { makeSetupSpecContext } from "../../support/setup-harness.js";
+import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/setup/unattended-apply-requires-explicit-intent",
@@ -21,7 +22,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation"],
   methods: ["example"],
-  derivedFrom: ["cli/machine-mode-never-prompts"],
+  derivedFrom: ["cli/machine-mode-never-prompts", "packages/cli/src/root/setup.internal.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -66,7 +67,11 @@ describe("Unattended setup intent", () => {
         });
         cleanups.push(context.cleanup);
 
+        const projectBefore = snapshotWorkspaceContent(context.root);
+        const userBefore = snapshotWorkspaceContent(context.home);
         const exit = yield* handleSetup(args).pipe(Effect.provide(context.layer), Effect.exit);
+        expect(snapshotWorkspaceContent(context.root)).toEqual(projectBefore);
+        expect(snapshotWorkspaceContent(context.home)).toEqual(userBefore);
 
         expect(Exit.isFailure(exit)).toBe(true);
         const entry = context.rendererState.results.at(-1);

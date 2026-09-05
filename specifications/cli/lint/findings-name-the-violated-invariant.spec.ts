@@ -42,6 +42,19 @@ describe("Lint finding identity", () => {
 
         const { result } = yield* runProjectLint(workspace, false);
         expect(result.findings.length).toBeGreaterThanOrEqual(1);
+        const missingProjection = result.findings.filter(
+          (finding) => finding.ruleId === "workspace/skills-artifacts-correct",
+        );
+        expect(missingProjection).toHaveLength(1);
+        expect(missingProjection[0]).toMatchObject({
+          ruleId: "workspace/skills-artifacts-correct",
+          authority: "axm.json",
+          observed: expect.stringContaining("code-review"),
+          expected: "Skill directories match each skill's enabled state across declared agents.",
+          path: expect.stringContaining("axm.json"),
+        });
+        expect(missingProjection[0]?.observed).toContain("claude-code");
+        expect(missingProjection[0]?.observed).toMatch(/missing/i);
 
         for (const finding of result.findings) {
           expect(finding.ruleId, "stable rule identity").toMatch(/^[a-z0-9-]+(\/[a-z0-9-]+)+$/);

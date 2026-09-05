@@ -51,6 +51,7 @@
       "inputs": [
         "{workspaceRoot}/allurerc.ts",
         "{workspaceRoot}/vitest.reporting.ts",
+        "{workspaceRoot}/scripts/specification-evidence*.ts",
         "{workspaceRoot}/tsconfig*.json",
         {
           "externalDependencies": ["@typescript/native"]

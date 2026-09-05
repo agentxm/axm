@@ -30,6 +30,7 @@ import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/e
 import {
   decodeVersionRangeSync,
   decodeVersionSync,
+  versionSatisfiesRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
@@ -694,7 +695,13 @@ describe("root update handler", () => {
         }),
       );
 
-      expect(requestedRange).toBe(">=1.0.0 <2.0.0-0");
+      const effectiveRange = decodeVersionRangeSync(requestedRange);
+      for (const version of ["1.0.0", "1.5.0", "1.999.999"]) {
+        expect(versionSatisfiesRange(decodeVersionSync(version), effectiveRange)).toBe(true);
+      }
+      for (const version of ["0.999.999", "1.0.0-alpha", "1.5.0-beta", "2.0.0-0", "2.0.0"]) {
+        expect(versionSatisfiesRange(decodeVersionSync(version), effectiveRange)).toBe(false);
+      }
       expect(calls).toEqual([]);
       expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
       expect(rendererState.results[0]?.data).toMatchObject({

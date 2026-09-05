@@ -57,7 +57,7 @@ export { handleFork } from "./root/fork/command.js";
 export { handleDemote } from "./root/demote/command.js";
 export { handleImport } from "./root/import/command.js";
 export { handleRootVersion, handleVersion } from "./root/shared/version-command.js";
-export { handleLogin } from "./root/auth/login.js";
+export { handleLogin, LoginNoOpDocumentSchema } from "./root/auth/login.js";
 // The credential store port and the session shape the login specifications
 // observe; specs may not import the auth root directly.
 export { CredentialStore, type MeResponse } from "@agentxm/registry-auth";
@@ -281,3 +281,33 @@ export {
 } from "./test-helpers.js";
 
 export { handleWhoami, WhoamiDocumentSchema } from "./root/auth/whoami.js";
+export { handleLogout, LogoutDocumentSchema } from "./root/auth/logout.js";
+export {
+  handleToken,
+  handleCreateToken,
+  handleListTokens,
+  handleRevokeToken,
+  TokenDocumentSchema,
+  CreatedTokenDocumentSchema,
+  TokenListDocumentSchema,
+  RevokeTokenDocumentSchema,
+  type CreateTokenHandlerArgs,
+} from "./root/auth/token.js";
+export { withCliErrorHandling } from "./cli-runtime/runtime-envelope.js";
+export { CommandArgv } from "./cli-runtime/command-argv.js";
+export {
+  reportCliError,
+  reportCliDefect,
+  trackCliCommand,
+  trackCliCommandCompleted,
+} from "./cli-runtime/telemetry.js";
+export {
+  PendingDeviceLoginStore,
+  DeviceLoginCodeExpired,
+  DeviceLoginDenied,
+  RegistryAuthFailed,
+  StepUpRequired,
+  resolveRequestToken,
+  type CredentialFile,
+  type PendingDeviceLogin,
+} from "@agentxm/registry-auth";

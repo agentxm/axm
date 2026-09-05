@@ -13,12 +13,13 @@ import { LintResultDocumentSchema, handleInstall, handleLint } from "axm.sh/spec
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";
 import { installBundledAxmSkill, makeLintSpecWorkspace } from "../../support/lint-harness.js";
+import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/reports-facts-without-mutation",
-  title: "Lint reports invariant violations without changing any workspace state",
+  title: "Lint preserves workspace files whether the run succeeds or fails",
   statement:
-    "When lint runs without --fix, it shall report every invariant violation as findings and fail the run when errors exist, shall report clean and succeed when none exist, and shall not change any workspace state in either case.",
+    "When lint runs without --fix, it shall preserve every workspace file, directory, symbolic link, and file's contents whether the run succeeds or fails.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
@@ -69,9 +70,7 @@ describe("Lint reports facts without mutation", () => {
           recursive: true,
         });
 
-        const settingsBefore = workspace.readFile("axm.json");
-        const lockBefore = workspace.readLockfileText();
-        const treeBefore = workspace.snapshotTree("");
+        const before = snapshotWorkspaceContent(workspace.root);
 
         const exit = yield* lint(workspace.root).pipe(Effect.provide(workspace.layer), Effect.exit);
 
@@ -84,9 +83,7 @@ describe("Lint reports facts without mutation", () => {
         expect(document.result.summary.errors).toBeGreaterThanOrEqual(1);
         expect(document.result.findings.length).toBeGreaterThanOrEqual(1);
 
-        expect(workspace.readFile("axm.json")).toBe(settingsBefore);
-        expect(workspace.readLockfileText()).toBe(lockBefore);
-        expect(workspace.snapshotTree("")).toEqual(treeBefore);
+        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
         expect(workspace.exists(".claude/skills/code-review")).toBe(false);
       }),
   );
@@ -103,7 +100,7 @@ describe("Lint reports facts without mutation", () => {
         preview: false,
       }).pipe(Effect.provide(workspace.layer));
 
-      const treeBefore = workspace.snapshotTree("");
+      const before = snapshotWorkspaceContent(workspace.root);
 
       const exit = yield* lint(workspace.root).pipe(Effect.provide(workspace.layer), Effect.exit);
 
@@ -115,7 +112,7 @@ describe("Lint reports facts without mutation", () => {
       expect(document.result.summary.exitCategory).toBe("clean");
       expect(document.result.findings).toEqual([]);
 
-      expect(workspace.snapshotTree("")).toEqual(treeBefore);
+      expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
     }),
   );
 });

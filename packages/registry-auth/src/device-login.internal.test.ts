@@ -11,14 +11,9 @@ import * as Option from "effect/Option";
 import { handle } from "./test-helpers.js";
 
 import { AuthClientTest } from "./auth-client.js";
-import { DeviceLoginCodeExpired, DeviceLoginDenied, RegistryAuthFailed } from "./errors.js";
+import { DeviceLoginCodeExpired, RegistryAuthFailed } from "./errors.js";
 import { CredentialStore, CredentialStoreTest } from "./credential-store.js";
-import {
-  initiateDeviceLogin,
-  resumeDeviceLogin,
-  runDeviceLogin,
-  DeviceLoginInteractionTest,
-} from "./device-login.js";
+import { initiateDeviceLogin, runDeviceLogin, DeviceLoginInteractionTest } from "./device-login.js";
 import { AuthLoginPresenterTest } from "./login-presenter.js";
 import {
   PendingDeviceLoginStore,
@@ -32,8 +27,6 @@ const makeLayers = (opts?: {
   readonly getMeFails?: boolean;
   readonly machine?: boolean;
   readonly deviceCodeExpired?: boolean;
-  readonly deviceCodeDenied?: boolean;
-  readonly pollNever?: boolean;
 }) => {
   // Machine mode mirrors the CLI Live: the pending document is consumed and
   // the human path is skipped.
@@ -60,17 +53,13 @@ const makeLayers = (opts?: {
         };
       }),
     pollDeviceToken: () =>
-      opts?.pollNever
-        ? Effect.never
-        : opts?.deviceCodeExpired
-          ? Effect.fail(new DeviceLoginCodeExpired())
-          : opts?.deviceCodeDenied
-            ? Effect.fail(new DeviceLoginDenied())
-            : Effect.succeed({
-                access_token: "axm_ses_new",
-                refresh_token: "axm_ref_new",
-                expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
-              }),
+      opts?.deviceCodeExpired
+        ? Effect.fail(new DeviceLoginCodeExpired())
+        : Effect.succeed({
+            access_token: "axm_ses_new",
+            refresh_token: "axm_ref_new",
+            expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
+          }),
     getMe: (_accessToken: string) =>
       opts?.getMeFails
         ? Effect.fail(
@@ -303,108 +292,4 @@ describe("resumable device login", () => {
       }).pipe(Effect.provide(layer));
     },
   );
-
-  it.effect("re-emits an equivalent unexpired flow without replacing its device code", () => {
-    const { layer, initiateCalls } = makeLayers({ machine: true });
-
-    return Effect.gen(function* () {
-      const first = yield* initiateDeviceLogin(REGISTRY_URL, {
-        openBrowser: false,
-        scopes: ["extensions:read", "account:read"],
-      });
-      const second = yield* initiateDeviceLogin(REGISTRY_URL, {
-        openBrowser: false,
-        scopes: ["account:read", "extensions:read", "extensions:read"],
-      });
-
-      expect(second).toEqual({ ...first, flow: "re-emitted" });
-      expect(initiateCalls).toHaveLength(1);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("conflicts on a different scope set and replaces only with restart", () => {
-    const { layer, initiateCalls } = makeLayers({ machine: true });
-
-    return Effect.gen(function* () {
-      yield* initiateDeviceLogin(REGISTRY_URL, {
-        openBrowser: false,
-        scopes: ["extensions:read"],
-      });
-      const conflict = yield* Effect.flip(
-        initiateDeviceLogin(REGISTRY_URL, {
-          openBrowser: false,
-          scopes: ["account:write"],
-        }),
-      );
-      expect(conflict).toMatchObject({ category: "conflict" });
-
-      yield* initiateDeviceLogin(REGISTRY_URL, {
-        openBrowser: false,
-        restart: true,
-        scopes: ["account:write"],
-      });
-      expect(initiateCalls).toHaveLength(2);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("resumes a persisted flow, saves credentials, and clears it", () => {
-    const { layer } = makeLayers({ machine: true });
-
-    return Effect.gen(function* () {
-      yield* initiateDeviceLogin(REGISTRY_URL, { openBrowser: false });
-      yield* resumeDeviceLogin(REGISTRY_URL);
-
-      const credentials = yield* CredentialStore;
-      expect(Option.isSome(yield* credentials.load(REGISTRY_URL))).toBe(true);
-      const pendingStore = yield* PendingDeviceLoginStore;
-      expect(Option.isNone(yield* pendingStore.load())).toBe(true);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("fails clearly when no pending flow exists", () => {
-    const { layer } = makeLayers({ machine: true });
-
-    return Effect.gen(function* () {
-      const error = yield* Effect.flip(resumeDeviceLogin(REGISTRY_URL));
-      expect(error).toMatchObject({
-        category: "not_found",
-        detail: "No pending device sign-in was found.",
-      });
-      if (error._tag !== "RegistryAuthFailed") throw new Error("Expected RegistryAuthFailed");
-      expect(error.suggestions).toContainEqual({
-        description: "Start a device sign-in first.",
-        cmd: "axm login --device-code --json",
-      });
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("uses a distinct denial code and clears the terminal flow", () => {
-    const { layer } = makeLayers({ machine: true, deviceCodeDenied: true });
-
-    return Effect.gen(function* () {
-      yield* initiateDeviceLogin(REGISTRY_URL, { openBrowser: false });
-      const error = yield* Effect.flip(resumeDeviceLogin(REGISTRY_URL));
-      expect(error).toMatchObject({ category: "auth_denied" });
-      const pendingStore = yield* PendingDeviceLoginStore;
-      expect(Option.isNone(yield* pendingStore.load())).toBe(true);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("uses a distinct timeout code and keeps the resumable flow", () => {
-    const { layer } = makeLayers({ machine: true, pollNever: true });
-
-    return Effect.gen(function* () {
-      yield* initiateDeviceLogin(REGISTRY_URL, { openBrowser: false });
-      const error = yield* Effect.flip(resumeDeviceLogin(REGISTRY_URL, { timeoutSeconds: 0 }));
-      expect(error).toMatchObject({
-        _tag: "DeviceAuthorizationPending",
-        verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-        verificationUri: "https://auth.agentxm.ai/device",
-        userCode: "ABCD-1234",
-        resume: "axm login --wait --json",
-      });
-      const pendingStore = yield* PendingDeviceLoginStore;
-      expect(Option.isSome(yield* pendingStore.load())).toBe(true);
-    }).pipe(Effect.provide(layer));
-  });
 });

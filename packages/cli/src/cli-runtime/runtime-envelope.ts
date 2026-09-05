@@ -285,24 +285,17 @@ export const withCliErrorHandling = <A, R>(
   });
 
   const enrichedProgram = Effect.gen(function* () {
-    // Read optional CommandArgv (won't fail if not provided)
-    const argvOption = yield* Effect.serviceOption(CommandArgv);
-    const argvProperties = Option.match(argvOption, {
-      onNone: () => ({}),
-      onSome: (argv) => serializeArgv(argv.value, argv.paramKinds),
-    });
-
-    // Read global flag properties for telemetry
-    const globalProperties = yield* readGlobalFlagProperties;
-
-    // Merge all properties for command_invoked
-    const allProperties = {
-      ...argvProperties,
-      ...globalProperties,
-    };
-
-    // Fire command_invoked
-    yield* trackCliCommand({ command, properties: allProperties });
+    // Collection is an observation boundary too: a faulty collector cannot
+    // prevent the requested command from starting.
+    yield* Effect.gen(function* () {
+      const argvOption = yield* Effect.serviceOption(CommandArgv);
+      const argvProperties = Option.match(argvOption, {
+        onNone: () => ({}),
+        onSome: (argv) => serializeArgv(argv.value, argv.paramKinds),
+      });
+      const globalProperties = yield* readGlobalFlagProperties;
+      yield* trackCliCommand({ command, properties: { ...argvProperties, ...globalProperties } });
+    }).pipe(Effect.catchCause(() => Effect.void));
 
     // Execute program with timing
     const startTime = yield* Clock.monotonicTimeNanos;

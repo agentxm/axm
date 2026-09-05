@@ -20,6 +20,14 @@ export const makeTestReporting = ({
       "default",
       "junit",
       [
+        fileURLToPath(new URL("scripts/specification-evidence-reporter.ts", import.meta.url)),
+        {
+          repoRoot: fileURLToPath(new URL(".", import.meta.url)),
+          outputDirectory,
+          suite,
+        },
+      ],
+      [
         "allure-vitest/reporter",
         {
           environmentInfo: {

@@ -6,10 +6,11 @@ import { afterEach } from "vitest";
 import { handleInstall, handleSkillsInstall } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
-import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
+import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
+import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/install/root-and-type-forms-express-same-intent",
+  requirement: "cli/install-forms-express-same-intent",
   title: "Root install and the type command express the same durable intent",
   statement:
     "When the same extension is installed, and then reinstalled at the same constraint, through the root install command and through its type-specific install command, both forms shall produce identical workspace configuration, identical canonical content, identical agent projections, and the same reported outcome.",
@@ -18,7 +19,7 @@ export const specification = defineSpecification({
   goals: ["extension-adoption"],
   methods: ["model"],
   derivedFrom: ["cli/install/reinstall-is-idempotent"],
-  supersedes: [],
+  supersedes: ["cli/install/root-and-type-forms-express-same-intent"],
   assumptions: [],
   openQuestions: [],
 });
@@ -40,10 +41,11 @@ const typeInstall = (workspace: SpecWorkspace, skillPackage: string) =>
 
 const expectSameRealizedState = (rootWorkspace: SpecWorkspace, typeWorkspace: SpecWorkspace) => {
   expect(rootWorkspace.readSettings()).toEqual(typeWorkspace.readSettings());
-  expect(rootWorkspace.snapshotTree(".claude")).toEqual(typeWorkspace.snapshotTree(".claude"));
-  expect(rootWorkspace.snapshotTree("agent_extensions")).toEqual(
-    typeWorkspace.snapshotTree("agent_extensions"),
-  );
+  for (const relative of [".claude", ".agents", "agent_extensions"]) {
+    expect(snapshotWorkspaceContent(`${rootWorkspace.root}/${relative}`)).toEqual(
+      snapshotWorkspaceContent(`${typeWorkspace.root}/${relative}`),
+    );
+  }
 };
 
 describe("Root and type-specific install parity", () => {

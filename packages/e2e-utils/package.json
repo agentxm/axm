@@ -14,7 +14,6 @@
     "includedScripts": []
   },
   "dependencies": {
-    "@agentxm/client-utils": "workspace:*",
     "execa": "catalog:"
   },
   "devDependencies": {

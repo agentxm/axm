@@ -11,11 +11,13 @@ export const onExistingPolicies = ["error", "verify"] as const;
 export type OnExistingPolicy = (typeof onExistingPolicies)[number];
 
 export const onExistingFlag = Flag.choice("on-existing", onExistingPolicies).pipe(
-  Flag.withDescription("Override existing-version policy (verify requires identical integrity)"),
+  Flag.withDescription(
+    "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
+  ),
   Flag.optional,
 );
 
-export type PublishSelectionMode = "authored" | "all" | "explicit" | "filtered-explicit";
+export type PublishSelectionMode = "authored" | "explicit";
 
 export const resolveExistingVersionPolicy = (
   onExisting: Option.Option<OnExistingPolicy>,
@@ -25,7 +27,5 @@ export const resolveExistingVersionPolicy = (
   },
 ): OnExistingPolicy =>
   Option.getOrElse(onExisting, () =>
-    selection.includedDependency || selection.mode === "authored" || selection.mode === "all"
-      ? "verify"
-      : "error",
+    selection.includedDependency || selection.mode === "authored" ? "verify" : "error",
   );

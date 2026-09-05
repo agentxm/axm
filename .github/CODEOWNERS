@@ -1,0 +1,4 @@
+# Specification source is the requirements authority. Changing it is a
+# requirements decision and requires maintainer review; implementation-scoped
+# work treats specifications/ as read-only.
+/specifications/ @craigsmitham

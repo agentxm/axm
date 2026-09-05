@@ -102,24 +102,33 @@ export const findSourceHygieneViolations = (
 };
 
 const MACHINE_STDOUT_WRITERS = new Set([
-  path.join("packages", "core", "src", "unstable", "cli-renderer", "renderer-helpers.ts"),
-  path.join("packages", "core", "src", "unstable", "cli-runtime", "handle-error.ts"),
-  path.join("packages", "core", "src", "unstable", "cli-runtime", "run-cli-main.ts"),
-  path.join("packages", "core", "src", "unstable", "cli-runtime", "runtime-envelope.ts"),
+  path.join("packages", "cli", "src", "cli-renderer", "renderer-helpers.ts"),
+  path.join("packages", "cli", "src", "cli-runtime", "handle-error.ts"),
+  path.join("packages", "cli", "src", "cli-runtime", "run-cli-main.ts"),
+  path.join("packages", "cli", "src", "cli-runtime", "runtime-envelope.ts"),
 ]);
 
-const PROMPT_RUN_BOUNDARY = path.join(
-  "packages",
-  "core",
-  "src",
-  "unstable",
-  "cli",
-  "prompt",
-  "helpers.ts",
-);
+const PROMPT_RUN_BOUNDARY = path.join("packages", "cli", "src", "prompt", "helpers.ts");
 
 const lineAtOffset = (source: string, offset: number): number =>
   source.slice(0, offset).split("\n").length;
+
+/**
+ * Production package source roots, derived from the workspace tree so package
+ * extractions never leave a scanner behind. E2e and test-support packages are
+ * excluded: they observe published artifacts and own no production literals.
+ */
+const productionPackageSourceRoots = (repoRoot: string): ReadonlyArray<string> => {
+  const packagesDir = path.join(repoRoot, "packages");
+  if (!fs.existsSync(packagesDir)) return [];
+  const excluded = new Set(["cli-e2e", "e2e-utils"]);
+  return fs
+    .readdirSync(packagesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !excluded.has(entry.name))
+    .map((entry) => path.join(packagesDir, entry.name, "src"))
+    .filter((root) => fs.existsSync(root))
+    .sort();
+};
 
 /**
  * Guard the production machine-output boundary.
@@ -131,10 +140,7 @@ const lineAtOffset = (source: string, offset: number): number =>
 export const findMachineOutputBoundaryViolations = (
   repoRoot: string,
 ): ReadonlyArray<MachineOutputBoundaryViolation> => {
-  const roots = [
-    path.join(repoRoot, "packages", "cli", "src"),
-    path.join(repoRoot, "packages", "core", "src", "unstable"),
-  ];
+  const roots = productionPackageSourceRoots(repoRoot);
   const sourceFiles: string[] = [];
   for (const root of roots) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
@@ -182,10 +188,7 @@ export const findPromptBoundaryViolations = (
   repoRoot: string,
 ): ReadonlyArray<PromptBoundaryViolation> => {
   const sourceFiles: string[] = [];
-  for (const root of [
-    path.join(repoRoot, "packages", "cli", "src"),
-    path.join(repoRoot, "packages", "core", "src"),
-  ]) {
+  for (const root of productionPackageSourceRoots(repoRoot)) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
   }
 
@@ -235,29 +238,41 @@ export const countUnboundedConcurrencySites = (repoRoot: string): number => {
 };
 
 const AXM_ENVIRONMENT_LITERAL = /["'](AXM_[A-Z0-9_]+)["']/g;
+const AXM_INSTALLER_ENVIRONMENT_REFERENCE = /\b(AXM_[A-Z0-9_]+)\b/g;
 const AXM_ENVIRONMENT_CONTRACT_ROW =
   /^\|\s*`(AXM_[A-Z0-9_]+)`\s*\|\s*(stable automation|internal)\s*\|/;
 
 /**
  * Keep production AXM environment reads and the public environment reference
  * in exact correspondence. An exact AXM-prefixed string literal in CLI or core
- * production code is treated as an environment control and must be classified.
+ * production code, or an AXM-prefixed reference in an installer, is treated as
+ * an environment control and must be classified.
  */
 export const findAxmEnvironmentContractViolations = (
   repoRoot: string,
 ): ReadonlyArray<AxmEnvironmentContractViolation> => {
   const sourceFiles: string[] = [];
-  for (const root of [
-    path.join(repoRoot, "packages", "cli", "src"),
-    path.join(repoRoot, "packages", "core", "src"),
-  ]) {
+  for (const root of productionPackageSourceRoots(repoRoot)) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
+  }
+  for (const installer of [
+    path.join(repoRoot, "packages", "cli", "site-content", "install.sh"),
+    path.join(repoRoot, "packages", "cli", "site-content", "install.ps1"),
+  ]) {
+    if (fs.existsSync(installer)) sourceFiles.push(installer);
   }
 
   const sourceLocations = new Map<string, { readonly filePath: string; readonly line: number }>();
-  for (const filePath of sourceFiles.filter(isProductionTypeScriptSource)) {
+  for (const filePath of sourceFiles.filter((candidate) => {
+    if (candidate.endsWith(".sh") || candidate.endsWith(".ps1")) return true;
+    return isProductionTypeScriptSource(candidate);
+  })) {
     const source = fs.readFileSync(filePath, "utf8");
-    for (const match of source.matchAll(AXM_ENVIRONMENT_LITERAL)) {
+    const pattern =
+      filePath.endsWith(".sh") || filePath.endsWith(".ps1")
+        ? AXM_INSTALLER_ENVIRONMENT_REFERENCE
+        : AXM_ENVIRONMENT_LITERAL;
+    for (const match of source.matchAll(pattern)) {
       const variable = match[1];
       if (variable === undefined || sourceLocations.has(variable)) continue;
       sourceLocations.set(variable, {
@@ -344,3 +359,89 @@ export const formatPromptBoundaryViolation = (violation: PromptBoundaryViolation
 export const formatAxmEnvironmentContractViolation = (
   violation: AxmEnvironmentContractViolation,
 ): string => `${violation.filePath}:${violation.line} ${violation.variable}: ${violation.reason}`;
+
+export type TestTaxonomyViolation = {
+  readonly _tag: "TestTaxonomyViolation";
+  readonly filePath: string;
+  readonly reason: string;
+};
+
+const PACKAGE_TEST_SUFFIXES = [
+  ".internal.test.ts",
+  ".e2e.test.ts",
+  ".windows.test.ts",
+  ".windows.e2e.test.ts",
+  ".tooling.test.ts",
+  ".artifact.test.ts",
+] as const;
+
+const walkFiles = (dir: string, results: string[]): void => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "out-tsc") {
+      continue;
+    }
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkFiles(entryPath, results);
+    } else {
+      results.push(entryPath);
+    }
+  }
+};
+
+/**
+ * Enforce the test-purpose filename taxonomy: authoritative `*.spec.ts` lives
+ * only under `specifications/`, every test in a package names its purpose
+ * (`internal`, `e2e`, `windows`, `tooling`, `artifact`), no generic
+ * `*.test.ts` remains, and diagnostic benchmarks live under `benchmarks/`.
+ */
+export const findTestTaxonomyViolations = (
+  repoRoot: string,
+): ReadonlyArray<TestTaxonomyViolation> => {
+  const violations: TestTaxonomyViolation[] = [];
+  const roots = ["packages", "scripts"];
+  for (const root of roots) {
+    const rootPath = path.join(repoRoot, root);
+    if (!fs.existsSync(rootPath)) {
+      continue;
+    }
+    const files: string[] = [];
+    walkFiles(rootPath, files);
+    for (const filePath of files) {
+      const relativePath = path.relative(repoRoot, filePath).split(path.sep).join("/");
+      const name = path.basename(filePath);
+      if (name.endsWith(".spec.ts")) {
+        violations.push({
+          _tag: "TestTaxonomyViolation",
+          filePath: relativePath,
+          reason:
+            "authoritative *.spec.ts files live only under specifications/; classify this file's purpose",
+        });
+        continue;
+      }
+      if (name.endsWith(".bench.ts")) {
+        violations.push({
+          _tag: "TestTaxonomyViolation",
+          filePath: relativePath,
+          reason: "diagnostic benchmarks live under benchmarks/",
+        });
+        continue;
+      }
+      if (
+        name.endsWith(".test.ts") &&
+        !PACKAGE_TEST_SUFFIXES.some((suffix) => name.endsWith(suffix))
+      ) {
+        violations.push({
+          _tag: "TestTaxonomyViolation",
+          filePath: relativePath,
+          reason:
+            "generic *.test.ts is retired; name the purpose (.internal|.e2e|.windows|.tooling|.artifact).test.ts",
+        });
+      }
+    }
+  }
+  return violations.sort((left, right) => left.filePath.localeCompare(right.filePath));
+};
+
+export const formatTestTaxonomyViolation = (violation: TestTaxonomyViolation): string =>
+  `${violation.filePath}: ${violation.reason}`;

@@ -5,23 +5,22 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   extensionTypeToPlural,
-  fqnInvalidErrorToAppError,
   parseFqn,
   type ExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/mcps";
-import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
-import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
-import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
-import { HOOK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/hooks";
-import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/knowledge";
-import { RULE_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/rules";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { VersionSchema, type Version } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
+import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
+import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
+import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/knowledge";
+import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/manifest-schema";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { VersionSchema, type Version } from "@agentxm/extension-model/unstable/version-constraints";
 
 /**
  * Version-bump policy, total over every extension type: a new type cannot be
@@ -148,12 +147,15 @@ export const resolveManifestVersionInfo = (
         detail: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
       });
     }
+    if (ws.layout.scope !== "project") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Versioning workspace-authored extensions requires project scope.",
+      });
+    }
 
     const manifestPath = path.join(
-      ws.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      fqn.owner,
-      extensionTypeToPlural[fqn.type],
+      ws.layout.authoredRoot(fqn.type),
       fqn.name,
       manifestFilename(fqn.type),
     );

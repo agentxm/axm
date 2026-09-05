@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-model",
+  "projectType": "library",
+  "root": "packages/extension-model",
+  "sourceRoot": "packages/extension-model/src",
+  "tags": ["type:lib", "layer:contract", "scope:extension-model", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/extension-model/src/unstable/extensions/index.ts",
+        "outputPath": "packages/extension-model/dist",
+        "tsConfig": "packages/extension-model/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

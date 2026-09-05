@@ -3,19 +3,17 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+import { RegistryUrl } from "@agentxm/registry-client";
+import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import {
   discover,
   type DiscoverPackageResult,
   type DiscoverResult,
-} from "@agentxm/client-core/unstable/discover";
-import { PackageUrlSchema } from "@agentxm/client-core/unstable/packaging";
-import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-discovery";
+import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging";
+import { createRegistryClient } from "@agentxm/registry-client";
 import {
   ExecutionDirectory,
   resolveExecutionPath,
@@ -63,24 +61,13 @@ interface DiscoverTableRow {
   readonly installVersion: string;
 }
 
-const DiscoverTable = {
-  columns: {
-    package: { header: "Package" },
-    extension: { header: "Extension" },
-    attestedBy: { header: "Attested" },
-    official: { header: "Official" },
-    installVersion: { header: "Install" },
-  },
-} as const satisfies TableView<DiscoverTableRow>;
-
-registerEntity<DiscoverTableRow>("discover-extension", {
-  list: {
-    columns: DiscoverTable.columns,
-    emptyMessage: "No companion extensions found.",
-    singularLabel: "companion extension",
-    pluralLabel: "companion extensions",
-  },
-});
+const DiscoverColumns = [
+  { header: "Package", priority: "required", value: (row: DiscoverTableRow) => row.package },
+  { header: "Extension", value: (row: DiscoverTableRow) => row.extension },
+  { header: "Attested", priority: "optional", value: (row: DiscoverTableRow) => row.attestedBy },
+  { header: "Official", priority: "optional", value: (row: DiscoverTableRow) => row.official },
+  { header: "Install", value: (row: DiscoverTableRow) => row.installVersion },
+] satisfies ReadonlyArray<ViewColumn<DiscoverTableRow>>;
 
 const defaultRunDiscover = (projectDir: string) =>
   Effect.gen(function* () {
@@ -172,36 +159,41 @@ export const handleDiscoverWith = <E, R>(
   runDiscover: (projectDir: string) => Effect.Effect<DiscoverResult, E, R>,
 ) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const executionDirectory = yield* ExecutionDirectory;
     const path = yield* Path.Path;
     const projectDir = resolveDiscoverProjectDir(args.path, executionDirectory, path);
-    const result = yield* renderer.withSpinner(
-      "Scanning project dependencies",
-      () => runDiscover(projectDir),
-      { successMessage: "Scanned project dependencies" },
+    const result = yield* withLiveOperation(
+      { command: "discover", name: "Discover companion extensions", mode: "preview" },
+      observeUnit({ id: "dependencies", label: "project dependencies" }, runDiscover(projectDir)),
     );
     const output = toDiscoverOutput(result);
 
-    if (yield* renderer.result(output, DiscoverOutputSchema)) {
+    if (yield* screen.document(output, DiscoverOutputSchema)) {
       return;
     }
 
     if (output.items.length === 0) {
-      yield* renderer.list("discover-extension", {
-        items: [],
-        count: 0,
-        emptyMessage: formatEmptyMessage(result),
-      });
+      yield* screen.result(
+        inventoryDoc({
+          rows: [],
+          columns: DiscoverColumns,
+          summary: "",
+          empty: formatEmptyMessage(result),
+        }),
+      );
       return;
     }
 
     const rows = toDiscoverTableRows(result);
-    yield* renderer.list("discover-extension", {
-      items: rows,
-      count: rows.length,
-      summary: formatDiscoverSummary(result, output, rows.length),
-    });
+    yield* screen.result(
+      inventoryDoc({
+        rows,
+        columns: DiscoverColumns,
+        summary: formatDiscoverSummary(result, output, rows.length),
+        empty: formatEmptyMessage(result),
+      }),
+    );
   });
 
 export const handleDiscover = (args: DiscoverHandlerArgs) =>

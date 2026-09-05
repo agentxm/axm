@@ -4,6 +4,21 @@ import { describe, expect, it } from "vitest";
 import { EXTENSION_TYPE_MATRIX } from "./__generated__/extension-type-matrix.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: [
+    "cli/every-type-completes-the-shared-lifecycle",
+    "cli/activation-follows-desired-state",
+  ],
+  boundary: "process",
+  rationale:
+    "Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.",
+} as const;
+
 const readJson = (filePath: string): Record<string, unknown> =>
   JSON.parse(fs.readFileSync(filePath, "utf8"));
 
@@ -14,7 +29,7 @@ const writeJson = (filePath: string, value: unknown): void => {
 const extensionName = (plural: string): string => `atomic-${plural}`;
 
 const canonicalDirectory = (workspace: string, plural: string): string =>
-  path.join(workspace, ".axm", "extensions", "@test", plural, extensionName(plural));
+  path.join(workspace, plural, extensionName(plural));
 
 const snapshotTree = (root: string): Readonly<Record<string, string>> => {
   const snapshot: Record<string, string> = {};
@@ -45,26 +60,30 @@ const planFrom = (stdout: string): Readonly<Record<string, unknown>> => {
     throw new Error("Expected a JSON command result with a plan");
   }
   const result = document["result"];
-  const steps = result["steps"];
-  if (!Array.isArray(steps)) {
-    throw new Error("Expected a JSON command result with plan steps");
+  if (result["contract"] !== "plan-result-v3") {
+    throw new Error("Expected a plan-result-v3 command result");
   }
+  const units = result["units"];
+  if (!Array.isArray(units)) {
+    throw new Error("Expected a JSON command result with operation units");
+  }
+  const counts = result["counts"];
   return {
-    totalSteps: result["totalSteps"],
-    labels: steps.map((step) => (isRecord(step) ? step["label"] : undefined)),
+    total: isRecord(counts) ? counts["total"] : undefined,
+    labels: units.map((unit) => (isRecord(unit) ? unit["label"] : undefined)),
   };
 };
 
 const planAgentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string, unknown>>> => {
   const document: unknown = JSON.parse(stdout);
   if (!isRecord(document) || !isRecord(document["result"])) return [];
-  const steps = document["result"]["steps"];
-  if (!Array.isArray(steps)) return [];
-  return steps.flatMap((step) => {
-    if (!isRecord(step)) return [];
-    const direct = step["agentOutcomes"];
+  const units = document["result"]["units"];
+  if (!Array.isArray(units)) return [];
+  return units.flatMap((unit) => {
+    if (!isRecord(unit)) return [];
+    const direct = unit["agentOutcomes"];
     if (Array.isArray(direct)) return direct.filter(isRecord);
-    const artifact = step["artifact"];
+    const artifact = unit["artifact"];
     if (!isRecord(artifact) || !Array.isArray(artifact["agentOutcomes"])) return [];
     return artifact["agentOutcomes"].filter(isRecord);
   });
@@ -160,7 +179,7 @@ describe("extension activation lifecycle", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
         owner: "@test",
@@ -246,6 +265,11 @@ describe("extension activation lifecycle", () => {
         { cwd: workspace.path, env },
       );
       expect(projectSetup.exitCode, projectSetup.stdout + projectSetup.stderr).toBe(0);
+      const projectSettingsPath = path.join(workspace.path, "axm.json");
+      writeJson(projectSettingsPath, {
+        ...readJson(projectSettingsPath),
+        owner: "@test",
+      });
       const userSetup = await runCli(
         ["setup", "--scope", "user", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: workspace.path, env },

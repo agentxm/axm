@@ -8,6 +8,12 @@ depends-on:
 
 # AXM overview
 
+This document describes AXM's purpose, boundary, exclusions, and environmental
+relationships, and elaborates the detailed accepted architecture response. The
+executable specifications in the
+[specification catalog](../../specifications/catalog.md) own required
+behavior; this corpus explains the design that satisfies them.
+
 Shared product terms such as AgentXM, AXM, agent, extension, extension type,
 extension version, registry, workspace, handle, owner, publisher, pack, and
 library are defined by
@@ -62,23 +68,45 @@ agent administration tool.
 
 ## System structure
 
-- `@agentxm/client-core` owns reusable extension contracts, workspace state,
-  planning, source and registry integration, and agent-independent operations.
+- `@agentxm/extension-model` is the shared extension model both the AXM client
+  and the AgentXM platform must interpret identically: extension identities,
+  handles, FQNs, extension types, manifests, version constraints, package
+  identities, and agent capability data. It stays platform-neutral and
+  dependency-light.
+- `@agentxm/registry-protocol` owns the Registry wire contracts and the
+  contract-level publication validation both the client and the Registry run
+  identically: request and response schemas, publication and deprecation views,
+  suggested-action error vocabulary, content parsing, and publish lint rules.
+  It depends only on the extension model.
+- The accepted [package architecture](package-architecture.md) decomposed the
+  former `@agentxm/extension-management` transitional boundary into separate
+  shared kernels, integrations, and vertical feature packages; the
+  transitional package is removed without a compatibility façade.
 - `axm.sh` owns command parsing, terminal interaction, rendering, and assembly
-  of the executable runtime. It delegates reusable behavior to core.
-- `@agentxm/client-utils` contains small public utilities without taking domain
-  ownership from core.
+  of the executable runtime. It delegates reusable behavior to the libraries
+  and publishes the generated site content.
 - End-to-end projects verify the published CLI boundary and do not become
   production dependencies.
 
-Production dependency direction points from the CLI toward core and utilities.
-Core never depends on CLI interaction or output rendering.
+Production dependency direction points strictly inward: application toward
+features and runtime composition, features toward kernels, integrations, and
+contracts, and contracts toward the extension model. No library depends on CLI
+interaction or output rendering. The executable specifications
+`system/architecture/package-dependencies-point-inward`,
+`system/architecture/package-dependencies-stay-acyclic`,
+`system/architecture/feature-packages-stay-peers`, and
+`system/architecture/live-composition-stays-in-application` own the inward
+dependency direction, acyclicity, feature isolation, and application-only
+composition of concrete implementations; the exact dependencies present at any
+migration stage are implementation state derived by Nx, not a normative graph.
 
 AXM is the public side of the AgentXM system. It may depend on published
-service contracts and published OSS-safe code packages, never on private
-repository source, paths, or documentation. Contracts shared with the private
-platform belong in the public shared kernel only when both implementations must
-use identical meaning.
+service contracts and published OSS-safe code packages. The executable
+specification
+`system/architecture/public-system-depends-only-on-published-contracts` in the
+[specification catalog](../../specifications/catalog.md) owns that obligation.
+Contracts shared with the private platform belong in the public shared kernel
+only when both implementations must use identical meaning.
 
 ## The workspace model
 
@@ -193,11 +221,11 @@ principles](principles.md) for the detailed authority and coexistence rules.
 ## Invalid state should be understandable and recoverable
 
 AXM should make invalid states difficult to create, clear to diagnose, and
-possible to leave through ordinary operations. Recovery belongs to one of five
+possible to leave through ordinary operations. Recovery belongs to one of four
 places:
 
 - sync of managed state;
-- the lifecycle command that expresses user intent through configuration; or
+- the lifecycle command that expresses user intent through configuration;
 - direct correction of workspace-authored settings or manifests; or
 - manual correction of unowned native content.
 
@@ -209,8 +237,8 @@ principal sides of this boundary.
 Safe execution, interruption, and recovery are shared structural guarantees,
 not separate command behaviors. [Workspace execution](workspace/execution.md)
 defines those guarantees, and [Workspace invariants](workspace/invariants.md)
-defines recovery coverage. Behavior tests remain the source of truth for exact
-supported behavior.
+defines recovery coverage. The executable specifications remain the source of
+truth for exact supported behavior.
 
 ## Continue reading
 

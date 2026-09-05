@@ -1,43 +1,46 @@
-import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import { failureToStepFailure } from "../../../app-error/conversions.js";
+import {
+  WorkspaceMutations,
+  configuredRowsByName,
+  type WorkspaceMutationsService,
+} from "@agentxm/workspace-state";
+import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-lifecycle";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/workspace-operations";
 
-import {
-  WorkspaceMutations,
-  configuredRowsByName,
-  makeConfiguredReleaseAgeEvaluation,
-  type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
-import { decodeExtensionNameSync, type Handle } from "@agentxm/client-core/unstable/extensions";
-import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
-import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import { decodeExtensionNameSync, type Handle } from "@agentxm/extension-model/unstable/extensions";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
+import { resolveSource } from "@agentxm/extension-sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
-  type ReleaseAgeEvidence,
   type ReleaseAgeRecord,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
-  previewOrApplyPlan,
+  operationPresentation,
+  StepFailure,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { emitPlanResolutionResult } from "../../../json-output.js";
+} from "@agentxm/workspace-operations";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import {
@@ -46,10 +49,11 @@ import {
   resolveUpdateTargets,
 } from "../../shared/update-targets.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
+import { SubagentManager } from "@agentxm/extension-workspace";
+import { lifecycleFailureToAppError } from "../../../feature-errors.js";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
-  readonly agents: readonly string[];
   readonly subagents: readonly string[];
   readonly force: boolean;
   readonly yes: boolean;
@@ -89,6 +93,7 @@ const skippedSubagentStep = (
   label: `Skip ${outcome.name}`,
   run: Effect.succeed({
     result: "success",
+    disposition: "skipped",
     message: outcome.reason,
     artifact: {
       path: outcome.source,
@@ -100,7 +105,7 @@ const skippedSubagentStep = (
 });
 
 const toRegistrySubagentPattern = (source: string) => {
-  const parsed = parseRegistrySourcePatternParts(source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
   if (parsed === undefined) return Option.none();
   if (parsed.type !== undefined && parsed.type !== "subagents") {
     return Option.none();
@@ -125,12 +130,26 @@ const releaseAgeRecord = (args: {
   minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
 });
 
-export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
-  args: UpdateHandlerArgs,
-) {
+export const handleUpdate = (args: UpdateHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "subagents.update",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Update subagents",
+      presentation: operationPresentation(
+        { imperative: "update", past: "Updated", gerund: "Updating" },
+        "subagent",
+      ),
+    },
+    handleUpdateBody(args),
+  );
+
+const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: UpdateHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+    Effect.mapError(lifecycleFailureToAppError),
+  );
 
   // Step 1: Load configured subagents and filter to enabled
   const allSubagents = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
@@ -138,7 +157,9 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
 
   const subagentEntries: ReadonlyArray<readonly [string, string]> = Object.entries(
     allSubagents,
-  ).flatMap(([name, entry]) => (entry.enabled ? [[name, entry.source]] : []));
+  ).flatMap(([name, entry]) =>
+    entry.enabled && entry.source !== undefined ? [[name, entry.source]] : [],
+  );
 
   if (subagentEntries.length === 0) {
     yield* emitNoOpOutcome("subagents.update", {
@@ -362,13 +383,14 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
 
   const makeRunClosure: MakeRunClosure = (op) => {
     const step = buildInstallOperation(subagentMgr, {
+      toStepFailure: failureToStepFailure,
       ref: op.ref,
       versionRange: Option.none(),
     });
     if (step.readiness === "error") {
       return Effect.fail(
-        makeAppError({
-          code: "conflict",
+        new StepFailure({
+          category: "conflict",
           detail: step.errorMessage,
         }),
       );
@@ -390,23 +412,12 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     Option.some("Update installed subagents"),
     makeRunClosure,
   );
-  const basePlan: Plan =
-    warningsBySubagent.size === 0
-      ? rawPlan
-      : {
-          ...rawPlan,
-          sections: [
-            ...(rawPlan.sections ?? []),
-            {
-              title: "Publisher ownership changes",
-              items: [...warningsBySubagent.entries()].map(
-                ([name, warning]) => `${name}: ${warning}`,
-              ),
-            },
-          ],
-        };
   const basePlanWithReleaseAge: Plan = {
-    ...basePlan,
+    ...rawPlan,
+    presentation: operationPresentation(
+      { imperative: "update", past: "Updated", gerund: "Updating" },
+      "subagent",
+    ),
     releaseAge: {
       evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
       holdbacks: normalizeReleaseAgeRecords([
@@ -437,7 +448,6 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
       ["subagents", "update"],
       [
         recoverySwitch("--ignore-version-constraints", args.force),
-        ...args.agents.map((agent) => recoveryOption("--agent", publicRecoveryValue(agent))),
         ...args.subagents.map((subagent) =>
           recoveryOption("--name", publicRecoveryValue(subagent)),
         ),
@@ -456,7 +466,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
               job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
             ),
       ),
-    ].map((name) => ({ extensionType: "subagent", name, targetEnabled: true })),
+    ].map((name) => ({ extensionType: "subagent", name, plannedState: "enabled" as const })),
   );
   const executionPlan: Plan = {
     ...plan,
@@ -485,5 +495,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     ],
   };
   const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
-  yield* emitPlanResolutionResult("subagents.update", resolution);
+  yield* emitOperationResolution("subagents.update", resolution, {
+    suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
+  });
 });

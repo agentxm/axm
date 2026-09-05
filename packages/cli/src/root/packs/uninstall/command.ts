@@ -1,9 +1,9 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { handleUninstallPack } from "./handler.js";
-import { scopeFlag } from "../../../cli-flags.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {

@@ -2,19 +2,21 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   installableExtensionTypePluralSegments,
   InstallableExtensionTypePluralSchema,
   isInstallableExtensionTypePlural,
-  RegistrySourceRefSchema,
   toInstallableExtensionType,
   type InstallableExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import {
+  RegistrySourceRefSchema,
   type ExtensionName,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
-import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/extensions";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
 

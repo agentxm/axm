@@ -1,7 +1,12 @@
 # Knowledge
 
-Knowledge bundles live canonically in
-`./.axm/extensions/<@owner>/knowledge/<name>`. Active bundles are discoverable
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
+Project-authored Knowledge bundles live under `./knowledge/<name>`; acquired
+bundles use the source-qualified canonical scheme. For example, an AgentXM
+Registry bundle lives under
+`./agent_extensions/agentxm/<@owner>/knowledge/<name>`. Active bundles are discoverable
 from a compact table in the canonical workspace instruction file.
 
 A knowledge bundle is portable reference material — architecture notes, domain
@@ -30,17 +35,20 @@ The manifest declares the OKF dialect and the bundle root:
   "version": "1.0.0",
   "description": "Platform authentication architecture, session lifecycle, and operational runbooks",
   "format": { "name": "okf", "version": "0.2" },
-  "bundleRoot": "src"
+  "bundleRoot": "src",
+  "instructionEntry": false
 }
 ```
 
 `format` pins the dialect AXM validates against, and `bundleRoot` is always
-`src`. Run `axm help knowledge-schema` to print the raw JSON Schema.
+`src`. Optional `instructionEntry` controls whether the bundle normally appears
+in the compact workspace instruction table; omission defaults effectively to
+`true`. Run `axm help knowledge-schema` to print the raw JSON Schema.
 
 ## Package layout
 
 ```text
-.axm/extensions/@acme/knowledge/platform/
+knowledge/platform/
 ├── knowledge.json
 └── src/
     ├── index.md
@@ -158,7 +166,7 @@ root index, then add concept files under `src/`.
 Validate while you write:
 
 ```bash
-axm knowledge lint --path ./.axm/extensions/@acme/knowledge/platform
+axm knowledge lint --path ./knowledge/platform
 ```
 
 Lint reports errors (missing root index, missing concept `type`, invalid
@@ -170,8 +178,8 @@ not.
 ## Install and update
 
 `axm knowledge install <source>` (or the generic `axm install`) materializes
-the bundle under `.axm/extensions/<owner>/knowledge/<name>/`, records it in
-`.axm/axm-lock.yaml`, and refreshes the local concept index.
+the bundle under `agent_extensions/agentxm/<owner>/knowledge/<name>/`, records it in
+`axm-lock.yaml`, and refreshes the local concept index.
 
 ```bash
 axm knowledge install @acme/knowledge/platform
@@ -182,9 +190,10 @@ axm knowledge uninstall platform
 ## Instruction discovery
 
 When instruction management is enabled, AXM writes one managed `Knowledge Bundles`
-table to the canonical instruction source. Rows sort by owner and bundle name,
-and link directly to each installed bundle's canonical `src/index.md`. Existing
-instruction aliases continue to propagate from that canonical source.
+table to the canonical instruction source. Eligible rows sort by owner and
+bundle name and link directly to each installed bundle's canonical
+`src/index.md`. Existing instruction aliases continue to propagate from that
+canonical source.
 The versioned region is `region=knowledge` with
 `ext=@agentxm/knowledge/discovery`.
 
@@ -202,6 +211,21 @@ This does not uninstall, distrust, or disable Knowledge, and concept discovery
 remains available. Global instruction ownership remains under the top-level
 `instructionFiles` setting; when that setting is absent or false, Knowledge
 does not mutate instruction files.
+
+Each bundle can independently inherit or override instruction publication. The
+ordered policy is:
+
+1. A disabled bundle contributes no row and has no active Concepts corpus.
+2. Absent or disabled top-level `instructionFiles` blocks instruction
+   projection.
+3. `knowledgeConfig.instructions: false` suppresses every Knowledge row.
+4. `knowledge.<name>.instructionEntry`, when present, overrides the manifest.
+5. Otherwise the manifest's `instructionEntry` applies, defaulting to `true`.
+
+Excluding only an instruction entry never removes an enabled bundle's concepts.
+`axm knowledge list --json` reports the effective entry decision and its stable
+reason. Edit `axm.json`, then run `axm sync --preview` and `axm sync`;
+there is no separate instruction-entry command.
 
 `axm sync` restores missing canonical content from exact locked registry
 versions or pinned git trees, treats local and workspace sources as
@@ -280,8 +304,8 @@ axm knowledge concepts related '@acme/knowledge/platform#auth/session-management
 
 ## Configuration
 
-Installed bundles are tracked in `.axm/settings.json` under the `knowledge` map
-(name → entry) and locked in `.axm/axm-lock.yaml`. An entry is a source string,
+Installed bundles are tracked in `axm.json` under the `knowledge` map
+(name → entry) and locked in `axm-lock.yaml`. An entry is a source string,
 or an object with `source` plus optional flags:
 
 ```jsonc
@@ -289,7 +313,7 @@ or an object with `source` plus optional flags:
   "knowledge": {
     "platform": {
       "source": "@acme/knowledge/platform@^1.0.0",
-      "enabled": false,
+      "instructionEntry": true,
     },
   },
 }
@@ -297,8 +321,15 @@ or an object with `source` plus optional flags:
 
 Use `axm knowledge disable <name>` to drop a bundle out of search and discovery
 while keeping it installed, and `axm knowledge enable <name>` to restore it.
-Prefer the CLI over hand-editing — it normalizes the shape and refreshes the
-instruction discovery table.
+An explicit `instructionEntry: true` or `false` survives install, update,
+enable, disable, and sync. Omit it to inherit the manifest. AXM retains the
+compact source-string form only when enablement is at its default and no
+override exists.
+
+For a Pack-only bundle, the manifest default applies. To override it, add a
+matching direct `knowledge` entry with the bundle's source constraint and the
+desired `instructionEntry`. That direct declaration intentionally survives
+Pack removal and participates in version-constraint resolution.
 
 ## Publishing
 

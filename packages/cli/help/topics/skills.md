@@ -1,6 +1,14 @@
 # Skills
 
-Skill packages live in `./.axm/extensions/<@owner>/skills/<skill-name>`.
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
+Project-authored skill packages live in `./skills/<skill-name>`; acquired skills
+use the source-qualified canonical scheme. A Registry skill such as
+`@acme/skills/review` lives at
+`./agent_extensions/agentxm/@acme/skills/review`; a portable GitHub skill at
+`github:remix-run/react-router//.agents/skills/react-router@main` lives at
+`./agent_extensions/github/remix-run/react-router/.agents/skills/react-router`.
 
 ## skill.json
 
@@ -10,7 +18,12 @@ Run `axm help skill-schema` to print the raw JSON Schema.
 
 ## `src/`
 
-The `src/` directory holds `SKILL.md` and any other files described by the [agentskills.io](https://agentskills.io) specification.
+For an AgentXM skill package, the `src/` directory holds `SKILL.md` and any
+other files described by the [agentskills.io](https://agentskills.io)
+specification. A portable Agent Skill acquired directly from Git or a local
+source is preserved exactly at its selected source path: `SKILL.md`,
+`references/`, and other sibling content remain at that canonical root, and AXM
+does not fabricate `skill.json` or a publisher identity.
 
 `SKILL.md` is Markdown with YAML frontmatter. `name` and `description` are
 required, and `name` must match both the manifest's `name` and the agent-facing
@@ -67,7 +80,9 @@ frontmatter fields in a portable skill.
 
 The contents of `src/` are symlinked by AXM into each configured agent's skill directory, so you do not need to run `axm sync` after an edit. Run `axm sync` only if symlinks or copies are broken.
 
-If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md` in `.axm/extensions/...` and run `axm sync`; do not edit the copied agent-side file.
+If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md`
+in its authored package and run `axm sync`; do not edit the copied agent-side
+file. Acquired packages are immutable accepted state—fork one before editing it.
 
 ## Unmanaged skills
 
@@ -90,10 +105,14 @@ AXM records accepted immutable resolution for externally sourced skills:
 - **Git identity** — immutable commit, tree, and content identity for Git-hosted sources.
 - **Local-source identity** — relative locator and content identity for an accepted local source.
 
-After install, remote-source canonical files under `.axm/extensions/` are
-observed materialization. If their content changes locally, AXM preserves the
-drift and reports or blocks affected reconciliation instead of silently
-overwriting it. Workspace-authored packages remain local authority.
+After install, remote-source canonical files under `agent_extensions/` are
+observed materialization. Lockfile v7 records the source type, exact source
+name and endpoint or coordinate, requested intent, immutable resolution,
+package format, and strict integrity of their complete package tree. If any
+path or byte changes locally, AXM preserves the
+drift and blocks affected lint, inspection, reconciliation, projection, and
+lifecycle work until reinstall, update, or fork resolves it. Workspace-authored
+packages remain local authority.
 
 ## Recommended packs
 

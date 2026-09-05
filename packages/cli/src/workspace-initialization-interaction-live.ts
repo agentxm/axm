@@ -1,0 +1,199 @@
+/**
+ * CLI implementation of the workspace-initialization interaction port.
+ *
+ * Owns the setup prompts and every piece of setup presentation wording: the
+ * agent scan summary, retired-agent warnings, the setup-phases banner, and
+ * the setup plan and scope-support tables. Prompt cancellations map into the
+ * kernel-owned `WorkspaceInitializationCancelled`.
+ */
+
+import * as FileSystem from "effect/FileSystem";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
+import * as Terminal from "effect/Terminal";
+import { Prompt } from "effect/unstable/cli";
+import { autocompleteMultiselect, requireInteractive } from "./prompt/index.js";
+import { Screen } from "./screen/index.js";
+import type { AppError } from "./app-error/index.js";
+import {
+  WorkspaceConfigurationFailed,
+  WorkspaceInitializationCancelled,
+  WorkspaceInitializationInteraction,
+  type WorkspaceInitializationInteractionService,
+} from "@agentxm/workspace-configuration";
+import { setupAgentScanDoc, setupPlanDoc, setupScopeSupportDoc } from "./root/setup/view.js";
+
+const selectAgentsMessage = "Select agents to configure";
+const confirmInstructionSyncMessage =
+  "Sync instructions to the selected agents?\n  Updates agent instruction files such as AGENTS.md and CLAUDE.md.";
+const selectInstructionSourceMessage =
+  "Choose the source file for shared instructions\n  AXM will sync its contents to the selected agents' instruction files.";
+const customInstructionSourceMessage = "Source instructions file name";
+const confirmSetupPlanMessage = "Proceed?";
+
+const CUSTOM_SOURCE_FILE = "__custom__";
+
+const cancelled = (error: { readonly message: string }) =>
+  Effect.fail(new WorkspaceInitializationCancelled({ message: error.message }));
+
+const carriedCategory = (
+  code: AppError["code"],
+): "conflict" | "internal" | "usage" | "validation" =>
+  code === "conflict" || code === "usage" || code === "validation" ? code : "internal";
+
+/**
+ * Carry a prompt-guard envelope into the feature's typed failure family; the
+ * boundary conversion back is a field copy, so the rendered envelope stays
+ * byte-identical.
+ */
+const toInteractionFailure = (
+  error: AppError | WorkspaceInitializationCancelled,
+): WorkspaceConfigurationFailed | WorkspaceInitializationCancelled =>
+  error instanceof WorkspaceInitializationCancelled
+    ? error
+    : new WorkspaceConfigurationFailed({
+        category: carriedCategory(error.code),
+        detail: error.detail,
+        ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+        ...(error.cause === undefined ? {} : { cause: error.cause }),
+      });
+
+export const WorkspaceInitializationInteractionLive = Layer.effect(
+  WorkspaceInitializationInteraction,
+  Effect.gen(function* () {
+    const screen = yield* Screen;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const terminal = yield* Terminal.Terminal;
+    const promptEnvironment = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fileSystem),
+      Layer.succeed(Path.Path, path),
+      Layer.succeed(Terminal.Terminal, terminal),
+    );
+
+    return {
+      selectAgents: ({
+        allAgents,
+        projectDetectedIds,
+        userDetectedIds,
+        suggestedIds,
+        configuredIds,
+      }) =>
+        screen
+          .prompt(
+            requireInteractive(
+              autocompleteMultiselect({
+                message: selectAgentsMessage,
+                maxPerPage: 10,
+                filterLabel: "Filter",
+                selectionCountMessage: (selected) =>
+                  `${selected.length} ${selected.length === 1 ? "agent" : "agents"} selected`,
+                submissionMessage: (selected) =>
+                  `Selected ${selected.length} ${selected.length === 1 ? "agent" : "agents"}`,
+                choices: allAgents.map((agent) => ({
+                  title: agent.name,
+                  value: agent.id,
+                  description: [
+                    configuredIds.includes(agent.id) ? "configured" : undefined,
+                    projectDetectedIds.includes(agent.id) ? "detected in project" : undefined,
+                    userDetectedIds.includes(agent.id) ? "detected on workstation" : undefined,
+                    suggestedIds.includes(agent.id) ? "suggested" : undefined,
+                    agent.skills === undefined
+                      ? "skills: unsupported"
+                      : `skills: ${agent.skills.dir}`,
+                  ]
+                    .filter((part) => part !== undefined)
+                    .join(" · "),
+                  selected:
+                    configuredIds.includes(agent.id) ||
+                    projectDetectedIds.includes(agent.id) ||
+                    suggestedIds.includes(agent.id),
+                })),
+              }),
+              { message: selectAgentsMessage },
+            ),
+          )
+          .pipe(
+            Effect.provide(promptEnvironment),
+            Effect.catchTag("PromptCancelled", cancelled),
+            Effect.mapError(toInteractionFailure),
+          ),
+      confirmInstructionSync: ({ enabled }) =>
+        screen
+          .prompt(
+            requireInteractive(
+              Prompt.confirm({ message: confirmInstructionSyncMessage, initial: enabled }),
+              { message: confirmInstructionSyncMessage },
+            ),
+          )
+          .pipe(
+            Effect.provide(promptEnvironment),
+            Effect.catchTag("PromptCancelled", cancelled),
+            Effect.mapError(toInteractionFailure),
+          ),
+      selectInstructionSource: ({ defaultFileName, choices }) =>
+        Effect.gen(function* () {
+          yield* screen.note([{ _tag: "blank" }]);
+          const selected = yield* screen.prompt(
+            requireInteractive(
+              Prompt.select({
+                message: selectInstructionSourceMessage,
+                choices: [
+                  ...choices.map((choice) => {
+                    const description = [
+                      choice.fileName === defaultFileName ? "Recommended" : undefined,
+                      choice.exists ? "existing" : "will be created",
+                      choice.exists ? `${String(choice.lines)} lines` : undefined,
+                    ]
+                      .filter((part) => part !== undefined)
+                      .join(" · ");
+                    return {
+                      title: choice.fileName,
+                      value: choice.fileName,
+                      description,
+                      selected: choice.fileName === defaultFileName,
+                    };
+                  }),
+                  {
+                    title: "Enter another filename...",
+                    value: CUSTOM_SOURCE_FILE,
+                  },
+                ],
+              }),
+              { message: selectInstructionSourceMessage },
+            ).pipe(Effect.provide(promptEnvironment)),
+          );
+          if (selected !== CUSTOM_SOURCE_FILE) return selected;
+          yield* screen.note([{ _tag: "blank" }]);
+          return yield* screen.prompt(
+            requireInteractive(Prompt.text({ message: customInstructionSourceMessage }), {
+              message: customInstructionSourceMessage,
+            }).pipe(Effect.provide(promptEnvironment)),
+          );
+        }).pipe(
+          Effect.catchTag("PromptCancelled", cancelled),
+          Effect.mapError(toInteractionFailure),
+        ),
+      confirmSetupPlan: () =>
+        screen
+          .prompt(
+            requireInteractive(
+              Prompt.confirm({ message: confirmSetupPlanMessage, initial: true }),
+              {
+                message: confirmSetupPlanMessage,
+              },
+            ),
+          )
+          .pipe(
+            Effect.provide(promptEnvironment),
+            Effect.catchTag("PromptCancelled", cancelled),
+            Effect.mapError(toInteractionFailure),
+          ),
+      presentAgentScan: (scan) => screen.note(setupAgentScanDoc(scan)),
+      presentSetupPlan: (rows) => screen.note(setupPlanDoc(rows)),
+      presentScopeSupport: (scope, categories) =>
+        screen.note(setupScopeSupportDoc(scope, categories)),
+    } satisfies WorkspaceInitializationInteractionService;
+  }),
+);

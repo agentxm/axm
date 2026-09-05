@@ -45,8 +45,9 @@ accepted resolution does not create desired-state reachability.
 
 ## Authoritative lockfile
 
-The generated, committed `.axm/axm-lock.yaml` state that records accepted
-external resolutions and provenance. It participates in planning and exact
+The generated, committed `axm-lock.yaml` project state (or user-scope
+`axm-lock.yaml`) that records accepted external resolutions, package-tree
+integrity, and provenance. It participates in planning and exact
 materialization, but never creates desired membership, activation, Pack
 reachability, projection ownership, or cleanup authority.
 
@@ -103,6 +104,21 @@ A type-specific metadata file describing an extension. Its filename, schema,
 and allowed fields depend on the extension type. A workspace-authored manifest
 is editable workspace configuration; a manifest acquired from an external
 source is managed extension content.
+
+## Local MCP connection name
+
+The workspace-local identity of one MCP connection. It is the key in
+`mcpServers` settings and in an agent's native MCP map or marked region. It may
+differ from the published MCP Server extension name, and multiple local names
+may reference one source identity while retaining separate realization choices
+and secret namespaces.
+
+## MCP source-resolution closure
+
+All local MCP connections and Pack routes that reference one source identity.
+The closure combines their version constraints and shares one accepted
+resolution and acquired canonical package. Updating any member advances the
+closure; shared source state remains until its final route is removed.
 
 ## Ownership unit
 

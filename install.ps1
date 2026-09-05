@@ -1,1 +1,1 @@
-packages/core/site-content/install.ps1
+packages/cli/site-content/install.ps1

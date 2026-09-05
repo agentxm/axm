@@ -11,15 +11,16 @@ depends-on:
 
 Portable service, layer, resource, configuration, testing, and observability
 patterns belong to the Effect v4 Knowledge guides for
-[services and layers](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/services-and-layers.md)
-and [resource safety](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/resource-safety.md),
-routed by the installed `craft-effect-v4` skill. This guide owns AXM CLI
+[services and layers](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/services-and-layers.md)
+and [resource safety](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/resource-safety.md).
+This guide owns AXM CLI
 composition only.
 
 ## CLI composition
 
-- Use `runCliMain` from `@agentxm/client-core` as the production entry point.
-  It owns signal handling, error routing, and graceful shutdown.
+- Use `runCliMain` from the CLI's `cli-runtime` module
+  (`packages/cli/src/cli-runtime`) as the production entry point. It owns
+  signal handling, error routing, and graceful shutdown.
 - Treat `withRuntime` and, for workspace commands, `withWorkspace` as the
   sanctioned command edge. They resolve the selected directory and workspace,
   compose invocation-scoped layers, and preserve the `AppError |

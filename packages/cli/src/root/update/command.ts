@@ -1,10 +1,10 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, refreshFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { ignoreReleaseAgeFlag, previewFlag, refreshFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 
-import { scopeFlag } from "../../cli-flags.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { handleUpdate } from "./handler.js";
 
 const updateConfig = {
@@ -15,22 +15,24 @@ const updateConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Update in project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the update plan")),
+  yes: yesFlag.pipe(
+    Flag.withDescription(
+      "Pre-approve the update when it carries a risk that would otherwise prompt",
+    ),
+  ),
   force: refreshFlag,
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be updated without making changes"),
   ),
-  ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
-    Flag.withDescription("Allow Registry releases newer than minimumReleaseAge for this update"),
-    Flag.withDefault(false),
-  ),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
   ({ source, scope, yes, force, preview, ignoreReleaseAge }) =>
-    handleUpdate({ source, yes, force, preview, ignoreReleaseAge }).pipe(
+    handleUpdate({ source, yes, force, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("update"),
     ),

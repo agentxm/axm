@@ -3,14 +3,11 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  getKnowledgeIndexConcept,
-  parseConceptRef,
-  relatedKnowledgeConcepts,
-} from "@agentxm/client-core/unstable/knowledge";
+import { makeAppError } from "../../../app-error/index.js";
+import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { getKnowledgeIndexConcept, relatedKnowledgeConcepts } from "@agentxm/knowledge-query";
+import { parseConceptRef } from "@agentxm/extension-model/unstable/knowledge";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";
@@ -50,7 +47,7 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
   if (!Number.isSafeInteger(maximumDepth) || maximumDepth < 1 || maximumDepth > 3) {
     return yield* makeAppError({ code: "validation", detail: "Depth must be between 1 and 3" });
   }
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const captured = yield* captureInstalledKnowledgeIndex();
   if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const { snapshot } = captured;
@@ -72,20 +69,22 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
     count: items.length,
     corpusFingerprint: snapshot.fingerprint,
   };
-  if (yield* renderer.result(output, KnowledgeConceptRelatedOutputSchema)) return;
+  if (yield* screen.document(output, KnowledgeConceptRelatedOutputSchema)) return;
   if (items.length === 0) {
-    yield* renderer.info("No related installed knowledge concepts were found");
+    yield* screen.note(headlineDoc("info", "No related installed knowledge concepts were found"));
     return;
   }
-  yield* renderer.table(
-    items.map(({ depth, relation, ref, title }) => ({
-      depth,
-      relation,
-      concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
-      title: sanitizeKnowledgeTerminalText(title ?? "—"),
-    })),
-    RelatedTable,
-    `${items.length} related concept${items.length === 1 ? "" : "s"}`,
+  yield* screen.result(
+    tableViewDoc(
+      items.map(({ depth, relation, ref, title }) => ({
+        depth,
+        relation,
+        concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
+        title: sanitizeKnowledgeTerminalText(title ?? "—"),
+      })),
+      RelatedTable,
+      `${items.length} related concept${items.length === 1 ? "" : "s"}`,
+    ),
   );
 });
 

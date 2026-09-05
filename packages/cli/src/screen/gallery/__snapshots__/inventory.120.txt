@@ -1,0 +1,7 @@
+4 skills (3 configured, 0 implicit, 3 installed, 1 unmanaged)
+  Name                         State       Activation   Type       Agents
+  @craigsmitham/effect-v4      installed   enabled      registry   claude-code, codex, cursor, gemini-cli
+  @craigsmitham/field-notes    installed   enabled      registry   claude-code, codex
+  @agentxm/knowledge/agentxm   installed   disabled     registry   none
+  local-notes                  detected    n/a          detected   none
+  Not shown at this width: Agent outcomes

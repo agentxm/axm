@@ -35,10 +35,9 @@ describe("axm skills list", () => {
       });
 
       expect(textResult.exitCode, getOutput(textResult)).toBe(0);
-      expect(textResult.stdout).toBe("");
-      expect(textResult.stderr).toContain("native-only");
-      expect(textResult.stderr).toContain("unmanaged");
-      expect(textResult.stderr).toContain("1 installed");
+      expect(textResult.stdout).toContain("native-only");
+      expect(textResult.stdout).toContain("unmanaged");
+      expect(textResult.stdout).toContain("1 installed");
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: true,
@@ -66,7 +65,7 @@ describe("axm skills list", () => {
     const temp = createTempDir();
     try {
       fs.mkdirSync(path.join(temp.path, ".axm"), { recursive: true });
-      fs.writeFileSync(path.join(temp.path, ".axm", "settings.json"), "{ not-json");
+      fs.writeFileSync(path.join(temp.path, "axm.json"), "{ not-json");
 
       const result = await runCli(["skills", "list", "--json"], { cwd: temp.path });
 
@@ -81,15 +80,17 @@ describe("axm skills list", () => {
     try {
       fs.mkdirSync(path.join(temp.path, ".axm"), { recursive: true });
       fs.writeFileSync(
-        path.join(temp.path, ".axm", "settings.json"),
+        path.join(temp.path, "axm.json"),
         `${JSON.stringify({ agents: [] }, null, 2)}\n`,
       );
-      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "lockfileVersion: invalid\n");
+      fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), "lockfileVersion: invalid\n");
 
       const result = await runCli(["skills", "list", "--json"], { cwd: temp.path });
 
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain("Failed to read workspace lockfile");
+      expect(result.exitCode).toBe(9);
+      expect(result.stderr).toContain(
+        `Invalid workspace lockfile at ${fs.realpathSync(path.join(temp.path, "axm-lock.yaml"))}`,
+      );
     } finally {
       temp.cleanup();
     }

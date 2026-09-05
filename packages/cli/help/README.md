@@ -11,7 +11,7 @@ Use this Markdown subset so interactive terminal rendering stays predictable:
 - GitHub-flavored tables
 
 Schema topics are generated from
-`packages/core/site-content/__generated__/schemas/*.schema.json` and render raw
+`packages/cli/site-content/__generated__/schemas/*.schema.json` and render raw
 JSON instead of Markdown.
 
 Machine output, piped output, and `NO_COLOR=1` preserve the raw topic source.

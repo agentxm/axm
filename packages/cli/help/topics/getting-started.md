@@ -45,6 +45,12 @@ when different `--agent` flags are supplied. Read
 `axm help basic-usage` to learn what those files do and which ones must be
 checked in.
 
+Setup may add AXM runtime and package-transaction entries to `.gitignore` in a
+Git-managed project. It does not edit `.gitattributes` or formatter
+configuration. Exclude acquired `agent_extensions/` content from mutating
+formatters, lint fixes, and save-time rewrites; `axm help workspace-state`
+explains strict package integrity and how to diagnose checkout-only drift.
+
 For automation, preview the exact candidate first:
 
 ```bash
@@ -109,9 +115,9 @@ know what to install.
 ## Where to go next
 
 - `axm help basic-usage` — what each workspace file is for, what is safe to inspect, what changes state, and what must be checked in
-- `axm help settings` — `.axm/settings.json` fields
+- `axm help settings` — `axm.json` fields and user-scope differences
 - `axm help workspace-state` — desired, accepted-resolution, and observed semantics
-- `axm help settings-schema` — `.axm/settings.json` raw JSON Schema
+- `axm help settings-schema` — raw settings JSON Schema
 - `axm help skills` — anatomy of a native managed skill on disk
 - `axm <command> --help` — flags and examples for any command
 - `axm help` — list every available help topic

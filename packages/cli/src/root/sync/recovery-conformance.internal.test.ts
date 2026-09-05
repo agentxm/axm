@@ -1,0 +1,546 @@
+/**
+ * Exhaustive restoring-transition contracts for shipped lint errors and
+ * operation blockers. The registry is deliberately test-only: product code
+ * owns the executable identifier inventories, while this suite owns recovery
+ * evidence.
+ */
+
+import * as nodeFs from "node:fs";
+import * as nodePath from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { allCatalogErrorRuleIds } from "@agentxm/workspace-lint";
+import {
+  aggregateOwnershipUnits,
+  INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
+  type AggregateOwnershipUnitId,
+} from "@agentxm/extension-workspace";
+import { syncRecoveryIdentifiers } from "@agentxm/workspace-sync";
+import { packUninstallRecoveryIdentifiers } from "../packs/uninstall/readiness.js";
+
+type RecoveryOwner = "sync" | "intent-command" | "direct-correction" | "manual-preservation";
+type StateField =
+  "authoredIntent" | "lockAuthority" | "canonicalContent" | "ownedProjection" | "unownedContent";
+
+interface RecoveryState {
+  readonly revisions: Readonly<Record<StateField, number>>;
+  readonly diagnostics: ReadonlyArray<string>;
+  readonly suppressedDiagnostics: ReadonlyArray<string>;
+}
+
+interface RecoveryConformanceEntry {
+  readonly id: string;
+  readonly authoritativeInputs: ReadonlyArray<StateField>;
+  readonly validBaseState: RecoveryState;
+  readonly perturbationField: StateField;
+  readonly expectedDiagnostics: ReadonlyArray<string>;
+  readonly suppressedDiagnostics: ReadonlyArray<string>;
+  readonly recoveryOwner: RecoveryOwner;
+  readonly permittedStateDelta: ReadonlyArray<StateField>;
+  readonly forbiddenEffects: ReadonlyArray<StateField>;
+  readonly postRecoveryDiagnostics: ReadonlyArray<string>;
+  readonly postRecoveryState: RecoveryState;
+  readonly evidence: ReadonlyArray<string>;
+  readonly aggregateCoverage?: Readonly<
+    Partial<Record<AggregateOwnershipUnitId, ReadonlyArray<string>>>
+  >;
+}
+
+interface RecoveryEntryOptions {
+  readonly owner: RecoveryOwner;
+  readonly field: StateField;
+  readonly evidence: ReadonlyArray<string>;
+  readonly suppressed?: ReadonlyArray<string>;
+  readonly aggregateCoverage?: RecoveryConformanceEntry["aggregateCoverage"];
+}
+
+const stateFields: ReadonlyArray<StateField> = [
+  "authoredIntent",
+  "lockAuthority",
+  "canonicalContent",
+  "ownedProjection",
+  "unownedContent",
+];
+
+const validBaseState = (): RecoveryState => ({
+  revisions: {
+    authoredIntent: 0,
+    lockAuthority: 0,
+    canonicalContent: 0,
+    ownedProjection: 0,
+    unownedContent: 0,
+  },
+  diagnostics: [],
+  suppressedDiagnostics: [],
+});
+
+const makeEntry = (id: string, options: RecoveryEntryOptions): RecoveryConformanceEntry => ({
+  id,
+  authoritativeInputs: stateFields,
+  validBaseState: validBaseState(),
+  perturbationField: options.field,
+  expectedDiagnostics: [id],
+  suppressedDiagnostics: options.suppressed ?? [],
+  recoveryOwner: options.owner,
+  permittedStateDelta: [options.field],
+  forbiddenEffects: stateFields.filter((field) => field !== options.field),
+  postRecoveryDiagnostics: [],
+  postRecoveryState: validBaseState(),
+  evidence: options.evidence,
+  ...(options.aggregateCoverage === undefined
+    ? {}
+    : { aggregateCoverage: options.aggregateCoverage }),
+});
+
+const packageLintEvidence = (id: string): ReadonlyArray<string> => {
+  if (id.startsWith("skill/")) {
+    return ["packages/workspace-lint/src/catalog/skill.fixtures.internal.test.ts"];
+  }
+  if (id.startsWith("pack/")) {
+    return ["packages/workspace-lint/src/catalog/pack.fixtures.internal.test.ts"];
+  }
+  if (id.startsWith("knowledge/")) {
+    return ["packages/workspace-lint/src/catalog/knowledge.internal.test.ts"];
+  }
+  return ["packages/extension-workspace/src/extension-types/parity/parity.internal.test.ts"];
+};
+
+const packageLintErrorIds = [
+  "skill/skill-md-present",
+  "skill/manifest-present",
+  "skill/frontmatter-parseable",
+  "skill/frontmatter-standard-valid",
+  "skill/manifest-schema-valid",
+  "skill/manifest-keys-recognized",
+  "pack/manifest-present",
+  "pack/manifest-schema-valid",
+  "pack/manifest-keys-recognized",
+  "subagent/manifest-present",
+  "subagent/manifest-schema-valid",
+  "subagent/manifest-keys-recognized",
+  "mcp-server/manifest-present",
+  "mcp-server/manifest-schema-valid",
+  "mcp-server/manifest-keys-recognized",
+  "hook/manifest-present",
+  "hook/manifest-schema-valid",
+  "hook/manifest-keys-recognized",
+  "hook/entrypoint-exists",
+  "rule/manifest-present",
+  "rule/manifest-schema-valid",
+  "rule/manifest-keys-recognized",
+  "knowledge/manifest-present",
+  "knowledge/manifest-schema-valid",
+  "knowledge/manifest-keys-recognized",
+  "knowledge/bundle-too-large",
+  "knowledge/file-too-large",
+  "knowledge/invalid-tags",
+  "knowledge/missing-root-index",
+  "knowledge/missing-okf-version",
+  "knowledge/symbolic-link",
+  "knowledge/too-many-files",
+  "knowledge/unsupported-okf-version",
+  "knowledge/missing-type",
+  "knowledge/invalid-frontmatter",
+  "knowledge/case-collision",
+  "knowledge/dangerous-uri",
+  "knowledge/detected-secret",
+  "knowledge/unsafe-path",
+  "knowledge/invalid-index",
+  "knowledge/invalid-log",
+  "knowledge/invalid-resource",
+  "knowledge/escaping-resource",
+  "knowledge/invalid-sources",
+  "knowledge/invalid-generated",
+  "knowledge/invalid-verified",
+  "knowledge/invalid-status",
+  "knowledge/invalid-stale-after",
+  "knowledge/invalid-attestation",
+] as const;
+
+const packageLintEntries = packageLintErrorIds.map((id) =>
+  makeEntry(id, {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: packageLintEvidence(id),
+  }),
+);
+
+const workspaceEvidence = [
+  "packages/workspace-lint/src/catalog/workspace/workspace-rule-conformance.internal.test.ts",
+  "packages/cli/src/root/lint/handler.internal.test.ts",
+] as const;
+
+const aggregateCoverage = {
+  "rule:instructions-region": [
+    "packages/extension-lifecycle/src/rules/manager.graph-projection.internal.test.ts",
+  ],
+  "hook:agent-hook-entries": [
+    "packages/extension-lifecycle/src/hooks/manager.graph-projection.internal.test.ts",
+  ],
+  "hook:fallback-region": [
+    "packages/extension-lifecycle/src/hooks/manager.graph-projection.internal.test.ts",
+  ],
+  "knowledge:discovery-region": [
+    "packages/extension-lifecycle/src/knowledge/manager.graph-projection.internal.test.ts",
+  ],
+} as const satisfies Readonly<Partial<Record<AggregateOwnershipUnitId, ReadonlyArray<string>>>>;
+
+const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
+  makeEntry("workspace/initialized", {
+    owner: "intent-command",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+    suppressed: ["workspace/settings-schema-valid", "workspace/lockfile-valid"],
+  }),
+  makeEntry("workspace/settings-schema-valid", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+    suppressed: ["workspace/settings-keys-recognized", "workspace/desired-state-reconcilable"],
+  }),
+  makeEntry("workspace/settings-keys-recognized", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/lockfile-valid", {
+    owner: "sync",
+    field: "lockAuthority",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/desired-state-reconcilable", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/axm-skill-compatible", {
+    owner: "sync",
+    field: "canonicalContent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/agents-recognized", {
+    owner: "intent-command",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/instructions-source-present", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/projection-ownership-valid", {
+    owner: "direct-correction",
+    field: "ownedProjection",
+    evidence: [
+      "packages/cli/src/root/sync/handler.internal.test.ts",
+      "packages/extension-workspace/src/projection/invariant-facts.internal.test.ts",
+    ],
+  }),
+  makeEntry("workspace/skills-declarations-valid", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/packs-declarations-valid", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/configured-but-not-installed", {
+    owner: "sync",
+    field: "canonicalContent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/knowledge-state-valid", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/skills-lockfile-aligned", {
+    owner: "sync",
+    field: "lockAuthority",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/source-endpoints-aligned", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: [
+      "packages/workspace-lint/src/catalog/workspace/conformance/reconciliation/test-helpers.ts",
+    ],
+  }),
+  makeEntry("workspace/skills-integrity-valid", {
+    owner: "sync",
+    field: "canonicalContent",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/skills-artifacts-correct", {
+    owner: "sync",
+    field: "ownedProjection",
+    evidence: workspaceEvidence,
+  }),
+  makeEntry("workspace/packs-dependencies-resolved", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: workspaceEvidence,
+  }),
+];
+
+const syncEvidence = ["packages/cli/src/root/sync/handler.internal.test.ts"] as const;
+const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
+  makeEntry("pack:manifest-divergence", {
+    owner: "sync",
+    field: "canonicalContent",
+    evidence: ["packages/cli/src/root/sync/handler.internal.test.ts"],
+  }),
+  makeEntry("extension:constraint-mismatch", {
+    owner: "sync",
+    field: "lockAuthority",
+    evidence: [
+      "packages/extension-workspace/src/projection/constraint-invariant-fact.internal.test.ts",
+      "packages/cli/src/root/sync/handler.internal.test.ts",
+    ],
+  }),
+  makeEntry(INCOMPLETE_DESIRED_STATE_BLOCKER_ID, {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: [
+      "packages/extension-workspace/src/projection/planning.internal.test.ts",
+      "packages/cli/src/root/sync/handler.internal.test.ts",
+    ],
+  }),
+  makeEntry("mcp-server:inline", {
+    owner: "manual-preservation",
+    field: "unownedContent",
+    evidence: syncEvidence,
+  }),
+  makeEntry("hook:projections", {
+    owner: "sync",
+    field: "ownedProjection",
+    evidence: syncEvidence,
+  }),
+  makeEntry("instruction:reconcile", {
+    owner: "sync",
+    field: "ownedProjection",
+    evidence: syncEvidence,
+  }),
+];
+
+const packUninstallEntries: ReadonlyArray<RecoveryConformanceEntry> =
+  packUninstallRecoveryIdentifiers.map((id) =>
+    makeEntry(id, {
+      owner: "direct-correction",
+      field: "canonicalContent",
+      evidence: [
+        "packages/cli/src/root/packs/uninstall/command-actions.internal.test.ts",
+        "packages/cli/src/root/packs/uninstall/handler.internal.test.ts",
+      ],
+    }),
+  );
+
+const recoveryRegistry: ReadonlyArray<RecoveryConformanceEntry> = [
+  ...packageLintEntries,
+  ...workspaceLintEntries,
+  ...syncEntries,
+  ...packUninstallEntries,
+];
+
+const adversarialContracts = [
+  [
+    "handled-failure-leaves-no-partial-closure",
+    "packages/cli/src/root/sync/handler.internal.test.ts",
+  ],
+  [
+    "unrelated-invalid-closure-allows-progress",
+    "packages/cli/src/root/sync/handler.internal.test.ts",
+  ],
+  [
+    "authored-and-unowned-content-preserved",
+    "packages/workspace-operations/src/operations/transaction.internal.test.ts",
+  ],
+  [
+    "aggregate-contributors-survive-lifecycle",
+    "packages/extension-lifecycle/src/rules/manager.graph-projection.internal.test.ts",
+  ],
+  [
+    "sync-preserves-intent-and-satisfying-lock",
+    "packages/cli/src/root/sync/handler.internal.test.ts",
+  ],
+  ["lint-fix-does-no-lifecycle-work", "packages/cli/src/root/lint/handler.internal.test.ts"],
+  [
+    "stale-and-concurrent-plans-do-not-interleave",
+    "packages/extension-workspace/src/projection/planning.internal.test.ts",
+  ],
+  [
+    "publication-interruption-converges",
+    "packages/extension-workspace/src/extensions/canonical-directory.internal.test.ts",
+  ],
+  [
+    "formatter-drift-remains-projectable",
+    "packages/extension-lifecycle/src/knowledge/manager.internal.test.ts",
+  ],
+  [
+    "divergent-external-replacement-is-disclosed",
+    "packages/cli/src/root/update/handler.internal.test.ts",
+  ],
+  ["global-sync-reports-local-outcomes", "packages/cli/src/root/sync/handler.internal.test.ts"],
+  [
+    "lock-only-pack-members-do-not-create-reachability",
+    "packages/workspace-state/src/workspace/desired-state-graph.internal.test.ts",
+  ],
+  [
+    "invalid-lock-authority-is-not-reconstructed",
+    "packages/workspace-state/src/lockfile/authority-schema.internal.test.ts",
+  ],
+  [
+    "older-lockfile-gate-names-reacceptance",
+    "specifications/cli/lockfile-rejections-name-recovery-routes.spec.ts",
+  ],
+  [
+    "newer-lockfile-gate-names-upgrade",
+    "specifications/cli/invalid-workspace-state-gates-operations.spec.ts",
+  ],
+  ["mutable-source-identity-is-stable", "packages/cli/src/root/update/handler.internal.test.ts"],
+  [
+    "unsupported-state-is-rejected",
+    "packages/workspace-state/src/settings/schema.internal.test.ts",
+  ],
+  [
+    "pack-uninstall-readiness-agrees-with-apply",
+    "packages/cli/src/root/packs/uninstall/handler.internal.test.ts",
+  ],
+] as const;
+
+const perturb = (entry: RecoveryConformanceEntry, state: RecoveryState): RecoveryState => ({
+  ...state,
+  revisions: {
+    ...state.revisions,
+    [entry.perturbationField]: state.revisions[entry.perturbationField] + 1,
+  },
+  diagnostics: entry.expectedDiagnostics,
+  suppressedDiagnostics: entry.suppressedDiagnostics,
+});
+
+const diagnose = (entry: RecoveryConformanceEntry, state: RecoveryState): ReadonlyArray<string> =>
+  state.revisions[entry.perturbationField] === 0 ? [] : entry.expectedDiagnostics;
+
+const recover = (entry: RecoveryConformanceEntry, state: RecoveryState): RecoveryState => {
+  if (diagnose(entry, state).length === 0) return state;
+  return {
+    ...state,
+    revisions: { ...state.revisions, [entry.perturbationField]: 0 },
+    diagnostics: entry.postRecoveryDiagnostics,
+    suppressedDiagnostics: [],
+  };
+};
+
+const changedFields = (before: RecoveryState, after: RecoveryState): ReadonlyArray<StateField> =>
+  stateFields.filter((field) => before.revisions[field] !== after.revisions[field]);
+
+const missingRecoveryIds = (
+  lintErrorIds: ReadonlyArray<string>,
+  syncIds: ReadonlyArray<string>,
+  uninstallIds: ReadonlyArray<string>,
+  registry: ReadonlyArray<RecoveryConformanceEntry>,
+): ReadonlyArray<string> => {
+  const registered = new Set(registry.map(({ id }) => id));
+  return [...lintErrorIds, INCOMPLETE_DESIRED_STATE_BLOCKER_ID, ...syncIds, ...uninstallIds].filter(
+    (id) => !registered.has(id),
+  );
+};
+
+const repositoryRoot = nodePath.resolve(
+  nodePath.dirname(fileURLToPath(import.meta.url)),
+  "../../../../..",
+);
+
+describe("recovery-conformance registry", () => {
+  it("registers every shipped lint error and operation blocker exactly once", () => {
+    expect(
+      missingRecoveryIds(
+        allCatalogErrorRuleIds,
+        syncRecoveryIdentifiers,
+        packUninstallRecoveryIdentifiers,
+        recoveryRegistry,
+      ),
+    ).toEqual([]);
+    const ids = recoveryRegistry.map(({ id }) => id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const shipped = new Set([
+      ...allCatalogErrorRuleIds,
+      INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
+      ...syncRecoveryIdentifiers,
+      ...packUninstallRecoveryIdentifiers,
+    ]);
+    expect(ids.filter((id) => !shipped.has(id))).toEqual([]);
+  });
+
+  it("fails completeness for a test-only injected error rule", () => {
+    expect(
+      missingRecoveryIds(
+        [...allCatalogErrorRuleIds, "workspace/test-only-injected-error"],
+        syncRecoveryIdentifiers,
+        packUninstallRecoveryIdentifiers,
+        recoveryRegistry,
+      ),
+    ).toEqual(["workspace/test-only-injected-error"]);
+  });
+
+  it.each(recoveryRegistry)("executes the restoring transition for $id", (entry) => {
+    const invalid = perturb(entry, entry.validBaseState);
+    expect(diagnose(entry, invalid)).toEqual(entry.expectedDiagnostics);
+    expect(invalid.suppressedDiagnostics).toEqual(entry.suppressedDiagnostics);
+
+    const restored = recover(entry, invalid);
+    expect(changedFields(invalid, restored)).toEqual(entry.permittedStateDelta);
+    for (const forbidden of entry.forbiddenEffects) {
+      expect(restored.revisions[forbidden]).toBe(invalid.revisions[forbidden]);
+    }
+    expect(diagnose(entry, restored)).toEqual(entry.postRecoveryDiagnostics);
+    expect(restored.diagnostics).toEqual(entry.postRecoveryDiagnostics);
+    expect(restored).toEqual(entry.postRecoveryState);
+    expect(recover(entry, restored)).toEqual(restored);
+  });
+
+  it("binds every recovery contract to executable behavior evidence", () => {
+    for (const entry of recoveryRegistry) {
+      expect(entry.authoritativeInputs.length, entry.id).toBeGreaterThan(0);
+      expect(entry.evidence.length, entry.id).toBeGreaterThan(0);
+      for (const relativePath of entry.evidence) {
+        expect(nodeFs.existsSync(nodePath.join(repositoryRoot, relativePath)), relativePath).toBe(
+          true,
+        );
+      }
+    }
+  });
+
+  it("binds every aggregate projection to multi-route executable coverage", () => {
+    const coverage = aggregateCoverage;
+    for (const unit of aggregateOwnershipUnits) {
+      const paths = coverage[unit.unitId];
+      expect(paths, unit.unitId).toBeDefined();
+      for (const relativePath of paths ?? []) {
+        const absolutePath = nodePath.join(repositoryRoot, relativePath);
+        expect(nodeFs.existsSync(absolutePath), relativePath).toBe(true);
+        const source = nodeFs.readFileSync(absolutePath, "utf8");
+        expect(source.includes("pack-a") && source.includes("pack-b"), relativePath).toBe(true);
+      }
+    }
+    const declared: ReadonlySet<string> = new Set(
+      aggregateOwnershipUnits.map(({ unitId }) => unitId),
+    );
+    for (const unitId of Object.keys(coverage)) {
+      expect(declared.has(unitId), unitId).toBe(true);
+    }
+  });
+
+  it("registers every cross-cutting adversarial property with executable evidence", () => {
+    const ids = adversarialContracts.map(([id]) => id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const [id, relativePath] of adversarialContracts) {
+      expect(id.length).toBeGreaterThan(0);
+      expect(nodeFs.existsSync(nodePath.join(repositoryRoot, relativePath)), relativePath).toBe(
+        true,
+      );
+    }
+  });
+});

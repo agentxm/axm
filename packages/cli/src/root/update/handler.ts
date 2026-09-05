@@ -1,66 +1,56 @@
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
+import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   recoveryPositional,
   recoverySwitch,
-  setCommandSemanticProperties,
-  summarizeCommandOutcome,
   type PlanExecution,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import type { Plan, PlanResolution } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+} from "@agentxm/workspace-operations";
+import type { OperationResolution, Plan } from "@agentxm/workspace-operations";
+import { makeOperationResolution, operationPresentation } from "@agentxm/workspace-operations";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  runInstallCommandWorkflow,
+} from "@agentxm/extension-lifecycle";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
   normalizeReleaseAgeRecords,
-  type ReleaseAgeEvaluation,
-  type ReleaseAgeEvidence,
   type ReleaseAgeHoldbackRecord,
   type ReleaseAgeOperationEvidence,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import {
-  SourceHostProviders,
-  resolveSource,
-} from "@agentxm/client-core/unstable/source-resolution";
+  type ReleaseAgeEvaluation,
+  type ReleaseAgeEvidence,
+} from "@agentxm/extension-model/unstable/extensions/release-age";
+import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
+import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/extension-workspace";
 import {
   WorkspaceMutations,
   acceptedResolutionRef,
-  makeConfiguredReleaseAgeEvaluation,
+  type DesiredStateGraph,
   usableAcceptedCanonical,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/workspace-state";
 import {
   decodeVersionRangeSync,
   versionSatisfiesRange,
-} from "@agentxm/client-core/unstable/version-constraints";
-import { toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  parseSourceQualifiedRegistrySourcePatternParts,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions";
 
-import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
-import {
-  InstallMcpServerCommandWorkflowActions,
-  type InstallMcpServerHandlerArgs,
-} from "../mcps/install/command-actions.js";
-import {
-  InstallHookCommandWorkflowActions,
-  type InstallHookHandlerArgs,
-} from "../hooks/install/command-actions.js";
-import {
-  InstallKnowledgeCommandWorkflowActions,
-  type InstallKnowledgeHandlerArgs,
-} from "../knowledge/install/command-actions.js";
-import {
-  InstallPackCommandWorkflowActions,
-  type InstallPackHandlerArgs,
-} from "../packs/install/command-actions.js";
-import {
-  InstallRuleCommandWorkflowActions,
-  type InstallRuleHandlerArgs,
-} from "../rules/install/command-actions.js";
-import { InstallSkillCommandWorkflowActions } from "../skills/install/command-actions.js";
-import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
+import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { type InstallMcpServerHandlerArgs } from "../mcps/install/command-actions.js";
+import { type InstallHookHandlerArgs } from "../hooks/install/command-actions.js";
+import { type InstallKnowledgeHandlerArgs } from "../knowledge/install/command-actions.js";
+import { type InstallPackHandlerArgs } from "../packs/install/command-actions.js";
+import { type InstallRuleHandlerArgs } from "../rules/install/command-actions.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./resolve-root-update-intent.js";
-import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
+import { handleWorkspaceUpdateWithActions } from "./workspace-update-handler.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { buildPackMemberInstallStep } from "../packs/member-install-step.js";
 import {
@@ -69,12 +59,17 @@ import {
   type TargetedUpdatePublicContext,
 } from "./targeted-update-context.js";
 import { TARGETED_UPDATE_STALE_DETAIL, wrapTargetedUpdatePlan } from "./targeted-update-plan.js";
+import {
+  makeInstallCommandActions,
+  type InstallCommandActions,
+} from "../shared/install-command-actions.js";
+import { lifecycleFailureToAppError } from "../../feature-errors.js";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
-  readonly ignoreReleaseAge?: boolean;
 }
 
 export interface RootUpdateHandlerArgs extends RootUpdateFlags {
@@ -85,16 +80,16 @@ export interface RootUpdateHandlerArgs extends RootUpdateFlags {
 const runUpdateIntent = (
   intent: RootUpdateIntent,
   execution: PlanExecution,
+  actions: InstallCommandActions,
   releaseAgeEvaluation?: ReleaseAgeEvaluation,
   transformPlan?: (plan: Plan) => Effect.Effect<Plan, AppError, WorkspaceMutations>,
 ) =>
   Effect.gen(function* () {
     switch (intent.type) {
       case "skill": {
-        const actions = yield* InstallSkillCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, skills: [], all: false },
-          actions,
+          actions.skill,
           {
             execution,
             ...(transformPlan === undefined ? {} : { transformPlan }),
@@ -109,18 +104,22 @@ const runUpdateIntent = (
         );
       }
       case "mcp-server": {
-        const actions = yield* InstallMcpServerCommandWorkflowActions;
-        const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(mcpArgs, actions, {
+        const workspace = yield* WorkspaceMutations;
+        const graph = yield* workspace.getDesiredStateGraph();
+        const desired = desiredNodeForIntent(graph, intent);
+        const mcpArgs: InstallMcpServerHandlerArgs = {
+          source: intent.source,
+          ...(desired === undefined ? {} : { localName: desired.name }),
+        };
+        return yield* runInstallCommandWorkflow(mcpArgs, actions.mcpServer, {
           execution,
           ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({ ...resolved, versionRange: intent.versionRange }),
         });
       }
       case "rule": {
-        const actions = yield* InstallRuleCommandWorkflowActions;
         const ruleArgs: InstallRuleHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(ruleArgs, actions, {
+        return yield* runInstallCommandWorkflow(ruleArgs, actions.rule, {
           execution,
           ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({
@@ -133,9 +132,8 @@ const runUpdateIntent = (
         });
       }
       case "hook": {
-        const actions = yield* InstallHookCommandWorkflowActions;
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(hookArgs, actions, {
+        return yield* runInstallCommandWorkflow(hookArgs, actions.hook, {
           execution,
           ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({
@@ -148,9 +146,8 @@ const runUpdateIntent = (
         });
       }
       case "knowledge": {
-        const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, {
+        return yield* runInstallCommandWorkflow(knowledgeArgs, actions.knowledge, {
           execution,
           ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({
@@ -163,10 +160,9 @@ const runUpdateIntent = (
         });
       }
       case "subagent": {
-        const actions = yield* InstallSubagentCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, subagents: [], all: false },
-          actions,
+          actions.subagent,
           {
             execution,
             ...(transformPlan === undefined ? {} : { transformPlan }),
@@ -181,7 +177,6 @@ const runUpdateIntent = (
         );
       }
       case "pack": {
-        const actions = yield* InstallPackCommandWorkflowActions;
         const packArgs: InstallPackHandlerArgs = {
           source: intent.source,
           unattended: true,
@@ -192,7 +187,7 @@ const runUpdateIntent = (
                 releaseAgeHoldbackBehavior: "preserve-or-block",
               }),
         };
-        return yield* runInstallCommandWorkflow(packArgs, actions, {
+        return yield* runInstallCommandWorkflow(packArgs, actions.pack, {
           execution,
           transformIntent: (resolved) => ({ ...resolved, versionRange: intent.versionRange }),
         });
@@ -221,13 +216,28 @@ const releaseAgeRecord = (args: {
   minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
 });
 
+const updatePresentation = (type: RootUpdateIntent["type"]) =>
+  operationPresentation({ imperative: "update", past: "Updated", gerund: "Updating" }, type);
+
 const withReleaseAge = (
-  resolution: PlanResolution,
+  resolution: OperationResolution,
   releaseAge: ReleaseAgeOperationEvidence,
-): PlanResolution => ({ ...resolution, releaseAge });
+): OperationResolution => ({ ...resolution, releaseAge });
 
 const normalizedPackIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+
+const desiredNodeForIntent = (graph: DesiredStateGraph, intent: RootUpdateIntent) =>
+  graph.nodes.find((node) => {
+    if (node.type !== intent.type) return false;
+    if (normalizedPackIdentity(node.identity) === intent.target) return true;
+    if (node.type !== "mcp-server" || node.source === undefined) return false;
+    const parsed = parseSourceQualifiedRegistrySourcePatternParts(node.source);
+    return (
+      parsed?.name !== undefined &&
+      `${parsed.owner}/${parsed.type}/${parsed.name}` === intent.target
+    );
+  });
 
 const preservableRegistryVersion = (intent: RootUpdateIntent) =>
   Effect.gen(function* () {
@@ -235,18 +245,13 @@ const preservableRegistryVersion = (intent: RootUpdateIntent) =>
     const graph = yield* workspace.getDesiredStateGraph();
     if (!graph.complete) return Option.none<string>();
 
-    const desired = graph.nodes.find(
-      (node) =>
-        node.type === intent.type &&
-        node.name === intent.name &&
-        normalizedPackIdentity(node.identity) === intent.target,
-    );
+    const desired = desiredNodeForIntent(graph, intent);
     if (desired === undefined) return Option.none<string>();
 
     const canonical = yield* usableAcceptedCanonical({
       workspace,
       type: intent.type,
-      name: intent.name,
+      name: desired.name,
     });
     if (Option.isNone(canonical)) return Option.none<string>();
     const ref = canonical.value.ref;
@@ -283,10 +288,13 @@ const preservableRegistryVersion = (intent: RootUpdateIntent) =>
 const acceptedRegistryFloor = (intent: RootUpdateIntent) =>
   Effect.gen(function* () {
     const workspace = yield* WorkspaceMutations;
+    const graph = yield* workspace.getDesiredStateGraph();
+    const desired = desiredNodeForIntent(graph, intent);
+    if (desired === undefined) return Option.none();
     const accepted = yield* acceptedResolutionRef({
       workspace,
       type: intent.type,
-      name: intent.name,
+      name: desired.name,
     });
     return Option.flatMap(accepted, (ref) =>
       ref.refType === "registry" && ref.owner === intent.owner && ref.name === intent.name
@@ -318,38 +326,52 @@ const heldTargetResolution = (args: {
       bypasses: [],
     } satisfies ReleaseAgeOperationEvidence;
     if (Option.isSome(currentVersion)) {
-      return {
-        _tag: "ExecutedPlan",
+      return makeOperationResolution({
         name: `Update ${args.intent.target}`,
         description: Option.some(
           `Preserve ${args.intent.target} until its selected release is eligible`,
         ),
-        jobs: [{ concurrency: 1, steps: [] }],
+        mode: "apply",
+        atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+        units: [],
+        presentation: updatePresentation(args.intent.type),
         releaseAge,
-      } satisfies PlanResolution;
+      });
     }
-    return {
-      _tag: "FailedPlan",
+    return makeOperationResolution({
       name: `Update ${args.intent.target}`,
       description: Option.some(`Update ${args.intent.target}`),
-      jobs: [],
+      mode: "apply",
+      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+      units: [],
+      presentation: updatePresentation(args.intent.type),
       releaseAge,
-      reason: "hard-blocked",
-      errorCode: "conflict",
+      blocking: {
+        class: "policy-excluded",
+        subject: args.intent.target,
+        phase: "planning",
+        detail: `${args.intent.target}'s selected release is held by the minimum release age until ${args.evidence.eligibleAt}`,
+        causeCode: "conflict",
+      },
       suggestions: [
         {
-          description: `Wait until ${args.evidence.eligibleAt}, request an eligible older version, or retry with --ignore-release-age.`,
+          description: `Wait until ${args.evidence.eligibleAt}, request an eligible older version, declare ${args.intent.target} in minimumReleaseAgeExclude, or rerun this command with --ignore-release-age.`,
         },
       ],
-    } satisfies PlanResolution;
+    });
   });
 
 interface TargetedUpdateResolution {
-  readonly resolution: PlanResolution;
+  readonly resolution: OperationResolution;
   readonly context?: TargetedUpdatePublicContext;
 }
 
 const blockerDetail = (context: TargetedUpdatePublicContext): string => {
+  const withRelevantProblems = (detail: string): string =>
+    context.relevantProblems.length === 0
+      ? detail
+      : `${detail}. ${context.relevantProblems.join("; ")}`;
+
   switch (context.blocker) {
     case "not-desired":
       return `${context.target.fqn} is not desired by this workspace`;
@@ -358,9 +380,15 @@ const blockerDetail = (context: TargetedUpdatePublicContext): string => {
     case "pack-owned-constraint":
       return `${context.target.fqn} is pack-owned; a targeted version range would create direct intent`;
     case "incomplete-graph":
-      return `Pack membership is incomplete, so ownership of ${context.target.fqn} cannot be proven`;
+      return withRelevantProblems(
+        `Pack membership is incomplete, so ownership of ${context.target.fqn} cannot be proven`,
+      );
     case "constraint-conflict":
-      return `The desired constraints for ${context.target.fqn} have no compatible intersection`;
+      return withRelevantProblems(
+        `The desired constraints for ${context.target.fqn} have no compatible intersection`,
+      );
+    case "bundled-source":
+      return `${context.target.fqn} uses the skill embedded in this AXM executable and cannot be advanced from the Registry`;
     case "source-authority":
       return `${context.target.fqn} is workspace-authored and cannot be replaced from the Registry`;
     case "stale-plan":
@@ -411,6 +439,13 @@ const blockerSuggestions = (
               cmd: `axm update ${pack.fqn}`,
             },
       );
+    case "bundled-source":
+      return [
+        {
+          description: "Reinstall the compatible skill embedded in this AXM executable",
+          cmd: AXM_SKILL_BUNDLED_APPLY_COMMAND,
+        },
+      ];
     case "source-authority":
       return [
         {
@@ -432,15 +467,52 @@ const blockerSuggestions = (
   }
 };
 
-const blockedTargetedUpdate = (context: TargetedUpdatePublicContext): PlanResolution => ({
-  _tag: "FailedPlan",
-  name: `Update ${context.target.fqn}`,
-  description: Option.some(blockerDetail(context)),
-  jobs: [],
-  reason: "hard-blocked",
-  errorCode: "conflict",
-  suggestions: blockerSuggestions(context),
-});
+const blockerClass = (
+  context: TargetedUpdatePublicContext,
+): "precondition-unmet" | "policy-excluded" | "stale-candidate" => {
+  switch (context.blocker) {
+    case "pack-owned-constraint":
+    case "bundled-source":
+    case "source-authority":
+      return "policy-excluded";
+    case "stale-plan":
+      return "stale-candidate";
+    default:
+      return "precondition-unmet";
+  }
+};
+
+const blockedTargetedUpdate = (
+  context: TargetedUpdatePublicContext,
+  mode: "preview" | "apply",
+): OperationResolution => {
+  const suggestions = blockerSuggestions(context);
+  return makeOperationResolution({
+    name: `Update ${context.target.fqn}`,
+    description: Option.some(blockerDetail(context)),
+    mode,
+    atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+    units: [],
+    presentation: operationPresentation(
+      { imperative: "update", past: "Updated", gerund: "Updating" },
+      context.target.type,
+    ),
+    blocking: {
+      class: blockerClass(context),
+      subject: context.target.fqn,
+      phase: "planning",
+      detail: blockerDetail(context),
+      causeCode: "conflict",
+      ...(context.blocker === undefined ? {} : { reference: context.blocker }),
+      ...(suggestions[0] === undefined
+        ? {}
+        : {
+            escape: suggestions[0],
+          }),
+    },
+    suggestions,
+  });
+};
 
 const staleOutputContext = (context: TargetedUpdatePublicContext): TargetedUpdatePublicContext => ({
   ...context,
@@ -458,21 +530,14 @@ const staleOutputContext = (context: TargetedUpdatePublicContext): TargetedUpdat
 
 const contextForResolution = (
   context: TargetedUpdatePublicContext,
-  resolution: PlanResolution,
-): TargetedUpdatePublicContext => {
-  const targetedStale =
-    resolution._tag === "FailedPlan" &&
-    (resolution.reason === "stale-candidate" ||
-      resolution.executionSteps?.some((step) =>
-        step.message.includes(TARGETED_UPDATE_STALE_DETAIL),
-      ) === true);
-  return targetedStale ? staleOutputContext(context) : context;
-};
+  resolution: OperationResolution,
+): TargetedUpdatePublicContext =>
+  resolution.blocking?.class === "stale-candidate" ? staleOutputContext(context) : context;
 
 const resolveTargetedUpdate = (
   intent: RootUpdateIntent,
   execution: PlanExecution,
-  ignoreReleaseAge: boolean,
+  actions: InstallCommandActions,
 ) =>
   Effect.gen(function* () {
     let targetedContext: TargetedUpdateContext | undefined;
@@ -483,14 +548,14 @@ const resolveTargetedUpdate = (
       });
       if (targetedContext.public.blocker !== undefined) {
         return {
-          resolution: blockedTargetedUpdate(targetedContext.public),
+          resolution: blockedTargetedUpdate(targetedContext.public, execution.request.mode),
           context: targetedContext.public,
         } satisfies TargetedUpdateResolution;
       }
     }
 
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
-      ignoreReleaseAge ? "ignore" : "enforce",
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+      Effect.mapError(lifecycleFailureToAppError),
     );
     const source = yield* resolveSource(intent.source);
     if (source.type !== "registry") {
@@ -535,7 +600,7 @@ const resolveTargetedUpdate = (
       } satisfies TargetedUpdateResolution;
     }
 
-    let resolution: PlanResolution;
+    let resolution: OperationResolution;
     if (targetedContext?.public.authority === "pack-aware") {
       if (selected.ref.type === "pack") {
         return yield* makeAppError({
@@ -579,9 +644,14 @@ const resolveTargetedUpdate = (
       resolution = yield* runUpdateIntent(
         exactIntent,
         execution,
+        actions,
         releaseAgeEvaluation,
         targetedContext === undefined
-          ? undefined
+          ? (plan) =>
+              Effect.succeed({
+                ...plan,
+                presentation: updatePresentation(intent.type),
+              } satisfies Plan)
           : (plan) =>
               wrapTargetedUpdatePlan({
                 plan,
@@ -637,43 +707,69 @@ const resolveTargetedUpdate = (
     } satisfies TargetedUpdateResolution;
   });
 
+const handleUpdateWithActionEffect = <R>(
+  args: RootUpdateHandlerArgs,
+  actionsEffect: Effect.Effect<InstallCommandActions, never, R>,
+) =>
+  withOperationLifecycle(
+    {
+      command: "update",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Update configured extensions",
+      presentation: operationPresentation({
+        imperative: "update",
+        past: "Updated",
+        gerund: "Updating",
+      }),
+    },
+    Effect.flatMap(actionsEffect, (actions) => handleUpdateBody(args, actions)),
+  );
+
 export const handleUpdate = (args: RootUpdateHandlerArgs) =>
-  Option.match(args.source, {
-    onNone: () =>
-      handleWorkspaceUpdate({
-        command: "update",
-        type: Option.none(),
-        planName: "Update configured extensions",
-        planDescription: Option.some("Update configured workspace extensions"),
-        flags: args,
-      }),
-    onSome: (source) =>
-      Effect.gen(function* () {
-        const execution = yield* makePlanExecution(
-          args,
-          makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
-            recoverySwitch("--refresh", args.force),
-            recoverySwitch("--ignore-release-age", args.ignoreReleaseAge === true),
-            recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
-          ]),
-        );
-        const intent = yield* resolveRootUpdateIntent(source);
-        const resolved = yield* resolveTargetedUpdate(
-          intent,
-          execution,
-          args.ignoreReleaseAge === true,
-        );
-        const outputResolution = resolved.resolution;
-        yield* setCommandSemanticProperties(
-          summarizeCommandOutcome(
-            planResolutionToSummary(outputResolution, {
-              subjectType: intent.type,
-              sourceKind: "registry",
-            }),
-          ),
-        );
-        yield* emitPlanResolutionResult("update", outputResolution, {
-          ...(resolved.context === undefined ? {} : { targetedUpdate: resolved.context }),
-        });
-      }),
+  handleUpdateWithActionEffect(args, makeInstallCommandActions);
+
+export const handleUpdateWithActions = (
+  args: RootUpdateHandlerArgs,
+  actions: InstallCommandActions,
+) => handleUpdateWithActionEffect(args, Effect.succeed(actions));
+
+const handleUpdateBody = (args: RootUpdateHandlerArgs, actions: InstallCommandActions) =>
+  Effect.gen(function* () {
+    if (Option.isNone(args.source)) {
+      return yield* handleWorkspaceUpdateWithActions(
+        {
+          command: "update",
+          type: Option.none(),
+          planName: "Update configured extensions",
+          planDescription: Option.some("Update configured workspace extensions"),
+          flags: args,
+        },
+        actions,
+      );
+    }
+
+    const source = args.source.value;
+    const execution = yield* makePlanExecution(
+      args,
+      makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
+        recoverySwitch("--refresh", args.force),
+        recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
+        recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
+      ]),
+    );
+    const intent = yield* resolveRootUpdateIntent(source);
+    const resolved = yield* resolveTargetedUpdate(intent, execution, actions);
+    const outputResolution = resolved.resolution;
+    yield* setCommandSemanticProperties(
+      summarizeCommandOutcome(
+        operationResolutionSummary(outputResolution, {
+          subjectType: intent.type,
+          sourceKind: "registry",
+        }),
+      ),
+    );
+    yield* emitOperationResolution("update", outputResolution, {
+      suggestions: [{ description: "Inspect installed extensions", cmd: "axm list" }],
+      ...(resolved.context === undefined ? {} : { targetedUpdate: resolved.context }),
+    });
   });

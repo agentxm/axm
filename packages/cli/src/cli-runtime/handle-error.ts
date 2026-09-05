@@ -1,0 +1,218 @@
+import { CliError } from "effect/unstable/cli";
+import * as Effect from "effect/Effect";
+import {
+  AppError,
+  ExitCode,
+  appErrorDoc,
+  exitCodeFor,
+  effectiveSuggestionsFor,
+  collectSensitiveStrings,
+  makeAppError,
+  redactSensitiveText,
+  redactSuggestedAction,
+  renderAppError,
+} from "../app-error/index.js";
+import type { Doc } from "../screen/doc.js";
+import { isKnownFailure, toAppError } from "../app-error/conversions.js";
+import type { OutputFormat } from "./output-mode.js";
+import { isEffectCliExit } from "./effect-cli-exit.js";
+import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
+import { errorEvent, suggestionEvent } from "../screen/machine-events.js";
+import { InteractiveScreen, MachineScreen, Screen } from "../screen/index.js";
+
+const cliErrorMessage = (errors: ReadonlyArray<{ readonly message?: string }>): string =>
+  errors.map((error) => error.message ?? String(error)).join("; ");
+
+/**
+ * Classified error result — pure data describing what handleError should do.
+ *
+ * `stderr` holds the lines to write to stderr in order (human text in text
+ * mode; NDJSON event lines in json mode). `stdout` is the final structured
+ * document (json mode only). Both are optional — usage/help-only errors emit
+ * neither.
+ */
+export interface ErrorClassification {
+  readonly exitCode: number;
+  readonly stderr?: ReadonlyArray<string>;
+  readonly stderrDoc?: Doc;
+  readonly stdout?: string;
+}
+
+/**
+ * Channel outputs for a handled `AppError` — the single source of truth for how
+ * an AppError appears across surfaces, shared by the outer
+ * (`classifyError`/`handleError`) and inner (`writeExpectedCliError`) error
+ * paths so the two cannot drift:
+ * - text: human-readable `renderAppError` (including its single `Next:`
+ *   block) on stderr.
+ * - json: NDJSON `suggestion` events followed by the `error` event on stderr
+ *   (the live stream, mirroring the success renderer), plus the structured
+ *   envelope (which also carries the suggestions) on stdout.
+ *
+ * Suggestions appear once per channel: the stderr stream and the stdout
+ * envelope are distinct surfaces, never a doubled block on the same one.
+ */
+export const renderAppErrorChannels = (
+  error: AppError,
+  format: OutputFormat,
+  options: { readonly verbose: boolean; readonly debug: boolean } = {
+    verbose: false,
+    debug: false,
+  },
+): {
+  readonly stderr: ReadonlyArray<string>;
+  readonly stderrDoc?: Doc;
+  readonly stdout?: string;
+} => {
+  if (format === "text") {
+    return {
+      stderr: [renderAppError(error, options)],
+      stderrDoc: appErrorDoc(error, options),
+    };
+  }
+
+  const secrets = collectSensitiveStrings(error.metadata);
+  return {
+    stderr: [
+      ...effectiveSuggestionsFor(error).map((suggestion) =>
+        JSON.stringify(suggestionEvent(redactSuggestedAction(suggestion, secrets))),
+      ),
+      JSON.stringify(errorEvent(error.code, redactSensitiveText(error.detail, { secrets }))),
+    ],
+    stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, options), null, 2) + "\n",
+  };
+};
+
+/**
+ * Pure error classification — determines exit code and output without side effects.
+ *
+ * Channel routing per format:
+ * - text:        human-readable to stderr only (no stdout pollution)
+ * - json:        typed error JSON to stdout + NDJSON error event to stderr
+ * Exit codes:
+ * - ShowHelp (no errors) → 0 (help successfully displayed)
+ * - ShowHelp (with errors) → 2 (usage — help shown due to invocation error)
+ * - EffectCliExit → custom exit code
+ * - CliError → 2 (usage/validation — bad flags, missing args)
+ * - Other → 10 (unexpected internal error)
+ */
+export const classifyError = (
+  error: unknown,
+  format: OutputFormat,
+  options: { readonly verbose: boolean; readonly debug: boolean } = {
+    verbose: false,
+    debug: false,
+  },
+): ErrorClassification => {
+  if (isEffectCliExit(error)) {
+    return { exitCode: error.exitCode };
+  }
+
+  if (error instanceof AppError) {
+    return {
+      exitCode: exitCodeFor(error.code),
+      ...renderAppErrorChannels(error, format, options),
+    };
+  }
+
+  if (isKnownFailure(error)) {
+    const appError = toAppError(error);
+    return {
+      exitCode: exitCodeFor(appError.code),
+      ...renderAppErrorChannels(appError, format, options),
+    };
+  }
+
+  if (CliError.isCliError(error)) {
+    if (error._tag === "ShowHelp") {
+      if (error.errors.length === 0) {
+        return { exitCode: ExitCode.Success };
+      }
+
+      if (format !== "text") {
+        const message = redactSensitiveText(cliErrorMessage(error.errors));
+        return {
+          exitCode: ExitCode.Usage,
+          stderr: [JSON.stringify(errorEvent("usage", message))],
+          stdout:
+            JSON.stringify(
+              makeJsonErrorEnvelope({
+                code: "usage",
+                title: "Usage Error",
+                detail: message,
+              }),
+              null,
+              2,
+            ) + "\n",
+        };
+      }
+
+      return { exitCode: ExitCode.Usage };
+    }
+
+    if (format !== "text") {
+      const rawMessage =
+        "errors" in error && Array.isArray(error.errors) && error.errors.length > 0
+          ? cliErrorMessage(error.errors)
+          : error.message;
+      const message = redactSensitiveText(rawMessage);
+      return {
+        exitCode: ExitCode.Usage,
+        stderr: [JSON.stringify(errorEvent("usage", message))],
+        stdout:
+          JSON.stringify(
+            makeJsonErrorEnvelope({
+              code: "usage",
+              title: "Usage Error",
+              detail: message,
+            }),
+            null,
+            2,
+          ) + "\n",
+      };
+    }
+
+    return { exitCode: ExitCode.Usage };
+  }
+
+  const message = redactSensitiveText(error instanceof Error ? error.message : String(error));
+  const wrapped = makeAppError({
+    code: "internal",
+    detail: message,
+    cause: error,
+  });
+  return {
+    exitCode: ExitCode.Internal,
+    ...renderAppErrorChannels(wrapped, format, options),
+  };
+};
+
+/**
+ * Error routing based on output mode.
+ *
+ * Classifies the error, writes its stderr lines and optional stdout document,
+ * and exits.
+ */
+export const handleError = (error: unknown, format: OutputFormat) => {
+  const { exitCode, stderr, stderrDoc, stdout } = classifyError(error, format);
+  const output = Effect.gen(function* () {
+    const screen = yield* Screen;
+    if (stderrDoc !== undefined) {
+      yield* screen.note(stderrDoc);
+    } else {
+      for (const line of stderr ?? []) {
+        yield* screen.note([{ _tag: "raw", content: line.endsWith("\n") ? line : `${line}\n` }]);
+      }
+    }
+    if (stdout !== undefined) yield* screen.result([{ _tag: "raw", content: stdout }]);
+    yield* screen.settle;
+  });
+  return output.pipe(
+    Effect.provide(format === "json" ? MachineScreen() : InteractiveScreen()),
+    Effect.andThen(
+      Effect.sync(() => {
+        process.exit(exitCode);
+      }),
+    ),
+  );
+};

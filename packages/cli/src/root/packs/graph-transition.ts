@@ -1,17 +1,19 @@
 import * as Effect from "effect/Effect";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import type {
   JobStepArtifact,
   JobStepResult,
   PlannedJobStep,
   ReadyJobStep,
   WarnJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
+  desiredStateProblemsText,
   WorkspaceMutations,
   type DesiredExtensionNode,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 
 const normalizedIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
@@ -136,6 +138,9 @@ export const buildAtomicPackGraphStep = (args: {
           }),
       })
       .pipe(
+        Effect.mapError((error) =>
+          error._tag === "StepFailure" ? error : failureToStepFailure(error),
+        ),
         Effect.map((results) => {
           const warnings = results.flatMap(({ result }) => result.warnings ?? []);
           const allChildrenUnchanged =
@@ -202,7 +207,7 @@ export const validatePackGraphPostcondition = (args: {
 }): Effect.Effect<void, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     const requiredPackIdentities = new Set(
       (args.requiredPacks ?? []).map((pack) => normalizedIdentity(pack.identity)),
     );
@@ -220,12 +225,14 @@ export const validatePackGraphPostcondition = (args: {
         case "projection-collision":
         case "constraint-conflict":
           return requiredMemberKeys.has(`${problem.extensionType}:${problem.name}`);
+        case "workspace-owner-missing":
+          return requiredMemberKeys.has(`${problem.extensionType}:${problem.name}`);
       }
     });
     if (relevantProblems.length > 0) {
       return yield* makeAppError({
         code: "conflict",
-        detail: "Pack transition left its desired member graph incomplete",
+        detail: `Pack transition left its desired member graph incomplete: ${desiredStateProblemsText(relevantProblems)}`,
       });
     }
 

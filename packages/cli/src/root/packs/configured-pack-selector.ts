@@ -1,9 +1,12 @@
 import * as Effect from "effect/Effect";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import type { ConfiguredRecordRow } from "@agentxm/client-core/unstable/workspace";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import {
+  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
+} from "@agentxm/extension-model/unstable/extensions";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import type { ConfiguredRecordRow } from "@agentxm/workspace-state";
 
 export interface ConfiguredPackSelection {
   readonly configuredName: string;
@@ -25,14 +28,16 @@ const configuredPackFqn = (
   entry: ConfiguredRecordRow,
   configuredOwner?: string,
 ): string | undefined => {
+  if (entry.source === undefined) return undefined;
   if (entry.source === "registry") {
     return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
   }
 
-  const source = isWorkspaceSourceLocator(entry.source)
-    ? entry.source.slice("workspace:".length)
-    : entry.source;
-  const parsed = parseRegistrySourcePatternParts(source);
+  if (isWorkspaceSourceLocator(entry.source)) {
+    return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
+  }
+
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
   return parsed?.type === "packs" && parsed.name !== undefined
     ? `${parsed.owner}/packs/${parsed.name}`
     : undefined;

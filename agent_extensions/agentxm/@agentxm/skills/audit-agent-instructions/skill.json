@@ -1,0 +1,26 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@agentxm",
+  "type": "skill",
+  "name": "audit-agent-instructions",
+  "version": "0.2.0",
+  "description": "Audits effective repository agent instruction systems against context-engineering guidance and can verify explicitly authorized remediation",
+  "keywords": [
+    "agents.md",
+    "agent-instructions",
+    "instruction-audit",
+    "context-engineering",
+    "progressive-disclosure"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/agent-extensions",
+    "directory": "skills/audit-agent-instructions"
+  },
+  "homepage": "https://github.com/agentxm/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@agentxm/packs/agent-engineering"
+  ],
+  "standalone": false
+}

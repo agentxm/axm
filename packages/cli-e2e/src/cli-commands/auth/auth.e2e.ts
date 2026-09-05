@@ -44,7 +44,7 @@ describe("root authentication commands", () => {
   );
 
   describe("auth commands work outside an axm-initialized directory", () => {
-    it("logout works without .axm/settings.json", async () => {
+    it("logout works without AXM workspace settings", async () => {
       const temp = createTempDir();
       try {
         const result = await runCli(["logout"], {
@@ -59,7 +59,7 @@ describe("root authentication commands", () => {
       }
     });
 
-    it("token with AXM_TOKEN works without .axm/settings.json", async () => {
+    it("token with AXM_TOKEN works without AXM workspace settings", async () => {
       const temp = createTempDir();
       try {
         const result = await runCli(["token"], {

@@ -4,14 +4,14 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { effectCliExit, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { ExitCode, makeAppError } from "../../../app-error/index.js";
+import { Screen, errorDoc, rawDoc } from "../../../screen/index.js";
+import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
+import { getKnowledgeIndexConcept } from "@agentxm/knowledge-query";
 import {
-  getKnowledgeIndexConcept,
   KnowledgeRevisionSchema,
   parseConceptRef,
-} from "@agentxm/client-core/unstable/knowledge";
+} from "@agentxm/extension-model/unstable/knowledge";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";
@@ -42,7 +42,7 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
     });
   }
 
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const captured = yield* captureInstalledKnowledgeIndex();
   if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const { snapshot } = captured;
@@ -69,11 +69,13 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
       expectedRevision: expectedRevision.success,
       currentRevision: indexed.ref.contentRevision,
     };
-    const machine = yield* renderer.result(output, KnowledgeConceptGetOutputSchema, {
+    const machine = yield* screen.document(output, KnowledgeConceptGetOutputSchema, {
       ok: false,
     });
     if (!machine) {
-      yield* renderer.error("Knowledge concept revision changed; fetch the current revision");
+      yield* screen.note(
+        errorDoc("Knowledge concept revision changed; fetch the current revision"),
+      );
     }
     return yield* Effect.die(effectCliExit(ExitCode.Conflict));
   }
@@ -102,10 +104,10 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
     outcome: "found",
     concept,
   };
-  if (yield* renderer.result(output, KnowledgeConceptGetOutputSchema)) return;
+  if (yield* screen.document(output, KnowledgeConceptGetOutputSchema)) return;
   const content = options?.raw === true ? (concept.raw ?? "") : concept.body;
-  yield* renderer.raw(
-    `${sanitizeKnowledgeTerminalText(content)}${content.endsWith("\n") ? "" : "\n"}`,
+  yield* screen.result(
+    rawDoc(`${sanitizeKnowledgeTerminalText(content)}${content.endsWith("\n") ? "" : "\n"}`),
   );
 });
 

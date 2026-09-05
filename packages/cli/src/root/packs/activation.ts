@@ -8,44 +8,57 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { RenderedFilePathSchema, sanitizeName } from "@agentxm/client-core/unstable/extensions";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
+import {
+  CodingAgentRepository,
+  findManagedSubagentFiles,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  RuleManager,
+  SkillManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
+import { makeAppError } from "../../app-error/index.js";
+import { Screen } from "../../screen/index.js";
+import { ignoreReleaseAgeFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  RenderedFilePathSchema,
+  sanitizeName,
+  isDesiredExtensionActive,
+  WorkspaceMutations,
+  type DesiredExtensionNode,
+} from "@agentxm/workspace-state";
 import {
   previewOrApplyPlan,
+  operationPresentation,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
-} from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
+} from "@agentxm/workspace-operations";
 import {
   applyProjectionPlans,
+  projectionPlanExclusionWarnings,
   type ProjectionPlan,
-} from "@agentxm/client-core/unstable/projection";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import {
-  findManagedSubagentFiles,
-  isDesiredExtensionActive,
-  WorkspaceMutations,
-  type DesiredExtensionNode,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-workspace";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 
-import { scopeFlag } from "../../cli-flags.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import {
+  workspaceCanonicalNodePath,
+  workspaceSettingsPath,
+} from "../shared/workspace-display-paths.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
+import { toAppError } from "../../app-error/conversions.js";
+import { lifecycleFailureToStepFailure } from "../../feature-errors.js";
+import { LifecycleFailureAdapter, ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
@@ -182,6 +195,7 @@ const reconcileAggregateProjections = Effect.fn("PacksActivation.reconcileAggreg
       plans.push(...(yield* manager.projectionPlans()));
     }
     yield* applyProjectionPlans(plans);
+    return projectionPlanExclusionWarnings(plans);
   },
 );
 
@@ -191,7 +205,7 @@ const runMaterializeSteps = Effect.fn("PacksActivation.runMaterializeSteps")(fun
   packIdentity: string,
 ) {
   const ws = yield* WorkspaceMutations;
-  const graph = yield* ws.getDesiredStateGraph();
+  const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
   const hasMembers = graph.nodes.some(
     (node) => node.type !== "pack" && packContributesTo(node, packIdentity),
   );
@@ -208,7 +222,7 @@ const runMaterializeSteps = Effect.fn("PacksActivation.runMaterializeSteps")(fun
             code: "conflict",
             detail: step.errorMessage,
           })
-        : step.run.pipe(Effect.asVoid),
+        : step.run.pipe(Effect.asVoid, Effect.mapError(toAppError)),
     { concurrency: 1 },
   );
 });
@@ -220,15 +234,29 @@ interface PackActivationArgs {
   readonly preview: boolean;
 }
 
-export const handlePackActivation = Effect.fn("PacksActivation.handle")(function* (
+export const handlePackActivation = (args: PackActivationArgs) =>
+  withOperationLifecycle(
+    {
+      command: args.enabled ? "packs.enable" : "packs.disable",
+      mode: args.preview ? "preview" : "apply",
+      planName: args.enabled ? "Enable pack" : "Disable pack",
+    },
+    handlePackActivationBody(args),
+  );
+
+const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
   args: PackActivationArgs,
 ) {
   const ws = yield* WorkspaceMutations;
+  const path = yield* Path.Path;
   const runServices = yield* Effect.context<
+    | LifecycleFailureAdapter
+    | ReleaseAgePosture
     | Scope.Scope
     | HttpClient.HttpClient
-    | CliRenderer
+    | Screen
     | SourceHostProviders
+    | WorkspaceCatalog
     | WorkspaceMutations
     | CodingAgentRepository
     | FileSystem.FileSystem
@@ -240,7 +268,7 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
     | SkillManager
     | SubagentManager
   >();
-  const entries = yield* ws.getConfiguredPackEntries();
+  const entries = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
   const entry = entries[args.name];
   const verb = args.enabled ? "enable" : "disable";
   const titleVerb = args.enabled ? "Enable" : "Disable";
@@ -261,7 +289,7 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
     return;
   }
 
-  const graph = yield* ws.getDesiredStateGraph();
+  const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
   if (!graph.complete) {
     return yield* makeAppError({
       code: "conflict",
@@ -281,40 +309,31 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
       packContributesTo(node, packIdentity) &&
       !remainsActiveWithoutPack(node, packIdentity),
   );
-  const previewItems = args.enabled
-    ? graph.nodes
-        .filter((node) => node.type !== "pack" && packContributesTo(node, packIdentity))
-        .map((node) => `${node.type}: ${node.name}`)
-    : affected.map((node) => `${node.type}: ${node.name}`);
-  const memberTargets: ReadonlyArray<JobStepArtifactTarget> = args.enabled
-    ? previewItems.map((item) => ({
-        path: `.axm/extensions/${item.slice(item.indexOf(": ") + 2)}`,
-        change: "unchanged",
-      }))
-    : affected.map((node) => ({
-        path: `.axm/extensions/${normalizedPackIdentity(node.identity)}`,
-        change: "unchanged",
-      }));
+  const memberNodes = args.enabled
+    ? graph.nodes.filter((node) => node.type !== "pack" && packContributesTo(node, packIdentity))
+    : affected;
+  const memberTargets: ReadonlyArray<JobStepArtifactTarget> = memberNodes.map((node) => ({
+    path: workspaceCanonicalNodePath(path, ws, node),
+    change: "unchanged",
+  }));
   const activationArtifact = {
-    path: ".axm/settings.json",
+    path: workspaceSettingsPath(ws.scope),
     scope: ws.scope,
     change: "updated",
     fileCount: memberTargets.length + 1,
-    targets: [{ path: ".axm/settings.json", change: "updated" }, ...memberTargets],
+    targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated" }, ...memberTargets],
   } satisfies JobStepArtifact;
 
   const plan: Plan = {
     _tag: "Plan",
     name: `${titleVerb} pack`,
     description: Option.some(`${titleVerb} ${packIdentity} without changing locked versions`),
-    sections: [
-      {
-        title: args.enabled
-          ? "Retained dependency resolutions considered for restoration"
-          : "Exclusive dependencies deactivated",
-        items: previewItems.length === 0 ? ["(none)"] : previewItems,
-      },
-    ],
+    presentation: operationPresentation(
+      args.enabled
+        ? { imperative: "enable", past: "Enabled", gerund: "Enabling" }
+        : { imperative: "disable", past: "Disabled", gerund: "Disabling" },
+      "pack",
+    ),
     jobs: [
       {
         concurrency: 1,
@@ -324,9 +343,11 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
             label: packIdentity,
             artifact: activationArtifact,
             run: Effect.gen(function* () {
-              yield* ws.runTransaction({
+              const projectionWarnings = yield* ws.runTransaction({
                 transition: Effect.gen(function* () {
-                  yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
+                  yield* ws
+                    .setPackEntry(args.name, { ...entry, enabled: args.enabled })
+                    .pipe(Effect.mapError(toAppError));
                   const memberTypes = args.enabled
                     ? new Set(
                         graph.nodes
@@ -347,7 +368,7 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
                       { concurrency: 1 },
                     );
                   }
-                  yield* reconcileAggregateProjections(memberTypes);
+                  return yield* reconcileAggregateProjections(memberTypes);
                 }).pipe(Effect.provide(runServices)),
                 validate: () =>
                   validatePackGraphPostcondition({
@@ -372,8 +393,9 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
                 result: "success",
                 message: `${titleVerb}d ${packIdentity}`,
                 artifact: activationArtifact,
+                ...(projectionWarnings.length === 0 ? {} : { warnings: projectionWarnings }),
               } satisfies JobStepResult;
-            }).pipe(Effect.provide(runServices)),
+            }).pipe(Effect.provide(runServices), Effect.mapError(lifecycleFailureToStepFailure)),
           },
         ],
       },
@@ -381,11 +403,8 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
   };
 
   const execution = yield* makePublicPositionalPlanExecution(args, ["packs", verb], [args.name]);
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-  yield* emitAppliedPlanOutcome({
-    command: `packs.${verb}`,
-    headline: `${titleVerb}d pack ${args.name}`,
-    resolution,
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution(`packs.${verb}`, resolution, {
     suggestions: [
       { description: "Inspect installed packs", cmd: "axm packs list" },
       { description: "Undo", cmd: `axm packs ${args.enabled ? "disable" : "enable"} ${args.name}` },
@@ -398,12 +417,14 @@ const activationConfig = {
   scope: scopeFlag.pipe(Flag.withDescription("Use project (default) or user-level configuration")),
   yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 const makeActivationCommand = (enabled: boolean) => {
   const verb = enabled ? "enable" : "disable";
-  return Command.make(verb, activationConfig, ({ name, scope, yes, preview }) =>
+  return Command.make(verb, activationConfig, ({ name, scope, yes, preview, ignoreReleaseAge }) =>
     handlePackActivation({ name, enabled, yes, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime(`packs ${verb}`),
     ),

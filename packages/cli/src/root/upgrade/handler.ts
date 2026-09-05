@@ -2,30 +2,34 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import * as Clock from "effect/Clock";
-import * as Config from "effect/Config";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as semver from "semver";
 
-import { AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
+import { AppError, makeAppError } from "../../app-error/index.js";
+import { Verbosity } from "../../cli-flags/index.js";
+import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { Screen } from "../../screen/index.js";
 import {
-  setCommandSemanticProperties,
-  summarizeCommandOutcome,
-  type SuggestedAction,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { InstallMeta } from "@agentxm/client-core/unstable/install-meta";
+  makeThrottledUnitProgress,
+  observeChildUnit,
+  observeUnit,
+  publishWaitEnded,
+  publishWaiting,
+} from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { InstallMeta } from "../../install-meta/install-meta.js";
 import {
   AXM_SKILL_BUNDLED_APPLY_COMMAND,
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
-  formatAxmSkillCompatibilityTarget,
-} from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/extension-workspace";
 import {
   InstallMethod,
   Npm,
@@ -35,23 +39,31 @@ import {
   type DetectionSource,
   type InstallMethodName,
   type InstallMethodType,
-} from "@agentxm/client-core/unstable/install-method";
+} from "../../install-method/install-method.js";
 import {
-  DEFAULT_GITHUB_REPO,
+  resolveExactVersion,
   resolveLatestVersion,
+  type VersionResolutionResult,
   type VersionRelation,
-} from "@agentxm/client-core/unstable/version-resolution";
+} from "../../version-resolution/version-resolution.js";
 import { loadVersion } from "../../version.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
+import { upgradeView } from "./view.js";
+import { UpdateCheck } from "../../update-check/update-check.js";
 
 export interface UpgradeHandlerArgs {
   readonly reinstall: boolean;
+  /** Optional exact stable version. Omit to use the promoted stable channel. */
+  readonly requestedVersion?: string | undefined;
+  /** Resolve and report the upgrade without performing it. */
+  readonly dryRun?: boolean;
   /** Test/internal override for an observed local version. */
   readonly localVersion?: string | null;
 }
 
 const ResultStatusSchema = Schema.Literals([
+  "preview",
   "upgraded",
   "reinstalled",
   "already-up-to-date",
@@ -236,7 +248,98 @@ export const UpgradeResultSchema = Schema.Struct({
 });
 export type UpgradeResult = typeof UpgradeResultSchema.Type;
 
-export const UpgradeDocumentSchema = Schema.Struct({ result: UpgradeResultSchema });
+const UpgradeDispositionSchema = Schema.Literals([
+  "previewed",
+  "upgraded",
+  "reinstalled",
+  "already-current",
+  "local-newer",
+  "downgrade-refused",
+  "installer-lagging",
+  "installer-leading",
+  "installer-unavailable",
+  "installer-indeterminate",
+  "mutation-failed",
+  "verification-failed",
+  "rolled-back",
+  "recovery-required",
+] as const);
+
+const InstallerAvailabilityStateSchema = Schema.Literals([
+  "ready",
+  "lagging",
+  "leading",
+  "unavailable",
+  "indeterminate",
+  "not-required",
+] as const);
+
+export const UpgradeAssessmentResultSchema = Schema.Struct({
+  contract: Schema.Literal("axm.upgrade-assessment/v1"),
+  outcome: Schema.Literals(["previewed", "applied", "no-op", "failed", "indeterminate"] as const),
+  disposition: UpgradeDispositionSchema,
+  message: Schema.String,
+  intent: Schema.Struct({
+    mode: Schema.Literals(["latest", "exact"] as const),
+    requestedVersion: Schema.NullOr(Schema.String),
+    reinstall: Schema.Boolean,
+  }),
+  platform: Schema.Struct({
+    os: Schema.String,
+    arch: Schema.String,
+    target: Schema.String,
+    binaryName: Schema.String,
+  }),
+  local: Schema.Struct({
+    version: Schema.NullOr(Schema.String),
+    relation: UpgradeCoreResultSchema.fields.versionRelation,
+  }),
+  ownership: Schema.Struct({
+    method: InstallMethodSchema,
+    source: Schema.String,
+    evidence: Schema.Array(Schema.String),
+    confidence: Schema.Literals(["high", "medium", "low"] as const),
+    executablePath: Schema.NullOr(Schema.String),
+  }),
+  canonical: Schema.Struct({
+    source: Schema.Literals(["stable-channel", "exact-version"] as const),
+    version: Schema.String,
+    channelRevision: Schema.NullOr(Schema.Number),
+    validatedAt: Schema.String,
+  }),
+  installerAvailability: Schema.Struct({
+    state: InstallerAvailabilityStateSchema,
+    observedVersion: Schema.NullOr(Schema.String),
+  }),
+  target: Schema.Struct({
+    version: Schema.String,
+    releaseTag: Schema.String,
+    binaryAssetUrl: Schema.NullOr(Schema.String),
+    checksumAssetUrl: Schema.NullOr(Schema.String),
+  }),
+  mutation: Schema.Struct({
+    state: UpgradeCoreResultSchema.fields.mutationState,
+  }),
+  verification: Schema.Struct({
+    state: UpgradeCoreResultSchema.fields.verification,
+    reportedVersion: Schema.NullOr(Schema.String),
+    executables: Schema.Array(VerificationExecutableSchema),
+  }),
+  recovery: Schema.Struct({
+    backupPath: Schema.NullOr(Schema.String),
+    recommendedCommand: Schema.NullOr(RecommendedCommandSchema),
+  }),
+  commands: Schema.Array(CommandRecordSchema),
+  details: Schema.Struct({
+    messages: Schema.Array(Schema.String),
+    homebrewFailure: Schema.NullOr(HomebrewFailureSchema),
+    observedFormulaVersion: Schema.NullOr(Schema.String),
+  }),
+  steps: Schema.Array(UpgradePlanStepSchema),
+});
+export type UpgradeAssessmentResult = typeof UpgradeAssessmentResultSchema.Type;
+
+export const UpgradeDocumentSchema = Schema.Struct({ result: UpgradeAssessmentResultSchema });
 export type UpgradeDocument = typeof UpgradeDocumentSchema.Type;
 
 const HOMEBREW_TAP = "agentxm/tap";
@@ -266,9 +369,6 @@ export const resolvePlatformBinary = (platform: string, arch: string) => {
   );
   return target === undefined ? Option.none<PlatformBinaryInfo>() : Option.some(target);
 };
-
-export const makeDownloadUrl = (repo: string, version: string, binaryName: string) =>
-  `https://github.com/${repo}/releases/download/cli-v${version}/${binaryName}`;
 
 const displayArgument = (argument: string): string =>
   /^[A-Za-z0-9_./:@=-]+$/u.test(argument) ? argument : `'${argument.replaceAll("'", "'\\''")}'`;
@@ -314,7 +414,7 @@ const methodName = (method: InstallMethodType): ResultInstallMethod => {
   }
 };
 
-const methodLabel = (method: ResultInstallMethod): string => {
+export const methodLabel = (method: ResultInstallMethod): string => {
   switch (method) {
     case "script":
       return "the AXM installer";
@@ -415,21 +515,49 @@ const noMutationResult = (
   backupPath: null,
 });
 
-const resolveGithubRepo = () =>
-  // A string with a default cannot fail through the environment provider;
-  // preserve a defect only for a broken ConfigProvider invariant.
-  // eslint-disable-next-line no-restricted-syntax -- Defaulted string decoding is total, so failure means the Config provider violated its contract.
-  Effect.orDie(
-    Config.string("AXM_INSTALL_GITHUB_REPO").pipe(Config.withDefault(DEFAULT_GITHUB_REPO)),
-  );
+/**
+ * What the mutation would hand to the installer, in the installer's own
+ * terms. A package manager is named by the exact command; the script
+ * installer has no delegate, so its own replacement is named instead.
+ */
+const delegatedAction = (
+  method: InstallMethodType,
+  targetVersion: string,
+  reinstall: boolean,
+  binaryName: string,
+): string => {
+  const command = packageManagerCommand(method, targetVersion, reinstall);
+  if (command !== null) return `Would run ${command.display}`;
+  if (method._tag === "Script") {
+    return `Would replace ${method.execPath} with ${binaryName} ${targetVersion}, verifying its checksum first`;
+  }
+  return `No installer command is available for ${methodLabel(methodName(method))}`;
+};
 
-const resolveGithubApiBase = () =>
-  // A string with a default cannot fail through the environment provider;
-  // preserve a defect only for a broken ConfigProvider invariant.
-  // eslint-disable-next-line no-restricted-syntax -- Defaulted string decoding is total, so failure means the Config provider violated its contract.
-  Effect.orDie(
-    Config.string("AXM_UPGRADE_GITHUB_API_URL").pipe(Config.withDefault("https://api.github.com")),
-  );
+/**
+ * The resolved plan, reported without performing it. Nothing here mutates:
+ * the detection and selection that produced it are reads, and the delegated
+ * action is described rather than run.
+ */
+const previewResult = (input: BaseResultInput, binaryName: string): UpgradeCoreResult => ({
+  ...baseResult(input),
+  resultStatus: "preview",
+  reportedVersion: null,
+  verification: "not-attempted",
+  mutationState: "not-attempted",
+  verificationExecutables: [],
+  executedCommands: [...input.detectionCommands],
+  recommendedCommand: null,
+  details: [
+    delegatedAction(
+      input.method,
+      input.targetVersion,
+      input.relation === "current" && input.reinstall,
+      binaryName,
+    ),
+  ],
+  backupPath: null,
+});
 
 const commandRecord = (
   purpose: CommandRecord["purpose"],
@@ -449,23 +577,57 @@ const commandRecord = (
   outputTruncated: result?.stdoutTruncated === true || result?.stderrTruncated === true,
 });
 
+/** How a finished external command settles its unit: silent when it worked. */
+const commandOutcome = (result: CommandResult): string | null => {
+  switch (result.executionState) {
+    case "not-started":
+      return "did not start";
+    case "timed-out":
+      return "timed out";
+    case "exited":
+      return result.exitCode === 0
+        ? null
+        : `exit ${result.exitCode === null ? "unavailable" : String(result.exitCode)}`;
+  }
+};
+
+/**
+ * Run one external command, recording its evidence and narrating it as a unit
+ * nested under the step that delegated it. Every command AXM hands to another
+ * tool is separately observable while it runs — the reader sees which tool is
+ * working, not one unchanging line for the whole delegation. The record index
+ * names the unit, so repeated commands (a convergence poll re-running `brew
+ * update`) stay distinct.
+ */
 const runRecorded = (
   records: Array<CommandRecord>,
   purpose: CommandRecord["purpose"],
   executable: string,
   args: ReadonlyArray<string>,
   options?: RunCommandOptions,
-) =>
-  Effect.gen(function* () {
-    const subprocess = yield* Subprocess;
-    const executionDirectory = yield* ExecutionDirectory;
-    const result = yield* subprocess.run(executable, args, {
-      ...options,
-      cwd: executionDirectory.path,
-    });
-    records.push(commandRecord(purpose, executable, args, result));
-    return result;
-  });
+) => {
+  const display = displayCommand(executable, args);
+  return observeChildUnit(
+    {
+      id: `command-${String(records.length)}`,
+      label: display,
+      resolvedLabel: (result: CommandResult) => {
+        const outcome = commandOutcome(result);
+        return outcome === null ? display : `${display} · ${outcome}`;
+      },
+    },
+    Effect.gen(function* () {
+      const subprocess = yield* Subprocess;
+      const executionDirectory = yield* ExecutionDirectory;
+      const result = yield* subprocess.run(executable, args, {
+        ...options,
+        cwd: executionDirectory.path,
+      });
+      records.push(commandRecord(purpose, executable, args, result));
+      return result;
+    }),
+  );
+};
 
 const normalizedOwnershipPath = (value: string): string =>
   value.replace(/\\/gu, "/").replace(/\/+$/u, "").toLowerCase();
@@ -577,6 +739,103 @@ const packageManagerCommand = (
       return null;
   }
 };
+
+type InstallerAvailabilityState =
+  "ready" | "lagging" | "leading" | "unavailable" | "indeterminate" | "not-required";
+
+interface InstallerAvailability {
+  readonly state: InstallerAvailabilityState;
+  readonly observedVersion: string | null;
+  readonly details: ReadonlyArray<string>;
+}
+
+const PublishedVersionSchema = Schema.Union([
+  Schema.String,
+  Schema.Struct({ type: Schema.String, data: Schema.String }),
+]);
+
+const parsePublishedVersion = (stdout: string): string | null => {
+  const decoded = Schema.decodeUnknownOption(Schema.fromJsonString(PublishedVersionSchema))(stdout);
+  if (Option.isNone(decoded)) return null;
+  const value = typeof decoded.value === "string" ? decoded.value : decoded.value.data;
+  return semver.valid(value);
+};
+
+const packageAvailabilityCommand = (
+  method: Extract<InstallMethodType, { readonly _tag: "Npm" | "Pnpm" | "Yarn" }>,
+  requestedVersion: string | undefined,
+): RecommendedCommand => {
+  const packageReference =
+    requestedVersion === undefined ? NPM_PACKAGE : `${NPM_PACKAGE}@${requestedVersion}`;
+  switch (method._tag) {
+    case "Npm":
+      return recommended("npm", ["view", packageReference, "version", "--json"]);
+    case "Pnpm":
+      return recommended("pnpm", ["view", packageReference, "version", "--json"]);
+    case "Yarn":
+      return recommended("yarn", ["info", packageReference, "version", "--json"]);
+  }
+};
+
+const queryPackageAvailability = (
+  method: Extract<InstallMethodType, { readonly _tag: "Npm" | "Pnpm" | "Yarn" }>,
+  targetVersion: string,
+  requestedVersion: string | undefined,
+  records: Array<CommandRecord>,
+) =>
+  Effect.gen(function* () {
+    const command = packageAvailabilityCommand(method, requestedVersion);
+    const response = yield* runRecorded(records, "detection", command.executable, command.args, {
+      timeoutMs: 10_000,
+    });
+    if (response.executionState !== "exited") {
+      return {
+        state: "indeterminate",
+        observedVersion: null,
+        details: ["The owning package manager availability query did not complete."],
+      } satisfies InstallerAvailability;
+    }
+    if (response.exitCode !== 0) {
+      return {
+        state: requestedVersion === undefined ? "indeterminate" : "unavailable",
+        observedVersion: null,
+        details: [
+          requestedVersion === undefined
+            ? "The owning package manager did not report its latest AXM version."
+            : `The owning package manager does not expose AXM ${targetVersion}.`,
+        ],
+      } satisfies InstallerAvailability;
+    }
+
+    const observedVersion = parsePublishedVersion(response.stdout);
+    if (observedVersion === null) {
+      return {
+        state: "indeterminate",
+        observedVersion: null,
+        details: ["The owning package manager returned an invalid AXM version."],
+      } satisfies InstallerAvailability;
+    }
+
+    const comparison = semver.compare(observedVersion, targetVersion);
+    const state =
+      comparison === 0
+        ? "ready"
+        : requestedVersion !== undefined
+          ? "unavailable"
+          : comparison < 0
+            ? "lagging"
+            : "leading";
+    return {
+      state,
+      observedVersion,
+      details:
+        state === "ready"
+          ? []
+          : [
+              `The owning package manager advertises AXM ${observedVersion}; the canonical target is ${targetVersion}.`,
+            ],
+    } satisfies InstallerAvailability;
+  });
 
 const reportedVersion = (result: CommandResult | null): string | null => {
   if (result === null || result.exitCode !== 0) return null;
@@ -705,8 +964,15 @@ const queryHomebrewFormula = (records: Array<CommandRecord>, timeoutMs?: number)
 const remainingConvergenceMs = (startedAt: bigint, now: bigint): number =>
   Math.max(0, HOMEBREW_CONVERGENCE_MS - Number((now - startedAt) / 1_000_000n));
 
-const convergeHomebrewFormula = (records: Array<CommandRecord>, targetVersion: string) =>
-  Effect.gen(function* () {
+/**
+ * Poll until Homebrew advertises the selected version. The poll blocks on a
+ * publication AXM does not control, so it is published as a wait rather than
+ * left as silence: the reader learns the command is not stuck, it is waiting
+ * on the tap, and on what.
+ */
+const convergeHomebrewFormula = (records: Array<CommandRecord>, targetVersion: string) => {
+  let announcedWait = false;
+  return Effect.gen(function* () {
     let convergenceStartedAt: bigint | null = null;
     let observedVersion: string | null = null;
 
@@ -785,6 +1051,14 @@ const convergeHomebrewFormula = (records: Array<CommandRecord>, targetVersion: s
       }
 
       convergenceStartedAt ??= yield* Clock.monotonicTimeNanos;
+      if (!announcedWait) {
+        announcedWait = true;
+        yield* publishWaiting({
+          blockingClass: "external-blocked",
+          subject: HOMEBREW_FORMULA,
+          detail: `Homebrew has AXM ${observedVersion}; waiting for ${targetVersion}`,
+        });
+      }
       const afterQueryRemaining = remainingConvergenceMs(
         convergenceStartedAt,
         yield* Clock.monotonicTimeNanos,
@@ -792,7 +1066,12 @@ const convergeHomebrewFormula = (records: Array<CommandRecord>, targetVersion: s
       if (afterQueryRemaining <= 0) continue;
       yield* Effect.sleep(Math.min(HOMEBREW_RETRY_MS, afterQueryRemaining));
     }
-  });
+  }).pipe(
+    Effect.ensuring(
+      Effect.suspend(() => (announcedWait ? publishWaitEnded(HOMEBREW_FORMULA) : Effect.void)),
+    ),
+  );
+};
 
 type HomebrewPhase = "pre-mutation" | "post-primary" | "post-fallback";
 
@@ -1303,7 +1582,22 @@ const handleDelegated = (input: BaseResultInput) =>
     } satisfies UpgradeCoreResult;
   });
 
-const fetchAsset = (httpClient: HttpClient.HttpClient, url: string) =>
+const declaredContentLength = (headers: Readonly<Record<string, string>>): number | undefined => {
+  const declared = Number(headers["content-length"] ?? "");
+  return Number.isFinite(declared) && declared > 0 ? declared : undefined;
+};
+
+/**
+ * Read a release asset. `reportProgress` streams the body and publishes
+ * throttled byte measurements for the unit in progress, so the one download
+ * long enough to be worth watching is watchable; everything else reads the
+ * body whole.
+ */
+const fetchAsset = (
+  httpClient: HttpClient.HttpClient,
+  url: string,
+  options?: { readonly reportProgress?: boolean },
+) =>
   Effect.gen(function* () {
     const response = yield* httpClient
       .get(url, {
@@ -1336,16 +1630,36 @@ const fetchAsset = (httpClient: HttpClient.HttpClient, url: string) =>
         suggestions: [{ description: "Try again after release publication completes." }],
       });
     }
-    const body = yield* response.arrayBuffer.pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "network",
-          detail: "Failed to read the release asset",
-          cause,
-        }),
-      ),
+    const readFailed = (cause: unknown) =>
+      makeAppError({
+        code: "network",
+        detail: "Failed to read the release asset",
+        cause,
+      });
+    if (options?.reportProgress !== true) {
+      const body = yield* response.arrayBuffer.pipe(Effect.mapError(readFailed));
+      return new Uint8Array(body);
+    }
+
+    const total = declaredContentLength(response.headers);
+    const report = yield* makeThrottledUnitProgress({ unit: "bytes", intervalMs: 250 });
+    const chunks: Array<Uint8Array> = [];
+    let received = 0;
+    yield* response.stream.pipe(
+      Stream.runForEach((chunk) => {
+        chunks.push(chunk);
+        received += chunk.length;
+        return report(received, total);
+      }),
+      Effect.mapError(readFailed),
     );
-    return new Uint8Array(body);
+    const body = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return body;
   });
 
 export const parseChecksum = (manifest: string, binaryName: string) =>
@@ -1494,7 +1808,10 @@ const handleScript = (
     return yield* Effect.ensuring(
       Effect.gen(function* () {
         const [binaryBytes, manifestBytes] = yield* Effect.all([
-          fetchAsset(httpClient, release.binaryAssetUrl),
+          observeChildUnit(
+            { id: "download-binary", label: `Download ${binary.binaryName}` },
+            fetchAsset(httpClient, release.binaryAssetUrl, { reportProgress: true }),
+          ),
           fetchAsset(httpClient, release.checksumAssetUrl),
         ]);
         const manifest = new TextDecoder("utf-8", { fatal: false }).decode(manifestBytes);
@@ -1511,7 +1828,7 @@ const handleScript = (
         }
 
         const targetDirectory = path.dirname(targetPath);
-        // Deliberately not `writeFileAtomic` (@agentxm/client-core utils): the
+        // Deliberately not `writeFileAtomic` (the CLI utils module): the
         // upgrade transaction keeps the temp binary as a standalone artifact
         // between write and rename so it can be chmod'ed, executed to verify
         // the exact version, and swapped in only after a restorable backup
@@ -1774,6 +2091,13 @@ const resultMessage = (result: UpgradeCoreResult): string => {
     }
   }
   switch (result.resultStatus) {
+    case "preview":
+      if (result.reinstall && result.versionRelation === "current") {
+        return `Would reinstall AXM ${result.targetVersion ?? ""} via ${method}`;
+      }
+      return result.localVersion === null
+        ? `Would install AXM ${result.targetVersion ?? ""} via ${method}; current version could not be determined`
+        : `Would upgrade AXM ${result.localVersion} → ${result.targetVersion ?? ""} via ${method}`;
     case "upgraded":
       return result.localVersion === null
         ? `Upgraded AXM to ${result.reportedVersion ?? result.targetVersion ?? ""} via ${method}; previous version could not be determined`
@@ -1813,6 +2137,8 @@ interface PlanMapping {
 
 const planMapping = (result: UpgradeCoreResult): PlanMapping => {
   switch (result.resultStatus) {
+    case "preview":
+      return { step: "unchanged", outcome: "no-op", change: "unchanged" };
     case "upgraded":
     case "reinstalled":
       return { step: "applied", outcome: "applied", change: "updated" };
@@ -1881,7 +2207,155 @@ export const withUpgradePlanFields = (result: UpgradeCoreResult): UpgradeResult 
   };
 };
 
+const resultDisposition = (
+  result: UpgradeCoreResult,
+  availability: InstallerAvailability,
+): UpgradeAssessmentResult["disposition"] => {
+  if (availability.state === "lagging") return "installer-lagging";
+  if (availability.state === "leading") return "installer-leading";
+  if (availability.state === "unavailable") return "installer-unavailable";
+  if (availability.state === "indeterminate") return "installer-indeterminate";
+  switch (result.resultStatus) {
+    case "preview":
+      return "previewed";
+    case "upgraded":
+      return "upgraded";
+    case "reinstalled":
+      return "reinstalled";
+    case "already-up-to-date":
+      return "already-current";
+    case "local-newer":
+      return "local-newer";
+    case "downgrade-refused":
+      return "downgrade-refused";
+    case "manual-action-required":
+      return "recovery-required";
+    case "rolled-back":
+      return "rolled-back";
+    case "upgrade-unverified":
+      return "verification-failed";
+    case "upgrade-incomplete":
+      return result.verification === "mismatch" ? "verification-failed" : "mutation-failed";
+  }
+};
+
+const assessmentOutcome = (result: UpgradeCoreResult): UpgradeAssessmentResult["outcome"] => {
+  switch (result.resultStatus) {
+    case "preview":
+      return "previewed";
+    case "upgraded":
+    case "reinstalled":
+      return "applied";
+    case "already-up-to-date":
+    case "local-newer":
+      return "no-op";
+    case "upgrade-unverified":
+      return "indeterminate";
+    case "downgrade-refused":
+    case "upgrade-incomplete":
+    case "manual-action-required":
+    case "rolled-back":
+      return "failed";
+  }
+};
+
+const homebrewAvailability = (result: UpgradeCoreResult): InstallerAvailability | null => {
+  if (result.installMethod !== "homebrew" || result.observedFormulaVersion === undefined)
+    return null;
+  const observedVersion = result.observedFormulaVersion;
+  if (observedVersion === null) {
+    return {
+      state: "indeterminate",
+      observedVersion: null,
+      details: [],
+    };
+  }
+  const targetVersion = result.targetVersion;
+  if (targetVersion === null) return null;
+  const comparison = semver.compare(observedVersion, targetVersion);
+  return {
+    state: comparison === 0 ? "ready" : comparison < 0 ? "lagging" : "leading",
+    observedVersion,
+    details: [],
+  };
+};
+
+const toUpgradeAssessment = (input: {
+  readonly result: UpgradeCoreResult;
+  readonly resolution: VersionResolutionResult;
+  readonly platform: PlatformBinaryInfo;
+  readonly requestedVersion: string | undefined;
+  readonly availability: InstallerAvailability;
+}): UpgradeAssessmentResult => {
+  const plan = withUpgradePlanFields(input.result);
+  const availability = homebrewAvailability(input.result) ?? input.availability;
+  return {
+    contract: "axm.upgrade-assessment/v1",
+    outcome: assessmentOutcome(input.result),
+    disposition: resultDisposition(input.result, availability),
+    message: resultMessage(input.result),
+    intent: {
+      mode: input.requestedVersion === undefined ? "latest" : "exact",
+      requestedVersion: input.requestedVersion ?? null,
+      reinstall: input.result.reinstall,
+    },
+    platform: {
+      os: process.platform,
+      arch: process.arch,
+      target: `${input.platform.platform}-${input.platform.arch}`,
+      binaryName: input.platform.binaryName,
+    },
+    local: {
+      version: input.result.localVersion,
+      relation: input.result.versionRelation,
+    },
+    ownership: {
+      method: input.result.installMethod,
+      source: input.result.detectionSource,
+      evidence: input.result.detectionEvidence,
+      confidence: input.result.detectionConfidence,
+      executablePath: input.result.executablePath,
+    },
+    canonical: {
+      source: input.resolution.channel === null ? "exact-version" : "stable-channel",
+      version: input.resolution.targetVersion,
+      channelRevision: input.resolution.channel?.revision ?? null,
+      validatedAt: input.resolution.validatedAt,
+    },
+    installerAvailability: {
+      state: availability.state,
+      observedVersion: availability.observedVersion,
+    },
+    target: {
+      version: input.resolution.targetVersion,
+      releaseTag: input.resolution.release.tagName,
+      binaryAssetUrl: input.resolution.release.binaryAssetUrl,
+      checksumAssetUrl: input.resolution.release.checksumAssetUrl,
+    },
+    mutation: { state: input.result.mutationState },
+    verification: {
+      state: input.result.verification,
+      reportedVersion: input.result.reportedVersion,
+      executables: input.result.verificationExecutables,
+    },
+    recovery: {
+      backupPath: input.result.backupPath,
+      recommendedCommand: input.result.recommendedCommand,
+    },
+    commands: input.result.executedCommands,
+    details: {
+      messages: Array.from(new Set([...input.result.details, ...availability.details])),
+      homebrewFailure: input.result.homebrewFailure ?? null,
+      observedFormulaVersion: input.result.observedFormulaVersion ?? null,
+    },
+    steps: plan.steps,
+  };
+};
+
 const upgradeSuggestions = (result: UpgradeCoreResult): ReadonlyArray<SuggestedAction> => {
+  if (result.resultStatus === "preview") {
+    return [{ description: "Perform the upgrade this preview resolved", cmd: "axm upgrade" }];
+  }
   if (result.recommendedCommand !== null) {
     return [
       {
@@ -1940,105 +2414,13 @@ const upgradeSuggestions = (result: UpgradeCoreResult): ReadonlyArray<SuggestedA
 
 const renderHuman = (result: UpgradeCoreResult) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const verbosity = yield* Verbosity;
-    const quiet = verbosity.level === "quiet";
-    const verbose = verbosity.isAtLeast("verbose");
-    const message =
-      quiet && result.recommendedCommand !== null
-        ? `${resultMessage(result)} · Next: ${result.recommendedCommand.display}`
-        : resultMessage(result);
-    if (quiet) {
-      if (
-        result.resultStatus === "downgrade-refused" ||
-        result.resultStatus === "upgrade-incomplete" ||
-        result.resultStatus === "upgrade-unverified" ||
-        result.resultStatus === "manual-action-required" ||
-        result.resultStatus === "rolled-back"
-      ) {
-        yield* renderer.warn(message);
-      } else {
-        yield* renderer.success(message);
-      }
-      return;
-    }
-    switch (result.resultStatus) {
-      case "upgraded":
-      case "reinstalled":
-      case "already-up-to-date":
-        yield* renderer.success(message);
-        break;
-      case "local-newer":
-        yield* renderer.info(message);
-        break;
-      case "downgrade-refused":
-      case "upgrade-incomplete":
-      case "upgrade-unverified":
-      case "manual-action-required":
-      case "rolled-back":
-        yield* renderer.warn(message);
-        break;
-    }
-    if (!quiet) {
-      yield* Effect.forEach(result.details, (detail) => renderer.info(detail), {
-        concurrency: 1,
-      });
-    }
-    if (!quiet && result.targetVersion !== null) {
-      yield* renderer.info(
-        `Compatibility target: ${formatAxmSkillCompatibilityTarget({
-          targetCliVersion: result.targetVersion,
-          targetSkillVersion: result.targetVersion,
-        })}`,
-      );
-    }
-    if (!quiet && result.recommendedCommand !== null) {
-      yield* renderer.info(`Next: ${result.recommendedCommand.display}`);
-    }
-    if (verbose) {
-      yield* renderer.info(`Detection: ${result.detectionSource} (${result.detectionConfidence})`);
-      yield* Effect.forEach(
-        result.detectionEvidence,
-        (evidence) => renderer.info(`Evidence: ${evidence}`),
-        { concurrency: 1 },
-      );
-      yield* Effect.forEach(
-        result.executedCommands,
-        (command) =>
-          Effect.gen(function* () {
-            yield* renderer.info(
-              `${command.purpose}: ${command.display} · ${command.executionState} · exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? " · output truncated" : ""}`,
-            );
-            if (command.stdout.length > 0) {
-              yield* renderer.info(`stdout: ${command.stdout}`);
-            }
-            if (command.stderr.length > 0) {
-              yield* renderer.info(`stderr: ${command.stderr}`);
-            }
-          }),
-        { concurrency: 1 },
-      );
-      yield* Effect.forEach(
-        result.verificationExecutables,
-        (verification) =>
-          renderer.info(
-            `Verification (${verification.role}${verification.phase === undefined ? "" : `, ${verification.phase}`}): ${verification.resolvedExecutable ?? verification.path} → ${verification.reportedVersion ?? verification.queryOutcome ?? "unavailable"}`,
-          ),
-        { concurrency: 1 },
-      );
-      if (result.backupPath !== null) {
-        yield* renderer.info(`Recoverable backup: ${result.backupPath}`);
-      }
-      if (result.observedFormulaVersion !== undefined) {
-        yield* renderer.info(`Homebrew formula: ${result.observedFormulaVersion ?? "unavailable"}`);
-      }
-      if (result.homebrewFailure !== undefined) {
-        yield* renderer.info(`Homebrew terminal reason: ${result.homebrewFailure}`);
-      }
-      if (result.resultStatus === "upgraded" || result.resultStatus === "reinstalled") {
-        yield* renderer.info("Install metadata: persisted");
-      }
-    }
+    yield* Effect.forEach(
+      upgradeView(result, resultMessage(result), verbosity.level),
+      (entry) => (entry.channel === "result" ? screen.result(entry.doc) : screen.note(entry.doc)),
+      { discard: true },
+    );
   });
 
 export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: UpgradeHandlerArgs) {
@@ -2050,110 +2432,220 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       suggestions: [{ description: "Use a supported AXM platform." }],
     });
   }
-  const renderer = yield* CliRenderer;
-
-  const httpClient = yield* HttpClient.HttpClient;
-  const repo = yield* resolveGithubRepo();
-  const githubApiBase = yield* resolveGithubApiBase();
+  const screen = yield* Screen;
   const observedLocal = args.localVersion === undefined ? loadVersion() : args.localVersion;
   const localVersion = observedLocal === null ? null : semver.valid(observedLocal);
-  const resolution = yield* renderer.withSpinner(
-    "Checking AXM releases",
-    () =>
-      resolveLatestVersion(
-        httpClient,
-        localVersion,
-        repo,
-        platform.value.binaryName,
-        githubApiBase,
-      ),
-    { successMessage: "Checked AXM releases" },
-  );
-  const targetVersion = resolution.targetVersion;
-  if (semver.valid(targetVersion) === null) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "The selected upgrade target is not valid semantic version",
-    });
-  }
 
   const installMethod = yield* InstallMethod;
+  const dryRun = args.dryRun === true;
   const detectionCommands: Array<CommandRecord> = [];
-  const initiallyDetectedMethod = yield* renderer.withSpinner(
-    "Detecting AXM installation method",
-    () => installMethod.detect(),
-    { successMessage: "Detected AXM installation method" },
-  );
-  const ownershipRequired =
-    resolution.versionRelation !== "local-newer" &&
-    !(resolution.versionRelation === "current" && !args.reinstall);
-  const method = ownershipRequired
-    ? yield* resolveAmbiguousPackageManager(initiallyDetectedMethod, detectionCommands)
-    : initiallyDetectedMethod;
-  const input: BaseResultInput = {
-    method,
-    detectionCommands,
-    relation: resolution.versionRelation,
-    localVersion: resolution.localVersion,
-    targetVersion,
-    reinstall: args.reinstall,
-  };
-  const action = decideUpgrade(resolution.versionRelation, args.reinstall, supportedMethod(method));
+  // Detection, channel resolution, availability, and the upgrade itself are
+  // the units of one observed operation; assessment and rendering follow it.
+  // Each unit that resolves a fact settles with that fact in its label, so
+  // the method and the target are disclosed by the step that established
+  // them rather than only by the final line.
+  const upgraded = yield* withLiveOperation(
+    {
+      command: "upgrade",
+      name: dryRun ? "Preview AXM upgrade" : "Upgrade AXM",
+      mode: dryRun ? "preview" : "apply",
+      ...(dryRun ? { successOutcome: "previewed" as const } : {}),
+    },
+    Effect.gen(function* () {
+      // Detection and its ownership disambiguation are one unit: the probes
+      // the ambiguous case runs are that unit's work, and the label it settles
+      // with names the owner it actually resolved, not the first guess.
+      const method = yield* observeUnit(
+        {
+          id: "detect-install-method",
+          label: "AXM installation method",
+          resolvedLabel: (resolved) =>
+            resolved._tag === "Unknown"
+              ? "AXM installation method — undetermined"
+              : `AXM installed with ${methodLabel(methodName(resolved))}`,
+        },
+        Effect.gen(function* () {
+          const detected = yield* installMethod.detect();
+          return yield* resolveAmbiguousPackageManager(detected, detectionCommands);
+        }),
+      );
+      if (method._tag === "Unknown") {
+        return yield* makeAppError({
+          code: "validation",
+          detail: "Could not determine how AXM was installed",
+          suggestions: [
+            {
+              description:
+                "Reinstall AXM with the script installer, Homebrew, npm, pnpm, or Yarn Classic, then retry.",
+            },
+          ],
+        });
+      }
 
-  const resultEffect = (() => {
-    switch (action) {
-      case "noop-current":
-        return Effect.succeed(noMutationResult(input, "already-up-to-date", null));
-      case "noop-newer":
-        return Effect.succeed(noMutationResult(input, "local-newer", null));
-      case "refuse":
-        return Effect.succeed(noMutationResult(input, "downgrade-refused", null));
-      case "manual":
-        return Effect.succeed(
-          noMutationResult(input, "manual-action-required", recoveryInstaller(targetVersion)),
-        );
-      case "mutate":
-        if (method._tag === "Script") {
-          const binaryAssetUrl = resolution.release.binaryAssetUrl;
-          const checksumAssetUrl = resolution.release.checksumAssetUrl;
-          if (binaryAssetUrl === null || checksumAssetUrl === null) {
-            return Effect.fail(
-              makeAppError({
-                code: "unavailable",
-                detail: "Selected release assets are not ready",
+      const resolution =
+        args.requestedVersion === undefined
+          ? yield* observeUnit(
+              {
+                id: "resolve-channel",
+                label: "AXM stable channel",
+                resolvedLabel: (selected) => `AXM stable channel — ${selected.targetVersion}`,
+              },
+              Effect.gen(function* () {
+                const httpClient = yield* HttpClient.HttpClient;
+                return yield* resolveLatestVersion(
+                  httpClient,
+                  localVersion,
+                  platform.value.binaryName,
+                );
               }),
+            )
+          : yield* observeUnit(
+              { id: "resolve-version", label: `AXM ${args.requestedVersion}` },
+              resolveExactVersion(
+                args.requestedVersion ?? "",
+                localVersion,
+                platform.value.binaryName,
+              ),
             );
-          }
-          return handleScript(input, method, platform.value, {
-            binaryAssetUrl,
-            checksumAssetUrl,
-          });
-        }
-        return handleDelegated(input);
-    }
-  })();
-  const result =
-    action === "mutate"
-      ? yield* renderer.withSpinner(`Upgrading AXM to ${targetVersion}`, () => resultEffect, {
-          successMessage: `Finished AXM upgrade attempt for ${targetVersion}`,
-        })
-      : yield* resultEffect;
+      const targetVersion = resolution.targetVersion;
+      // A preview leaves no trace: the channel cache is durable state the
+      // command was not asked to change.
+      if (resolution.channel !== null && !dryRun) {
+        const updateCheck = yield* UpdateCheck;
+        yield* updateCheck.writeCache(resolution.channel, resolution.etag);
+      }
+      if (semver.valid(targetVersion) === null) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: "The selected upgrade target is not valid semantic version",
+        });
+      }
 
-  const machineResult = withUpgradePlanFields(result);
+      const input: BaseResultInput = {
+        method,
+        detectionCommands,
+        relation: resolution.versionRelation,
+        localVersion: resolution.localVersion,
+        targetVersion,
+        reinstall: args.reinstall,
+      };
+      const selectedAction = decideUpgrade(
+        resolution.versionRelation,
+        args.reinstall,
+        supportedMethod(method),
+      );
+      // A preview resolves ownership and the target and stops: publication
+      // state is established by the run that would use it.
+      const availability: InstallerAvailability =
+        selectedAction !== "mutate" || dryRun
+          ? { state: "not-required", observedVersion: null, details: [] }
+          : method._tag === "Npm" || method._tag === "Pnpm" || method._tag === "Yarn"
+            ? yield* observeUnit(
+                { id: "availability", label: `${methodLabel(methodName(method))} availability` },
+                queryPackageAvailability(
+                  method,
+                  targetVersion,
+                  args.requestedVersion,
+                  detectionCommands,
+                ),
+              )
+            : { state: "ready", observedVersion: targetVersion, details: [] };
+      // The availability gate exists to stop a mutation that would fail. A
+      // preview performs none, so it is not gated by publication state it
+      // deliberately did not establish.
+      const action =
+        !dryRun && selectedAction === "mutate" && availability.state !== "ready"
+          ? "manual"
+          : selectedAction;
+
+      if (dryRun && action === "mutate") {
+        const preview = previewResult(input, platform.value.binaryName);
+        return { result: preview, resolution, availability };
+      }
+
+      const resultEffect = (() => {
+        switch (action) {
+          case "noop-current":
+            return Effect.succeed(noMutationResult(input, "already-up-to-date", null));
+          case "noop-newer":
+            return Effect.succeed(noMutationResult(input, "local-newer", null));
+          case "refuse":
+            return Effect.succeed(noMutationResult(input, "downgrade-refused", null));
+          case "manual":
+            if (selectedAction === "mutate") {
+              return Effect.succeed(
+                noMutationResult(input, "manual-action-required", null, availability.details),
+              );
+            }
+            return Effect.succeed(
+              noMutationResult(input, "manual-action-required", recoveryInstaller(targetVersion)),
+            );
+          case "mutate":
+            if (method._tag === "Script") {
+              const binaryAssetUrl = resolution.release.binaryAssetUrl;
+              const checksumAssetUrl = resolution.release.checksumAssetUrl;
+              if (binaryAssetUrl === null || checksumAssetUrl === null) {
+                return Effect.fail(
+                  makeAppError({
+                    code: "unavailable",
+                    detail: "Selected release assets are not ready",
+                  }),
+                );
+              }
+              return handleScript(input, method, platform.value, {
+                binaryAssetUrl,
+                checksumAssetUrl,
+              });
+            }
+            return handleDelegated(input);
+        }
+      })();
+      // The mutation unit stays on screen for the whole delegation, so its
+      // label carries the two facts the reader needs while it runs: what is
+      // being installed and which installer is doing it. The commands the
+      // installer runs nest under it.
+      const result =
+        action === "mutate"
+          ? yield* observeUnit(
+              {
+                id: "upgrade",
+                label: `AXM ${targetVersion} via ${methodLabel(methodName(method))}`,
+              },
+              resultEffect,
+            )
+          : yield* resultEffect;
+      return { result, resolution, availability };
+    }),
+  );
+  const { result, resolution, availability } = upgraded;
+
+  const machineResult = toUpgradeAssessment({
+    result,
+    resolution,
+    platform: platform.value,
+    requestedVersion: args.requestedVersion,
+    availability,
+  });
   yield* setCommandSemanticProperties(
     summarizeCommandOutcome({
       outcome: machineResult.outcome === "applied" ? "applied" : "no-op",
       subjectType: "unknown",
       sourceKind: "git",
-      appliedCount: machineResult.appliedCount,
-      failedCount: machineResult.failedCount,
-      blockedCount: machineResult.blockedCount,
+      appliedCount: machineResult.outcome === "applied" ? 1 : 0,
+      failedCount:
+        machineResult.outcome === "failed" || machineResult.outcome === "indeterminate" ? 1 : 0,
+      blockedCount: machineResult.outcome === "failed" ? 1 : 0,
     }),
   );
   if (
-    yield* renderer.result({ result: machineResult }, UpgradeDocumentSchema, {
+    yield* screen.document({ result: machineResult }, UpgradeDocumentSchema, {
       suggestions: upgradeSuggestions(result),
-      ok: machineResult.failedCount === 0 && machineResult.blockedCount === 0,
+      ok:
+        machineResult.disposition === "previewed" ||
+        machineResult.disposition === "upgraded" ||
+        machineResult.disposition === "reinstalled" ||
+        machineResult.disposition === "already-current" ||
+        machineResult.disposition === "local-newer",
     })
   ) {
     return;

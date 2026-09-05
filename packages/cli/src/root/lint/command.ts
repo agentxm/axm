@@ -3,17 +3,17 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
-import type { LintView } from "@agentxm/client-core/unstable/lint";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+import { makeAppError } from "../../app-error/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { materializeGitIndexWorkspace, type LintView } from "@agentxm/workspace-lint";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleLint } from "./handler.js";
-import { materializeGitIndexWorkspace } from "./staged-workspace.js";
+import { lintStagingFailedToAppError } from "../../feature-errors.js";
 
 const lintConfig = {
   path: Argument.string("path").pipe(
@@ -24,7 +24,7 @@ const lintConfig = {
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription(
-      "Scope of the lint run: project (default) or user (lints $AXM_USER_HOME/.axm or $HOME/.axm).",
+      "Scope of the lint run: project (default) or user (lints the .axm/workspace workspace under the selected home).",
     ),
   ),
   strict: Flag.boolean("strict").pipe(
@@ -47,7 +47,7 @@ const lintConfig = {
   ),
 } as const;
 
-interface RunLintCommandArgs {
+export interface RunLintCommandArgs {
   readonly path: Option.Option<string>;
   readonly scope: WorkspaceScope;
   readonly strict: boolean;
@@ -56,7 +56,7 @@ interface RunLintCommandArgs {
   readonly view: LintView;
 }
 
-const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
+export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
   const executionDirectory = yield* ExecutionDirectory;
   const path = yield* Path.Path;
   const projectRoot = Option.match(args.path, {
@@ -83,7 +83,7 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
   if (args.view === "git-index") {
     const snapshot = yield* materializeGitIndexWorkspace(projectRoot, {
       selectRepositoryRoot: Option.isNone(args.path),
-    });
+    }).pipe(Effect.mapError(lintStagingFailedToAppError));
     const snapshotRoot = decodeAbsolutePathSync(snapshot.workspaceRoot);
     return yield* handleLint({
       pathArg: Option.some(snapshotRoot),
@@ -118,7 +118,7 @@ export const lintCommand = Command.make(
     { command: "axm lint", description: "Lint the current project workspace" },
     {
       command: "axm lint --scope user",
-      description: "Lint the user-scope workspace under $HOME/.axm",
+      description: "Lint the user workspace under $HOME/.axm/workspace",
     },
     {
       command: "axm lint --strict",

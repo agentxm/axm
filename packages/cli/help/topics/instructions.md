@@ -69,12 +69,17 @@ entered.
 Enabled extension capabilities may contribute independently managed content:
 
 - Rules contribute ordered behavior guidance.
-- Knowledge contributes a compact discovery table.
+- Knowledge contributes a compact discovery table for enabled bundles admitted
+  by the Knowledge-wide switch and each bundle's manifest/workspace policy.
 - Hooks may contribute an explicitly supported instruction fallback.
 
 Each region remains owned by its contributor. Global instruction-file
 management owns propagation and aliases; it does not own those extensions or
 the surrounding authored prose.
+
+Top-level instruction management is the outer gate. It does not replace the
+Knowledge-specific precedence or affect enabled Concepts; see `axm help
+knowledge` for per-bundle `instructionEntry` behavior.
 
 ## Alias `.gitignore` entries
 
@@ -115,7 +120,9 @@ A missing source is not determined — it needs an authoring decision, and
 
 Transitions fail closed when an alias or managed region is unowned or
 ambiguous. Settings and files remain unchanged; there is no generic force flag.
-AXM tolerates formatter-only changes and emits no formatter directives.
+For generated document targets, AXM derives currency from ownership and
+generation provenance and leaves the body alone while authoritative inputs are
+unchanged. AXM emits no formatter directives.
 
 ## Where to go next
 

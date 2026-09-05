@@ -1,0 +1,34 @@
+✔ Ready  every node
+部署 package is ready for review after the wide-character check
++ alpha   created
+~ beta      updated
+    codex: projected at .codex/skills/beta
+– gamma     removed
+▲ delta     blocked   a precondition is not met
+× epsilon   failed
+↶ zeta      rolled back
+= 2 unchanged  --verbose to list
+▲ Warning
+  Check permissions
+● Note without children
+Inventory
+  Name    State     Count
+  alpha   ready        12
+  beta    blocked       3
+Owner        @acme
+Description  A field whose value is long enough to need wrapping at narrow
+             widths
+└─ root  managed
+   ├─ child
+   │  └─ grandchild  leaf
+   └─ sibling
+Next
+  Inspect · axm list
+  Read the guide · https://axm.sh/docs
+1 changed · 2 unchanged in 1.2s
+Details
+  Section body
+  Untitled subsection
+# Heading
+pre-sanitized
+

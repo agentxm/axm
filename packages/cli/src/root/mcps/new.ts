@@ -4,92 +4,74 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
+import { createCanonicalDirectory, recoverCanonicalDirectory } from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import {
-  createCanonicalDirectory,
   decodeExtensionNameSync,
   formatFqn,
-  preflightCreateOnly,
-  REGISTRY_EXTENSIONS_DIR,
-  recoverCanonicalDirectory,
   type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/client-core/unstable/agent-capabilities";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-model/unstable/extensions";
+import { Screen } from "../../screen/index.js";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
+  previewOrApplyPlan,
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/workspace-operations";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import { resolveWorkspaceExtensionRef, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
-  DEFAULT_WORKSPACE_SCOPE,
-  resolveWorkspaceExtensionRef,
-  WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import {
-  previewOrApplyPlan,
+  operationPresentation,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
-  type PlanResolution,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
-  installMcpServer,
   type McpServerManifest,
-} from "@agentxm/client-core/unstable/mcps";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
-import { emitPlanResolutionResult } from "../../json-output.js";
+} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { installMcpServer } from "@agentxm/extension-lifecycle";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-name.js";
-import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
-const mcpNewArtifactOutput = (
-  resolution: PlanResolution,
-): { readonly targetPhrase: string; readonly summary: string } | undefined => {
-  if (resolution._tag !== "ExecutedPlan") return undefined;
+export const handleMcpServersNew = (args: {
+  readonly name: ExtensionName;
+  readonly description: string;
+  readonly owner: Option.Option<string>;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "mcps.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New MCP server",
+    },
+    handleMcpServersNewBody(args),
+  );
 
-  for (const job of resolution.jobs) {
-    for (const step of job.steps) {
-      if (step.result.result !== "success" || step.result.artifact === undefined) continue;
-
-      const artifact = step.result.artifact;
-      const targets = artifact.targets ?? [];
-      const agentIds = new Set(targets.flatMap((target) => target.agentIds ?? []));
-      const targetPhrase =
-        agentIds.size > 0
-          ? ` for ${count(agentIds.size, "agent")}`
-          : targets.length > 0
-            ? ` with ${count(targets.length, "target")}`
-            : "";
-
-      return {
-        targetPhrase,
-        summary: mcpNewArtifactSummary(artifact),
-      };
-    }
-  }
-
-  return undefined;
-};
-
-const mcpNewArtifactSummary = (artifact: JobStepArtifact): string => {
-  const targets = artifact.targets ?? [];
-  return targets.length === 0 ? `-> ${artifact.path}` : `-> ${count(targets.length, "target")}`;
-};
-
-export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (args: {
+const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (args: {
   readonly name: ExtensionName;
   readonly description: string;
   readonly owner: Option.Option<string>;
@@ -99,12 +81,13 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
   const httpClient = yield* HttpClient.HttpClient;
   const owner = Option.isSome(args.owner)
     ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("MCP server creation");
+  yield* requireAuthoredOwner(owner);
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "mcp-server", name: args.name });
 
@@ -115,10 +98,12 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     });
   }
 
-  const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, "mcps", args.name);
+  const targetDir = path.join(workspaceAuthoredRoot(path, ws, "mcp-server", owner), args.name);
   const manifestPath = path.join(targetDir, MCP_SERVER_MANIFEST_FILENAME);
-  const sourcePath = joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name);
-  const configuredServers = yield* ws.getConfiguredMcpServerEntries();
+  const sourcePath = path.relative(ws.baseDir, targetDir);
+  const configuredServers = yield* ws
+    .getConfiguredMcpServerEntries()
+    .pipe(Effect.mapError(toAppError));
   yield* preflightCreateOnly({
     subject: "MCP server",
     name: args.name,
@@ -149,7 +134,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
       ],
     },
   };
-  const configuredAgentIds = yield* ws.getConfiguredAgents();
+  const configuredAgentIds = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const agentsByConfigPath = new Map<string, Set<string>>();
   const catalogAgents = Object.values(CONFIGURABLE_AGENTS_BY_ID);
   for (const agentId of configuredAgentIds) {
@@ -177,7 +162,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     change: "created",
     targets: [
       { path: path.relative(ws.baseDir, manifestPath), change: "created" },
-      { path: ".axm (config/lockfile)", change: "created" },
+      { path: workspaceSettingsPath(ws.scope), change: "created" },
       ...agentConfigTargets,
     ],
   };
@@ -189,7 +174,9 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
       .runTransaction({
         targets: [targetDir],
         transition: Effect.gen(function* () {
-          const currentConfigured = yield* ws.getConfiguredMcpServerEntries();
+          const currentConfigured = yield* ws
+            .getConfiguredMcpServerEntries()
+            .pipe(Effect.mapError(toAppError));
           yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir }).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
@@ -224,16 +211,18 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
           );
-          yield* ws.setMcpServerEntry(args.name, {
-            source: `workspace:${fqn}`,
-            enabled: true,
-            env: {},
-          });
+          yield* ws
+            .setMcpServerEntry(args.name, {
+              source: "workspace",
+              enabled: true,
+              env: {},
+            })
+            .pipe(Effect.mapError(toAppError));
           const resolvedRef = yield* resolveWorkspaceExtensionRef({
             settingsName: args.name,
-            source: `workspace:${fqn}`,
+            source: "workspace",
             expectedType: "mcp-server",
-            baseDir: ws.baseDir,
+            layout: ws.layout,
             scope: ws.scope,
           }).pipe(
             Effect.provideService(WorkspaceMutations, ws),
@@ -251,6 +240,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
               name: "install-mcp-server",
               args: {
                 ref: resolvedRef,
+                nonInteractive: yield* isNonInteractiveOptional,
                 force: false,
                 versionRange: Option.none(),
                 skipSettings: Option.none(),
@@ -260,15 +250,18 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
               Effect.provideService(WorkspaceMutations, ws),
-              Effect.provideService(CliRenderer, renderer),
+              Effect.provideService(Screen, screen),
               Effect.provideService(CodingAgentRepository, agentRepo),
               Effect.provideService(HttpClient.HttpClient, httpClient),
+              provideLifecycleFailureAdapter,
             ),
           );
         }),
         validate: () =>
           Effect.gen(function* () {
-            const currentConfigured = yield* ws.getConfiguredMcpServerEntries();
+            const currentConfigured = yield* ws
+              .getConfiguredMcpServerEntries()
+              .pipe(Effect.mapError(toAppError));
             const manifestExists = yield* fs.exists(manifestPath).pipe(
               Effect.mapError((cause) =>
                 makeAppError({
@@ -287,6 +280,9 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
           }),
       })
       .pipe(
+        Effect.mapError((error) =>
+          error._tag === "StepFailure" ? error : failureToStepFailure(error),
+        ),
         Effect.as({
           result: "success",
           message: `Created ${fqn}`,
@@ -298,6 +294,10 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     _tag: "Plan",
     name: "New MCP server",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "mcp-server",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
   const execution = yield* makePlanExecution(
@@ -316,31 +316,13 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
       ],
     ),
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
   const suggestions = [
     {
-      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name, MCP_SERVER_MANIFEST_FILENAME)}\` to configure the MCP server`,
+      description: `Edit \`${joinDisplayPath(path, sourcePath, MCP_SERVER_MANIFEST_FILENAME)}\` to configure the MCP server`,
     },
   ];
-  const artifactOutput = mcpNewArtifactOutput(resolution);
-  const emitted = yield* emitPlanResolutionResult(
-    "mcps.new",
-    resolution,
-    resolution._tag === "ExecutedPlan"
-      ? {
-          summary: `Created MCP server ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
-          suggestions,
-        }
-      : undefined,
-  );
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created MCP server ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
-      ...(artifactOutput === undefined ? {} : { summary: artifactOutput.summary }),
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("mcps.new", resolution, { suggestions });
 });
 
 const newConfig = {

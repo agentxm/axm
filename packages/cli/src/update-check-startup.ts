@@ -15,13 +15,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { UpdateCheck, isCacheStale } from "@agentxm/client-core/unstable/update-check";
 import {
-  resolveLatestVersion,
-  DEFAULT_GITHUB_REPO,
-} from "@agentxm/client-core/unstable/version-resolution";
-import { isAgent } from "@agentxm/client-utils/unstable/interaction";
+  STABLE_CHANNEL_URL,
+  decodeStableChannelDocument,
+} from "@agentxm/extension-model/unstable/release-channel";
+import { Screen, calloutDoc } from "./screen/index.js";
+import { UpdateCheck } from "./update-check/update-check.js";
+import { isAgent } from "./interaction.js";
 
 // -----------------------------------------------------------------------------
 // Skip detection from argv
@@ -53,7 +53,7 @@ export interface UpdateCheckContextInputs {
   readonly args: ReadonlyArray<string>;
   readonly isNonInteractive: boolean;
   readonly isJsonOutput: boolean;
-  /** Override stderr TTY detection for testability. Defaults to `process.stderr.isTTY`. */
+  /** Stderr TTY detection captured by the screen boundary. */
   readonly isStderrTTY?: boolean | undefined;
   /** Override AXM_NO_UPDATE_CHECK detection for testability. */
   readonly noUpdateCheckEnv?: boolean | undefined;
@@ -69,7 +69,7 @@ export const buildSkipContext = (inputs: UpdateCheckContextInputs) => ({
     process.env["AXM_NO_UPDATE_CHECK"] === "1",
   isUpgradeCommand: isUpgradeCommand(inputs.args),
   isNonInteractive: inputs.isNonInteractive,
-  isStderrTTY: inputs.isStderrTTY ?? process.stderr.isTTY === true,
+  isStderrTTY: inputs.isStderrTTY ?? false,
   // eslint-disable-next-line no-restricted-properties -- Centralized env var access for agent-session detection
   isAgentSession: inputs.isAgentSession ?? isAgent(process.env),
 });
@@ -81,19 +81,35 @@ export const buildSkipContext = (inputs: UpdateCheckContextInputs) => ({
 const REFRESH_TIMEOUT = "3 seconds";
 
 /**
- * Fetch the latest version from GitHub and write it to cache.
+ * Revalidate the stable channel and atomically replace the cache.
  * Silently ignores all errors (network, parse, write).
  */
-export const refreshCache = (localVersion: string) =>
+export const refreshCache = () =>
   Effect.gen(function* () {
     const httpClient = yield* HttpClient.HttpClient;
     const updateCheck = yield* UpdateCheck;
+    const state = yield* updateCheck.readCacheState();
+    const cached = state.state === "fresh" || state.state === "stale" ? state.cache : null;
+    const response = yield* httpClient.get(STABLE_CHANNEL_URL, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "axm-cli",
+        ...(cached?.etag === null || cached?.etag === undefined
+          ? {}
+          : { "If-None-Match": cached.etag }),
+      },
+    });
 
-    // eslint-disable-next-line no-restricted-properties -- Centralized env var access for GitHub repo override
-    const repo = process.env["AXM_INSTALL_GITHUB_REPO"] ?? DEFAULT_GITHUB_REPO;
-
-    const resolution = yield* resolveLatestVersion(httpClient, localVersion, repo);
-    yield* updateCheck.writeCache(resolution.targetVersion);
+    if (response.status === 304 && cached !== null) {
+      yield* updateCheck.writeCache(cached.document, cached.etag);
+      return;
+    }
+    if (response.status !== 200) return;
+    const document = yield* response.json.pipe(Effect.flatMap(decodeStableChannelDocument));
+    yield* updateCheck.writeCache(
+      document,
+      response.headers["etag"] ?? response.headers["ETag"] ?? null,
+    );
   }).pipe(
     Effect.timeout(REFRESH_TIMEOUT),
     Effect.catch(() => Effect.void),
@@ -108,11 +124,6 @@ export const refreshCache = (localVersion: string) =>
  * Print the update notification to stderr.
  */
 export type NotificationPrinter = (message: string) => Effect.Effect<void>;
-
-const printAgentNotification: NotificationPrinter = (message) =>
-  Effect.sync(() => {
-    process.stderr.write(`${message}\n`);
-  });
 
 const UPDATE_AVAILABLE_PREFIX = "Update available: ";
 const UPDATE_AVAILABLE_TITLE = "Update Available";
@@ -156,14 +167,14 @@ export const withUpdateCheck = <A, E, R>(
   Effect.gen(function* () {
     const updateCheck = yield* UpdateCheck;
     const skipContext = buildSkipContext(options.inputs);
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const printer =
       options.printNotification ??
       (skipContext.isAgentSession
-        ? printAgentNotification
+        ? (message: string) => screen.note([{ _tag: "paragraph", text: message }])
         : (message: string) => {
             const note = toHumanUpdateNote(message);
-            return renderer.note(note.message, note.title);
+            return screen.note(calloutDoc(note.message, note.title));
           });
 
     if (updateCheck.shouldSkip(skipContext)) {
@@ -171,7 +182,8 @@ export const withUpdateCheck = <A, E, R>(
     }
 
     // Phase 1: Read cache and resolve notification
-    const cache = yield* updateCheck.readCache();
+    const cacheState = yield* updateCheck.readCacheState();
+    const cache = cacheState.state === "fresh" ? Option.some(cacheState.cache) : Option.none();
     const notification = yield* Effect.gen(function* () {
       if (Option.isNone(cache)) return Option.none<string>();
       const updateAvailable = yield* updateCheck.isUpdateAvailable(options.localVersion);
@@ -186,9 +198,9 @@ export const withUpdateCheck = <A, E, R>(
     });
 
     // Phase 2: Spawn detached refresh fiber if cache is missing or stale
-    const needsRefresh = Option.isNone(cache) || (yield* isCacheStale(cache.value.checkedAt));
+    const needsRefresh = cacheState.state !== "fresh";
     if (needsRefresh) {
-      yield* Effect.forkDetach(refreshCache(options.localVersion));
+      yield* Effect.forkDetach(refreshCache());
     }
 
     // Phase 3: Print notification before command output

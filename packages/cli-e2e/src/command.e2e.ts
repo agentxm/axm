@@ -82,26 +82,34 @@ describe("axm (root command)", () => {
       expect(output).not.toContain("axm publish --help");
     });
 
-    it("resolves command-shaped paths to command help", async () => {
+    it("prints the dedicated publish topic", async () => {
       const result = await runCli(["help", "publish"]);
       const output = getOutput(result);
+      const normalizedOutput = output.replace(/\s+/gu, " ");
 
       expect(result.exitCode).toBe(0);
-      expect(output).toContain("Publish project-workspace extensions to a registry");
-      expect(output).toContain("axm publish [flags] [<extension...>]");
-      expect(output).toContain("--authored");
+      expect(output).toContain("# Publishing");
+      expect(normalizedOutput).toContain("only extensions authored by the project workspace");
+      expect(normalizedOutput).toContain(
+        "fails as `not_authored` before AXM constructs an archive",
+      );
+      expect(output).toContain("--on-existing");
     });
 
     it("emits command help as a formatter-owned machine document", async () => {
-      const result = await runCli(["help", "publish", "--json"]);
+      const result = await runCli(["publish", "--help", "--json"]);
       const document: unknown = JSON.parse(result.stdout);
 
       expect(result.exitCode).toBe(0);
       expect(document).toMatchObject({
         type: "help",
-        description: "Publish project-workspace extensions to a registry",
+        description:
+          "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
         usage: "axm publish [flags] [<extension...>]",
       });
+      expect(JSON.stringify(document)).not.toContain("--authored");
+      expect(JSON.stringify(document)).not.toContain('"name":"all"');
+      expect(JSON.stringify(document)).not.toMatch(/--include-dependency(?:[ =]|$)/u);
       expect(result.stderr).toBe("");
     });
   });
@@ -291,15 +299,9 @@ describe("axm instructions", () => {
           items: expect.arrayContaining([expect.objectContaining({ agentId: "claude-code" })]),
         },
       });
-      expect(
-        result.stderr
-          .trim()
-          .split("\n")
-          .map((line) => JSON.parse(line)),
-      ).toEqual([
-        expect.objectContaining({ type: "progress", phase: "work", percent: 0 }),
-        expect.objectContaining({ type: "progress", phase: "work", percent: 100 }),
-      ]);
+      // Inspection runs no observed operation, so machine stderr carries no
+      // lifecycle events; only long-running operations publish progress.
+      expect(result.stderr.trim()).toBe("");
     } finally {
       workspace.cleanup();
     }
@@ -415,12 +417,45 @@ describe("main CLI help", () => {
     expect(getOutput(result)).toMatch(/Unknown (command|subcommand)/u);
   });
 
-  it("does not show the removed --agent flag on subagents install", async () => {
-    const result = await runCli(["subagents", "install", "--help"]);
+  it.each([
+    ["subagents", "install"],
+    ["skills", "install"],
+    ["skills", "uninstall"],
+    ["skills", "new"],
+    ["subagents", "new"],
+    ["skills", "update"],
+    ["subagents", "update"],
+    ["mcps", "add"],
+    ["mcps", "install"],
+  ])("does not show the removed --agent flag on %s %s", async (...path) => {
+    const result = await runCli([...path, "--help"]);
     const output = getOutput(result);
 
     expect(result.exitCode).toBe(0);
     expect(output).not.toContain("--agent");
+  });
+
+  it.each([
+    ["skills", "new", "example"],
+    ["subagents", "new", "example"],
+    ["skills", "update"],
+    ["subagents", "update"],
+  ])("rejects --agent on %s %s before any work begins", async (...path) => {
+    const result = await runCli([...path, "--agent", "claude-code"]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(getOutput(result)).toContain("--agent");
+  });
+
+  it.each([
+    ["setup", "--scope", "project", "--yes", "--non-interactive"],
+    ["skills", "list"],
+    ["subagents", "list"],
+  ])("rejects an unsupported agent identifier at parse time for %s", async (...path) => {
+    const result = await runCli([...path, "--agent", "not-an-agent"]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(getOutput(result)).toContain("not-an-agent");
   });
 
   it.each([
@@ -468,8 +503,8 @@ describe("main CLI help", () => {
         },
       );
       expect(setup.exitCode).toBe(0);
-      const settingsPath = path.join(workspace.path, ".axm", "settings.json");
-      const lockfilePath = path.join(workspace.path, ".axm", "axm-lock.yaml");
+      const settingsPath = path.join(workspace.path, "axm.json");
+      const lockfilePath = path.join(workspace.path, "axm-lock.yaml");
       const before = {
         settings: fs.readFileSync(settingsPath, "utf8"),
         lockfile: fs.readFileSync(lockfilePath, "utf8"),

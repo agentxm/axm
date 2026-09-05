@@ -1,7 +1,0 @@
-{
-  "$schema": "https://axm.sh/schemas/skill.schema.json",
-  "owner": "@agentxm",
-  "type": "skill",
-  "name": "axm",
-  "version": "0.27.15"
-}

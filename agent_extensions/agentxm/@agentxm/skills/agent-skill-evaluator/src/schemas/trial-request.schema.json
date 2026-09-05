@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/trial-request-1.0.0.json",
+  "title": "Agent Skill evaluator trial request",
+  "type": "object",
+  "required": ["schema_version", "case_id", "stage", "configuration", "trial_number", "attempt_number", "comparison_position", "prompt", "target", "catalog", "fixtures", "dependencies", "artifact_paths", "environment", "authority", "budgets"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "case_id": { "type": ["string", "number"] },
+    "stage": { "enum": ["routing", "execution"] },
+    "routing_mode": { "enum": ["native-routing", "host-simulated-routing", "catalog-classification-proxy"] },
+    "configuration": {
+      "type": "object",
+      "required": ["id", "role", "active_skill"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "role": { "enum": ["candidate", "baseline"] },
+        "active_skill": { "type": "boolean" }
+      }
+    },
+    "trial_number": { "type": "integer", "minimum": 1 },
+    "attempt_number": { "type": "integer", "minimum": 1 },
+    "comparison_position": { "type": "integer", "minimum": 1 },
+    "prompt": { "type": "string" },
+    "target": { "type": ["object", "null"] },
+    "catalog": { "type": "array" },
+    "fixtures": { "type": "array" },
+    "dependencies": { "type": "array" },
+    "artifact_paths": { "type": "array", "items": { "type": "string" } },
+    "environment": { "type": "object" },
+    "authority": { "type": "object" },
+    "budgets": { "type": "object" }
+  }
+}

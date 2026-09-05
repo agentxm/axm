@@ -7,6 +7,12 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 const readJson = (filePath: string): Readonly<Record<string, unknown>> =>
   JSON.parse(fs.readFileSync(filePath, "utf8"));
 
+const configureOwner = (workspacePath: string): void => {
+  const settingsPath = path.join(workspacePath, "axm.json");
+  const settings = readJson(settingsPath);
+  fs.writeFileSync(settingsPath, `${JSON.stringify({ ...settings, owner: "@test" }, null, 2)}\n`);
+};
+
 describe("fork and native import", () => {
   it("imports without replacing native content, then forks the managed package", async () => {
     const temp = createTempDir();
@@ -16,6 +22,7 @@ describe("fork and native import", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stderr).toBe(0);
+      configureOwner(temp.path);
 
       const nativeDir = path.join(temp.path, ".agents", "skills", "native-review");
       fs.mkdirSync(nativeDir, { recursive: true });
@@ -30,14 +37,7 @@ describe("fork and native import", () => {
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
       expect(fs.readFileSync(path.join(nativeDir, "SKILL.md"), "utf8")).toBe(original);
 
-      const importedDir = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "skills",
-        "native-review",
-      );
+      const importedDir = path.join(temp.path, "skills", "native-review");
       expect(readJson(path.join(importedDir, "skill.json"))).toMatchObject({
         owner: "@test",
         type: "skill",
@@ -47,14 +47,24 @@ describe("fork and native import", () => {
       expect(fs.readFileSync(path.join(importedDir, "src", "SKILL.md"), "utf8")).toContain(
         "name: native-review",
       );
-      expect(readJson(path.join(temp.path, ".axm", "settings.json"))).toMatchObject({
+      expect(readJson(path.join(temp.path, "axm.json"))).toMatchObject({
         skills: {
           "native-review": {
-            source: "workspace:@test/skills/native-review",
+            source: "workspace",
             enabled: false,
           },
         },
       });
+
+      const duplicate = await runCli(
+        ["skills", "import", nativeDir, "@test/skills/native-review", "--yes", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(duplicate.exitCode).not.toBe(0);
+      expect(`${duplicate.stderr}\n${duplicate.stdout}`).toContain("Import target");
+      expect(fs.readFileSync(path.join(importedDir, "src", "SKILL.md"), "utf8")).toContain(
+        "name: native-review",
+      );
 
       const forked = await runCli(
         [
@@ -67,14 +77,7 @@ describe("fork and native import", () => {
         { cwd: temp.path },
       );
       expect(forked.exitCode, forked.stderr).toBe(0);
-      const forkedDir = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "skills",
-        "forked-review",
-      );
+      const forkedDir = path.join(temp.path, "skills", "forked-review");
       expect(readJson(path.join(forkedDir, "skill.json"))).toMatchObject({
         owner: "@test",
         type: "skill",
@@ -103,6 +106,7 @@ describe("fork and native import", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stderr).toBe(0);
+      configureOwner(temp.path);
 
       const preview = await runCli(
         [
@@ -116,11 +120,7 @@ describe("fork and native import", () => {
         { cwd: temp.path },
       );
       expect(preview.exitCode, preview.stderr).toBe(0);
-      expect(
-        fs.existsSync(
-          path.join(temp.path, ".axm", "extensions", "@test", "skills", "preview-review"),
-        ),
-      ).toBe(false);
+      expect(fs.existsSync(path.join(temp.path, "skills", "preview-review"))).toBe(false);
     } finally {
       temp.cleanup();
     }
@@ -134,6 +134,7 @@ describe("fork and native import", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stderr).toBe(0);
+      configureOwner(temp.path);
 
       const nativeFile = path.join(temp.path, "reviewer.md");
       const original = "---\nname: native-reviewer\nmodel: fast\n---\n\nReview carefully.\n";
@@ -152,11 +153,7 @@ describe("fork and native import", () => {
       );
       expect(mismatched.exitCode).not.toBe(0);
       expect(mismatched.stderr).toContain("Expected a skills target FQN");
-      expect(
-        fs.existsSync(
-          path.join(temp.path, ".axm", "extensions", "@test", "subagents", "wrong-group"),
-        ),
-      ).toBe(false);
+      expect(fs.existsSync(path.join(temp.path, "subagents", "wrong-group"))).toBe(false);
 
       const imported = await runCli(
         [
@@ -172,30 +169,11 @@ describe("fork and native import", () => {
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
       expect(fs.readFileSync(nativeFile, "utf8")).toBe(original);
       expect(
-        readJson(
-          path.join(
-            temp.path,
-            ".axm",
-            "extensions",
-            "@test",
-            "subagents",
-            "reviewer",
-            "subagent.json",
-          ),
-        ),
+        readJson(path.join(temp.path, "subagents", "reviewer", "subagent.json")),
       ).toMatchObject({ owner: "@test", type: "subagent", name: "reviewer", version: "0.1.0" });
       expect(
         fs.readFileSync(
-          path.join(
-            temp.path,
-            ".axm",
-            "extensions",
-            "@test",
-            "subagents",
-            "reviewer",
-            "src",
-            "reviewer.md",
-          ),
+          path.join(temp.path, "subagents", "reviewer", "src", "reviewer.md"),
           "utf8",
         ),
       ).toContain("name: reviewer");
@@ -224,6 +202,7 @@ describe("fork and native import", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stderr).toBe(0);
+      configureOwner(temp.path);
 
       const imported = await runCli(
         ["mcps", "import", "--as", "@test/mcps/context", "--yes", "--non-interactive", "--json"],
@@ -231,11 +210,7 @@ describe("fork and native import", () => {
       );
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
       expect(readJson(path.join(temp.path, ".mcp.json"))).toEqual({ mcpServers: {} });
-      expect(
-        readJson(
-          path.join(temp.path, ".axm", "extensions", "@test", "mcps", "context", "mcp.json"),
-        ),
-      ).toMatchObject({
+      expect(readJson(path.join(temp.path, "mcps", "context", "mcp.json"))).toMatchObject({
         owner: "@test",
         type: "mcp-server",
         name: "context",
@@ -261,11 +236,7 @@ describe("fork and native import", () => {
         { cwd: temp.path },
       );
       expect(forked.exitCode, `${forked.stderr}\n${forked.stdout}`).toBe(0);
-      expect(
-        readJson(
-          path.join(temp.path, ".axm", "extensions", "@test", "mcps", "context-fork", "mcp.json"),
-        ),
-      ).toMatchObject({
+      expect(readJson(path.join(temp.path, "mcps", "context-fork", "mcp.json"))).toMatchObject({
         owner: "@test",
         type: "mcp-server",
         name: "context-fork",

@@ -1,22 +1,20 @@
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
-import { enabledConfiguredEntries } from "@agentxm/client-core/unstable/extensions";
-import type { IdentifierResourceType } from "@agentxm/client-core/unstable/source-resolution";
-import type { ContainerType, ExtensionType } from "@agentxm/client-core/unstable/extensions";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import {
-  SourceHostProviders,
-  resolveSource,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { expandGlobs } from "@agentxm/client-core/unstable/utils";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+import { makeAppError } from "../../app-error/index.js";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { enabledConfiguredEntries } from "@agentxm/extension-workspace";
+import type { IdentifierResourceType } from "@agentxm/extension-sources";
+import type { ContainerType, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
+import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
+import { expandGlobs } from "../../utils/index.js";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Flag } from "effect/unstable/cli";
 
 import { emitNoOpOutcome } from "./no-op-output.js";
 
-export type UpdateTargetEntry = readonly [name: string, source: string];
+export type UpdateTargetEntry = readonly [name: string, source: string | undefined];
 
 /**
  * Every non-container type an update selector can name. Container placement
@@ -37,11 +35,11 @@ export const updateNameFilterFlag = Flag.string("name").pipe(
 /** Flag name reported in the "nothing matched" envelope. */
 export const UPDATE_NAME_FILTER_FLAG = "--name";
 
-export interface ResolveUpdateTargetsArgs {
+export interface ResolveUpdateTargetsArgs<TEntry extends UpdateTargetEntry = UpdateTargetEntry> {
   readonly command: string;
   readonly planName: string;
   readonly planDescription: string;
-  readonly entries: ReadonlyArray<UpdateTargetEntry>;
+  readonly entries: ReadonlyArray<TEntry>;
   readonly source: Option.Option<string>;
   readonly nameFilters: ReadonlyArray<string>;
   readonly nameFilterFlag: string;
@@ -50,12 +48,13 @@ export interface ResolveUpdateTargetsArgs {
   readonly resourceLabelPlural: string;
   readonly noSourceMatchSuggestions?: ReadonlyArray<SuggestedAction>;
   readonly noNameMatchSuggestions?: ReadonlyArray<SuggestedAction>;
+  readonly sourceMayMatchName?: boolean;
 }
 
-export type ResolveUpdateTargetsResult =
+export type ResolveUpdateTargetsResult<TEntry extends UpdateTargetEntry = UpdateTargetEntry> =
   | {
       readonly type: "targets";
-      readonly entries: ReadonlyArray<UpdateTargetEntry>;
+      readonly entries: ReadonlyArray<TEntry>;
     }
   | {
       readonly type: "no-op";
@@ -77,8 +76,21 @@ export const allUpdateTargetResolutionsFailed = (args: AllUpdateTargetResolution
     ...(args.suggestions === undefined ? {} : { suggestions: args.suggestions }),
   });
 
-const sourceMatchesEntrySource = (sourceValue: string, entrySource: string) =>
+const sourceMatchesEntrySource = (sourceValue: string, entrySource: string | undefined) =>
   Effect.gen(function* () {
+    if (entrySource === undefined) return false;
+    const requestedRegistry = parseSourceQualifiedRegistrySourcePatternParts(sourceValue);
+    const configuredRegistry = parseSourceQualifiedRegistrySourcePatternParts(entrySource);
+    if (requestedRegistry !== undefined || configuredRegistry !== undefined) {
+      return (
+        requestedRegistry !== undefined &&
+        configuredRegistry !== undefined &&
+        requestedRegistry.sourceName === configuredRegistry.sourceName &&
+        requestedRegistry.owner === configuredRegistry.owner &&
+        requestedRegistry.type === configuredRegistry.type &&
+        requestedRegistry.name === configuredRegistry.name
+      );
+    }
     const sources = yield* SourceHostProviders;
     const sourceArgResult = yield* Effect.result(resolveSource(sourceValue));
     if (sourceArgResult._tag === "Failure") {
@@ -93,9 +105,15 @@ const sourceMatchesEntrySource = (sourceValue: string, entrySource: string) =>
     return sources.origin(entrySourceResult.success) === sources.origin(sourceArgResult.success);
   });
 
-const filterBySource = (entries: ReadonlyArray<UpdateTargetEntry>, sourceValue: string) =>
+const filterBySource = <TEntry extends UpdateTargetEntry>(
+  entries: ReadonlyArray<TEntry>,
+  sourceValue: string,
+  sourceMayMatchName: boolean,
+) =>
   Effect.gen(function* () {
-    const nameMatchedEntries = entries.filter(([name]) => name === sourceValue);
+    const nameMatchedEntries = sourceMayMatchName
+      ? entries.filter(([name]) => name === sourceValue)
+      : [];
     if (nameMatchedEntries.length > 0) {
       return nameMatchedEntries;
     }
@@ -104,7 +122,7 @@ const filterBySource = (entries: ReadonlyArray<UpdateTargetEntry>, sourceValue: 
       entries,
       (entry) =>
         Effect.map(sourceMatchesEntrySource(sourceValue, entry[1]), (matches) =>
-          matches ? Option.some(entry) : Option.none<UpdateTargetEntry>(),
+          matches ? Option.some(entry) : Option.none<TEntry>(),
         ),
       { concurrency: "unbounded" },
     );
@@ -112,8 +130,8 @@ const filterBySource = (entries: ReadonlyArray<UpdateTargetEntry>, sourceValue: 
     return sourceMatches.filter(Option.isSome).map((match) => match.value);
   });
 
-const filterByNameFilters = (
-  entries: ReadonlyArray<UpdateTargetEntry>,
+const filterByNameFilters = <TEntry extends UpdateTargetEntry>(
+  entries: ReadonlyArray<TEntry>,
   nameFilters: ReadonlyArray<string>,
   resourceType: UpdateTargetResource,
 ) =>
@@ -136,22 +154,26 @@ const filterByNameFilters = (
     return entries.filter(([name]) => matchedSet.has(name));
   });
 
-export const resolveUpdateTargets = (args: ResolveUpdateTargetsArgs) =>
+export const resolveUpdateTargets = <TEntry extends UpdateTargetEntry>(
+  args: ResolveUpdateTargetsArgs<TEntry>,
+) =>
   Effect.gen(function* () {
     const sourceValue = Option.getOrUndefined(args.source);
     const sourceFilteredEntries =
-      sourceValue === undefined ? args.entries : yield* filterBySource(args.entries, sourceValue);
+      sourceValue === undefined
+        ? args.entries
+        : yield* filterBySource(args.entries, sourceValue, args.sourceMayMatchName ?? true);
 
     if (sourceValue !== undefined && sourceFilteredEntries.length === 0) {
       yield* emitNoOpOutcome(args.command, {
         planName: args.planName,
         planDescription: args.planDescription,
-        message: `No installed ${args.resourceLabel} matched "${sourceValue}" as a name or source.`,
+        message: `No installed ${args.resourceLabel} matched "${sourceValue}"${args.sourceMayMatchName === false ? " as a source" : " as a name or source"}.`,
         ...(args.noSourceMatchSuggestions === undefined
           ? {}
           : { suggestions: args.noSourceMatchSuggestions }),
       });
-      return { type: "no-op" } satisfies ResolveUpdateTargetsResult;
+      return { type: "no-op" } satisfies ResolveUpdateTargetsResult<TEntry>;
     }
 
     const filteredEntries = yield* filterByNameFilters(
@@ -169,13 +191,13 @@ export const resolveUpdateTargets = (args: ResolveUpdateTargetsArgs) =>
           ? {}
           : { suggestions: args.noNameMatchSuggestions }),
       });
-      return { type: "no-op" } satisfies ResolveUpdateTargetsResult;
+      return { type: "no-op" } satisfies ResolveUpdateTargetsResult<TEntry>;
     }
 
     return {
       type: "targets",
       entries: filteredEntries,
-    } satisfies ResolveUpdateTargetsResult;
+    } satisfies ResolveUpdateTargetsResult<TEntry>;
   });
 
 export type WorkspaceUpdateSelection =
@@ -195,6 +217,7 @@ export interface ResolveWorkspaceUpdateSelectionArgs {
   readonly resourceLabelPlural: string;
   readonly source: Option.Option<string>;
   readonly nameFilters: ReadonlyArray<string>;
+  readonly sourceMayMatchName?: boolean;
 }
 
 /**
@@ -230,6 +253,9 @@ export const resolveWorkspaceUpdateSelection = (args: ResolveWorkspaceUpdateSele
       resourceType: args.resourceType,
       resourceLabel: args.resourceLabel,
       resourceLabelPlural: args.resourceLabelPlural,
+      ...(args.sourceMayMatchName === undefined
+        ? {}
+        : { sourceMayMatchName: args.sourceMayMatchName }),
     });
 
     if (resolution.type === "no-op") {

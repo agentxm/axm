@@ -1,17 +1,14 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
-import { scopeFlag } from "../../cli-flags.js";
+  type ConfiguredAgentOutcome,
+} from "@agentxm/workspace-state";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { agentFlag } from "../../cli-flags/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   augmentInventory,
@@ -19,9 +16,7 @@ import {
   inventoryAgentOutcomes,
   inventoryState,
   inventorySummary,
-  renderEmptyInventory,
-  renderInventoryTable,
-} from "../extension-inventory.js";
+} from "../inventory-view.js";
 
 export interface ListHandlerArgs {
   readonly agents: readonly string[];
@@ -36,31 +31,24 @@ interface SkillListItem {
   readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }
 
-const SkillListTable = {
-  columns: {
-    name: { header: "Name" },
-    state: { header: "State" },
-    activation: { header: "Activation" },
-    type: { header: "Type" },
-    agents: {
-      header: "Agents",
-      render: (value: ReadonlyArray<string>) => (value.length === 0 ? "none" : value.join(", ")),
-    },
-    agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
+const SkillListColumns = [
+  { header: "Name", priority: "required", value: (row: SkillListItem) => row.name },
+  { header: "State", value: (row: SkillListItem) => row.state },
+  { header: "Activation", value: (row: SkillListItem) => row.activation },
+  { header: "Type", priority: "optional", value: (row: SkillListItem) => row.type },
+  {
+    header: "Agents",
+    value: (row: SkillListItem) => (row.agents.length === 0 ? "none" : row.agents.join(", ")),
   },
-} as const satisfies TableView<SkillListItem>;
-
-registerEntity<SkillListItem>("skill", {
-  list: {
-    columns: SkillListTable.columns,
-    emptyMessage: "No skills found",
-    singularLabel: "skill",
-    pluralLabel: "skills",
+  {
+    header: "Agent outcomes",
+    priority: "optional",
+    value: (row: SkillListItem) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-});
+] satisfies ReadonlyArray<ViewColumn<SkillListItem>>;
 
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const inventory = yield* ws.records.getExtensionInventory("skill", {
     agents: args.agents,
@@ -78,20 +66,17 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     sourceType: locked[row.name]?.type ?? "detected",
   }));
 
-  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
-  if (items.length === 0) {
-    yield* renderEmptyInventory(
-      renderer,
-      args.agents.length === 0 ? "No skills found" : "No skills matched the selected agent filter.",
-    );
-    return;
-  }
-
-  yield* renderInventoryTable(
-    renderer,
-    items,
-    SkillListTable,
-    inventorySummary(inventory, "skill"),
+  if (yield* screen.document(output, ExtensionInventorySchema)) return;
+  yield* screen.result(
+    inventoryDoc({
+      rows: items,
+      columns: SkillListColumns,
+      summary: inventorySummary(inventory, "skill"),
+      empty:
+        args.agents.length === 0
+          ? "No skills found"
+          : "No skills matched the selected agent filter.",
+    }),
   );
 });
 
@@ -99,10 +84,7 @@ const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List skills from project (default) or user-level configuration"),
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Show only skills detected for specific agents"),
-    Flag.atLeast(0),
-  ),
+  agent: agentFlag.pipe(Flag.withDescription("Show only skills detected for specific agents")),
 } as const;
 
 export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>

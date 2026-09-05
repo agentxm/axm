@@ -10,7 +10,7 @@ depends-on:
 
 AXM should make extension management and agent workspace configuration simple
 to understand and safe to repeat. These principles guide command design,
-workspace behavior, diagnostics, and testing.
+workspace behavior, diagnostics, and verification.
 
 ## Responsibilities
 
@@ -70,24 +70,30 @@ baseline for sourced extensions. Canonical extension content, authoritative
 inline configuration, and managed outputs realize desired state. None of those
 artifacts creates desired state on its own.
 
-Commands that change workspace configuration must say so. Commands that
-reconcile current state with desired state must not quietly change
-configuration. An available newer version is not permission to advance a
-satisfying accepted resolution.
+Commands that change workspace configuration must say so. For commands that
+reconcile current state with desired state, the binding obligation is the
+executable specification `cli/sync/preserves-configuration-and-resolutions` in
+the [specification catalog](../../specifications/catalog.md): reconciliation
+preserves workspace configuration and satisfying accepted resolutions.
 
 A command input that promises durable behavior must be recorded in an
 authoritative source that later reconciliation consumes. First materialization
 alone cannot make an activation, target, or other workspace choice persistent.
 
 Missing, malformed, or incompatible lock state is consequential because it owns
-accepted external resolution. It never creates reachability and AXM never
-reconstructs it from installed bytes or obsolete trust state.
+accepted external resolution. The executable specification
+`cli/lock-state-never-creates-reachability` owns the obligation that
+lock state never creates reachability. AXM never reconstructs lock state from
+installed bytes or obsolete trust state.
 
 ## Require authority to change content
 
-AXM changes content only when it can establish authority over the smallest
-independently changeable unit. A familiar path, matching name, or matching
-bytes do not establish that authority.
+The binding obligation — content changes require established authority over
+the smallest independently changeable unit — is owned by the executable
+specification `cli/install/preserves-unrelated-and-unowned-state` and the
+whole-surface workspace specifications at the root of `specifications/cli/` in the
+[specification catalog](../../specifications/catalog.md). The rest of this
+section elaborates that boundary.
 
 AXM preserves unowned content by default. Preservation does not prove that the
 surrounding workspace state is valid or safely reconcilable. Each extension
@@ -134,8 +140,9 @@ committed.
 ## Make repeated use safe
 
 Running a successful command again with the same inputs should produce no
-further change. Plans must be checked against current state before application,
-and concurrent workspace changes must not interleave.
+further change. Plans must be checked against current state before application.
+The executable specification `cli/changes-do-not-interleave` owns the
+obligation that concurrent workspace changes must not interleave.
 
 Handled failures roll back the affected semantic closure, including its
 settings, lock, canonical-content, and owned-output changes. After abrupt
@@ -147,17 +154,19 @@ command intent.
 ## Keep overrides rare and honest
 
 Routine behavior deserves an explicit mode such as `--preview`, `--reinstall`,
-or `--ignore-release-age`. `--force` is an exceptional escape hatch only for a
-clearly named policy that may safely be bypassed. It never bypasses ownership,
-accepted-resolution authority, concurrency safety, stale-plan checks, rollback,
-or workspace invariants.
+or `--ignore-release-age`. The binding force boundary is the executable
+specification `cli/force-bypasses-only-named-policies` in the
+[specification catalog](../../specifications/catalog.md): `--force` bypasses
+only an explicitly named forceable policy and never a hard invariant.
 
 `--yes` controls interaction. It does not broaden permission, and `--force`
 does not imply it.
 
-## Test the promises of each feature
+## Specify the promises of each feature
 
-Each feature document states what its tests must prove. Tests should exercise
-observable outcomes, significant failure paths, preserved state, and repeated
-execution. They should not mirror internal modules or make a second copy of the
-implementation.
+The executable specifications under `specifications/`, indexed by the
+[specification catalog](../../specifications/catalog.md), own each feature's
+promises. Specifications exercise observable outcomes, significant failure
+paths, preserved state, and repeated execution. Implementation tests are
+internal evidence for the code they cover; they do not own promises or make a
+second copy of the implementation.

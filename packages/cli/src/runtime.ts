@@ -10,26 +10,27 @@ import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as References from "effect/References";
 import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 import { pathToFileURL } from "node:url";
 
-import {
-  AppError,
-  makeAppError,
-  redactSensitiveValue,
-} from "@agentxm/client-core/unstable/app-error";
-import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
+import { AppError, makeAppError } from "./app-error/index.js";
 
 import {
-  type CliTelemetryConfigService,
-  type OutputFormat,
+  AgentPresenceProbeLive,
+  AxmSkillCandidateGateLive,
+  WorkspaceCatalogLive,
+} from "./cli-runtime/index.js";
+import {
+  type CliTelemetryConfig,
+  type ExpectedCliError,
   getCommandSemanticProperties,
+  InterruptionSignalSourceLive,
   makeFoundationLayer,
+  ResolvePlanInteractionLive,
   resolveCliFormat,
   setCommandSemanticProperties,
   withCliErrorHandling,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "./cli-runtime/index.js";
 import {
   Verbosity,
   type VerbosityLevel,
@@ -39,61 +40,56 @@ import {
   debugFlag,
   quietFlag,
   directoryFlag,
-  verbosityToLogLevel,
-} from "@agentxm/client-core/unstable/cli-flags";
+} from "./cli-flags/index.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 import {
-  makeAxmSkillCompatibilityPolicyLayer,
+  HookConfiguredAgentOutcomesProviderLive,
+  HookManagerLive,
+  KnowledgeManagerLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
   SkillManagerLive,
-} from "@agentxm/client-core/unstable/skills";
-import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeIndexLive, KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+  SubagentManagerLive,
+} from "@agentxm/extension-lifecycle/live";
+import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
+import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
+import { toAppError } from "./app-error/conversions.js";
+import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
+import {
+  AuthoringFailureAdapterLive,
+  InspectionFailureAdapterLive,
+  LifecycleFailureAdapterLive,
+} from "./feature-errors.js";
+import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
+import {
+  GitDirectoryComparisonLive,
+  SourceHostProvidersLive,
+} from "@agentxm/extension-sources/live";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   AuthClientLive,
-  AuthGuardInteractionLive,
   AuthLoginInteractionLive,
   AuthMiddlewareLive,
   CredentialStoreLive,
   CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
-  RegistryUrl,
-} from "@agentxm/client-core/unstable/auth";
-import { InstallHookCommandWorkflowActionsLive } from "./root/hooks/install/command-actions.js";
-import { UninstallHookCommandWorkflowActionsLive } from "./root/hooks/uninstall/command-actions.js";
-import { InstallKnowledgeCommandWorkflowActionsLive } from "./root/knowledge/install/command-actions.js";
-import { UninstallKnowledgeCommandWorkflowActionsLive } from "./root/knowledge/uninstall/command-actions.js";
-import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/install/command-actions.js";
-import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/uninstall/command-actions.js";
-import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
-import { UninstallPackCommandWorkflowActionsLive } from "./root/packs/uninstall/command-actions.js";
-import { InstallRuleCommandWorkflowActionsLive } from "./root/rules/install/command-actions.js";
-import { UninstallRuleCommandWorkflowActionsLive } from "./root/rules/uninstall/command-actions.js";
-import { InstallSkillCommandWorkflowActionsLive } from "./root/skills/install/command-actions.js";
-import { UninstallSkillCommandWorkflowActionsLive } from "./root/skills/uninstall/command-actions.js";
-import { InstallSubagentCommandWorkflowActionsLive } from "./root/subagents/install/command-actions.js";
-import { UninstallSubagentCommandWorkflowActionsLive } from "./root/subagents/uninstall/command-actions.js";
-import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
-import type {
-  WorkspaceMutationsOptions,
-  WorkspaceScope,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/registry-auth/live";
+import { RegistryUrl } from "@agentxm/registry-client";
+import { resolveTelemetryMode } from "./telemetry/index.js";
+import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import type { SourceHostConfig } from "@agentxm/workspace-state";
 import {
-  layer as coreWorkspaceLayer,
-  ResolvePlanInteractionLive,
-  WorkspaceInitializationInteractionLive,
-} from "@agentxm/client-core/unstable/workspace";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
-import { decodeAbsolutePathSync, type AbsolutePath } from "@agentxm/client-core/unstable/utils";
+  decodeAbsolutePathSync,
+  type AbsolutePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "./execution-directory.js";
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
+import { ScreenLoggerLive } from "./screen/index.js";
 
 export { verboseFlag, debugFlag };
 
@@ -173,49 +169,12 @@ export const cliConfigLayer = CliConfig.layer({ builtIns: [GlobalFlag.Help, vers
 
 export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer, cliConfigLayer);
 
-/**
- * Verbosity-driven diagnostics always use stderr so structured command output
- * on stdout remains machine-readable. The minimum level tracks the full
- * verbosity ladder (quiet→Warn, normal→Info, verbose→Debug, debug→Trace).
- */
-const formatMachineLogMessage = (message: unknown): string => {
-  const redacted = redactSensitiveValue(message);
-  if (typeof redacted === "string") return redacted;
-  if (Array.isArray(redacted)) {
-    return redacted
-      .map((part) => (typeof part === "string" ? part : (JSON.stringify(part) ?? String(part))))
-      .join(" ");
-  }
-  return JSON.stringify(redacted) ?? String(redacted);
-};
+/** Route Effect diagnostics through the Screen's serialized transcript writer. */
+export const makeCliLoggerLayer = (level: VerbosityLevel) => ScreenLoggerLive(level);
 
-const machineLogLevel = (level: Logger.Options<unknown>["logLevel"]) => {
-  if (level === "Fatal" || level === "Error") return "error";
-  if (level === "Warn") return "warn";
-  return "info";
-};
-
-const machineLogger = Logger.withConsoleError(
-  Logger.make((options) =>
-    JSON.stringify({
-      type: "log",
-      level: machineLogLevel(options.logLevel),
-      message: formatMachineLogMessage(options.message),
-    }),
-  ),
+const makeRuntimeLoggerLayer = Layer.unwrap(
+  Effect.map(Verbosity, (verbosity) => makeCliLoggerLayer(verbosity.level)),
 );
-
-export const makeCliLoggerLayer = (level: VerbosityLevel, format: OutputFormat = "text") =>
-  Layer.mergeAll(
-    Logger.layer([format === "json" ? machineLogger : Logger.consolePretty()], {
-      mergeWithExisting: false,
-    }),
-    Layer.succeed(References.LogToStderr, true),
-    Layer.succeed(References.MinimumLogLevel, verbosityToLogLevel(level)),
-  );
-
-const makeRuntimeLoggerLayer = (format: OutputFormat) =>
-  Layer.unwrap(Effect.map(Verbosity, (verbosity) => makeCliLoggerLayer(verbosity.level, format)));
 
 interface RuntimeEnvConfig {
   readonly registryLocation: string;
@@ -251,8 +210,8 @@ export const resolveBuiltInSources = Effect.gen(function* () {
   return getBuiltInSources(resolveBuiltInRegistryLocation(process.env, registryUrl));
 });
 
-const getBuiltInSources = (registryLocation: string): ReadonlyArray<SourceHostConfig> => [
-  { name: "default", type: "registry", location: new URL(registryLocation) },
+export const getBuiltInSources = (registryLocation: string): ReadonlyArray<SourceHostConfig> => [
+  { name: "agentxm", type: "registry", location: new URL(registryLocation) },
   { name: "github", type: "github", url: new URL("https://github.com") },
   { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
   { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
@@ -270,7 +229,7 @@ const readRuntimeEnvConfig = Effect.gen(function* () {
   };
 });
 
-const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfigService => ({
+const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig => ({
   mode: resolveTelemetryMode({
     doNotTrack: Option.getOrUndefined(envConfig.doNotTrack),
     telemetry: Option.getOrUndefined(envConfig.telemetry),
@@ -283,72 +242,54 @@ const makeWorkspaceProgramLayer = (
   workspace: Omit<WorkspaceMutationsOptions, "builtInSources">,
 ) => {
   // -- WorkspaceMutations foundation --
-  const wsLayer = coreWorkspaceLayer({
-    ...workspace,
-    builtInSources: getBuiltInSources(registryLocation),
-  });
-  const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
+  const wsLayer = Layer.provide(
+    coreWorkspaceLayer({
+      ...workspace,
+      builtInSources: getBuiltInSources(registryLocation),
+    }),
+    AgentPresenceProbeLive,
+  );
+  const workspaceCatalogLayer = Layer.provide(
+    WorkspaceCatalogLive,
+    Layer.merge(wsLayer, CodingAgentRepositoryLive),
+  );
+  const sourceProvidersLayer = Layer.provide(
+    SourceHostProvidersLive,
+    Layer.merge(workspaceCatalogLayer, AxmSkillCandidateGateLive),
+  );
+  const gitDirectoryComparisonLayer = Layer.provide(GitDirectoryComparisonLive, PlatformLayer);
   const workspaceServiceLayer = Layer.mergeAll(
     wsLayer,
+    workspaceCatalogLayer,
     sourceProvidersLayer,
+    gitDirectoryComparisonLayer,
     CodingAgentRepositoryLive,
+    AuthoringFailureAdapterLive,
+    InspectionFailureAdapterLive,
+    LifecycleFailureAdapterLive,
   );
 
-  // Extensions: wire workflow actions with core managers.
   // Leaf managers are independent. Packs depend on the other managers.
-  const rulesLayer = Layer.provideMerge(
-    Layer.mergeAll(InstallRuleCommandWorkflowActionsLive, UninstallRuleCommandWorkflowActionsLive),
-    RuleManagerLive,
-  );
-  const hooksLayer = Layer.provideMerge(
-    Layer.mergeAll(InstallHookCommandWorkflowActionsLive, UninstallHookCommandWorkflowActionsLive),
-    HookManagerLive,
-  );
-  const mcpServersLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallMcpServerCommandWorkflowActionsLive,
-      UninstallMcpServerCommandWorkflowActionsLive,
-    ),
-    McpServerManagerLive,
-  );
-  const skillsLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallSkillCommandWorkflowActionsLive,
-      UninstallSkillCommandWorkflowActionsLive,
-    ),
-    SkillManagerLive,
-  );
-  const subagentsLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallSubagentCommandWorkflowActionsLive,
-      UninstallSubagentCommandWorkflowActionsLive,
-    ),
-    SubagentManagerLive,
-  );
-  const knowledgeLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallKnowledgeCommandWorkflowActionsLive,
-      UninstallKnowledgeCommandWorkflowActionsLive,
-    ),
-    KnowledgeManagerLive,
-  );
-  const packsLayer = Layer.provideMerge(
-    Layer.mergeAll(InstallPackCommandWorkflowActionsLive, UninstallPackCommandWorkflowActionsLive),
-    PackManagerLive,
-  );
   const coreExtensions = Layer.mergeAll(
-    rulesLayer,
-    hooksLayer,
-    mcpServersLayer,
-    skillsLayer,
-    subagentsLayer,
-    knowledgeLayer,
+    RuleManagerLive,
+    HookManagerLive,
+    McpServerManagerLive,
+    SkillManagerLive,
+    SubagentManagerLive,
+    KnowledgeManagerLive,
     KnowledgeIndexLive,
   );
-  const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
+  const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
   const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
-  const invariantFactsLayer = Layer.provide(WorkspaceInvariantFactsLive, fullLayer);
-  return Layer.merge(fullLayer, invariantFactsLayer);
+  const invariantFactsLayer = Layer.provide(
+    makeWorkspaceInvariantFactsLive({ describeFailure: (failure) => toAppError(failure).detail }),
+    fullLayer,
+  );
+  const configuredAgentOutcomesLayer = Layer.provide(
+    HookConfiguredAgentOutcomesProviderLive,
+    fullLayer,
+  );
+  return Layer.mergeAll(fullLayer, invariantFactsLayer, configuredAgentOutcomesLayer);
 };
 
 const envToBool = (opt: Option.Option<string>): boolean =>
@@ -375,7 +316,7 @@ type CliWorkspaceOptions = Omit<WorkspaceMutationsOptions, "builtInSources" | "p
 
 export const withWorkspace =
   (options: WorkspaceScope | CliWorkspaceOptions) =>
-  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
+  <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
     Effect.gen(function* () {
       const envConfig = yield* readRuntimeEnvConfig;
       const executionDirectory = yield* ExecutionDirectory;
@@ -385,13 +326,10 @@ export const withWorkspace =
         projectRoot: configured.projectRoot ?? executionDirectory.path,
       } satisfies Omit<WorkspaceMutationsOptions, "builtInSources">;
       const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
-      const renderer = yield* CliRenderer;
       return yield* Effect.scoped(
-        renderer
-          .withSpinner(`Loading ${resolved.scope} workspace`, () => Layer.build(wsLayer), {
-            successMessage: `Loaded ${resolved.scope} workspace`,
-          })
-          .pipe(Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext))),
+        Layer.build(wsLayer).pipe(
+          Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext)),
+        ),
       ).pipe(
         Effect.mapError((error) => {
           if (error._tag !== "AppError" || error.suggestions === undefined) return error;
@@ -404,6 +342,7 @@ export const withWorkspace =
             ...(error.retryable === undefined ? {} : { retryable: error.retryable }),
             ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
             ...(error.action === undefined ? {} : { action: error.action }),
+            ...(error.problem === undefined ? {} : { problem: error.problem }),
             suggestions: suggestionsForScope(error.suggestions, resolved.scope),
             cause: error.cause,
           });
@@ -420,9 +359,23 @@ export const withWorkspace =
       );
     });
 
+/**
+ * Discharge the minimum-release-age posture at a command boundary.
+ *
+ * Every gated handler carries `ReleaseAgePosture` in `R` up to its command, so
+ * a command the gate can block does not compile until it calls this helper —
+ * and the argument is always its own parsed `--ignore-release-age` flag, never
+ * a decision written here. A leaf can no longer settle a policy its command
+ * never surfaced, and a newly gated command cannot ship without the override.
+ */
+export const withReleaseAgePosture =
+  (ignoreReleaseAge: boolean) =>
+  <A, E, R>(program: Effect.Effect<A, E, R>) =>
+    Effect.provideService(program, ReleaseAgePosture, ignoreReleaseAge ? "ignore" : "enforce");
+
 export const withRuntime =
   (command?: string) =>
-  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
+  <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
     Effect.gen(function* () {
       const directory = yield* directoryFlag;
       const selected = Option.getOrElse(directory, () => process.cwd());
@@ -451,14 +404,23 @@ export const withRuntime =
         envVerbose: config.envVerbose,
         envDebug: config.envDebug,
       });
-      const interactionLayer = Layer.mergeAll(
-        AuthGuardInteractionLive,
-        ResolvePlanInteractionLive,
-        WorkspaceInitializationInteractionLive,
+      // The foundation layer instance is shared with appLayer below, so the
+      // interaction Lives observe the same renderer and verbosity services.
+      const interactionLayer = Layer.provide(
+        Layer.mergeAll(
+          ResolvePlanInteractionLive,
+          WorkspaceInitializationInteractionLive,
+          AuthLoginPresenterLive,
+          InterruptionSignalSourceLive,
+        ),
+        foundationLayer,
       );
+      // The coding-agent repository is context-free and serves commands that
+      // run before a workspace exists (setup); workspace-bound commands get
+      // the same layer again through withWorkspace, harmlessly.
       const appLayer = Layer.provideMerge(
-        makeRuntimeLoggerLayer(format),
-        Layer.mergeAll(foundationLayer, interactionLayer),
+        makeRuntimeLoggerLayer,
+        Layer.mergeAll(foundationLayer, interactionLayer, CodingAgentRepositoryLive),
       );
 
       return yield* withCliErrorHandling(
@@ -473,3 +435,11 @@ export const withRuntime =
         },
       ).pipe(Effect.provide(appLayer), Effect.scoped);
     }).pipe(Effect.provide(RegistryRuntimeLayer));
+
+// Machine-output decoding surface for JavaScript and TypeScript automation.
+// The machine-output help topic points consumers here, so the published
+// `axm.sh/runtime` entry re-exports the schema and kind detector.
+export {
+  MachineOutputDocumentSchema,
+  detectMachineOutputDocumentKind,
+} from "./cli-runtime/index.js";

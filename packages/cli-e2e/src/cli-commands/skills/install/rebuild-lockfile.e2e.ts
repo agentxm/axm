@@ -6,14 +6,14 @@ import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.j
 import { getOutput } from "../../../test-helpers.js";
 
 describe("authoritative lockfile recovery boundary", () => {
-  it("creates a new v4 lockfile containing only the requested external resolution", async () => {
+  it("creates a new v7 lockfile containing only the requested external resolution", async () => {
     const temp = createTempDir();
     try {
       await runCli(
         ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
         { cwd: temp.path },
       );
-      const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lockfilePath = path.join(temp.path, "axm-lock.yaml");
       fs.rmSync(lockfilePath, { force: true });
 
       const result = await runCli(
@@ -23,7 +23,7 @@ describe("authoritative lockfile recovery boundary", () => {
 
       expect(result.exitCode, getOutput(result)).toBe(0);
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf8"));
-      expect(lock.lockfileVersion).toBe(4);
+      expect(lock.lockfileVersion).toBe(7);
       expect(Object.keys(lock.skills)).toEqual(["another-skill"]);
       expect(lock.skills["another-skill"]).toMatchObject({ type: "local" });
     } finally {
@@ -38,7 +38,7 @@ describe("authoritative lockfile recovery boundary", () => {
         ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
         { cwd: temp.path },
       );
-      const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lockfilePath = path.join(temp.path, "axm-lock.yaml");
       const invalidLockfile = "lockfileVersion: [broken\n";
       fs.writeFileSync(lockfilePath, invalidLockfile);
 
@@ -47,14 +47,12 @@ describe("authoritative lockfile recovery boundary", () => {
         { cwd: temp.path },
       );
 
-      expect(result.exitCode).toBe(6);
-      expect(getOutput(result)).toContain("authoritative lockfile is invalid");
+      expect(result.exitCode).toBe(9);
+      expect(getOutput(result)).toContain(
+        `Workspace lockfile at ${fs.realpathSync(lockfilePath)} is not valid YAML`,
+      );
       expect(fs.readFileSync(lockfilePath, "utf8")).toBe(invalidLockfile);
-      expect(
-        fs.existsSync(
-          path.join(temp.path, ".axm", "extensions", "external", "skills", "another-skill"),
-        ),
-      ).toBe(false);
+      expect(fs.existsSync(path.join(temp.path, "agent_extensions", "local"))).toBe(false);
     } finally {
       temp.cleanup();
     }
@@ -67,7 +65,7 @@ describe("authoritative lockfile recovery boundary", () => {
         ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
         { cwd: temp.path },
       );
-      const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lockfilePath = path.join(temp.path, "axm-lock.yaml");
       const invalidLockfile = "lockfileVersion: [broken\n";
       fs.writeFileSync(lockfilePath, invalidLockfile);
 
@@ -84,8 +82,10 @@ describe("authoritative lockfile recovery boundary", () => {
         { cwd: temp.path },
       );
 
-      expect(result.exitCode).toBe(6);
-      expect(getOutput(result)).toContain("authoritative lockfile is invalid");
+      expect(result.exitCode).toBe(9);
+      expect(getOutput(result)).toContain(
+        `Workspace lockfile at ${fs.realpathSync(lockfilePath)} is not valid YAML`,
+      );
       expect(fs.readFileSync(lockfilePath, "utf8")).toBe(invalidLockfile);
     } finally {
       temp.cleanup();

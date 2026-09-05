@@ -2,19 +2,28 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
-  publicRecoveryValue,
-  recoveryOption,
-  recoverySwitch,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type SubjectType,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/plan";
+} from "../../cli-runtime/index.js";
+import {
+  previewOrApplyPlan,
+  publicRecoveryValue,
+  recoveryOption,
+  recoverySwitch,
+} from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
 
-import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./workspace-update.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  makeInstallCommandActions,
+  type InstallCommandActions,
+} from "../shared/install-command-actions.js";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>): SubjectType =>
   Option.match(type, {
@@ -26,7 +35,6 @@ export interface WorkspaceUpdateFlags {
   readonly yes: boolean;
   readonly preview: boolean;
   readonly force?: boolean;
-  readonly ignoreReleaseAge?: boolean;
 }
 
 const workspaceUpdateCommand = (
@@ -54,7 +62,7 @@ const workspaceUpdateCommand = (
     },
   });
 
-export const handleWorkspaceUpdate = (args: {
+export interface WorkspaceUpdateHandlerArgs {
   readonly command: string;
   readonly type: Option.Option<WorkspaceUpdatableType>;
   readonly planName: string;
@@ -62,15 +70,48 @@ export const handleWorkspaceUpdate = (args: {
   readonly flags: WorkspaceUpdateFlags;
   /** Installed names a selector resolved to; omit to update every entry. */
   readonly names?: ReadonlyArray<string>;
-}) =>
-  Effect.gen(function* () {
-    const planResult = yield* buildWorkspaceUpdatePlan({
-      type: args.type,
+}
+
+const handleWorkspaceUpdateWithActionEffect = <R>(
+  args: WorkspaceUpdateHandlerArgs,
+  actionsEffect: Effect.Effect<InstallCommandActions, never, R>,
+) =>
+  withOperationLifecycle(
+    {
+      command: args.command,
+      mode: args.flags.preview ? "preview" : "apply",
       planName: args.planName,
-      planDescription: args.planDescription,
-      ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
-      ...(args.names === undefined ? {} : { names: args.names }),
-    });
+      declaredAtomicity: "non-rollbackable",
+      presentation: operationPresentation(
+        { imperative: "update", past: "Updated", gerund: "Updating" },
+        Option.getOrUndefined(args.type),
+      ),
+    },
+    Effect.flatMap(actionsEffect, (actions) => handleWorkspaceUpdateBody(args, actions)),
+  );
+
+export const handleWorkspaceUpdate = (args: WorkspaceUpdateHandlerArgs) =>
+  handleWorkspaceUpdateWithActionEffect(args, makeInstallCommandActions);
+
+export const handleWorkspaceUpdateWithActions = (
+  args: WorkspaceUpdateHandlerArgs,
+  actions: InstallCommandActions,
+) => handleWorkspaceUpdateWithActionEffect(args, Effect.succeed(actions));
+
+const handleWorkspaceUpdateBody = (
+  args: WorkspaceUpdateHandlerArgs,
+  actions: InstallCommandActions,
+) =>
+  Effect.gen(function* () {
+    const planResult = yield* buildWorkspaceUpdatePlan(
+      {
+        type: args.type,
+        planName: args.planName,
+        planDescription: args.planDescription,
+        ...(args.names === undefined ? {} : { names: args.names }),
+      },
+      actions,
+    );
 
     if (planResult._tag === "NoConfiguredExtensions") {
       yield* setCommandSemanticProperties(
@@ -91,11 +132,21 @@ export const handleWorkspaceUpdate = (args: {
       return;
     }
 
+    const nonConvergingNames = new Set(
+      planResult.plan.jobs.flatMap((job) =>
+        job.steps.flatMap((step) =>
+          step.key?.startsWith("not-applicable:") === true ||
+          step.key?.endsWith(":planning-error") === true
+            ? [step.label]
+            : [],
+        ),
+      ),
+    );
     const execution = yield* makePlanExecution(
       args.flags,
       makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
         recoverySwitch("--refresh", args.flags.force === true),
-        recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
+        recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
         ...(args.names ?? []).map((name) => recoveryOption("--name", publicRecoveryValue(name))),
       ]),
       [],
@@ -109,18 +160,21 @@ export const handleWorkspaceUpdate = (args: {
                   job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
                 ),
             ),
-          ].map((name) => ({ extensionType, name, targetEnabled: true })),
+          ]
+            .filter((name) => !nonConvergingNames.has(name))
+            .map((name) => ({ extensionType, name, plannedState: "enabled" as const })),
       }),
     );
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
-    const outputResolution: PlanResolution = resolution;
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(
-        planResolutionToSummary(outputResolution, {
+        operationResolutionSummary(resolution, {
           subjectType: workspaceUpdateSubjectType(args.type),
           sourceKind: "workspace",
         }),
       ),
     );
-    yield* emitPlanResolutionResult(args.command, outputResolution);
+    yield* emitOperationResolution(args.command, resolution, {
+      suggestions: [{ description: "Inspect installed extensions", cmd: "axm list" }],
+    });
   });

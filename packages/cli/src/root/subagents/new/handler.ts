@@ -2,36 +2,41 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 import {
   buildNewExtensionStep,
-  computeSourceHash,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
+} from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-authoring";
+import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
+import { type WorkspaceSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import {
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
-  preflightCreateOnly,
   type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
-  subagentScaffoldArtifact,
-  subagentSourcePath,
-  subagentContentPath,
-  SubagentManager,
   type SubagentManifest,
-  type WorkspaceSubagentRef,
-} from "@agentxm/client-core/unstable/subagents";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
-import { emitPlanResolutionResult } from "../../../json-output.js";
+} from "@agentxm/extension-model/unstable/subagents/manifest-schema";
+import { subagentContentPath, SubagentManager } from "@agentxm/extension-workspace";
+import type { JobStepArtifact, Plan } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { joinDisplayPath } from "../../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
-import { emitScaffoldSuccess } from "../../shared/scaffold-success.js";
+import { requireAuthoredOwner } from "../../shared/authored-owner.js";
+import {
+  workspaceAuthoredRoot,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -40,7 +45,6 @@ const INITIAL_VERSION = decodeVersionSync("0.0.1");
 export interface SubagentsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<string>;
-  readonly agents: Option.Option<readonly string[]>;
   readonly yes: boolean;
   readonly preview: boolean;
 }
@@ -52,7 +56,17 @@ const STARTER_BODY = "Describe what this subagent does and when to delegate work
 const makeSubagentMd = (name: string) =>
   ["---", `name: ${name}`, "---", "", STARTER_BODY].join("\n");
 
-export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
+export const handleSubagentsNew = (args: SubagentsNewHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "subagents.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New subagent",
+    },
+    handleSubagentsNewBody(args),
+  );
+
+const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
   args: SubagentsNewHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
@@ -64,6 +78,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   const owner = Option.isSome(args.owner)
     ? normalizeOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("subagent creation");
+  yield* requireAuthoredOwner(owner);
 
   // 2. Validate name
   if (
@@ -83,11 +98,13 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   }
 
   // 3. Check existence
-  const configuredSubagents = yield* ws.getConfiguredSubagentEntries();
+  const configuredSubagents = yield* ws
+    .getConfiguredSubagentEntries()
+    .pipe(Effect.mapError(toAppError));
   const fqn = formatFqn({ owner, type: "subagent", name: args.name });
-  const scaffoldPath = subagentSourcePath(owner, args.name);
   const base = ws.baseDir;
-  const canonicalPath = path.join(base, scaffoldPath);
+  const canonicalPath = path.join(workspaceAuthoredRoot(path, ws, "subagent", owner), args.name);
+  const authoredPath = path.relative(base, canonicalPath);
   yield* preflightCreateOnly({
     subject: "Subagent",
     name: args.name,
@@ -109,28 +126,31 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
       description: Option.none(),
     },
   };
-  const scaffoldArtifact = subagentScaffoldArtifact({
-    owner,
-    name: args.name,
+  const artifact = {
+    path: authoredPath,
     scope: ws.scope,
     version: "0.0.1",
-  });
-  const artifact = {
-    ...scaffoldArtifact,
+    change: "created" as const,
+    fileCount: 2,
     targets: [
-      ...(scaffoldArtifact.targets ?? []),
-      { path: ".axm (config/lockfile)", change: "created" as const },
+      { path: path.join(authoredPath, MANIFEST_FILENAME), change: "created" as const },
+      {
+        path: path.join(authoredPath, "src", `${args.name}.md`),
+        change: "created" as const,
+      },
+      { path: workspaceSettingsPath(ws.scope), change: "created" as const },
     ],
-  };
+  } satisfies JobStepArtifact;
 
   const step = buildNewExtensionStep(manager, {
+    toStepFailure: failureToStepFailure,
     ref,
     target: { type: "subagent", name: args.name },
     versionRange: Option.none(),
     label: fqn,
     message: `Created subagent ${fqn}`,
     preflight: Effect.gen(function* () {
-      const current = yield* ws.getConfiguredSubagentEntries();
+      const current = yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError));
       yield* recoverCanonicalDirectory({ baseDir: base, canonicalPath }).pipe(
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
@@ -142,10 +162,12 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
         destinations: [canonicalPath],
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
-    markAuthored: ws.setSubagentEntry(args.name, {
-      source: `workspace:${fqn}`,
-      enabled: true,
-    }),
+    markAuthored: ws
+      .setSubagentEntry(args.name, {
+        source: "workspace",
+        enabled: true,
+      })
+      .pipe(Effect.mapError(toAppError)),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     scaffold: createCanonicalDirectory({
@@ -209,35 +231,23 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     _tag: "Plan",
     name: "New subagent",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "subagent",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
-    displayApplied: false,
   });
 
   const suggestions = [
     {
-      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "subagents", args.name, "src", `${args.name}.md`)}\` to fill in instructions`,
+      description: `Edit \`${joinDisplayPath(path, authoredPath, "src", `${args.name}.md`)}\` to fill in instructions`,
     },
   ];
 
-  const emitted = yield* emitPlanResolutionResult(
-    "subagents.new",
-    resolution,
-    resolution._tag === "ExecutedPlan"
-      ? { summary: `-> ${scaffoldPath}   0.0.1 | 2 files`, suggestions }
-      : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created subagent ${fqn}`,
-      summary: `-> ${scaffoldPath}   0.0.1 | 2 files`,
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("subagents.new", resolution, { suggestions });
 });

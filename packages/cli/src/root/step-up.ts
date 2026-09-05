@@ -5,44 +5,63 @@ import * as Result from "effect/Result";
 import {
   AuthClient,
   AuthLoginInteraction,
-  RegistryUrl,
+  authLoginRequired,
   readStepUpRequest,
+  StepUpRequired,
   resolveRequiredToken,
-} from "@agentxm/client-core/unstable/auth";
-import { errAuthRequired, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { isNonInteractive, jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+  type StepUpRequest,
+} from "@agentxm/registry-auth";
+import { RegistryUrl } from "@agentxm/registry-client";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { AppError } from "../app-error/index.js";
+import { isNonInteractive, jsonFlag } from "../cli-flags/index.js";
+import { Screen, paragraphDoc } from "../screen/index.js";
+import { coerceAuthFailure } from "../feature-errors.js";
+import { withLiveOperation } from "./shared/operation-lifecycle.js";
 
-export interface StepUpOperationMessages {
-  readonly initial: string;
-  readonly success: string;
-  readonly failure: string;
-  readonly cancelled: string;
+export interface StepUpOperation {
+  /** Command identity, dot-separated as elsewhere (e.g. "auth.token.create"). */
+  readonly command: string;
+  /** Operation name observers render. */
+  readonly name: string;
+  /** Label of the verification wait unit. */
   readonly waiting: string;
-  readonly authorized: string;
 }
 
-export const runWithStepUp = <A, R>(
-  operation: (stepUpRequestId?: string) => Effect.Effect<A, AppError, R>,
-  messages: StepUpOperationMessages,
+const failureStepUpRequest = (failure: unknown): StepUpRequest | null =>
+  failure instanceof StepUpRequired
+    ? failure.stepUp
+    : failure instanceof AppError
+      ? readStepUpRequest(failure)
+      : null;
+
+export const runWithStepUp = <A, E, R>(
+  operation: (stepUpRequestId?: string) => Effect.Effect<A, E, R>,
+  messages: StepUpOperation,
+) =>
+  withLiveOperation(
+    { command: messages.command, name: messages.name, mode: "apply" },
+    runStepUpBody(operation, messages),
+  );
+
+const runStepUpBody = <A, E, R>(
+  operation: (stepUpRequestId?: string) => Effect.Effect<A, E, R>,
+  messages: StepUpOperation,
 ) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    const activity = yield* renderer.spinner(messages.initial);
-    const initial = yield* Effect.result(operation()).pipe(
-      Effect.onInterrupt(() => activity.cancel(messages.cancelled)),
+    const screen = yield* Screen;
+    const initial = yield* observeUnit(
+      { id: "operation", label: messages.name },
+      Effect.result(operation()),
     );
     if (Result.isSuccess(initial)) {
-      yield* activity.stop(messages.success);
       return { value: initial.success, stepUpCompleted: false };
     }
 
-    const stepUp = readStepUpRequest(initial.failure);
+    const stepUp = failureStepUpRequest(initial.failure);
     if (stepUp === null) {
-      yield* activity.error(messages.failure);
-      return yield* initial.failure;
+      return yield* Effect.fail(initial.failure);
     }
-    yield* activity.stop("Additional verification required");
 
     const registryUrl = yield* RegistryUrl;
     const authClient = yield* AuthClient;
@@ -50,31 +69,33 @@ export const runWithStepUp = <A, R>(
     const nonInteractive = yield* isNonInteractive;
     const jsonMode = Option.getOrElse(yield* jsonFlag, () => false);
     const token = yield* resolveRequiredToken(registryUrl, {
-      missingTokenError: errAuthRequired("Not authenticated"),
-    });
+      missingTokenError: authLoginRequired("Not authenticated"),
+    }).pipe(Effect.mapError(coerceAuthFailure));
 
     const opened =
       nonInteractive || jsonMode ? false : yield* interaction.openBrowser(stepUp.verificationUrl);
-    yield* renderer.instruction(`Action: ${stepUp.action}`);
-    yield* renderer.instruction(`Target: ${stepUp.target}`);
-    yield* renderer.instruction(`Verify at: ${stepUp.verificationUrl}`);
-    yield* renderer.instruction(`Verification expires at: ${stepUp.expiresAt}`);
-    yield* renderer.instruction(
+    for (const instruction of [
+      `Action: ${stepUp.action}`,
+      `Target: ${stepUp.target}`,
+      `Verify at: ${stepUp.verificationUrl}`,
+      `Verification expires at: ${stepUp.expiresAt}`,
       opened
         ? "A browser was opened. This command will retry automatically after verification."
         : "Open the verification URL in a browser. This command will retry automatically after verification.",
-    );
-    yield* renderer.instruction(
       "If verification expires or is cancelled, rerun the command to restart.",
-    );
+    ]) {
+      yield* screen.note(paragraphDoc(instruction), { persistent: true });
+    }
 
-    yield* renderer.withSpinner(
-      messages.waiting,
-      () => authClient.waitForStepUpRequest(token.token, stepUp.statusUrl, stepUp.intervalSeconds),
-      { successMessage: messages.authorized },
+    yield* observeUnit(
+      { id: "step-up-verification", label: messages.waiting },
+      authClient
+        .waitForStepUpRequest(token.token, stepUp.statusUrl, stepUp.intervalSeconds)
+        .pipe(Effect.mapError(coerceAuthFailure)),
     );
-    const value = yield* renderer.withSpinner(messages.initial, () => operation(stepUp.requestId), {
-      successMessage: messages.success,
-    });
+    const value = yield* observeUnit(
+      { id: "operation-retry", label: messages.name },
+      operation(stepUp.requestId),
+    );
     return { value, stepUpCompleted: true };
   });

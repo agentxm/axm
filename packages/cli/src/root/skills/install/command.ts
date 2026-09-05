@@ -1,11 +1,16 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../../cli-flags.js";
+import {
+  ignoreReleaseAgeFlag,
+  previewFlag,
+  reinstallFlag,
+  yesFlag,
+} from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { handleInstall, validateInstallArgsBeforeWorkspace } from "./handler.js";
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
@@ -34,15 +39,21 @@ const installConfig = {
     Flag.withDescription("Install the embedded official AXM skill without Registry access"),
     Flag.withDefault(false),
   ),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, skill, all, yes, force, preview, bundled }) => {
+  ({ source, scope, skill, all, yes, force, preview, bundled, ignoreReleaseAge }) => {
     const args = { source, skills: skill, all, bundled };
     return validateInstallArgsBeforeWorkspace(args).pipe(
-      Effect.andThen(handleInstall(args, { yes, force, preview }).pipe(withWorkspace(scope))),
+      Effect.andThen(
+        handleInstall(args, { yes, force, preview }).pipe(
+          withReleaseAgePosture(ignoreReleaseAge),
+          withWorkspace(scope),
+        ),
+      ),
       withRuntime("skills install"),
     );
   },

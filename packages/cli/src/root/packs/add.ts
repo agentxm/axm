@@ -5,47 +5,46 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   formatFqn,
-  normalizeHandle,
   parseExtensionFqnParts,
-  parseRegistrySourcePatternParts,
   decodeExtensionNameSync,
   type ExtensionName,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   isCatalogExtensionType,
   type CatalogExtensionType,
-} from "@agentxm/client-core/unstable/extension-types";
+} from "@agentxm/extension-model/unstable/extension-types";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
-  packManifestPath,
-} from "@agentxm/client-core/unstable/packs";
-import type { AddToPackOperation } from "@agentxm/client-core/unstable/packs";
-import { addToPack } from "@agentxm/client-core/unstable/packs";
-import { computePackPaths } from "@agentxm/client-core/unstable/packs";
-import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import {
+  addToPack,
+  AuthoringFailureAdapter,
+  type AddToPackOperation,
+} from "@agentxm/extension-authoring";
+import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
+import { expandGlobs, isGlobPattern } from "../../utils/index.js";
+import { count } from "../../screen/index.js";
 import {
   WorkspaceMutations,
   configuredRowsByName,
   resolveWorkspaceExtensionRef,
   usableAcceptedCanonical,
-} from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import {
-  publicRecoveryValue,
-  recoveryPositional,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { emitPlanResolutionResult } from "../../json-output.js";
+} from "@agentxm/workspace-state";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
@@ -85,7 +84,17 @@ interface PackAddCandidate {
   readonly versionRange: string;
 }
 
-export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: PacksAddHandlerArgs) {
+export const handlePacksAdd = (args: PacksAddHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "packs.add",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Add to pack",
+    },
+    handlePacksAddBody(args),
+  );
+
+const handlePacksAddBody = Effect.fn("PacksAdd.handle")(function* (args: PacksAddHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -106,6 +115,9 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   // Resolve pack owner from the entry (format: "@owner/packs/name" or { source: "@owner/packs/name" })
   const packSource = packEntry.source;
+  if (packSource === undefined) {
+    return yield* makeAppError({ code: "validation", detail: `Pack "${packName}" has no source.` });
+  }
   if (!isWorkspaceSourceLocator(packSource)) {
     return yield* makeAppError({
       code: "conflict",
@@ -113,33 +125,29 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       recover: "Adopt or copy the pack into workspace authorship before editing its manifest.",
     });
   }
-  const packOwnerFromSource = parseRegistrySourcePatternParts(
-    packSource.slice("workspace:".length),
-  )?.owner;
-  const packOwner =
-    packOwnerFromSource !== undefined
-      ? normalizeHandle(packOwnerFromSource)
-      : yield* Option.match(configuredOwner, {
-          onNone: () =>
-            Effect.fail(
-              makeAppError({
-                code: "validation",
-                detail: `Pack "${packName}" has a non-registry source and no workspace owner is configured`,
-                suggestions: [
-                  {
-                    description: "Set `owner` in `.axm/settings.json` before modifying this pack.",
-                    cmd: "axm setup",
-                  },
-                ],
-              }),
-            ),
-          onSome: Effect.succeed,
-        });
-  const base = ws.baseDir;
+  const packOwner = yield* Option.match(configuredOwner, {
+    onNone: () =>
+      Effect.fail(
+        makeAppError({
+          code: "validation",
+          detail: `Pack "${packName}" has a workspace source and no workspace owner is configured`,
+          suggestions: [
+            {
+              description: `Set \`owner\` in \`${workspaceSettingsPath(ws.scope)}\` before modifying this pack.`,
+              cmd: "axm setup",
+            },
+          ],
+        }),
+      ),
+    onSome: Effect.succeed,
+  });
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packOwner, packName);
-  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
+  const manifestPath = path.join(
+    workspaceAuthoredRoot(path, ws, "pack", packOwner),
+    packName,
+    PACK_MANIFEST_FILENAME,
+  );
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((e) =>
@@ -208,12 +216,13 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const candidates: Array<PackAddCandidate> = [];
   for (const node of graph.nodes) {
     if (!isCatalogExtensionType(node.type)) continue;
+    if (node.source === undefined) continue;
     const ref = node.identity.startsWith("workspace:")
       ? yield* resolveWorkspaceExtensionRef({
           settingsName: node.name,
           source: node.source,
           expectedType: node.type,
-          baseDir: ws.baseDir,
+          layout: ws.layout,
           scope: ws.scope,
         }).pipe(Effect.map(Option.some))
       : yield* usableAcceptedCanonical({
@@ -340,9 +349,14 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   // Build Plan directly with inline run closure
   const provideServices = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
+    effect: Effect.Effect<
+      A,
+      E,
+      FileSystem.FileSystem | Path.Path | WorkspaceMutations | AuthoringFailureAdapter
+    >,
   ): Effect.Effect<A, E, never> =>
     effect.pipe(
+      provideAuthoringFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -360,6 +374,10 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     description: Option.some(
       `Add ${count(Object.keys(additions).length, "extension")} to ${packName}`,
     ),
+    presentation: operationPresentation(
+      { imperative: "add", past: "Added", gerund: "Adding" },
+      "pack",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
@@ -373,35 +391,16 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       ],
     ),
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-  const suggestions = [
-    { description: "Inspect installed packs", cmd: "axm packs list" },
-    {
-      description: "Remove from pack",
-      cmd: `axm packs remove ${packName} ${args.extension}`,
-    },
-  ];
-  const summary = `-> ${packManifestPath(packOwner, packName)}   1 file`;
-  const emitted = yield* emitPlanResolutionResult(
-    "packs.add",
-    resolution,
-    resolution._tag === "ExecutedPlan" ? { summary, suggestions } : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    const renderer = yield* CliRenderer;
-    const verbosity = yield* Verbosity;
-    yield* renderer.success(
-      `Added ${count(Object.keys(additions).length, "extension")} to pack ${packName}`,
-      verbosity.level === "quiet"
-        ? undefined
-        : {
-            summary,
-            suggestions,
-            withoutSuggestions: emitted,
-          },
-    );
-  }
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("packs.add", resolution, {
+    suggestions: [
+      { description: "Inspect installed packs", cmd: "axm packs list" },
+      {
+        description: "Remove from pack",
+        cmd: `axm packs remove ${packName} ${args.extension}`,
+      },
+    ],
+  });
 });
 
 const addConfig = {

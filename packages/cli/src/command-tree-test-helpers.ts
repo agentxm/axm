@@ -14,7 +14,7 @@ import * as Layer from "effect/Layer";
 import { CliOutput, Command } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
-import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestRenderer } from "./screen/index.js";
 import { rootCommand } from "./app.js";
 import { baseLayer } from "./runtime.js";
 

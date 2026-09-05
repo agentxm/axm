@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTempDir, runCli } from "./e2e/utils.js";
 
-const settingsPath = (root: string): string => path.join(root, ".axm", "settings.json");
+const settingsPath = (root: string): string => path.join(root, "axm.json");
 
 describe("global directory flag", () => {
   it("runs setup in the selected directory and resolves relative arguments from there", async () => {
@@ -113,15 +113,17 @@ describe("global directory flag", () => {
         cwd: invoking.path,
       });
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
+      const selectedSourcePath = path
+        .relative(workspace.path, sourcePackage)
+        .split(path.sep)
+        .map((segment) => (segment === ".." ? "%2E%2E" : encodeURIComponent(segment)));
       expect(
         fs.existsSync(
           path.join(
             workspace.path,
-            ".axm",
-            "extensions",
-            "external",
-            "skills",
-            "review",
+            "agent_extensions",
+            "local",
+            ...selectedSourcePath,
             "src",
             "SKILL.md",
           ),
@@ -132,7 +134,17 @@ describe("global directory flag", () => {
         cwd: invoking.path,
       });
       expect(second.exitCode, second.stdout + second.stderr).toBe(0);
-      expect(JSON.parse(second.stdout).result).toMatchObject({ totalSteps: 0 });
+      expect(JSON.parse(second.stdout)).toMatchObject({
+        ok: true,
+        result: {
+          contract: "plan-result-v3",
+          outcome: "no-op",
+          mode: "apply",
+          counts: { total: 0, committed: 0 },
+          units: [],
+          message: "Workspace materialization is up to date",
+        },
+      });
     } finally {
       invoking.cleanup();
       workspace.cleanup();
@@ -203,9 +215,9 @@ describe("global directory flag", () => {
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       // Temp-dir paths may or may not be symlink-resolved depending on the
       // platform, so compare real paths instead of raw strings.
-      expect(fs.realpathSync(JSON.parse(result.stdout).result.settingsPath)).toBe(
-        fs.realpathSync(path.join(invoking.path, ".axm", "settings.json")),
-      );
+      expect(
+        fs.realpathSync(path.resolve(invoking.path, JSON.parse(result.stdout).result.settingsPath)),
+      ).toBe(fs.realpathSync(path.join(invoking.path, "axm.json")));
     } finally {
       invoking.cleanup();
     }
@@ -237,9 +249,11 @@ describe("global directory flag", () => {
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       // The physical workspace, not the symlink, owns the settings path; temp
       // directories may themselves be symlinks, so compare real paths.
-      expect(fs.realpathSync(JSON.parse(result.stdout).result.settingsPath)).toBe(
-        fs.realpathSync(path.join(workspace.path, ".axm", "settings.json")),
-      );
+      expect(
+        fs.realpathSync(
+          path.resolve(workspace.path, JSON.parse(result.stdout).result.settingsPath),
+        ),
+      ).toBe(fs.realpathSync(path.join(workspace.path, "axm.json")));
     } finally {
       invoking.cleanup();
       workspace.cleanup();

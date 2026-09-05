@@ -44,10 +44,9 @@ Pack commands do not use replacement, empty-pack, or dependency-breaking flags
 to bypass authored intent, reachability, accepted-lock, or publication
 requirements.
 
-## Testing strategy
+## Specifications
 
-Behavior tests prove add, explicit constraint update, remove, direct-edit
-equivalence, local-name and unique-FQN selection, ambiguity recovery, empty
-local packs, and preservation of authored content after failures. Pack
-architecture tests separately prove dependency authority, reachability, and
-graph reconciliation.
+Pack obligations live with the pack specification under
+`specifications/cli/packs/` — authored pack membership growth and
+pack-route reachability; the
+[specification catalog](../../../specifications/catalog.md) indexes it.

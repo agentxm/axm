@@ -35,6 +35,7 @@ the CLI easier to predict and invalid workspaces easier to recover.
 | Use type-specific capabilities | Type command groups                                                                                     | Knowledge retrieval, inline MCP configuration, and similar type-owned work.      |
 | Author extensions              | [`new`, fork, Skill/Subagent import, adopt, demote, version, and type authoring commands](authoring.md) | Workspace-authored canonical content and explicit authority changes.             |
 | Distribute authored extensions | [`publish`](publish.md)                                                                                 | Eligible authored content is validated and sent to the registry.                 |
+| Upgrade AXM                    | [`axm upgrade`](upgrade.md)                                                                             | The executable moves to a verified promoted or exact stable release.             |
 
 ## Non-responsibilities
 
@@ -42,24 +43,35 @@ No command is a fallback owner for work that lacks a clear home:
 
 - lint does not choose a correction or perform lifecycle and reconciliation
   work;
-- sync does not edit workspace configuration or advance satisfying
-  resolutions;
+- sync does not edit workspace configuration or advance satisfying resolutions
+  (the executable specification
+  `cli/sync/preserves-configuration-and-resolutions` owns the obligation);
 - lifecycle commands do not repair unrelated workspace state;
 - type command groups do not define different lifecycle policy from root
   commands;
 - setup does not reconstruct intent from observed files or become a repair
   workflow;
 - inspection commands do not mutate the state they report; and
-- `--force` does not turn a command into a more general operation or bypass
-  hard invariants.
+- upgrade does not discover stability from package-manager publication state;
+  and
+- `--force` does not turn a command into a more general operation; the
+  executable specification `cli/force-bypasses-only-named-policies`
+  bounds what it may bypass.
+
+Every command whose semantics require a project workspace first passes the
+shared project-and-user settings construction prerequisite. Command-specific
+inspection, planning, closure preflight, independent progress, and mutation
+rules apply only after that gate succeeds. Version and help encounters remain
+outside the gate, and no workspace command becomes a settings-repair owner.
 
 When an action does not fit a command's responsibility, AXM changes the design
 or leaves the decision to the user; it does not hide the action behind an
 override.
 
-Lifecycle commands check only the invariants needed for the selected extension
-and the other extensions that must change with it. Unrelated broken extensions
-do not prevent a valid scoped change.
+After workspace construction succeeds, lifecycle commands check only the
+invariants needed for the selected extension and the other extensions that must
+change with it. Unrelated broken extensions do not prevent a valid scoped
+change.
 
 ## Root commands and type command groups
 
@@ -84,6 +96,12 @@ and machine-result semantics. A type command group must not develop different
 lifecycle policy. [Extension architecture](../extensions/overview.md) owns the
 semantic differences among types.
 
+Skill and subagent install commands share registry-source probing, first-match
+semantics, login suggestions, probe diagnostics, and error classification.
+Their resolvers retain only genuine syntax and routing differences, such as
+whether an SCP address is accepted. A new name-resolving install surface should
+extend this shared policy instead of copying it into another command group.
+
 ## Shared lifecycle model
 
 Install, update, uninstall, enable, and disable express durable workspace
@@ -102,15 +120,16 @@ Given the same state, preview must accurately describe what application will
 do. Before writing, AXM checks that the relevant state has not changed; a stale
 preview or plan writes nothing.
 
-`--yes` answers routine prompts. `--force` may bypass only an explicitly
-forceable policy and never a hard invariant. Routine exceptional modes receive
-their own names rather than accumulating narrow override flags.
+`--yes` answers routine prompts. The binding force boundary is the executable
+specification `cli/force-bypasses-only-named-policies` in the
+[specification catalog](../../../specifications/catalog.md): it owns which
+explicitly forceable policy `--force` may bypass and whether a command exposes
+the flag at all. Routine exceptional modes receive their own
+names rather than accumulating narrow override flags.
 
 Global sync applies every ready independent closure. A nonzero result may still
 include committed closures; human and machine output report each closure's
 outcome rather than reducing the request to a misleading all-or-nothing label.
-
-If no policy safely meets the force boundary, no command exposes `--force`.
 
 ## No generic health or repair command
 

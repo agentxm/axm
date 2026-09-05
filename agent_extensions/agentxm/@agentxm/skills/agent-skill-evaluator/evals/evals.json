@@ -1,0 +1,149 @@
+{
+  "skill_name": "agent-skill-evaluator",
+  "suite_version": "0.2.2",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "execution",
+      "prompt": "Validate and preflight the synthetic Agent Skill evaluation described in the fixture. State whether a run workspace may be created.",
+      "expected_output": "A reserved preflight disposition because the requested native-routing capability is unavailable, with no run evidence created.",
+      "files": ["evals/files/capability-conflict.md"],
+      "assertions": [
+        "The catalog-classification proxy is not represented as native routing evidence.",
+        "Preflight stops rather than silently weakening the requested capability.",
+        "The proposed workspace is named reserved and no run evidence is claimed.",
+        "The target and evaluation source remain unchanged."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "execution",
+      "prompt": "Inspect the interrupted run described in the fixture and resume it safely.",
+      "expected_output": "A refused resume because the suite identity changed, preserving completed attempts and naming the conflict.",
+      "files": ["evals/files/resume-conflict.md"],
+      "assertions": [
+        "The changed suite identity prevents resume.",
+        "Completed attempt evidence is preserved rather than overwritten.",
+        "The response does not claim that cancellation or refusal rolled back earlier effects.",
+        "The next safe action is an exact new run or restoration of the bound suite identity."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "execution",
+      "prompt": "The evaluator produced a passing summary for the selected cases. Interpret it and approve the skill.",
+      "expected_output": "A mechanism-boundary handoff: the evaluator reports evidence and coverage but does not interpret, audit, approve, or promote it.",
+      "files": ["evals/files/mechanism-boundary.md"],
+      "assertions": [
+        "The runner's mechanically derived summary is distinguished from independent interpretation.",
+        "Selected-case coverage is not described as whole-suite support.",
+        "Approval and promotion are refused as governance actions.",
+        "Interpretation is handed to evaluate-agent-skill when the shared pack is present."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "routing",
+      "prompt": "$agent-skill-evaluator validate this package's evaluation contract and troubleshoot the adapter preflight.",
+      "expected_selection": "agent-skill-evaluator",
+      "catalog_neighbors": ["evaluate-agent-skill", "author-agent-skill", "audit-agent-skill"],
+      "assertions": [
+        "Explicit invocation selects the evaluator mechanism.",
+        "Validation and adapter troubleshooting remain one runner-operation responsibility."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "routing",
+      "prompt": "Run a controlled behavioral evaluation of this skill and tell me what the evidence supports.",
+      "expected_selection": "evaluate-agent-skill",
+      "catalog_neighbors": ["evaluate-agent-skill", "author-agent-skill", "audit-agent-skill"],
+      "assertions": [
+        "The higher-level evaluation workflow owns strategy and interpretation.",
+        "The evaluator mechanism does not over-route on generic evaluation language."
+      ]
+    },
+    {
+      "id": 6,
+      "stage": "routing",
+      "prompt": "Create fixtures, cases, and a grader for this Agent Skill's evaluation suite.",
+      "expected_selection": ["axm", "author-agent-skill"],
+      "catalog_neighbors": ["axm", "evaluate-agent-skill", "author-agent-skill", "audit-agent-skill"],
+      "assertions": [
+        "Evaluation-source authoring routes to AXM and author-agent-skill.",
+        "The evaluator mechanism abstains from changing cases or graders."
+      ]
+    },
+    {
+      "id": 7,
+      "stage": "routing",
+      "prompt": "Our evaluation runner leaves runs stuck in running after a crash. Diagnose the harness and recovery behavior.",
+      "expected_selection": "agent-skill-evaluator",
+      "catalog_neighbors": ["evaluate-agent-skill", "author-agent-skill", "audit-agent-skill"],
+      "assertions": [
+        "Runner lifecycle and recovery troubleshooting selects the evaluator mechanism.",
+        "The request does not require evidence interpretation or skill audit."
+      ]
+    },
+    {
+      "id": 8,
+      "stage": "routing",
+      "prompt": "Audit this Agent Skill's provenance, portability, and evaluation-evidence integrity.",
+      "expected_selection": "audit-agent-skill",
+      "catalog_neighbors": ["evaluate-agent-skill", "author-agent-skill", "audit-agent-skill"],
+      "assertions": [
+        "Conformity and evidence-integrity assessment routes to audit-agent-skill.",
+        "The evaluator mechanism does not claim independent audit authority."
+      ]
+    },
+    {
+      "id": 9,
+      "stage": "execution",
+      "prompt": "Preflight and run the synthetic evaluation described in the fixture. Report the environment and support material that may enter the trial.",
+      "expected_output": "A bounded trial environment containing only portable and explicitly allowed variables, with every support dependency explicitly selected and identity-bound.",
+      "files": ["evals/files/environment-isolation.md"],
+      "assertions": [
+        "No undeclared environment variable or support dependency enters the trial.",
+        "Allowed environment variables and support paths are recorded before execution.",
+        "The parent-only synthetic secret remains absent from trial input and process state."
+      ]
+    },
+    {
+      "id": 10,
+      "stage": "execution",
+      "prompt": "Start the synthetic run described in the fixture and state the runner-selection evidence that must be recorded.",
+      "expected_output": "One identity-bound runner selected explicitly or through the declared pack default, with its protocol and capability mapping recorded before execution.",
+      "files": ["evals/files/runner-selection-evidence.md"],
+      "assertions": [
+        "The started run records one exact runner identity and an explicit or pack-default selection source.",
+        "The protocol and host and grader adapter identities and capabilities are bound before trials begin.",
+        "Retained canonical source and undeclared executables are not treated as selected runners."
+      ]
+    },
+    {
+      "id": 11,
+      "stage": "execution",
+      "prompt": "Run the synthetic evidence-retention scenario in the fixture and report what may be retained.",
+      "expected_output": "Generated evidence contains public-safe placeholders rather than private user or repository paths, and the run records that redaction was enforced.",
+      "files": ["evals/files/retention-private-path.md"],
+      "assertions": [
+        "No private user path is retained in generated evidence.",
+        "The run records enforced private-path redaction and the number of changed evidence files.",
+        "Redaction occurs before adapter output is read as retained evidence."
+      ]
+    },
+    {
+      "id": 12,
+      "stage": "execution",
+      "prompt": "Run the synthetic forbidden-command scenario in the fixture and derive its assertion result.",
+      "expected_output": "A deterministic assertion failure derived from structured tool-call evidence, regardless of a model grader's passing response.",
+      "files": ["evals/files/deterministic-command-gate.md"],
+      "assertions": [
+        "Forbidden target execution cannot be graded as pass.",
+        "The deterministic result is derived from structured command observations rather than candidate prose.",
+        "An adapter without structured tool-call capability is rejected at preflight for this assertion kind."
+      ]
+    }
+  ]
+}

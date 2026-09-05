@@ -10,10 +10,14 @@
 
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
-import type { SkillLockEntry, SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
+import type {
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+  StepFailure,
+} from "@agentxm/workspace-operations";
+import type { InstallSkillOperation } from "@agentxm/extension-lifecycle";
+import type { SkillLockEntry, SkillsLockMap } from "@agentxm/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -25,7 +29,9 @@ export type UpdateOperation = InstallSkillOperation;
  * A function that creates a run closure for an operation.
  * The closure must have all services already provided (R = never).
  */
-export type MakeRunClosure = (op: UpdateOperation) => Effect.Effect<JobStepResult, AppError, never>;
+export type MakeRunClosure = (
+  op: UpdateOperation,
+) => Effect.Effect<JobStepResult, StepFailure, never>;
 
 // -----------------------------------------------------------------------------
 // Version comparison
@@ -91,6 +97,7 @@ export const buildUpdatePlan = (
             label: op.args.ref.skill.name,
             run: Effect.succeed<JobStepResult>({
               result: "success",
+              disposition: "unchanged",
               message: "already up to date",
             }),
           };

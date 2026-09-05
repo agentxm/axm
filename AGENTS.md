@@ -6,21 +6,30 @@ and more.
 Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md instructions.
 
 Shared product language and naming live in the
-[AgentXM Knowledge bundle](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md).
+[AgentXM Knowledge bundle](agent_extensions/agentxm/@agentxm/knowledge/agentxm/src/index.md).
 The repository tree, package manifests, and configuration own the current tool
 and package inventory.
 
 ## Commands
 
-All commands use `pnpm` scripts. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm axm` and `pnpm spike` run Bun entrypoints from source; they do not build first.
+Nx targets are the units of work; `pnpm` scripts name workflows. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm install` is the explicit dependency-preparation step; commands fail instead of installing implicitly. `pnpm axm` runs the Bun entrypoint and its internal workspace packages from source through the `axm-source` export condition; it does not build first.
+
+The portable
+[Repository task interface](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/repository-task-interface.md)
+is authoritative for execution-surface semantics and conformance. AXM binds it
+locally in [Repository task interface](docs/guides/repository-task-interface.md) —
+read that binding before adding a script, target, wrapper, cache, or automation
+entrypoint. The table below is human
+convenience; the canonical forms are targets for units of work and published
+workflow names for workflows.
 
 Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists. This is a hard rule. Do not use direct tool invocations like `pnpm exec vitest`, `vitest`, `tsc`, `eslint`, `prettier`, or bare `nx` for repo verification when a repo-backed script or target exists. They can bypass repo conventions, dependency ordering, caching, and build steps and can pick up stale `dist` output.
 
-For focused verification, keep the repo-backed target and pass filters through it:
+For focused verification, keep the repo-backed target and pass filters through it. Test file filters are relative to the selected Nx project's root:
 
-- focused tests: `pnpm nx run <project>:test --args="path/to/test.ts"`
-- focused test by name: `pnpm nx run <project>:test --args='path/to/test.ts -t "test name"'`
-- focused typecheck: `pnpm nx run <project>:typecheck`
+- focused CLI test: `pnpm exec nx run cli:test --args="src/help-command-references.internal.test.ts"`
+- focused test by name: `pnpm exec nx run cli:test --args='src/help-command-references.internal.test.ts -t "names only help topics that exist"'`
+- focused typecheck: `pnpm exec nx run <project>:typecheck`
 
 Only call a direct tool when no equivalent `pnpm` script or `pnpm nx` target exists, and say why.
 
@@ -32,48 +41,109 @@ export NX_DEFAULT_OUTPUT_STYLE=static
 export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 ```
 
-| Command                              | Purpose                                                               |
-| ------------------------------------ | --------------------------------------------------------------------- |
-| `pnpm axm`                           | Run the main CLI from source                                          |
-| `./scripts/axm-local -C <workspace>` | Run the in-flight CLI against a selected workspace and local registry |
-| `pnpm spike`                         | Run the CLI spike from source                                         |
-| `pnpm watch`                         | Rebuild `cli` on changes                                              |
-| `pnpm build`                         | Build all packages                                                    |
-| `pnpm build:affected`                | Build only packages changed since `main`                              |
-| `pnpm test`                          | Run package test targets                                              |
-| `pnpm test:affected`                 | Run tests only for packages changed since `main`                      |
-| `pnpm test:e2e`                      | Run E2E targets only                                                  |
-| `pnpm typecheck`                     | Type check all packages                                               |
-| `pnpm typecheck:affected`            | Type check only packages changed since `main`                         |
-| `pnpm format`                        | Format the whole repo with Prettier                                   |
-| `pnpm format:check`                  | Check whole-repo formatting with Prettier                             |
-| `pnpm format:affected`               | Format only Nx-selected changed files                                 |
-| `pnpm format:check:affected`         | Check only Nx-selected changed files                                  |
-| `pnpm lint`                          | Lint all packages                                                     |
-| `pnpm lint:affected`                 | Lint only packages changed since `main`                               |
-| `pnpm lint:fix`                      | Lint and auto-fix                                                     |
-| `pnpm run ci`                        | Run full CI pipeline (lint, typecheck, build, test, e2e)              |
-| `pnpm run ci:affected`               | Run CI pipeline for affected packages only                            |
-| `pnpm run container:ci`              | Run full CI in the shared Linux image                                 |
-| `pnpm run container:dev`             | Open the shared Linux development image                               |
-| `pnpm generate`                      | Generate registry and telemetry clients                               |
+| Command                                      | Purpose                                                                                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm axm`                                   | Run the main CLI from source                                                                                                   |
+| `pnpm axm:local -C <workspace>`              | Run the in-flight CLI against a selected workspace and local registry                                                          |
+| `pnpm exec nx run cli:watch`                 | Rebuild `cli` on changes                                                                                                       |
+| `pnpm build`                                 | Build all packages                                                                                                             |
+| `pnpm build:affected`                        | Build only packages changed since `main`                                                                                       |
+| `pnpm test`                                  | Run the fast required suite (specifications, internal, tooling)                                                                |
+| `pnpm test:affected`                         | Run tests only for packages changed since `main`                                                                               |
+| `pnpm test:spec`                             | Run executable specifications; `--requirement <id>`, `--class <lens>`, or `--characteristic <c>`                               |
+| `pnpm test:internal`                         | Run internal verification suites only                                                                                          |
+| `pnpm exec nx run axm:test`                  | Run repository tooling verification                                                                                            |
+| `pnpm exec nx run axm:lint-bundled-skill`    | Lint the bundled AXM skill (reproduces the CI `extension-lint` job)                                                            |
+| `pnpm exec nx run axm:specification-verdict` | Render the per-change specification verdict against the merge base with `main` (reproduces the CI `specification-verdict` job) |
+| `pnpm test:e2e`                              | Run E2E targets only                                                                                                           |
+| `pnpm test:compatibility`                    | Run quality specifications with the compatibility characteristic                                                               |
+| `pnpm test:performance`                      | Run quality specifications with the performance characteristic                                                                 |
+| `pnpm test:all`                              | Fast suite plus broadly executable slower boundaries                                                                           |
+| `pnpm verify:artifact`                       | Verify one identified binary artifact                                                                                          |
+| `pnpm verify:release`                        | Compose evidence for one exact release candidate                                                                               |
+| `pnpm verify:deployment`                     | Verify an identified install endpoint                                                                                          |
+| `pnpm bench`                                 | Run diagnostic benchmarks (never a behavioral pass)                                                                            |
+| `pnpm typecheck`                             | Type check all projects, including repo `scripts/`                                                                             |
+| `pnpm typecheck:affected`                    | Type check only packages changed since `main`                                                                                  |
+| `pnpm format`                                | Format the whole repo with Prettier                                                                                            |
+| `pnpm format:check`                          | Check whole-repo formatting with Prettier                                                                                      |
+| `pnpm format:affected`                       | Format only Nx-selected changed files                                                                                          |
+| `pnpm format:check:affected`                 | Check only Nx-selected changed files                                                                                           |
+| `pnpm lint`                                  | Lint all projects, including repo `scripts/`                                                                                   |
+| `pnpm lint:affected`                         | Lint only packages changed since `main`                                                                                        |
+| `pnpm lint:fix`                              | Lint and auto-fix                                                                                                              |
+| `pnpm run ci`                                | Run full CI pipeline (lint, typecheck, build, test, e2e)                                                                       |
+| `pnpm run verify:affected`                   | Verify only projects changed from Nx's selected base                                                                           |
+| `pnpm run container:ci`                      | Run full CI in the shared Linux image                                                                                          |
+| `pnpm generate`                              | Run every `generate` target (schemas, clients, generated sources)                                                              |
 
-`./scripts/axm-local` preserves your current working directory; pass `-C <dir>`
-to select another workspace. It only sets
-`AXM_REGISTRY_LOCATION=http://localhost:4300` and `AXM_TELEMETRY=0` when unset.
-For HTTP(S), it also sets `AXM_REGISTRY_URL` for auth/API flows.
+`axm:local` sets `AXM_REGISTRY_LOCATION=http://localhost:4300` and
+`AXM_TELEMETRY=0` only when unset; for HTTP(S) it also sets `AXM_REGISTRY_URL`
+for auth/API flows. `pnpm` runs it from the repository root, so always select
+the workspace with `-C <dir>`. To run this checkout's CLI from outside the
+checkout, use the absolute-path forms in
+[Development Environment](contributing/guides/development-environment.md#run-the-source-cli-against-another-workspace).
 
 For testing install, lint, and other default-source behavior, set
 `AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
-of checking custom registry sources into `.axm/settings.json`. `axm lint`
+of checking custom registry sources into `axm.json`. `axm lint`
 reports workspace findings read-only; `axm lint --fix` performs only
 deterministic, meaning-preserving source or configuration normalization.
+
+`pnpm test:spec` consumes only `--requirement`, `--class`, and
+`--characteristic`; every other flag
+is forwarded verbatim to the `specifications:test` target, so runner flags such
+as `--skip-nx-cache` reach Nx. A forwarded flag that takes a value must use the
+`--flag=value` form, because a bare value is read as a requirement identity.
 
 ### Releasing
 
 For a new version release, follow `contributing/guides/releasing.md` exactly. Do not invent or restate a separate release flow here.
 
+## Requirements and executable specifications
+
+Executable specifications under `specifications/` are the sole local authority
+for AXM requirements; use the generated
+[specification catalog](specifications/catalog.md) as the reading path. A
+specification on `main` is accepted. Ordinary tests, prose, and implementation
+are witnesses; schemas and contracts keep only their declared interface
+authority; execution produces evidence, never acceptance.
+The metadata contract, vocabularies, and shared goal identities live in
+`@agentxm/extension-model/unstable/specifications` and are shared with the
+AgentXM platform; an obligation is allocated to one corpus and never restated
+in the other.
+
+For any task concerning supported behavior—including investigation,
+explanation, planning, design, implementation, or review—identify the affected
+specifications. When investigating or explaining an issue, inspect them and run
+the narrowest relevant specification when it can distinguish hypotheses. Report
+whether the issue violates a specification, exposes a specification gap, or
+concerns non-normative implementation detail.
+
+A change to behavior lands its specification changes in the same change,
+written as final. A decision the maintainer makes in the session or on the pull
+request is the acceptance. An obligation not yet decided is not written: record
+it as a work item or in `openQuestions` of the nearest specification.
+Implementation-only work preserves specifications and runs
+`pnpm test:spec --requirement <id>`; a bug fix with missing coverage adds or
+strengthens a specification before implementation.
+
+Every change report and pull request ends with the specification impact
+rendered by `pnpm exec nx run axm:specification-verdict`: added, removed, or
+revised requirement identities, or its "no requirement contract changes" line.
+
+For requirement elicitation, review, impact analysis, or revision, use the
+installed `engineer-requirements` skill with the repository policy in
+[specifications/AGENTS.md](specifications/AGENTS.md). Design specifications
+from intended observable obligations, not the current implementation; follow
+the
+[requirements-engineering guidance](agent_extensions/agentxm/@craigsmitham/knowledge/requirements-engineering/src/index.md)
+and [testing strategy](docs/architecture/system-wide/testing-strategy.md).
+
 ## Architecture
+
+[docs/architecture/decisions](docs/architecture/decisions/index.md) records
+durable decisions.
 
 Read the [AXM architecture index](docs/architecture/index.md) before changing
 product responsibilities, command boundaries, workspace state, package
@@ -84,6 +154,11 @@ execution boundaries.
 [docs/AGENTS.md](docs/AGENTS.md) and use the `author-okf` skill.
 
 ## Pre-launch backward compatibility
+
+The binding obligation is the executable specification
+`system/process/pre-launch-changes-stay-coherent` in the
+[specification catalog](specifications/catalog.md); the instructions below are
+its operational projection.
 
 Until public launch, backward compatibility is out of scope unless the task
 explicitly requires it. During design, planning, implementation, and review,
@@ -126,26 +201,35 @@ errors, and tests with the feature that owns them.
 - **Shared within feature** → in a dedicated file in that feature folder (e.g., `schema.ts`)
 - **Never** → cross-feature "constants.ts" or "types.ts" at the root
 
-**`@agentxm/client-core` unstable namespace** — All core code lives under
-`src/unstable/` and is exported via `@agentxm/client-core/unstable/*`. Never place core
-code directly under `src/`.
+**Library `unstable` namespace** — All library code in `@agentxm/extension-model`
+and `@agentxm/registry-protocol` lives under `src/unstable/` and is exported via
+`<package>/unstable/*`. Never place library code directly under `src/`. Packages
+extracted during the package-architecture migration (`@agentxm/workspace-state`,
+`@agentxm/workspace-operations`, `@agentxm/extension-workspace`,
+`@agentxm/registry-client`, `@agentxm/extension-sources`,
+`@agentxm/agent-integration`) use the successor convention instead: code under
+`src/` with an intentional root export plus at most `./live` and `./testing`
+subpaths — no `unstable/*` namespace and no other deep exports.
 
 ## TypeScript
 
 ### Two TypeScript Versions
 
-Deliberate, via a dual alias in the pnpm catalog. Do not collapse it to a single
-`typescript` dependency; the exit point is TypeScript 7.1.
+The canonical decision is
+[Dual TypeScript alias toolchain](docs/architecture/decisions/typescript-dual-alias.md);
+the executable specification `system/process/dual-typescript-alias-retained`
+owns the binding constraint. The notes below are its operational projection.
 
 - `tsc` is TypeScript 7, the native compiler (`@typescript/native`), patched by
   `@effect/tsgo` so it enforces the `@effect/language-service` diagnostics. Every
-  `typecheck` target and `scripts-typecheck` runs on it.
-- `require("typescript")` is Microsoft's TypeScript 6 compatibility package.
-  TypeScript 7.0 ships no stable compiler API, so this is what keeps
-  typescript-eslint and the in-process Nx executors working.
-- `build` stays on TypeScript 6: `@nx/js:tsc` compiles in-process under
-  `--batch`, and `dist/**/*.d.ts` is the published contract. Move it only once
-  `@nx/js:tsc` can run on the TypeScript 7 engine.
+  `typecheck` target runs on it, including the root `axm` project's `typecheck`,
+  which covers `scripts/`.
+- `require("typescript")` is Microsoft's TypeScript 6 compatibility package; it
+  keeps typescript-eslint and the in-process Nx executors working.
+- `build` stays on TypeScript 6: `@nx/js:tsc` compiles in-process, and
+  `dist/**/*.d.ts` is the published contract. `--batch` belongs to the `build`
+  and `build:affected` scripts, not to the target — see the
+  [Repository task interface](docs/guides/repository-task-interface.md#entrypoints-and-host-adapters).
 - Need the TypeScript 6 CLI for a one-off check? It is installed as `tsc6`.
 
 Editors use the patched TypeScript 7 language server
@@ -181,8 +265,8 @@ See [Effect Guide](contributing/guides/effect.md),
 [Effect Errors Guide](contributing/guides/effect-errors.md), and
 [Effect Layers Guide](contributing/guides/effect-layers.md).
 
-- Before writing or reviewing Effect code, use the installed
-  `craft-effect-v4` skill and its routed Knowledge guide.
+- Before writing or reviewing Effect code, consult the relevant topic in the
+  installed Effect v4 Knowledge bundle.
 - Use `../external/Effect-TS/effect` for repo-matched Effect v4 references.
 - Keep expected failures typed; use defects only for violated invariants.
 - Keep dependencies in `R` through orchestration and provide them once at the
@@ -201,11 +285,15 @@ See [Effect Guide](contributing/guides/effect.md),
 
 ## Testing
 
-- Write tests first to define behavior
-- Bug fix means regression test first
-- Follow the affected feature's design-level verification obligations
-- Use `@effect/vitest` for Effect tests; route testing guidance through the
-  `craft-effect-v4` skill to the installed `testing.md` Knowledge guide
+- Test filenames carry their purpose: `*.spec.ts` only under
+  `specifications/`, `*.internal.test.ts` colocated with source,
+  `*.tooling.test.ts` for repository automation, `*.e2e.test.ts` at the
+  process boundary (source hygiene enforces this)
+- Internal tests protect non-normative realization detail and may change or
+  disappear in a behavior-preserving refactor; they never count toward
+  functional completeness
+- Use `@effect/vitest` for Effect tests; consult the installed Effect v4
+  `testing.md` Knowledge guide
 - Prefer `pnpm nx run <project>:test --args="..."` over direct `vitest`
 
 ## Review guidelines
@@ -222,11 +310,17 @@ See [Effect Guide](contributing/guides/effect.md),
 
 ## Git Workflow
 
+Use the installed `manage-work-items` skill when creating or revising GitHub
+issues. Work items may reference specifications but do not own accepted AXM
+requirements.
+
 **NEVER commit without explicit user request.** This is a hard rule with no exceptions.
 
-- This repo is public: never include private Linear IDs, links, titles, content,
-  comments, customer details, private-repo links, or screenshots in branches,
-  commits, issues, PRs, or release notes
+- This repo is public; the executable specification
+  `system/process/public-artifacts-protect-private-context` owns the
+  public-context obligation. Never include private Linear IDs, links, titles,
+  content, comments, customer details, private-repo links, or screenshots in
+  branches, commits, issues, PRs, or release notes
 - Cross-repo work uses a separate AXM PR with self-contained public context;
   keep private coordination and private PR links out of this repo
 
@@ -237,38 +331,45 @@ See [Effect Guide](contributing/guides/effect.md),
 
 Wait for the user to review changes and decide when to commit.
 
-## Field note subjects
-
-| Subject              | Mode   | Scope                                                                                                                                      | Target condition | Retire when                                                                                                |
-| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ---------------------------------------------------------------------------------------------------------- |
-| axm-cli-interactions | survey | Sessions that directly run `axm` to complete work in this workspace or manually validate AXM behavior; automated test invocations excluded | —                | Recurring notes support a specific target condition, or two triage reviews find no pattern                 |
-| ci-cd-workflows      | survey | Sessions that edit, run, inspect, or wait on GitHub Actions for CI, release, or CI images                                                  | —                | Notes support graduating or splitting into specific target subjects, or two triage reviews find no pattern |
-
 <!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->
 
 ## Knowledge Bundles
 
+Use `axm knowledge concepts --help` to search, read, and explore these bundles.
+
 ### @agentxm
 
-| Bundle                                                                                 | Description                                                                                                                                                         |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [agent-engineering](.axm/extensions/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
-| [agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
+<!-- axm:point v=1 ext=@agentxm/knowledge/agent-engineering kind=knowledge -->
+<!-- axm:point v=1 ext=@agentxm/knowledge/agentxm kind=knowledge -->
+
+| Bundle                                                                                          | Description                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [agent-engineering](agent_extensions/agentxm/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
+| [agentxm](agent_extensions/agentxm/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
 
 ### @craigsmitham
 
-| Bundle                                                                                              | Description                                                                                                                                                                          |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [docs](.axm/extensions/@craigsmitham/knowledge/docs/src/index.md)                                   | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns                   |
-| [effect-v4](.axm/extensions/@craigsmitham/knowledge/effect-v4/src/index.md)                         | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                                         |
-| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md)                     | Operational field-note practice for factual capture, impact-aware triage, evidence-led findings, and verified corrective action                                                      |
-| [software-architecture](.axm/extensions/@craigsmitham/knowledge/software-architecture/src/index.md) | Human-first, risk-driven software architecture guidance for durable system meaning, product quality requirements, lifecycle, stewardship, boundaries, invariants, and selected views |
-| [software-engineering](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/index.md)   | Software engineering guidance for evidence-timed design change and context-rich work items for incidents, defects, and feature delivery                                              |
-| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md)     | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices               |
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/docs kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/effect-v4 kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/field-notes kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/requirements-engineering kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/software-engineering kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/work-management kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/workflow-automation kind=knowledge -->
+
+| Bundle                                                                                                             | Description                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                                         | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns     |
+| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                               | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                     |
+| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                           | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                |
+| [requirements-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/requirements-engineering/src/index.md) | Portable requirements engineering for elicitation, analysis, specification, review, traceability, lifecycle, and evidence across project methods and tools             |
+| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md)         | Portable engineering craft for evidence-backed codebase review and coherent repository execution surfaces                                                              |
+| [work-management](agent_extensions/agentxm/@craigsmitham/knowledge/work-management/src/index.md)                   | Portable software work-item taxonomy, content contracts, templates, lifecycle, evidence, and tracker-neutral guidance                                                  |
+| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md)           | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
 
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->
-<!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.0 kind=rule -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.1 kind=rule -->
 
 ## Use Effect v4
 
@@ -276,27 +377,7 @@ When working with Effect, use Effect v4 APIs and conventions. Do not use Effect
 v3 APIs or carry v3 patterns forward; verify ambiguous guidance against current
 v4 sources.
 
-<!-- axm:point v=1 ext=@craigsmitham/rules/yagni@0.1.1 kind=rule -->
-
-## YAGNI
-
-Before adding capability, structure, process, or scope for future use, consult
-the [YAGNI principle](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/design-and-change/yagni-and-speculative-complexity.md).
-Defer the commitment unless it serves a current feature, constraint, invariant,
-or concrete risk. If delay would close an option that is costly to recover,
-take only the cheapest safe action that preserves it.
-
-<!-- axm:point v=1 ext=@craigsmitham/rules/tidy-first@0.1.1 kind=rule -->
-
-## Tidy First
-
-When current structure materially increases the difficulty or risk of an
-authorized software behavior change, consult the [Tidy First
-pattern](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/design-and-change/tidy-first.md).
-Choose first, after, later, or never. If tidying first, make only the smallest
-behavior-preserving change that makes the authorized change easier.
-
-<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.0 kind=rule -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.3 kind=rule -->
 
 ## Field notes
 
@@ -318,10 +399,20 @@ While doing ordinary work within a declared subject, record one note when:
 Do not record your own typo, the same incident twice in one session, or
 speculation without an observed incident.
 
+### Preserve diagnostic evidence
+
+While working within a declared subject, do not discard safe structured failure
+details before deciding whether an interaction qualifies for capture. Inspect
+the complete result, preserve the process exit status, and keep result output
+separate from diagnostic output. If output must be reduced, retain materially
+useful error, request, response, retry, recovery, and affected-artifact fields.
+Never retain credentials, authorization material, opaque response bodies, or
+other sensitive values. Do not rerun a mutation merely to recover evidence.
+
 ### How to record
 
-On the first qualifying incident in a session, read the
-[capture instructions](.axm/extensions/@craigsmitham/rules/field-notes/src/capture.md).
+On the first qualifying incident in a session, read `capture.md` alongside the
+installed field-notes rule source.
 Append one note for each qualifying incident. Recording it is expected behavior,
 not an admission of failure.
 

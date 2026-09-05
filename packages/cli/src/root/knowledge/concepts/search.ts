@@ -3,18 +3,20 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError } from "../../../app-error/index.js";
+import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   KnowledgeIndex,
-  makeKnowledgeQuery,
-  parseKnowledgeSearchQuery,
   type KnowledgeQueryClause,
-} from "@agentxm/client-core/unstable/knowledge";
-import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+  makeKnowledgeQuery,
+} from "@agentxm/knowledge-query";
+import { parseKnowledgeSearchQuery } from "@agentxm/registry-protocol/unstable/knowledge";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../../shared/operation-lifecycle.js";
 import { scopeConfig } from "../flags.js";
 import { captureInstalledKnowledgeIndex } from "../inspect.js";
 import { KnowledgeConceptQueryPageSchema, type KnowledgeConceptQueryPage } from "./schemas.js";
@@ -72,12 +74,11 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
     });
   }
 
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const index = yield* KnowledgeIndex;
-  const captured = yield* renderer.withSpinner(
-    "Searching installed knowledge",
-    () => captureInstalledKnowledgeIndex(),
-    { successMessage: "Searched installed knowledge" },
+  const captured = yield* withLiveOperation(
+    { command: "knowledge.concepts.search", name: "Search installed knowledge", mode: "preview" },
+    observeUnit({ id: "index", label: "installed knowledge" }, captureInstalledKnowledgeIndex()),
   );
   if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const { snapshot } = captured;
@@ -93,7 +94,7 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
     corpusFingerprint: snapshot.fingerprint,
     ...page,
   };
-  if (yield* renderer.result(output, KnowledgeConceptQueryPageSchema)) return;
+  if (yield* screen.document(output, KnowledgeConceptQueryPageSchema)) return;
 
   const rows = page.items.map(({ ref, title, kind }) => ({
     bundle: sanitizeKnowledgeTerminalText(ref.bundle),
@@ -102,13 +103,15 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
     kind,
   }));
   if (rows.length === 0) {
-    yield* renderer.info("No installed knowledge concepts matched");
+    yield* screen.note(headlineDoc("info", "No installed knowledge concepts matched"));
     return;
   }
-  yield* renderer.table(
-    rows,
-    ConceptTable,
-    `${rows.length} matching concept${rows.length === 1 ? "" : "s"}`,
+  yield* screen.result(
+    tableViewDoc(
+      rows,
+      ConceptTable,
+      `${rows.length} matching concept${rows.length === 1 ? "" : "s"}`,
+    ),
   );
 });
 

@@ -113,16 +113,17 @@ fi
 # Commit and push
 echo "==> Committing and pushing..."
 
+commit_identity=()
 if ! git config user.name >/dev/null; then
-  git config user.name "github-actions[bot]"
+  commit_identity+=(-c "user.name=github-actions[bot]")
 fi
 
 if ! git config user.email >/dev/null; then
-  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+  commit_identity+=(-c "user.email=41898282+github-actions[bot]@users.noreply.github.com")
 fi
 
 git add Formula/axm.rb
-git commit -m "axm ${VERSION}"
+git "${commit_identity[@]}" commit -m "axm ${VERSION}"
 git push
 
 echo "==> Done. Homebrew formula updated to v${VERSION}."

@@ -9,39 +9,44 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import type {
-  WorkspaceMutationsService,
-  WorkspaceTransactionRunner,
-  ExtensionInventory,
-  PackagingKind,
-  ReadModelRecordRow,
-} from "@agentxm/client-core/unstable/workspace";
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  type WorkspaceMutationsService,
+  type WorkspaceTransactionRunner,
+  type WorkspaceTransitionAcquirer,
+  type ExtensionInventory,
+  type PackagingKind,
+  type ReadModelRecordRow,
+  TreeIntegritySchema,
+  computeSourceHash,
+} from "@agentxm/workspace-state";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
+import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+
 import {
   ExtensionDependencyConstraintMapSchema,
-  SourceHashSchema,
   decodeExtensionNameSync,
   type ExtensionDependencyConstraintMap,
   type ExtensionName,
   type Handle,
-  type InstallableExtensionType,
   normalizeHandle,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
   type HookLockEntry,
   type RegistryPackLockEntry,
   type RuleLockEntry,
   type SkillLockEntry,
-} from "@agentxm/client-core/unstable/lockfile";
-import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/workspace-state";
 import {
   decodeVersionSync,
   decodeVersionRangeSync,
   type Version,
   type VersionRange,
-} from "@agentxm/client-core/unstable/version-constraints";
-import { decodeRelativePathSync } from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  decodeAbsolutePathSync,
+  decodeRelativePathSync,
+} from "@agentxm/extension-model/unstable/path-types";
 
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
   Partial<WorkspaceMutationsService["records"]>;
@@ -53,16 +58,17 @@ export const runWorkspaceTransactionStub: WorkspaceTransactionRunner = (args) =>
     return value;
   });
 
+/** Acquires nothing: unit tests share literal workspace paths. */
+export const acquireTransitionStub: WorkspaceTransitionAcquirer = () =>
+  Effect.succeed(Option.none());
+
 export const managerLifecycleStubs = {
   runTransaction: runWorkspaceTransactionStub,
   materializeDeactivate: () => Effect.void,
-  upsertTrustEntry: () => Effect.void,
-  removeTrustEntry: () => Effect.void,
 };
 
-const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
-  Effect.succeed([]);
-const emptyInventory = (): Effect.Effect<ExtensionInventory, AppError> =>
+const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>> => Effect.succeed([]);
+const emptyInventory = (): Effect.Effect<ExtensionInventory> =>
   Effect.succeed({
     items: [],
     count: 0,
@@ -148,7 +154,7 @@ export const unmanagedRow = (args: {
  */
 export const rowsFor =
   (byType: Partial<Record<InstallableExtensionType, ReadonlyArray<ReadModelRecordRow>>>) =>
-  (type: InstallableExtensionType): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
+  (type: InstallableExtensionType): Effect.Effect<ReadonlyArray<ReadModelRecordRow>> =>
     Effect.succeed(byType[type] ?? []);
 
 /**
@@ -200,13 +206,26 @@ export const makeBaseWorkspaceMock = (
     scope: "project",
     path: axmDir,
     baseDir,
+    layout: {
+      scope: "project",
+      workspaceRoot: decodeAbsolutePathSync(baseDir),
+      projectRoot: decodeAbsolutePathSync(baseDir),
+      settingsPath: decodeAbsolutePathSync(path.join(baseDir, "axm.json")),
+      lockPath: decodeAbsolutePathSync(path.join(baseDir, "axm-lock.yaml")),
+      runtimeDir: decodeAbsolutePathSync(path.join(baseDir, ".axm")),
+      acquiredRoot: decodeAbsolutePathSync(path.join(baseDir, "agent_extensions")),
+      authoredRoot: (type: InstallableExtensionType) =>
+        decodeAbsolutePathSync(path.join(baseDir, type === "mcp-server" ? "mcps" : `${type}s`)),
+    },
     records,
     runTransaction: runWorkspaceTransactionStub,
+    acquireTransition: acquireTransitionStub,
     getLockfileState: () => Effect.succeed("ok" as const),
     getDesiredStateGraph: () =>
       Effect.succeed({
         complete: true,
         nodes: [],
+        mcpSourceClosures: [],
         problems: [],
       }),
     getConfiguredSources: () => Effect.succeed([]),
@@ -257,8 +276,8 @@ export const makeBaseWorkspaceMock = (
     getLockedSkill: () => Effect.succeed(Option.none()),
     getSkillDir: () =>
       Effect.succeed({
-        canonicalPath: `${axmDir}/extensions/external/skills/test`,
-        skillSrcPath: `${axmDir}/extensions/external/skills/test`,
+        canonicalPath: `${axmDir}/extensions/agentxm/@test/skills/test`,
+        skillSrcPath: `${axmDir}/extensions/agentxm/@test/skills/test/src`,
       }),
     setSkill: () => Effect.void,
     setSkillLock: () => Effect.void,
@@ -287,6 +306,7 @@ export const makeBaseWorkspaceMock = (
     removeSubagentLock: () => Effect.void,
     getLockedMcpServers: () => Effect.succeed({}),
     getLockedMcpServer: () => Effect.succeed(Option.none()),
+    getLockedMcpServerForConnection: () => Effect.succeed(Option.none()),
     getConfiguredMcpServerEntries: () => Effect.succeed({}),
     setMcpServer: () => Effect.void,
     setMcpServerLock: () => Effect.void,
@@ -300,10 +320,17 @@ export const makeBaseWorkspaceMock = (
     removePackLock: () => Effect.void,
     isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
   } satisfies WorkspaceMutationsService;
-  return { ...base, ...serviceOverrides };
+  return {
+    ...base,
+    ...serviceOverrides,
+    layout: serviceOverrides.layout ?? base.layout,
+  };
 };
 
 const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
+const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
 const decodeExtensionDependencyConstraintMapSync = Schema.decodeUnknownSync(
   ExtensionDependencyConstraintMapSchema,
 );
@@ -316,31 +343,46 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * Accept the concise pre-v4 fixture shapes still useful to command tests, but
- * publish only valid v4 accepted resolutions to the workspace under test.
+ * Accept concise fixture shapes useful to command tests, but publish only
+ * valid v7 accepted resolutions to the workspace under test.
  * Authored workspace packages deliberately have no lock row.
  */
 const normalizeTestLockMap = (
   entries: Record<string, unknown> | undefined,
-  feature: "extension" | "pack" = "extension",
+  extensionType: "skill" | "rule" | "hook" | "knowledge" | "subagent" | "mcp-server" | "pack",
+  sourceEndpoints: ReadonlyMap<string, string>,
 ): Record<string, unknown> =>
   Object.fromEntries(
     Object.entries(entries ?? {}).flatMap(([name, value]) => {
       if (!isRecord(value) || value["type"] === "workspace") return [];
       const type = value["type"];
       if (type === "registry") {
+        const sourceName =
+          typeof value["sourceName"] === "string" ? value["sourceName"] : "agentxm";
         return [
           [
             name,
             {
               type,
+              sourceType: "registry",
+              endpoint:
+                value["endpoint"] ??
+                sourceEndpoints.get(sourceName) ??
+                "https://registry.agentxm.ai",
+              extensionType,
+              workspaceName:
+                value["workspaceName"] ??
+                (extensionType === "mcp-server" ? value["name"] : undefined) ??
+                name,
+              packageFormat: "agentxm",
               owner: value["owner"],
               name: value["name"],
               resolvedVersion: value["resolvedVersion"],
               integrity: value["integrity"],
-              sourceName: value["sourceName"],
+              sourceName,
               publisherBindingId: value["publisherBindingId"],
-              ...(feature === "pack"
+              treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
+              ...(extensionType === "pack"
                 ? {
                     manifestContentIdentity:
                       value["manifestContentIdentity"] ??
@@ -358,9 +400,17 @@ const normalizeTestLockMap = (
             name,
             {
               type,
+              sourceType: "local",
+              sourceName: "local",
+              extensionType,
+              workspaceName: value["workspaceName"] ?? name,
+              packageFormat: value["packageFormat"] ?? "agentxm",
+              packageOwner: value["packageOwner"] ?? value["owner"] ?? "@acme",
+              packageName: value["packageName"] ?? name,
               path: value["path"],
               contentIdentity:
                 value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+              treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
             },
           ],
         ];
@@ -373,11 +423,27 @@ const normalizeTestLockMap = (
         type === "git"
       ) {
         const immutableRevision = value["gitTreeHash"] ?? "test-revision";
+        const sourceName = type === "git" ? "git" : (value["sourceName"] ?? type);
         return [
           [
             name,
             {
               type,
+              sourceType: type,
+              sourceName,
+              ...(type === "git"
+                ? {}
+                : {
+                    endpoint:
+                      value["endpoint"] ??
+                      sourceEndpoints.get(String(sourceName)) ??
+                      `https://${type}.com`,
+                  }),
+              extensionType,
+              workspaceName: value["workspaceName"] ?? name,
+              packageFormat: value["packageFormat"] ?? "agentxm",
+              packageOwner: value["packageOwner"] ?? value["owner"] ?? "@acme",
+              packageName: value["packageName"] ?? name,
               ...(type === "azurerepos"
                 ? {
                     organization: value["organization"],
@@ -393,6 +459,7 @@ const normalizeTestLockMap = (
               resolvedTree: value["resolvedTree"] ?? immutableRevision,
               contentIdentity:
                 value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+              treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
             },
           ],
         ];
@@ -414,8 +481,10 @@ export const dependencyConstraintMap = (
 ): ExtensionDependencyConstraintMap => decodeExtensionDependencyConstraintMapSync(entries);
 
 export interface WriteWorkspaceFilesOptions {
+  readonly scope?: "project" | "user" | undefined;
   readonly agents?: ReadonlyArray<string> | undefined;
   readonly owner?: string | undefined;
+  readonly instructionFiles?: false | Record<string, unknown> | undefined;
   readonly skills?: Record<string, unknown> | undefined;
   readonly rules?: Record<string, unknown> | undefined;
   readonly hooks?: Record<string, unknown> | undefined;
@@ -425,6 +494,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly sources?: ReadonlyArray<unknown> | undefined;
   readonly minimumReleaseAge?: string | undefined;
   readonly minimumReleaseAgeExclude?: ReadonlyArray<string> | undefined;
+  readonly lint?: Record<string, unknown> | undefined;
   readonly lockfileSkills?: Record<string, unknown> | undefined;
   readonly lockfileRules?: Record<string, unknown> | undefined;
   readonly lockfileHooks?: Record<string, unknown> | undefined;
@@ -433,10 +503,11 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfilePacks?: Record<string, unknown> | undefined;
   readonly subagents?: Record<string, unknown> | undefined;
   readonly lockfileSubagents?: Record<string, unknown> | undefined;
-  readonly writeTrustFromLockfile?: boolean | undefined;
 }
 
-export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
+export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
+  const scope = opts.scope ?? "project";
+  const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
   const registrySourceNames = new Set(
     [
       opts.lockfileSkills,
@@ -463,9 +534,25 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
           location: "file:///tmp/test-registry",
         }))
       : undefined);
+  const sourceEndpoints = new Map(
+    (sources ?? []).flatMap((source) => {
+      if (!isRecord(source) || typeof source["name"] !== "string") return [];
+      const location = source["location"] ?? source["url"];
+      return typeof location === "string"
+        ? [[source["name"], location] as const]
+        : location instanceof URL
+          ? [[source["name"], location.href] as const]
+          : [];
+    }),
+  );
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
-    ...(opts.owner && { owner: opts.owner }),
+    ...(Object.hasOwn(opts, "owner")
+      ? opts.owner === undefined
+        ? {}
+        : { owner: opts.owner }
+      : { owner: "@acme" }),
+    ...(opts.instructionFiles !== undefined && { instructionFiles: opts.instructionFiles }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.rules) && { rules: opts.rules }),
     ...(hasEntries(opts.hooks) && { hooks: opts.hooks }),
@@ -474,6 +561,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.mcps) && { mcpServers: opts.mcps }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
     ...(sources && { sources }),
+    ...(opts.lint && { lint: opts.lint }),
     ...(opts.minimumReleaseAge && { minimumReleaseAge: opts.minimumReleaseAge }),
     ...(opts.minimumReleaseAgeExclude && {
       minimumReleaseAgeExclude: opts.minimumReleaseAgeExclude,
@@ -481,27 +569,34 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 4,
-    skills: normalizeTestLockMap(opts.lockfileSkills),
-    ...(hasEntries(opts.lockfileRules) && { rules: normalizeTestLockMap(opts.lockfileRules) }),
-    ...(hasEntries(opts.lockfileHooks) && { hooks: normalizeTestLockMap(opts.lockfileHooks) }),
+    lockfileVersion: 7,
+    skills: normalizeTestLockMap(opts.lockfileSkills, "skill", sourceEndpoints),
+    ...(hasEntries(opts.lockfileRules) && {
+      rules: normalizeTestLockMap(opts.lockfileRules, "rule", sourceEndpoints),
+    }),
+    ...(hasEntries(opts.lockfileHooks) && {
+      hooks: normalizeTestLockMap(opts.lockfileHooks, "hook", sourceEndpoints),
+    }),
     ...(hasEntries(opts.lockfileKnowledge) && {
-      knowledge: normalizeTestLockMap(opts.lockfileKnowledge),
+      knowledge: normalizeTestLockMap(opts.lockfileKnowledge, "knowledge", sourceEndpoints),
     }),
     ...(hasEntries(opts.lockfileSubagents) && {
-      subagents: normalizeTestLockMap(opts.lockfileSubagents),
+      subagents: normalizeTestLockMap(opts.lockfileSubagents, "subagent", sourceEndpoints),
     }),
     ...(hasEntries(opts.lockfileMcpServers) && {
-      mcpServers: normalizeTestLockMap(opts.lockfileMcpServers),
+      mcpServers: normalizeTestLockMap(opts.lockfileMcpServers, "mcp-server", sourceEndpoints),
     }),
     ...(hasEntries(opts.lockfilePacks) && {
-      packs: normalizeTestLockMap(opts.lockfilePacks, "pack"),
+      packs: normalizeTestLockMap(opts.lockfilePacks, "pack", sourceEndpoints),
     }),
   };
 
-  fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  const workspaceRoot = scope === "user" ? path.join(runtimeDir, "workspace") : projectRoot;
+  const settingsPath = path.join(workspaceRoot, "axm.json");
+  const lockPath = path.join(workspaceRoot, "axm-lock.yaml");
+  fs.mkdirSync(path.join(workspaceRoot, ".axm"), { recursive: true });
+  fs.writeFileSync(settingsPath, JSON.stringify(settings));
+  fs.writeFileSync(lockPath, YAML.stringify(lockfile));
 };
 
 export const computePackageContentHashSync = (packageDir: string): string => {
@@ -533,12 +628,47 @@ export const computePackageContentHashSync = (packageDir: string): string => {
   return computeSourceHash(hash.digest("hex"));
 };
 
+/** Compute the strict v7 lock identity for a materialized test package tree. */
+export const computeMaterializedTreeIntegritySync = (root: string): string => {
+  const files: Array<{ readonly relativePath: string; readonly absolutePath: string }> = [];
+  const walk = (directory: string, relativeDirectory: string): void => {
+    const entries = fs
+      .readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name, "en"));
+    for (const entry of entries) {
+      const relativePath =
+        relativeDirectory.length === 0 ? entry.name : `${relativeDirectory}/${entry.name}`;
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isSymbolicLink()) throw new Error(`Unexpected symlink: ${relativePath}`);
+      if (entry.isDirectory()) walk(absolutePath, relativePath);
+      else if (entry.isFile()) files.push({ relativePath, absolutePath });
+      else throw new Error(`Unexpected filesystem entry: ${relativePath}`);
+    }
+  };
+  walk(root, "");
+  const hash = crypto.createHash("sha256");
+  const frame = (bytes: Uint8Array): void => {
+    const length = Buffer.alloc(8);
+    length.writeBigUInt64BE(BigInt(bytes.byteLength));
+    hash.update(length);
+    hash.update(bytes);
+  };
+  frame(Buffer.from("agentxm-materialized-tree"));
+  frame(Buffer.from("1"));
+  for (const file of files) {
+    frame(Buffer.from(file.relativePath, "utf8"));
+    frame(fs.readFileSync(file.absolutePath));
+  }
+  return Schema.decodeUnknownSync(TreeIntegritySchema)(`sha256-tree-v1:${hash.digest("hex")}`);
+};
+
 /**
- * Write a workspace-sourced OKF knowledge package under `<axmDir>/extensions`,
- * resolvable as `workspace:@acme/knowledge/<name>`.
+ * Write a project-authored OKF knowledge package under the default
+ * `<projectRoot>/knowledge` authoring root, resolvable from source `workspace`.
  */
-export const writeKnowledgeExtension = (axmDir: string, name: string): void => {
-  const root = path.join(axmDir, "extensions", "@acme", "knowledge", name);
+export const writeKnowledgeExtension = (runtimeDir: string, name: string): void => {
+  const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
+  const root = path.join(projectRoot, "knowledge", name);
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(root, "knowledge.json"),
@@ -557,21 +687,32 @@ export const writeKnowledgeExtension = (axmDir: string, name: string): void => {
   );
 };
 
-export const ensureWorkspaceFiles = (axmDir: string): void => {
-  if (!fs.existsSync(path.join(axmDir, "settings.json"))) {
-    writeWorkspaceFiles(axmDir);
+export const ensureWorkspaceFiles = (runtimeDir: string): void => {
+  const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
+  if (!fs.existsSync(path.join(projectRoot, "axm.json"))) {
+    writeWorkspaceFiles(runtimeDir);
   }
 };
 
 export const makeLocalSkillLockEntry = (opts?: {
+  readonly owner?: Handle;
+  readonly name?: ExtensionName;
   readonly path?: string;
   readonly agents?: ReadonlyArray<string>;
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "skill",
+  workspaceName: extensionName(opts?.name ?? "test"),
+  packageFormat: "agentxm",
+  packageOwner: normalizeHandle(opts?.owner ?? "@acme"),
+  packageName: extensionName(opts?.name ?? "test"),
   path: decodeRelativePathSync(opts?.path ?? "installed"),
   contentIdentity: TEST_CONTENT_IDENTITY,
+  treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 export const makeRegistrySkillLockEntry = (opts: {
@@ -580,18 +721,25 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
+  readonly endpoint?: URL;
   readonly publisherBindingId?: string;
   readonly agents?: ReadonlyArray<string>;
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+  extensionType: "skill",
+  workspaceName: extensionName(opts.name),
+  packageFormat: "agentxm",
   owner: normalizeHandle(opts.owner),
   name: extensionName(opts.name),
   resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
-  sourceName: opts.sourceName ?? "default",
+  sourceName: opts.sourceName ?? "agentxm",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 export const makeRegistryPackLockEntry = (opts: {
@@ -600,6 +748,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
+  readonly endpoint?: URL;
   readonly publisherBindingId?: string;
   readonly sourceHash?: string;
   readonly resolvedSkills?: Readonly<Record<string, unknown>>;
@@ -609,12 +758,18 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly updatedAt?: unknown;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
+    sourceType: "registry",
+    endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+    extensionType: "pack",
+    workspaceName: extensionName(opts.name),
+    packageFormat: "agentxm",
     owner: normalizeHandle(opts.owner),
     name: extensionName(opts.name),
     resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",
-    sourceName: opts.sourceName ?? "default",
+    sourceName: opts.sourceName ?? "agentxm",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+    treeIntegrity: TEST_TREE_INTEGRITY,
     manifestContentIdentity:
       opts.sourceHash === undefined
         ? TEST_CONTENT_IDENTITY

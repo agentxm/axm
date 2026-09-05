@@ -1,3 +1,214 @@
+## 0.28.7 (2026-09-04)
+
+### 🩹 Fixes
+
+- Accept compatible prerelease AXM skill cohorts during workspace lint.
+
+### ❤️ Thank You
+
+- Test
+
+## 0.28.6 (2026-09-04)
+
+### 🚀 Features
+
+- # Uninstall retires a pack whose package cannot be read
+  - `axm packs uninstall` and `axm uninstall <fqn>` now retire a desired pack
+    whose own package manifest is missing or cannot be decoded. The pack's
+    `axm.json` entry and its `axm-lock.yaml` resolution are removed; no content
+    is deleted, because none of it could be verified. Restoring a manifest purely
+    to satisfy the graph gate is no longer necessary.
+  - The result reports such a removal as registration-only. The plan unit carries
+    a warning naming the pack, the reason, the unreadable manifest path, what was
+    left in place, and the remedy, and the pack's canonical path is reported
+    unchanged rather than removed.
+  - Uninstall still fails closed, and changes nothing, when a pack other than the
+    target is incomplete, or when the target's manifest is readable and
+    disagrees with the workspace. The
+    `packs/uninstall/desired-state-graph-complete` blocker keeps its identity;
+    its detail now names the remedy for each blocking pack that was not selected.
+
+- Publish one schema-backed lifecycle event stream for every long-running
+  operation (operation, phase, unit, progress, waiting, and settled events) that
+  the live frame, the machine progress writer, and telemetry consume
+  independently; project it into a live task tree with numeric progress and
+  first-class waiting and rollback, collapsing into the transcript before the
+  settled document prints. Lay tables and change rows out responsively (width
+  hints, priorities, wrapping, dropped columns, and a stacked fallback under
+  forty columns) with headers aligned to their cells, paint non-terminal streams
+  plain and unbounded with per-stream color, add an ASCII glyph fallback, and
+  ship the design gallery, renderer conformance suite, and terminal design,
+  interaction, and live-event decision documentation. The machine progress
+  event on stderr now carries the encoded lifecycle event in place of the
+  label-derived `phase`, `percent`, and `message` fields.
+
+- Resolve `axm upgrade` through the promoted stable-release channel by default,
+  support exact stable versions without discovery, gate package-manager mutation
+  on target availability, preserve validated channel metadata for update checks,
+  and publish the shared stable-channel document contract and promotion tooling.
+
+- # Agent targeting is workspace membership
+
+  ## Breaking changes
+  - `--agent` is removed from `skills new`, `subagents new`, `skills update`,
+    `subagents update`, `mcps add`, and `mcps install`. Agent selection exists
+    only to choose the workspace's configured agents (`setup`, `agents add`,
+    `agents remove`) or to filter a listing (`skills list`, `subagents list`).
+  - `--agent` on `setup`, `skills list`, and `subagents list` is validated against
+    the supported agent catalog; an unsupported identifier is rejected when the
+    command line is parsed.
+  - MCP server entries in `axm.json` no longer accept an `agents` inclusion list.
+    A settings document carrying the key fails validation and gates every
+    operation; there is no migration or dual read. Every configured MCP server
+    reaches every configured agent that can represent it, and an agent that
+    cannot is reported as `unsupported`.
+  - The lint rule `workspace/mcps-shared-target-compatible` is retired from the
+    published rule catalog and settings schema.
+  - The `uninstallSkill` lifecycle operation is removed from
+    `@agentxm/extension-lifecycle`; `SkillManager` owns skill removal.
+  - `mcps import` records an adopted server once, without an agent subset; the
+    next reconciliation projects it to every configured, capable agent.
+
+### 🩹 Fixes
+
+- Leave a Knowledge bundle whose package is missing or invalid out of the generated instructions file and report the omission, its reason, and its remedy, instead of failing unrelated install, enable, disable, uninstall, and pack operations.
+- Remove the lifecycle `status` field from the shared executable-specification contract: a specification on `main` is accepted authority, the metadata decoder rejects unknown fields, and the per-change verdict is the specification impact of a change.
+
+### ❤️ Thank You
+
+- Claude Fable 5.1
+- Claude Opus 5 (1M context)
+- Craig Smitham
+- Test
+
+## 0.28.5 (2026-09-03)
+
+### 🚀 Features
+
+- # Shared executable-specification contract
+
+  ## New public surface
+  - `@agentxm/extension-model/unstable/specifications` publishes the shared
+    executable-specification contract: the six-lens `class` vocabulary
+    (`functional`, `quality`, `constraint`, `external-conformance`,
+    `human-factors`, `process`), the role, boundary, selection, method, and
+    quality-characteristic vocabularies, the `SpecificationMetadata` shape with
+    `statement`, `status`, `boundaryRationale`, `derivedFrom`, `supersedes`,
+    `assumptions`, `openQuestions`, and `limitations`, the shared product-goal
+    registry (`sharedProductGoals`), Schema-backed decoders, and the pure
+    `checkSpecificationCorpus` conformance check that every AgentXM
+    specification corpus runs.
+
+  ## Breaking changes
+  - The AXM specification corpus is rebound to the shared contract. The former
+    `installability`, `compatibility`, `performance`, and `security` classes are
+    now `quality` with a `characteristic`; `usability` is `human-factors`; and
+    `architecture` is `constraint`. `pnpm test:spec --class` selects by the new
+    lens and `--characteristic` selects a quality characteristic;
+    `pnpm test:compatibility` and `pnpm test:performance` select by
+    characteristic.
+  - `specifications/support/contract.ts` is removed; specifications import
+    `defineSpecification` and its companions from
+    `@agentxm/extension-model/unstable/specifications`. The local product-goal
+    registry keeps only AXM-specific goals and references shared goals by
+    identity.
+
+- Add locally named MCP connections and typed CLI screen output, and improve workspace lint, projection recovery, publishing, and release reliability.
+
+### ❤️ Thank You
+
+- Claude Fable 5.1
+- Craig Smitham
+- Test
+
+## 0.28.4 (2026-09-02)
+
+### 🚀 Features
+
+- Complete the package-architecture migration by replacing the monolithic extension-management package with focused feature and workspace packages, typed failures, and enforced dependency boundaries.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
+## 0.28.3 (2026-08-30)
+
+### 🚀 Features
+
+- Decompose the public package architecture: replace `@agentxm/client-core` with the shared extension model (`@agentxm/extension-model`), the Registry wire contracts (`@agentxm/registry-protocol`), and the extension-management domain (`@agentxm/extension-management`); move generated site content to `axm.sh`; absorb `@agentxm/client-utils`. All published surfaces remain unstable `./unstable/*` subpaths.
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Craig Smitham
+
+## 0.28.2 (2026-08-29)
+
+### 🩹 Fixes
+
+- Remove low-value CLI action service layers and redundant wrappers.
+- Uninstall source-free inline MCP servers from user workspaces and agent projections.
+- Report empty preview plans as no-ops, including successful sync convergence assertions.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
+## 0.28.1 (2026-08-26)
+
+### 🩹 Fixes
+
+- Fix source-qualified AXM skill verification paths. ([e06ab3b24](https://github.com/agentxm/axm/commit/e06ab3b24))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
+## 0.28.0 (2026-08-25)
+
+### ⚠️ Breaking Changes
+
+- Qualify acquired extension storage by source and preserve source identity. ([0ee512d45](https://github.com/agentxm/axm/commit/0ee512d45))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
+## 0.27.18 (2026-08-25)
+
+### 🚀 Features
+
+- Adopt authored and acquired workspace layout (AXM-1588), align operation lifecycle guidance, and upgrade Effect to 4.0.0-rc.112. ([07bd016f8](https://github.com/agentxm/axm/commit/07bd016f8))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
+## 0.27.17 (2026-08-23)
+
+### 🚀 Features
+
+- Let Knowledge authors and workspaces control instruction entries.
+- Make Registry archive policy inspectable and validate filtered packages.
+
+### 🩹 Fixes
+
+- Route generated Knowledge bundle instructions to concept discovery.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
+## 0.27.16 (2026-08-23)
+
+### 🩹 Fixes
+
+- Make the official AXM skill a broad, bounded extension-management front door and restrict publishing to workspace-authored packages with precise archive-integrity guidance.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.15 (2026-08-20)
 
 ### 🚀 Features

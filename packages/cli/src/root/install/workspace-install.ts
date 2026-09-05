@@ -7,25 +7,35 @@ import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { ConfiguredAgentOperation } from "@agentxm/client-core/unstable/cli-runtime";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import type { ConfiguredAgentOperation } from "@agentxm/workspace-operations";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
-  type ReleaseAgeEvaluation,
   type ReleaseAgeHoldbackRecord,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
+  operationPresentation,
   type Plan,
-  type PlanSection,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   acceptedResolutionRef,
   acceptedLockedResolutionRef,
   WorkspaceMutations,
+  type WorkspaceMutationsService,
+  computePackManifestContentIdentity,
+} from "@agentxm/workspace-state";
+import {
+  installableExtensionTypes,
+  type InstallableExtensionType,
+  toInstallableExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  LifecycleFailureAdapter,
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
@@ -34,41 +44,37 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-  type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-lifecycle";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
+import { enabledConfiguredEntries } from "@agentxm/extension-workspace";
 import {
-  enabledConfiguredEntries,
   extensionTypePluralSentenceLabels,
-  installableExtensionTypes,
   parseRegistrySourceRef,
-  type InstallableExtensionType,
-  toInstallableExtensionTypePlural,
-} from "@agentxm/client-core/unstable/extensions";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
+} from "@agentxm/extension-model/unstable/extensions";
+import { type PackDependencyRefResolver } from "@agentxm/extension-lifecycle";
 import {
-  computePackManifestContentIdentity,
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
-  type PackDependencyRefResolver,
-  type PackRef,
-} from "@agentxm/client-core/unstable/packs";
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
 
-import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
-import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
 import type { InstallKnowledgeCommandIntent } from "../knowledge/install/intent.js";
-import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
+import {
+  configuredPackConstraintBlockPlan,
+  prospectivePackConstraintProblems,
+} from "../packs/constraint-gate.js";
 import type { InstallPackCommandIntent } from "../packs/install/intent.js";
-import { InstallRuleCommandWorkflowActions } from "../rules/install/command-actions.js";
 import type { InstallRuleCommandIntent } from "../rules/install/intent.js";
-import { InstallSkillCommandWorkflowActions } from "../skills/install/command-actions.js";
 import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
-import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import type { InstallSubagentCommandIntent } from "../subagents/install/intent.js";
 import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
+import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
+import type { InstallCommandActions } from "../shared/install-command-actions.js";
+import { toAppError } from "../../app-error/conversions.js";
+import { HookManager, KnowledgeManager, RuleManager } from "@agentxm/extension-workspace";
+import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
 
@@ -88,19 +94,14 @@ interface CollectedWorkspaceInstallPlans {
 }
 
 type WorkspaceInstallCollectorContext =
+  | LifecycleFailureAdapter
   | Scope.Scope
   | HttpClient.HttpClient
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceCatalog
   | SourceHostProviders
-  | InstallSkillCommandWorkflowActions
-  | InstallHookCommandWorkflowActions
-  | InstallKnowledgeCommandWorkflowActions
-  | InstallRuleCommandWorkflowActions
-  | InstallSubagentCommandWorkflowActions
-  | InstallMcpServerCommandWorkflowActions
-  | InstallPackCommandWorkflowActions
   | HookManager
   | KnowledgeManager
   | RuleManager;
@@ -132,8 +133,9 @@ const configuredAgentOperationsFromCollections = (
     const collection = collections[index];
     if (collection === undefined) continue;
     for (const fragment of collection.fragments) {
+      if (fragment.key.startsWith("not-applicable:")) continue;
       const name = fragment.step.label.replace(/^(?:Install|Reinstall|Skip|Update)\s+/u, "");
-      const operation = { extensionType: collector.type, name, targetEnabled: true };
+      const operation = { extensionType: collector.type, name, plannedState: "enabled" as const };
       operations.set(`${operation.extensionType}:${operation.name}`, operation);
     }
   }
@@ -151,32 +153,6 @@ const noConfiguredMessage = (type: Option.Option<WorkspaceInstallableType>): str
 
 const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
   plan.jobs.flatMap((job) => job.steps);
-
-const mergePlanSections = (plans: ReadonlyArray<Plan>): ReadonlyArray<PlanSection> | undefined => {
-  const byTitle = new Map<string, Set<string>>();
-
-  for (const plan of plans) {
-    for (const section of plan.sections ?? []) {
-      const existing = byTitle.get(section.title);
-      if (existing === undefined) {
-        byTitle.set(section.title, new Set(section.items));
-        continue;
-      }
-      for (const item of section.items) {
-        existing.add(item);
-      }
-    }
-  }
-
-  if (byTitle.size === 0) {
-    return undefined;
-  }
-
-  return [...byTitle.entries()].map(([title, items]) => ({
-    title,
-    items: [...items],
-  }));
-};
 
 const toCollectedWorkspaceInstallPlans = ({
   plans,
@@ -358,7 +334,12 @@ const resolveMcpServerIntent = (
       const { ref, versionRange } = resolved;
       const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
       return {
-        intent: { ref, versionRange, force: false } satisfies InstallMcpServerCommandIntent,
+        intent: {
+          ref,
+          localName: decodeExtensionNameSync(name),
+          versionRange,
+          force: false,
+        } satisfies InstallMcpServerCommandIntent,
         releaseAge,
       };
     }),
@@ -370,7 +351,7 @@ const hydrateAcceptedPackRef = (name: string, ref: PackRef) =>
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const locked = yield* ws.getLockedPack(name);
+    const locked = yield* ws.getLockedPack(name).pipe(Effect.mapError(lifecycleFailureToAppError));
     if (Option.isNone(locked)) {
       return yield* makeAppError({
         code: "conflict",
@@ -380,13 +361,14 @@ const hydrateAcceptedPackRef = (name: string, ref: PackRef) =>
     const manifest = yield* Effect.scoped(
       Effect.gen(function* () {
         const fetched = yield* sources.fetch(ref).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
+          Effect.mapError((failure) => {
+            const cause = toAppError(failure);
+            return makeAppError({
               code: cause.code,
               detail: `Failed to fetch accepted Pack ${ref.owner}/packs/${ref.name}@${ref.version}: ${cause.detail}`,
               cause,
-            }),
-          ),
+            });
+          }),
         );
         const manifestPath = path.join(fetched.directory, PACK_MANIFEST_FILENAME);
         const manifestText = yield* fs.readFileString(manifestPath).pipe(
@@ -441,9 +423,10 @@ const acceptedPackDependencyResolver =
     ws: WorkspaceMutationsService,
     fs: FileSystem.FileSystem,
     path: Path.Path,
-  ): PackDependencyRefResolver =>
+  ): PackDependencyRefResolver<AppError> =>
   ({ owner, type, name, root }) =>
     acceptedLockedResolutionRef({ workspace: ws, type, name }).pipe(
+      Effect.mapError(lifecycleFailureToAppError),
       Effect.flatMap(
         Option.match({
           onNone: () =>
@@ -463,6 +446,7 @@ const resolvePackRef = (
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   forceCanonical?: boolean,
+  deferProjections?: boolean,
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -480,12 +464,15 @@ const resolvePackRef = (
           releaseAgeHoldbackBehavior: "preserve-or-block",
           dependencyResolver: acceptedPackDependencyResolver(ws, fs, path),
           ...(forceCanonical === true ? { forceCanonical: true } : {}),
+          ...(deferProjections === true ? { deferProjections: true } : {}),
         } satisfies InstallPackCommandIntent,
         releaseAge: undefined,
       };
     }
 
-    const resolved = yield* resolveConfiguredPack(name, source, releaseAgeEvaluation);
+    const resolved = yield* resolveConfiguredPack(name, source, releaseAgeEvaluation).pipe(
+      Effect.mapError(lifecycleFailureToAppError),
+    );
     const { ref, versionRange } = resolved;
     const releaseAge = "releaseAge" in resolved ? resolved.releaseAge : undefined;
     return {
@@ -496,17 +483,24 @@ const resolvePackRef = (
         releaseAgeEvaluation,
         releaseAgeHoldbackBehavior: "preserve-or-block",
         ...(forceCanonical === true ? { forceCanonical: true } : {}),
+        ...(deferProjections === true ? { deferProjections: true } : {}),
       } satisfies InstallPackCommandIntent,
       releaseAge,
     };
   });
 
-const collectSkillPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectSkillPlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["skill"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallSkillCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredSkillEntries();
-    const entries = enabledConfiguredEntries(configured);
+    const configured = yield* ws
+      .getConfiguredSkillEntries()
+      .pipe(Effect.mapError(lifecycleFailureToAppError));
+    const entries = enabledConfiguredEntries(configured).filter(
+      ([, entry]) => entry.origin !== "bundled",
+    );
 
     const plans = yield* Effect.forEach(
       entries,
@@ -528,11 +522,15 @@ const collectSkillPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectRulePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectRulePlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["rule"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallRuleCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredRuleEntries();
+    const configured = yield* ws
+      .getConfiguredRuleEntries()
+      .pipe(Effect.mapError(lifecycleFailureToAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -555,11 +553,15 @@ const collectRulePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectHookPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectHookPlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["hook"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallHookCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredHookEntries();
+    const configured = yield* ws
+      .getConfiguredHookEntries()
+      .pipe(Effect.mapError(lifecycleFailureToAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -582,11 +584,15 @@ const collectHookPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectKnowledgePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectKnowledgePlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["knowledge"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallKnowledgeCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredKnowledgeEntries();
+    const configured = yield* ws
+      .getConfiguredKnowledgeEntries()
+      .pipe(Effect.mapError(lifecycleFailureToAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -609,11 +615,15 @@ const collectKnowledgePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectSubagentPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectSubagentPlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["subagent"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallSubagentCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredSubagentEntries();
+    const configured = yield* ws
+      .getConfiguredSubagentEntries()
+      .pipe(Effect.mapError(lifecycleFailureToAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -636,27 +646,33 @@ const collectSubagentPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectMcpServerPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectMcpServerPlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["mcpServer"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallMcpServerCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredMcpServerEntries();
+    const configured = yield* ws
+      .getConfiguredMcpServerEntries()
+      .pipe(Effect.mapError(lifecycleFailureToAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveMcpServerIntent(name, entry.source, releaseAgeEvaluation).pipe(
-          Effect.flatMap(({ intent, releaseAge }) =>
-            actions
-              .buildPlan(intent)
-              .pipe(
-                Effect.map((plan) =>
-                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
-                ),
+        entry.kind === "inline"
+          ? Effect.succeed(inlineMcpNotApplicablePlan(name, "install"))
+          : resolveMcpServerIntent(name, entry.source, releaseAgeEvaluation).pipe(
+              Effect.flatMap(({ intent, releaseAge }) =>
+                actions
+                  .buildPlan(intent)
+                  .pipe(
+                    Effect.map((plan) =>
+                      attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+                    ),
+                  ),
               ),
-          ),
-        ),
+            ),
       { concurrency: "unbounded" },
     );
 
@@ -665,31 +681,59 @@ const collectMcpServerPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
 
 const collectPackPlans = (
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["pack"],
   selectedNames?: ReadonlySet<string>,
   forceCanonical?: boolean,
+  deferProjections?: boolean,
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallPackCommandWorkflowActions;
-    const configured = yield* ws.getConfiguredPackEntries();
+    const configured = yield* ws
+      .getConfiguredPackEntries()
+      .pipe(Effect.mapError(lifecycleFailureToAppError));
     const entries = enabledConfiguredEntries(configured).filter(
       ([name]) => selectedNames === undefined || selectedNames.has(name),
     );
 
-    const plans = yield* Effect.forEach(
+    const resolvedPacks = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolvePackRef(name, entry.source, releaseAgeEvaluation, forceCanonical).pipe(
-          Effect.flatMap(({ intent, releaseAge }) =>
-            actions
-              .buildPlan(intent)
-              .pipe(
-                Effect.map((plan) =>
-                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
-                ),
-              ),
+        resolvePackRef(name, entry.source, releaseAgeEvaluation, forceCanonical, deferProjections),
+      { concurrency: "unbounded" },
+    );
+
+    const prospectivePacks = resolvedPacks.map(({ intent }) => intent.packToInstall);
+    const constraintProblems = yield* prospectivePackConstraintProblems({
+      workspace: ws,
+      prospectivePacks,
+      ...(selectedNames === undefined ? {} : { selectedNames }),
+    });
+    const releaseAge = resolvedPacks.flatMap(({ releaseAge }) =>
+      releaseAge === undefined ? [] : [releaseAge],
+    );
+    if (constraintProblems.length > 0) {
+      return toCollectedWorkspaceInstallPlans({
+        plans: [
+          configuredPackConstraintBlockPlan({
+            operation: "install",
+            problems: constraintProblems,
+          }),
+        ],
+        holdbacks: releaseAge.flatMap((record) => record.holdbacks),
+        bypasses: releaseAge.flatMap((record) => record.bypasses),
+      });
+    }
+
+    const plans = yield* Effect.forEach(
+      resolvedPacks,
+      ({ intent, releaseAge }) =>
+        actions
+          .buildPlan(intent)
+          .pipe(
+            Effect.map((plan) =>
+              attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+            ),
           ),
-        ),
       { concurrency: "unbounded" },
     );
 
@@ -701,34 +745,57 @@ const collectPackPlans = (
 
 // Total over InstallableExtensionType: a missing key is a compile error, so a
 // type can never again be silently dropped from workspace install.
-const workspaceInstallCollectorsByType = {
-  skill: collectSkillPlans,
-  rule: collectRulePlans,
-  hook: collectHookPlans,
-  knowledge: collectKnowledgePlans,
-  subagent: collectSubagentPlans,
-  "mcp-server": collectMcpServerPlans,
-  pack: collectPackPlans,
-} satisfies Record<InstallableExtensionType, WorkspaceInstallCollector["collect"]>;
+const makeWorkspaceInstallCollectors = (
+  actions: InstallCommandActions,
+): ReadonlyArray<WorkspaceInstallCollector> => {
+  const collectorsByType = {
+    skill: (releaseAge) =>
+      collectSkillPlans(releaseAge, actions.skill).pipe(
+        Effect.mapError(lifecycleFailureToAppError),
+      ),
+    rule: (releaseAge) =>
+      collectRulePlans(releaseAge, actions.rule).pipe(Effect.mapError(lifecycleFailureToAppError)),
+    hook: (releaseAge) =>
+      collectHookPlans(releaseAge, actions.hook).pipe(Effect.mapError(lifecycleFailureToAppError)),
+    knowledge: (releaseAge) =>
+      collectKnowledgePlans(releaseAge, actions.knowledge).pipe(
+        Effect.mapError(lifecycleFailureToAppError),
+      ),
+    subagent: (releaseAge) =>
+      collectSubagentPlans(releaseAge, actions.subagent).pipe(
+        Effect.mapError(lifecycleFailureToAppError),
+      ),
+    "mcp-server": (releaseAge) =>
+      collectMcpServerPlans(releaseAge, actions.mcpServer).pipe(
+        Effect.mapError(lifecycleFailureToAppError),
+      ),
+    pack: (releaseAge) =>
+      collectPackPlans(releaseAge, actions.pack, undefined, undefined, true).pipe(
+        Effect.mapError(lifecycleFailureToAppError),
+      ),
+  } satisfies Record<InstallableExtensionType, WorkspaceInstallCollector["collect"]>;
 
-const workspaceInstallCollectors: ReadonlyArray<WorkspaceInstallCollector> =
-  installableExtensionTypes.map((type) => ({
+  return installableExtensionTypes.map((type) => ({
     type,
-    collect: workspaceInstallCollectorsByType[type],
+    collect: collectorsByType[type],
   }));
+};
 
 const makePlan = (
   name: string,
   description: Option.Option<string>,
   steps: ReadonlyArray<PlannedJobStep>,
-  sections: ReadonlyArray<PlanSection> | undefined,
+  type: Option.Option<WorkspaceInstallableType>,
   releaseAge: Plan["releaseAge"],
 ): Plan => ({
   _tag: "Plan",
   name,
   description,
+  presentation: operationPresentation(
+    { imperative: "install", past: "Installed", gerund: "Installing" },
+    Option.getOrUndefined(type),
+  ),
   jobs: [{ concurrency: 1 as const, steps }],
-  ...(sections === undefined ? {} : { sections }),
   ...(releaseAge === undefined ? {} : { releaseAge }),
 });
 
@@ -737,15 +804,15 @@ export const buildConfiguredPackInstallPlan = (args: {
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
   readonly packNames: ReadonlySet<string>;
-  readonly ignoreReleaseAge?: boolean;
 }) =>
   Effect.gen(function* () {
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
-      args.ignoreReleaseAge === true ? "ignore" : "enforce",
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+      Effect.mapError(lifecycleFailureToAppError),
     );
     // Recovery only runs for Packs whose observed tree already diverged from the
     // accepted resolution, so the installed tree must never be reused.
-    const collection = yield* collectPackPlans(releaseAgeEvaluation, args.packNames, true);
+    const actions = yield* InstallPackCommandWorkflowActions;
+    const collection = yield* collectPackPlans(releaseAgeEvaluation, actions, args.packNames, true);
     const fragments = mergeFragments([collection]);
     if (fragments.length === 0) {
       return {
@@ -770,28 +837,30 @@ export const buildConfiguredPackInstallPlan = (args: {
         args.planName,
         args.planDescription,
         fragments.map((fragment) => fragment.step),
-        mergePlanSections(collection.plans),
+        Option.some("pack"),
         releaseAge,
       ),
       configuredAgentOperations: [...args.packNames].map((name) => ({
         extensionType: "pack",
         name,
-        targetEnabled: true,
+        plannedState: "enabled",
       })),
     } satisfies WorkspaceInstallPlanResult;
   });
 
-export const buildWorkspaceInstallPlan = (args: {
-  readonly type: Option.Option<WorkspaceInstallableType>;
-  readonly planName: string;
-  readonly planDescription: Option.Option<string>;
-  readonly ignoreReleaseAge?: boolean;
-}) =>
+export const buildWorkspaceInstallPlan = (
+  args: {
+    readonly type: Option.Option<WorkspaceInstallableType>;
+    readonly planName: string;
+    readonly planDescription: Option.Option<string>;
+  },
+  actions: InstallCommandActions,
+) =>
   Effect.gen(function* () {
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
-      args.ignoreReleaseAge === true ? "ignore" : "enforce",
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+      Effect.mapError(lifecycleFailureToAppError),
     );
-    const selectedCollectors = workspaceInstallCollectors.filter(({ type }) =>
+    const selectedCollectors = makeWorkspaceInstallCollectors(actions).filter(({ type }) =>
       matchesRequestedType(args.type, type),
     );
     const collections = yield* Effect.forEach(
@@ -816,15 +885,22 @@ export const buildWorkspaceInstallPlan = (args: {
       if (
         collection !== undefined &&
         collection.fragments.length > 0 &&
-        (collector.type === "rule" || collector.type === "hook" || collector.type === "knowledge")
+        (collector.type === "rule" ||
+          collector.type === "hook" ||
+          collector.type === "knowledge" ||
+          collector.type === "pack")
       ) {
-        aggregateTypes.add(collector.type);
+        if (collector.type === "pack") {
+          aggregateTypes.add("rule");
+          aggregateTypes.add("hook");
+          aggregateTypes.add("knowledge");
+        } else {
+          aggregateTypes.add(collector.type);
+        }
       }
     }
     const projectionStep = yield* buildAggregateProjectionStep({ types: aggregateTypes });
 
-    const plans = collections.flatMap((collection) => collection.plans);
-    const sections = mergePlanSections(plans);
     const holdbacks = normalizeReleaseAgeRecords(
       collections.flatMap((collection) => collection.holdbacks),
     );
@@ -846,7 +922,7 @@ export const buildWorkspaceInstallPlan = (args: {
         args.planName,
         args.planDescription,
         [...fragments.map((fragment) => fragment.step), ...Option.toArray(projectionStep)],
-        sections,
+        args.type,
         releaseAge,
       ),
       configuredAgentOperations: configuredAgentOperationsFromCollections(

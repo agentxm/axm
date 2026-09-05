@@ -4,20 +4,24 @@ import {
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/workspace-operations";
+import {
+  deriveOperationOutcome,
+  operationPresentation,
+  type Plan,
+} from "@agentxm/workspace-operations";
+import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 
-import { toPlanResolutionResult } from "../../../json-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
-import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
 } from "./command-actions.js";
-import type { ConfigurableAgentId } from "@agentxm/client-core/unstable/agent-capabilities";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../../app-error/index.js";
 
 export interface InstallMcpServerFlags {
   readonly yes: boolean;
@@ -27,20 +31,34 @@ export interface InstallMcpServerFlags {
 
 export interface McpServerInstallHandlerArgs {
   readonly source: Option.Option<string>;
+  readonly localName?: Option.Option<string>;
   readonly env: ReadonlyArray<string>;
-  readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 }
 
 export const handleInstallMcpServer = (
   args: McpServerInstallHandlerArgs,
   flags: InstallMcpServerFlags,
 ) =>
+  withOperationLifecycle(
+    {
+      command: "mcps.install",
+      mode: flags.preview ? "preview" : "apply",
+      planName: "Install MCP servers",
+    },
+    handleInstallMcpServerBody(args, flags),
+  );
+
+const handleInstallMcpServerBody = (
+  args: McpServerInstallHandlerArgs,
+  flags: InstallMcpServerFlags,
+) =>
   Effect.gen(function* () {
+    const localName = args.localName ?? Option.none<string>();
     if (Option.isNone(args.source)) {
-      if (args.agents !== undefined) {
+      if (Option.isSome(localName)) {
         return yield* makeAppError({
           code: "usage",
-          detail: "--agent requires an MCP server source",
+          detail: "--as requires an MCP server source",
         });
       }
       return yield* handleWorkspaceInstall({
@@ -55,40 +73,41 @@ export const handleInstallMcpServer = (
     const actions = yield* InstallMcpServerCommandWorkflowActions;
     const sourceArgs: InstallMcpServerHandlerArgs = {
       source: args.source.value,
+      ...(Option.isSome(localName) ? { localName: localName.value } : {}),
       env: args.env,
-      ...(args.agents === undefined ? {} : { agents: args.agents }),
+      force: flags.force,
     };
     const execution = yield* makeInstallPlanExecution(
       flags,
       ["mcps", "install"],
       [args.source.value],
       [
+        ...Option.match(localName, {
+          onNone: () => [],
+          onSome: (name) => [recoveryOption("--as", publicRecoveryValue(name))],
+        }),
         ...args.env.map(() => recoveryOption("--env", protectedRecoveryValue())),
-        ...(args.agents ?? []).map((agent) =>
-          recoveryOption("--agent", publicRecoveryValue(agent)),
-        ),
       ],
     );
     const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, {
       execution,
-      displayApplied: false,
+      transformPlan: (plan) =>
+        Effect.succeed({
+          ...plan,
+          presentation: operationPresentation(
+            { imperative: "install", past: "Installed", gerund: "Installing" },
+            "mcp-server",
+          ),
+        } satisfies Plan),
     });
-    const result = toPlanResolutionResult(resolution);
-    if (result.outcome === "no-op" && result.totalSteps === 0) {
+    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
       yield* emitNoOpOutcome("mcps.install", {
-        planName: result.planName,
+        planName: resolution.name,
         message: "No MCP servers installed.",
       });
       return;
     }
-    yield* emitAppliedPlanOutcome({
-      command: "mcps.install",
-      headline:
-        result.outcome === "no-op"
-          ? unchangedPlanHeadline(resolution, "No MCP servers installed.")
-          : "Installed MCP server " + args.source.value,
-      resolution,
-      reportInstallationCoverage: true,
+    yield* emitOperationResolution("mcps.install", resolution, {
       suggestions: [{ description: "Inspect MCP servers", cmd: "axm mcps list" }],
     });
   });

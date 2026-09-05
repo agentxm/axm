@@ -379,9 +379,6 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
-      axm.sh:
-        specifier: workspace:*
-        version: link:../cli
       fflate:
         specifier: 'catalog:'
         version: 0.8.3

@@ -3,7 +3,6 @@ import * as path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { Entry } from "@napi-rs/keyring";
-import { mcpSecretAccount, mcpRegistryResolutionKey } from "axm.sh/specification-harness";
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCommand } from "@agentxm/client-e2e-utils";
@@ -12,12 +11,44 @@ export const executionBinding = {
   requirements: ["cli/mcps/secret-namespaces-include-local-and-source-identity"],
   boundary: "platform",
   rationale:
-    "Runs the built CLI's real MCP install, stored-input reload and secret replacement in its declared Node runtime against the host OS keychain, preserving host HOME for native access while isolating AXM_USER_HOME and project state. Producer and observer use the same runtime application identity across separate processes. Workspace/local/source/input namespaces are isolated and read back natively; a finally block deletes exactly the known disposable entries, requires affirmative deletion for every attempted write, and retains an independent cleanup journal on failure. This establishes only the recorded host and access context, not cross-application access, unavailable-keychain policy or every supported operating system.",
+    "Runs the built CLI's real MCP install, stored-input reload and secret replacement in its declared Node runtime against the host OS keychain, preserving host HOME for native access while isolating AXM_USER_HOME and project state. A subprocess uses the shipped CLI harness artifact only to derive disposable cleanup identities, without a product source dependency in the test project. Producer and observer use the same runtime application identity across separate processes. Workspace/local/source/input namespaces are isolated and read back natively; a finally block deletes exactly the known disposable entries, requires affirmative deletion for every attempted write, and retains an independent cleanup journal on failure. This establishes only the recorded host and access context, not cross-application access, unavailable-keychain policy or every supported operating system.",
 } as const;
 
 const SERVICE = "axm-mcp";
 const OWNER = "@acme";
 const cliPath = fileURLToPath(new URL("../../cli/dist/src/main.js", import.meta.url));
+const identityFixturePath = fileURLToPath(
+  new URL("./fixtures/mcp-secret-identities.mjs", import.meta.url),
+);
+
+const deriveDisposableAccounts = async (
+  requests: ReadonlyArray<{
+    scopeRoot: string;
+    localName: string;
+    inputName: string;
+    authority: string;
+    owner: string;
+    name: string;
+  }>,
+) => {
+  const result = await runCommand(
+    process.execPath,
+    [identityFixturePath, JSON.stringify(requests)],
+    {},
+  );
+  if (result.exitCode !== 0)
+    throw new Error("Built artifact could not derive disposable identities");
+  const decoded: unknown = JSON.parse(result.stdout);
+  if (!Array.isArray(decoded) || decoded.length !== requests.length)
+    throw new Error("Built artifact returned an invalid disposable identity set");
+  const accounts: string[] = [];
+  for (const value of decoded) {
+    if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value))
+      throw new Error("Built artifact returned an invalid disposable identity");
+    accounts.push(value);
+  }
+  return accounts;
+};
 
 const writeRegistryMcp = (registryRoot: string, name: string, inputs: ReadonlyArray<string>) => {
   const directory = path.join(registryRoot, "extensions", OWNER, "mcps", name);
@@ -112,28 +143,36 @@ describe("Native MCP credential persistence", () => {
     const userHome = path.join(root, "user-home");
     const suffix = randomUUID().replaceAll("-", "").toUpperCase();
     const inputs = [`AXM_NATIVE_SPEC_A_${suffix}`, `AXM_NATIVE_SPEC_B_${suffix}`];
-    const rows = [
+    const namespaces = [
       { root: firstWorkspace, local: "context", source: "context", reset: false },
       { root: firstWorkspace, local: "personal", source: "context", reset: false },
       { root: secondWorkspace, local: "context", source: "context", reset: false },
       { root: firstWorkspace, local: "context", source: "other", reset: true },
-    ].map((row) => ({
-      ...row,
-      credentials: inputs.map((input) => ({
-        input,
-        account: mcpSecretAccount({
+    ];
+    const accounts = await deriveDisposableAccounts(
+      namespaces.flatMap((row) =>
+        inputs.map((input) => ({
           scopeRoot: row.root,
           localName: row.local,
           inputName: input,
-          sourceIdentity: mcpRegistryResolutionKey({
-            authority: registryUrl,
-            owner: OWNER,
-            name: row.source,
-          }),
-        }),
-        initial: `SYNTHETIC_INITIAL_${randomUUID()}`,
-        replacement: `SYNTHETIC_REPLACEMENT_${randomUUID()}`,
-      })),
+          authority: registryUrl,
+          owner: OWNER,
+          name: row.source,
+        })),
+      ),
+    );
+    const rows = namespaces.map((row, rowIndex) => ({
+      ...row,
+      credentials: inputs.map((input, inputIndex) => {
+        const account = accounts[rowIndex * inputs.length + inputIndex];
+        if (account === undefined) throw new Error("Disposable identity is missing");
+        return {
+          input,
+          account,
+          initial: `SYNTHETIC_INITIAL_${randomUUID()}`,
+          replacement: `SYNTHETIC_REPLACEMENT_${randomUUID()}`,
+        };
+      }),
     }));
     const credentials = rows.flatMap((row) => row.credentials);
     const allValues = credentials.flatMap((credential) => [

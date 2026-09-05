@@ -55,10 +55,7 @@ describe("help topic command", () => {
 
       expect(state.tables).toEqual([]);
       expect(state.logs).toEqual([]);
-      expect(state.results[0]?.data).toMatchObject({
-        usage: "axm help <topic>",
-        topics: expect.any(Array),
-      });
+
       expect(state.suggestions).toEqual(helpIndexSuggestions);
     }),
   );
@@ -99,54 +96,6 @@ describe("help topic command", () => {
     }),
   );
 
-  it.effect("keeps machine topic output structured and raw", () =>
-    Effect.gen(function* () {
-      const { layer, state } = TestMachineRenderer.make();
-
-      yield* handleHelpPath(["basic-usage"], testRootCommand).pipe(Effect.provide(layer));
-
-      expect(state.markdown).toEqual([]);
-      expect(state.results[0]?.data).toEqual({
-        topic: "basic-usage",
-        content: HELP_TOPICS["basic-usage"],
-      });
-    }),
-  );
-
-  it.effect("keeps unknown topics on the generic recovery path", () =>
-    Effect.gen(function* () {
-      const { layer } = TestRenderer.make();
-      const error = yield* Effect.flip(
-        handleHelpPath(["bogus"], testRootCommand).pipe(Effect.provide(layer)),
-      );
-
-      expect(error).toMatchObject({
-        _tag: "AppError",
-        code: "not_found",
-        suggestions: [
-          {
-            description: "List available help topics.",
-            cmd: "axm help",
-          },
-        ],
-      });
-    }),
-  );
-
-  it.effect("prints schema topics as raw JSON in interactive mode", () =>
-    Effect.gen(function* () {
-      const { layer, state } = TestRenderer.make();
-
-      yield* handleHelpPath(["skill-schema"], testRootCommand).pipe(Effect.provide(layer));
-
-      expect(state.markdown).toEqual([]);
-      expect(state.logs).toEqual([
-        { _tag: "message", message: `${HELP_TOPICS["skill-schema"]}\n` },
-      ]);
-      expect(() => JSON.parse(state.logs[0]?.message ?? "")).not.toThrow();
-    }),
-  );
-
   it("renders every bundled topic without markdown delimiters in color mode", () => {
     for (const topic of ORDERED_TOPIC_NAMES) {
       if (HELP_TOPIC_KINDS[topic] !== "markdown") {
@@ -158,18 +107,6 @@ describe("help topic command", () => {
       expect(rendered.length).toBeGreaterThan(0);
       expect(plain).not.toContain("```");
       expect(plain).not.toContain("<!-- axm:embed-schema");
-    }
-  });
-
-  it("bundles schema topics as parseable JSON without markdown fences", () => {
-    for (const topic of ORDERED_TOPIC_NAMES) {
-      if (HELP_TOPIC_KINDS[topic] !== "json-schema") {
-        continue;
-      }
-
-      expect(() => JSON.parse(HELP_TOPICS[topic])).not.toThrow();
-      expect(HELP_TOPICS[topic]).not.toContain("```");
-      expect(HELP_TOPICS[topic]).not.toContain("<!-- axm:embed-schema");
     }
   });
 });

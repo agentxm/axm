@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/new/creates-enabled-workspace-content",
   title: "Creating an MCP server records editable workspace content",
   statement:
-    "When a person creates an MCP server, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.",
+    "When a person runs mcps new, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],

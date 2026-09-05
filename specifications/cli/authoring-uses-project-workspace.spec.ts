@@ -1,10 +1,23 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
-import { collectHelpFiles } from "axm.sh/specification-harness";
+import {
+  collectHelpFiles,
+  JsonErrorEnvelopeSchema,
+  writeWorkspaceFiles,
+} from "axm.sh/specification-harness";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeDirectoryFixture, unattendedProjectSetup } from "../support/directory-harness.js";
+import {
+  importedRemote,
+  makeMcpPackageImportProcessFixture,
+  readImportedMcpManifest,
+  readNativeMcpServers,
+  writeNativeRemoteMcp,
+} from "../support/mcp-package-import-fixture.js";
+import { snapshotProtectedState } from "../support/preview-purity.js";
 import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
@@ -87,4 +100,49 @@ describe("Authoring commands use the project workspace", () => {
       fixture.cleanup();
     }
   });
+
+  for (const preview of [false, true])
+    it(`MCP package import refuses user scope in ${preview ? "preview" : "apply"} and creates in the selected project`, async () => {
+      const fixture = makeMcpPackageImportProcessFixture();
+      try {
+        const userRoot = path.join(fixture.home, ".axm", "workspace");
+        writeWorkspaceFiles(path.join(fixture.home, ".axm"), {
+          scope: "user",
+          owner: "@acme",
+          agents: ["claude-code"],
+        });
+        writeNativeRemoteMcp(userRoot);
+        expect(readNativeMcpServers(userRoot)["native-context"]).toEqual(importedRemote);
+        expect(readNativeMcpServers(fixture.selected)["native-context"]).toEqual(importedRemote);
+        const beforeProject = snapshotProtectedState(fixture.selected);
+        const beforeUser = snapshotProtectedState(userRoot);
+        const beforeInvoking = snapshotWorkspaceContent(fixture.invoking);
+
+        const refused = await fixture.importPackage([
+          "--scope",
+          "user",
+          ...(preview ? ["--preview"] : []),
+        ]);
+
+        expect(refused.exitCode).not.toBe(0);
+        const input: unknown = JSON.parse(refused.stdout);
+        const failure = Schema.decodeUnknownSync(JsonErrorEnvelopeSchema)(input);
+        expect(failure).toMatchObject({ code: "usage" });
+        expect(failure.detail).toContain("project-workspace");
+        expect(snapshotProtectedState(fixture.selected)).toEqual(beforeProject);
+        expect(snapshotProtectedState(userRoot)).toEqual(beforeUser);
+        expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(beforeInvoking);
+
+        const created = await fixture.importPackage(["--scope", "project"]);
+        expect(created.exitCode, created.stdout + created.stderr).toBe(0);
+        expect(readImportedMcpManifest(fixture.selected)).toMatchObject({
+          owner: "@acme",
+          name: "context",
+        });
+        expect(snapshotProtectedState(userRoot)).toEqual(beforeUser);
+        expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(beforeInvoking);
+      } finally {
+        fixture.cleanup();
+      }
+    });
 });

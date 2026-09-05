@@ -98,8 +98,8 @@ export const ScreenLive = (
       const streams = yield* OutputStreams;
 
       // A stream that is not a terminal is unbounded: nothing written to it is
-      // wrapped, truncated, or padded to a terminal width, and it carries no
-      // styling unless color was forced for that stream.
+      // wrapped, truncated, or padded to a terminal width. The output policy
+      // separately limits styling to capable terminal streams.
       const render = (doc: Doc, stream: "stdout" | "stderr") =>
         Effect.map(streams.facts, (facts) => {
           const isTTY = stream === "stdout" ? facts.stdoutIsTTY : facts.stderrIsTTY;

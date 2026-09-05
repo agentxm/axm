@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
-        "These examples exercise the built Node entrypoint. Compiled and externally installed release identities require evidence for those exact artifacts.",
+        "These examples exercise the built JavaScript entrypoint through Bun. Compiled and externally installed release identities require evidence for those exact artifacts.",
       retirementCondition:
         "Bind exact version readback to identified compiled and installed release artifacts.",
     },

@@ -44,7 +44,6 @@ describe("Version refusal", () => {
     "wrong-owner",
     "invalid-identity",
     "version-range",
-    "missing-set-version",
     "invalid-bump",
   ] as const)
     it.effect(`refuses ${fault}`, () =>
@@ -67,21 +66,14 @@ describe("Version refusal", () => {
               : fault === "wrong-owner"
                 ? "@other/skills/review"
                 : "@acme/skills/review",
-          bump:
-            fault === "invalid-bump"
-              ? "huge"
-              : fault === "version-range" || fault === "missing-set-version"
-                ? "set"
-                : "patch",
+          bump: fault === "invalid-bump" ? "huge" : fault === "version-range" ? "set" : "patch",
           targetVersion: fault === "version-range" ? Option.some("^2.0.0") : Option.none(),
           preview: false,
         }).pipe(Effect.flip, Effect.provide(created.layer));
         expect(getAppError(result).code).toBe(
           fault === "external-source" || fault === "unconfigured" || fault === "wrong-owner"
             ? "conflict"
-            : fault === "missing-set-version"
-              ? "not_found"
-              : "validation",
+            : "validation",
         );
         expect(snapshotWorkspaceContent(created.root)).toEqual(before);
       }),

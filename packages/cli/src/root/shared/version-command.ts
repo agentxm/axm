@@ -192,12 +192,12 @@ const handleVersionBody = (args: VersionHandlerArgs) =>
 
     if (bump === "set" && Option.isNone(args.targetVersion)) {
       return yield* makeAppError({
-        code: "not_found",
+        code: "usage",
         detail: "`set` requires an exact semver version",
         suggestions: [
           {
             description: "Set an exact semver version.",
-            cmd: `axm ${extensionTypeToPlural[args.type]} version ${args.handle} set 1.2.3`,
+            cmd: `axm version ${args.handle} set 1.2.3`,
           },
         ],
       });
@@ -205,8 +205,14 @@ const handleVersionBody = (args: VersionHandlerArgs) =>
 
     if (bump !== "set" && Option.isSome(args.targetVersion)) {
       return yield* makeAppError({
-        code: "internal",
+        code: "usage",
         detail: `Version target is only valid with "set", got ${bump}`,
+        suggestions: [
+          {
+            description: "Run the requested bump without an exact version argument.",
+            cmd: `axm version ${args.handle} ${bump}`,
+          },
+        ],
       });
     }
 

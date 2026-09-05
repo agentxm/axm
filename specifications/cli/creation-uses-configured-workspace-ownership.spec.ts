@@ -1,9 +1,19 @@
-import { getAppError } from "axm.sh/specification-harness";
+import { getAppError, handleMcpsImport } from "axm.sh/specification-harness";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import {
+  importedRemote,
+  readImportedMcpManifest,
+  readNativeMcpServers,
+  writeNativeRemoteMcp,
+} from "../support/mcp-package-import-fixture.js";
+import {
+  expectProtectedStateUntouched,
+  snapshotProtectedState,
+} from "../support/preview-purity.js";
 import { makeSpecWorkspace } from "../support/install-harness.js";
 import { authoringTypes, readPackageJson } from "../support/authoring-fixtures.js";
 import { createNewExtension } from "../support/new-extension-fixture.js";
@@ -78,4 +88,40 @@ describe("Workspace author ownership", () => {
           expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
         }),
       );
+
+  for (const owner of ["matching", "different", "missing"] as const)
+    it.effect(
+      `MCP package conversion requires a ${owner} workspace owner to match its target`,
+      () =>
+        Effect.gen(function* () {
+          const workspace = makeSpecWorkspace({
+            machine: true,
+            recordWrites: true,
+            settings: { owner: owner === "missing" ? undefined : "@acme", agents: ["claude-code"] },
+          });
+          cleanups.push(workspace.cleanup);
+          writeNativeRemoteMcp(workspace.root);
+          expect(readNativeMcpServers(workspace.root)["native-context"]).toEqual(importedRemote);
+          const before = snapshotProtectedState(workspace.root);
+          const command = handleMcpsImport({
+            preview: false,
+            as: Option.some(owner === "different" ? "@other/mcps/context" : "@acme/mcps/context"),
+          });
+          if (owner === "matching") {
+            yield* command.pipe(Effect.provide(workspace.layer));
+            expect(readImportedMcpManifest(workspace.root)).toMatchObject({
+              owner: "@acme",
+              name: "context",
+            });
+          } else {
+            const failure = yield* command.pipe(Effect.flip, Effect.provide(workspace.layer));
+            expect(getAppError(failure).code).toBe(owner === "missing" ? "validation" : "conflict");
+            expectProtectedStateUntouched({
+              root: workspace.root,
+              before,
+              writes: workspace.writes,
+            });
+          }
+        }),
+    );
 });

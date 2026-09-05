@@ -15,11 +15,7 @@ import {
 } from "./command-tree-test-helpers.js";
 import { HELP_TOPIC_KINDS, HELP_TOPIC_NAMES, HELP_TOPICS } from "./__generated__/help-topics.js";
 import { LearnMore } from "./formatter.js";
-import {
-  HelpIndexResultSchema,
-  HelpTopicResultSchema,
-  handleHelpPath,
-} from "./root/help/command.js";
+import { HelpTopicResultSchema, handleHelpPath } from "./root/help/command.js";
 
 const helpSemantics = (doc: HelpDoc) =>
   toJsonHelpDoc(doc, { learnMore: ServiceMap.get(doc.annotations, LearnMore) });
@@ -60,17 +56,8 @@ const visibleSubcommands = (command: Command.Command.Any) => {
 };
 
 describe("axm help command conformance", () => {
-  it.effect("keeps the zero-segment index and all 30 existing topics", () =>
+  it.effect("returns every bundled topic with its full content", () =>
     Effect.gen(function* () {
-      expect(HELP_TOPIC_NAMES).toHaveLength(30);
-
-      const indexRenderer = TestRenderer.make();
-      yield* handleHelpPath([], rootCommand).pipe(Effect.provide(indexRenderer.layer));
-      const index = Schema.decodeUnknownSync(HelpIndexResultSchema)(
-        indexRenderer.state.results[0]?.data,
-      );
-      expect(new Set(index.topics.map((topic) => topic.name))).toEqual(new Set(HELP_TOPIC_NAMES));
-
       for (const topic of HELP_TOPIC_NAMES) {
         const renderer = TestRenderer.make();
         yield* handleHelpPath([topic], rootCommand).pipe(Effect.provide(renderer.layer));

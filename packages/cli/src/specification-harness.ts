@@ -123,6 +123,7 @@ export {
   handleInstructionsDisable,
   handleInstructionsEnable,
   handleInstructionsStatus,
+  InstructionsStatusOutputSchema,
 } from "./root/instructions.js";
 export { handleAgentsAdd } from "./root/agents/add.js";
 export { handleAgentsRemove } from "./root/agents/remove.js";

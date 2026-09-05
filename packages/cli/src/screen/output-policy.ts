@@ -7,9 +7,9 @@ export interface CliOutputEnvironment {
 export interface CliOutputPolicy {
   /** Whether any stream is styled; per-stream truth lives in `stdoutColors` and `stderrColors`. */
   readonly colors: boolean;
-  /** ANSI styling on stdout: only when stdout is itself a terminal or color is forced. */
+  /** ANSI styling on stdout: only when stdout is itself a terminal. */
   readonly stdoutColors: boolean;
-  /** ANSI styling on stderr: only when stderr is itself a terminal or color is forced. */
+  /** ANSI styling on stderr: only when stderr is itself a terminal. */
   readonly stderrColors: boolean;
   readonly animate: boolean;
   readonly interactiveActivity: boolean;
@@ -73,16 +73,15 @@ export const resolveCliOutputPolicy = (
     !hasNoColor(env) &&
     !hasDisabledForceColor(env) &&
     !hasDumbTerminal(env);
-  // Color is decided per stream: a piped stdout stays plain even when stderr
-  // is attached to a terminal, so agents never receive escapes they did not
-  // ask for. FORCE_COLOR opts a pipe in.
+  // Color is decided per stream: a pipe remains plain even when another
+  // stream is a terminal or FORCE_COLOR requests styling.
   const colorCapable =
     (!hasCi(env) || hasForceColor(env)) &&
     !hasNoColor(env) &&
     !hasDisabledForceColor(env) &&
     !hasDumbTerminal(env);
-  const stdoutColors = colorCapable && (stdoutIsTTY === true || hasForceColor(env));
-  const stderrColors = colorCapable && (stderrIsTTY === true || hasForceColor(env));
+  const stdoutColors = colorCapable && stdoutIsTTY === true;
+  const stderrColors = colorCapable && stderrIsTTY === true;
 
   return {
     colors: stdoutColors || stderrColors,

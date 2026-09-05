@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/observes-selected-filesystem-view",
   title: "Lint observes only the selected filesystem view",
   statement:
-    "When a lint view is selected, lint shall evaluate only that view, reporting the staged content and its fingerprint for git-index and the working tree for workspace with diagnostic paths in the selected workspace, and shall change neither the Git index nor the working tree.",
+    "When lint runs without --fix, it shall evaluate only the selected view, reporting the staged content and its fingerprint for git-index and the working tree for workspace with diagnostic paths in the selected workspace, and shall change neither the Git index nor the working tree.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity", "machine-automation"],
@@ -33,7 +33,10 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [],
+  openQuestions: [
+    "When --fix is combined with --view git-index, must the command refuse the request or assess the index without applying a repair? The public Git-index surface is read-only; current refusal alone does not establish the required combination policy.",
+    "How should an explicit lint path select a nested workspace inside a Git index, and how should user scope combine with a supplied path? Current root-selection precedence remains an implementation observation.",
+  ],
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(LintResultDocumentSchema);

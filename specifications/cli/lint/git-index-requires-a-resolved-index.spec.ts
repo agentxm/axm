@@ -2,16 +2,17 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import { isolatedGitEnvironment } from "axm.sh/specification-harness";
+import * as Schema from "effect/Schema";
+import { isolatedGitEnvironment, JsonErrorEnvelopeSchema } from "axm.sh/specification-harness";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeDirectoryFixture } from "../../support/directory-harness.js";
 import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/git-index-requires-a-resolved-index",
-  title: "Git-index lint requires a repository with no unresolved index entries",
+  title: "Git-index lint requires a resolved project index",
   statement:
-    "When lint selects the Git index outside a Git repository or while its index contains unresolved merge entries, AXM shall report why that view cannot be evaluated without changing the index or working tree.",
+    "When lint selects the Git index outside a Git repository or while its index contains unresolved merge entries, or with --scope user, AXM shall report why that view cannot be evaluated without changing the index or working tree.",
   class: "constraint",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
@@ -22,6 +23,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "cli/lint/observes-selected-filesystem-view",
     "packages/workspace-lint/src/run/staged-workspace.internal.test.ts",
+    "packages/cli/help/topics/git-hooks.md",
   ],
   supersedes: [],
   assumptions: [],
@@ -110,6 +112,48 @@ describe("Git-index lint admissibility", () => {
       expect(workingTree(root)).toEqual(filesBefore);
       expect(git(root, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
       expect(git(root, ["ls-files", "--stage", "-z"])).toBe(stagesBefore);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("refuses user scope for an otherwise resolved Git index without changing any workspace", async () => {
+    const fixture = makeDirectoryFixture();
+    try {
+      const root = fixture.selected;
+      const warmed = await fixture.run(["--version"]);
+      expect(warmed.exitCode, warmed.stdout + warmed.stderr).toBe(0);
+      git(root, ["init", "--quiet", "--initial-branch=main"]);
+      fs.writeFileSync(path.join(root, "keep.txt"), "Selected project content\n");
+      git(root, ["add", "keep.txt"]);
+      expect(git(root, ["ls-files", "--unmerged", "-z"])).toBe("");
+      const indexBefore = git(root, ["ls-files", "--stage", "-z"]);
+      expect(indexBefore).toContain("keep.txt");
+      const statusBefore = git(root, ["status", "--porcelain=v2", "-z"]);
+      const before = workingTree(root);
+      const beforeHome = snapshotWorkspaceContent(fixture.home);
+
+      const result = await fixture.run([
+        "-C",
+        root,
+        "lint",
+        "--view",
+        "git-index",
+        "--scope",
+        "user",
+        "--non-interactive",
+        "--json",
+      ]);
+
+      expect(result.exitCode).not.toBe(0);
+      const input: unknown = JSON.parse(result.stdout);
+      const failure = Schema.decodeUnknownSync(JsonErrorEnvelopeSchema)(input);
+      expect(failure.detail).toContain("--scope user");
+      expect(failure.detail).toContain("--view git-index");
+      expect(workingTree(root)).toEqual(before);
+      expect(snapshotWorkspaceContent(fixture.home)).toEqual(beforeHome);
+      expect(git(root, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
+      expect(git(root, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
     } finally {
       fixture.cleanup();
     }

@@ -107,11 +107,11 @@ describe("resolveCliOutputPolicy", () => {
     });
   });
 
-  it("allows FORCE_COLOR on a pipe without enabling animation", () => {
+  it("keeps a pipe plain when FORCE_COLOR is requested", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: false, env: { FORCE_COLOR: "1" } })).toEqual({
-      colors: true,
-      stdoutColors: true,
-      stderrColors: true,
+      colors: false,
+      stdoutColors: false,
+      stderrColors: false,
       animate: false,
       interactiveActivity: false,
       quiet: false,
@@ -128,7 +128,10 @@ describe("resolveCliOutputPolicy", () => {
     ).toMatchObject({ colors: true, stdoutColors: true, stderrColors: false });
     expect(
       resolveCliOutputPolicy({ stdoutIsTTY: false, stderrIsTTY: true, env: { FORCE_COLOR: "1" } }),
-    ).toMatchObject({ stdoutColors: true, stderrColors: true, animate: true });
+    ).toMatchObject({ stdoutColors: false, stderrColors: true, animate: true });
+    expect(
+      resolveCliOutputPolicy({ stdoutIsTTY: true, stderrIsTTY: false, env: { FORCE_COLOR: "1" } }),
+    ).toMatchObject({ stdoutColors: true, stderrColors: false, animate: false });
   });
 
   it("keys live-frame animation to its stderr target", () => {

@@ -2,13 +2,20 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { handleMcpsImport } from "axm.sh/specification-harness";
+import { handleMcpsImport, expectPreviewedPlanResult } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
+import {
+  importedRemote,
+  readNativeMcpServers,
+  writeNativeRemoteMcp,
+} from "../../../support/mcp-package-import-fixture.js";
+import { planTargetPaths } from "../../../support/plan-targets.js";
 import { probeFlag } from "../../../support/parser-probe.js";
 import {
   expectProtectedStateUntouched,
@@ -17,9 +24,9 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/import/preview-is-pure",
-  title: "MCP server import preview describes the adoption without changing any state",
+  title: "MCP import preview describes the change without changing workspace state",
   statement:
-    "When mcps import runs in preview mode against an unmanaged native MCP server, it shall report the adoption it would apply with a previewed outcome and shall not change settings, the lockfile, or any native agent MCP configuration.",
+    "When mcps import previews an eligible unmanaged native server, it shall report the inline adoption or --as package conversion it would apply with a previewed outcome and shall not change settings, the lockfile, authored packages, or any native agent MCP configuration.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -125,4 +132,40 @@ describe("MCP server import preview purity", () => {
       expect(yield* probeFlag(["mcps", "import"], "-y")).toBe("unrecognized");
     }),
   );
+
+  for (const enabled of [false, true])
+    it.effect(
+      `package preview with enablement ${enabled} describes creation without attempting a protected write`,
+      () =>
+        Effect.gen(function* () {
+          const workspace = makeSpecWorkspace({
+            machine: true,
+            flags: { json: true },
+            recordWrites: true,
+            settings: { owner: "@acme", agents: ["claude-code", "cursor"] },
+          });
+          cleanups.push(workspace.cleanup);
+          writeNativeRemoteMcp(workspace.root);
+          expect(readNativeMcpServers(workspace.root)["native-context"]).toEqual(importedRemote);
+          expect(workspace.exists("mcps/context/mcp.json")).toBe(false);
+          const before = snapshotProtectedState(workspace.root);
+
+          yield* handleMcpsImport({
+            preview: true,
+            as: Option.some("@acme/mcps/context"),
+            enable: enabled,
+          }).pipe(Effect.provide(workspace.layer));
+
+          const document = workspace.rendererState.results.at(-1)?.data;
+          expectPreviewedPlanResult(document, {
+            planName: "Import MCP server package",
+            totalSteps: 1,
+          });
+          expect(planTargetPaths(document)).toEqual(
+            expect.arrayContaining(["mcps/context", "axm.json", ".mcp.json"]),
+          );
+          expectProtectedStateUntouched({ root: workspace.root, before, writes: workspace.writes });
+          expect(workspace.resolvePlanState.confirmApplyChangesCalls).toEqual([]);
+        }),
+    );
 });

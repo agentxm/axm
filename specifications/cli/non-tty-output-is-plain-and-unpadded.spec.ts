@@ -7,11 +7,13 @@ import {
   displayWidth,
   handleInstall,
   handleSkillsList,
+  Screen,
   stripTerminalFormatting,
 } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
+import { humanScreenLayer, makeRecordingStreams } from "../support/screen-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/non-tty-output-is-plain-and-unpadded",
@@ -93,4 +95,55 @@ describe("Non-terminal human output", () => {
       }
     }),
   );
+
+  for (const row of [
+    { label: "two pipes", stdoutIsTTY: false, stderrIsTTY: false },
+    { label: "piped stdout and terminal stderr", stdoutIsTTY: false, stderrIsTTY: true },
+    { label: "terminal stdout and piped stderr", stdoutIsTTY: true, stderrIsTTY: false },
+    { label: "two terminals", stdoutIsTTY: true, stderrIsTTY: true },
+  ])
+    it.effect(`FORCE_COLOR=1 respects stream boundaries with ${row.label}`, () => {
+      const streams = makeRecordingStreams({ ...row, columns: COLUMNS });
+      const value = longNames[0] + "-complete-unwrapped-value";
+      expect(value.length).toBeGreaterThan(COLUMNS);
+      return Effect.gen(function* () {
+        const screen = yield* Screen;
+        // These are styled, hyperlink-bearing documents, not pre-rendered text.
+        // The production Screen and painter decide what each stream receives.
+        yield* screen.result([
+          {
+            _tag: "paragraph",
+            text: [
+              { text: value, tone: "info", bold: true, link: "https://example.test/extension" },
+            ],
+          },
+        ]);
+        yield* screen.note([
+          {
+            _tag: "paragraph",
+            text: [
+              { text: value, tone: "warn", bold: true, link: "https://example.test/extension" },
+            ],
+          },
+        ]);
+        yield* screen.settle;
+
+        for (const target of [
+          { channel: "stdout", terminal: row.stdoutIsTTY },
+          { channel: "stderr", terminal: row.stderrIsTTY },
+        ] as const) {
+          const lines = streams.lines(target.channel);
+          expect(lines.length, target.channel).toBeGreaterThan(0);
+          if (target.terminal) {
+            // A positive control proves the same renderer can emit styling;
+            // forcing every stream plain would not satisfy this scenario.
+            expect(lines.join("\n"), target.channel).toContain(ESCAPE);
+          } else {
+            expect(lines, target.channel).toEqual([value]);
+            expect(lines.join("\n"), target.channel).not.toContain(ESCAPE);
+            expect(Math.max(...lines.map(displayWidth)), target.channel).toBeGreaterThan(COLUMNS);
+          }
+        }
+      }).pipe(Effect.provide(humanScreenLayer(streams, { env: { FORCE_COLOR: "1" } })));
+    });
 });

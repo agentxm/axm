@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/import/adoption-reaches-every-configured-agent",
   title: "An imported MCP server is adopted once and reaches every configured agent",
   statement:
-    "When an MCP server found in one agent's native configuration is imported, AXM shall record it once without an agent subset, shall project it to every configured agent that can represent it on the next reconciliation, and shall report every native target it will write in preview and apply.",
+    "When an MCP server found in one agent's native configuration is imported without --as, AXM shall record it once without an agent subset, shall project it to every configured agent that can represent it on the next reconciliation, and shall report every native target it will write in preview and apply.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],

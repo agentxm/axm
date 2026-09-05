@@ -81,13 +81,16 @@ export const machineScreenLayer = (
 /**
  * The real human screen (frame plus painter) writing to the recording
  * streams, with the output policy the CLI would derive from the streams'
- * terminal facts and an environment that forces nothing.
+ * terminal facts and the explicitly supplied environment (empty by default).
  */
-export const humanScreenLayer = (streams: RecordingStreams): Layer.Layer<Screen> => {
+export const humanScreenLayer = (
+  streams: RecordingStreams,
+  options?: { readonly env?: NodeJS.ProcessEnv },
+): Layer.Layer<Screen> => {
   const policy = resolveCliOutputPolicy({
     stdoutIsTTY: streams.facts.stdoutIsTTY,
     stderrIsTTY: streams.facts.stderrIsTTY,
-    env: {},
+    env: options?.env ?? {},
   });
   const glyphs = policy.glyphs === "ascii" ? asciiGlyphs : unicodeGlyphs;
   const frame = Layer.provide(

@@ -12,12 +12,17 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/add/records-and-realizes-inline-configuration",
   title: "Adding an inline MCP server records it as authored configuration and realizes it",
   statement:
-    "When an inline MCP server is added by command or url, AXM shall record it in axm.json as authored configuration, realize it in the native configuration of configured agents, report the applied change, and shall record no accepted resolution.",
+    "When an inline MCP server is added by command or url, AXM shall record it in axm.json as authored configuration, realize it in the native configuration of configured agents that can represent it, report the applied change, and shall record no accepted resolution.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
   methods: ["decision-table"],
-  derivedFrom: ["cli/mcps/inline-lifecycle-is-idempotent"],
+  derivedFrom: [
+    "cli/mcps/inline-lifecycle-is-idempotent",
+    "cli/mcps/projects-to-every-configured-agent",
+    "packages/cli/src/root/mcps/add.ts",
+    "packages/cli/help/topics/mcps.md",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -27,6 +32,8 @@ interface InlineAddRow {
   readonly label: string;
   readonly command: Option.Option<string>;
   readonly url: Option.Option<string>;
+  readonly env?: ReadonlyArray<string>;
+  readonly header?: ReadonlyArray<string>;
   /** The entry as it must appear in `axm.json` and in native configuration. */
   readonly authored: Readonly<Record<string, unknown>>;
 }
@@ -43,6 +50,27 @@ const inlineAddRows: ReadonlyArray<InlineAddRow> = [
     command: Option.none(),
     url: Option.some("https://example.test/mcp"),
     authored: { url: "https://example.test/mcp" },
+  },
+  {
+    label: "a command server with named environment inputs",
+    command: Option.some("node server.js"),
+    url: Option.none(),
+    env: ["CONTEXT_TOKEN", "MODE=review"],
+    authored: {
+      command: "node",
+      args: ["server.js"],
+      env: { CONTEXT_TOKEN: "${CONTEXT_TOKEN}", MODE: "review" },
+    },
+  },
+  {
+    label: "a remote server with repeated header inputs",
+    command: Option.none(),
+    url: Option.some("https://example.test/mcp"),
+    header: ["X-Workspace:review-team", "Authorization:Bearer ${CONTEXT_TOKEN}"],
+    authored: {
+      url: "https://example.test/mcp",
+      headers: { "X-Workspace": "review-team", Authorization: "Bearer ${CONTEXT_TOKEN}" },
+    },
   },
 ];
 
@@ -65,8 +93,8 @@ describe("Add an inline MCP server", () => {
           name: "demo",
           command: row.command,
           url: row.url,
-          env: [],
-          header: [],
+          env: row.env ?? [],
+          header: row.header ?? [],
           force: false,
           preview: false,
         }).pipe(Effect.provide(workspace.layer));

@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { AppError, makeAppError } from "../../app-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
@@ -352,21 +352,6 @@ describe("mcps import output", () => {
             source: "inline",
           },
         });
-      }),
-    );
-  });
-
-  it.effect("rejects --enable when package conversion was not requested", () => {
-    const { provide } = makeLayers();
-    writeWorkspaceFiles(path.join(tempDir, ".axm"));
-
-    return provide(
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(handleMcpsImport({ preview: false, enable: true }));
-        if (!(error instanceof AppError)) throw new Error("Expected an AppError");
-
-        expect(error.code).toBe("usage");
-        expect(error.detail).toContain("--enable requires --as");
       }),
     );
   });

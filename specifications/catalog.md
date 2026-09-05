@@ -565,6 +565,35 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `packages/extension-authoring/src/fork-package.internal.test.ts`, `packages/cli/src/root/fork/command.ts`
 - Source: [`specifications/cli/fork/refuses-ambiguous-or-conflicting-packages.spec.ts`](../specifications/cli/fork/refuses-ambiguous-or-conflicting-packages.spec.ts)
 
+#### Help
+
+##### Help lists the available topics and how to read them
+
+- Requirement: `cli/help/lists-available-topics`
+- Statement: When invoked without a target, help shall list every bundled topic with a description and an invocation for reading a topic.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI emits its topic index; an independent inventory of published Markdown and schema sources detects missing, duplicate, and extra entries.
+- Methods: contract, example
+- Derived from: `packages/cli/help/README.md`, `packages/cli/src/root/help/command.internal.test.ts`
+- Source: [`specifications/cli/help/lists-available-topics.spec.ts`](../specifications/cli/help/lists-available-topics.spec.ts)
+
+##### Help returns the requested topic or command guidance
+
+- Requirement: `cli/help/returns-requested-topic-or-command`
+- Statement: When help names a published topic or supported command path, AXM shall return that content or command help, and shall reject an unknown target with an invocation that lists available topics.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: process; selection: per-change
+- Boundary rationale: Built CLI calls verify target parsing, published source content, equivalent nested command help, and execution of the recovery invocation.
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/help/command.ts`, `packages/cli/src/root/help/command.internal.test.ts`
+- Open questions: Which target takes precedence when a single word names both a topic and a command? These examples do not establish that collision policy.
+- Source: [`specifications/cli/help/returns-requested-topic-or-command.spec.ts`](../specifications/cli/help/returns-requested-topic-or-command.spec.ts)
+
 #### Hooks
 
 ##### Hooks package disable preview describes the deactivation without changing any state
@@ -813,17 +842,17 @@ programmatic interfaces, and supporting system behavior.
 
 #### Installed State Stays In Selected Scope
 
-##### Installed state stays in the selected scope
+##### Installed extensions, coding agents, and instruction files stay in the selected scope
 
 - Requirement: `cli/installed-state-stays-in-selected-scope`
-- Statement: Commands that operate on installed extensions shall read and change the selected project or user workspace and its agent projections while preserving the other scope's workspace and projections.
+- Statement: Installed-extension operations, coding-agent listing and membership changes, and instruction-file inspection, enablement, and disablement shall use the selected project or user workspace and its native files for workspace results and changes, default to project scope when no workspace scope is selected, and preserve the other scope's workspace and native files.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: process; selection: per-change
-- Boundary rationale: Separate CLI invocations establish scope selection, persisted settings and resolution, and project-versus-home native projection paths through the built entry point.
+- Boundary rationale: Separate built CLI invocations establish explicit and default workspace scope through the registered commands, observe persisted extension state, agent membership, and instruction-file settings, and read actual project-versus-home native output content.
 - Methods: decision-table, example
-- Derived from: `packages/cli/src/root/scope-contract.ts`, `packages/cli-e2e/src/scope-consistency.e2e.test.ts`, `packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`
+- Derived from: `packages/cli/src/root/scope-contract.ts`, `packages/cli/src/root/agents/list.ts`, `packages/cli/src/root/agents/add.ts`, `packages/cli/src/root/agents/remove.ts`, `packages/cli/src/root/instructions.ts`, `docs/architecture/workspace/agents.md`, `docs/architecture/workspace/instruction-files.md`, `packages/cli-e2e/src/scope-consistency.e2e.test.ts`, `packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/scope-consistency.e2e.test.ts`](../packages/cli-e2e/src/scope-consistency.e2e.test.ts) — Runs Pack, Knowledge and Subagent operations in a populated user workspace and verifies that the populated project workspace and native projections remain byte-identical.
 - Source: [`specifications/cli/installed-state-stays-in-selected-scope.spec.ts`](../specifications/cli/installed-state-stays-in-selected-scope.spec.ts)
 
@@ -1334,17 +1363,17 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/lint/fix-repairs-only-determined-state.spec.ts`](../specifications/cli/lint/fix-repairs-only-determined-state.spec.ts)
 
-##### Git-index lint requires a repository with no unresolved index entries
+##### Git-index lint requires a resolved project index
 
 - Requirement: `cli/lint/git-index-requires-a-resolved-index`
-- Statement: When lint selects the Git index outside a Git repository or while its index contains unresolved merge entries, AXM shall report why that view cannot be evaluated without changing the index or working tree.
+- Statement: When lint selects the Git index outside a Git repository or while its index contains unresolved merge entries, or with --scope user, AXM shall report why that view cannot be evaluated without changing the index or working tree.
 - Class: constraint
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
 - Boundary: process; selection: per-change
 - Boundary rationale: Real Git repositories supply unresolved index stages, and the built CLI exposes the refusal and selected-view explanation while real index and file observations establish preservation.
 - Methods: example
-- Derived from: `cli/lint/observes-selected-filesystem-view`, `packages/workspace-lint/src/run/staged-workspace.internal.test.ts`
+- Derived from: `cli/lint/observes-selected-filesystem-view`, `packages/workspace-lint/src/run/staged-workspace.internal.test.ts`, `packages/cli/help/topics/git-hooks.md`
 - Source: [`specifications/cli/lint/git-index-requires-a-resolved-index.spec.ts`](../specifications/cli/lint/git-index-requires-a-resolved-index.spec.ts)
 
 ##### Local lint honors configured rule severities
@@ -1375,13 +1404,14 @@ programmatic interfaces, and supporting system behavior.
 ##### Lint observes only the selected filesystem view
 
 - Requirement: `cli/lint/observes-selected-filesystem-view`
-- Statement: When a lint view is selected, lint shall evaluate only that view, reporting the staged content and its fingerprint for git-index and the working tree for workspace with diagnostic paths in the selected workspace, and shall change neither the Git index nor the working tree.
+- Statement: When lint runs without --fix, it shall evaluate only the selected view, reporting the staged content and its fingerprint for git-index and the working tree for workspace with diagnostic paths in the selected workspace, and shall change neither the Git index nor the working tree.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`, `machine-automation`
 - Boundary: process; selection: per-change
 - Boundary rationale: Only a real Git index and working tree, driven through the git executable, can hold staged content that differs from the working tree, yield the index fingerprint, and show afterwards that the index, status, and files were left untouched; an in-memory run has no Git index to observe.
 - Methods: example
+- Open questions: When --fix is combined with --view git-index, must the command refuse the request or assess the index without applying a repair? The public Git-index surface is read-only; current refusal alone does not establish the required combination policy.; How should an explicit lint path select a nested workspace inside a Git index, and how should user scope combine with a supplied path? Current root-selection precedence remains an implementation observation.
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/observes-selected-filesystem-view.spec.ts`](../specifications/cli/lint/observes-selected-filesystem-view.spec.ts)
 
@@ -1684,13 +1714,13 @@ programmatic interfaces, and supporting system behavior.
 ##### Adding an inline MCP server records it as authored configuration and realizes it
 
 - Requirement: `cli/mcps/add/records-and-realizes-inline-configuration`
-- Statement: When an inline MCP server is added by command or url, AXM shall record it in axm.json as authored configuration, realize it in the native configuration of configured agents, report the applied change, and shall record no accepted resolution.
+- Statement: When an inline MCP server is added by command or url, AXM shall record it in axm.json as authored configuration, realize it in the native configuration of configured agents that can represent it, report the applied change, and shall record no accepted resolution.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: decision-table
-- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/projects-to-every-configured-agent`, `packages/cli/src/root/mcps/add.ts`, `packages/cli/help/topics/mcps.md`
 - Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
 - Source: [`specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts`](../specifications/cli/mcps/add/records-and-realizes-inline-configuration.spec.ts)
 
@@ -1721,7 +1751,7 @@ programmatic interfaces, and supporting system behavior.
 ##### An imported MCP server is adopted once and reaches every configured agent
 
 - Requirement: `cli/mcps/import/adoption-reaches-every-configured-agent`
-- Statement: When an MCP server found in one agent's native configuration is imported, AXM shall record it once without an agent subset, shall project it to every configured agent that can represent it on the next reconciliation, and shall report every native target it will write in preview and apply.
+- Statement: When an MCP server found in one agent's native configuration is imported without --as, AXM shall record it once without an agent subset, shall project it to every configured agent that can represent it on the next reconciliation, and shall report every native target it will write in preview and apply.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
@@ -1731,10 +1761,38 @@ programmatic interfaces, and supporting system behavior.
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so a server present in one file and absent from the other observes adoption reaching a second agent.
 - Source: [`specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts`](../specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts)
 
-##### MCP server import preview describes the adoption without changing any state
+##### A native MCP server can become an authored package
+
+- Requirement: `cli/mcps/import/creates-authored-package-from-native-server`
+- Statement: Given one unmanaged native server defined by an HTTP URL and optional non-secret literal headers, mcps import --as shall create a workspace-authored MCP package under the supplied fully qualified MCP name with the same URL and headers.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI reads native configuration, runs the package creation and managed validation path, and persists a schema-valid authored manifest and workspace declaration under the supplied identity.
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/mcps/import.ts`, `packages/cli-e2e/src/fork-import.e2e.test.ts`, `cli/creation-uses-configured-workspace-ownership`, `cli/authoring-uses-project-workspace`
+- Open questions: Which native transports and configuration fields beyond the represented HTTP URL and headers must package conversion support without loss?; What selection or refusal behavior is required when discovery finds no eligible server, several distinct servers, or conflicting definitions?; How must package conversion preserve existing input references and credentials? The MCP secret owner governs managed secret storage; these examples use only non-secret literal headers.; May a conversion replace an existing configured connection under the target name, and how should existing authored content be treated? The current configured-source transition is an observation, not a new fallback policy.
+- Limitation: These examples verify conversion of connection configuration without contacting the remote MCP service or exercising credentials. Retires when: Add evidence under accepted transport and credential obligations when those additional conversion conditions are decided.
+- Source: [`specifications/cli/mcps/import/creates-authored-package-from-native-server.spec.ts`](../specifications/cli/mcps/import/creates-authored-package-from-native-server.spec.ts)
+
+##### Imported packages are enabled only by an explicit request
+
+- Requirement: `cli/mcps/import/package-enablement-is-explicit`
+- Statement: The --enable option of mcps import shall apply only to --as package conversion, enabling the converted package when supplied and leaving it disabled when omitted.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: Actual CLI invocations distinguish the registered option combinations and observe persisted activation state plus the resulting native configurations.
+- Methods: example, decision-table
+- Derived from: `packages/cli/src/root/mcps/import.ts`, `packages/cli/src/root/mcps/import.internal.test.ts`, `packages/cli-e2e/src/fork-import.e2e.test.ts`, `cli/mcps/projects-to-every-configured-agent`
+- Source: [`specifications/cli/mcps/import/package-enablement-is-explicit.spec.ts`](../specifications/cli/mcps/import/package-enablement-is-explicit.spec.ts)
+
+##### MCP import preview describes the change without changing workspace state
 
 - Requirement: `cli/mcps/import/preview-is-pure`
-- Statement: When mcps import runs in preview mode against an unmanaged native MCP server, it shall report the adoption it would apply with a previewed outcome and shall not change settings, the lockfile, or any native agent MCP configuration.
+- Statement: When mcps import previews an eligible unmanaged native server, it shall report the inline adoption or --as package conversion it would apply with a previewed outcome and shall not change settings, the lockfile, authored packages, or any native agent MCP configuration.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -1806,7 +1864,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Creating an MCP server records editable workspace content
 
 - Requirement: `cli/mcps/new/creates-enabled-workspace-content`
-- Statement: When a person creates an MCP server, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Statement: When a person runs mcps new, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
@@ -2220,6 +2278,24 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/projection-currency.e2e.test.ts`](../packages/cli-e2e/src/projection-currency.e2e.test.ts) — Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.
 - Source: [`specifications/cli/projection-currency-follows-state-authority.spec.ts`](../specifications/cli/projection-currency-follows-state-authority.spec.ts)
 
+#### Publication Selects Matching Authored Extensions
+
+##### Publication selectors and filters narrow the workspace-authored set
+
+- Requirement: `cli/publication-selects-matching-authored-extensions`
+- Statement: Root publish shall select matching workspace-authored extensions using fully qualified or type-qualified selectors and globs or argument-free owner, type and exclusion filters, while type-specific publication shall interpret its names, globs, fully qualified selectors and filters only within that type, each defaulting to all authored candidates in its scope.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The root selection table exercises actual publication orchestration and stored archives; the type-specific table enters the built CLI to verify adapter normalization before the same handler runs.
+- Methods: decision-table, example
+- Derived from: `cli/publish/selectors-and-filters-narrow-authored-candidates`, `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.ts`, `packages/cli/src/root/publish/per-type-command.ts`
+- Supersedes: `cli/publish/selectors-and-filters-narrow-authored-candidates`
+- Open questions: For an explicit selector with no match, including a fully qualified name of another type at a type-specific command, which diagnostic and result status are required? The selection must not broaden, but this owner does not fix the no-match reporting policy.
+- Limitation: The process examples use file Registry destinations and a bounded selector/filter decision table. They do not establish every glob shape, repeated-filter combination, or remote Registry interaction. Retires when: Retain the type-bound selection evidence while adding any newly accepted selector grammar and interaction cases under their exact applicability.
+- Source: [`specifications/cli/publication-selects-matching-authored-extensions.spec.ts`](../specifications/cli/publication-selects-matching-authored-extensions.spec.ts)
+
 #### Publish
 
 ##### Publication refuses incomplete or unsafe archives
@@ -2405,18 +2481,6 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example, decision-table
 - Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/cli/src/root/publish/command.ts`
 - Source: [`specifications/cli/publish/respects-local-pack-constraints.spec.ts`](../specifications/cli/publish/respects-local-pack-constraints.spec.ts)
-
-##### Publication selectors and filters narrow the workspace-authored set
-
-- Requirement: `cli/publish/selectors-and-filters-narrow-authored-candidates`
-- Statement: Root publish shall select the workspace-authored candidates matching either explicit fully qualified or type-qualified selectors and globs, or the owner, type and exclusion filters on an argument-free selection, defaulting to all authored candidates and never adding unrelated candidates.
-- Class: functional
-- Role: experience
-- Product goals: `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.ts`
-- Source: [`specifications/cli/publish/selectors-and-filters-narrow-authored-candidates.spec.ts`](../specifications/cli/publish/selectors-and-filters-narrow-authored-candidates.spec.ts)
 
 #### Publisher Changes Require Interactive Approval
 
@@ -3350,6 +3414,19 @@ programmatic interfaces, and supporting system behavior.
 
 #### Version
 
+##### Version argument errors offer a command that corrects the request
+
+- Requirement: `cli/version/argument-errors-offer-runnable-recovery`
+- Statement: When a version request for a matching workspace-authored package omits the exact version required by set or supplies one with another supported bump, AXM shall reject it as invalid usage without changing workspace content and suggest a runnable command on the root version route that corrects the arguments while preserving the selected package and bump.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: A built CLI process establishes the published error classification and executes its suggested command through the registered parser; calling a version handler alone cannot establish that recovery uses an available command route.
+- Methods: example, decision-table
+- Derived from: `cli/version/refuses-invalid-or-unowned-targets`, `packages/cli/src/root/shared/version-command.ts`
+- Source: [`specifications/cli/version/argument-errors-offer-runnable-recovery.spec.ts`](../specifications/cli/version/argument-errors-offer-runnable-recovery.spec.ts)
+
 ##### Version changes the selected authored manifest while preserving other content
 
 - Requirement: `cli/version/changes-only-the-authored-manifest-version`
@@ -3647,6 +3724,21 @@ programmatic interfaces, and supporting system behavior.
 - Methods: model, example
 - Source: [`specifications/cli/exit-codes-match-published-reference.spec.ts`](../specifications/cli/exit-codes-match-published-reference.spec.ts)
 
+#### Help
+
+##### Schema topics expose the published JSON schema
+
+- Requirement: `cli/help/schema-topics-return-json`
+- Statement: When a schema help topic is requested, AXM shall return the published schema as parseable JSON, directly in ordinary output and in the topic content field in machine output.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: process; selection: per-change
+- Boundary rationale: Actual CLI output is decoded and compared with the published schema artifacts, detecting Markdown wrapping or unrelated schema content.
+- Methods: contract, decision-table
+- Derived from: `packages/cli/help/README.md`, `packages/cli/src/root/help/command.internal.test.ts`
+- Source: [`specifications/cli/help/schema-topics-return-json.spec.ts`](../specifications/cli/help/schema-topics-return-json.spec.ts)
+
 #### Install
 
 ##### Machine install output is one complete schema-backed plan document
@@ -3914,6 +4006,23 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `cli/command-help-is-complete`
 - Source: [`specifications/cli/preview-uses-the-canonical-flag.spec.ts`](../specifications/cli/preview-uses-the-canonical-flag.spec.ts)
 
+#### Publication Uses Explicit Registry Target
+
+##### Publication uses the explicitly selected Registry
+
+- Requirement: `cli/publication-uses-explicit-registry-target`
+- Statement: When exactly one of --registry and --registry-url is supplied for publication, AXM shall direct the admitted publication to that configured Registry or explicit Registry URL and refuse a target it cannot resolve without publishing elsewhere.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: Actual registered root and type-specific CLI invocations choose between distinct fixture Registry destinations; the examples observe nonempty archive files at the selected destination and no files at the other destination.
+- Methods: decision-table, example
+- Derived from: `packages/cli/src/root/publish/command.ts`, `packages/cli/src/root/publish/per-type-command.ts`
+- Open questions: What target or rejection is required when both --registry and --registry-url are supplied? The current implementation prefers the URL and retains the supplied name as a label; no public precedence promise was identified.; Which Registry should an invocation without either target flag select? The current implementation takes the first resolved Registry source; this requirement does not establish that default or source-order policy.; Which URL schemes are supported publication targets beyond the existing local Registry and HTTP implementations? No new scheme support or normalization guarantee is established here.
+- Limitation: The process examples use local file Registry destinations. HTTP publication capability binding and credential-origin isolation remain separately owned; no live Registry, remote authentication, or server-side storage behavior is established here. Retires when: Retain explicit target selection evidence through each supported target transport without duplicating the credential and publication-capability owners.
+- Source: [`specifications/cli/publication-uses-explicit-registry-target.spec.ts`](../specifications/cli/publication-uses-explicit-registry-target.spec.ts)
+
 #### Publish
 
 ##### The publication archive matches its complete reported inventory
@@ -4094,7 +4203,7 @@ programmatic interfaces, and supporting system behavior.
 - Boundary rationale: The built CLI process must report its package release identity through the actual global formatter in both human and machine modes.
 - Methods: contract, example
 - Derived from: `packages/cli/help/topics/machine-output.md`, `packages/cli-e2e/src/smoke.e2e.test.ts`, `packages/cli-e2e/src/binary-smoke.e2e.test.ts`
-- Limitation: These examples exercise the built Node entrypoint. Compiled and externally installed release identities require evidence for those exact artifacts. Retires when: Bind exact version readback to identified compiled and installed release artifacts.
+- Limitation: These examples exercise the built JavaScript entrypoint through Bun. Compiled and externally installed release identities require evidence for those exact artifacts. Retires when: Bind exact version readback to identified compiled and installed release artifacts.
 - Source: [`specifications/cli/version-output-identifies-running-release.spec.ts`](../specifications/cli/version-output-identifies-running-release.spec.ts)
 
 #### View
@@ -4572,6 +4681,20 @@ programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Assumptions: GitHub branch protection enforces pull-request review and code-owner approval outside the repository.
 - Source: [`specifications/system/process/changes-land-through-reviewed-pull-requests.spec.ts`](../specifications/system/process/changes-land-through-reviewed-pull-requests.spec.ts)
+
+##### The command inventory routes readers to specification owners
+
+- Requirement: `system/process/command-inventory-routes-to-obligations`
+- Statement: The repository shall maintain a command inventory that agrees with rendered-help signatures and reviewed parser occurrence cardinality, and routes each command and parameter to applicable canonical specifications or explicit unresolved scope.
+- Class: process
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The gate checks canonical references and agreement with the production help tree and registered-parser occurrence controls; it does not execute allocated product obligations or establish semantic completeness.
+- Methods: contract, decision-table
+- Derived from: `system/architecture/every-command-declares-interaction-capabilities`
+- Open questions: Should the command inventory also compare parser value domains, defaults, constraints, or hidden parameters beyond the rendered-help fields and reviewed occurrence controls?
+- Source: [`specifications/system/process/command-inventory-routes-to-obligations.spec.ts`](../specifications/system/process/command-inventory-routes-to-obligations.spec.ts)
 
 ##### Dependency installation defers the compiled CLI bin to package creation
 

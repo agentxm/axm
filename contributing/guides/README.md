@@ -1,87 +1,24 @@
-# Guides
+# Contributor guides
 
-Guides provide high-level overview and orientation for key topics. They collect
-references to important resources, skills, and background that contextualizes
-the topic to this project. Use guides as topic-based entry points for subjects
-too detailed for README.md, AGENTS.md, or CLAUDE.md, but not tactical enough
-for skills.
+AXM-specific procedures that cannot be recovered safely from repository
+commands or executable sources.
 
-## Structure
+## Runtime
 
-Each guide is a single markdown file named after its topic:
+- [Effect](effect.md) — AXM's Effect version and local policy
+- [Effect errors](effect-errors.md) — CLI error translation and cancellation
+- [Effect layers](effect-layers.md) — CLI runtime composition
+- [Authentication](authentication.md) — login scope policy and device-flow contracts
 
-- `effect.md` — Effect patterns for typed errors, services, and async
-- `effect-option.md` — When to use `Option` versus nullable values
-- `effect-v4-quick-ref.md` — Common v3 to v4 API renames and migrations
-- `workspace-read-model.md` — Scoped workspace read model, caching, and test fixtures
-- `workspace-state.md` — Desired, observed, trust, receipt, and reconciliation semantics
-- `workspace-schema-evolution.md` — Settings and lockfile schema changes and decode strictness
-- `testing.md` — Testing orientation and skill references
-- `cli-design.md` — Command design, flags, prompts, and handler conventions
-- `cli-renderer.md` — Renderer boundaries, JSON contracts, and stderr diagnostics
-- `lint-rule-authoring.md` — Authoring lint rules for skills, packs, and workspaces
-- `logging.md` — Structured logging conventions and log levels
-- `agent-capabilities.md` — Grading agent support for each extension capability
-- `extension-type-parity.md` — The extension type table, parity obligations, and the exemption ledger
-- `releasing.md` — Release versioning, prepare/publish flow, and status checks
-- `feature-delivery.md` — Proposal, design, and implementation checks
-- `development-environment.md` — Native and shared-container development and CI
-- `automated-pull-request-review.md` — Advisory Codex and Claude review model
-- `typescript-style.md` — Assertion-free TypeScript and narrowing patterns
-- `documentation-guidelines.md` — Writing rules for human and agent docs
-- `guide-authoring.md` — When and how to add a guide here
-- `instructions.md` — README vs CONTRIBUTING vs AGENTS/CLAUDE vs SKILL docs
+## Delivery
 
----
+- [Development environment](development-environment.md) — native development
+  and containerized CI verification
+- [Automated pull-request review](automated-pull-request-review.md) — review
+  operation and maintainer controls
+- [Releasing](releasing.md) — release procedure
 
-## Quality Checklist
-
-- [ ] **Entry point** — Topic warrants a dedicated starting point for orientation
-      → If minor, fold into existing guide; if directory-scoped, use README
-- [ ] **High-level** — Overview and context, not step-by-step instructions
-      → If tactical patterns or checklists, use a skill
-- [ ] **Links AGENTS.md/CLAUDE.md** — Links to the relevant section when one exists
-      → Don't duplicate root instructions; link to critical guidance instead
-- [ ] **Collects references** — Aggregates resources, skills, and background
-      → If nothing to collect, content may belong inline or in CLAUDE.md
-- [ ] **Skills index** — Lists related skills with file path, command, and description
-      → Use table format; include slash command only if user-invocable
-- [ ] **Project-specific** — Contextualizes how the topic applies here
-      → If generic, link to external docs rather than duplicating
-
----
-
-## Template
-
-```markdown
-# Guide Title
-
-Purpose statement explaining what this guide covers and why it matters.
-
-> [Section Name](../../AGENTS.md#section-anchor) - critical guidance <!-- use AGENTS.md or CLAUDE.md when relevant -->
-
-## Key Resources <!-- omit if none -->
-
-- [Official Docs](https://example.com) - Authoritative reference
-- [Related Guide](./related-guide.md) - Essential context
-
-## Skills <!-- omit if none -->
-
-| Skill                                       | Command       | Description               |
-| ------------------------------------------- | ------------- | ------------------------- |
-| [skill-name](../../path/to/owning/SKILL.md) | `/skill-name` | What this skill provides  |
-| [other-skill](../../path/to/other/SKILL.md) | —             | Supporting patterns for X |
-
----
-
-## [Topic Sections] <!-- required -->
-
-Context explaining _why_ this topic matters and what decisions it informs.
-
----
-
-## See Also <!-- omit if none -->
-
-- [Notable Article](https://example.com) - Influential writing on the topic
-- [Deep Dive](https://example.com) - Further exploration
-```
+Add a guide only for a repeated AXM-specific procedure that is not clearer in
+code, tests, configuration, commands, or the
+[architecture corpus](../../docs/architecture/index.md). Portable craft belongs
+in installed extensions.

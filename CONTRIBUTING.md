@@ -11,13 +11,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 ### Setup
 
-The documented default for Linux development is the shared Docker environment:
-
-```bash
-scripts/container-environment.sh shell
-```
-
-For native development, install and activate `mise`, then run:
+Install and activate `mise`, then run:
 
 ```bash
 mise install             # install Node.js, Bun, and pnpm from mise.toml
@@ -26,8 +20,8 @@ pnpm build               # build all packages
 pnpm test                # run tests
 ```
 
-The development image, repository-owned CI image, identity storage, and
-native-platform boundaries are documented in the
+The native development environment, repository-owned CI image, and
+platform-specific boundaries are documented in the
 [Development Environment Guide](contributing/guides/development-environment.md).
 Automated review behavior and maintainer controls are documented in the
 [Automated Pull Request Review Guide](contributing/guides/automated-pull-request-review.md).
@@ -39,6 +33,11 @@ Formatting does not: `pnpm format` and `pnpm format:check` are the canonical
 full-repo Prettier commands. Use `pnpm format:affected` or
 `pnpm format:check:affected` only as Nx convenience commands for changed-file
 ranges.
+
+Before adding a script, an Nx target, or a wrapper script, read the
+[Repository task interface](docs/guides/repository-task-interface.md). It decides
+which of the three a new piece of work belongs in, and records every deliberate
+exception.
 
 | Command                      | Purpose                                   |
 | ---------------------------- | ----------------------------------------- |
@@ -53,14 +52,27 @@ ranges.
 | `pnpm lint`                  | Lint with ESLint                          |
 | `pnpm lint:fix`              | Lint and auto-fix                         |
 | `pnpm run ci`                | Run the full CI pipeline locally          |
-| `pnpm run ci:affected`       | Run CI pipeline for affected packages     |
+| `pnpm run verify:affected`   | Verify projects changed from the Nx base  |
 | `pnpm run container:ci`      | Run full CI in the pinned Linux image     |
-| `pnpm run container:dev`     | Open the shared Linux development image   |
 | `pnpm build:affected`        | Build only packages changed since `main`  |
 | `pnpm test:affected`         | Test only packages changed since `main`   |
 | `pnpm lint:affected`         | Lint only packages changed since `main`   |
 
 ## Making Changes
+
+Before changing AXM product behavior, read the relevant
+[architecture documents](docs/architecture/index.md). They explain command
+responsibilities, workspace invariants, and design rationale; the executable
+specifications in the [specification catalog](specifications/catalog.md) own
+required behavior, and code and tests show how the design is implemented.
+
+The binding obligations to land changes through reviewed pull requests with
+maintainer approval and to pass aggregate verification before merge are the
+executable specifications
+`system/process/changes-land-through-reviewed-pull-requests` and
+`system/process/merges-require-aggregate-verification` in the
+[specification catalog](specifications/catalog.md).
+The steps below implement those obligations for contributors.
 
 1. External contributors fork the repo; maintainers work from the main
    repository. In both cases, create a branch from current `main` before the
@@ -75,6 +87,10 @@ requests. Use a separate worktree for concurrent tasks or coding-agent sessions
 so the primary checkout can remain clean on `main`.
 
 ### Public repository privacy
+
+The binding obligation is the executable specification
+`system/process/public-artifacts-protect-private-context` in the
+[specification catalog](specifications/catalog.md).
 
 This repository is public. Branch names, commits, issues, pull requests,
 comments, screenshots, and release notes must not contain identifiers, links,

@@ -1,11 +1,16 @@
 # Hooks
 
-Hook packages live in `./.axm/extensions/<@owner>/hooks/<hook-name>`.
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
+Project-authored hook packages live in `./hooks/<hook-name>`; acquired hooks
+use the source-qualified canonical scheme. For example, an AgentXM Registry
+hook lives in `./agent_extensions/agentxm/<@owner>/hooks/<hook-name>`.
 
 A hook extension runs your code on an agent lifecycle event such as a tool
 pre-call, tool post-call, prompt submission, or session start. It is a portable
-manifest plus an executable body. On install, AXM materializes the body under
-`.axm/extensions/...` and merges a native hook entry into the target agent's
+manifest plus an executable body. On install, AXM materializes the package under
+`agent_extensions/...` and merges a native hook entry into the target agent's
 settings file that points at it.
 
 The command AXM writes always targets the materialized entrypoint in your
@@ -88,16 +93,33 @@ that requirement.
 
 `axm hooks install` (or the generic `axm install`):
 
-1. Materializes the package into `.axm/extensions/<owner>/hooks/<name>/`.
-2. Records the resolved hook in `.axm/axm-lock.yaml`.
+1. Materializes the package into
+   `agent_extensions/agentxm/<owner>/hooks/<name>/`.
+2. Records the resolved hook in `axm-lock.yaml`.
 3. Merges a generated command into the target agent's settings through the
    JSONC-aware writer.
+
+Install and sync plans report the effective result for every configured agent:
+
+- `projected` means preview selected a behavior-preserving projection.
+- `current` means apply or inspection confirmed that projection.
+- `blocked` means neither native integration nor an allowed behavior-preserving
+  fallback can satisfy the hook. A blocked plan performs no writes.
+
+The separate `mechanism` field explains how a projected or current hook is
+realized: `native` writes an agent-native hook integration, while
+`advisory-fallback` represents an observational hook in AXM's managed
+instruction region. Every outcome also carries a stable `reasonCode` and a
+human-readable reason.
+
+Preview and apply use the same reconciliation decision. Run
+`axm hooks show <name>` to inspect the current per-agent outcomes and reasons.
 
 For the generated command, AXM joins the runtime and the materialized
 entrypoint:
 
 ```text
-bash .axm/extensions/@acme/hooks/block-secrets/src/hook.sh
+bash agent_extensions/agentxm/@acme/hooks/block-secrets/src/hook.sh
 ```
 
 Claude Code uses the catalog-driven `command-stdin` serializer: a `tool.pre`
@@ -108,10 +130,17 @@ AXM preserves unrelated settings and removes only the entries it manages, so
 native hook availability until a writer is implemented behind the same manifest
 contract.
 
+Every generated command entry carries structured `x-axm` metadata with
+`v: 1`, `managed: true`, `unit: "hook:<name>"`, source, and reference. A command
+that merely points into `agent_extensions/` is not AXM-owned and is never removed
+on that basis. `axm lint` reports such an unmarked entry as
+`workspace/hook-ownership-ambiguous`; add or remove it manually after deciding
+who owns it.
+
 ## Configuration
 
-Installed hooks are tracked in `.axm/settings.json` under the `hooks` map
-(name → entry) and locked in `.axm/axm-lock.yaml`. An entry is a source string,
+Installed hooks are tracked in `axm.json` under the `hooks` map
+(name → entry) and locked in `axm-lock.yaml`. An entry is a source string,
 or an object with `source` plus optional flags:
 
 ```jsonc
@@ -147,13 +176,15 @@ All commands live under `axm hooks` and accept `--scope project` (default) or
   settings.
 - `axm hooks uninstall <name>` — remove the hook's settings entries and package
   files.
-- `axm hooks list` (`ls`) — show installed hooks with status, source, and lock
+- `axm hooks list` — show installed hooks with status, source, and lock
   state.
+- `axm hooks show <name>` — inspect one installed hook and its effective
+  configured-agent outcomes.
 - `axm hooks disable <name>` — set `enabled: false` and strip the generated
   settings entry, keeping the package.
 - `axm hooks enable <name>` — re-serialize a disabled hook.
 - `axm hooks update <name>` — move a configured hook to a newer version.
-- `axm prune` — preview stale hook state and remove it only when AXM ownership
+- `axm sync --preview` — preview stale hook state and remove it only when AXM ownership
   is proven.
 - `axm hooks publish @owner/hooks/<name>` — validate and release a new version;
   add `--preview` to dry-run manifest and publish lint.
@@ -173,7 +204,9 @@ When a pack lists this hook as a dependency and the hook lists that pack as
 recommended, the registry marks both sides of the relationship **official**.
 Either side may declare alone; the badge appears only when both agree.
 
-See `axm help packs` for pack authoring and `standalone` semantics.
+Keep the hook self-contained. `recommendedPacks` does not install the pack or
+its members. If the hook requires another extension, follow `axm help packs`
+for the only supported direct-sibling pack composition.
 
 ## Where to go next
 

@@ -48,11 +48,14 @@ Any package author may declare `extensions` in their package's native metadata t
 }
 ```
 
-A recommendation can target any extension type — skill, subagent, command, MCP server, or pack. When recommending more than one extension, prefer a pack: one stable reference for the package author, with evolvable contents over time.
+A recommendation can target any extension type — skill, MCP server, subagent,
+rule, hook, knowledge bundle, or pack. When recommending more than one
+extension, prefer a pack: one stable reference for the package author, with
+evolvable contents over time.
 
 For the equivalent location in other package formats, see [Specifying recommended extensions in package metadata](#specifying-recommended-extensions-in-package-metadata) below.
 
-Default to identity-only — omit `versionRange`. A recommendation is a discovery signal: AXM resolves it to the newest matching extension version and pins that exact version in `.axm/axm-lock.yaml`, so the range never controls what the user ends up installing. An identity-only recommendation never goes stale and always points at the current extension.
+Default to identity-only — omit `versionRange`. A recommendation is a discovery signal: AXM resolves it to the newest matching extension version and pins that exact version in `axm-lock.yaml`, so the range never controls what the user ends up installing. An identity-only recommendation never goes stale and always points at the current extension.
 
 Add a semver `versionRange` only when your package genuinely pairs with a bounded major line of the extension — for example, when a later major release of the extension drops an API your package relies on:
 
@@ -103,5 +106,5 @@ For a complete, working example for every package format above — including pai
 ## Where to go next
 
 - `axm help packs` — bundling multiple extensions into a single recommendable pack
-- `axm help skills` — skill manifest details, plus how lockfile `integrity` and `sourceHash` work for installed extensions
+- `axm help skills` — skill manifest details and accepted external-resolution fields
 - `axm help subagents` — subagent manifest details

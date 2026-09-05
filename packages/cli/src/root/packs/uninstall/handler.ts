@@ -1,8 +1,11 @@
 import * as Effect from "effect/Effect";
-import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
+import { Screen, successDoc } from "../../../screen/index.js";
+import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { runUninstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 
-import { toPlanResolutionResult } from "../../../json-output.js";
-import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
   UninstallPackCommandWorkflowActions,
@@ -11,27 +14,47 @@ import {
 
 export const handleUninstallPack = (
   args: UninstallPackHandlerArgs,
-  flags: { yes: boolean; force: boolean; preview: boolean },
+  flags: { yes: boolean; preview: boolean },
+  testHooks?: { readonly beforeApply?: () => Effect.Effect<void, never> },
+) =>
+  withOperationLifecycle(
+    {
+      command: "packs.uninstall",
+      mode: flags.preview ? "preview" : "apply",
+      planName: "Uninstall pack",
+    },
+    handleUninstallPackBody(args, flags, testHooks),
+  );
+
+const handleUninstallPackBody = (
+  args: UninstallPackHandlerArgs,
+  flags: { yes: boolean; preview: boolean },
+  testHooks?: { readonly beforeApply?: () => Effect.Effect<void, never> },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallPackCommandWorkflowActions;
+    const execution = yield* makeUninstallPlanExecution(flags, ["packs", "uninstall"], [args.name]);
     const resolution = yield* runUninstallCommandWorkflow(args, actions, {
-      ...flags,
-      displayApplied: false,
+      execution,
+      ...(testHooks?.beforeApply === undefined ? {} : { beforeApply: testHooks.beforeApply }),
     });
-    const result = toPlanResolutionResult(resolution);
-    if (result.outcome === "no-op") {
+    if (resolution.mode === "preview" && resolution.units.length === 0) {
+      const { emitted } = yield* emitOperationResolution("packs.uninstall", resolution);
+      if (!emitted) {
+        const screen = yield* Screen;
+        yield* screen.result(successDoc("No packs would be uninstalled."));
+      }
+      return;
+    }
+    if (deriveOperationOutcome(resolution) === "no-op") {
       yield* emitNoOpOutcome("packs.uninstall", {
-        planName: result.planName,
+        planName: resolution.name,
         message: "No packs uninstalled.",
       });
       return;
     }
 
-    yield* emitAppliedPlanOutcome({
-      command: "packs.uninstall",
-      headline: "Uninstalled pack " + args.name,
-      resolution,
+    yield* emitOperationResolution("packs.uninstall", resolution, {
       suggestions: [{ description: "Inspect installed packs", cmd: "axm packs list" }],
     });
   });

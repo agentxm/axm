@@ -42,21 +42,8 @@ describe("structured output (--json)", () => {
       expect(document).toMatchObject({
         ok: true,
         result: {
-          outcome: "no-op",
-          planName: "Log out of AXM registry",
           status: "not-logged-in",
           registryHost: "registry.agentxm.ai",
-          steps: [
-            {
-              label: "Registry credentials",
-              status: "unchanged",
-              artifact: {
-                path: "registry.agentxm.ai",
-                scope: "user",
-                change: "unchanged",
-              },
-            },
-          ],
         },
         suggestions: [{ description: "Log in to this registry", cmd: "axm login" }],
       });
@@ -152,9 +139,12 @@ describe("structured output (--json)", () => {
   it("keeps semantic failures in the result envelope with a nonzero exit", async () => {
     const temp = createTempDir();
     try {
-      const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       expect(setup.exitCode, setup.stderr).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
       if (typeof settings !== "object" || settings === null || Array.isArray(settings)) {
         throw new Error("Expected object settings");
@@ -179,14 +169,14 @@ describe("structured output (--json)", () => {
   });
 
   it("parent commands still show structured help and exit 0 in json mode", async () => {
-    const result = await runCli(["auth", "--json"]);
+    const result = await runCli(["cache", "--json"]);
 
     expect(result.exitCode).toBe(0);
     const document = parseJson(result.stdout);
     expect(machineDocumentKind(document)).toBe("help-document-v1");
     expect(document).toMatchObject({
       type: "help",
-      usage: "axm auth <subcommand> [flags]",
+      usage: "axm cache <subcommand> [flags]",
     });
   });
 

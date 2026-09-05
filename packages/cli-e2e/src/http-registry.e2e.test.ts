@@ -1,5 +1,8 @@
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -18,6 +21,22 @@ import { createTempDir, runCli } from "./e2e/utils.js";
  * rows run the same flows against a local HTTP server instead.
  */
 
+/**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: [
+    "cli/update/advances-resolution-within-intent",
+    "cli/publish/preview-is-pure",
+    "source-resolution/locator-grammar-is-stable",
+  ],
+  boundary: "process",
+  rationale:
+    "Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.",
+} as const;
+
 const OWNER = "@test";
 const TOKEN = "e2e-test-token";
 
@@ -32,6 +51,47 @@ const registryEnv = (registryUrl: string): Record<string, string> => ({
   AXM_REGISTRY_URL: registryUrl,
   AXM_TOKEN: TOKEN,
 });
+
+const anonymousRegistryEnv = (registryUrl: string): Record<string, string> => ({
+  AXM_REGISTRY_URL: registryUrl,
+  AXM_TOKEN: "",
+});
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const hasLoginSuggestion = (value: unknown): boolean =>
+  isRecord(value) &&
+  Array.isArray(value["suggestions"]) &&
+  value["suggestions"].some(
+    (suggestion) => isRecord(suggestion) && suggestion["cmd"] === "axm login",
+  );
+
+const requestRegistry = (
+  url: string,
+  options?: { readonly method?: "GET" | "HEAD"; readonly authorization?: string },
+) =>
+  new Promise<{ readonly status: number; readonly body: string }>((resolve, reject) => {
+    const request = http.request(
+      url,
+      {
+        method: options?.method ?? "GET",
+        headers:
+          options?.authorization === undefined ? {} : { authorization: options.authorization },
+      },
+      (response) => {
+        response.setEncoding("utf8");
+        let body = "";
+        response.on("data", (chunk: string) => {
+          body += chunk;
+        });
+        response.on("end", () => resolve({ status: response.statusCode ?? 0, body }));
+        response.on("error", reject);
+      },
+    );
+    request.on("error", reject);
+    request.end();
+  });
 
 interface ScaffoldPublish {
   /** Extra flags `axm <plural> new` needs for this type. */
@@ -52,8 +112,8 @@ const isBlocked = (entry: ScaffoldPublish | BlockedPublish): entry is BlockedPub
  * coverage is decided rather than silently missing from the suite.
  */
 const HTTP_PUBLISH = {
-  skill: { newArgs: ["--agent", "claude-code"] },
-  subagent: { newArgs: ["--agent", "claude-code"] },
+  skill: { newArgs: [] },
+  subagent: { newArgs: [] },
   knowledge: { newArgs: [] },
   hook: { newArgs: [] },
   rule: { newArgs: [] },
@@ -79,19 +139,35 @@ const newArgsFor = (type: MatrixExtensionType): ReadonlyArray<string> => {
   return entry.newArgs;
 };
 
-const settingsPathIn = (workspacePath: string) => path.join(workspacePath, ".axm", "settings.json");
+const settingsPathIn = (workspacePath: string) => path.join(workspacePath, "axm.json");
 
 const configureRegistry = (workspacePath: string, location: string) => {
   const settingsPath = settingsPathIn(workspacePath);
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "local", type: "registry", location }];
+  settings.sources = [{ name: "agentxm", type: "registry", location }];
   settings.owner = OWNER;
   settings.minimumReleaseAge = "0s";
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
+const configureMinimumReleaseAge = (workspacePath: string, value: string) => {
+  const settingsPath = settingsPathIn(workspacePath);
+  const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+  if (!isRecord(settings)) throw new Error("Expected settings object");
+  settings["minimumReleaseAge"] = value;
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+};
+
+const structuredPlanResult = (stdout: string): Record<string, unknown> => {
+  const output: unknown = JSON.parse(stdout);
+  if (!isRecord(output) || !isRecord(output["result"])) {
+    throw new Error("Expected structured plan result");
+  }
+  return output["result"];
+};
+
 const initWorkspace = async (workspacePath: string, location: string) => {
-  const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
+  const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
     cwd: workspacePath,
     env: registryEnv(location),
   });
@@ -152,6 +228,61 @@ describe("HTTP registry transport", () => {
     expect(publishRows.length + blockedRows.length).toBe(EXTENSION_TYPE_MATRIX.length);
   });
 
+  it("hides private read routes from anonymous and non-owner callers", async () => {
+    const registry = await startHttpRegistry({ tokenOwners: { "other-token": "@other" } });
+    const workspace = createTempDir();
+    const name = "private-route-policy";
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(created.exitCode, created.stderr).toBe(0);
+      const published = await runCli(
+        ["skills", "publish", `${OWNER}/skills/${name}`, "--visibility", "private", "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(published.exitCode, published.stderr).toBe(0);
+      const version = registry.publishes[0]?.version;
+      if (version === undefined) throw new Error("Expected a published private version");
+
+      const paths = [
+        `/v1/extensions/${OWNER}/skills/${name}`,
+        `/v1/extensions/${OWNER}/skills/${name}/${version}`,
+        `/v1/extensions/${OWNER}/skills/${name}/${version}/archive`,
+      ];
+      for (const pathname of paths) {
+        const anonymous = await requestRegistry(`${registry.url}${pathname}`);
+        const nonOwner = await requestRegistry(`${registry.url}${pathname}`, {
+          authorization: "Bearer other-token",
+        });
+        const owner = await requestRegistry(`${registry.url}${pathname}`, {
+          authorization: `Bearer ${TOKEN}`,
+        });
+
+        expect(anonymous.status).toBe(404);
+        expect(nonOwner.status).toBe(404);
+        expect(nonOwner.body).toBe(anonymous.body);
+        expect(owner.status).toBe(200);
+      }
+
+      for (const pathname of paths.slice(0, 2)) {
+        const anonymous = await requestRegistry(`${registry.url}${pathname}`, { method: "HEAD" });
+        const owner = await requestRegistry(`${registry.url}${pathname}`, {
+          method: "HEAD",
+          authorization: `Bearer ${TOKEN}`,
+        });
+        expect(anonymous.status).toBe(404);
+        expect(owner.status).toBe(200);
+      }
+    } finally {
+      workspace.cleanup();
+      await registry.close();
+    }
+  });
+
   for (const { row, reason } of blockedRows) {
     it.skip(`publishes a ${row.sentenceLabel} over HTTP — ${reason}`, () => {
       // Skipped until the named obligation clears; the title carries the reason.
@@ -173,23 +304,316 @@ describe("HTTP registry transport", () => {
       expect(record?.integrity.startsWith("sha512-")).toBe(true);
       expect(record?.contentType).toBe("application/zip");
       expect(record?.authorization).toBe(`Bearer ${TOKEN}`);
+      expect(record?.ifMatch).toMatch(/^"e2e-[a-f0-9]{64}"$/);
+      expect(record?.publicationSetDigest).toMatch(/^[a-f0-9]{64}$/);
+      expect(record?.publicationDescriptorDigest).toMatch(/^[a-f0-9]{64}$/);
       expect(record?.byteLength).toBeGreaterThan(0);
 
-      expect(registry.requests).toContainEqual({
-        method: "GET",
-        path: `/v1/owners/${OWNER}`,
-        status: 200,
-      });
+      expect(registry.requests).toContainEqual(
+        expect.objectContaining({
+          method: "GET",
+          path: `/v1/owners/${OWNER}`,
+          status: 200,
+        }),
+      );
 
       // The upload really went over the remote transport, at the versioned
       // path — not through a file:// shortcut.
-      expect(registry.requests).toContainEqual({
-        method: "PUT",
-        path: `/v1/extensions/${OWNER}/${row.plural}/${name}/${record?.version ?? ""}`,
-        status: 201,
-      });
+      expect(registry.requests).toContainEqual(
+        expect.objectContaining({
+          method: "POST",
+          path: "/v1/publish-previews",
+          status: 200,
+        }),
+      );
+      expect(registry.requests).toContainEqual(
+        expect.objectContaining({
+          method: "PUT",
+          path: `/v1/extensions/${OWNER}/${row.plural}/${name}/${record?.version ?? ""}`,
+          status: 201,
+        }),
+      );
     } finally {
       await registry.close();
+    }
+  });
+
+  it("reports root and targeted holdbacks and an explicit targeted bypass", async () => {
+    const registry = await startHttpRegistry();
+    const publisher = createTempDir();
+    const consumer = createTempDir();
+    const env = registryEnv(registry.url);
+
+    try {
+      await initWorkspace(publisher.path, registry.url);
+      const created = await runCli(["skills", "new", "review", "--owner", OWNER, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
+      expect(created.exitCode, created.stderr).toBe(0);
+      const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
+      expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
+      const firstPublished = registry.publishes[0];
+      if (firstPublished === undefined) throw new Error("Expected first published skill version");
+
+      await initWorkspace(consumer.path, registry.url);
+      const installed = await runCli(["install", `${OWNER}/skills/review`, "--yes"], {
+        cwd: consumer.path,
+        env,
+      });
+      expect(installed.exitCode, installed.stderr).toBe(0);
+      configureMinimumReleaseAge(consumer.path, "365d");
+
+      const bumped = await runCli(["version", `${OWNER}/skills/review`, "minor"], {
+        cwd: publisher.path,
+        env,
+      });
+      expect(bumped.exitCode, bumped.stderr).toBe(0);
+      const secondPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
+      expect(secondPublish.exitCode, secondPublish.stderr).toBe(0);
+      const secondPublished = registry.publishes[1];
+      if (secondPublished === undefined) throw new Error("Expected second published skill version");
+
+      const root = await runCli(["update", "--yes", "--json"], { cwd: consumer.path, env });
+      expect(root.exitCode, `${root.stderr}\n${root.stdout}`).toBe(0);
+      expect(structuredPlanResult(root.stdout)).toMatchObject({
+        outcome: "no-op",
+        holdbackCount: 1,
+        holdbacks: [
+          { target: `${OWNER}/skills/review`, candidateVersion: secondPublished.version },
+        ],
+      });
+
+      const targeted = await runCli(["update", `${OWNER}/skills/review`, "--yes", "--json"], {
+        cwd: consumer.path,
+        env,
+      });
+      expect(targeted.exitCode, `${targeted.stderr}\n${targeted.stdout}`).toBe(0);
+      expect(structuredPlanResult(targeted.stdout)).toMatchObject({
+        outcome: "no-op",
+        holdbacks: [
+          {
+            target: `${OWNER}/skills/review`,
+            currentVersion: firstPublished.version,
+            selectedVersion: firstPublished.version,
+            candidateVersion: secondPublished.version,
+          },
+        ],
+      });
+
+      const bypass = await runCli(
+        ["update", `${OWNER}/skills/review`, "--ignore-release-age", "--yes", "--json"],
+        { cwd: consumer.path, env },
+      );
+      expect(bypass.exitCode, `${bypass.stderr}\n${bypass.stdout}`).toBe(0);
+      expect(structuredPlanResult(bypass.stdout)).toMatchObject({
+        outcome: "applied",
+        releaseAgeBypassCount: 1,
+        releaseAgeBypasses: [
+          { target: `${OWNER}/skills/review`, candidateVersion: secondPublished.version },
+        ],
+      });
+
+      const settingsAfterUpdate: unknown = JSON.parse(
+        fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
+      );
+      expect(settingsAfterUpdate).toMatchObject({
+        skills: { review: `agentxm:${OWNER}/skills/review` },
+      });
+
+      const secondRun = await runCli(
+        ["update", `${OWNER}/skills/review`, "--ignore-release-age", "--yes", "--json"],
+        { cwd: consumer.path, env },
+      );
+      expect(secondRun.exitCode, `${secondRun.stderr}\n${secondRun.stdout}`).toBe(0);
+      expect(structuredPlanResult(secondRun.stdout)).toMatchObject({ outcome: "no-op" });
+      const settingsAfterSecondRun: unknown = JSON.parse(
+        fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
+      );
+      expect(settingsAfterSecondRun).toMatchObject({
+        skills: { review: `agentxm:${OWNER}/skills/review` },
+      });
+    } finally {
+      publisher.cleanup();
+      consumer.cleanup();
+      await registry.close();
+    }
+  });
+
+  it("bulk visibility establishes new extensions and preserves existing visibility", async () => {
+    const registry = await startHttpRegistry();
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const createReview = await runCli(["skills", "new", "review", "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(createReview.exitCode, createReview.stderr).toBe(0);
+      const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
+
+      const createDeploy = await runCli(["skills", "new", "deploy", "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(createDeploy.exitCode, createDeploy.stderr).toBe(0);
+      const bumpReview = await runCli(["version", `${OWNER}/skills/review`, "minor"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(bumpReview.exitCode, bumpReview.stderr).toBe(0);
+
+      const published = await runCli(
+        ["publish", "--owner", OWNER, "--visibility", "private", "--yes", "--json"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(published.exitCode, `${published.stderr}\n${published.stdout}`).toBe(0);
+      const output: unknown = JSON.parse(published.stdout);
+      if (!isRecord(output) || !isRecord(output["result"])) {
+        throw new Error("Expected structured publish output");
+      }
+      const execution = output["result"]["execution"];
+      if (!isRecord(execution)) throw new Error("Expected publish execution result");
+      const results = execution["outcomes"];
+      if (!Array.isArray(results)) throw new Error("Expected publish result items");
+      expect(results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "review",
+            status: "success",
+            visibility: { value: "public", disposition: "preserve", source: "existing" },
+          }),
+          expect.objectContaining({
+            name: "deploy",
+            status: "success",
+            visibility: { value: "private", disposition: "establish", source: "explicit" },
+          }),
+        ]),
+      );
+      expect(registry.publishes).toHaveLength(3);
+      expect(registry.publishes.every((record) => record.ifMatch !== undefined)).toBe(true);
+      expect(
+        registry.publishes.find((record) => record.name === "review" && record.version === "0.1.0"),
+      ).toHaveProperty("requestedVisibility", undefined);
+      expect(registry.publishes.find((record) => record.name === "deploy")).toHaveProperty(
+        "requestedVisibility",
+        "private",
+      );
+    } finally {
+      await registry.close();
+      workspace.cleanup();
+    }
+  });
+
+  it.each(["unavailable", "incomplete", "missing"] as const)(
+    "fails closed without uploading when publish preview is %s",
+    async (publishPreviewMode) => {
+      const registry = await startHttpRegistry({ publishPreviewMode });
+      const workspace = createTempDir();
+
+      try {
+        await initWorkspace(workspace.path, registry.url);
+        const created = await runCli(
+          ["skills", "new", `blocked-${publishPreviewMode}`, "--owner", OWNER, "--yes"],
+          { cwd: workspace.path, env: registryEnv(registry.url) },
+        );
+        expect(created.exitCode, created.stderr).toBe(0);
+
+        const published = await runCli(
+          ["skills", "publish", `${OWNER}/skills/blocked-${publishPreviewMode}`, "--yes", "--json"],
+          { cwd: workspace.path, env: registryEnv(registry.url) },
+        );
+        expect(published.exitCode).not.toBe(0);
+        expect(registry.publishes).toHaveLength(0);
+        const output: unknown = JSON.parse(published.stdout);
+        if (!isRecord(output) || !isRecord(output["result"])) {
+          throw new Error("Expected structured failed publish output");
+        }
+        expect(output["ok"]).toBe(false);
+        const execution = output["result"]["execution"];
+        if (!isRecord(execution)) throw new Error("Expected publish execution result");
+        const failure = execution["failure"];
+        if (!isRecord(failure) || typeof failure["code"] !== "string") {
+          throw new Error("Expected a typed publication-set failure");
+        }
+        const results = execution["outcomes"];
+        if (!Array.isArray(results) || !isRecord(results[0])) {
+          throw new Error("Expected one failed publish result item");
+        }
+        expect(results[0]["status"]).toBe("blocked");
+        expect(results[0]).not.toHaveProperty("visibility");
+      } finally {
+        await registry.close();
+        workspace.cleanup();
+      }
+    },
+  );
+
+  it("preserves a 503 publish-preview problem without uploading", async () => {
+    const registry = await startHttpRegistry({ publishPreviewMode: "service-unavailable" });
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const created = await runCli(
+        ["skills", "new", "preview-service-unavailable", "--owner", OWNER, "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(created.exitCode, created.stderr).toBe(0);
+
+      const target = `${OWNER}/skills/preview-service-unavailable`;
+      const structured = await runCli(["skills", "publish", target, "--yes", "--json"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(structured.exitCode).not.toBe(0);
+      expect(structured.stdout).not.toContain("must-not-leak");
+      const output: unknown = JSON.parse(structured.stdout);
+      if (!isRecord(output) || !isRecord(output["result"])) {
+        throw new Error("Expected structured failed publish output");
+      }
+      const execution = output["result"]["execution"];
+      if (!isRecord(execution) || !isRecord(execution["failure"])) {
+        throw new Error("Expected a structured publish failure");
+      }
+      expect(execution["failure"]).toMatchObject({
+        code: "unavailable",
+        message: "Publish admission is temporarily unavailable.",
+        responseStatus: 503,
+        problemCode: "service_unavailable",
+        requestId: "req_preview_503",
+      });
+      expect(execution["failure"]).not.toHaveProperty("body");
+
+      const human = await runCli(["skills", "publish", target, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(human.exitCode).not.toBe(0);
+      expect(`${human.stdout}\n${human.stderr}`).toContain(
+        "Publish admission is temporarily unavailable.",
+      );
+      expect(`${human.stdout}\n${human.stderr}`).not.toContain("must-not-leak");
+      expect(registry.publishes).toHaveLength(0);
+      expect(
+        registry.requests.filter(
+          (request) => request.method === "PUT" && request.path.startsWith("/v1/extensions/"),
+        ),
+      ).toHaveLength(0);
+    } finally {
+      await registry.close();
+      workspace.cleanup();
     }
   });
 
@@ -203,7 +627,7 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       const createdSkill = await runCli(
-        ["skills", "new", "pack-member", "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        ["skills", "new", "pack-member", "--owner", OWNER, "--yes"],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(createdSkill.exitCode, createdSkill.stderr).toBe(0);
@@ -231,10 +655,236 @@ describe("HTTP registry transport", () => {
         "skills/pack-member",
         "packs/ordered-pack",
       ]);
-      expect(JSON.parse(published.stdout).result.results).toMatchObject([
+      expect(JSON.parse(published.stdout).result.execution.outcomes).toMatchObject([
         { type: "skill", name: "pack-member", status: "success" },
         { type: "pack", name: "ordered-pack", status: "success" },
       ]);
+    } finally {
+      await registry.close();
+      workspace.cleanup();
+    }
+  });
+
+  it("settles a transient pre-commit failure with one exact replay", async () => {
+    const registry = await startHttpRegistry({ failPublishOnce: ["skills/retry-second"] });
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      for (const name of ["retry-first", "retry-second"]) {
+        const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+          cwd: workspace.path,
+          env: registryEnv(registry.url),
+        });
+        expect(created.exitCode, created.stderr).toBe(0);
+      }
+
+      const initial = await runCli(
+        [
+          "publish",
+          `${OWNER}/skills/retry-first`,
+          `${OWNER}/skills/retry-second`,
+          "--yes",
+          "--json",
+        ],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(initial.exitCode, initial.stderr).toBe(0);
+      expect(registry.publishes).toHaveLength(2);
+      const initialOutput = JSON.parse(initial.stdout);
+      expect(initialOutput.result.execution).toMatchObject({
+        outcomes: [
+          { name: "retry-first", status: "success", settlement: "response" },
+          { name: "retry-second", status: "success", settlement: "replay" },
+        ],
+      });
+    } finally {
+      await registry.close();
+      workspace.cleanup();
+    }
+  });
+
+  // The registry stores the version but its response never arrives, and the
+  // interruption lands in exactly that window. Only evidenced states may be
+  // reported: the upload's outcome is indeterminate, and the credential-free
+  // recovery command verifies the committed version instead of blindly
+  // re-uploading a replay-unsafe mutation.
+  it("C-15: reports an indeterminate outcome when the registry commits before its response", async () => {
+    const registry = await startHttpRegistry({
+      commitThenHangPublishOnce: ["skills/ambiguous"],
+    });
+    const workspace = createTempDir();
+    const userHome = createTempDir();
+
+    const cliPath = fileURLToPath(new URL("../../cli/dist/src/main.js", import.meta.url));
+    const interruptOnHungPublish = (
+      args: ReadonlyArray<string>,
+      hung: Promise<string>,
+    ): Promise<{
+      readonly code: number | null;
+      readonly stdout: string;
+      readonly stderr: string;
+    }> =>
+      new Promise((resolve, reject) => {
+        const { FORCE_COLOR: _forceColor, ...parentEnv } = process.env;
+        const child = spawn("bun", ["run", cliPath, ...args], {
+          cwd: workspace.path,
+          env: {
+            ...parentEnv,
+            ...registryEnv(registry.url),
+            AXM_TELEMETRY: "0",
+            AXM_USER_HOME: userHome.path,
+            HOME: userHome.path,
+            NO_COLOR: "1",
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk: Buffer | string) => {
+          stdout += chunk.toString();
+        });
+        child.stderr.on("data", (chunk: Buffer | string) => {
+          stderr += chunk.toString();
+        });
+        child.on("error", reject);
+        child.on("close", (code) => resolve({ code, stdout, stderr }));
+        void hung.then(() => child.kill("SIGINT"));
+      });
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const created = await runCli(["skills", "new", "ambiguous", "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(created.exitCode, created.stderr).toBe(0);
+
+      const hung = registry.nextHungPublish();
+      const interrupted = await interruptOnHungPublish(
+        ["publish", `${OWNER}/skills/ambiguous`, "--yes", "--json"],
+        hung,
+      );
+      expect(interrupted.code, interrupted.stdout + interrupted.stderr).toBe(130);
+      // The registry committed the version even though no response was
+      // recorded on the client.
+      expect(registry.publishes).toHaveLength(1);
+
+      const output: unknown = JSON.parse(interrupted.stdout);
+      if (!isRecord(output) || !isRecord(output["result"])) {
+        throw new Error("Expected an interrupted publish result document");
+      }
+      const result = output["result"];
+      expect(result["contract"]).toBe("publish-result-v3");
+      expect(result["interruption"]).toEqual({ signal: "SIGINT" });
+      expect(result["execution"]).toMatchObject({
+        status: "partial",
+        outcomes: [
+          {
+            name: "ambiguous",
+            action: "publish",
+            status: "unknown",
+            reason: "interrupted",
+          },
+        ],
+      });
+      expect(result["counts"]).toMatchObject({ published: 0, failed: 0, unknown: 1 });
+      const recovery = result["recovery"];
+      if (!isRecord(recovery) || typeof recovery["cmd"] !== "string") {
+        throw new Error("Expected a credential-free recovery command");
+      }
+      expect(recovery["cmd"]).toContain("axm publish");
+      expect(recovery["remainingItems"]).toEqual([`${OWNER}/skills/ambiguous`]);
+
+      // The recovery run verifies the committed version byte-for-byte
+      // instead of re-uploading: no second publish reaches the registry.
+      const recoveryArgs = recovery["cmd"].split(" ").slice(1);
+      const recovered = await runCli(recoveryArgs, {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(recovered.exitCode, recovered.stderr).toBe(0);
+      expect(registry.publishes).toHaveLength(1);
+      expect(JSON.parse(recovered.stdout).result.counts).toMatchObject({
+        published: 0,
+        alreadyPublished: 1,
+        failed: 0,
+        unknown: 0,
+      });
+    } finally {
+      userHome.cleanup();
+      workspace.cleanup();
+      await registry.close();
+    }
+  });
+
+  it("blocks only a pack whose included dependency upload fails", async () => {
+    const registry = await startHttpRegistry({ rejectPublish: ["skills/failing-member"] });
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      for (const name of ["failing-member", "independent-member"]) {
+        const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+          cwd: workspace.path,
+          env: registryEnv(registry.url),
+        });
+        expect(created.exitCode, created.stderr).toBe(0);
+      }
+      const createdPack = await runCli(
+        ["packs", "new", "blocked-pack", "--owner", OWNER, "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(createdPack.exitCode, createdPack.stderr).toBe(0);
+      const added = await runCli(
+        ["packs", "add", "blocked-pack", `${OWNER}/skills/failing-member`, "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(added.exitCode, added.stderr).toBe(0);
+
+      const published = await runCli(
+        [
+          "publish",
+          `${OWNER}/packs/blocked-pack`,
+          `${OWNER}/skills/independent-member`,
+          "--include-dependencies",
+          "--yes",
+          "--json",
+        ],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(published.exitCode).not.toBe(0);
+      expect(registry.publishes.map((entry) => `${entry.plural}/${entry.name}`)).toEqual([
+        "skills/independent-member",
+      ]);
+      const publishResult = JSON.parse(published.stdout).result;
+      const outcomes = publishResult.execution.outcomes;
+      expect(outcomes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "failing-member",
+            status: "failed",
+            reason: "upload_failed",
+          }),
+          expect.objectContaining({
+            name: "blocked-pack",
+            status: "blocked",
+            reason: "blocked_by_dependency",
+            blockedBy: [`${OWNER}/skills/failing-member`],
+          }),
+          expect.objectContaining({ name: "independent-member", status: "success" }),
+        ]),
+      );
+      expect(JSON.parse(published.stdout).result.counts).toMatchObject({
+        published: 1,
+        failed: 1,
+        blocked: 1,
+      });
+      expect(publishResult.recovery).toMatchObject({
+        remainingItems: [`${OWNER}/skills/failing-member`, `${OWNER}/packs/blocked-pack`],
+        blockedDependents: [`${OWNER}/packs/blocked-pack`],
+      });
+      expect(publishResult.recovery.cmd).not.toContain(`${OWNER}/skills/independent-member`);
     } finally {
       await registry.close();
       workspace.cleanup();
@@ -269,7 +919,7 @@ describe("HTTP registry transport", () => {
       expect(fileInstall.exitCode).toBe(httpInstall.exitCode);
 
       const extensionDir = (workspacePath: string) =>
-        path.join(workspacePath, ".axm", "extensions", OWNER, "skills", name);
+        path.join(workspacePath, "agent_extensions", "agentxm", OWNER, "skills", name);
 
       expect(snapshotDir(extensionDir(httpWorkspace.path))).toEqual(
         snapshotDir(extensionDir(fileWorkspace.path)),
@@ -279,6 +929,151 @@ describe("HTTP registry transport", () => {
       fileRegistry.cleanup();
       httpWorkspace.cleanup();
       fileWorkspace.cleanup();
+    }
+  });
+
+  it("authenticates private install reads while preserving not-found privacy", async () => {
+    const registry = await startHttpRegistry({ tokenOwners: { "other-token": "@other" } });
+    const publisher = createTempDir();
+    const latestConsumer = createTempDir();
+    const exactConsumer = createTempDir();
+    const anonymousConsumer = createTempDir();
+    const nonOwnerConsumer = createTempDir();
+    const name = "private-install";
+    const fqn = `${OWNER}/skills/${name}`;
+    const env = registryEnv(registry.url);
+
+    try {
+      await initWorkspace(publisher.path, registry.url);
+      const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
+      expect(created.exitCode, created.stderr).toBe(0);
+      const firstPublish = await runCli(
+        ["skills", "publish", fqn, "--visibility", "private", "--yes"],
+        { cwd: publisher.path, env },
+      );
+      expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
+      const firstVersion = registry.publishes[0]?.version;
+      if (firstVersion === undefined) throw new Error("Expected a published private version");
+
+      registry.copyVersion(OWNER, "skills", name, firstVersion, "2.0.0");
+      registry.copyVersion(OWNER, "skills", name, firstVersion, "3.0.0");
+      registry.yank(OWNER, "skills", name, "3.0.0");
+
+      for (const consumer of [latestConsumer, exactConsumer, anonymousConsumer, nonOwnerConsumer]) {
+        await initWorkspace(consumer.path, registry.url);
+      }
+
+      const latestRequestOffset = registry.requests.length;
+      const latest = await runCli(["install", fqn, "--yes"], {
+        cwd: latestConsumer.path,
+        env,
+      });
+      expect(latest.exitCode, latest.stderr).toBe(0);
+      expect(registry.requests.slice(latestRequestOffset)).toContainEqual(
+        expect.objectContaining({
+          path: `/v1/extensions/${OWNER}/skills/${name}/2.0.0/archive`,
+          status: 200,
+          authorization: `Bearer ${TOKEN}`,
+          userAgent: expect.stringMatching(/^axm-cli\//),
+        }),
+      );
+
+      const exactRequestOffset = registry.requests.length;
+      const exact = await runCli(["install", `${fqn}@${firstVersion}`, "--yes"], {
+        cwd: exactConsumer.path,
+        env,
+      });
+      expect(exact.exitCode, exact.stderr).toBe(0);
+      expect(registry.requests.slice(exactRequestOffset)).toContainEqual(
+        expect.objectContaining({
+          path: `/v1/extensions/${OWNER}/skills/${name}/${firstVersion}/archive`,
+          status: 200,
+        }),
+      );
+
+      const anonymous = await runCli(["install", fqn, "--yes", "--json"], {
+        cwd: anonymousConsumer.path,
+        env: anonymousRegistryEnv(registry.url),
+      });
+      const nonOwner = await runCli(["install", fqn, "--yes", "--json"], {
+        cwd: nonOwnerConsumer.path,
+        env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "other-token" },
+      });
+      expect(anonymous.exitCode).not.toBe(0);
+      expect(nonOwner.exitCode).toBe(anonymous.exitCode);
+      const anonymousError: unknown = JSON.parse(anonymous.stdout);
+      const nonOwnerError: unknown = JSON.parse(nonOwner.stdout);
+      expect(anonymousError).toMatchObject({ ok: false, code: "not_found" });
+      expect(nonOwnerError).toMatchObject({ ok: false, code: "not_found" });
+      if (!isRecord(anonymousError) || !isRecord(nonOwnerError)) {
+        throw new Error("Expected structured install errors");
+      }
+      expect(nonOwnerError["detail"]).toBe(anonymousError["detail"]);
+      expect(hasLoginSuggestion(anonymousError)).toBe(true);
+      expect(hasLoginSuggestion(nonOwnerError)).toBe(false);
+
+      const anonymousFinalize = await runCli(
+        ["rules", "install", `${OWNER}/rules/finalize-missing`, "--yes", "--json"],
+        {
+          cwd: anonymousConsumer.path,
+          env: anonymousRegistryEnv(registry.url),
+        },
+      );
+      const nonOwnerFinalize = await runCli(
+        ["rules", "install", `${OWNER}/rules/finalize-missing`, "--yes", "--json"],
+        {
+          cwd: nonOwnerConsumer.path,
+          env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "other-token" },
+        },
+      );
+      const anonymousFinalizeError: unknown = JSON.parse(anonymousFinalize.stdout);
+      const nonOwnerFinalizeError: unknown = JSON.parse(nonOwnerFinalize.stdout);
+      expect(anonymousFinalize.exitCode).not.toBe(0);
+      expect(nonOwnerFinalize.exitCode).toBe(anonymousFinalize.exitCode);
+      expect(anonymousFinalizeError).toMatchObject({ ok: false, code: "not_found" });
+      expect(nonOwnerFinalizeError).toMatchObject({ ok: false, code: "not_found" });
+      if (!isRecord(anonymousFinalizeError) || !isRecord(nonOwnerFinalizeError)) {
+        throw new Error("Expected structured finalize errors");
+      }
+      expect(nonOwnerFinalizeError["detail"]).toBe(anonymousFinalizeError["detail"]);
+      expect(hasLoginSuggestion(anonymousFinalizeError)).toBe(true);
+      expect(hasLoginSuggestion(nonOwnerFinalizeError)).toBe(false);
+    } finally {
+      publisher.cleanup();
+      latestConsumer.cleanup();
+      exactConsumer.cleanup();
+      anonymousConsumer.cleanup();
+      nonOwnerConsumer.cleanup();
+      await registry.close();
+    }
+  });
+
+  it("keeps anonymous public installs unauthenticated", async () => {
+    const registry = await startHttpRegistry();
+    const consumer = createTempDir();
+    const name = "anonymous-public";
+    const fqn = `${OWNER}/skills/${name}`;
+
+    try {
+      await scaffoldAndPublish(registry.url, "skills", "skill", name);
+      await initWorkspace(consumer.path, registry.url);
+      const requestOffset = registry.requests.length;
+      const installed = await runCli(["install", fqn, "--yes"], {
+        cwd: consumer.path,
+        env: anonymousRegistryEnv(registry.url),
+      });
+      expect(installed.exitCode, installed.stderr).toBe(0);
+      const installRequests = registry.requests.slice(requestOffset);
+      expect(installRequests.some((request) => request.path.includes(`/skills/${name}`))).toBe(
+        true,
+      );
+      expect(installRequests.every((request) => request.authorization === undefined)).toBe(true);
+    } finally {
+      consumer.cleanup();
+      await registry.close();
     }
   });
 });

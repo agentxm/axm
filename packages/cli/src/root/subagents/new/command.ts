@@ -1,10 +1,9 @@
-import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { decodeExtensionNameSync } from "@agentxm/client-core/unstable/extensions";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { withAuthRuntime, withWorkspace } from "../../../runtime.js";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleSubagentsNew } from "./handler.js";
 
 const newConfig = {
@@ -15,25 +14,19 @@ const newConfig = {
     Flag.withDescription("Override the workspace owner (e.g., @acme)"),
     Flag.optional,
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Agent IDs to target (can be repeated)"),
-    Flag.atLeast(1),
-    Flag.optional,
-  ),
   yes: yesFlag.pipe(Flag.withDescription("Create the subagent without confirmation")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what files would be created without creating them"),
   ),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, agent, yes, preview }) =>
+export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, preview }) =>
   handleSubagentsNew({
     name: decodeExtensionNameSync(name),
     owner,
-    agents: Option.map(agent, (value) => [...value]),
     yes,
     preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("subagents new")),
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("subagents new")),
 ).pipe(
   withArgvTracking(newConfig),
   Command.withDescription("Create a new subagent in the project-workspace authoring root"),

@@ -1,15 +1,19 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+import { makeAppError } from "../../app-error/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { materializeGitIndexWorkspace, type LintView } from "@agentxm/workspace-lint";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleLint } from "./handler.js";
-import { materializeStagedWorkspace } from "./staged-workspace.js";
+import { lintStagingFailedToAppError } from "../../feature-errors.js";
 
 const lintConfig = {
   path: Argument.string("path").pipe(
@@ -20,96 +24,101 @@ const lintConfig = {
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription(
-      "Scope of the lint run: project (default) or user (lints $AXM_USER_HOME/.axm or $HOME/.axm).",
-    ),
-  ),
-  fix: Flag.boolean("fix").pipe(
-    Flag.withDescription(
-      "Apply every autofixable finding non-interactively via the plan pipeline.",
+      "Scope of the lint run: project (default) or user (lints the .axm/workspace workspace under the selected home).",
     ),
   ),
   strict: Flag.boolean("strict").pipe(
     Flag.withDescription("Treat warnings as failing for exit code."),
+    Flag.withDefault(false),
   ),
   details: Flag.boolean("details").pipe(
     Flag.withDescription("Show the full human report instead of the grouped summary."),
+    Flag.withDefault(false),
   ),
-  staged: Flag.boolean("staged").pipe(
-    Flag.withDescription("Lint the complete project workspace represented by the Git index."),
+  fix: Flag.boolean("fix").pipe(
+    Flag.withDescription(
+      "Apply repairs whose desired state is already determined, then report what remains.",
+    ),
+    Flag.withDefault(false),
+  ),
+  view: Flag.choice("view", ["workspace", "git-index"] as const).pipe(
+    Flag.withDescription("Filesystem view to lint: workspace (default) or the complete Git index."),
+    Flag.withDefault("workspace"),
   ),
 } as const;
 
-interface RunLintCommandArgs {
+export interface RunLintCommandArgs {
   readonly path: Option.Option<string>;
   readonly scope: WorkspaceScope;
-  readonly fix: boolean;
   readonly strict: boolean;
   readonly details: boolean;
-  readonly staged: boolean;
+  readonly fix: boolean;
+  readonly view: LintView;
 }
 
-const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
-  if (args.staged && args.fix) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "--staged cannot be combined with --fix because staged lint is read-only",
-    });
-  }
-  if (args.staged && args.scope === "user") {
+export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
+  const executionDirectory = yield* ExecutionDirectory;
+  const path = yield* Path.Path;
+  const projectRoot = Option.match(args.path, {
+    onNone: () => executionDirectory.path,
+    onSome: (value) => resolveExecutionPath(path, executionDirectory, value),
+  });
+
+  if (args.fix && args.view === "git-index") {
     return yield* makeAppError({
       code: "validation",
       detail:
-        "--staged cannot be combined with --scope user because Git indexes are project-scoped",
+        "--fix cannot be combined with --view git-index because the index snapshot is not the working tree",
     });
   }
 
-  if (args.staged) {
-    const startPath = Option.getOrElse(args.path, () => process.cwd());
-    const snapshot = yield* materializeStagedWorkspace(startPath);
-    return yield* handleLint({
-      pathArg: Option.some(snapshot.workspaceRoot),
-      scope: "project",
-      fix: false,
-      strict: args.strict,
-      details: args.details,
-      displayWorkspaceRoot: snapshot.gitRoot,
-      // Instruction aliases are generated, intentionally gitignored workspace
-      // state, so they cannot be evaluated from the exact Git index. Full
-      // `axm lint --strict` (recommended for pre-push and CI) still checks them.
-      ruleOverrides: { "workspace/instructions-target-current": "off" },
-    }).pipe(withWorkspace({ scope: "project", projectRoot: snapshot.workspaceRoot }));
+  if (args.view === "git-index" && args.scope === "user") {
+    return yield* makeAppError({
+      code: "validation",
+      detail:
+        "--view git-index cannot be combined with --scope user because Git indexes are project-scoped",
+    });
   }
 
-  const workspaceOptions =
-    args.scope === "project" && Option.isSome(args.path)
-      ? { scope: args.scope, projectRoot: args.path.value }
-      : { scope: args.scope };
+  if (args.view === "git-index") {
+    const snapshot = yield* materializeGitIndexWorkspace(projectRoot, {
+      selectRepositoryRoot: Option.isNone(args.path),
+    }).pipe(Effect.mapError(lintStagingFailedToAppError));
+    const snapshotRoot = decodeAbsolutePathSync(snapshot.workspaceRoot);
+    return yield* handleLint({
+      pathArg: Option.some(snapshotRoot),
+      scope: "project",
+      strict: args.strict,
+      details: args.details,
+      fix: false,
+      displayWorkspaceRoot: snapshot.displayWorkspaceRoot,
+      input: { view: "git-index", fingerprint: snapshot.fingerprint },
+    }).pipe(withWorkspace({ scope: "project", projectRoot: snapshotRoot }));
+  }
+
   return yield* handleLint({
-    pathArg: args.path,
+    pathArg: args.scope === "project" ? Option.some(projectRoot) : args.path,
     scope: args.scope,
-    fix: args.fix,
     strict: args.strict,
     details: args.details,
-  }).pipe(withWorkspace(workspaceOptions));
+    fix: args.fix,
+    input: { view: "workspace" },
+  }).pipe(withWorkspace({ scope: args.scope, projectRoot }));
 });
 
 export const lintCommand = Command.make(
   "lint",
   lintConfig,
-  ({ path, scope, fix, strict, details, staged }) =>
-    runLintCommand({ path, scope, fix, strict, details, staged }).pipe(withRuntime("lint")),
+  ({ path, scope, strict, details, fix, view }) =>
+    runLintCommand({ path, scope, strict, details, fix, view }).pipe(withRuntime("lint")),
 ).pipe(
   withArgvTracking(lintConfig),
-  Command.withDescription("Check and fix workspace configuration"),
+  Command.withDescription("Check workspace configuration"),
   Command.withExamples([
     { command: "axm lint", description: "Lint the current project workspace" },
     {
-      command: "axm lint --fix",
-      description: "Lint, then apply every autofixable finding non-interactively",
-    },
-    {
       command: "axm lint --scope user",
-      description: "Lint the user-scope workspace under $HOME/.axm",
+      description: "Lint the user workspace under $HOME/.axm/workspace",
     },
     {
       command: "axm lint --strict",
@@ -120,7 +129,11 @@ export const lintCommand = Command.make(
       description: "Show the detailed path-by-path report",
     },
     {
-      command: "axm lint --staged",
+      command: "axm lint --fix",
+      description: "Restore determined state, such as missing agent instruction files",
+    },
+    {
+      command: "axm lint --view git-index",
       description: "Lint the complete workspace represented by the Git index",
     },
     {

@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.lib-base.json",
+  "compilerOptions": {
+    "incremental": true,
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.type-test.ts", "src/**/test-helpers.ts"],
+  "references": []
+}

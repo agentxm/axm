@@ -1,32 +1,35 @@
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
+import { toAppError } from "../../../app-error/conversions.js";
 import {
-  parseRegistrySourcePatternParts,
+  extensionRefLifecycleWarnings,
+  extensionRefRegistryLifecycle,
   targetFromRef,
   toLabelWithCompanions,
   toStepKey,
+} from "@agentxm/extension-workspace";
+import {
+  parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
-import {
-  KnowledgeManager,
-  type KnowledgeExtensionRef,
-} from "@agentxm/client-core/unstable/knowledge";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
-import {
-  resolveSource,
-  SourceHostProviders,
-} from "@agentxm/client-core/unstable/source-resolution";
-import type { Source } from "@agentxm/client-core/unstable/sources";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions";
+import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { applyPlannedProjections, KnowledgeManager } from "@agentxm/extension-workspace";
+import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
+import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallKnowledgeCommandIntent } from "./intent.js";
+import { failureToStepFailure } from "../../../app-error/conversions.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
 
 export interface InstallKnowledgeHandlerArgs {
   readonly source: string;
@@ -37,7 +40,9 @@ type KnowledgeInstallActions = InstallExtensionCommandWorkflowActions<
   ParsedKnowledgeInstallArgs,
   ParsedKnowledgeInstallArgs,
   KnowledgeExtensionRef,
-  InstallKnowledgeCommandIntent
+  InstallKnowledgeCommandIntent,
+  AppError,
+  AppError | PromptCancelled
 >;
 
 interface ParsedKnowledgeInstallArgs {
@@ -47,19 +52,19 @@ interface ParsedKnowledgeInstallArgs {
   readonly versionRange: Option.Option<VersionRange>;
 }
 
-export class InstallKnowledgeCommandWorkflowActions extends ServiceMap.Service<
-  InstallKnowledgeCommandWorkflowActions,
-  KnowledgeInstallActions
->()("axm.sh/root/knowledge/install/command-actions/InstallKnowledgeCommandWorkflowActions") {}
-
-const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
+export const InstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
+  const catalog = yield* WorkspaceCatalog;
+  const httpClient = yield* HttpClient.HttpClient;
   const manager = yield* KnowledgeManager;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
   const env = Layer.mergeAll(
     Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(WorkspaceCatalog, catalog),
+    Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
@@ -72,7 +77,7 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
     provide(
       Effect.gen(function* () {
         const input = args.source.trim();
-        const parsed = parseRegistrySourcePatternParts(input);
+        const parsed = parseSourceQualifiedRegistrySourcePatternParts(input);
         const source = yield* resolveSource(input).pipe(
           Effect.mapError((cause) =>
             makeAppError({
@@ -114,6 +119,7 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
               versionRange: request.versionRange,
             })
             .pipe(
+              Effect.mapError(toAppError),
               Effect.map((refs) =>
                 refs.filter((ref): ref is KnowledgeExtensionRef => ref.type === "knowledge"),
               ),
@@ -121,55 +127,87 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
         { concurrency: "unbounded" },
       ).pipe(Effect.map((groups) => groups.flat())),
     finalizeIntent: (parsed, refs) =>
-      refs.length === 0
-        ? Effect.fail(
-            makeAppError({ code: "not_found", detail: "No knowledge bundles found in source" }),
-          )
-        : Effect.succeed({
-            refs: refs.map((ref) => ({
-              ref,
-              versionRange: ref.refType === "registry" ? parsed.versionRange : Option.none(),
-            })),
-          }),
-    buildPlan: (intent) =>
-      Effect.succeed({
+      Effect.gen(function* () {
+        if (refs.length === 0) {
+          const suggestions =
+            parsed.source.type === "registry"
+              ? yield* loginSuggestionsFor([parsed.source.location.href])
+              : [];
+          return yield* makeAppError({
+            code: "not_found",
+            detail: "No knowledge bundles found in source",
+            suggestions,
+          });
+        }
+        return {
+          refs: refs.map((ref) => ({
+            ref,
+            versionRange: ref.refType === "registry" ? parsed.versionRange : Option.none(),
+          })),
+        };
+      }),
+    buildPlan: (intent) => {
+      const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
+      const memberSteps = intent.refs.map(({ ref, versionRange }) =>
+        (() => {
+          const target = targetFromRef(ref);
+          const packages = ref.refType === "registry" ? ref.packages : [];
+          const base = {
+            key: toStepKey(target),
+            label: toLabelWithCompanions(target, packages),
+            run: manager.install({ ref, versionRange, deferProjection: deferProjections }).pipe(
+              Effect.mapError(failureToStepFailure),
+              Effect.as({
+                result: "success" as const,
+                message: `Installed ${ref.knowledge.name}`,
+              }),
+            ),
+          };
+          const warnings = extensionRefLifecycleWarnings(ref);
+          const registryLifecycle = extensionRefRegistryLifecycle(ref);
+          return warnings.length === 0
+            ? {
+                ...base,
+                readiness: "ready" as const,
+                ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
+              }
+            : {
+                ...base,
+                readiness: "warn" as const,
+                warnMessage: warnings.join("; "),
+                ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
+              };
+        })(),
+      );
+      const projectionSteps: ReadonlyArray<PlannedJobStep> =
+        deferProjections && intent.deferProjections !== true
+          ? [
+              {
+                key: "projection:knowledge:discovery-region",
+                label: "knowledge projection",
+                readiness: "ready",
+                run: applyPlannedProjections(manager).pipe(
+                  Effect.mapError(failureToStepFailure),
+                  Effect.as({
+                    result: "success",
+                    message:
+                      "Rendered installed Knowledge bundles from the complete contributor set",
+                  } satisfies JobStepResult),
+                ),
+              },
+            ]
+          : [];
+      return Effect.succeed({
         _tag: "Plan",
         name: "Install knowledge",
         description: Option.some("Install Open Knowledge Format bundle"),
         jobs: [
           {
             concurrency: 1,
-            steps: intent.refs.map(({ ref, versionRange }) =>
-              (() => {
-                const target = targetFromRef(ref);
-                const packages = ref.refType === "registry" ? ref.packages : [];
-                const base = {
-                  key: toStepKey(target),
-                  label: toLabelWithCompanions(target, packages),
-                  run: manager.install({ ref, versionRange }).pipe(
-                    Effect.as({
-                      result: "success" as const,
-                      message: `Installed ${ref.knowledge.name}`,
-                    }),
-                  ),
-                };
-                const warnings = ref.refType === "registry" ? (ref.lifecycleWarnings ?? []) : [];
-                return warnings.length === 0
-                  ? { ...base, readiness: "ready" as const }
-                  : {
-                      ...base,
-                      readiness: "warn" as const,
-                      warnMessage: warnings.join("; "),
-                    };
-              })(),
-            ),
+            steps: [...memberSteps, ...projectionSteps],
           },
         ],
-      } satisfies Plan),
+      } satisfies Plan);
+    },
   } satisfies KnowledgeInstallActions;
-});
-
-export const InstallKnowledgeCommandWorkflowActionsLive = Layer.effect(
-  InstallKnowledgeCommandWorkflowActions,
-  makeInstallKnowledgeCommandWorkflowActions,
-);
+}).pipe(Effect.map((actions): KnowledgeInstallActions => actions));

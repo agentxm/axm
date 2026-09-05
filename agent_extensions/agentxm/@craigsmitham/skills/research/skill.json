@@ -1,0 +1,31 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "research",
+  "version": "3.0.3",
+  "publish": {
+    "ignore": []
+  },
+  "description": "Explicit-only workflow for fresh-context, read-only evidence research; never select from unprefixed natural language",
+  "keywords": [
+    "research",
+    "investigation",
+    "evidence",
+    "citations",
+    "synthesis",
+    "uncertainty",
+    "decision-support"
+  ],
+  "standalone": false,
+  "recommendedPacks": [
+    "@craigsmitham/packs/research"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/research"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT"
+}

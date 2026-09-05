@@ -1,10 +1,15 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../../cli-flags.js";
+import {
+  ignoreReleaseAgeFlag,
+  previewFlag,
+  reinstallFlag,
+  yesFlag,
+} from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { handleInstall } from "./handler.js";
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
@@ -22,19 +27,22 @@ const installConfig = {
   ),
   all: Flag.boolean("all").pipe(
     Flag.withDescription("Install every subagent found in the source without prompting"),
+    Flag.withDefault(false),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the install plan")),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall a subagent that already exists")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be installed without making changes"),
   ),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, subagent, all, yes, force, preview }) =>
+  ({ source, scope, subagent, all, yes, force, preview, ignoreReleaseAge }) =>
     handleInstall({ source, subagents: subagent, all }, { yes, force, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("subagents install"),
     ),

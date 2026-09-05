@@ -2,15 +2,15 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   installableExtensionTypePluralSegments,
   isInstallableExtensionTypePlural,
-  RegistrySourceRefSchema,
   toInstallableExtensionType,
   type InstallableExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { RegistrySourceRefSchema } from "@agentxm/extension-model/unstable/extensions";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
 

@@ -38,9 +38,12 @@ const snapshotTree = (root: string): Readonly<Record<string, string>> => {
 };
 
 const initializeWorkspace = async (workspace: string): Promise<void> => {
-  const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd: workspace });
+  const setup = await runCli(
+    ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+    { cwd: workspace },
+  );
   expect(setup.exitCode).toBe(0);
-  const settingsPath = path.join(workspace, ".axm", "settings.json");
+  const settingsPath = path.join(workspace, "axm.json");
   const settings: Record<string, unknown> = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
   fs.writeFileSync(
     settingsPath,
@@ -56,7 +59,7 @@ describe("create-only extension commands", () => {
 
       for (const type of CREATE_TYPES) {
         const name = `partial-${type}`;
-        const destination = path.join(workspace.path, ".axm", "extensions", OWNER, type, name);
+        const destination = path.join(workspace.path, type, name);
         fs.mkdirSync(destination, { recursive: true });
         fs.writeFileSync(path.join(destination, "keep.bin"), Buffer.from([0, 1, 2, 255]));
         const before = snapshotTree(workspace.path);
@@ -72,18 +75,18 @@ describe("create-only extension commands", () => {
     }
   });
 
-  it("rejects settings identity and skill-copy destination collisions without mutation", async () => {
+  it("rejects settings identity collisions without mutation", async () => {
     const workspace = createTempDir();
     try {
       await initializeWorkspace(workspace.path);
-      const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+      const settingsPath = path.join(workspace.path, "axm.json");
       const settings: Record<string, unknown> = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
       fs.writeFileSync(
         settingsPath,
         `${JSON.stringify(
           {
             ...settings,
-            skills: { configured: "workspace:@test/skills/configured" },
+            skills: { configured: "workspace" },
           },
           null,
           2,
@@ -98,32 +101,6 @@ describe("create-only extension commands", () => {
       expect(configured.exitCode).not.toBe(0);
       expect(configured.stdout + configured.stderr).toContain("already exists in settings");
       expect(snapshotTree(workspace.path)).toEqual(beforeSettingsCollision);
-
-      const source = path.join(workspace.path, "source-skill");
-      fs.mkdirSync(source, { recursive: true });
-      fs.writeFileSync(
-        path.join(source, "SKILL.md"),
-        "---\nname: source-skill\ndescription: Source\n---\n\nSource\n",
-      );
-      const destination = path.join(
-        workspace.path,
-        ".axm",
-        "extensions",
-        OWNER,
-        "skills",
-        "copied",
-      );
-      fs.mkdirSync(destination, { recursive: true });
-      fs.writeFileSync(path.join(destination, "keep.txt"), "keep\n");
-      const beforeCopyCollision = snapshotTree(workspace.path);
-
-      const copied = await runCli(["skills", "copy", source, `${OWNER}/skills/copied`, "--yes"], {
-        cwd: workspace.path,
-      });
-
-      expect(copied.exitCode).not.toBe(0);
-      expect(copied.stdout + copied.stderr).toContain("destination already exists");
-      expect(snapshotTree(workspace.path)).toEqual(beforeCopyCollision);
     } finally {
       workspace.cleanup();
     }
@@ -142,9 +119,7 @@ describe("create-only extension commands", () => {
         });
 
         expect(result.exitCode, `${type} new --preview`).toBe(0);
-        expect(result.stdout + result.stderr).toContain(
-          path.join(".axm", "extensions", OWNER, type, name),
-        );
+        expect(result.stdout + result.stderr).toContain(path.join(type, name));
         expect(snapshotTree(workspace.path), `${type} new --preview`).toEqual(before);
       }
     } finally {

@@ -5,6 +5,6 @@
     "types": ["bun"],
     "ignoreDeprecations": "6.0"
   },
-  "include": ["**/*.ts", "**/*.cts", "**/*.mts"],
+  "include": ["**/*.ts", "**/*.cts", "**/*.mts", "../benchmarks/**/*.ts"],
   "references": []
 }

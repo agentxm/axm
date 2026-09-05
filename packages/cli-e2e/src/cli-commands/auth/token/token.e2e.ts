@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { startHttpRegistry } from "../../../e2e/http-registry-server.js";
 import { runCli } from "../../../e2e/utils.js";
 
 describe("axm token", () => {
@@ -35,5 +36,46 @@ describe("axm token", () => {
     expect(result.exitCode).toBe(13);
     expect(result.stdout + result.stderr).toContain("(auth_required)");
     expect(result.stderr).toContain("axm login --device-code --json");
+  });
+
+  it("completes a durable step-up request and retries token creation", async () => {
+    const registry = await startHttpRegistry({ stepUpTokenCreate: true });
+    try {
+      const result = await runCli(
+        ["token", "create", "--name", "e2e-step-up", "--permission", "read", "--json"],
+        {
+          env: {
+            AXM_REGISTRY_URL: registry.url,
+            AXM_TOKEN: "e2e-test-token",
+          },
+        },
+      );
+
+      expect(result.exitCode, `${result.stderr}\n${result.stdout}`).toBe(0);
+      const document = JSON.parse(result.stdout);
+      expect(document.result).toMatchObject({
+        result: {
+          status: "created",
+          tokenId: "tok_01h455vb4pexka56gq5w2r7cpc",
+          stepUpCompleted: true,
+        },
+        data: { token: "axmt_step_up_e2e" },
+      });
+      expect(result.stderr).toContain("Action: Create access token");
+      expect(result.stderr).toContain("Target: e2e-step-up");
+      expect(registry.requests).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ method: "POST", path: "/v1/tokens", status: 401 }),
+          expect.objectContaining({
+            method: "GET",
+            path: "/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
+            status: 200,
+          }),
+          expect.objectContaining({ method: "POST", path: "/v1/tokens", status: 201 }),
+        ]),
+      );
+    } finally {
+      await registry.close();
+    }
   });
 });

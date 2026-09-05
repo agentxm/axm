@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "knowledge-query",
+  "projectType": "library",
+  "root": "packages/knowledge-query",
+  "sourceRoot": "packages/knowledge-query/src",
+  "tags": ["type:lib", "layer:feature", "scope:knowledge-query", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/knowledge-query/src/index.ts",
+        "outputPath": "packages/knowledge-query/dist",
+        "tsConfig": "packages/knowledge-query/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

@@ -35,21 +35,69 @@ axm setup
 ```
 
 Setup is initialization-only. When the selected scope has no settings, it
-creates `.axm/`, detects supported coding agents, records the initial agent
-membership, and initializes workspace state. Running setup again is a no-op,
-even when different `--agent` flags are supplied. Read
+detects project and workstation signals separately, presents the proposed agent
+set and file plan, and asks for confirmation before it creates `.axm/` and the
+initial agent membership. Project signals are preselected for project setup;
+workstation-only availability remains visible without being treated as project
+intent. If no agent is detected, setup offers a small catalog-driven starter
+set that you can revise before confirming. Running setup again is a no-op, even
+when different `--agent` flags are supplied. Read
 `axm help basic-usage` to learn what those files do and which ones must be
 checked in.
 
-For non-interactive environments, pass `--yes`. To pin which agents AXM
-configures, pass one or more `--agent <id>` flags instead of relying on
-auto-detection.
+Setup may add AXM runtime and package-transaction entries to `.gitignore` in a
+Git-managed project. It does not edit `.gitattributes` or formatter
+configuration. Exclude acquired `agent_extensions/` content from mutating
+formatters, lint fixes, and save-time rewrites; `axm help workspace-state`
+explains strict package integrity and how to diagnose checkout-only drift.
+
+For automation, preview the exact candidate first:
+
+```bash
+axm setup --preview --scope project --json --non-interactive
+```
+
+Review `result.agents`, `result.agentCandidates`, `result.scopeSupport`, and
+`result.steps`, then apply that exact agent set with explicit approval and
+scope:
+
+```bash
+axm setup --yes --scope project --agent claude-code --non-interactive
+```
+
+Repeat `--agent <id>` for every approved agent. An unattended first setup that
+omits `--yes`, an explicit `--scope`, or all `--agent` flags exits with the
+stable reason `approval-required` and writes nothing.
+
+## Understand scope support
+
+Setup reports the effective scope contract for every extension category and
+selected agent. Each `result.scopeSupport[*].outcomes[*]` row has a stable
+`status`, `reasonCode`, and human-readable `reason`:
+
+- `supported` — AXM can operate that category at the selected scope.
+- `project-only` — the surface is intentionally available only from a project
+  workspace; AXM does not fall back to it during user-scope setup.
+- `unsupported` — the agent or AXM integration does not provide that
+  capability.
+- `refused` — the agent has a native surface, but AXM has not modeled a safe
+  target for the selected scope.
+
+Skills, MCP servers, subagents, and hooks report per-agent outcomes. Rules also
+report per-agent instruction-file projection alongside their workspace-owned
+package outcome. Knowledge bundles and packs report workspace/container
+outcomes. Preview and apply derive this matrix from the same selected agents and
+scope; setup never silently reads or writes the other scope.
 
 After setup, use `axm agents list` to inspect configured and detected coding
 agents. If you adopt another coding agent later, run `axm agents add <id>`;
 use `axm agents remove <id>` when retiring one. Do not rerun setup or hand-edit
 `settings.agents`, because the membership commands also create or remove the
 owned per-agent artifacts for installed extensions atomically.
+
+Keep the selected scope on follow-up commands. For user scope, use `axm agents
+list --scope user`, `axm sync --preview --scope user`, `axm lint --scope user`,
+and `axm list --scope user`. Discovery and Git-hook setup are project-only.
 
 ## Add your first extension
 
@@ -67,9 +115,9 @@ know what to install.
 ## Where to go next
 
 - `axm help basic-usage` — what each workspace file is for, what is safe to inspect, what changes state, and what must be checked in
-- `axm help settings` — `.axm/settings.json` fields
-- `axm help workspace-state` — desired, observed, trust, and receipt semantics
-- `axm help settings-schema` — `.axm/settings.json` raw JSON Schema
+- `axm help settings` — `axm.json` fields and user-scope differences
+- `axm help workspace-state` — desired, accepted-resolution, and observed semantics
+- `axm help settings-schema` — raw settings JSON Schema
 - `axm help skills` — anatomy of a native managed skill on disk
 - `axm <command> --help` — flags and examples for any command
 - `axm help` — list every available help topic

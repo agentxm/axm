@@ -1,0 +1,23 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "author-okf",
+  "version": "0.1.7",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/author-okf"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT AND Apache-2.0",
+  "description": "Authors, reviews, converts, maintains, and validates OKF v0.2 bundles and application profiles",
+  "keywords": [
+    "okf",
+    "knowledge",
+    "documentation",
+    "provenance",
+    "validation",
+    "markdown"
+  ]
+}

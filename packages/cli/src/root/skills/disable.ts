@@ -3,20 +3,23 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
-import type { DisableSkillOperation } from "@agentxm/client-core/unstable/skills";
-import { disableSkill } from "@agentxm/client-core/unstable/skills";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { makeAppError } from "../../app-error/index.js";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
+import type { DisableSkillOperation } from "@agentxm/extension-lifecycle";
+import { disableSkill } from "@agentxm/extension-lifecycle";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { scopeFlag } from "../../cli-flags.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export interface DisableHandlerArgs {
   readonly name: string;
@@ -24,7 +27,17 @@ export interface DisableHandlerArgs {
   readonly preview: boolean;
 }
 
-export const handleDisable = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
+export const handleDisable = (args: DisableHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "skills.disable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Disable skill",
+    },
+    handleDisableBody(args),
+  );
+
+const handleDisableBody = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -68,6 +81,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     readiness: "ready",
     label: skillName,
     run: disableSkill(op).pipe(
+      provideLifecycleFailureAdapter,
       Effect.map((result): JobStepResult => result),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
@@ -79,18 +93,20 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     _tag: "Plan",
     name: "Disable skill",
     description: Option.some(`Disable ${skillName}`),
+    presentation: operationPresentation(
+      { imperative: "disable", past: "Disabled", gerund: "Disabling" },
+      "skill",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
-  yield* emitAppliedPlanOutcome({
-    command: "skills.disable",
-    headline: `Disabled skill ${skillName}`,
-    resolution,
+  const execution = yield* makePublicPositionalPlanExecution(
+    args,
+    ["skills", "disable"],
+    [skillName],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("skills.disable", resolution, {
     suggestions: [
       LIST_INSTALLED_SKILLS,
       { description: "Undo", cmd: `axm skills enable ${skillName}` },

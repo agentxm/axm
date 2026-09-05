@@ -15,6 +15,24 @@ const OWNER = "@test";
 const PUBLISH_ENV = { AXM_TOKEN: "e2e-test-token" };
 
 /**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: [
+    "cli/install/records-direct-intent",
+    "cli/install/records-accepted-resolution",
+    "cli/install/materializes-canonical-content",
+    "cli/install/realizes-for-every-configured-agent",
+    "cli/every-type-completes-the-shared-lifecycle",
+  ],
+  boundary: "process",
+  rationale:
+    "Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.",
+} as const;
+
+/**
  * Install surfaces come from the generated extension-type matrix, so the suite
  * has a row per extension type whether or not that type is covered yet. A new
  * type appears here as a new row and has to be answered for — either with a
@@ -33,22 +51,48 @@ interface PackPublishOptions {
   readonly dependencies?: Record<string, string>;
 }
 
+interface PlanResultUnit {
+  readonly id: string;
+  readonly label: string;
+  readonly state: string;
+  readonly artifact?: {
+    readonly path?: string;
+    readonly targets?: ReadonlyArray<{ readonly path: string; readonly change: string }>;
+  };
+}
+
+interface PlanResultCounts {
+  readonly total: number;
+  readonly planned: number;
+  readonly ready: number;
+  readonly committed: number;
+  readonly unchanged: number;
+  readonly failed: number;
+  readonly rolledBack: number;
+  readonly blocked: number;
+  readonly skipped: number;
+  readonly cancelled: number;
+  readonly interrupted: number;
+  readonly warnings: number;
+}
+
+interface PlanResult {
+  readonly contract: string;
+  readonly outcome: string;
+  readonly mode: string;
+  readonly planName: string;
+  readonly planDescription?: string;
+  readonly candidateId?: string;
+  readonly counts: PlanResultCounts;
+  readonly units: ReadonlyArray<PlanResultUnit>;
+  readonly footprint?: ReadonlyArray<{ readonly path: string; readonly change: string }>;
+}
+
 interface JsonCommandResult {
   readonly exitCode: number;
   readonly stdout: {
-    readonly command: string;
-    readonly result: {
-      readonly outcome: string;
-      readonly appliedCount: number;
-      readonly totalSteps: number;
-      readonly steps: ReadonlyArray<{
-        readonly label: string;
-        readonly artifact?: {
-          readonly path?: string;
-          readonly targets?: ReadonlyArray<{ readonly path: string; readonly change: string }>;
-        };
-      }>;
-    };
+    readonly ok: boolean;
+    readonly result: PlanResult;
   };
   readonly stderr: string;
 }
@@ -56,15 +100,18 @@ interface JsonCommandResult {
 const settingsKeyForSurface = (surface: InstallSurface): SettingsKey =>
   surface === "mcps" ? "mcpServers" : surface;
 
+const hasAggregateProjection = (surface: InstallSurface): boolean =>
+  surface === "rules" || surface === "hooks" || surface === "knowledge" || surface === "packs";
+
 const registryFqn = (surface: InstallSurface, name: string) => `${OWNER}/${surface}/${name}`;
 
 const extensionDirForSurface = (workspacePath: string, surface: InstallSurface, name: string) =>
-  path.join(workspacePath, ".axm", "extensions", OWNER, surface, name);
+  path.join(workspacePath, "agent_extensions", "agentxm", OWNER, surface, name);
 
 const configureWorkspaceRegistry = (workspacePath: string, registryPath: string) => {
-  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
+  const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
+  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
   settings.owner = OWNER;
   settings.minimumReleaseAge = "0s";
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -74,7 +121,7 @@ const configureWorkspaceEntries = (
   workspacePath: string,
   entries: Partial<Record<SettingsKey, Record<string, string>>>,
 ) => {
-  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
+  const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   if (entries.skills !== undefined) {
     delete settings.skills?.axm;
@@ -91,9 +138,11 @@ const configureWorkspaceEntries = (
 };
 
 const initWorkspace = async (workspacePath: string, registryPath: string) => {
-  const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: workspacePath });
+  const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
+    cwd: workspacePath,
+  });
   // Assert here rather than letting the next line fail: a setup that died
-  // leaves no settings.json, and the resulting ENOENT surfaces several frames
+  // leaves no axm.json, and the resulting ENOENT surfaces several frames
   // away with setup's stderr already discarded — which reads like workspace
   // state corruption rather than the CLI failing to start.
   expect(setup.exitCode, setup.stderr).toBe(0);
@@ -106,10 +155,9 @@ const publishSkillToRegistry = async (registryPath: string, name: string) => {
   try {
     await initWorkspace(workspace.path, registryPath);
 
-    const createResult = await runCli(
-      ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-      { cwd: workspace.path },
-    );
+    const createResult = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+      cwd: workspace.path,
+    });
     expect(createResult.exitCode).toBe(0);
 
     const publishResult = await runCli(
@@ -131,10 +179,9 @@ const publishSubagentToRegistry = async (registryPath: string, name: string) => 
   try {
     await initWorkspace(workspace.path, registryPath);
 
-    const createResult = await runCli(
-      ["subagents", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-      { cwd: workspace.path },
-    );
+    const createResult = await runCli(["subagents", "new", name, "--owner", OWNER, "--yes"], {
+      cwd: workspace.path,
+    });
     expect(createResult.exitCode).toBe(0);
 
     const publishResult = await runCli(
@@ -162,6 +209,7 @@ const publishMcpServerToRegistry = async (registryPath: string, name: string) =>
           name,
           type: "mcp-server",
           publisherBindingId: "hbnd_test",
+          deprecation: null,
           versions: [
             {
               version,
@@ -238,15 +286,7 @@ const publishPackToRegistry = async (
     expect(createResult.exitCode).toBe(0);
 
     if (Object.keys(options).length > 0) {
-      const manifestPath = path.join(
-        workspace.path,
-        ".axm",
-        "extensions",
-        OWNER,
-        "packs",
-        name,
-        "pack.json",
-      );
+      const manifestPath = path.join(workspace.path, "packs", name, "pack.json");
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
       fs.writeFileSync(
         manifestPath,
@@ -301,10 +341,26 @@ const publishScaffoldedToRegistry =
   };
 
 const readSettings = (workspacePath: string) =>
-  JSON.parse(fs.readFileSync(path.join(workspacePath, ".axm", "settings.json"), "utf-8"));
+  JSON.parse(fs.readFileSync(path.join(workspacePath, "axm.json"), "utf-8"));
 
 const readLockfile = (workspacePath: string) =>
-  YAML.parse(fs.readFileSync(path.join(workspacePath, ".axm", "axm-lock.yaml"), "utf-8"));
+  YAML.parse(fs.readFileSync(path.join(workspacePath, "axm-lock.yaml"), "utf-8"));
+
+const lockEntryForSurface = (
+  lockfile: Record<string, Record<string, unknown> | undefined>,
+  surface: InstallSurface,
+  name: string,
+): unknown => {
+  const section = lockfile[settingsKeyForSurface(surface)] ?? {};
+  if (surface !== "mcps") return section[name];
+  return Object.values(section).find(
+    (entry) =>
+      typeof entry === "object" &&
+      entry !== null &&
+      "workspaceName" in entry &&
+      entry.workspaceName === name,
+  );
+};
 
 const normalizeLockEntry = (value: unknown) => {
   const copy = JSON.parse(JSON.stringify(value));
@@ -342,6 +398,30 @@ const snapshotDir = (rootDir: string): Readonly<Record<string, string>> => {
   return files;
 };
 
+/**
+ * Facts every plan-result document guarantees regardless of command: the
+ * state buckets partition the unit set and sum to the total, and units
+ * arrive sorted by their stable id.
+ */
+const expectReconciledUnits = (result: PlanResult) => {
+  const { counts, units } = result;
+  const partitioned =
+    counts.planned +
+    counts.ready +
+    counts.committed +
+    counts.unchanged +
+    counts.failed +
+    counts.rolledBack +
+    counts.blocked +
+    counts.skipped +
+    counts.cancelled +
+    counts.interrupted;
+  expect(partitioned).toBe(counts.total);
+  expect(units).toHaveLength(counts.total);
+  const ids = units.map((unit) => unit.id);
+  expect(ids).toEqual([...ids].sort());
+};
+
 const runJsonCommand = async (
   workspacePath: string,
   command: ReadonlyArray<string>,
@@ -352,9 +432,13 @@ const runJsonCommand = async (
   });
 
   expect(result.exitCode, `stdout:\n${result.stdout}\n\nstderr:\n${result.stderr}`).toBe(0);
+  const stdout: JsonCommandResult["stdout"] = JSON.parse(result.stdout);
+  expect(stdout.ok).toBe(true);
+  expect(stdout.result.contract).toBe("plan-result-v3");
+  expectReconciledUnits(stdout.result);
   return {
     exitCode: result.exitCode,
-    stdout: JSON.parse(result.stdout),
+    stdout,
     stderr: result.stderr,
   };
 };
@@ -368,11 +452,10 @@ const expectConfiguredEntriesInstalled = (
   const settings = readSettings(workspacePath);
   const lockfile = readLockfile(workspacePath);
   const settingsSection = settings[settingsKey] ?? {};
-  const lockfileSection = lockfile[settingsKey] ?? {};
 
   for (const name of names) {
     expect(settingsSection[name]).toBeDefined();
-    expect(lockfileSection[name]).toBeDefined();
+    expect(lockEntryForSurface(lockfile, surface, name)).toBeDefined();
     expect(fs.existsSync(extensionDirForSurface(workspacePath, surface, name))).toBe(true);
   }
 };
@@ -405,14 +488,42 @@ const publisherFor = (row: ExtensionTypeMatrixRow): Publisher => {
   return publish;
 };
 
+// Progress events carry a wall-clock `atMs` by design; parity between two
+// invocations is over the event sequence with that free field folded out.
+const comparableStderr = (stderr: string): string =>
+  stderr
+    .split("\n")
+    .map((line) => {
+      try {
+        const parsed: unknown = JSON.parse(line);
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "event" in parsed &&
+          typeof parsed.event === "object" &&
+          parsed.event !== null
+        ) {
+          const entries = Object.entries(parsed.event);
+          const started = entries.some(
+            ([key, value]) => key === "_tag" && value === "OperationStarted",
+          );
+          // The root form and the typed form label the operation differently
+          // by design; parity is over every other field of the lifecycle.
+          const comparable = Object.fromEntries(
+            entries.filter(([key]) => key !== "atMs" && !(started && key === "name")),
+          );
+          return JSON.stringify({ ...parsed, event: comparable });
+        }
+        return line;
+      } catch {
+        return line;
+      }
+    })
+    .join("\n");
+
 const expectCleanWorkspace = async (workspacePath: string, context: string): Promise<void> => {
-  for (const command of [["status"], ["lint"]]) {
-    const result = await runCli(command, { cwd: workspacePath });
-    expect(
-      result.exitCode,
-      `${context}: axm ${command.join(" ")}\n${result.stdout}${result.stderr}`,
-    ).toBe(0);
-  }
+  const result = await runCli(["lint"], { cwd: workspacePath });
+  expect(result.exitCode, `${context}: axm lint\n${result.stdout}${result.stderr}`).toBe(0);
 };
 
 describe("axm install", () => {
@@ -446,7 +557,7 @@ describe("axm install", () => {
       });
 
       await initWorkspace(workspace.path, registryDir.path);
-      const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+      const settingsPath = path.join(workspace.path, "axm.json");
       const initialSettings = readSettings(workspace.path);
       initialSettings.lint = {
         rules: {
@@ -597,8 +708,22 @@ describe("axm install", () => {
         );
 
         expect(rootResult.exitCode).toBe(surfaceResult.exitCode);
+        expect(rootResult.stdout.result.candidateId).toMatch(/^[0-9a-f]{64}$/);
+        expect(surfaceResult.stdout.result.candidateId).toMatch(/^[0-9a-f]{64}$/);
+        // Candidate id and footprint compare too: identity is content-addressed
+        // relative to the workspace base, and every mutating surface runs
+        // under the operation lifecycle that records the footprint.
         expect(rootResult.stdout.result).toEqual(surfaceResult.stdout.result);
-        expect(rootResult.stderr).toBe(surfaceResult.stderr);
+        expect(comparableStderr(rootResult.stderr)).toBe(comparableStderr(surfaceResult.stderr));
+
+        const rootFootprint = (rootResult.stdout.result.footprint ?? []).map(
+          (entry) => `${entry.change} ${entry.path}`,
+        );
+        expect(rootFootprint).toContain("modified axm.json");
+        expect(rootFootprint).toContain("modified axm-lock.yaml");
+        expect(rootFootprint).toContain(
+          `created agent_extensions/agentxm/${OWNER}/${surface}/${name}`,
+        );
 
         const settingsKey = settingsKeyForSurface(surface);
         const rootSettings = readSettings(rootWorkspace.path);
@@ -607,8 +732,8 @@ describe("axm install", () => {
 
         const rootLockfile = readLockfile(rootWorkspace.path);
         const surfaceLockfile = readLockfile(surfaceWorkspace.path);
-        expect(normalizeLockEntry(rootLockfile[settingsKey][name])).toEqual(
-          normalizeLockEntry(surfaceLockfile[settingsKey][name]),
+        expect(normalizeLockEntry(lockEntryForSurface(rootLockfile, surface, name))).toEqual(
+          normalizeLockEntry(lockEntryForSurface(surfaceLockfile, surface, name)),
         );
 
         expect(snapshotDir(extensionDirForSurface(rootWorkspace.path, surface, name))).toEqual(
@@ -622,8 +747,36 @@ describe("axm install", () => {
     },
   );
 
+  it("installs only the exact source-qualified registry skill", async () => {
+    const registryDir = createTempDir("axm-registry-");
+    const workspace = createTempDir();
+    const target = "qualified-target";
+    const other = "qualified-other";
+
+    try {
+      await publishSkillToRegistry(registryDir.path, target);
+      await publishSkillToRegistry(registryDir.path, other);
+      await initWorkspace(workspace.path, registryDir.path);
+
+      const result = await runJsonCommand(
+        workspace.path,
+        ["install"],
+        [`agentxm:${registryFqn("skills", target)}`],
+      );
+
+      expect(result.stdout.result.outcome).toBe("applied");
+      expect(result.stdout.result.units.map((unit) => unit.label)).toEqual([target]);
+      expectConfiguredEntriesInstalled(workspace.path, "skills", [target]);
+      expect(readSettings(workspace.path).skills?.[other]).toBeUndefined();
+      expect(fs.existsSync(extensionDirForSurface(workspace.path, "skills", other))).toBe(false);
+    } finally {
+      registryDir.cleanup();
+      workspace.cleanup();
+    }
+  });
+
   it.each(installCases)(
-    "installs all configured $label entries for no-arg $plural install",
+    "C-01: installs all configured $label entries for no-arg $plural install",
     async (row) => {
       const surface = row.plural;
       const publishToRegistry = publisherFor(row);
@@ -648,8 +801,18 @@ describe("axm install", () => {
 
         const result = await runJsonCommand(workspace.path, [surface, "install"]);
 
+        const expectedCommitted = hasAggregateProjection(surface) ? 3 : 2;
         expect(result.stdout.result.outcome).toBe("applied");
-        expect(result.stdout.result.appliedCount).toBe(2);
+        expect(result.stdout.result.counts.committed).toBe(expectedCommitted);
+        expect(result.stdout.result.counts.total).toBe(expectedCommitted);
+        for (const name of names) {
+          expect(
+            result.stdout.result.units.some(
+              (unit) => unit.state === "committed" && unit.label.includes(name),
+            ),
+            `committed unit reported for ${name}`,
+          ).toBe(true);
+        }
         expectConfiguredEntriesInstalled(workspace.path, surface, names);
       } finally {
         registryDir.cleanup();
@@ -685,14 +848,14 @@ describe("axm install", () => {
       });
 
       const result = await runJsonCommand(workspace.path, ["install"]);
-      const labels = result.stdout.result.steps.map((step) => step.label);
+      const labels = result.stdout.result.units.map((unit) => unit.label);
 
       expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.appliedCount).toBe(5);
+      expect(result.stdout.result.counts.committed).toBe(6);
       expect(labels.filter((label) => label.includes("workspace-skill"))).toHaveLength(1);
       expect(
-        result.stdout.result.steps.some((step) =>
-          step.artifact?.targets?.some((target) => target.path.includes("pack-mcp")),
+        result.stdout.result.units.some((unit) =>
+          unit.artifact?.targets?.some((target) => target.path.includes("pack-mcp")),
         ),
       ).toBe(true);
 
@@ -705,7 +868,9 @@ describe("axm install", () => {
       const settings = readSettings(workspace.path);
       const lockfile = readLockfile(workspace.path);
       expect(settings.mcpServers?.["pack-mcp"]).toBeUndefined();
-      expect(lockfile.mcpServers?.["pack-mcp"]).toBeDefined();
+      expect(Object.values(lockfile.mcpServers ?? {})).toContainEqual(
+        expect.objectContaining({ workspaceName: "pack-mcp" }),
+      );
       expect(fs.existsSync(extensionDirForSurface(workspace.path, "mcps", "pack-mcp"))).toBe(true);
     } finally {
       registryDir.cleanup();
@@ -761,8 +926,8 @@ describe("axm install", () => {
       const result = await runJsonCommand(workspace.path, ["install"]);
 
       expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.appliedCount).toBe(2);
-      expect(result.stdout.result.totalSteps).toBe(2);
+      expect(result.stdout.result.counts.committed).toBe(3);
+      expect(result.stdout.result.counts.total).toBe(3);
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["shared-name"]);
       expectConfiguredEntriesInstalled(workspace.path, "rules", ["shared-name"]);
     } finally {

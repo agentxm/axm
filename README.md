@@ -72,7 +72,10 @@ npm install -g axm.sh
 ## Getting started
 
 Initialize AXM in your project. AXM detects your installed agents and creates
-an `.axm/` workspace to manage extensions across all of them.
+root `axm.json`; acquired packages and accepted external resolutions are kept
+in `agent_extensions/` and `axm-lock.yaml`, while `.axm/` is runtime scratch.
+AXM leaves Git attributes and formatter policy to the repository; exclude
+`agent_extensions/` from tools that rewrite files.
 
 ```bash
 axm setup
@@ -126,7 +129,8 @@ axm skills install @acme/skills/code-review
 axm skills list
 axm skills disable my-skill                   # Turn off without uninstalling
 axm skills enable my-skill
-axm skills copy ./external-skill @acme/skills/my-skill
+axm skills import ./external-skill @acme/skills/my-skill
+axm fork @acme/skills/code-review @me/skills/code-review-custom
 axm skills publish                            # Publish authored skills
 ```
 
@@ -149,14 +153,18 @@ Top-level commands work across every extension type and infer the target from
 your input:
 
 ```bash
-axm install                          # Sync extensions from .axm/settings.json
+axm install                          # Sync extensions from axm.json
 axm install @acme/skills/code-review # Install a single extension
 axm update                           # Pull latest versions
-axm outdated                         # Show extensions with available updates
+axm list                             # Inventory extensions across all types
+axm list --outdated                  # Show extensions with available updates
+axm list --deprecated                # Show deprecated installed extensions
 axm uninstall @acme/skills/code-review
 axm adopt @acme/skills/retained-package       # Make a canonical package authoritative
 axm demote @acme/skills/review ./upstream     # Explicitly return to external source management
-axm prune                            # Remove extensions axm isn't managing
+axm lint                             # Report intrinsic workspace facts
+axm sync --preview                   # Preview reconciliation without writing
+axm sync                             # Reconcile desired, accepted, and observed state
 axm upgrade                          # Update axm itself
 ```
 
@@ -168,12 +176,21 @@ Extensions publish to the registry in four steps.
 axm skills new my-skill              # 1. Scaffold
 # 2. Author content in the scaffolded directory
 axm lint                             # 3. Check the publish gate locally
-axm publish --on-existing verify     # 4. Publish every authored extension idempotently
+axm publish                          # 4. Publish new authored versions; verify existing ones
 ```
 
-Authorship is derived from the intrinsic
-`workspace:@owner/<plural-type>/<name>` settings source. Explicit selectors can
-publish configured non-workspace packages without changing their source.
+Authorship is derived from the exact intrinsic `workspace` settings source,
+the project `owner`, the settings map key, the extension type, and the matching
+manifest in that type's authored root. Bare, filtered, and explicit selections
+publish only workspace-authored packages. Adopt a retained canonical package
+when this workspace should own it, or fork an installed package to publish it
+under a new identity.
+
+AXM builds a deterministic archive from each selected authored package. For an
+existing immutable version, `--on-existing verify` rebuilds that archive and
+requires its SHA-512 digest to match the Registry release before reporting a
+successful no-op. Installed external files are mutable observed materialization,
+not release inputs or continuously integrity-checked snapshots.
 
 `axm lint` checks the same rules the registry enforces — see
 [Lint](#lint) for details.
@@ -192,7 +209,7 @@ axm lint --json             # Machine-readable findings envelope
 ```
 
 Project scope is the default. Local `lint.rules` overrides in
-`.axm/settings.json` affect `axm lint` only — the registry publish gate
+`axm.json` affect `axm lint` only — the registry publish gate
 remains authoritative.
 
 ## Authentication
@@ -211,9 +228,10 @@ axm token                   # Print the current token (for scripting)
 `axm login` starts a local loopback PKCE flow, prints a manual authorization
 URL, and then tries to open your browser. SSH, CI, and Codespaces automatically
 use device-code sign-in; pass `--device-code` to select that flow explicitly.
-Device-code sign-in shows the stable authorization page and one-time code
-separately, and copies only the code. Never enter a code that another person or
-website gave you.
+Device-code sign-in opens a complete authorization link when possible and also
+shows the clean fallback page plus the one-time code. Retrying the command
+reuses the same unexpired request; use `--restart` only when you intentionally
+want to replace it. Never enter a code that another person or website gave you.
 
 ## Supported agents
 

@@ -16,7 +16,7 @@ describe("axm skills enable", () => {
     const temp = createTempDir();
     try {
       // Initialize workspace with claude-code agent to verify .claude/ symlinks
-      await runCli(["setup", "--yes", "--agent", "claude-code"], {
+      await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
@@ -25,24 +25,17 @@ describe("axm skills enable", () => {
         cwd: temp.path,
       });
 
+      const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
+      const canonicalSkillDir = path.dirname(fs.realpathSync(agentSkillDir));
+
       // Disable the skill first
       await runCli(["skills", "disable", "my-skill", "--yes"], {
         cwd: temp.path,
       });
 
-      // Verify canonical files are preserved after disable
-      const canonicalSkillDir = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "external",
-        "skills",
-        "my-skill",
-      );
       expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
       // Verify agent symlink is removed after disable
-      const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
       expect(fs.existsSync(agentSkillDir)).toBe(false);
 
       // Enable the skill
@@ -54,13 +47,13 @@ describe("axm skills enable", () => {
 
       // Verify canonical skill files still exist
       expect(fs.existsSync(canonicalSkillDir)).toBe(true);
-      expect(fs.existsSync(path.join(canonicalSkillDir, "SKILL.md"))).toBe(true);
+      expect(fs.existsSync(path.join(canonicalSkillDir, "src", "SKILL.md"))).toBe(true);
 
       // Verify agent symlink is restored
       expect(fs.existsSync(agentSkillDir)).toBe(true);
 
       // Verify settings updated (collapsed to string or enabled: true)
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       expect(settings.skills["my-skill"]).toBeDefined();
       const entry = settings.skills["my-skill"];
@@ -74,7 +67,7 @@ describe("axm skills enable", () => {
       }
 
       // Verify lockfile entry still exists
-      const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lockPath = path.join(temp.path, "axm-lock.yaml");
       const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
       expect(lock.skills["my-skill"]).toBeDefined();
     } finally {
@@ -85,9 +78,12 @@ describe("axm skills enable", () => {
   it("shows already enabled message for already enabled skill", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        {
+          cwd: temp.path,
+        },
+      );
 
       await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
         cwd: temp.path,
@@ -108,9 +104,12 @@ describe("axm skills enable", () => {
   it("errors when skill is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        {
+          cwd: temp.path,
+        },
+      );
 
       const result = await runCli(["skills", "enable", "nonexistent-skill", "--yes"], {
         cwd: temp.path,

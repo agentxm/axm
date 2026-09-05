@@ -4,98 +4,173 @@
   "root": ".",
   "tags": ["type:tooling", "scope:root"],
   "targets": {
-    "lint": {
-      "executor": "@nx/eslint:lint",
+    "source-cli-smoke": {
+      "executor": "nx:run-commands",
+      "cache": false,
       "options": {
-        "lintFilePatterns": ["eslint.config.mjs", "vitest.config.ts"]
+        "command": "pnpm axm --version",
+        "cwd": "."
       }
     },
-    "scripts-lint": {
+    "lint": {
       "executor": "nx:run-commands",
       "cache": true,
+      "inputs": ["default", "^default", "^production", "{workspaceRoot}/eslint.config.mjs"],
+      "options": {
+        "command": "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.reporting.ts scripts --max-warnings=192",
+        "cwd": "."
+      }
+    },
+    "lint-bundled-skill": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["cli:build"],
+      "options": {
+        "command": "bun scripts/lint-bundled-skill.ts",
+        "cwd": "."
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^build"],
       "inputs": [
         "{workspaceRoot}/package.json",
         "{workspaceRoot}/scripts/**/*",
         "sharedGlobals",
-        "{workspaceRoot}/eslint.config.mjs"
+        "^production"
       ],
       "options": {
-        "command": "pnpm scripts-lint",
+        "command": "tsc -p scripts/tsconfig.json --noEmit",
         "cwd": "."
       }
     },
-    "scripts-typecheck": {
+    "build-test-reporting": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["utils:build"],
-      "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
+      "inputs": [
+        "{workspaceRoot}/allurerc.ts",
+        "{workspaceRoot}/vitest.reporting.ts",
+        "{workspaceRoot}/tsconfig*.json",
+        { "externalDependencies": ["@typescript/native"] }
+      ],
+      "outputs": ["{workspaceRoot}/out-tsc/reporting"],
       "options": {
-        "command": "pnpm scripts-typecheck",
+        "command": "tsc -b tsconfig.json",
         "cwd": "."
       }
     },
-    "scripts-test": {
+    "test": {
       "executor": "nx:run-commands",
-      "cache": true,
-      "dependsOn": ["utils:build"],
+      "cache": false,
+      "dependsOn": ["build-test-reporting", "^build"],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "outputs": ["{workspaceRoot}/test-results/scripts"],
       "options": {
-        "command": "pnpm scripts-test",
+        "command": "pnpm exec vitest run --config scripts/vitest.config.ts",
+        "cwd": "."
+      }
+    },
+    "bench": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["cli:build"],
+      "options": {
+        "command": "bun scripts/bench.ts",
+        "cwd": "."
+      }
+    },
+    "test-report": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [
+        {
+          "projects": "*",
+          "target": "test"
+        }
+      ],
+      "options": {
+        "command": "pnpm exec allure generate \"test-results/**/allure-results\"",
+        "cwd": "."
+      }
+    },
+    "allure-report": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "pnpm exec allure generate \"test-results/**/allure-results\"",
+        "cwd": "."
+      }
+    },
+    "allure-report-open": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["allure-report"],
+      "options": {
+        "command": "pnpm exec allure open test-results/allure-report",
         "cwd": "."
       }
     },
     "release-prepare": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["^build"],
       "options": {
-        "command": "pnpm release-prepare",
+        "command": "bun scripts/release-prepare.ts",
+        "cwd": "."
+      }
+    },
+    "release-prepare-candidate": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["build-test-reporting", "^build"],
+      "options": {
+        "command": "bun scripts/release-prepare-candidate.ts",
         "cwd": "."
       }
     },
     "release-publish": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["^build"],
       "options": {
-        "command": "pnpm release-publish",
+        "command": "bun scripts/release-publish.ts",
         "cwd": "."
       }
     },
     "release-publish-local": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["^build"],
       "options": {
-        "command": "pnpm release-publish-local",
+        "command": "bun scripts/release-publish-local.ts",
         "cwd": "."
       }
     },
     "validate-release-tag": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["^build"],
       "options": {
-        "command": "pnpm validate-release-tag",
+        "command": "bun scripts/validate-release-tag.ts",
         "cwd": "."
       }
     },
     "resolve-release-meta": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["^build"],
       "options": {
-        "command": "pnpm resolve-release-meta",
+        "command": "bun scripts/resolve-release-meta.ts",
         "cwd": "."
       }
     },
     "download-ci-binaries": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["^build"],
       "options": {
-        "command": "pnpm download-ci-binaries",
+        "command": "bun scripts/download-ci-binaries.ts",
         "cwd": "."
       }
     },
@@ -103,7 +178,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "pnpm generate-release-checksums",
+        "command": "bun scripts/release-checksums.ts generate",
         "cwd": "."
       }
     },
@@ -111,7 +186,16 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "pnpm validate-release-assets",
+        "command": "bash scripts/validate-release-assets.sh",
+        "cwd": "."
+      }
+    },
+    "promote-release-channel": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["extension-model:build"],
+      "options": {
+        "command": "bun scripts/promote-release-channel.ts",
         "cwd": "."
       }
     },
@@ -119,7 +203,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "pnpm update-homebrew-formula",
+        "command": "bash scripts/update-homebrew-formula.sh",
         "cwd": "."
       }
     },
@@ -127,7 +211,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "pnpm parity-ledger-check",
+        "command": "bun scripts/parity-ledger-check.ts",
         "cwd": "."
       }
     },
@@ -138,144 +222,19 @@
         "{workspaceRoot}/package.json",
         "{workspaceRoot}/scripts/**/*",
         "sharedGlobals",
-        "{workspaceRoot}/packages/*/src/**/*"
+        "{workspaceRoot}/packages/**/*"
       ],
       "options": {
-        "command": "pnpm verify-source-hygiene",
+        "command": "bun scripts/verify-source-hygiene.ts",
         "cwd": "."
       }
     },
-    "verify-e2e-boundaries": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "inputs": [
-        "{workspaceRoot}/package.json",
-        "{workspaceRoot}/scripts/**/*",
-        "sharedGlobals",
-        "{workspaceRoot}/packages/e2e-utils/package.json",
-        "{workspaceRoot}/packages/e2e-utils/**/tsconfig*.json",
-        "{workspaceRoot}/packages/cli-e2e/package.json",
-        "{workspaceRoot}/packages/cli-e2e/**/tsconfig*.json",
-        "{workspaceRoot}/packages/cli-spike-e2e/package.json",
-        "{workspaceRoot}/packages/cli-spike-e2e/**/tsconfig*.json"
-      ],
-      "options": {
-        "command": "pnpm verify-e2e-boundaries",
-        "cwd": "."
-      }
-    },
-    "generate-registry": {
+    "specification-verdict": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
       "options": {
-        "command": "pnpm generate-registry",
+        "command": "bun --conditions=axm-source scripts/specification-verdict.ts",
         "cwd": "."
-      }
-    },
-    "generate-telemetry": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "dependsOn": ["utils:build"],
-      "options": {
-        "command": "pnpm generate-telemetry",
-        "cwd": "."
-      }
-    },
-    "ci": {
-      "executor": "nx:run-commands",
-      "options": {
-        "parallel": false,
-        "commands": [
-          {
-            "command": "pnpm exec nx run-many -t lint typecheck build test --batch --nxBail --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run-many -t e2e --batch --nxBail --parallel=1 --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:scripts-lint --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:scripts-typecheck --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:scripts-test --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:verify-e2e-boundaries --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:verify-source-hygiene --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:parity-ledger-check --outputStyle=static"
-          }
-        ]
-      }
-    },
-    "verify": {
-      "executor": "nx:run-commands",
-      "options": {
-        "parallel": false,
-        "commands": [
-          {
-            "command": "pnpm run check:ci-image"
-          },
-          {
-            "command": "pnpm run generate:check"
-          },
-          {
-            "command": "pnpm exec nx sync:check"
-          },
-          {
-            "command": "pnpm exec nx format:check"
-          },
-          {
-            "command": "pnpm exec nx run axm:ci --outputStyle=static"
-          }
-        ]
-      }
-    },
-    "verify-affected": {
-      "executor": "nx:run-commands",
-      "options": {
-        "parallel": false,
-        "commands": [
-          {
-            "command": "pnpm run check:ci-image"
-          },
-          {
-            "command": "pnpm run generate:check"
-          },
-          {
-            "command": "pnpm exec nx sync:check"
-          },
-          {
-            "command": "pnpm exec nx format:check"
-          },
-          {
-            "command": "pnpm exec nx affected -t lint typecheck build test e2e --batch --nxBail --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:scripts-lint --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:scripts-typecheck --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:scripts-test --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:verify-e2e-boundaries --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:verify-source-hygiene --outputStyle=static"
-          },
-          {
-            "command": "pnpm exec nx run axm:parity-ledger-check --outputStyle=static"
-          }
-        ]
       }
     }
   }

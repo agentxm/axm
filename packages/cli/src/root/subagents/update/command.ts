@@ -1,15 +1,16 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import {
+  ignoreReleaseAgeFlag,
   ignoreVersionConstraintsFlag,
   previewFlag,
   yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../../cli-flags.js";
+} from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { updateNameFilterFlag } from "../../shared/update-targets.js";
 import { handleUpdate } from "./handler.js";
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const updateConfig = {
   source: Argument.string("source").pipe(
@@ -21,33 +22,34 @@ const updateConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Update subagents in project (default) or user-level configuration"),
   ),
-  agent: Flag.string("agent").pipe(
-    Flag.withDescription("Update only subagents installed for specific agents"),
-    Flag.atLeast(0),
-  ),
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific subagents by name or glob pattern"),
   ),
-  // Kept alongside --name so existing invocations keep working; both lists are
-  // merged into one filter set.
-  subagent: Flag.string("subagent").pipe(Flag.withDescription("Alias for --name"), Flag.atLeast(0)),
-  yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
+  yes: yesFlag.pipe(
+    Flag.withDescription(
+      "Pre-approve the update when it carries a risk that would otherwise prompt",
+    ),
+  ),
   force: ignoreVersionConstraintsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, agent, name, subagent, yes, force, preview }) =>
+  ({ source, scope, name, yes, force, preview, ignoreReleaseAge }) =>
     handleUpdate({
       source,
-      agents: agent,
-      subagents: [...name, ...subagent],
+      subagents: name,
       yes,
       force,
       preview,
-    }).pipe(withWorkspace(scope), withRuntime("subagents update")),
+    }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("subagents update"),
+    ),
 ).pipe(
   withArgvTracking(updateConfig),
   Command.withDescription("Update installed subagents to latest versions"),
@@ -57,7 +59,7 @@ export const updateCommand = Command.make(
       description: "Update all subagents to their latest versions",
     },
     {
-      command: "axm subagents update --subagent researcher",
+      command: "axm subagents update --name researcher",
       description: "Update a specific subagent",
     },
     {

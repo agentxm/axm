@@ -1,9 +1,9 @@
 /**
  * Publish a local preview of the axm npm packages.
  *
- * Builds, version-stamps, packs, and `npm publish`es the three release-group
- * packages (`@agentxm/client-utils`, `@agentxm/client-core`, `axm.sh`) under a
- * non-default dist-tag (default: `preview`). The version is derived from the
+ * Builds, version-stamps, packs, and `npm publish`es the release-group
+ * packages (the `release:cli` tag group) under a non-default dist-tag
+ * (default: `preview`). The version is derived from the
  * working tree so each invocation is unique and stable (`@latest`) consumers
  * are unaffected.
  *
@@ -25,6 +25,7 @@ import { resolve } from "node:path";
 
 import { run, tryCapture } from "./release-command.js";
 import {
+  RELEASE_PACKAGES,
   RELEASE_PACKAGE_JSON_PATHS,
   fail,
   git,
@@ -32,18 +33,6 @@ import {
   runNx,
   validateReleaseVersion,
 } from "./release-shared.js";
-
-type ReleasePackage = {
-  readonly name: string;
-  readonly tarballPrefix: string;
-  readonly project: string;
-};
-
-const RELEASE_PACKAGES: readonly ReleasePackage[] = [
-  { name: "@agentxm/client-utils", tarballPrefix: "agentxm-client-utils-", project: "utils" },
-  { name: "@agentxm/client-core", tarballPrefix: "agentxm-client-core-", project: "core" },
-  { name: "axm.sh", tarballPrefix: "axm.sh-", project: "cli" },
-] as const;
 
 const PACK_DESTINATION = "release-packages-local";
 
@@ -54,7 +43,7 @@ const showHelp = () => {
     [
       "Usage: pnpm release:publish:local [-- --dry-run] [--tag=<dist-tag>] [--no-build]",
       "",
-      "Builds, packs, and `npm publish`es the three release-group packages",
+      "Builds, packs, and `npm publish`es the fixed release-group packages",
       "under a dist-tag (default: preview). The default `latest` tag is never",
       "touched, so stable consumers are unaffected.",
       "",
@@ -153,8 +142,8 @@ const buildReleasePackages = () => {
     console.log("==> Skipping build (--no-build)");
     return;
   }
-  console.log("==> Building utils, core, cli");
-  runNx("run-many", "-t", "build", "--projects", "utils,core,cli");
+  console.log("==> Building the CLI release group");
+  runNx("run-many", "-t", "build", "--projects", "tag:release:cli");
 };
 
 const packReleasePackages = (packDestAbsolute: string) => {

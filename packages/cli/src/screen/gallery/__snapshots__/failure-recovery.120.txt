@@ -1,0 +1,11 @@
+✖ Failed to install 3 skills — all changes rolled back
+Registry returned 502 Bad Gateway for @craigsmitham/effect-v4@0.4.2 after 3 attempts (network)
+↶ @craigsmitham/field-notes    0.2.4     rolled back   effects were restored
+× @craigsmitham/effect-v4      0.4.2     failed        Registry returned 502 Bad Gateway (network)
+▲ @agentxm/knowledge/agentxm   blocked   not attempted: an earlier step failed
+▲ Snapshots kept at /tmp/axm-snapshots/2026-09-03T18-12-41Z
+  The workspace was restored from them; delete the directory once you have confirmed the workspace state.
+Next
+  Retry once the registry is reachable · axm install @craigsmitham/effect-v4
+  Check registry status · https://status.axm.sh
+  Report the failure with diagnostics · axm install @craigsmitham/effect-v4 --debug

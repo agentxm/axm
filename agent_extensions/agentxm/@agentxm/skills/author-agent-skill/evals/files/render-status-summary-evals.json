@@ -1,0 +1,22 @@
+{
+  "skill_name": "render-status-summary",
+  "suite_version": "0.2.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": "routing-status",
+      "stage": "routing",
+      "prompt": "Render status.json as a Markdown status summary.",
+      "expected_selection": "render-status-summary",
+      "catalog_neighbors": [],
+      "assertions": ["The render request selects the skill."]
+    },
+    {
+      "id": "execution-status",
+      "stage": "execution",
+      "prompt": "Render the supplied status.json.",
+      "assertions": ["The Markdown output contains the supplied title and detail fields."],
+      "grader": "evals/graders/status-summary.json"
+    }
+  ]
+}

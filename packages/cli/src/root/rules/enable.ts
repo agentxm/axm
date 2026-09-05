@@ -3,28 +3,56 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import { ignoreReleaseAgeFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   previewOrApplyPlan,
+  operationPresentation,
   type JobStepArtifact,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { resolveConfiguredRule, WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { scopeFlag } from "../../cli-flags.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredRule,
+} from "@agentxm/extension-lifecycle";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import {
   activeInstructionsConfig,
   instructionReconciliationReadiness,
+  observeInstructions,
   reconcileInstructionTransition,
-} from "./instruction-reconciliation.js";
+} from "@agentxm/workspace-configuration";
+import { toAppError, failureToStepFailure } from "../../app-error/conversions.js";
+import { RuleManager } from "@agentxm/extension-workspace";
+import {
+  configurationFailureToAppError,
+  lifecycleFailureToAppError,
+} from "../../feature-errors.js";
 
-export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: {
+export const handleEnableRule = (args: {
+  readonly name: string;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "rules.enable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Enable rules",
+    },
+    handleEnableRuleBody(args),
+  );
+
+const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
   readonly preview: boolean;
@@ -51,21 +79,39 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
     return;
   }
 
-  const { ref, versionRange } = yield* resolveConfiguredRule(args.name, entry.source);
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+    Effect.mapError(lifecycleFailureToAppError),
+  );
+  const { ref, versionRange } = yield* resolveConfiguredRule(
+    args.name,
+    entry.source,
+    releaseAgeEvaluation,
+  ).pipe(Effect.mapError(lifecycleFailureToAppError));
   const installStep = buildInstallOperation(ruleManager, {
+    toStepFailure: failureToStepFailure,
     ref,
     versionRange,
     message: `Enabled ${args.name}`,
     buildArtifact: () =>
       Effect.succeed({
-        path: ".axm/settings.json",
+        path: workspaceSettingsPath(scope),
         scope,
         change: "updated",
       } satisfies JobStepArtifact),
   });
-  const instructionsConfig = yield* activeInstructionsConfig(ws);
+  const instructionsConfig = yield* activeInstructionsConfig(ws).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const readiness = Option.isSome(instructionsConfig)
-    ? yield* instructionReconciliationReadiness({ ws, config: instructionsConfig.value })
+    ? Option.map(
+        yield* instructionReconciliationReadiness({
+          ws,
+          snapshot: yield* observeInstructions({ ws, config: instructionsConfig.value }).pipe(
+            Effect.mapError(configurationFailureToAppError),
+          ),
+        }),
+        configurationFailureToAppError,
+      )
     : Option.none();
   const activationStep: PlannedJobStep =
     installStep.readiness === "error"
@@ -81,13 +127,16 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
               ? reconcileInstructionTransition({
                   ws,
                   config: instructionsConfig.value,
-                  transition: installStep.run,
+                  transition: installStep.run.pipe(Effect.mapError(toAppError)),
                 }).pipe(
+                  Effect.mapError(configurationFailureToAppError),
                   Effect.provideService(FileSystem.FileSystem, fs),
                   Effect.provideService(Path.Path, path),
                 )
-              : installStep.run;
-            const run = ruleManager.runTransaction({ transition, validate: () => Effect.void });
+              : installStep.run.pipe(Effect.mapError(toAppError));
+            const run = ruleManager
+              .runTransaction({ transition, validate: () => Effect.void })
+              .pipe(Effect.mapError(failureToStepFailure));
             return installStep.readiness === "warn"
               ? {
                   label: installStep.label,
@@ -106,6 +155,10 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
     _tag: "Plan",
     name: "Enable rules",
     description: Option.some(`Enable rule ${args.name}`),
+    presentation: operationPresentation(
+      { imperative: "enable", past: "Enabled", gerund: "Enabling" },
+      "rule",
+    ),
     jobs: [
       {
         concurrency: 1,
@@ -113,15 +166,13 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
       },
     ],
   };
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
-  yield* emitAppliedPlanOutcome({
-    command: "rules.enable",
-    headline: `Enabled rule ${args.name}`,
-    resolution,
+  const execution = yield* makePublicPositionalPlanExecution(
+    args,
+    ["rules", "enable"],
+    [args.name],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("rules.enable", resolution, {
     suggestions: [
       { description: "Inspect installed rules", cmd: "axm rules list" },
       { description: "Undo", cmd: `axm rules disable ${args.name}` },
@@ -136,10 +187,18 @@ const enableConfig = {
   ),
   yes: yesFlag.pipe(Flag.withDescription("Enable without confirmation")),
   preview: previewFlag.pipe(Flag.withDescription("Show what would change without enabling")),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
-export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, yes, preview }) =>
-  handleEnableRule({ name, yes, preview }).pipe(withWorkspace(scope), withRuntime("rules enable")),
+export const enableCommand = Command.make(
+  "enable",
+  enableConfig,
+  ({ name, scope, yes, preview, ignoreReleaseAge }) =>
+    handleEnableRule({ name, yes, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("rules enable"),
+    ),
 ).pipe(
   withArgvTracking(enableConfig),
   Command.withDescription("Enable a rule"),

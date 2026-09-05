@@ -10,6 +10,7 @@ import { publishCommand } from "./publish/command.js";
 import { enableCommand } from "./enable/command.js";
 import { disableCommand } from "./disable/command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { subagentsImportCommand as importCommand } from "../import/command.js";
 
 const showCommand = makeExtensionShowCommand({
   type: "subagent",
@@ -43,6 +44,7 @@ export const subagentsCommand = Command.make("subagents").pipe(
     showCommand,
     updateCommand,
     newCommand,
+    importCommand,
     publishCommand,
     enableCommand,
     disableCommand,

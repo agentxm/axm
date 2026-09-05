@@ -1,25 +1,25 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type DetailView } from "@agentxm/client-core/unstable/cli-renderer";
+import { makeAppError } from "../../app-error/index.js";
+import { Screen, detailViewDoc, type DetailView } from "../../screen/index.js";
 import {
-  computePackageContentHash,
   formatFqn,
   parseExtensionFqnParts,
-} from "@agentxm/client-core/unstable/extensions";
+  parseSourceQualifiedRegistrySourcePatternParts,
+  toExtensionType,
+} from "@agentxm/extension-model/unstable/extensions";
 import {
-  computePackPaths,
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
-} from "@agentxm/client-core/unstable/packs";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { acceptedCanonicalObservation, WorkspaceMutations } from "@agentxm/workspace-state";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const PackMemberSchema = Schema.Struct({
@@ -27,6 +27,7 @@ const PackMemberSchema = Schema.Struct({
   constraint: Schema.NullOr(Schema.String),
   version: Schema.NullOr(Schema.String),
   source: Schema.NullOr(Schema.String),
+  reachability: Schema.NullOr(Schema.Literals(["satisfying", "excluded", "missing"] as const)),
 });
 
 export const PackShowResultSchema = Schema.Struct({
@@ -35,12 +36,10 @@ export const PackShowResultSchema = Schema.Struct({
   sourceAuthority: Schema.String,
   canonicalPath: Schema.String,
   manifestVersion: Schema.String,
-  trustStatus: Schema.String,
+  acceptedResolution: Schema.String,
   canonicalStatus: Schema.String,
   desiredDependencies: Schema.Array(PackMemberSchema),
-  resolvedDependencies: Schema.Array(PackMemberSchema),
-  drift: Schema.Array(Schema.String),
-  recoveryAction: Schema.NullOr(Schema.String),
+  problems: Schema.Array(Schema.String),
 });
 
 type PackShowResult = Schema.Schema.Type<typeof PackShowResultSchema>;
@@ -52,17 +51,17 @@ const ShowDetail = {
     sourceAuthority: { label: "Source authority" },
     canonicalPath: { label: "Canonical path" },
     manifestVersion: { label: "Manifest version" },
-    trustStatus: { label: "Trust" },
+    acceptedResolution: { label: "Resolution" },
     canonicalStatus: { label: "Canonical" },
     desiredCount: { label: "Desired members" },
-    resolvedCount: { label: "Resolved members" },
-    drift: { label: "Drift", render: (items) => (items.length === 0 ? "none" : items.join("; ")) },
-    recoveryAction: { label: "Recovery", render: (value) => value ?? "none" },
+    problems: {
+      label: "Problems",
+      render: (items) => (items.length === 0 ? "none" : items.join("; ")),
+    },
   },
 } as const satisfies DetailView<
-  Omit<PackShowResult, "desiredDependencies" | "resolvedDependencies"> & {
+  Omit<PackShowResult, "desiredDependencies"> & {
     readonly desiredCount: number;
-    readonly resolvedCount: number;
   }
 >;
 
@@ -73,7 +72,7 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const requested = parseExtensionFqnParts(target);
   if (requested !== undefined && requested.type !== "pack") {
     return yield* makeAppError({
@@ -90,16 +89,33 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
     });
   }
   const source = configuredSource(entry);
-  const sourceFqn = isWorkspaceSourceLocator(source)
-    ? source.slice("workspace:".length)
-    : source.replace(/^registry:/, "").replace(/@[^@/]+$/, "");
-  const parsedSource = parseExtensionFqnParts(sourceFqn);
-  if (parsedSource === undefined || parsedSource.type !== "pack") {
+  const parsedRegistrySource = isWorkspaceSourceLocator(source)
+    ? undefined
+    : parseSourceQualifiedRegistrySourcePatternParts(source);
+  const parsedSource = isWorkspaceSourceLocator(source)
+    ? ws.layout.owner === undefined
+      ? undefined
+      : parseExtensionFqnParts(`${ws.layout.owner}/packs/${name}`)
+    : parsedRegistrySource?.type === "packs" && parsedRegistrySource.name !== undefined
+      ? {
+          owner: parsedRegistrySource.owner,
+          type: toExtensionType(parsedRegistrySource.type),
+          name: parsedRegistrySource.name,
+        }
+      : undefined;
+  if (parsedSource === undefined && isWorkspaceSourceLocator(source)) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: `Configured workspace pack "${name}" requires a workspace owner`,
+    });
+  }
+  if (parsedSource === undefined) {
     return yield* makeAppError({
       code: "validation",
       detail: `Configured pack source is not a valid pack identity: ${source}`,
     });
   }
+  const sourceFqn = formatFqn(parsedSource);
   if (
     requested !== undefined &&
     (requested.owner !== parsedSource.owner || requested.name !== parsedSource.name)
@@ -109,13 +125,17 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
       detail: `Requested pack does not match configured identity ${sourceFqn}`,
     });
   }
-  const canonicalPath = computePackPaths(
-    path.join,
-    ws.baseDir,
-    parsedSource.owner,
-    parsedSource.name,
-  ).canonicalPath;
-  const manifestPath = path.join(canonicalPath, PACK_MANIFEST_FILENAME);
+  const canonical = yield* acceptedCanonicalObservation({ workspace: ws, type: "pack", name });
+  const canonicalPath = Option.flatMap(canonical, (state) =>
+    Option.fromUndefinedOr(state.observation.path),
+  );
+  if (Option.isNone(canonicalPath)) {
+    return yield* makeAppError({
+      code: "not_found",
+      detail: `Canonical pack "${sourceFqn}" is unavailable`,
+    });
+  }
+  const manifestPath = path.join(canonicalPath.value, PACK_MANIFEST_FILENAME);
   const raw = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((cause) =>
       makeAppError({
@@ -143,93 +163,67 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
       }),
     ),
   );
-  const trust = (yield* ws.getTrustState()).records[trustRecordKey("pack", name)];
-  const currentContentIdentity = yield* computePackageContentHash(canonicalPath);
-  const expectedIdentity = `${isWorkspaceSourceLocator(source) ? "workspace:" : ""}${sourceFqn}`;
-  const trustStatus =
-    trust === undefined
-      ? "missing"
-      : trust.sourceIdentity !== expectedIdentity
-        ? "wrong-origin"
-        : trust.contentIdentity === undefined
-          ? "missing-content-baseline"
-          : trust.contentIdentity === currentContentIdentity
-            ? "trusted"
-            : "drifted";
   const locked = yield* ws.getLockedPack(name);
-  const receipt =
-    locked._tag === "None"
-      ? []
-      : [
-          locked.value.resolvedSkills,
-          locked.value.resolvedMcpServers,
-          locked.value.resolvedSubagents,
-          locked.value.resolvedRules ?? {},
-          locked.value.resolvedHooks ?? {},
-          locked.value.resolvedKnowledge ?? {},
-        ].flatMap((group) =>
-          Object.entries(group).map(([fqn, member]) => ({
-            fqn,
-            constraint: null,
-            version: member.version,
-            source: "source" in member ? member.source : "registry",
-          })),
-        );
-  const resolvedByFqn = new Map(receipt.map((member) => [member.fqn, member]));
-  const desiredDependencies = Object.entries(manifest.dependencies).map(([fqn, constraint]) => ({
-    fqn,
-    constraint,
-    version: resolvedByFqn.get(fqn)?.version ?? null,
-    source: resolvedByFqn.get(fqn)?.source ?? null,
-  }));
-  const desiredNames = new Set(desiredDependencies.map((member) => member.fqn));
-  const drift = [
-    ...desiredDependencies
-      .filter((member) => member.version === null)
-      .map((member) => `${member.fqn} is desired but unresolved`),
-    ...receipt
-      .filter((member) => !desiredNames.has(member.fqn))
-      .map((member) => `${member.fqn} is resolved but no longer desired`),
-  ];
-  if (trustStatus === "drifted") drift.unshift("canonical content differs from trust baseline");
-  const fqn = formatFqn({ owner: parsedSource.owner, type: "pack", name: parsedSource.name });
+  const packFqn = sourceFqn;
+  const sourceAuthority = isWorkspaceSourceLocator(source) ? "workspace" : "registry";
+  const graph = yield* ws.getDesiredStateGraph();
+  const normalizedPackFqn = packFqn.replace(/^workspace:/u, "");
+  const desiredDependencies = Object.entries(manifest.dependencies).map(([fqn, constraint]) => {
+    const node = graph.nodes.find(
+      (candidate) =>
+        candidate.identity.replace(/^workspace:/u, "").replace(/^registry:/u, "") === fqn &&
+        candidate.origins.some(
+          (origin) =>
+            origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") === normalizedPackFqn,
+        ),
+    );
+    return {
+      fqn,
+      constraint,
+      version: null,
+      source: node?.source ?? null,
+      reachability: node === undefined ? ("missing" as const) : ("satisfying" as const),
+    };
+  });
+  const canonicalStatus = Option.isSome(canonical) ? canonical.value.observation.status : "missing";
+  const acceptedResolution =
+    sourceAuthority === "workspace" ? "authored" : Option.isSome(locked) ? "accepted" : "missing";
+  const problems = graph.problems.map((problem) =>
+    "detail" in problem ? `${problem.type}: ${problem.detail}` : problem.type,
+  );
+  const fqn = packFqn;
   const result: PackShowResult = {
     scope: ws.scope,
     pack: fqn,
-    sourceAuthority: isWorkspaceSourceLocator(source) ? "workspace" : "registry",
+    sourceAuthority,
     canonicalPath: manifestPath,
     manifestVersion: manifest.version,
-    trustStatus,
-    canonicalStatus: trustStatus === "trusted" ? "usable" : "blocked",
+    acceptedResolution,
+    canonicalStatus,
     desiredDependencies,
-    resolvedDependencies: receipt,
-    drift,
-    recoveryAction:
-      trustStatus === "drifted" && isWorkspaceSourceLocator(source)
-        ? `axm packs repair ${fqn} --preview`
-        : null,
+    problems,
   };
-  if (yield* renderer.result(result, PackShowResultSchema)) return;
-  yield* renderer.detail(
-    {
-      pack: result.pack,
-      sourceAuthority: result.sourceAuthority,
-      canonicalPath: result.canonicalPath,
-      manifestVersion: result.manifestVersion,
-      trustStatus: result.trustStatus,
-      canonicalStatus: result.canonicalStatus,
-      desiredCount: result.desiredDependencies.length,
-      resolvedCount: result.resolvedDependencies.length,
-      drift: result.drift,
-      recoveryAction: result.recoveryAction,
-    },
-    ShowDetail,
-    `Pack ${fqn}`,
+  if (yield* screen.document(result, PackShowResultSchema)) return;
+  yield* screen.result(
+    detailViewDoc(
+      {
+        pack: result.pack,
+        sourceAuthority: result.sourceAuthority,
+        canonicalPath: result.canonicalPath,
+        manifestVersion: result.manifestVersion,
+        acceptedResolution: result.acceptedResolution,
+        canonicalStatus: result.canonicalStatus,
+        desiredCount: result.desiredDependencies.length,
+        problems: result.problems,
+      },
+      ShowDetail,
+      `Pack ${fqn}`,
+    ),
   );
 });
 
 const showConfig = {
-  target: Argument.string("name-or-fqn").pipe(
+  target: Argument.string("extension").pipe(
     Argument.withDescription("Configured pack name or fully qualified identity"),
   ),
   scope: scopeFlag.pipe(Flag.withDescription("Inspect project (default) or user-level pack state")),
@@ -239,7 +233,7 @@ export const showCommand = Command.make("show", showConfig, ({ target, scope }) 
   handlePacksShow(target).pipe(withWorkspace(scope), withRuntime("packs show")),
 ).pipe(
   withArgvTracking(showConfig),
-  Command.withDescription("Inspect desired, trusted, canonical, and resolved pack state"),
+  Command.withDescription("Inspect desired, accepted, and canonical pack state"),
   Command.withExamples([
     {
       command: "axm packs show my-pack",

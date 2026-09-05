@@ -1,0 +1,8 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@test",
+  "type": "skill",
+  "name": "another-skill",
+  "version": "1.0.0",
+  "description": "A second mock skill for E2E testing multiple skill discovery."
+}

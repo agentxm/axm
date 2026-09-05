@@ -6,19 +6,22 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 const libraryRef = "@acme/libraries/frontend";
 
 const snapshotAxmState = (workspace: string): Readonly<Record<string, string>> => {
-  const axmDir = path.join(workspace, ".axm");
   const snapshot: Record<string, string> = {};
   const visit = (dir: string): void => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const absolutePath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         visit(absolutePath);
+      } else if (entry.isFile()) {
+        snapshot[path.relative(workspace, absolutePath)] = fs.readFileSync(absolutePath, "utf8");
       } else {
-        snapshot[path.relative(axmDir, absolutePath)] = fs.readFileSync(absolutePath, "utf8");
+        snapshot[path.relative(workspace, absolutePath)] = entry.isSymbolicLink()
+          ? `symlink:${fs.readlinkSync(absolutePath)}`
+          : "other";
       }
     }
   };
-  visit(axmDir);
+  visit(workspace);
   return snapshot;
 };
 
@@ -31,9 +34,12 @@ describe("Library lifecycle commands", () => {
     const workspace = createTempDir();
 
     try {
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: workspace.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: workspace.path,
+        },
+      );
       expect(setup.exitCode).toBe(0);
       const before = snapshotAxmState(workspace.path);
 
@@ -51,9 +57,12 @@ describe("Library lifecycle commands", () => {
     const workspace = createTempDir();
 
     try {
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: workspace.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: workspace.path,
+        },
+      );
       expect(setup.exitCode).toBe(0);
       const before = snapshotAxmState(workspace.path);
 
@@ -90,9 +99,12 @@ describe("Library lifecycle commands", () => {
     const workspace = createTempDir();
 
     try {
-      const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], {
-        cwd: workspace.path,
-      });
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+        {
+          cwd: workspace.path,
+        },
+      );
       expect(setup.exitCode).toBe(0);
       const invocations: ReadonlyArray<ReadonlyArray<string>> = [
         ["uninstall", "@acme/skills/example"],

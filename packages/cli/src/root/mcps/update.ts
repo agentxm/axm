@@ -1,12 +1,11 @@
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { previewFlag, refreshFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { ignoreReleaseAgeFlag, previewFlag, refreshFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { resolveWorkspaceUpdateSelection, updateNameFilterFlag } from "../shared/update-targets.js";
 import { handleWorkspaceUpdate } from "../update/workspace-update-handler.js";
-import { handleUpdate } from "../update/handler.js";
 import * as Option from "effect/Option";
 
 const COMMAND = "mcps.update";
@@ -14,9 +13,9 @@ const PLAN_NAME = "Update configured MCP servers";
 const PLAN_DESCRIPTION = "Update configured MCP servers";
 
 const updateConfig = {
-  source: Argument.string("source").pipe(
-    Argument.withDescription("Filter to MCP servers matching a name or source"),
-    Argument.optional,
+  source: Flag.string("source").pipe(
+    Flag.withDescription("Update every local connection from this exact MCP source"),
+    Flag.optional,
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Update in project (default) or user-level configuration"),
@@ -27,20 +26,14 @@ const updateConfig = {
   yes: yesFlag,
   force: refreshFlag,
   preview: previewFlag,
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, name, yes, force, preview }) =>
+  ({ source, scope, name, yes, force, preview, ignoreReleaseAge }) =>
     Effect.gen(function* () {
-      // A registry FQN can name a server that is not configured under that
-      // spelling, so a bare positional stays on the root update path that
-      // re-resolves it from the source.
-      if (Option.isSome(source) && name.length === 0) {
-        return yield* handleUpdate({ source, yes, force, preview });
-      }
-
       const selection = yield* resolveWorkspaceUpdateSelection({
         command: COMMAND,
         planName: PLAN_NAME,
@@ -50,6 +43,7 @@ export const updateCommand = Command.make(
         resourceLabelPlural: "MCP servers",
         source,
         nameFilters: name,
+        sourceMayMatchName: false,
       });
       if (selection.type === "no-op") return;
 
@@ -58,18 +52,22 @@ export const updateCommand = Command.make(
         type: Option.some("mcp-server"),
         planName: PLAN_NAME,
         planDescription: Option.some(PLAN_DESCRIPTION),
-        flags: { yes, preview },
+        flags: { yes, preview, force },
         ...(selection.type === "names" ? { names: selection.names } : {}),
       });
-    }).pipe(withWorkspace(scope), withRuntime("mcps update")),
+    }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("mcps update"),
+    ),
 ).pipe(
   withArgvTracking(updateConfig),
   Command.withDescription("Update MCP servers"),
   Command.withExamples([
     { command: "axm mcps update", description: "Update configured MCP servers" },
     {
-      command: "axm mcps update @acme/mcps/context",
-      description: "Update one MCP server by registry name",
+      command: "axm mcps update --source @acme/mcps/context",
+      description: "Update every local connection from one registry source",
     },
     {
       command: "axm mcps update --name context-*",

@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.test-base.json",
+  "compilerOptions": {
+    "incremental": true,
+    "composite": true,
+    "outDir": "./out-tsc/vitest",
+    "ignoreDeprecations": "6.0",
+    "rootDir": "."
+  },
+  "include": [
+    "src/**/*.internal.test.ts",
+    "src/**/*.type-test.ts",
+    "src/**/test-helpers.ts",
+    "vitest.config.ts"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "../../tsconfig.json"
+    },
+    {
+      "path": "../extension-model/tsconfig.lib.json"
+    }
+  ]
+}

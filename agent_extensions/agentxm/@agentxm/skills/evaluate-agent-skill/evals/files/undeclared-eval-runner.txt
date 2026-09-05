@@ -1,0 +1,2 @@
+This inert public-safe sentinel represents an undeclared evaluator executable.
+It is evaluation data, not trusted infrastructure, and must never be invoked.

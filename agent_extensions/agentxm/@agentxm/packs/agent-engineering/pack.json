@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@agentxm",
+  "version": "0.11.0",
+  "description": "Agent engineering knowledge with workflows for authoring, evaluating, and auditing agent instructions and Agent Skills",
+  "keywords": [
+    "agent-engineering",
+    "ai-agents",
+    "agentic-systems",
+    "prompt-engineering",
+    "context-engineering",
+    "harness-engineering",
+    "skill-engineering",
+    "eval-engineering",
+    "agent-instructions",
+    "agent-skills"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/agent-extensions",
+    "directory": "packs/agent-engineering"
+  },
+  "homepage": "https://github.com/agentxm/agent-extensions",
+  "license": "MIT",
+  "type": "pack",
+  "name": "agent-engineering",
+  "dependencies": {
+    "@agentxm/knowledge/agent-engineering": ">=0.10.0",
+    "@agentxm/skills/author-agent-instructions": ">=0.1.6",
+    "@agentxm/skills/audit-agent-instructions": ">=0.1.6",
+    "@agentxm/skills/author-agent-skill": ">=0.11.0",
+    "@agentxm/skills/audit-agent-skill": ">=0.8.0",
+    "@agentxm/skills/evaluate-agent-skill": ">=0.3.2",
+    "@agentxm/skills/agent-skill-evaluator": ">=0.2.2"
+  }
+}

@@ -2,9 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { resolveWorkspaceUpdateSelection, updateNameFilterFlag } from "../shared/update-targets.js";
 import { handleWorkspaceUpdate } from "../update/workspace-update-handler.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
@@ -23,12 +24,13 @@ const updateConfig = {
     Flag.withDescription("Update only specific Knowledge bundles by name or glob pattern"),
   ),
   ...mutationFlags,
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, name, yes, preview }) =>
+  ({ source, scope, name, yes, preview, ignoreReleaseAge }) =>
     Effect.gen(function* () {
       const selection = yield* resolveWorkspaceUpdateSelection({
         command: COMMAND,
@@ -50,7 +52,11 @@ export const updateCommand = Command.make(
         flags: { yes, preview },
         ...(selection.type === "names" ? { names: selection.names } : {}),
       });
-    }).pipe(withWorkspace(scope), withRuntime("knowledge update")),
+    }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("knowledge update"),
+    ),
 ).pipe(
   withArgvTracking(updateConfig),
   Command.withDescription("Update configured Knowledge bundles"),

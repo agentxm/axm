@@ -1,0 +1,9 @@
+✔ Installed 3 skills  2.4s
+Extension                   Version       Change       Files   Path
+@craigsmitham/effect-v4     0.4.2         created   14 files   agent_extensions/agentxm/@craigsmitham/skills/effect-v4
+@craigsmitham/field-notes   0.2.3 →       updated    6 files   agent_extensions/agentxm/@craigsmitham/skills/field-notes
+                            0.2.4
+@agentxm/knowledge/legacy   1.0.0         removed              agent_extensions/agentxm/@agentxm/knowledge/legacy
+= 5 skills already current  --verbose to list
+Next
+  Inspect installed skills · axm skills list

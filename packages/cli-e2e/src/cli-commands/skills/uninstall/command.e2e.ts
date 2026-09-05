@@ -11,15 +11,21 @@ import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
 
+const installedCanonicalSkillDir = (workspacePath: string, name: string): string =>
+  path.dirname(fs.realpathSync(path.join(workspacePath, ".claude", "skills", name)));
+
 describe("axm skills uninstall", () => {
   describe("basic uninstall flow", () => {
     it("uninstalls a skill from all agents", async () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
-        await runCli(["setup", "--yes", "--non-interactive", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--non-interactive", "--agent", "claude-code"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Install a skill first
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
@@ -27,14 +33,7 @@ describe("axm skills uninstall", () => {
         });
 
         // Verify skill is installed
-        const canonicalSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
+        const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
         // Uninstall the skill
@@ -52,17 +51,14 @@ describe("axm skills uninstall", () => {
         expect(fs.existsSync(agentSkillDir)).toBe(false);
 
         // Verify skill is removed from lockfile
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lock.skills?.["my-skill"]).toBeUndefined();
 
         // Verify skill is removed from settings
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills?.["my-skill"]).toBeUndefined();
-
-        const status = await runCli(["status", "--json"], { cwd: temp.path });
-        expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
 
         const lint = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
@@ -80,7 +76,7 @@ describe("axm skills uninstall", () => {
     it("removes symlink from agent directory", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
@@ -110,9 +106,12 @@ describe("axm skills uninstall", () => {
     it("shows no-op for literal name not in lockfile", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         const result = await runCli(["skills", "uninstall", "unknown-skill", "--yes"], {
           cwd: temp.path,
@@ -129,9 +128,12 @@ describe("axm skills uninstall", () => {
     it("exits successfully with no-op for nonexistent skill", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         const result = await runCli(["skills", "uninstall", "nonexistent", "--yes"], {
           cwd: temp.path,
@@ -149,13 +151,15 @@ describe("axm skills uninstall", () => {
     it("shows plan without making changes", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--agent", "claude-code"], {
+        await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
         });
+
+        const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
 
         const result = await runCli(
           ["skills", "uninstall", "my-skill", "--preview", "--non-interactive"],
@@ -168,14 +172,6 @@ describe("axm skills uninstall", () => {
         expect(getOutput(result)).toContain("my-skill");
 
         // Verify skill files still exist (no changes made in non-interactive preview)
-        const canonicalSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
         const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
@@ -188,17 +184,20 @@ describe("axm skills uninstall", () => {
     it("does not modify lockfile or settings", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
         });
 
         // Get original file contents
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
+        const settingsPath = path.join(temp.path, "axm.json");
         const originalLock = fs.readFileSync(lockPath, "utf-8");
         const originalSettings = fs.readFileSync(settingsPath, "utf-8");
 
@@ -218,9 +217,12 @@ describe("axm skills uninstall", () => {
     it("shows uninstall plan with skill and agents", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
@@ -243,9 +245,12 @@ describe("axm skills uninstall", () => {
     it("shows summary with count", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
@@ -259,7 +264,7 @@ describe("axm skills uninstall", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toMatch(/\d+ to apply/);
+        expect(getOutput(result)).toMatch(/\d+ to uninstall/);
       } finally {
         temp.cleanup();
       }
@@ -270,13 +275,18 @@ describe("axm skills uninstall", () => {
     it("skips confirmation prompt", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
         });
+
+        const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
 
         // Uninstall with --yes should complete without requiring input
         const result = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
@@ -286,14 +296,6 @@ describe("axm skills uninstall", () => {
         expect(result.exitCode).toBe(0);
 
         // Skill should be removed
-        const canonicalSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
         expect(fs.existsSync(canonicalSkillDir)).toBe(false);
       } finally {
         temp.cleanup();
@@ -303,13 +305,19 @@ describe("axm skills uninstall", () => {
     it("proceeds directly to uninstall", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
           cwd: temp.path,
         });
+
+        const mySkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
+        const anotherSkillDir = installedCanonicalSkillDir(temp.path, "another-skill");
 
         const result = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
           cwd: temp.path,
@@ -318,22 +326,6 @@ describe("axm skills uninstall", () => {
         expect(result.exitCode).toBe(0);
 
         // Only my-skill should be removed, another-skill should remain
-        const mySkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
-        const anotherSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "another-skill",
-        );
         expect(fs.existsSync(mySkillDir)).toBe(false);
         expect(fs.existsSync(anotherSkillDir)).toBe(true);
       } finally {
@@ -361,14 +353,20 @@ describe("axm skills uninstall", () => {
     it("removes only the specified skill", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Install multiple skills
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
           cwd: temp.path,
         });
+
+        const mySkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
+        const anotherSkillDir = installedCanonicalSkillDir(temp.path, "another-skill");
 
         // Uninstall only my-skill
         const result = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
@@ -378,29 +376,13 @@ describe("axm skills uninstall", () => {
         expect(result.exitCode).toBe(0);
 
         // my-skill should be removed
-        const mySkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
         expect(fs.existsSync(mySkillDir)).toBe(false);
 
         // another-skill should remain
-        const anotherSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "another-skill",
-        );
         expect(fs.existsSync(anotherSkillDir)).toBe(true);
 
         // Lockfile should only have another-skill
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lock.skills?.["my-skill"]).toBeUndefined();
         expect(lock.skills?.["another-skill"]).toBeDefined();
@@ -412,26 +394,26 @@ describe("axm skills uninstall", () => {
     it("cleans up empty skills directory", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         // Install one skill
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
           cwd: temp.path,
         });
 
+        const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
+
         // Uninstall the only skill
         await runCli(["skills", "uninstall", "my-skill", "--yes"], {
           cwd: temp.path,
         });
 
-        // Skills directory should still exist (empty is fine) or be removed
-        const skillsDir = path.join(temp.path, ".axm", "extensions", "external", "skills");
-        if (fs.existsSync(skillsDir)) {
-          const contents = fs.readdirSync(skillsDir);
-          expect(contents).toHaveLength(0);
-        }
+        expect(fs.existsSync(canonicalSkillDir)).toBe(false);
       } finally {
         temp.cleanup();
       }

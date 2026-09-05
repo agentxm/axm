@@ -1,0 +1,120 @@
+{
+  "skill_name": "audit-agent-instructions",
+  "suite_version": "0.3.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "execution",
+      "prompt": "Audit the supplied repository instruction system. Do not modify it.",
+      "expected_output": "A snapshot-bound, read-only audit of the effective broad and local surfaces with evidence-backed findings.",
+      "files": ["evals/files/instruction-system.md"],
+      "assertions": [
+        "The audit binds the declared harness contract, canonical sources, scopes, and representative working locations.",
+        "It identifies duplicate procedure, wrong-layer command, weak route, and projection drift with exact evidence.",
+        "It protects the useful migration route instead of recommending removal merely to reduce length.",
+        "No source or projection is modified."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "execution",
+      "prompt": "Audit and remediate the supplied repository instruction system, then verify the result.",
+      "expected_output": "A preserved pre-change audit, an authoring revision of canonical sources, reconciliation, and a post-change closure matrix.",
+      "files": ["evals/files/instruction-system.md"],
+      "assertions": [
+        "The response preserves pre-change source identities and findings before mutation.",
+        "Remediation uses the author-agent-instructions workflow and changes canonical sources rather than aliases.",
+        "Affected and adjacent entry points are retested after reconciliation.",
+        "The final pass is labeled closure verification rather than independent approval."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "execution",
+      "prompt": "Audit which instruction wins for the conflicting task in this fixture.",
+      "expected_output": "An Inconclusive precedence finding because the host contract is unavailable, without guessing that the narrower file wins.",
+      "files": ["evals/files/unknown-precedence.md"],
+      "assertions": [
+        "Scope, applicability, composition, and precedence are treated as distinct questions.",
+        "Directory proximity is not treated as proof of runtime precedence.",
+        "The report identifies the missing host evidence and recommends removing the conflict until behavior is authoritative."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "routing",
+      "prompt": "Audit this repository's AGENTS.md and CLAUDE.md instruction system for scope and precedence problems.",
+      "expected_selection": "audit-agent-instructions",
+      "catalog_neighbors": ["author-agent-instructions", "audit-agent-skill"],
+      "assertions": ["The target is selected for a direct repository-instruction audit request.", "Selection occurs before any instruction fixture or expected finding is visible."]
+    },
+    {
+      "id": 5,
+      "stage": "routing",
+      "prompt": "Check whether our persistent coding-agent guidance is actually selected from the right directories and whether its aliases have drifted.",
+      "expected_selection": "audit-agent-instructions",
+      "catalog_neighbors": ["author-agent-instructions", "audit-agent-skill"],
+      "assertions": ["The paraphrased effective-context request selects the target.", "The absence of the literal word audit does not cause a miss."]
+    },
+    {
+      "id": 6,
+      "stage": "routing",
+      "prompt": "Audit this Agent Skill package for security, provenance, and routing conformity.",
+      "expected_selection": "audit-agent-skill",
+      "catalog_neighbors": ["audit-agent-skill", "author-agent-instructions"],
+      "assertions": ["The target abstains because the artifact is an Agent Skill rather than an instruction system.", "The neighboring skill audit remains eligible."]
+    },
+    {
+      "id": 7,
+      "stage": "routing",
+      "prompt": "Rewrite our AGENTS.md hierarchy and reconcile the managed CLAUDE.md projection.",
+      "expected_selection": "author-agent-instructions",
+      "catalog_neighbors": ["author-agent-instructions", "audit-agent-skill"],
+      "assertions": ["The target abstains because the request authorizes mutation rather than assessment.", "The neighboring instruction-authoring skill remains eligible."]
+    },
+    {
+      "id": 8,
+      "stage": "routing",
+      "prompt": "Can you review this agent setup?",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["audit-agent-skill", "author-agent-instructions"],
+      "assertions": ["The ambiguous request does not select the target from generic agent and review vocabulary.", "The response clarifies which artifact or system is in scope."]
+    },
+    {
+      "id": 9,
+      "stage": "routing",
+      "prompt": "$audit-agent-instructions inspect this instruction system without modifying it.",
+      "expected_selection": "audit-agent-instructions",
+      "catalog_neighbors": ["author-agent-instructions", "audit-agent-skill"],
+      "assertions": ["Explicit invocation selects the target.", "The result is treated as a control rather than implicit-routing evidence."]
+    },
+    {
+      "id": 10,
+      "stage": "execution",
+      "prompt": "Audit the supplied managed instruction system without repairing it.",
+      "expected_output": "A read-only AXM-aware audit that binds canonical and contributed ownership, confirms target drift through native diagnostics, and leaves reconciliation unapplied.",
+      "files": ["evals/files/axm-managed-instruction-system.md"],
+      "assertions": [
+        "The audit recognizes AXM management from the workspace facts even though the prompt does not name AXM, then reads current axm help instructions.",
+        "It uses axm instructions and axm lint for current ownership and health evidence and axm sync --preview only to inspect the proposed reconciliation.",
+        "It distinguishes the authored canonical source, propagated alias, and independently owned Rules and Knowledge regions.",
+        "It reports the drift with exact evidence without applying axm sync or editing any source, alias, or managed region."
+      ]
+    },
+    {
+      "id": 11,
+      "stage": "execution",
+      "prompt": "Audit whether the supplied repository instruction system is helpful. Do not modify it.",
+      "expected_output": "A read-only audit that separates structural conformity from unproven behavioral value and names the comparison needed to decide helpfulness.",
+      "files": ["evals/files/behavioral-value.md"],
+      "assertions": [
+        "The audit recognizes that the instructions load, have valid routes, and are internally consistent without treating those facts as proof of helpfulness.",
+        "It reports unproven accretion for guidance retained only by intuition and does not infer harm from length alone.",
+        "It requires a prior, smaller, or absent-guidance baseline over representative and adjacent held-out tasks.",
+        "Outcome, adherence, unnecessary work, trajectory, economy, and safety remain separate measures.",
+        "The behavioral-value conclusion is Inconclusive while structural conformity is reported independently."
+      ]
+    }
+  ]
+}

@@ -48,14 +48,16 @@ http-client.private.env.json
 .nx/cache/
 .nx/workspace-data/
 tmp/
+.axm/
 
 # Test results (JUnit XML reports)
 test-results/
 
-# >>> axm:instructions >>>
-**/CLAUDE.md
-# <<< axm:instructions <<<
-
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs
+# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases
+/CLAUDE.md
+/docs/CLAUDE.md
+/specifications/CLAUDE.md
+# axm:end v=1 region=instruction-aliases

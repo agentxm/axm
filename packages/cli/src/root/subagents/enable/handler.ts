@@ -2,16 +2,19 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import type { EnableSubagentOperation } from "@agentxm/client-core/unstable/subagents";
-import { enableSubagent } from "@agentxm/client-core/unstable/subagents";
-import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
+import { makeAppError } from "../../../app-error/index.js";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import type { EnableSubagentOperation } from "@agentxm/extension-lifecycle";
+import { enableSubagent } from "@agentxm/extension-lifecycle";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
+import { provideLifecycleFailureAdapter } from "../../../feature-errors.js";
 
 export interface EnableSubagentHandlerArgs {
   readonly name: string;
@@ -19,7 +22,17 @@ export interface EnableSubagentHandlerArgs {
   readonly preview: boolean;
 }
 
-export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function* (
+export const handleEnableSubagent = (args: EnableSubagentHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "subagents.enable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Enable subagent",
+    },
+    handleEnableSubagentBody(args),
+  );
+
+const handleEnableSubagentBody = Effect.fn("EnableSubagent.handle")(function* (
   args: EnableSubagentHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
@@ -72,6 +85,7 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
     readiness: "ready",
     label: subagentName,
     run: enableSubagent(op).pipe(
+      provideLifecycleFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -83,18 +97,20 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
     _tag: "Plan",
     name: "Enable subagent",
     description: Option.some(`Enable ${subagentName}`),
+    presentation: operationPresentation(
+      { imperative: "enable", past: "Enabled", gerund: "Enabling" },
+      "subagent",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
-    preview: args.preview,
-    displayApplied: false,
-  });
-  yield* emitAppliedPlanOutcome({
-    command: "subagents.enable",
-    headline: `Enabled subagent ${subagentName}`,
-    resolution,
+  const execution = yield* makePublicPositionalPlanExecution(
+    args,
+    ["subagents", "enable"],
+    [subagentName],
+  );
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("subagents.enable", resolution, {
     suggestions: [
       { description: "Inspect installed subagents", cmd: "axm subagents list" },
       { description: "Undo", cmd: `axm subagents disable ${subagentName}` },

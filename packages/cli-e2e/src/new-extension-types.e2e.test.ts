@@ -15,16 +15,55 @@ const configureWorkspace = (
   workspacePath: string,
   update: (settings: Record<string, unknown>) => Record<string, unknown>,
 ) => {
-  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
+  const settingsPath = path.join(workspacePath, "axm.json");
   writeJson(settingsPath, update(readJson(settingsPath)));
 };
 
-describe("axm mcps new", () => {
-  it("scaffolds, registers, and writes lockfile for an authored MCP server", async () => {
+describe("axm skills new", () => {
+  it("preserves unrelated settings layout in a divergent workspace", async () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      configureWorkspace(temp.path, (settings) => ({
+        ...settings,
+        owner: "@test",
+        lint: { rules: {} },
+      }));
+      const settingsPath = path.join(temp.path, "axm.json");
+      const before = fs.readFileSync(settingsPath, "utf-8");
+
+      const result = await runCli(["skills", "new", "layout-check", "--yes"], {
+        cwd: temp.path,
+      });
+
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+      const after = fs.readFileSync(settingsPath, "utf-8");
+      const intendedEntry = ',\n    "layout-check": "workspace"';
+      expect(after).toContain(intendedEntry);
+      expect(after.endsWith("\n")).toBe(true);
+      expect(after.replace(intendedEntry, "").slice(0, -1)).toBe(before);
+      expect(readJson(settingsPath)["skills"]).toMatchObject({
+        "layout-check": "workspace",
+      });
+    } finally {
+      temp.cleanup();
+    }
+  });
+});
+
+describe("axm mcps new", () => {
+  it("scaffolds and registers an authored MCP server without a lockfile row", async () => {
+    const temp = createTempDir();
+
+    try {
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@test",
@@ -37,25 +76,21 @@ describe("axm mcps new", () => {
       );
       expect(result.exitCode).toBe(0);
 
-      const packageDir = path.join(temp.path, ".axm", "extensions", "@test", "mcps", "context");
+      const packageDir = path.join(temp.path, "mcps", "context");
       const manifest = readJson(path.join(packageDir, "mcp.json"));
       expect(manifest["owner"]).toBe("@test");
       expect(manifest["type"]).toBe("mcp-server");
       expect(manifest["name"]).toBe("context");
       expect(manifest["version"]).toBe("0.1.0");
 
-      const settings = readJson(path.join(temp.path, ".axm", "settings.json"));
+      const settings = readJson(path.join(temp.path, "axm.json"));
       expect(settings["mcpServers"]).toEqual({
-        context: "workspace:@test/mcps/context",
+        context: "workspace",
       });
 
-      const lockfile = fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf-8");
-      expect(lockfile).toContain("context:");
-      expect(lockfile).toContain("type: workspace");
-      expect(lockfile).toContain("version: 0.1.0");
-      expect(result.stdout + result.stderr).toContain(
-        "Edit `.axm/extensions/@test/mcps/context/mcp.json`",
-      );
+      const lockfile = fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf-8");
+      expect(lockfile).toBe("lockfileVersion: 7\nskills: {}\n");
+      expect(result.stdout + result.stderr).toContain("Edit `mcps/context/mcp.json`");
     } finally {
       temp.cleanup();
     }
@@ -65,9 +100,12 @@ describe("axm mcps new", () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive", "--agent", "claude-code"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--non-interactive", "--agent", "claude-code"],
+        {
+          cwd: temp.path,
+        },
+      );
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@original",
@@ -88,42 +126,21 @@ describe("axm mcps new", () => {
         ).exitCode,
       ).toBe(0);
 
-      const originalDir = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@original",
-        "mcps",
-        "context",
-      );
-      const relocatedDir = path.join(temp.path, ".axm", "extensions", "@other", "mcps", "context");
-      fs.mkdirSync(path.dirname(relocatedDir), { recursive: true });
-      fs.renameSync(originalDir, relocatedDir);
-      writeJson(path.join(relocatedDir, "mcp.json"), {
-        ...readJson(path.join(relocatedDir, "mcp.json")),
+      const packageDir = path.join(temp.path, "mcps", "context");
+      writeJson(path.join(packageDir, "mcp.json"), {
+        ...readJson(path.join(packageDir, "mcp.json")),
         owner: "@other",
       });
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
-        mcpServers: { context: "workspace:@other/mcps/context" },
+        owner: "@other",
+        mcpServers: { context: "workspace" },
       }));
 
-      const status = await runCli(["status"], { cwd: temp.path });
-      expect(status.exitCode).toBe(1);
-      expect(status.stdout + status.stderr).toContain("axm adopt @other/mcps/context --preview");
-
-      const refused = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
-      expect(refused.exitCode).not.toBe(0);
-      expect(refused.stdout + refused.stderr).not.toContain("workspace:workspace:");
-      expect(refused.stdout + refused.stderr).toContain("axm adopt @other/mcps/context --preview");
-
-      const recovered = await runCli(["adopt", "@other/mcps/context", "--yes"], {
-        cwd: temp.path,
-      });
+      const recovered = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
       expect(recovered.exitCode).toBe(0);
+      expect(recovered.stdout + recovered.stderr).not.toContain("workspace:workspace:");
 
-      const finalStatus = await runCli(["status"], { cwd: temp.path });
-      expect(finalStatus.exitCode).toBe(0);
       const lint = await runCli(["lint"], { cwd: temp.path });
       expect(lint.exitCode).toBe(0);
     } finally {
@@ -137,7 +154,10 @@ describe("axm hooks new", () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@test",
@@ -172,7 +192,10 @@ describe("axm knowledge new", () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@test",
@@ -191,14 +214,7 @@ describe("axm knowledge new", () => {
         { cwd: temp.path },
       );
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
-      const packageDir = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "knowledge",
-        "platform",
-      );
+      const packageDir = path.join(temp.path, "knowledge", "platform");
       expect(readJson(path.join(packageDir, "knowledge.json"))["description"]).toBe(description);
       expect(fs.readFileSync(path.join(packageDir, "src", "index.md"), "utf8")).toContain(
         "Discovery map",

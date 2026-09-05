@@ -19,7 +19,7 @@ import {
   EXTENSION_ONLY_TYPES,
   WORKSPACE_CAPABILITY_EXTENSION_TYPES,
   type ExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 
 import { hooksCommand } from "./hooks/_hooks.js";
 import { knowledgeCommand } from "./knowledge/_knowledge.js";

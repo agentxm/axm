@@ -1,27 +1,20 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  breakDependenciesFlag,
-  previewFlag,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleUninstall } from "./handler.js";
 
 const uninstallConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.string("extension[@version]").pipe(
     Argument.withDescription("Registry FQN (@owner/<plural-type>/<name>[@version])"),
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the uninstall plan")),
-  force: breakDependenciesFlag.pipe(
-    Flag.withDescription("Remove even if the extension is referenced by other extensions"),
-  ),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be removed without making changes"),
   ),
@@ -30,11 +23,8 @@ const uninstallConfig = {
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ source, scope, yes, force, preview }) =>
-    handleUninstall({ source, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("uninstall"),
-    ),
+  ({ source, scope, yes, preview }) =>
+    handleUninstall({ source, yes, preview }).pipe(withWorkspace(scope), withRuntime("uninstall")),
 ).pipe(
   withArgvTracking(uninstallConfig),
   Command.withDescription("Remove an extension from the workspace"),

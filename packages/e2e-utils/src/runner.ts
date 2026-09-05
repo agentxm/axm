@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { execa } from "execa";
 
+import { withoutLocalGitEnvironment } from "./git-environment.js";
 import type { CliResult, RunCliOptions } from "./types.js";
 
 // E2E commands run concurrently and can exceed two minutes under load even
@@ -26,7 +27,8 @@ export const runCommand = async (
   // Bun warns when FORCE_COLOR and NO_COLOR are both present. The e2e runner
   // intentionally sets NO_COLOR so stderr channel-contract tests stay stable.
   // eslint-disable-next-line no-restricted-properties -- E2E runner needs parent env for child process
-  const { FORCE_COLOR: _forceColor, ...parentEnv } = process.env;
+  const { FORCE_COLOR: _forceColor, ...parentEnvWithGitContext } = process.env;
+  const parentEnv = withoutLocalGitEnvironment(parentEnvWithGitContext);
 
   const result = await execa(command, [...args], {
     cwd,

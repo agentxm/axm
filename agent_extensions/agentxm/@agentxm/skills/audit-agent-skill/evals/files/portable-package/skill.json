@@ -1,0 +1,10 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@example",
+  "type": "skill",
+  "name": "local-markdown-formatter",
+  "version": "1.0.0",
+  "description": "Formats one local Markdown file deterministically without publishing or network access",
+  "license": "MIT",
+  "standalone": true
+}

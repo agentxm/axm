@@ -1,6 +1,14 @@
 # Skills
 
-Skill packages live in `./.axm/extensions/<@owner>/skills/<skill-name>`.
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
+Project-authored skill packages live in `./skills/<skill-name>`; acquired skills
+use the source-qualified canonical scheme. A Registry skill such as
+`@acme/skills/review` lives at
+`./agent_extensions/agentxm/@acme/skills/review`; a portable GitHub skill at
+`github:remix-run/react-router//.agents/skills/react-router@main` lives at
+`./agent_extensions/github/remix-run/react-router/.agents/skills/react-router`.
 
 ## skill.json
 
@@ -10,7 +18,12 @@ Run `axm help skill-schema` to print the raw JSON Schema.
 
 ## `src/`
 
-The `src/` directory holds `SKILL.md` and any other files described by the [agentskills.io](https://agentskills.io) specification.
+For an AgentXM skill package, the `src/` directory holds `SKILL.md` and any
+other files described by the [agentskills.io](https://agentskills.io)
+specification. A portable Agent Skill acquired directly from Git or a local
+source is preserved exactly at its selected source path: `SKILL.md`,
+`references/`, and other sibling content remain at that canonical root, and AXM
+does not fabricate `skill.json` or a publisher identity.
 
 `SKILL.md` is Markdown with YAML frontmatter. `name` and `description` are
 required, and `name` must match both the manifest's `name` and the agent-facing
@@ -67,30 +80,39 @@ frontmatter fields in a portable skill.
 
 The contents of `src/` are symlinked by AXM into each configured agent's skill directory, so you do not need to run `axm sync` after an edit. Run `axm sync` only if symlinks or copies are broken.
 
-If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md` in `.axm/extensions/...` and run `axm sync`; do not edit the copied agent-side file.
+If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md`
+in its authored package and run `axm sync`; do not edit the copied agent-side
+file. Acquired packages are immutable accepted state—fork one before editing it.
 
 ## Unmanaged skills
 
-When `axm lint` reports `workspace/skills-managed`, choose one resolution per skill or related group:
+Agent-native skills without AXM ownership remain outside reconciliation. Choose one resolution per skill or related group:
 
 - **Adopt** when the skill has an AXM-resolvable source and you want AXM to track updates: `axm skills install <source>`.
-- **Copy** when there is no clean source, or you want to own, customize, or publish it: `axm skills copy`, then `axm skills publish`.
-- **Leave it unowned** when another tool owns its lifecycle. AXM reports it but does not delete it.
-- **Prune** when it is orphaned and AXM ownership is proven: review `axm prune <name>`, then apply with `--yes`.
+- **Import** unmanaged/native content when you want to own, customize, or publish it: `axm skills import <source> <extension>`, then `axm skills publish`.
+- **Fork** an existing managed AXM skill when you want a separately authored derivative: `axm fork <source> <extension>`.
+- **Leave it unowned** when another tool owns its lifecycle. AXM does not delete it.
 
-Copy only when you deliberately take ownership away from another tool. `axm prune` shows the exact marker, symlink target, lock entry, or trust record that proves AXM ownership; unknown artifacts are retained.
+Import only when you deliberately create an AXM-owned copy. The native source
+remains unchanged. Sync removes obsolete output only when the projection
+adapter proves unit-local AXM ownership; unknown artifacts are retained.
 
 ## Lockfile and integrity
 
-AXM records two different identities for registry-installed skills:
+AXM records accepted immutable resolution for externally sourced skills:
 
 - **`integrity`** — the SRI sha512 of the published archive. AXM verifies it against the downloaded bytes before extracting, every time it fetches. This is the supply-chain guarantee: a tampered or corrupted download fails the install.
-- **Content identity** — a SHA-256 marker used with source identity in `.axm/trust.json` to decide whether canonical content is safe to reuse. Receipt history may also record it as `sourceHash`.
+- **Git identity** — immutable commit, tree, and content identity for Git-hosted sources.
+- **Local-source identity** — relative locator and content identity for an accepted local source.
 
-After install, remote-source canonical files under `.axm/extensions/` are
-AXM-managed. If their content identity changes, `axm sync` resolves the declared
-source instead of projecting untrusted local edits. Workspace-authored packages
-remain local authority and are re-materialized from their current source.
+After install, remote-source canonical files under `agent_extensions/` are
+observed materialization. Lockfile v7 records the source type, exact source
+name and endpoint or coordinate, requested intent, immutable resolution,
+package format, and strict integrity of their complete package tree. If any
+path or byte changes locally, AXM preserves the
+drift and blocks affected lint, inspection, reconciliation, projection, and
+lifecycle work until reinstall, update, or fork resolves it. Workspace-authored
+packages remain local authority.
 
 ## Recommended packs
 
@@ -106,11 +128,13 @@ When a pack lists this skill as a dependency and the skill lists that pack as re
 
 Always declare `recommendedPacks` for packs you publish under the same owner that bundle this skill — it costs nothing and earns the Official badge in the registry.
 
-See `axm help packs` for pack authoring and `standalone` semantics.
+Keep the skill self-contained. `recommendedPacks` does not install the pack or
+its members. If the skill requires another extension, follow `axm help packs`
+for the only supported direct-sibling pack composition.
 
 ## Where to go next
 
 - `axm skills --help` — full skill subcommand surface
 - `axm help authoring` — writing the registry `description`, keywords, and README
 - `axm help packs` — bundling skill extensions with extension packs
-- `axm help workspace-state` — desired, observed, trust, and receipt semantics
+- `axm help workspace-state` — desired, accepted-resolution, and observed semantics

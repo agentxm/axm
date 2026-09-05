@@ -1,0 +1,29 @@
+{
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
+  "owner": "@agentxm",
+  "agents": ["claude-code"],
+  "minimumReleaseAgeExclude": ["@agentxm/*", "@craigsmitham/*"],
+  "instructionFiles": {
+    "fileName": "AGENTS.md",
+    "gitignoreAliases": true
+  },
+  "skills": {
+    "axm": "workspace",
+    "improve-whatever": "agentxm:@craigsmitham/skills/improve-whatever",
+    "author-okf": "agentxm:@craigsmitham/skills/author-okf"
+  },
+  "knowledge": {
+    "agentxm": "agentxm:@agentxm/knowledge/agentxm",
+    "workflow-automation": "agentxm:@craigsmitham/knowledge/workflow-automation",
+    "software-engineering": "agentxm:@craigsmitham/knowledge/software-engineering"
+  },
+  "packs": {
+    "field-notes": "agentxm:@craigsmitham/packs/field-notes",
+    "effect-v4": "agentxm:@craigsmitham/packs/effect-v4",
+    "agent-engineering": "agentxm:@agentxm/packs/agent-engineering",
+    "docs": "agentxm:@craigsmitham/packs/docs",
+    "research": "agentxm:@craigsmitham/packs/research",
+    "requirements-engineering": "agentxm:@craigsmitham/packs/requirements-engineering",
+    "work-management": "agentxm:@craigsmitham/packs/work-management"
+  }
+}

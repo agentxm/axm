@@ -2,16 +2,21 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
   installableExtensionTypePluralSegments,
   InstallableExtensionTypePluralSchema,
   isInstallableExtensionTypePlural,
-  RegistrySourceRefSchema,
   toInstallableExtensionType,
   type InstallableExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import {
+  RegistrySourceRefSchema,
+  type ExtensionName,
+  type Handle,
+} from "@agentxm/extension-model/unstable/extensions";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
 
@@ -23,6 +28,10 @@ export type RootUpdatableType = InstallableExtensionType;
 export interface RootUpdateIntent {
   readonly source: string;
   readonly type: RootUpdatableType;
+  readonly owner: Handle;
+  readonly name: ExtensionName;
+  readonly versionRange: Option.Option<VersionRange>;
+  readonly target: string;
 }
 
 const rootUpdateFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
@@ -122,5 +131,9 @@ export const resolveRootUpdateIntent = (input: string) =>
     return {
       source,
       type: toInstallableExtensionType(parsed.type),
+      owner: parsed.owner,
+      name: parsed.name,
+      versionRange: Option.fromUndefinedOr(parsed.versionRange),
+      target: `${parsed.owner}/${parsed.type}/${parsed.name}`,
     } satisfies RootUpdateIntent;
   });

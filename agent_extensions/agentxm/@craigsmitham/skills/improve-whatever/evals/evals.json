@@ -1,0 +1,75 @@
+{
+  "skill_name": "improve-whatever",
+  "suite_version": "1.0.1",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "execution",
+      "prompt": "Evaluate this public service plan. Inspect the supplied evidence, begin with what is praiseworthy, and distinguish observations from inferences and unknowns.",
+      "expected_output": "A contextual evaluation that names the subject and purpose, preserves genuine strengths, applies material criteria with evidence, and calibrates unknowns.",
+      "assertions": [
+        "The subject and nearest non-subject are explicit.",
+        "Evidence is gathered before judgment.",
+        "Praiseworthy strengths appear before defects.",
+        "Observations, inferences, and unknowns remain distinct."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "execution",
+      "prompt": "Check whether this JSON file conforms to the supplied schema. Use only the schema as the scoring rubric.",
+      "expected_output": "A routing boundary that does not replace a narrow supplied conformance rubric with the broader improve-whatever lens.",
+      "assertions": [
+        "The supplied schema remains controlling.",
+        "No eight-criterion evaluation is forced onto the task.",
+        "The response does not invent moral or aesthetic defects.",
+        "A narrower validator or conformance route is preferred."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "execution",
+      "prompt": "Evaluate a complex artifact and give improvements. Each recommendation must trace to a finding, offer alternatives, and preserve worthwhile strengths.",
+      "expected_output": "An evidence-backed evaluation whose numbered improvements map to findings and include exactly one recommended option per item.",
+      "assertions": [
+        "Every improvement cites a discernment finding.",
+        "Alternative remedies are visibly nested and exactly one is recommended.",
+        "Reasonable keep-as-is options remain within Improvements.",
+        "The overall judgment states confidence and the central tradeoff."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "routing",
+      "prompt": "$improve-whatever Evaluate this product proposal through what is true, honorable, just, pure, lovely, commendable, excellent, and praiseworthy, then recommend improvements.",
+      "expected_selection": "improve-whatever",
+      "catalog_neighbors": [
+        "audit-docs",
+        "author-docs"
+      ],
+      "assertions": [
+        "The user's explicit skill invocation selects improve-whatever.",
+        "The explicit invocation is treated as a control rather than evidence of implicit routing.",
+        "No neighboring skill is selected for a job it does not own.",
+        "No task side effect occurs before explicit selection."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "routing",
+      "prompt": "Evaluate this product proposal through what is true, honorable, just, pure, lovely, commendable, excellent, and praiseworthy, then recommend improvements.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": [
+        "audit-docs",
+        "author-docs"
+      ],
+      "assertions": [
+        "Improve-whatever is not selected because the host requires explicit invocation.",
+        "No neighboring skill is selected for a job it does not own.",
+        "The routing result records abstention or clarification without activating improve-whatever.",
+        "No task side effect occurs before selection."
+      ]
+    }
+  ]
+}

@@ -4,6 +4,21 @@ import { describe, expect, it } from "vitest";
 import { EXTENSION_TYPE_MATRIX } from "./__generated__/extension-type-matrix.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: [
+    "cli/every-type-completes-the-shared-lifecycle",
+    "cli/activation-follows-desired-state",
+  ],
+  boundary: "process",
+  rationale:
+    "Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.",
+} as const;
+
 const readJson = (filePath: string): Record<string, unknown> =>
   JSON.parse(fs.readFileSync(filePath, "utf8"));
 
@@ -14,7 +29,7 @@ const writeJson = (filePath: string, value: unknown): void => {
 const extensionName = (plural: string): string => `atomic-${plural}`;
 
 const canonicalDirectory = (workspace: string, plural: string): string =>
-  path.join(workspace, ".axm", "extensions", "@test", plural, extensionName(plural));
+  path.join(workspace, plural, extensionName(plural));
 
 const snapshotTree = (root: string): Readonly<Record<string, string>> => {
   const snapshot: Record<string, string> = {};
@@ -45,14 +60,70 @@ const planFrom = (stdout: string): Readonly<Record<string, unknown>> => {
     throw new Error("Expected a JSON command result with a plan");
   }
   const result = document["result"];
-  const steps = result["steps"];
-  if (!Array.isArray(steps)) {
-    throw new Error("Expected a JSON command result with plan steps");
+  if (result["contract"] !== "plan-result-v3") {
+    throw new Error("Expected a plan-result-v3 command result");
   }
+  const units = result["units"];
+  if (!Array.isArray(units)) {
+    throw new Error("Expected a JSON command result with operation units");
+  }
+  const counts = result["counts"];
   return {
-    totalSteps: result["totalSteps"],
-    labels: steps.map((step) => (isRecord(step) ? step["label"] : undefined)),
+    total: isRecord(counts) ? counts["total"] : undefined,
+    labels: units.map((unit) => (isRecord(unit) ? unit["label"] : undefined)),
   };
+};
+
+const planAgentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string, unknown>>> => {
+  const document: unknown = JSON.parse(stdout);
+  if (!isRecord(document) || !isRecord(document["result"])) return [];
+  const units = document["result"]["units"];
+  if (!Array.isArray(units)) return [];
+  return units.flatMap((unit) => {
+    if (!isRecord(unit)) return [];
+    const direct = unit["agentOutcomes"];
+    if (Array.isArray(direct)) return direct.filter(isRecord);
+    const artifact = unit["artifact"];
+    if (!isRecord(artifact) || !Array.isArray(artifact["agentOutcomes"])) return [];
+    return artifact["agentOutcomes"].filter(isRecord);
+  });
+};
+
+const outcomeDecisions = (outcomes: ReadonlyArray<Readonly<Record<string, unknown>>>) =>
+  outcomes.map(({ outcome: _outcome, ...decision }) => decision);
+
+const inventoryOutcome = (
+  stdout: string,
+  name: string,
+  agentId: string,
+): Readonly<Record<string, unknown>> | undefined => {
+  const document: unknown = JSON.parse(stdout);
+  if (!isRecord(document) || !isRecord(document["result"])) return undefined;
+  const items = document["result"]["items"];
+  if (!Array.isArray(items)) return undefined;
+  const item = items.find((candidate) => isRecord(candidate) && candidate["name"] === name);
+  if (!isRecord(item) || !Array.isArray(item["agentOutcomes"])) return undefined;
+  return item["agentOutcomes"].find(
+    (outcome) => isRecord(outcome) && outcome["agentId"] === agentId,
+  );
+};
+
+const expectInventoryOutcome = async (
+  workspace: string,
+  plural: string,
+  name: string,
+  expected: "current" | "not-applicable",
+): Promise<void> => {
+  const listed = await runCli([plural, "list", "--json"], { cwd: workspace });
+  expect(listed.exitCode, listed.stdout + listed.stderr).toBe(0);
+  expect(inventoryOutcome(listed.stdout, name, "claude-code")).toMatchObject({
+    extensionType: expect.any(String),
+    name,
+    agentId: "claude-code",
+    outcome: expected,
+    reasonCode: expect.any(String),
+    reason: expect.any(String),
+  });
 };
 
 const runLifecycleMutation = async (
@@ -79,6 +150,11 @@ const runLifecycleMutation = async (
   expect(planFrom(applied.stdout), `preview/apply plan for ${command.join(" ")}`).toEqual(
     planFrom(preview.stdout),
   );
+  const previewOutcomes = planAgentOutcomes(preview.stdout);
+  const appliedOutcomes = planAgentOutcomes(applied.stdout);
+  expect(previewOutcomes, `preview outcomes for ${command.join(" ")}`).not.toHaveLength(0);
+  expect(appliedOutcomes, `apply outcomes for ${command.join(" ")}`).not.toHaveLength(0);
+  expect(outcomeDecisions(appliedOutcomes)).toEqual(outcomeDecisions(previewOutcomes));
   const afterApply = snapshotTree(workspace);
 
   const second = await runCli([...command, ...confirmation, "--json", "--non-interactive"], {
@@ -89,13 +165,8 @@ const runLifecycleMutation = async (
 };
 
 const expectCleanWorkspace = async (cwd: string, context: string): Promise<void> => {
-  for (const command of [["status"], ["lint"]]) {
-    const result = await runCli(command, { cwd });
-    expect(
-      result.exitCode,
-      `${context}: axm ${command.join(" ")}\n${result.stdout}${result.stderr}`,
-    ).toBe(0);
-  }
+  const result = await runCli(["lint"], { cwd });
+  expect(result.exitCode, `${context}: axm lint\n${result.stdout}${result.stderr}`).toBe(0);
 };
 
 describe("extension activation lifecycle", () => {
@@ -104,11 +175,11 @@ describe("extension activation lifecycle", () => {
 
     try {
       const setup = await runCli(
-        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
         owner: "@test",
@@ -130,6 +201,14 @@ describe("extension activation lifecycle", () => {
         expect(created.exitCode, `create ${row.type}\n${created.stdout}${created.stderr}`).toBe(0);
       }
       await expectCleanWorkspace(temp.path, "initial enabled state");
+      for (const row of EXTENSION_TYPE_MATRIX) {
+        await expectInventoryOutcome(
+          temp.path,
+          row.plural,
+          extensionName(row.plural),
+          row.configuredAgentPolicy === "not-applicable" ? "not-applicable" : "current",
+        );
+      }
 
       for (const row of EXTENSION_TYPE_MATRIX) {
         const name = extensionName(row.plural);
@@ -147,12 +226,19 @@ describe("extension activation lifecycle", () => {
           `${row.type} canonical package retained after disable`,
         ).toBe(true);
         await expectCleanWorkspace(temp.path, `${row.type} disabled`);
+        await expectInventoryOutcome(temp.path, row.plural, name, "not-applicable");
 
         await runLifecycleMutation(temp.path, [row.plural, "enable", name], confirmation);
+        await expectInventoryOutcome(
+          temp.path,
+          row.plural,
+          name,
+          row.configuredAgentPolicy === "not-applicable" ? "not-applicable" : "current",
+        );
         if (row.workspaceCapability === "instructions") {
           const instructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
           expect(instructions).toContain("region=rules");
-          expect(instructions).toContain("region=knowledge-base");
+          expect(instructions).toContain("region=knowledge");
           expect(fs.readFileSync(path.join(temp.path, "CLAUDE.md"), "utf8")).toBe(instructions);
         }
         await expectCleanWorkspace(temp.path, `${row.type} re-enabled`);
@@ -175,10 +261,15 @@ describe("extension activation lifecycle", () => {
 
     try {
       const projectSetup = await runCli(
-        ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+        ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: workspace.path, env },
       );
       expect(projectSetup.exitCode, projectSetup.stdout + projectSetup.stderr).toBe(0);
+      const projectSettingsPath = path.join(workspace.path, "axm.json");
+      writeJson(projectSettingsPath, {
+        ...readJson(projectSettingsPath),
+        owner: "@test",
+      });
       const userSetup = await runCli(
         ["setup", "--scope", "user", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: workspace.path, env },

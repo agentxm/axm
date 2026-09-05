@@ -11,31 +11,40 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { ExtensionName, Handle } from "@agentxm/client-core/unstable/extensions";
-import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
 import {
-  resolveSource,
-  SourceHostProviders,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { installMcpServer, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+  ExtensionNameSchema,
+  type ExtensionName,
+  type Handle,
+} from "@agentxm/extension-model/unstable/extensions";
+import * as Schema from "effect/Schema";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
+import { mcpRegistryResolutionKey, WorkspaceMutations } from "@agentxm/workspace-state";
+import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import { installMcpServer } from "@agentxm/extension-lifecycle";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
-} from "@agentxm/client-core/unstable/agent-capabilities";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { Screen } from "../../../screen/index.js";
+import type { Plan } from "@agentxm/workspace-operations";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
+import { isNonInteractiveOptional } from "../../../cli-flags/index.js";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
+import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
+import { toAppError } from "../../../app-error/conversions.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
+import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -43,7 +52,9 @@ import { parseRegistryInstallTarget } from "../../shared/registry-install-target
 
 export interface InstallMcpServerHandlerArgs {
   readonly source: string;
+  readonly localName?: string;
   readonly env?: ReadonlyArray<string>;
+  readonly force?: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -53,6 +64,7 @@ export interface InstallMcpServerHandlerArgs {
 export interface ParsedMcpServerInstallArgs {
   readonly owner: Handle;
   readonly serverName: ExtensionName;
+  readonly localName: ExtensionName;
   readonly versionRange: Option.Option<string>;
   readonly resolvedInput: string;
   readonly force: boolean;
@@ -69,6 +81,16 @@ export interface McpServerInstallSourceRequest {
   readonly serverName: ExtensionName;
   readonly versionRange: Option.Option<string>;
 }
+
+type InstallMcpServerActions = InstallExtensionCommandWorkflowActions<
+  InstallMcpServerHandlerArgs,
+  ParsedMcpServerInstallArgs,
+  McpServerInstallSourceRequest,
+  McpServerExtensionRef,
+  InstallMcpServerCommandIntent,
+  AppError,
+  AppError | PromptCancelled
+>;
 
 /**
  * Decode repeated `--env KEY=VALUE` flags into a record. Later occurrences of
@@ -97,82 +119,84 @@ export const parseEnvFlag = (
 const isConfigurableAgentId = (agentId: string): agentId is ConfigurableAgentId =>
   agentId in CONFIGURABLE_AGENTS_BY_ID;
 
-// -----------------------------------------------------------------------------
-// Service Tag
-// -----------------------------------------------------------------------------
+export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
+  const sources = yield* SourceHostProviders;
+  const catalog = yield* WorkspaceCatalog;
+  const httpClient = yield* HttpClient.HttpClient;
+  const ws = yield* WorkspaceMutations;
+  const screen = yield* Screen;
+  const agentRepo = yield* CodingAgentRepository;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
 
-export class InstallMcpServerCommandWorkflowActions extends ServiceMap.Service<
-  InstallMcpServerCommandWorkflowActions,
-  InstallExtensionCommandWorkflowActions<
-    InstallMcpServerHandlerArgs,
-    ParsedMcpServerInstallArgs,
-    McpServerInstallSourceRequest,
-    McpServerExtensionRef,
-    InstallMcpServerCommandIntent
-  >
->()("axm.sh/root/mcps/install/command-actions/InstallMcpServerCommandWorkflowActions") {}
+  const registryLoginSuggestions = ws
+    .getRegistrySourceHosts()
+    .pipe(Effect.mapError(toAppError))
+    .pipe(Effect.flatMap((hosts) => loginSuggestionsFor(hosts.map((host) => host.location.href))));
 
-// -----------------------------------------------------------------------------
-// Live Layer
-// -----------------------------------------------------------------------------
+  // Build a service layer to provide to inner effects that still require
+  // services via the Effect context (e.g. resolveSource).
+  const envLayer = Layer.mergeAll(
+    Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(WorkspaceCatalog, catalog),
+    Layer.succeed(HttpClient.HttpClient, httpClient),
+    Layer.succeed(WorkspaceMutations, ws),
+    Layer.succeed(FileSystem.FileSystem, fs),
+    Layer.succeed(Path.Path, path),
+    Layer.succeed(Screen, screen),
+    Layer.succeed(CodingAgentRepository, agentRepo),
+    LifecycleFailureAdapterLive,
+  );
 
-/**
- * Constructs the actions by resolving all services at layer-build time.
- * Each action method closes over the captured services so `R = never`.
- */
-export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
-  InstallMcpServerCommandWorkflowActions,
-  Effect.gen(function* () {
-    const sources = yield* SourceHostProviders;
-    const ws = yield* WorkspaceMutations;
-    const renderer = yield* CliRenderer;
-    const agentRepo = yield* CodingAgentRepository;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
+  const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
 
-    // Build a service layer to provide to inner effects that still require
-    // services via the Effect context (e.g. resolveSource).
-    const envLayer = Layer.mergeAll(
-      Layer.succeed(SourceHostProviders, sources),
-      Layer.succeed(WorkspaceMutations, ws),
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
-      Layer.succeed(CliRenderer, renderer),
-      Layer.succeed(CodingAgentRepository, agentRepo),
-    );
+  const parseArgs = (
+    args: InstallMcpServerHandlerArgs,
+  ): Effect.Effect<ParsedMcpServerInstallArgs, AppError> =>
+    Effect.gen(function* () {
+      const trimmed = args.source.trim();
+      const env = yield* parseEnvFlag(args.env ?? []);
+      const parsed = parseRegistryInstallTarget(trimmed, {
+        expectedType: "mcp-server",
+        allowBareName: true,
+      });
 
-    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
+      if (Result.isSuccess(parsed)) {
+        if (parsed.success.kind === "registry") {
+          const localName = yield* Schema.decodeUnknownEffect(ExtensionNameSchema)(
+            args.localName ?? parsed.success.name,
+          ).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "validation",
+                detail:
+                  "Local MCP names must be max 64 chars, use lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen.",
+                cause,
+              }),
+            ),
+          );
+          return {
+            owner: parsed.success.owner,
+            serverName: parsed.success.name,
+            localName,
+            versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
+            resolvedInput: trimmed,
+            force: args.force ?? false,
+            env,
+          };
+        }
 
-    const parseArgs = (
-      args: InstallMcpServerHandlerArgs,
-    ): Effect.Effect<ParsedMcpServerInstallArgs, AppError> =>
-      Effect.gen(function* () {
-        const trimmed = args.source.trim();
-        const env = yield* parseEnvFlag(args.env ?? []);
-        const parsed = parseRegistryInstallTarget(trimmed, {
-          expectedType: "mcp-server",
-          allowBareName: true,
-        });
-
-        if (Result.isSuccess(parsed)) {
-          if (parsed.success.kind === "registry") {
-            return {
-              owner: parsed.success.owner,
-              serverName: parsed.success.name,
-              versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
-              resolvedInput: trimmed,
-              force: false,
-              env,
-            };
-          }
-
-          const owner = yield* ws.getConfiguredOwner().pipe(
+        const owner = yield* ws
+          .getConfiguredOwner()
+          .pipe(Effect.mapError(toAppError))
+          .pipe(
             Effect.flatMap(
               Option.match({
                 onNone: () =>
                   Effect.fail(
                     makeAppError({
-                      code: "internal",
+                      code: "validation",
                       detail: `Cannot resolve bare MCP server name "${parsed.success.name}" without a configured owner`,
                       suggestions: [
                         {
@@ -187,215 +211,282 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               }),
             ),
           );
-          return {
-            owner,
-            serverName: parsed.success.name,
-            versionRange: Option.none<string>(),
-            resolvedInput: `${owner}/mcps/${parsed.success.name}`,
-            force: false,
-            env,
-          };
-        }
+        return {
+          owner,
+          serverName: parsed.success.name,
+          localName: yield* Schema.decodeUnknownEffect(ExtensionNameSchema)(
+            args.localName ?? parsed.success.name,
+          ).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "validation",
+                detail:
+                  "Local MCP names must be max 64 chars, use lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen.",
+                cause,
+              }),
+            ),
+          ),
+          versionRange: Option.none<string>(),
+          resolvedInput: `${owner}/mcps/${parsed.success.name}`,
+          force: args.force ?? false,
+          env,
+        };
+      }
 
-        switch (parsed.failure.kind) {
-          case "wrong-type":
-            return yield* makeAppError({
+      switch (parsed.failure.kind) {
+        case "wrong-type":
+          return yield* makeAppError({
+            code: "validation",
+            detail: "MCP server source must include /mcps/ segment",
+            suggestions: [{ description: "Use @owner/mcps/server-name format." }],
+          });
+        case "missing-name":
+          return yield* makeAppError({
+            code: "not_found",
+            detail: "MCP server source must include a server name",
+            suggestions: [{ description: "Use @owner/mcps/server-name format." }],
+          });
+        default:
+          return yield* makeAppError({
+            code: "usage",
+            detail: "MCP servers can only be installed from a registry",
+            suggestions: [
+              {
+                description: "Use @owner/mcps/server-name or just server-name.",
+              },
+            ],
+          });
+      }
+    });
+
+  const resolveSourceRequests = (
+    parsed: ParsedMcpServerInstallArgs,
+  ): Effect.Effect<ReadonlyArray<McpServerInstallSourceRequest>, AppError> =>
+    provide(
+      Effect.gen(function* () {
+        const source = yield* resolveSource(parsed.resolvedInput).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
               code: "validation",
-              detail: "MCP server source must include /mcps/ segment",
-              suggestions: [{ description: "Use @owner/mcps/server-name format." }],
-            });
-          case "missing-name":
-            return yield* makeAppError({
-              code: "not_found",
-              detail: "MCP server source must include a server name",
-              suggestions: [{ description: "Use @owner/mcps/server-name format." }],
-            });
-          default:
-            return yield* makeAppError({
-              code: "usage",
-              detail: "MCP servers can only be installed from a registry",
+              detail: `Invalid source: ${error.message}`,
               suggestions: [
                 {
                   description: "Use @owner/mcps/server-name or just server-name.",
                 },
               ],
-            });
+              cause: error,
+            }),
+          ),
+        );
+
+        if (source.type !== "registry") {
+          return yield* makeAppError({
+            code: "usage",
+            detail: "MCP servers can only be installed from a registry",
+            suggestions: [
+              {
+                description: "Use a registry source: @owner/mcps/server-name",
+              },
+            ],
+          });
         }
-      });
 
-    const resolveSourceRequests = (
-      parsed: ParsedMcpServerInstallArgs,
-    ): Effect.Effect<ReadonlyArray<McpServerInstallSourceRequest>, AppError> =>
-      provide(
-        Effect.gen(function* () {
-          const source = yield* resolveSource(parsed.resolvedInput).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "validation",
-                detail: `Invalid source: ${error.message}`,
-                suggestions: [
-                  {
-                    description: "Use @owner/mcps/server-name or just server-name.",
-                  },
-                ],
-                cause: error,
-              }),
+        const identity = mcpRegistryResolutionKey({
+          authority: source.location,
+          owner: parsed.owner,
+          name: parsed.serverName,
+        });
+        const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+        const existingLocalNode = graph.nodes.find(
+          (node) => node.type === "mcp-server" && node.name === parsed.localName,
+        );
+        if (
+          existingLocalNode !== undefined &&
+          (existingLocalNode.authority === "inline" || existingLocalNode.identity !== identity)
+        ) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Local MCP name "${parsed.localName}" is already owned by a different source`,
+          });
+        }
+
+        const closure = graph.mcpSourceClosures.find(
+          (candidate) => candidate.identity === identity,
+        );
+        const retainedConstraints = (closure?.origins ?? []).flatMap((origin) => {
+          if (origin.constraint === undefined) return [];
+          if (origin.type === "settings" && origin.localName === parsed.localName) return [];
+          return [origin.constraint];
+        });
+        const requestedConstraints = Option.match(parsed.versionRange, {
+          onNone: () => retainedConstraints,
+          onSome: (range) => [...retainedConstraints, range],
+        });
+        const combinedConstraint = intersectVersionConstraints(requestedConstraints);
+        if (requestedConstraints.length > 0 && combinedConstraint === undefined) {
+          const contributors = (closure?.origins ?? [])
+            .filter((origin) => origin.constraint !== undefined)
+            .map((origin) =>
+              origin.type === "settings"
+                ? `${origin.localName ?? "settings"}:${origin.constraint}`
+                : `${origin.pack}:${origin.constraint}`,
+            );
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `MCP source constraints do not intersect for ${parsed.owner}/mcps/${parsed.serverName}: ${[...contributors, `${parsed.localName}:${Option.getOrElse(parsed.versionRange, () => "*")}`].join(", ")}`,
+          });
+        }
+
+        return [
+          {
+            source,
+            owner: parsed.owner,
+            serverName: parsed.serverName,
+            versionRange:
+              combinedConstraint === undefined
+                ? Option.none<string>()
+                : Option.some(combinedConstraint),
+          },
+        ];
+      }),
+    );
+
+  const discoverRefs = (reqs: ReadonlyArray<McpServerInstallSourceRequest>) =>
+    Effect.gen(function* () {
+      const allRefs = yield* Effect.forEach(
+        reqs,
+        (req) =>
+          sources
+            .find(req.source, {
+              names: [req.serverName],
+              type: "mcp-server",
+              owner: Option.some(req.owner),
+              versionRange: req.versionRange,
+            })
+            .pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "network",
+                  detail: "MCP server could not be fetched from registry",
+                  suggestions: [
+                    {
+                      description: "Verify the server name and registry configuration.",
+                    },
+                  ],
+                  cause: error,
+                }),
+              ),
             ),
-          );
-
-          if (source.type !== "registry") {
-            return yield* makeAppError({
-              code: "usage",
-              detail: "MCP servers can only be installed from a registry",
-              suggestions: [
-                {
-                  description: "Use a registry source: @owner/mcps/server-name",
-                },
-              ],
-            });
-          }
-
-          return [
-            {
-              source,
-              owner: parsed.owner,
-              serverName: parsed.serverName,
-              versionRange: parsed.versionRange,
-            },
-          ];
-        }),
+        { concurrency: "unbounded" },
       );
+      return allRefs
+        .flat()
+        .filter((ref): ref is McpServerExtensionRef => ref.type === "mcp-server");
+    });
 
-    const discoverRefs = (reqs: ReadonlyArray<McpServerInstallSourceRequest>) =>
-      Effect.gen(function* () {
-        const allRefs = yield* Effect.forEach(
-          reqs,
-          (req) =>
-            sources
-              .find(req.source, {
-                names: [req.serverName],
-                type: "mcp-server",
-                owner: Option.some(req.owner),
-                versionRange: req.versionRange,
-              })
-              .pipe(
-                Effect.mapError((error) =>
-                  makeAppError({
-                    code: "network",
-                    detail: "MCP server could not be fetched from registry",
-                    suggestions: [
-                      {
-                        description: "Verify the server name and registry configuration.",
-                      },
-                    ],
-                    cause: error,
+  const finalizeIntent = (
+    parsed: ParsedMcpServerInstallArgs,
+    refs: ReadonlyArray<McpServerExtensionRef>,
+  ): Effect.Effect<InstallMcpServerCommandIntent, AppError> =>
+    Effect.gen(function* () {
+      if (refs.length === 0) {
+        const loginSuggestions = yield* registryLoginSuggestions;
+        return yield* makeAppError({
+          code: "not_found",
+          detail: `MCP server "${parsed.serverName}" not found in registry`,
+          suggestions: [
+            {
+              description: "Verify the server name and check available MCP servers.",
+            },
+            ...loginSuggestions,
+          ],
+        });
+      }
+      const [ref] = refs;
+      if (ref === undefined) {
+        const loginSuggestions = yield* registryLoginSuggestions;
+        return yield* makeAppError({
+          code: "not_found",
+          detail: `MCP server "${parsed.serverName}" not found in registry`,
+          suggestions: [
+            {
+              description: "Verify the server name and check available MCP servers.",
+            },
+            ...loginSuggestions,
+          ],
+        });
+      }
+      return {
+        ref,
+        localName: parsed.localName,
+        versionRange: parsed.versionRange,
+        force: parsed.force,
+        env: parsed.env,
+      };
+    });
+
+  const buildPlan = (intent: InstallMcpServerCommandIntent): Effect.Effect<Plan, AppError> =>
+    Effect.gen(function* () {
+      if (ws.scope === "user") {
+        const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
+        const refused = configuredAgents.flatMap((agentId) => {
+          if (!isConfigurableAgentId(agentId)) {
+            return [`${agentId}: no MCP capability catalog entry`];
+          }
+          const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+          if (capability.axm.writer === null || !("transports" in capability.native)) {
+            return [`${agentId}: no MCP config support`];
+          }
+          return capability.axm.writer.config.targets.some((target) => target.scope === ws.scope)
+            ? []
+            : [`${agentId}: no ${ws.scope} MCP config target`];
+        });
+        if (refused.length > 0) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Cannot install MCP servers in user scope for the configured agent placement: ${refused.join("; ")}`,
+          });
+        }
+      }
+
+      return {
+        _tag: "Plan",
+        name: "Install MCP server",
+        description: Option.some(`Install MCP server ${intent.localName}`),
+        jobs: [
+          {
+            concurrency: 1 as const,
+            steps: [
+              {
+                key: `mcp-server:${intent.localName}`,
+                label: intent.localName,
+                readiness: "ready" as const,
+                run: provide(
+                  installMcpServer({
+                    name: "install-mcp-server",
+                    args: {
+                      ref: intent.ref,
+                      localName: intent.localName,
+                      nonInteractive: yield* isNonInteractiveOptional,
+                      force: intent.force,
+                      versionRange: intent.versionRange,
+                      skipSettings: Option.none(),
+                      env: Option.some(intent.env ?? {}),
+                    },
                   }),
                 ),
-              ),
-          { concurrency: "unbounded" },
-        );
-        return allRefs
-          .flat()
-          .filter((ref): ref is McpServerExtensionRef => ref.type === "mcp-server");
-      });
-
-    const finalizeIntent = (
-      parsed: ParsedMcpServerInstallArgs,
-      refs: ReadonlyArray<McpServerExtensionRef>,
-    ): Effect.Effect<InstallMcpServerCommandIntent, AppError> =>
-      Effect.gen(function* () {
-        if (refs.length === 0) {
-          return yield* makeAppError({
-            code: "not_found",
-            detail: `MCP server "${parsed.serverName}" not found in registry`,
-            suggestions: [
-              {
-                description: "Verify the server name and check available MCP servers.",
               },
             ],
-          });
-        }
-        const [ref] = refs;
-        if (ref === undefined) {
-          return yield* makeAppError({
-            code: "not_found",
-            detail: `MCP server "${parsed.serverName}" not found in registry`,
-            suggestions: [
-              {
-                description: "Verify the server name and check available MCP servers.",
-              },
-            ],
-          });
-        }
-        return {
-          ref,
-          versionRange: parsed.versionRange,
-          force: parsed.force,
-          env: parsed.env,
-        };
-      });
+          },
+        ],
+      } satisfies Plan;
+    });
 
-    const buildPlan = (intent: InstallMcpServerCommandIntent): Effect.Effect<Plan, AppError> =>
-      Effect.gen(function* () {
-        if (ws.scope === "user") {
-          const configuredAgents = yield* ws.getConfiguredAgents();
-          const refused = configuredAgents.flatMap((agentId) => {
-            if (!isConfigurableAgentId(agentId)) {
-              return [`${agentId}: no MCP capability catalog entry`];
-            }
-            const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-            if (capability.axm.writer === null || !("transports" in capability.native)) {
-              return [`${agentId}: no MCP config support`];
-            }
-            return capability.axm.writer.config.targets.some((target) => target.scope === ws.scope)
-              ? []
-              : [`${agentId}: no ${ws.scope} MCP config target`];
-          });
-          if (refused.length > 0) {
-            return yield* makeAppError({
-              code: "validation",
-              detail: `Cannot install MCP servers in user scope for the configured agent placement: ${refused.join("; ")}`,
-            });
-          }
-        }
-
-        return {
-          _tag: "Plan",
-          name: "Install MCP server",
-          description: Option.some(`Install MCP server ${intent.ref.server.name}`),
-          jobs: [
-            {
-              concurrency: 1 as const,
-              steps: [
-                {
-                  key: `mcp-server:${intent.ref.server.name}`,
-                  label: intent.ref.server.name,
-                  readiness: "ready" as const,
-                  run: provide(
-                    installMcpServer({
-                      name: "install-mcp-server",
-                      args: {
-                        ref: intent.ref,
-                        force: intent.force,
-                        versionRange: intent.versionRange,
-                        skipSettings: Option.none(),
-                        env: Option.some(intent.env ?? {}),
-                      },
-                    }),
-                  ),
-                },
-              ],
-            },
-          ],
-        } satisfies Plan;
-      });
-
-    return {
-      parseArgs,
-      resolveSourceRequests,
-      discoverRefs,
-      finalizeIntent,
-      buildPlan,
-    };
-  }),
-);
+  return {
+    parseArgs,
+    resolveSourceRequests,
+    discoverRefs,
+    finalizeIntent,
+    buildPlan,
+  };
+}).pipe(Effect.map((actions): InstallMcpServerActions => actions));

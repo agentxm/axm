@@ -7,12 +7,26 @@
  */
 
 import type * as Option from "effect/Option";
-import type { PackRef } from "@agentxm/client-core/unstable/packs";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
+import type { PackDependencyRefResolver } from "@agentxm/extension-lifecycle";
+import type { AppError } from "../../../app-error/index.js";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: PackRef;
   readonly versionRange: Option.Option<VersionRange>;
   readonly unattended?: boolean;
-  readonly diagnosticLines?: ReadonlyArray<string>;
+  readonly releaseAgeEvaluation?: ReleaseAgeEvaluation;
+  readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
+  /** Immutable dependency authority supplied by deterministic recovery workflows. */
+  readonly dependencyResolver?: PackDependencyRefResolver<AppError>;
+  /** Render shared aggregate projections after a larger enclosing transition. */
+  readonly deferProjections?: boolean;
+  /**
+   * Reacquire the Pack's canonical content instead of reusing the installed
+   * tree. Recovery sets this because the observed tree already diverged from
+   * the accepted resolution, so reusing it would preserve the divergence.
+   */
+  readonly forceCanonical?: boolean;
 }

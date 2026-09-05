@@ -1,0 +1,828 @@
+/**
+ * Install skill executor — orchestrates the full per-skill installation pipeline.
+ *
+ * Dispatches to a per-refType install function via `switch(ref.refType)`, then
+ * runs shared post-install steps (agent symlinks, lockfile/settings writes).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as FileSystem from "effect/FileSystem";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
+import * as Path from "effect/Path";
+import * as Array from "effect/Array";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
+import { printSkillLockSourceLocator } from "@agentxm/workspace-state";
+import { sourceToLockEntry } from "@agentxm/workspace-state";
+import { canReuseInstalledPackage, materializeExternalPackage } from "@agentxm/extension-workspace";
+import { materializeRegistryPackage } from "../../registry-materialization.js";
+import { computePackageContentHash } from "@agentxm/workspace-state";
+import {
+  type RenderedFilePath,
+  type RenderedFilesMap,
+  RenderedFilePathSchema,
+} from "@agentxm/workspace-state";
+import { computeMaterializedTreeIntegrity } from "@agentxm/workspace-state";
+import * as Schema from "effect/Schema";
+import type {
+  GitHostedSkillRef,
+  LocalSkillRef,
+  RegistrySkillRef,
+  SkillExtensionRef,
+  WorkspaceSkillRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { SourceHostProviders } from "@agentxm/extension-sources";
+import { CodingAgentRepository, validateAxmSkillCandidate } from "@agentxm/extension-workspace";
+import { stripFileProtocol } from "../../internal/fs-helpers.js";
+import { isPathSafe } from "@agentxm/workspace-state";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
+import { createSymlink } from "@agentxm/workspace-state";
+import { validatePathSafety } from "@agentxm/workspace-state";
+import { StepFailure } from "@agentxm/workspace-operations";
+import {
+  acceptedRegistryVersionForRef,
+  validateExactResolvedVersion,
+} from "@agentxm/workspace-state";
+import { ExtensionLifecycleFailed } from "../../errors.js";
+import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import { appendWarningsToMessage } from "@agentxm/workspace-operations";
+import type { Operation } from "@agentxm/workspace-operations";
+import type {
+  JobStepArtifact,
+  JobStepArtifactSource,
+  JobStepResult,
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  copyExtensionDirectory,
+  formatCopyExtensionDirectoryFailure,
+} from "@agentxm/extension-workspace";
+import {
+  artifactAgentIdsFromTargets,
+  artifactTargetAgentIds,
+  groupInstallTargetsByDirectory,
+  type InstallableSkillTarget,
+} from "@agentxm/extension-workspace";
+import { sanitizeName } from "@agentxm/workspace-state";
+import type { InstallResult } from "./install-result.js";
+import { computeSkillSourceHash } from "./source-hash.js";
+
+// -----------------------------------------------------------------------------
+// Operation types
+// -----------------------------------------------------------------------------
+
+/**
+ * Args for the install-skill operation.
+ */
+export type InstallSkillOperationArgs = {
+  readonly ref: SkillExtensionRef;
+  readonly force: boolean;
+  /** Version constraint from the original input when available. */
+  readonly versionRange: Option.Option<string>;
+  /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
+  readonly skipSettings: Option.Option<boolean>;
+  /** When true, fail on unknown configured agents instead of warning+skip. */
+  readonly strictUnknownAgents: Option.Option<boolean>;
+  /** Named registry source that provided the ref (written to lockfile for registry skills). */
+  readonly sourceName: Option.Option<string>;
+};
+
+/**
+ * Add a skill to the workspace.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type InstallSkillOperation = Operation<"install-skill", InstallSkillOperationArgs>;
+
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
+
+type MaterializedSkill = {
+  readonly skillSrcPath: string;
+  readonly versionRange: Option.Option<string>;
+};
+
+const countFiles = (dir: string): Effect.Effect<number, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const entries = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
+    let total = 0;
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry);
+      const statOption = yield* fs.stat(fullPath).pipe(Effect.option);
+      if (Option.isNone(statOption)) continue;
+      if (statOption.value.type === "Directory") {
+        total += yield* countFiles(fullPath);
+      } else {
+        total += 1;
+      }
+    }
+    return total;
+  });
+
+const expectedSkillSrcPath = (ref: SkillExtensionRef) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    switch (ref.refType) {
+      case "registry": {
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
+        return skillSrcPath;
+      }
+      case "workspace": {
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
+        return skillSrcPath;
+      }
+      case "git-hosted":
+      case "local": {
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
+        return skillSrcPath;
+      }
+    }
+  });
+
+const existingSourceHash = (ref: SkillExtensionRef) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const previousPath = yield* expectedSkillSrcPath(ref);
+    const exists = yield* fs.exists(previousPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!exists) return undefined;
+    return yield* computeSkillSourceHash(previousPath);
+  });
+
+const symlinkResultToChange = (
+  result: "created" | "replaced" | "no-op" | "skipped",
+): "created" | "updated" | "unchanged" => {
+  switch (result) {
+    case "created":
+      return "created";
+    case "replaced":
+      return "updated";
+    case "no-op":
+    case "skipped":
+      return "unchanged";
+  }
+};
+
+const artifactChangeFromTargets = (
+  fallback: JobStepArtifact["change"],
+  targets: ReadonlyArray<{ readonly change?: JobStepArtifact["change"] }>,
+): JobStepArtifact["change"] => {
+  if (targets.length === 0) return fallback;
+  if (targets.some((target) => target.change === "created")) return "created";
+  if (targets.some((target) => target.change === "updated" || target.change === undefined)) {
+    return "updated";
+  }
+  return fallback === "updated" ? "updated" : "unchanged";
+};
+
+const gitHostedSourceOrigin = (ref: GitHostedSkillRef): string => {
+  const source = ref.source;
+  switch (source.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+      return `${source.url.origin}/${source.owner}/${source.repo}`;
+    case "azurerepos":
+      return `${source.url.origin}/${source.organization}/${source.project}/_git/${source.repo}`;
+    case "git":
+      return source.url.href;
+  }
+};
+
+export const gitHostedSkillArtifactSource = (
+  ref: SkillExtensionRef,
+): JobStepArtifactSource | undefined => {
+  if (ref.refType !== "git-hosted") return undefined;
+
+  const gitTreeHash = ref.gitTreeSha;
+  const gitRef = Option.getOrUndefined(ref.source.ref);
+  const directory =
+    ref.sourcePath === undefined || ref.sourcePath.length === 0 ? "." : ref.sourcePath;
+
+  return {
+    type: ref.source.type,
+    origin: gitHostedSourceOrigin(ref),
+    ...(gitRef !== undefined ? { ref: gitRef } : {}),
+    directory,
+    gitTreeHash,
+  };
+};
+
+// -----------------------------------------------------------------------------
+// Shared helpers
+// -----------------------------------------------------------------------------
+
+const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: string) =>
+  Effect.gen(function* () {
+    const adapter = yield* LifecycleFailureAdapter;
+    const fs = yield* FileSystem.FileSystem;
+    const ws = yield* WorkspaceMutations;
+
+    const sourceExists = yield* fs
+      .exists(sourcePath)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!sourceExists) {
+      return yield* new ExtensionLifecycleFailed({
+        category: "validation",
+        detail: formatCopyExtensionDirectoryFailure({
+          sourcePath,
+          targetPath: copyTarget,
+          subject: "skill files",
+          sourceExists,
+        }),
+        suggestions: [{ description: "Check the extension package and try again." }],
+      });
+    }
+
+    yield* materializeExternalPackage({
+      baseDir: ws.baseDir,
+      canonicalPath: copyTarget,
+      sourceLocation: sourcePath,
+      copyFailureCode: "internal",
+      copyFailureDetail: () =>
+        formatCopyExtensionDirectoryFailure({
+          sourcePath,
+          targetPath: copyTarget,
+          subject: "skill files",
+          sourceExists,
+        }),
+    }).pipe(
+      Effect.mapError(
+        (error) =>
+          new ExtensionLifecycleFailed({
+            category: "validation",
+            detail: adapter.describeFailure(error),
+            suggestions: [{ description: "Check the extension package and try again." }],
+            cause: error,
+          }),
+      ),
+    );
+  });
+
+const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
+
+export { computeSkillSourceHash } from "./source-hash.js";
+
+/**
+ * Build a RenderedFilesMap from per-agent copy-mode install results.
+ * Only includes agents where mode === "copy" and success === true.
+ *
+ * @internal Exported for testing only.
+ */
+export const buildRenderedFilesFromResults = (
+  installableTargets: ReadonlyArray<{ agentId: AgentId; targetDir: string }>,
+  agentResults: ReadonlyArray<InstallResult>,
+  toWorkspaceRelativePath: (path: string) => string,
+): RenderedFilesMap => {
+  const result: Record<string, Array<{ path: RenderedFilePath }>> = {};
+  for (const [target, installResult] of Array.zip(installableTargets, agentResults)) {
+    if (installResult.mode === "copy" && installResult.success) {
+      result[target.agentId] = [
+        { path: decodeRenderedFilePath(toWorkspaceRelativePath(installResult.path)) },
+      ];
+    }
+  }
+  return result;
+};
+
+// -----------------------------------------------------------------------------
+// Per-refType install functions
+// -----------------------------------------------------------------------------
+
+const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
+    yield* validatePathSafety(path, ws.baseDir, canonicalPath);
+
+    const packageRoot = stripFileProtocol(ref.location);
+    const sourceSkillPath = ref.portable === true ? packageRoot : path.join(packageRoot, "src");
+    yield* validateAxmSkillCandidate({
+      ref,
+      packageRoot,
+      skillSourcePath: sourceSkillPath,
+    });
+    yield* preCleanAndCopy(sanitizedName, packageRoot, canonicalPath);
+
+    return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
+  });
+
+const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
+    yield* validatePathSafety(path, ws.baseDir, canonicalPath);
+
+    const packageRoot = stripFileProtocol(ref.location);
+    const sourceSkillPath = ref.portable === true ? packageRoot : path.join(packageRoot, "src");
+    yield* validateAxmSkillCandidate({
+      ref,
+      packageRoot,
+      skillSourcePath: sourceSkillPath,
+    });
+    const isSelfCopy = path.resolve(packageRoot) === path.resolve(canonicalPath);
+    if (!isSelfCopy) {
+      yield* preCleanAndCopy(sanitizedName, packageRoot, canonicalPath);
+    }
+
+    return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
+  });
+
+const installFromRegistry = (
+  ref: RegistrySkillRef,
+  sanitizedName: string,
+  versionRange: Option.Option<string>,
+  reuse: CanonicalReuseContext,
+) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
+    yield* validatePathSafety(path, ws.baseDir, canonicalPath);
+
+    const useExisting = yield* canReuseInstalledPackage({
+      installedPath: canonicalPath,
+      force: reuse.force,
+      refVersion: ref.version,
+      hasIntegrity: Option.isSome(ref.integrity),
+      ...(reuse.lockedVersion === undefined ? {} : { lockedVersion: reuse.lockedVersion }),
+      existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
+    });
+
+    if (!useExisting) {
+      yield* materializeRegistryPackage({
+        baseDir: ws.baseDir,
+        destinationPath: canonicalPath,
+        sourceLocation: ref.source.location,
+        owner: ref.owner,
+        type: "skill",
+        name: ref.name,
+        version: ref.version,
+        integrity: ref.integrity,
+        messages: {
+          integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+        },
+        validate: (stagingPath) =>
+          validateAxmSkillCandidate({
+            ref,
+            packageRoot: stagingPath,
+            skillSourcePath: path.join(stagingPath, "src"),
+          }).pipe(Effect.asVoid),
+      });
+    } else {
+      yield* validateAxmSkillCandidate({
+        ref,
+        packageRoot: canonicalPath,
+        skillSourcePath: skillSrcPath,
+      });
+    }
+
+    return { skillSrcPath, versionRange } satisfies MaterializedSkill;
+  });
+
+const installFromWorkspace = (ref: WorkspaceSkillRef) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+    if (ref.scope !== ws.scope) {
+      return yield* new ExtensionLifecycleFailed({
+        category: "validation",
+        detail: `Workspace skill ${ref.name} belongs to ${ref.scope} scope, not ${ws.scope} scope`,
+      });
+    }
+    yield* validatePathSafety(path, ws.baseDir, ref.location);
+    const skillSrcPath = path.join(ref.location, "src");
+    const exists = yield* fs.exists(skillSrcPath).pipe(
+      Effect.mapError(
+        (error) =>
+          new ExtensionLifecycleFailed({
+            category: "internal",
+            detail: `Failed to inspect workspace skill source: ${skillSrcPath}`,
+            cause: error,
+          }),
+      ),
+    );
+    if (!exists) {
+      return yield* new ExtensionLifecycleFailed({
+        category: "validation",
+        detail: `Workspace skill source is missing: ${skillSrcPath}`,
+      });
+    }
+    yield* validateAxmSkillCandidate({
+      ref,
+      packageRoot: ref.location,
+      skillSourcePath: skillSrcPath,
+    });
+    return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
+  });
+
+// -----------------------------------------------------------------------------
+// Agent symlink helper
+// -----------------------------------------------------------------------------
+
+const installForDirectory = (opts: {
+  readonly targetDir: string;
+  readonly canonicalSkillSrcPath: string;
+  readonly sanitizedName: string;
+}) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+
+    const agentSkillPath = path.join(opts.targetDir, opts.sanitizedName);
+
+    // Validate agent path safety
+    if (!isPathSafe(path, ws.baseDir, agentSkillPath)) {
+      return {
+        success: false,
+        mode: "symlink",
+        symlinkFailed: false,
+        error: Option.some(`Path traversal detected for target directory ${opts.targetDir}`),
+        path: agentSkillPath,
+        canonicalPath: opts.canonicalSkillSrcPath,
+        change: "updated",
+      } satisfies InstallResult;
+    }
+
+    // Try symlink, fall back to copy
+    return yield* createSymlink({
+      target: opts.canonicalSkillSrcPath,
+      link: agentSkillPath,
+    }).pipe(
+      Effect.map(
+        (result) =>
+          ({
+            success: true,
+            mode: "symlink",
+            symlinkFailed: false,
+            error: Option.none(),
+            path: agentSkillPath,
+            canonicalPath: opts.canonicalSkillSrcPath,
+            change: symlinkResultToChange(result),
+          }) satisfies InstallResult,
+      ),
+      Effect.catch(() =>
+        copyExtensionDirectory(opts.canonicalSkillSrcPath, agentSkillPath).pipe(
+          Effect.map(
+            () =>
+              ({
+                success: true,
+                mode: "copy",
+                symlinkFailed: true,
+                error: Option.none(),
+                path: agentSkillPath,
+                canonicalPath: opts.canonicalSkillSrcPath,
+                change: "updated",
+              }) satisfies InstallResult,
+          ),
+          Effect.catch((copyErr) =>
+            Effect.succeed({
+              success: false,
+              mode: "copy",
+              symlinkFailed: true,
+              error: Option.some(`Copy fallback failed: ${copyErr.message}`),
+              path: agentSkillPath,
+              canonicalPath: opts.canonicalSkillSrcPath,
+              change: "updated",
+            } satisfies InstallResult),
+          ),
+        ),
+      ),
+    );
+  });
+
+// -----------------------------------------------------------------------------
+// Dispatch helper
+// -----------------------------------------------------------------------------
+
+/** Reuse inputs sourced from the install operation and current lockfile. */
+type CanonicalReuseContext = {
+  readonly force: boolean;
+  readonly lockedVersion: string | undefined;
+};
+
+const materializeSkill = (
+  ref: SkillExtensionRef,
+  sanitizedName: string,
+  versionRange: Option.Option<string>,
+  reuse: CanonicalReuseContext,
+) => {
+  switch (ref.refType) {
+    case "git-hosted":
+      return installFromGitHosted(ref, sanitizedName);
+    case "registry":
+      return installFromRegistry(ref, sanitizedName, versionRange, reuse);
+    case "local":
+      return installFromLocal(ref, sanitizedName);
+    case "workspace":
+      return installFromWorkspace(ref);
+  }
+};
+
+// -----------------------------------------------------------------------------
+// Public API
+// -----------------------------------------------------------------------------
+
+/**
+ * Install-skill operation handler.
+ *
+ * Dispatches to a per-refType install function producing a MaterializedSkill,
+ * then runs shared post-install steps:
+ * 1. Create symlinks from each agent's skills dir (concurrent)
+ * 2. Update lockfile/settings entry (failures logged as warnings)
+ * 3. Compute and return overall result
+ */
+export const installSkill: OperationHandler<
+  InstallSkillOperation,
+  | FileSystem.FileSystem
+  | HttpClient.HttpClient
+  | Path.Path
+  | WorkspaceMutations
+  | SourceHostProviders
+  | CodingAgentRepository
+  | LifecycleFailureAdapter
+> = (op) =>
+  Effect.gen(function* () {
+    const adapter = yield* LifecycleFailureAdapter;
+    const ws = yield* WorkspaceMutations;
+    const path = yield* Path.Path;
+    const agentRepo = yield* CodingAgentRepository;
+    const { ref } = op.args;
+    const sanitizedName = sanitizeName(ref.skill.name);
+    const strictUnknownAgents = Option.getOrElse(op.args.strictUnknownAgents, () => false);
+    const previousLock = yield* ws.getLockedSkill(ref.skill.name);
+    const previousVersion =
+      ref.refType === "registry" ? acceptedRegistryVersionForRef(previousLock, ref) : undefined;
+    const previouslyAccepted = Option.isSome(previousLock);
+    const sourceHashBeforeInstall = yield* existingSourceHash(ref);
+
+    // ── Per-refType: resolve source, copy to canonical ──────────────
+    const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionRange, {
+      force: op.args.force,
+      lockedVersion: previousVersion,
+    });
+
+    // ── Shared: resolve agent targets + install once per distinct dir ────────
+    const configuredAgents = yield* agentRepo
+      .getMaterializationAgents()
+      .pipe(Effect.provideService(WorkspaceMutations, ws));
+    const unknownConfiguredAgentIds = yield* agentRepo
+      .getUnknownConfiguredAgentIds()
+      .pipe(Effect.provideService(WorkspaceMutations, ws));
+
+    if (strictUnknownAgents && unknownConfiguredAgentIds.length > 0) {
+      const message = `Unknown configured agents in strict mode: ${unknownConfiguredAgentIds.join(", ")}`;
+      return {
+        result: "error",
+        message,
+        error: new StepFailure({
+          category: "not_found",
+          detail: message,
+        }),
+      } satisfies JobStepResult;
+    }
+
+    const unknownAgentWarning =
+      unknownConfiguredAgentIds.length === 0
+        ? undefined
+        : `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`;
+
+    const resolvedAgents = yield* Effect.forEach(
+      configuredAgents,
+      (agent) =>
+        agent
+          .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+          .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
+      { concurrency: "unbounded" },
+    );
+
+    const misconfigured = Array.filter(
+      resolvedAgents,
+      ({ outcome }) => outcome._tag === "misconfigured",
+    );
+    if (misconfigured.length > 0) {
+      const message = `Failed to resolve skills directories for ${ref.skill.name}`;
+      return {
+        result: "error",
+        message,
+        error: new StepFailure({
+          category: "validation",
+          detail: message,
+        }),
+      } satisfies JobStepResult;
+    }
+
+    const skippedByOutcome = Array.filter(
+      resolvedAgents,
+      ({ outcome }) => outcome._tag === "unsupported" || outcome._tag === "disabled",
+    );
+    const skippedOutcomeWarning =
+      skippedByOutcome.length === 0
+        ? undefined
+        : `Skipping non-installable configured agents: ${skippedByOutcome
+            .map(({ agentId, outcome }) =>
+              outcome._tag === "supported"
+                ? `${agentId}: not skipped`
+                : `${agentId}: ${outcome.reason}`,
+            )
+            .join(", ")}`;
+
+    const installableTargets: Array<InstallableSkillTarget> = [];
+    for (const { agentId, outcome } of resolvedAgents) {
+      if (outcome._tag === "supported") {
+        installableTargets.push({
+          agentId,
+          targetDir: path.normalize(outcome.dir),
+        });
+      }
+    }
+    const targetLocations = yield* groupInstallTargetsByDirectory(installableTargets, ws.baseDir);
+    const displayTargetDir = targetLocations[0]?.targetDir;
+    const perDirectoryResults = yield* Effect.forEach(
+      targetLocations,
+      (location) =>
+        installForDirectory({
+          targetDir: location.targetDir,
+          canonicalSkillSrcPath: materialized.skillSrcPath,
+          sanitizedName,
+        }).pipe(Effect.map((result) => ({ location, result }))),
+      { concurrency: "unbounded" },
+    );
+
+    const agentResults: ReadonlyArray<InstallResult> = installableTargets.map((target) => {
+      const matched = perDirectoryResults.find((item) =>
+        item.location.agentIds.includes(target.agentId),
+      );
+      if (matched === undefined) {
+        return {
+          success: false,
+          mode: "copy",
+          symlinkFailed: true,
+          error: Option.some(`No installation result for target directory ${target.targetDir}`),
+          path: target.targetDir,
+          canonicalPath: materialized.skillSrcPath,
+          change: "updated",
+        } satisfies InstallResult;
+      }
+      return matched.result;
+    });
+    const sourceHash =
+      ref.refType === "workspace"
+        ? ref.sourceHash
+        : ref.refType === "registry"
+          ? yield* computePackageContentHash(path.dirname(materialized.skillSrcPath))
+          : yield* computeSkillSourceHash(materialized.skillSrcPath);
+
+    // ── Shared: update lockfile + settings ──────────────────────────
+    const workspaceRelativeLocalSourcePath =
+      ref.refType === "local"
+        ? makeWorkspaceRelativeSourcePath(
+            path,
+            ws.baseDir,
+            ref.sourcePath ?? stripFileProtocol(ref.location),
+          )
+        : Option.none();
+    if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+      return yield* new ExtensionLifecycleFailed({
+        category: "validation",
+        detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
+      });
+    }
+    const baseLockEntry = sourceToLockEntry({
+      ref,
+      sourceName: op.args.sourceName,
+      contentIdentity: sourceHash,
+      treeIntegrity: yield* computeMaterializedTreeIntegrity(
+        (yield* ws.getSkillDir(ref.skill.name, ref)).canonicalPath,
+      ),
+      workspaceRelativeLocalSourcePath,
+    });
+
+    if (baseLockEntry?.type === "registry") {
+      yield* validateExactResolvedVersion(
+        `skills.${ref.skill.name}.resolvedVersion`,
+        baseLockEntry.resolvedVersion,
+      );
+    }
+
+    // ── Shared: compute result ──────────────────────────────────────
+    const anyFailed = agentResults.some((r) => !r.success);
+    const fileCount = yield* countFiles(materialized.skillSrcPath);
+    const currentSourceHash = yield* computeSkillSourceHash(materialized.skillSrcPath);
+    const displayPath =
+      displayTargetDir === undefined
+        ? path.relative(ws.baseDir, materialized.skillSrcPath)
+        : path.join(path.relative(ws.baseDir, displayTargetDir), sanitizedName);
+    const artifactAgents = artifactAgentIdsFromTargets(installableTargets);
+    const artifactTargets = perDirectoryResults.map(({ location, result }) => {
+      const agentIds = artifactTargetAgentIds(location.agentIds);
+      return {
+        path: path.relative(ws.baseDir, result.path),
+        change: result.change ?? "updated",
+        ...(agentIds.length > 0 ? { agentIds } : {}),
+      };
+    });
+    const version =
+      baseLockEntry?.type === "registry"
+        ? baseLockEntry.resolvedVersion
+        : Option.getOrUndefined(op.args.versionRange);
+    const sameVersion = previousVersion === version;
+    const sameSource = sourceHashBeforeInstall === currentSourceHash;
+    const fallbackChange: JobStepArtifact["change"] = !previouslyAccepted
+      ? "created"
+      : sameVersion && sameSource
+        ? "unchanged"
+        : "updated";
+    const artifactChange = artifactChangeFromTargets(fallbackChange, artifactTargets);
+
+    if (anyFailed) {
+      const failedAgents = agentResults
+        .filter((r) => !r.success)
+        .map((r) => Option.getOrElse(r.error, () => "unknown error"));
+      const message = `Failed to install ${ref.skill.name} for some agents: ${failedAgents.join(", ")}`;
+      return {
+        result: "error",
+        message,
+        error: new StepFailure({
+          category: "internal",
+          detail: message,
+        }),
+      } satisfies JobStepResult;
+    }
+
+    const skipSettings = Option.getOrElse(op.args.skipSettings, () => false);
+    const writeEffect =
+      baseLockEntry === undefined
+        ? skipSettings
+          ? Effect.void
+          : ws.setSkillEntry(ref.skill.name, {
+              source: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
+              enabled: true,
+            })
+        : skipSettings
+          ? ws.setSkillLock({
+              name: ref.skill.name,
+              lockEntry: baseLockEntry,
+              versionRange: materialized.versionRange,
+            })
+          : ws.setSkill({
+              name: ref.skill.name,
+              lockEntry: baseLockEntry,
+              versionRange: materialized.versionRange,
+            });
+    const writeFailure = yield* writeEffect.pipe(Effect.result);
+    if (writeFailure._tag === "Failure") {
+      const failure = writeFailure.failure;
+      const detail = `Installed ${ref.skill.name}, but failed to record desired state: ${adapter.describeFailure(failure)}`;
+      return {
+        result: "error",
+        message: detail,
+        error: new StepFailure({
+          category: adapter.toStepFailure(failure).category,
+          detail,
+          suggestions: [
+            {
+              description: "Retry the install after repairing workspace write access.",
+              cmd: `axm skills install ${baseLockEntry === undefined ? printSourceParams(ref.source) : printSkillLockSourceLocator(ref.skill.name, baseLockEntry)}`,
+            },
+          ],
+          cause: failure,
+        }),
+      } satisfies JobStepResult;
+    }
+
+    const warnings = [unknownAgentWarning, skippedOutcomeWarning].filter(
+      (warning): warning is string => warning !== undefined,
+    );
+    const sourceDetails = gitHostedSkillArtifactSource(ref);
+
+    return {
+      result: "success",
+      message: appendWarningsToMessage(`Installed ${ref.skill.name}`, warnings),
+      artifact: {
+        path: displayPath.length === 0 ? "." : displayPath,
+        scope: ws.scope,
+        agents: artifactAgents,
+        ...(version !== undefined ? { version } : {}),
+        change: artifactChange,
+        ...(previousVersion !== undefined && previousVersion !== version
+          ? { previousVersion }
+          : {}),
+        fileCount,
+        ...(artifactTargets.length > 0 ? { targets: artifactTargets } : {}),
+        ...(sourceDetails !== undefined ? { source: sourceDetails } : {}),
+      },
+    } satisfies JobStepResult;
+  }).pipe(withAdaptedStepFailures);

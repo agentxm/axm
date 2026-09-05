@@ -2,17 +2,14 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  extensionTypeToPlural,
-  fqnInvalidErrorToAppError,
-  parseFqn,
-} from "@agentxm/client-core/unstable/extensions";
-import type { PublishableType } from "./command.js";
+import { makeAppError } from "../../app-error/index.js";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
+import type { PublishableType } from "@agentxm/extension-publish";
 
-import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import { backfillFlag, onExistingFlag } from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
@@ -36,14 +33,10 @@ const normalizeSelector = (type: PerTypePublishType, selector: string) =>
 export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   const plural = extensionTypeToPlural[type];
   const commonConfig = {
-    extensions: Argument.string("extensions").pipe(
+    extensions: Argument.string("name").pipe(
       Argument.withDescription("Bare names, globs, or fully-qualified extension names"),
       Argument.atLeast(0),
     ),
-    authored: Flag.boolean("authored").pipe(
-      Flag.withDescription("Publish extensions authored in this workspace"),
-    ),
-    all: Flag.boolean("all").pipe(Flag.withDescription(`Publish all managed ${plural} packages`)),
     owner: Flag.string("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
     exclude: Flag.string("exclude").pipe(
       Flag.withDescription("Exclude a matching name, glob, or FQN"),
@@ -59,8 +52,9 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     ),
     onExisting: onExistingFlag,
     backfill: backfillFlag,
+    acceptWarnings: acceptWarningsFlag,
     visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
-      Flag.withDescription("Initial visibility for one explicit publish"),
+      Flag.withDescription("Initial visibility for every new extension in the selection"),
       Flag.optional,
     ),
     yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
@@ -82,11 +76,8 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     const config = {
       ...commonConfig,
       includeDependencies: Flag.boolean("include-dependencies").pipe(
-        Flag.withDescription("Include workspace-sourced dependencies"),
-      ),
-      includeDependency: Flag.string("include-dependency").pipe(
-        Flag.withDescription("Explicitly include a non-workspace dependency"),
-        Flag.atLeast(0),
+        Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
+        Flag.withDefault(false),
       ),
     } as const;
     return Command.make("publish", config, (parsed) =>
@@ -99,8 +90,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         );
         yield* handleRootPublish({
           selectors,
-          authored: parsed.authored,
-          all: parsed.all,
           owners: [...parsed.owner],
           types: selectors.length === 0 ? [type] : [],
           excludes,
@@ -108,18 +97,17 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           registryUrl: parsed.registryUrl,
           onExisting: parsed.onExisting,
           backfill: parsed.backfill,
+          acceptWarnings: parsed.acceptWarnings,
           yes: parsed.yes,
           preview: parsed.preview,
           scope: "project",
           visibility: parsed.visibility,
           includeDependencies: parsed.includeDependencies,
-          includeDependency: [...parsed.includeDependency],
+          recoveryCommand: [plural, "publish"],
+          recoverySelectors: [...parsed.extensions],
+          recoveryExcludes: [...parsed.exclude],
         });
-      }).pipe(
-        withWorkspace("project"),
-        Effect.provide(AuthLayer),
-        withRuntime(`${plural} publish`),
-      ),
+      }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
     ).pipe(
       withArgvTracking(config),
       Command.withDescription(`Publish project-workspace ${plural} to a registry`),
@@ -138,8 +126,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       );
       yield* handleRootPublish({
         selectors,
-        authored: parsed.authored,
-        all: parsed.all,
         owners: [...parsed.owner],
         types: selectors.length === 0 ? [type] : [],
         excludes,
@@ -147,14 +133,17 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         registryUrl: parsed.registryUrl,
         onExisting: parsed.onExisting,
         backfill: parsed.backfill,
+        acceptWarnings: parsed.acceptWarnings,
         yes: parsed.yes,
         preview: parsed.preview,
         scope: "project",
         visibility: parsed.visibility,
         includeDependencies: false,
-        includeDependency: [],
+        recoveryCommand: [plural, "publish"],
+        recoverySelectors: [...parsed.extensions],
+        recoveryExcludes: [...parsed.exclude],
       });
-    }).pipe(withWorkspace("project"), Effect.provide(AuthLayer), withRuntime(`${plural} publish`)),
+    }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
   ).pipe(
     withArgvTracking(config),
     Command.withDescription(`Publish project-workspace ${plural} to a registry`),

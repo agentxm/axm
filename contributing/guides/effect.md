@@ -1,103 +1,131 @@
-# Effect Guide
-
-Comprehensive Effect v4 patterns for using Effect as this project's standard
-library. Covers typed errors, `ServiceMap.Service`-based services,
-Option/nullable handling, collections (Array, Chunk, HashMap), iteration and
-streaming, schema validation, wrapping external APIs, and testing Effect
-programs.
-
-This repo commonly aliases `effect/Context` as `ServiceMap`, so local examples
-use `ServiceMap.Service` and `ServiceMap.Reference`. Upstream Effect docs and
-newer migration notes call the same API surface `Context.Service`.
-
-> [Effect](../../CLAUDE.md#effect) — critical guidance
-
-## Key Resources
-
-- [Effect Option Guide](./effect-option.md) — Option versus nullable guidance for
-  this repo
-- [Effect v4 Quick Reference](./effect-v4-quick-ref.md) — Common migration
-  patterns used here
-- [Effect Context](https://effect.website/docs/context-management/services-and-layers/) —
-  Official service and layer documentation
-- [Effect Error Management](https://effect.website/docs/error-management/two-error-types/) —
-  Official error handling patterns
-- [Effect Schema Classes](https://effect.website/docs/schema/classes/) —
-  Schema.TaggedClass, Schema.Class, and class-based schemas
-- [Effect Solutions - Data Modeling](https://www.effect.solutions/data-modeling) —
-  Tagged unions, branded types, and domain modeling patterns
-- [EffectPatterns](https://github.com/PaulJPhilp/EffectPatterns) —
-  Community patterns for error recovery, streams, and configuration
-
-## Skills
-
-| Skill                                                                                   | Command | Description                                                |
-| --------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
-| [effect-basics](../../.axm/extensions/@axm/skills/effect-basics/src/SKILL.md)           | —       | Core patterns, when to use functions vs services           |
-| [effect-service](../../.axm/extensions/@axm/skills/effect-service/src/SKILL.md)         | —       | Service definition, interface design, error types, retries |
-| [effect-layers](../../.claude/skills/effect-layers/SKILL.md)                            | —       | Layer construction, composition, provision, memoization    |
-| [effect-option](../../.axm/extensions/@axm/skills/effect-option/src/SKILL.md)           | —       | Option vs nullable types, conversion at boundaries         |
-| [effect-collections](../../.axm/extensions/@axm/skills/effect-collections/src/SKILL.md) | —       | Arrays, Chunks, Records, HashMaps: when to use each        |
-| [effect-iteration](../../.axm/extensions/@axm/skills/effect-iteration/src/SKILL.md)     | —       | Loops, forEach, all, Schedule, retries and polling         |
-| [effect-stream](../../.axm/extensions/@axm/skills/effect-stream/src/SKILL.md)           | —       | Stream for lazy, unbounded, or resource-scoped sequences   |
-| [effect-schema](../../.axm/extensions/@axm/skills/effect-schema/src/SKILL.md)           | —       | Schema naming conventions and type inference               |
-| [effect-wrapping](../../.axm/extensions/@axm/skills/effect-wrapping/src/SKILL.md)       | —       | Wrap Promise-based APIs with Effect conventions            |
-| [effect-filesystem](../../.axm/extensions/@axm/skills/effect-filesystem/src/SKILL.md)   | —       | FileSystem and Path services, never use node:fs/node:path  |
-| [effect-testing](../../.axm/extensions/@axm/skills/effect-testing/src/SKILL.md)         | —       | Testing patterns for Effect programs                       |
-
+---
+status: active
+last-reviewed: 2026-08-18
+version: 0.4.0
+description: Consult before writing Effect code in AXM. Routes portable Effect v4 topics to the installed skill and Knowledge bundle and records AXM-only policy.
+depends-on:
+  - ./effect-errors.md
+  - ./effect-layers.md
 ---
 
-## Schema Annotations
+# Effect in AXM
 
-Only these annotations are emitted to generated JSON Schema: `identifier`,
-`title`, `description`, `default`, `examples`, `readOnly`, `writeOnly`,
-`format`, `contentEncoding`, and `contentMediaType`.
+AXM pins Effect `4.0.0-rc.112` and consumes the installed
+`@craigsmitham/packs/effect-v4`, whose portable guidance currently targets
+Effect v4. This guide owns only AXM-specific policy. Select the relevant guide in the
+[Effect v4 Knowledge bundle](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md).
 
-Decode-time annotations such as `message`, `messageMissingKey`,
-`messageUnexpectedKey`, and `meta` are not published as JSON Schema metadata.
+Route AXM environment and secret handling to
+[config](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/config.md),
+runtime logging and telemetry to
+[observability](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/observability.md),
+and outbound registry transport policy to
+[HTTP client](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/http-client.md).
 
-Annotations attached to custom `Schema.makeFilter` filters are dropped unless
-the filter has JSON Schema-aware `meta`. Prefer recognized checks such as
-`Schema.isPattern`, then attach JSON-visible `.annotate()` to that recognized
-check level instead of the custom filter. For branded strings, keep examples as
-plain encoded values by annotating before `.brand()`.
+> [Effect](../../AGENTS.md#effect) — required repository policy
 
----
+## Local policy
 
-## Type Inference
+- Use the repository-matched Effect checkout at
+  `../external/Effect-TS/effect` for API verification.
+- Use `effect/FileSystem` and `effect/Path`, never `node:fs` or `node:path` in
+  production Effect code.
+- Let Effect infer `Effect<A, E, R>` for internal functions. Add explicit
+  return types only at published package boundaries, for recursion, or when
+  TypeScript requires one.
+- Alias `effect/Context` as `ServiceMap` where the existing AXM code does so;
+  upstream `Context.Service` and local `ServiceMap.Service` name the same API.
+- Keep expected operational failures in the typed error channel. Treat a
+  failure as a defect only when the surrounding composition proves it cannot
+  occur without an invariant violation.
+- Express orchestration dependencies in `Effect<A, E, R>` and provide them at
+  the owning command or runtime boundary. In Plan workflows, retain step
+  requirements in the Plan type and return operation facts through typed step
+  results; do not close every leaf independently or mutate captured result
+  holders.
+- Own resources with `Scope`, `Effect.acquireRelease`, or
+  `Effect.acquireUseRelease`. Use `Ref`, `Deferred`, `Queue`, `Semaphore`, and
+  other Effect primitives when coordination is the domain need. A cache or
+  keyed resource table must have an explicit owner, eviction/release policy,
+  and bounded lifetime.
+- Follow [Effect Errors](./effect-errors.md) for AXM's `AppError` and
+  cancellation boundary.
+- Follow [Effect Layers](./effect-layers.md) for AXM CLI composition and
+  `runCliMain` policy.
 
-**Prefer inference over explicit return type annotations.** Effect's architecture
-enables powerful type inference—the covariant `R` parameter automatically tracks
-dependencies as you compose effects.
+### Language-service diagnostics
 
-- Let Effect infer `Effect<A, E, R>` signatures
-- Avoid tacit (point-free) usage which breaks inference
-- Add explicit annotations only at published package boundaries (types
-  consumed by external callers), recursive functions, or when TypeScript
-  requires them (`Effect.async`)
-- Internal monorepo functions do not need return type annotations even if
-  exported across workspace packages
+Library typechecks enable warnings for unknown/any error channels, ambient
+dates, ambient dates inside Effects, and missing Effect service dependencies.
+Treat new warnings as findings to remediate or classify at the boundary that
+owns them.
 
-See [CLAUDE.md#type-inference](../../CLAUDE.md#type-inference) for examples.
+The 2026-08 baseline retained 19 app-owned unknown-error findings after service
+requirements were repaired: six HTTP response/provider boundaries that are
+immediately translated, ten filesystem/schema corpus boundaries whose foreign
+error remains opaque until the owning inspection or lint translation, and
+three generic process-entry/telemetry adapters. Generated registry-client
+findings are owned by the OpenAPI generator contract. Do not use these
+exceptions as reusable service signatures; narrow or translate before an error
+crosses its owning boundary.
 
----
+### JSON Schema annotations
 
-## Why Effect?
+Generated JSON Schema emits `identifier`, `title`, `description`, `default`,
+`examples`, `readOnly`, `writeOnly`, `format`, `contentEncoding`, and
+`contentMediaType`. Decode-only annotations such as `message`,
+`messageMissingKey`, `messageUnexpectedKey`, and `meta` are not published.
 
-Effect serves as this project's standard library, replacing raw Promises and
-async/await with composable operations. The CLI architecture separates
-`effect/unstable/cli` parsing from Effect handlers so business logic stays
-independently testable from CLI wiring.
+Annotations on custom `Schema.makeFilter` filters are dropped unless the
+filter has JSON Schema-aware metadata. Prefer recognized checks such as
+`Schema.isPattern`, then annotate that recognized check. Annotate branded
+strings before `.brand()` so examples remain plain encoded values.
 
-Key benefits for this codebase:
+## Traversal policy
 
-- **Typed errors** — CLI commands surface specific failure modes (not just
-  `unknown`)
-- **Service layers** — Handlers declare dependencies; layers provide them at the
-  edge
-- **Testability** — Test layers replace real services without mocking
-- **Concurrency** — `Effect.all` and `Effect.forEach` parallelize I/O safely
+Concurrency is a workload policy, not a style constant. Before changing a
+traversal, classify:
 
-The type signature `Effect<A, E, R>` captures success type, error type, and
-dependencies. When you see `Effect<User, AuthError | DbError, Database>`, you
-know exactly what it returns, what can go wrong, and what it needs to run.
+- whether cardinality is fixed and small or varies with workspace/registry
+  state;
+- which filesystem, process, network, or provider capacity limits it consumes;
+- whether order is observable and whether siblings are independent;
+- whether failure is fail-fast, accumulated, or best-effort; and
+- whether interruption must cancel outstanding work.
+
+Use sequential execution when order or shared mutation requires it. Use
+bounded concurrency when a known capacity or representative measurement
+supports the bound. Use `"unbounded"` only for demonstrably small fixed inputs
+or measured workloads whose downstream resources are already bounded. Record
+the reason near a non-obvious choice. A pending performance assessment is a
+reason to preserve and measure a candidate policy, not to substitute an
+arbitrary numeric cap.
+
+Start with the Knowledge guides for
+[iteration](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/iteration.md),
+[structured concurrency](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/structured-concurrency.md),
+and [async coordination](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/async-coordination.md).
+
+### 2026-08 concurrency census
+
+The production census began with 203 literal `"unbounded"` concurrency sites.
+The result was mostly no-change because most sites describe closed catalog
+vocabularies, already-materialized command inputs, or declarative Plan jobs
+whose mutation order is enforced by the executor. Those sites remain subject
+to the policy above; retention is not evidence for copying the setting.
+
+Seventeen variable-cardinality I/O sites were bounded:
+
+- registry discovery now shares the established four-request publish transport
+  cap and flattens name/type combinations so nested traversals cannot multiply
+  it;
+- Git source-freshness and convention metadata probes are serial because each
+  may allocate a clone/worktree or subprocess and no higher capacity is
+  established; and
+- convention filesystem discovery reuses the existing sixteen-read archive
+  cap.
+
+`verify-source-hygiene` holds the remaining 186 production literals as a
+repository-wide ceiling. Lower the ceiling when removing a site; never raise
+it for a new traversal. ESLint separately prohibits literal unbounded
+concurrency from returning to the three remediated I/O surfaces.

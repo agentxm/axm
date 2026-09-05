@@ -1,10 +1,15 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../../cli-flags.js";
+import {
+  ignoreReleaseAgeFlag,
+  previewFlag,
+  reinstallFlag,
+  yesFlag,
+} from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { handleInstallMcpServer } from "./handler.js";
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
@@ -24,13 +29,16 @@ const installConfig = {
     Flag.withDescription("Provide an MCP input value as KEY=VALUE; repeatable"),
     Flag.atLeast(0),
   ),
+  as: Flag.string("as").pipe(Flag.withDescription("Install using this local name"), Flag.optional),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview, env }) =>
-    handleInstallMcpServer({ source, env }, { yes, force, preview }).pipe(
+  ({ source, scope, yes, force, preview, env, as, ignoreReleaseAge }) =>
+    handleInstallMcpServer({ source, env, localName: as }, { yes, force, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("mcps install"),
     ),
@@ -47,6 +55,10 @@ export const installCommand = Command.make(
     {
       command: "axm mcps install @acme/mcps/my-server",
       description: "Add an MCP server from the registry",
+    },
+    {
+      command: "axm mcps install @acme/mcps/my-server --as work-server",
+      description: "Install a second connection under an explicit local name",
     },
     {
       command: "axm mcps install my-server",

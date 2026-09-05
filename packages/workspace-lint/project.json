@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-lint",
+  "projectType": "library",
+  "root": "packages/workspace-lint",
+  "sourceRoot": "packages/workspace-lint/src",
+  "tags": ["type:lib", "layer:feature", "scope:workspace-lint", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/workspace-lint/src/index.ts",
+        "outputPath": "packages/workspace-lint/dist",
+        "tsConfig": "packages/workspace-lint/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

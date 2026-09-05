@@ -1,82 +1,68 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — inspection translates caller-owned opaque bundle accessor failures into findings
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
+import * as Result from "effect/Result";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-} from "@agentxm/client-core/unstable/extensions";
+  computeExtensionPathsForLayout,
+  extensionPathSourceFromLockEntry,
+  WorkspaceMutations,
+  type WorkspaceLayout,
+} from "@agentxm/workspace-state";
 import {
   KNOWLEDGE_EXTENSION_DIR,
-  KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_SOURCE_DIR,
-  KnowledgeManifestSchema,
-  inspectKnowledgeBundle,
-  type KnowledgeDiagnostic,
-  type KnowledgeInspection,
-} from "@agentxm/client-core/unstable/knowledge";
-import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+  KnowledgeBundleFqnSchema,
+} from "@agentxm/extension-model/unstable/knowledge";
+import { KnowledgeIndex, captureKnowledgeIndexBundles } from "@agentxm/knowledge-query";
+import {
+  inspectKnowledgePackage,
+  readKnowledgePackageManifest,
+} from "@agentxm/extension-workspace";
+import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
 
-const missingManifestDescription = (): KnowledgeDiagnostic => ({
-  code: "missing-manifest-description",
-  severity: "warning",
-  relativePath: KNOWLEDGE_MANIFEST_FILENAME,
-  message: `${KNOWLEDGE_MANIFEST_FILENAME} should include a concise bundle description for discovery.`,
-});
-
-export const inspectKnowledgePackage = Effect.fn("Knowledge.inspectPackage")(function* (
-  packageRoot: string,
-) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const manifestRaw = yield* fs.readFileString(path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME));
-  const manifestUnknown = yield* Effect.try({
-    try: (): unknown => JSON.parse(manifestRaw),
-    catch: (cause) =>
-      makeAppError({
-        code: "validation",
-        detail: `Failed to parse ${path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME)}`,
-        cause,
-      }),
-  });
-  const manifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(manifestUnknown);
-  const sourceRoot = path.join(packageRoot, KNOWLEDGE_SOURCE_DIR);
-  const inspected = yield* inspectKnowledgeBundle(sourceRoot);
-  const inspection: KnowledgeInspection = {
-    ...inspected,
-    diagnostics:
-      manifest.description?.trim().length === 0 || manifest.description === undefined
-        ? [missingManifestDescription(), ...inspected.diagnostics]
-        : inspected.diagnostics,
-  };
-  return { name: manifest.name, sourceRoot, manifest, inspection };
-});
+export { inspectKnowledgePackage } from "@agentxm/extension-workspace";
 
 export const bundleRoot = (
-  baseDir: string,
-  name: string,
+  layout: WorkspaceLayout,
+  _name: string,
   entry: KnowledgeLockEntry,
   path: Path.Path,
 ): string =>
-  entry.type === "registry" || entry.type === "workspace"
-    ? path.join(
-        baseDir,
-        REGISTRY_EXTENSIONS_DIR,
-        entry.owner,
-        KNOWLEDGE_EXTENSION_DIR,
-        name,
-        KNOWLEDGE_SOURCE_DIR,
-      )
-    : path.join(
-        baseDir,
-        EXTERNAL_EXTENSIONS_DIR,
-        KNOWLEDGE_EXTENSION_DIR,
-        name,
-        KNOWLEDGE_SOURCE_DIR,
-      );
+  path.join(
+    computeExtensionPathsForLayout(
+      path.join,
+      layout,
+      extensionPathSourceFromLockEntry(entry),
+      KNOWLEDGE_EXTENSION_DIR,
+      entry.workspaceName,
+    ).canonicalPath,
+    KNOWLEDGE_SOURCE_DIR,
+  );
+
+const desiredBundleRoot = (
+  layout: WorkspaceLayout,
+  node: { readonly name: string; readonly identity: string },
+  entry: KnowledgeLockEntry | undefined,
+  path: Path.Path,
+): string | undefined => {
+  if (node.identity.startsWith("workspace:")) {
+    return layout.scope !== "project"
+      ? undefined
+      : path.join(layout.authoredRoot("knowledge"), node.name, KNOWLEDGE_SOURCE_DIR);
+  }
+  return entry === undefined ? undefined : bundleRoot(layout, node.name, entry, path);
+};
+
+const isCorpusChanging = (
+  cause: unknown,
+): cause is { readonly _tag: "KnowledgeCorpusChangingError" } =>
+  typeof cause === "object" &&
+  cause !== null &&
+  "_tag" in cause &&
+  cause._tag === "KnowledgeCorpusChangingError";
 
 export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")(function* (
   selectedName?: string,
@@ -100,11 +86,11 @@ export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")
         (selectedName === undefined || node.name === selectedName),
     )
     .sort((left, right) => left.name.localeCompare(right.name))
-    .map((node): readonly [string, KnowledgeLockEntry] | undefined => {
-      const entry = locked[node.name];
-      return entry === undefined ? undefined : [node.name, entry];
+    .map((node): readonly [string, string] | undefined => {
+      const sourceRoot = desiredBundleRoot(ws.layout, node, locked[node.name], path);
+      return sourceRoot === undefined ? undefined : [node.name, sourceRoot];
     })
-    .filter((entry): entry is readonly [string, KnowledgeLockEntry] => entry !== undefined);
+    .filter((entry): entry is readonly [string, string] => entry !== undefined);
   if (selectedName !== undefined && entries.length === 0) {
     return yield* makeAppError({
       code: "not_found",
@@ -113,10 +99,9 @@ export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")
   }
   return yield* Effect.forEach(
     entries,
-    ([name, entry]) => {
-      const sourceRoot = bundleRoot(ws.baseDir, name, entry, path);
+    ([name, sourceRoot]) => {
       return inspectKnowledgePackage(path.dirname(sourceRoot)).pipe(
-        Effect.map(({ inspection }) => ({ name, sourceRoot, inspection })),
+        Effect.map(({ manifest, inspection }) => ({ name, sourceRoot, manifest, inspection })),
         Effect.mapError((cause) =>
           makeAppError({
             code: "validation",
@@ -129,3 +114,80 @@ export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")
     { concurrency: "unbounded" },
   );
 });
+
+/** Capture the enabled installed corpus and build one live, source-backed index snapshot. */
+export const captureInstalledKnowledgeIndex = Effect.fn("Knowledge.captureInstalledIndex")(
+  function* (selectedName?: string) {
+    const ws = yield* WorkspaceMutations;
+    const path = yield* Path.Path;
+    const index = yield* KnowledgeIndex;
+    const locked = yield* ws.getLockedKnowledge();
+    const graph = yield* ws.getDesiredStateGraph();
+    if (!graph.complete) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail:
+          "Knowledge desired state cannot be inspected until pack and declaration problems are fixed",
+      });
+    }
+    const entries = graph.nodes
+      .filter(
+        (node) =>
+          node.type === "knowledge" &&
+          node.enabled &&
+          (selectedName === undefined || node.name === selectedName),
+      )
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .flatMap((node) => {
+        const sourceRoot = desiredBundleRoot(ws.layout, node, locked[node.name], path);
+        return sourceRoot === undefined ? [] : [{ name: node.name, sourceRoot }];
+      });
+    if (selectedName !== undefined && entries.length === 0) {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Knowledge bundle "${selectedName}" is not installed`,
+      });
+    }
+    const prepared = yield* Effect.forEach(
+      entries,
+      ({ name, sourceRoot }) => {
+        return readKnowledgePackageManifest(path.dirname(sourceRoot)).pipe(
+          Effect.flatMap(({ manifest }) =>
+            Schema.decodeUnknownEffect(KnowledgeBundleFqnSchema)(
+              `${manifest.owner}/knowledge/${manifest.name}`,
+            ).pipe(
+              Effect.map((bundle) => ({
+                name,
+                bundle,
+                version: manifest.version,
+                sourceRoot,
+              })),
+            ),
+          ),
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "validation",
+              detail: `Failed to read knowledge bundle "${name}" manifest`,
+              cause,
+            }),
+          ),
+        );
+      },
+      { concurrency: 16 },
+    );
+    const capturedResult = yield* Effect.result(captureKnowledgeIndexBundles(prepared));
+    if (Result.isFailure(capturedResult)) {
+      if (isCorpusChanging(capturedResult.failure)) {
+        return { outcome: "corpus-changing" as const };
+      }
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Failed to capture the installed Knowledge corpus",
+        cause: capturedResult.failure,
+      });
+    }
+    const captured = capturedResult.success;
+    const snapshot = yield* index.makeSnapshot(captured);
+    return { outcome: "ready" as const, snapshot, bundles: prepared };
+  },
+);

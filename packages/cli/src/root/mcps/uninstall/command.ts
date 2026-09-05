@@ -1,13 +1,9 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  breakDependenciesFlag,
-  previewFlag,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { handleUninstallMcpServer } from "./handler.js";
-import { scopeFlag } from "../../../cli-flags.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
@@ -18,9 +14,6 @@ const uninstallConfig = {
     Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip the 'are you sure?' confirmation")),
-  force: breakDependenciesFlag.pipe(
-    Flag.withDescription("Remove even if agents are currently configured to use this server"),
-  ),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be removed without making changes"),
   ),
@@ -29,8 +22,8 @@ const uninstallConfig = {
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleUninstallMcpServer({ serverName: name }, { yes, force, preview }).pipe(
+  ({ name, scope, yes, preview }) =>
+    handleUninstallMcpServer({ serverName: name }, { yes, preview }).pipe(
       withWorkspace(scope),
       withRuntime("mcps uninstall"),
     ),

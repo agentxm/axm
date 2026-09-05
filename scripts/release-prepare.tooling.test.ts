@@ -100,7 +100,6 @@ describe("release preparation orchestration", () => {
       "--on-existing",
       "verify",
       "--preview",
-      "--yes",
       "--json",
       "--non-interactive",
     ]);
@@ -119,7 +118,6 @@ describe("release preparation orchestration", () => {
       "--on-existing",
       "verify",
       "--preview",
-      "--yes",
       "--json",
       "--non-interactive",
     ]);

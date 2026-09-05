@@ -135,6 +135,34 @@ const makeLayers = (opts?: {
 };
 
 describe("auth login handler", () => {
+  it.effect("rejects timeout without wait before starting a device sign-in", () => {
+    const { provide } = makeLayers({ nonInteractive: true });
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          handleLogin({ yes: true, deviceCode: true, timeoutSeconds: 300, scopes: [] }),
+        );
+        expect(error).toMatchObject({ code: "usage", detail: "--timeout requires --wait." });
+      }),
+    );
+  });
+
+  it.effect("passes a bounded wait to pending device sign-in resumption", () => {
+    const { provide } = makeLayers({ nonInteractive: true });
+    return provide(
+      handleLogin(
+        { yes: false, deviceCode: false, wait: true, timeoutSeconds: 300, scopes: [] },
+        {
+          resumeDeviceLogin: (registryUrl, options) =>
+            Effect.sync(() => {
+              expect(registryUrl).toBe(REGISTRY_URL);
+              expect(options).toEqual({ timeoutSeconds: 300 });
+            }),
+        },
+      ),
+    );
+  });
+
   it.effect("starts a non-blocking device flow in non-interactive mode", () => {
     const { provide, rendererState } = makeLayers({
       nonInteractive: true,

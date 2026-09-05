@@ -367,7 +367,7 @@ const loginConfig = {
     Flag.withDefault(false),
   ),
   timeout: Flag.integer("timeout").pipe(
-    Flag.withDescription("Maximum seconds to wait for device approval"),
+    Flag.withDescription("Maximum seconds to wait for device approval; requires --wait"),
     Flag.optional,
   ),
   scope: Flag.string("scope").pipe(
@@ -398,5 +398,9 @@ export const loginCommand = Command.make(
     { command: "axm login", description: "Sign in with a local browser" },
     { command: "axm login --device-code", description: "Sign in from SSH or a headless machine" },
     { command: "axm login --wait", description: "Resume a pending device sign-in" },
+    {
+      command: "axm login --wait --timeout 300",
+      description: "Wait up to 300 seconds for a pending device sign-in",
+    },
   ]),
 );

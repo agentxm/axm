@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import type { Command } from "effect/unstable/cli";
 
@@ -45,6 +46,21 @@ const registeredCommands = (
 ];
 
 describe("Command help completeness", () => {
+  it.effect("login help explains how to bound a pending device sign-in wait", () =>
+    Effect.gen(function* () {
+      const doc = yield* captureHelpDoc(["login"]);
+      const timeout = doc.flags.find((flag) => flag.name === "timeout");
+      expect(timeout).toBeDefined();
+      expect(timeout && Option.getOrElse(timeout.description, () => "")).toContain(
+        "requires --wait",
+      );
+      expect(doc.examples).toContainEqual({
+        command: "axm login --wait --timeout 300",
+        description: "Wait up to 300 seconds for a pending device sign-in",
+      });
+    }),
+  );
+
   it.effect("every registered command path renders usable command help", () =>
     Effect.gen(function* () {
       const commands = registeredCommands();

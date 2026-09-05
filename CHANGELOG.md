@@ -1,3 +1,19 @@
+## 0.28.8 (2026-09-05)
+
+### 🚀 Features
+
+- Consolidate Registry identity on /auth/me and report safe effective authority in whoami, including credential type, scopes, extension restrictions, and truthful expiry.
+
+### 🩹 Fixes
+
+- Explain the login timeout prerequisite and show a bounded device sign-in wait.
+- Keep clean workspace installs free of unbuilt CLI bin links while preserving the published executable.
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test
+
 ## 0.28.7 (2026-09-04)
 
 ### 🩹 Fixes

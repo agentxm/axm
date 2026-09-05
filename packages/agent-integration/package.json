@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/agent-integration",
-  "version": "0.28.7",
+  "version": "0.28.8",
   "description": "AXM agent integration: effectful detection of installed AI coding agents and native-surface path primitives for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

@@ -1,3 +1,15 @@
+## 0.28.9 (2026-09-05)
+
+### 🩹 Fixes
+
+- Fix Windows published-package verification by resolving batch launchers before entering the isolated installation directory.
+- Keep Registry release previews aligned with the CLI command contract and validate their options against the real parser.
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test
+
 ## 0.28.8 (2026-09-05)
 
 ### 🚀 Features

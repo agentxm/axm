@@ -1,14 +1,17 @@
 import * as fs from "node:fs";
+import { spawnSync } from "node:child_process";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import {
   defineBoundEvidence,
   defineSpecification,
 } from "@agentxm/extension-model/unstable/specifications";
+import { unrecognizedOptions } from "../../support/parser-probe.js";
 
 export const specification = defineSpecification({
   requirement: "system/process/release-preparation-validates-production-gates",
@@ -65,6 +68,38 @@ const child = (parent: Record<string, unknown>, key: string): Record<string, unk
 };
 
 describe("Release preparation Registry gates", () => {
+  it.effect("both Registry previews use options accepted by the registered CLI", () =>
+    Effect.gen(function* () {
+      // Observe the repository script through its Bun host rather than import
+      // repository tooling into the specifications project.
+      const probe = spawnSync(
+        "bun",
+        [
+          "--eval",
+          `
+        import { productionRegistryPreviewArgs } from "./scripts/release-shared.ts";
+        console.log(JSON.stringify([
+          productionRegistryPreviewArgs(),
+          productionRegistryPreviewArgs("/tmp/axm-released"),
+        ]));
+      `,
+        ],
+        { cwd: repoRoot, encoding: "utf8" },
+      );
+      expect(probe.status, probe.stderr).toBe(0);
+      const previews = Schema.decodeUnknownSync(Schema.Array(Schema.Array(Schema.String)))(
+        JSON.parse(probe.stdout),
+      );
+      expect(previews).toHaveLength(2);
+      for (const preview of previews) {
+        // The probe adds an unregistered sentinel so parsing cannot reach a
+        // handler, the filesystem, credentials, or the production Registry.
+        const argv = preview.slice(1);
+        expect(yield* unrecognizedOptions(argv)).toEqual([]);
+      }
+    }),
+  );
+
   it.effect("the preflight and the exact preview never replay a cached result", () =>
     Effect.sync(() => {
       const targets = child(readJsonRecord("project.json"), "targets");

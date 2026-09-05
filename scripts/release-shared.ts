@@ -190,7 +190,6 @@ export const productionRegistryPreviewArgs = (directory?: string): readonly stri
   "--on-existing",
   "verify",
   "--preview",
-  "--yes",
   "--json",
   "--non-interactive",
 ];

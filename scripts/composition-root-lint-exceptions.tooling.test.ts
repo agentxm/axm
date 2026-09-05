@@ -26,6 +26,8 @@ describe("composition-root import restriction exceptions", () => {
       `ignores: [
       "packages/cli/src/runtime.ts",
       "packages/cli/src/test-helpers.ts",
+      // Published specification adapter exposes real services to boundary tests.
+      "packages/cli/src/specification-harness.ts",
       "packages/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
       "**/*.test.ts",
       "**/*.spec.ts",

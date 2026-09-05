@@ -42,21 +42,8 @@ describe("structured output (--json)", () => {
       expect(document).toMatchObject({
         ok: true,
         result: {
-          outcome: "no-op",
-          planName: "Log out of AXM registry",
           status: "not-logged-in",
           registryHost: "registry.agentxm.ai",
-          steps: [
-            {
-              label: "Registry credentials",
-              status: "unchanged",
-              artifact: {
-                path: "registry.agentxm.ai",
-                scope: "user",
-                change: "unchanged",
-              },
-            },
-          ],
         },
         suggestions: [{ description: "Log in to this registry", cmd: "axm login" }],
       });
@@ -157,7 +144,7 @@ describe("structured output (--json)", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stderr).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
       if (typeof settings !== "object" || settings === null || Array.isArray(settings)) {
         throw new Error("Expected object settings");

@@ -1,28 +1,32 @@
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
+import type { AppError } from "../../../app-error/index.js";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
+import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-  buildUninstallOperation,
-} from "@agentxm/client-core/unstable/extensions";
-import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
+  acquiredExtensionDisplayPathFromLockEntry,
+  type HookExtensionTarget,
+  WorkspaceMutations,
+} from "@agentxm/workspace-state";
+import { buildUninstallOperation } from "@agentxm/extension-workspace";
+import type { HookLockEntry } from "@agentxm/workspace-state";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import type { HookExtensionTarget } from "@agentxm/client-core/unstable/workspace";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/workspace-operations";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import type { UninstallHookCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
+import {
+  workspaceCanonicalRoot,
+  workspaceLockfilePath,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
+import { HookManager } from "@agentxm/extension-workspace";
 
 export interface UninstallHookHandlerArgs {
   readonly name: string;
@@ -32,19 +36,29 @@ export interface ParsedHookUninstallArgs {
   readonly name: string;
 }
 
+type UninstallHookActions = UninstallExtensionCommandWorkflowActions<
+  UninstallHookHandlerArgs,
+  ParsedHookUninstallArgs,
+  UninstallHookCommandIntent,
+  AppError
+>;
+
 const hookUninstallArtifactTargets = (
   entry: Option.Option<HookLockEntry>,
   retained: boolean,
   targetName: string,
+  scope: JobStepArtifact["scope"],
 ): ReadonlyArray<JobStepArtifactTarget> => {
   if (Option.isNone(entry)) return [];
-  const sourcePath =
-    entry.value.type === "registry"
-      ? `${REGISTRY_EXTENSIONS_DIR}/${entry.value.owner}/hooks/${entry.value.name}`
-      : `${EXTERNAL_EXTENSIONS_DIR}/hooks/${targetName}`;
+  const sourcePath = acquiredExtensionDisplayPathFromLockEntry(
+    workspaceCanonicalRoot(scope),
+    entry.value,
+    "hooks",
+    targetName,
+  );
   return [
-    { path: ".axm/axm-lock.yaml", change: "updated" },
-    { path: ".axm/settings.json", change: "updated" },
+    { path: workspaceLockfilePath(scope), change: "updated" },
+    { path: workspaceSettingsPath(scope), change: "updated" },
     { path: sourcePath, change: retained ? "unchanged" : "removed" },
   ];
 };
@@ -57,9 +71,14 @@ const hookUninstallArtifact = (args: {
 }): JobStepArtifact => {
   const retained =
     args.result.result === "success" && args.result.message.startsWith("Kept on disk");
-  const targets = hookUninstallArtifactTargets(args.lockEntry, retained, args.targetName);
+  const targets = hookUninstallArtifactTargets(
+    args.lockEntry,
+    retained,
+    args.targetName,
+    args.scope,
+  );
   return {
-    path: retained ? ".axm/settings.json" : ".axm/axm-lock.yaml",
+    path: retained ? workspaceSettingsPath(args.scope) : workspaceLockfilePath(args.scope),
     scope: args.scope,
     change: retained ? "updated" : "removed",
     ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
@@ -95,70 +114,55 @@ const withHookUninstallArtifact = (args: {
   };
 };
 
-export class UninstallHookCommandWorkflowActions extends ServiceMap.Service<
-  UninstallHookCommandWorkflowActions,
-  UninstallExtensionCommandWorkflowActions<
-    UninstallHookHandlerArgs,
-    ParsedHookUninstallArgs,
-    UninstallHookCommandIntent
-  >
->()("axm.sh/root/hooks/uninstall/command-actions/UninstallHookCommandWorkflowActions") {}
+export const UninstallHookCommandWorkflowActions = Effect.gen(function* () {
+  const ws = yield* WorkspaceMutations;
+  const hookManager = yield* HookManager;
 
-export const UninstallHookCommandWorkflowActionsLive = Layer.effect(
-  UninstallHookCommandWorkflowActions,
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const hookManager = yield* HookManager;
+  const parseArgs = (args: UninstallHookHandlerArgs) => Effect.succeed({ name: args.name.trim() });
 
-    const parseArgs = (args: UninstallHookHandlerArgs) =>
-      Effect.succeed({ name: args.name.trim() });
+  const finalizeIntent = (
+    parsed: ParsedHookUninstallArgs,
+  ): Effect.Effect<UninstallHookCommandIntent, AppError> =>
+    Effect.gen(function* () {
+      const target: HookExtensionTarget = { type: "hook", name: parsed.name };
+      const configured =
+        hookManager.getConfiguredSource === undefined
+          ? Option.none<string>()
+          : yield* hookManager.getConfiguredSource({ target });
+      const installed = yield* hookManager.isInstalled({ target });
+      if (Option.isNone(configured) && !installed) {
+        return { targets: [] };
+      }
+      return { targets: [target] };
+    }).pipe(Effect.mapError(toAppError));
 
-    const finalizeIntent = (
-      parsed: ParsedHookUninstallArgs,
-    ): Effect.Effect<UninstallHookCommandIntent, AppError> =>
-      Effect.gen(function* () {
-        const target: HookExtensionTarget = { type: "hook", name: parsed.name };
-        const configured =
-          hookManager.getConfiguredSource === undefined
-            ? Option.none<string>()
-            : yield* hookManager.getConfiguredSource({ target });
-        const installed = yield* hookManager.isInstalled({ target });
-        if (Option.isNone(configured) && !installed) {
-          return { targets: [] };
-        }
-        return { targets: [target] };
-      });
+  const buildUninstallPlan = (intent: UninstallHookCommandIntent): Effect.Effect<Plan, AppError> =>
+    Effect.succeed({
+      _tag: "Plan",
+      name: "Uninstall hooks",
+      description: Option.some("Uninstall hooks package"),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: intent.targets.map((target) =>
+            withHookUninstallArtifact({
+              step: buildUninstallOperation<HookExtensionRef, AppError>(
+                hookManager,
+                makeWorkspaceRetentionPolicy(ws),
+                { target, toStepFailure: failureToStepFailure },
+              ),
+              scope: ws.scope,
+              targetName: target.name,
+              ws,
+            }),
+          ),
+        },
+      ],
+    } satisfies Plan);
 
-    const buildUninstallPlan = (
-      intent: UninstallHookCommandIntent,
-    ): Effect.Effect<Plan, AppError> =>
-      Effect.succeed({
-        _tag: "Plan",
-        name: "Uninstall hooks",
-        description: Option.some("Uninstall hooks package"),
-        jobs: [
-          {
-            concurrency: 1,
-            steps: intent.targets.map((target) =>
-              withHookUninstallArtifact({
-                step: buildUninstallOperation<HookExtensionRef>(
-                  hookManager,
-                  makeWorkspaceRetentionPolicy(ws),
-                  { target },
-                ),
-                scope: ws.scope,
-                targetName: target.name,
-                ws,
-              }),
-            ),
-          },
-        ],
-      } satisfies Plan);
-
-    return {
-      parseArgs,
-      finalizeIntent,
-      buildUninstallPlan,
-    };
-  }),
-);
+  return {
+    parseArgs,
+    finalizeIntent,
+    buildUninstallPlan,
+  };
+}).pipe(Effect.map((actions): UninstallHookActions => actions));

@@ -3,11 +3,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import {
-  CredentialStore,
-  RegistryUrl,
-  resolveRequestToken,
-} from "@agentxm/client-core/unstable/auth";
+import { CredentialStore, resolveRequestToken } from "@agentxm/registry-auth";
+import { RegistryUrl } from "@agentxm/registry-client";
 
 export interface RegistryLoginSuggestion {
   readonly description: string;

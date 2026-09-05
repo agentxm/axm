@@ -1,0 +1,170 @@
+{
+  "skill_name": "engineer-requirements",
+  "suite_version": "0.1.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "execution",
+      "prompt": "Infer the requirement behind this behavior: the current synthetic Meridian service retries a failed delivery three times, and its test asserts exactly three attempts. No product decision or requirement record is available.",
+      "expected_output": "A sourced requirement candidate that preserves the current implementation and test as witnesses without claiming they establish normative intent.",
+      "assertions": [
+        "The output is explicitly a requirement candidate rather than a normative or accepted requirement.",
+        "Current code and test behavior are treated as witnesses for a candidate, not proof of an accepted normative requirement.",
+        "Implementation and tests are linked as witnesses and possible realization or assessment context rather than copied as requirement authority.",
+        "The three-attempt rule, applicability, stakeholder need, rationale, and acceptance authority remain open where unsupported.",
+        "No product, architecture, or implementation decision is invented."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "execution",
+      "prompt": "Author the accepted requirement described in decision DR-8: when a synthetic Orbit subscriber cancels, access must end at the close of its already-paid billing interval. Use the repository's local requirement policy.",
+      "expected_output": "A normative requirement that applies the fixture's local identity, taxonomy, and decision-evidence policy while preserving the portable content contract.",
+      "files": [
+        {
+          "source": "evals/files/case-2/AGENTS.md",
+          "target": "AGENTS.md"
+        }
+      ],
+      "artifact_paths": ["AGENTS.md"],
+      "assertions": [
+        "The fixture instruction is read and applied.",
+        "The local classification, identifier, and acceptance policy are applied while source, subject, conditions, obligation, rationale, verification, and validation remain explicit.",
+        "DR-8 is preserved as acceptance evidence rather than replaced by inferred authority.",
+        "The requirement does not prescribe an unrequested billing or authorization design.",
+        "AGENTS.md is not modified."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "execution",
+      "prompt": "Draft a requirement that the synthetic Northstar search page should respond quickly under normal load. We have not chosen a latency target, percentile, workload, or measurement point. Make it useful without guessing.",
+      "expected_output": "A quality-requirement candidate with explicit unresolved measurement decisions and a plan for obtaining evidence, not a fabricated service-level target.",
+      "assertions": [
+        "The result is marked as a candidate because material quantitative decisions remain open.",
+        "No numerical target is invented; the target remains an explicit decision with evidence needed to resolve it.",
+        "Percentile, workload, population or endpoint scope, observation window, and measurement point are identified as unresolved when not supplied.",
+        "The candidate names the obligated subject and desired quality without presenting vague speed as verifiable.",
+        "The candidate does not require a Pitch, Change Specification, Change Design, focused stage, OKF corpus, C4 level, Surface category, or Draft/Ready/Accepted lifecycle."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "execution",
+      "prompt": "Review only requirements REQ-11 through REQ-14 for the synthetic Atlas export flow. The supplied set covers initiation and completion messages, but no stakeholder interviews, regulations, interface specifications, or operational evidence are available. Tell me whether the set is complete.",
+      "expected_output": "A bounded set review that reports observable consistency or gaps and refuses to claim universal completeness from unavailable sources.",
+      "assertions": [
+        "The reviewed identity range and export-flow boundary are explicit.",
+        "Unavailable stakeholder, regulatory, interface, and operational sources are preserved as evidence limits.",
+        "The result states the reviewed set and source boundary and does not claim universal completeness.",
+        "Any coverage finding is expressed relative to the supplied boundary and evidence.",
+        "The review does not accept, reject, reprioritize, or rewrite the requirements."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "execution",
+      "prompt": "Plan the requirement-record transition for accepted REQ-40, which says the synthetic Beacon gateway shall authenticate requests and retain an audit record. It is being split because authentication and audit retention now have different owners. Existing tests and an assessment result point only to REQ-40. Do not edit any repository.",
+      "expected_output": "A read-only identity and lineage plan with two independently authoritative successors and explicit reassessment of existing evidence.",
+      "assertions": [
+        "The split creates distinct successor identities for authentication and audit retention.",
+        "The split creates successor identities with predecessor links and requires reassessment of evidence for each successor.",
+        "REQ-40 is retained in history and retired or narrowed only through an explicit authority decision.",
+        "Existing tests and the assessment result are not automatically treated as satisfaction evidence for both successors.",
+        "No repository edit or lifecycle mutation is performed."
+      ]
+    },
+    {
+      "id": 6,
+      "stage": "execution",
+      "prompt": "Map requirement RX-17 into the synthetic Aster requirements host, but do not write it. The host has native fields for ID, maturity, normative force, subject, classification, source links, decision record, verification method, and typed relationships; its body supports Markdown for rationale, assumptions, and detailed conditions.",
+      "expected_output": "A read-only field mapping that uses native semantics once and reserves the body for residual content.",
+      "assertions": [
+        "The response distinguishes mapping analysis from an external write.",
+        "Exact native fields and typed links are used for semantics they can carry, with only residual content mapped to the body.",
+        "Native metadata is not duplicated in a second editable body block.",
+        "No host write, baseline, approval, assignment, priority, or state change is performed.",
+        "Persistence and readback remain explicitly unverified."
+      ]
+    },
+    {
+      "id": 7,
+      "stage": "execution",
+      "prompt": "Write an accepted requirement saying the synthetic Helios service complies with the Orion interoperability standard. The request does not identify an edition, clauses, applicability, authority, or conformance method.",
+      "expected_output": "A blocked or candidate conformance record that exposes missing applicability and authority rather than claiming accepted, assessable compliance.",
+      "assertions": [
+        "The output does not claim an accepted or normative conformance requirement without decision authority.",
+        "The Orion edition or version, applicable clauses, product and jurisdiction scope, interpretation, and assessment method remain explicit unknowns.",
+        "No conformance or certification claim is made.",
+        "The response identifies the competent decision or evidence needed next.",
+        "No external standard text is fabricated or quoted."
+      ]
+    },
+    {
+      "id": 8,
+      "stage": "routing",
+      "prompt": "Turn these stakeholder notes into requirement candidates, preserving disagreements and unknowns.",
+      "expected_selection": "engineer-requirements",
+      "catalog_neighbors": ["research", "author-docs", "manage-work-items"],
+      "assertions": [
+        "The selected skill is engineer-requirements.",
+        "The request is recognized as requirement candidate development rather than general documentation or work-item creation.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 9,
+      "stage": "routing",
+      "prompt": "Implement the upload endpoint described by REQ-19 and open a pull request.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["engineer-requirements", "manage-work-items"],
+      "assertions": [
+        "Engineer-requirements is not selected for implementation work.",
+        "The request is not reframed as requirement authoring.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 10,
+      "stage": "routing",
+      "prompt": "Write the test plan for release 8, execute every test, and summarize the failures.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["engineer-requirements", "audit-docs"],
+      "assertions": [
+        "Engineer-requirements is not selected for test planning or execution.",
+        "No test is executed and no result is invented.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 11,
+      "stage": "routing",
+      "prompt": "Create a tracker-ready Change for upgrading our queue library; the requirements are already settled.",
+      "expected_selection": "manage-work-items",
+      "catalog_neighbors": ["engineer-requirements", "manage-work-items", "author-docs"],
+      "assertions": [
+        "Engineer-requirements is not selected for a general software Change record.",
+        "The request routes to manage-work-items when available.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 12,
+      "stage": "routing",
+      "prompt": "Clean up our specs.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["engineer-requirements", "author-docs", "improve-whatever"],
+      "assertions": [
+        "The response clarifies or abstains because neither the artifact type nor requested operation is bounded.",
+        "No requirement authority, document rewrite, or host mutation is inferred.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    }
+  ]
+}

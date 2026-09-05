@@ -1,0 +1,56 @@
+{
+  "name": "@agentxm/workspace-sync",
+  "version": "0.28.7",
+  "description": "AXM workspace-sync feature: desired-state reconciliation planning, projection realization, and reconciliation outcomes for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/workspace-sync"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "axm-source": "./src/index.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-workspace": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-operations": "workspace:^",
+    "@agentxm/workspace-state": "workspace:^",
+    "effect": "catalog:",
+    "semver": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

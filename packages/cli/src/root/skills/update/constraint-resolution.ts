@@ -14,7 +14,7 @@ import {
   decodeVersionSync,
   decodeVersionRangeSync,
   versionSatisfiesRange,
-} from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Types

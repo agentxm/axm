@@ -6,35 +6,36 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
 import {
-  CliRenderer,
+  Screen,
+  detailViewDoc,
+  tableViewDoc,
   type DetailView,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "../../screen/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   CatalogExtensionTypeSchema,
   type CatalogExtensionType,
-} from "@agentxm/client-core/unstable/extension-types";
+} from "@agentxm/extension-model/unstable/extension-types";
 import {
   extensionTypeSentenceLabels,
   toExtensionTypePlural,
-} from "@agentxm/client-core/unstable/extensions";
-import { inspectMcpServerAcrossAgents } from "@agentxm/client-core/unstable/mcps";
+} from "@agentxm/extension-model/unstable/extensions";
+import { inspectMcpServerAcrossAgents, HookManager } from "@agentxm/extension-workspace";
 import {
   ManifestIdentitySchema,
   manifestFilenameForType,
-} from "@agentxm/client-core/unstable/publish";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
+} from "@agentxm/registry-protocol/unstable/publish";
 import {
   WorkspaceMutations,
   configuredRowsByName,
   getLockedEntries,
   lockEntryVersion,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/workspace-state";
 
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { commandForScope } from "./scoped-command.js";
 
@@ -159,7 +160,7 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
   readonly type: CatalogExtensionType;
   readonly name: string;
 }) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const label = extensionTypeSentenceLabels[args.type];
 
@@ -233,11 +234,9 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
         status:
           inspection.status === "match"
             ? "current"
-            : inspection.status === "not-applicable"
-              ? "not-applicable"
-              : inspection.status === "unsupported"
-                ? "unsupported"
-                : "failed",
+            : inspection.status === "unsupported"
+              ? "unsupported"
+              : "failed",
         reasonCode: `mcp-${inspection.status}`,
         path: inspection.path,
         fields: [...inspection.fields],
@@ -278,39 +277,43 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
     agents,
   };
 
-  if (yield* renderer.result(result, ExtensionShowResultSchema)) return;
+  if (yield* screen.document(result, ExtensionShowResultSchema)) return;
 
-  yield* renderer.detail(
-    {
-      type: args.type,
-      name: args.name,
-      enabled: enabled === null ? "n/a" : yesNo(enabled),
-      source,
-      version: result.item.version ?? "n/a",
-      scope: ws.scope,
-      locked: yesNo(result.item.locked),
-    },
-    ShowDetail,
-    `${label} ${args.name}`,
+  yield* screen.result(
+    detailViewDoc(
+      {
+        type: args.type,
+        name: args.name,
+        enabled: enabled === null ? "n/a" : yesNo(enabled),
+        source,
+        version: result.item.version ?? "n/a",
+        scope: ws.scope,
+        locked: yesNo(result.item.locked),
+      },
+      ShowDetail,
+      `${label} ${args.name}`,
+    ),
   );
 
   if (agents.length > 0) {
-    yield* renderer.table(
-      agents.map((agent) => ({
-        agent: agent.agent,
-        status: agent.status,
-        path: agent.path ?? "",
-        detail: `${agent.reasonCode}: ${
-          agent.reason ??
-          (agent.fields.length > 0
-            ? agent.fields.join(", ")
-            : agent.warnings.length > 0
-              ? agent.warnings.join("; ")
-              : "no additional detail")
-        }`,
-      })),
-      AgentTable,
-      "Agent placements",
+    yield* screen.result(
+      tableViewDoc(
+        agents.map((agent) => ({
+          agent: agent.agent,
+          status: agent.status,
+          path: agent.path ?? "",
+          detail: `${agent.reasonCode}: ${
+            agent.reason ??
+            (agent.fields.length > 0
+              ? agent.fields.join(", ")
+              : agent.warnings.length > 0
+                ? agent.warnings.join("; ")
+                : "no additional detail")
+          }`,
+        })),
+        AgentTable,
+        "Agent placements",
+      ),
     );
   }
 });

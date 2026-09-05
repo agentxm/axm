@@ -1,11 +1,16 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  ignoreReleaseAgeFlag,
+  previewFlag,
+  reinstallFlag,
+  yesFlag,
+} from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 
-import { scopeFlag } from "../../cli-flags.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { handleInstall } from "./handler.js";
 
 const installConfig = {
@@ -23,19 +28,15 @@ const installConfig = {
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be installed without making changes"),
   ),
-  ignoreReleaseAge: Flag.boolean("ignore-release-age").pipe(
-    Flag.withDescription(
-      "Allow an untargeted configured install to select releases newer than minimumReleaseAge",
-    ),
-    Flag.withDefault(false),
-  ),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
   ({ source, scope, yes, force, preview, ignoreReleaseAge }) =>
-    handleInstall({ source, yes, force, preview, ignoreReleaseAge }).pipe(
+    handleInstall({ source, yes, force, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("install"),
     ),

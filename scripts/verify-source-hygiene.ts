@@ -18,9 +18,11 @@ import {
   findMachineOutputBoundaryViolations,
   findPromptBoundaryViolations,
   findSourceHygieneViolations,
+  findTestTaxonomyViolations,
   formatAxmEnvironmentContractViolation,
   formatMachineOutputBoundaryViolation,
   formatPromptBoundaryViolation,
+  formatTestTaxonomyViolation,
   formatViolation,
 } from "./verify-source-hygiene-lib.js";
 
@@ -75,6 +77,15 @@ if (unboundedConcurrencySites > MAX_UNBOUNDED_CONCURRENCY_SITES) {
   process.exit(1);
 }
 
+const taxonomyViolations = findTestTaxonomyViolations(repoRoot);
+if (taxonomyViolations.length > 0) {
+  console.error("Test taxonomy violations found:");
+  for (const violation of taxonomyViolations) {
+    console.error(`  ${formatTestTaxonomyViolation(violation)}`);
+  }
+  process.exit(1);
+}
+
 console.log("Verified package sources contain no forbidden control bytes.");
 console.log("Verified production stdout is confined to approved renderer/runtime boundaries.");
 console.log("Verified production prompts are confined to the non-interactive guard boundary.");
@@ -82,3 +93,4 @@ console.log("Verified production AXM environment literals have classified refere
 console.log(
   `Verified literal unbounded concurrency did not exceed the reviewed ${MAX_UNBOUNDED_CONCURRENCY_SITES}-site baseline.`,
 );
+console.log("Verified test filenames follow the purpose taxonomy.");

@@ -10,17 +10,17 @@ depends-on:
 
 # Effect in AXM
 
-AXM consumes the installed `@craigsmitham/packs/effect-v4` for portable Effect
-4.0.0-rc.110 guidance. This guide owns only AXM-specific policy. Use the
-installed `craft-effect-v4` skill to select the relevant guide in the
-[Effect v4 Knowledge bundle](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/index.md).
+AXM pins Effect `4.0.0-rc.112` and consumes the installed
+`@craigsmitham/packs/effect-v4`, whose portable guidance currently targets
+Effect v4. This guide owns only AXM-specific policy. Select the relevant guide in the
+[Effect v4 Knowledge bundle](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md).
 
 Route AXM environment and secret handling to
-[config](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/config.md),
+[config](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/config.md),
 runtime logging and telemetry to
-[observability](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/observability.md),
+[observability](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/observability.md),
 and outbound registry transport policy to
-[HTTP client](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/http-client.md).
+[HTTP client](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/http-client.md).
 
 > [Effect](../../AGENTS.md#effect) — required repository policy
 
@@ -102,9 +102,9 @@ reason to preserve and measure a candidate policy, not to substitute an
 arbitrary numeric cap.
 
 Start with the Knowledge guides for
-[iteration](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/iteration.md),
-[structured concurrency](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/structured-concurrency.md),
-and [async coordination](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/async-coordination.md).
+[iteration](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/iteration.md),
+[structured concurrency](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/structured-concurrency.md),
+and [async coordination](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/async-coordination.md).
 
 ### 2026-08 concurrency census
 

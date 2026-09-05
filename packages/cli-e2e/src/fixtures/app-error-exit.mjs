@@ -1,5 +1,5 @@
-import { AppErrorCodes, makeAppError } from "../../../core/dist/src/unstable/app-error/index.js";
-import { runCliMain } from "../../../core/dist/src/unstable/cli-runtime/index.js";
+import { AppErrorCodes, makeAppError } from "../../../cli/dist/src/app-error/index.js";
+import { runCliMain } from "../../../cli/dist/src/cli-runtime/index.js";
 
 const code = process.argv[2];
 if (!AppErrorCodes.includes(code)) {

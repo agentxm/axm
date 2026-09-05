@@ -4,21 +4,22 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type DetailView } from "@agentxm/client-core/unstable/cli-renderer";
-import { formatFqn, parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
+import { makeAppError } from "../../app-error/index.js";
+import { Screen, detailViewDoc, type DetailView } from "../../screen/index.js";
 import {
-  computePackPaths,
+  formatFqn,
+  parseExtensionFqnParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
+  toExtensionType,
+} from "@agentxm/extension-model/unstable/extensions";
+import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
-} from "@agentxm/client-core/unstable/packs";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import {
-  acceptedCanonicalObservation,
-  WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { acceptedCanonicalObservation, WorkspaceMutations } from "@agentxm/workspace-state";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const PackMemberSchema = Schema.Struct({
@@ -71,7 +72,7 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const requested = parseExtensionFqnParts(target);
   if (requested !== undefined && requested.type !== "pack") {
     return yield* makeAppError({
@@ -88,16 +89,33 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
     });
   }
   const source = configuredSource(entry);
-  const sourceFqn = isWorkspaceSourceLocator(source)
-    ? source.slice("workspace:".length)
-    : source.replace(/^registry:/, "").replace(/@[^@/]+$/, "");
-  const parsedSource = parseExtensionFqnParts(sourceFqn);
-  if (parsedSource === undefined || parsedSource.type !== "pack") {
+  const parsedRegistrySource = isWorkspaceSourceLocator(source)
+    ? undefined
+    : parseSourceQualifiedRegistrySourcePatternParts(source);
+  const parsedSource = isWorkspaceSourceLocator(source)
+    ? ws.layout.owner === undefined
+      ? undefined
+      : parseExtensionFqnParts(`${ws.layout.owner}/packs/${name}`)
+    : parsedRegistrySource?.type === "packs" && parsedRegistrySource.name !== undefined
+      ? {
+          owner: parsedRegistrySource.owner,
+          type: toExtensionType(parsedRegistrySource.type),
+          name: parsedRegistrySource.name,
+        }
+      : undefined;
+  if (parsedSource === undefined && isWorkspaceSourceLocator(source)) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: `Configured workspace pack "${name}" requires a workspace owner`,
+    });
+  }
+  if (parsedSource === undefined) {
     return yield* makeAppError({
       code: "validation",
       detail: `Configured pack source is not a valid pack identity: ${source}`,
     });
   }
+  const sourceFqn = formatFqn(parsedSource);
   if (
     requested !== undefined &&
     (requested.owner !== parsedSource.owner || requested.name !== parsedSource.name)
@@ -107,13 +125,17 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
       detail: `Requested pack does not match configured identity ${sourceFqn}`,
     });
   }
-  const canonicalPath = computePackPaths(
-    path.join,
-    ws.baseDir,
-    parsedSource.owner,
-    parsedSource.name,
-  ).canonicalPath;
-  const manifestPath = path.join(canonicalPath, PACK_MANIFEST_FILENAME);
+  const canonical = yield* acceptedCanonicalObservation({ workspace: ws, type: "pack", name });
+  const canonicalPath = Option.flatMap(canonical, (state) =>
+    Option.fromUndefinedOr(state.observation.path),
+  );
+  if (Option.isNone(canonicalPath)) {
+    return yield* makeAppError({
+      code: "not_found",
+      detail: `Canonical pack "${sourceFqn}" is unavailable`,
+    });
+  }
+  const manifestPath = path.join(canonicalPath.value, PACK_MANIFEST_FILENAME);
   const raw = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((cause) =>
       makeAppError({
@@ -142,7 +164,7 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
     ),
   );
   const locked = yield* ws.getLockedPack(name);
-  const packFqn = formatFqn({ owner: parsedSource.owner, type: "pack", name: parsedSource.name });
+  const packFqn = sourceFqn;
   const sourceAuthority = isWorkspaceSourceLocator(source) ? "workspace" : "registry";
   const graph = yield* ws.getDesiredStateGraph();
   const normalizedPackFqn = packFqn.replace(/^workspace:/u, "");
@@ -163,7 +185,6 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
       reachability: node === undefined ? ("missing" as const) : ("satisfying" as const),
     };
   });
-  const canonical = yield* acceptedCanonicalObservation({ workspace: ws, type: "pack", name });
   const canonicalStatus = Option.isSome(canonical) ? canonical.value.observation.status : "missing";
   const acceptedResolution =
     sourceAuthority === "workspace" ? "authored" : Option.isSome(locked) ? "accepted" : "missing";
@@ -182,20 +203,22 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
     desiredDependencies,
     problems,
   };
-  if (yield* renderer.result(result, PackShowResultSchema)) return;
-  yield* renderer.detail(
-    {
-      pack: result.pack,
-      sourceAuthority: result.sourceAuthority,
-      canonicalPath: result.canonicalPath,
-      manifestVersion: result.manifestVersion,
-      acceptedResolution: result.acceptedResolution,
-      canonicalStatus: result.canonicalStatus,
-      desiredCount: result.desiredDependencies.length,
-      problems: result.problems,
-    },
-    ShowDetail,
-    `Pack ${fqn}`,
+  if (yield* screen.document(result, PackShowResultSchema)) return;
+  yield* screen.result(
+    detailViewDoc(
+      {
+        pack: result.pack,
+        sourceAuthority: result.sourceAuthority,
+        canonicalPath: result.canonicalPath,
+        manifestVersion: result.manifestVersion,
+        acceptedResolution: result.acceptedResolution,
+        canonicalStatus: result.canonicalStatus,
+        desiredCount: result.desiredDependencies.length,
+        problems: result.problems,
+      },
+      ShowDetail,
+      `Pack ${fqn}`,
+    ),
   );
 });
 

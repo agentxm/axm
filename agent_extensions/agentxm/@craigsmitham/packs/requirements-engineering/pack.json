@@ -1,0 +1,33 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "0.1.0",
+  "description": "Portable, evidence-aware requirements elicitation, analysis, specification, review, traceability, and lifecycle across project methods and tools",
+  "keywords": [
+    "requirements-engineering",
+    "requirement",
+    "elicitation",
+    "analysis",
+    "specification",
+    "verification",
+    "validation",
+    "traceability",
+    "impact-analysis",
+    "requirements-management",
+    "method-neutral",
+    "tool-neutral"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "packs/requirements-engineering"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "type": "pack",
+  "name": "requirements-engineering",
+  "dependencies": {
+    "@craigsmitham/knowledge/requirements-engineering": ">=0.1.0",
+    "@craigsmitham/skills/engineer-requirements": ">=0.1.0"
+  }
+}

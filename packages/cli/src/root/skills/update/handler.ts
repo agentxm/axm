@@ -1,69 +1,63 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import {
-  isWorkspaceSourceLocator,
-  type RegistrySource,
-} from "@agentxm/client-core/unstable/sources";
-import {
-  resolveSource,
-  SourceHostProviders,
-} from "@agentxm/client-core/unstable/source-resolution";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
+import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-lifecycle";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
 import * as Array from "effect/Array";
 import type * as Duration from "effect/Duration";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { makeAppError } from "../../../app-error/index.js";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { Screen } from "../../../screen/index.js";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/workspace-operations";
 
 import {
-  WorkspaceMutations,
-  configuredRowsByName,
-  makeConfiguredReleaseAgeEvaluation,
-} from "@agentxm/client-core/unstable/workspace";
-import {
   decodeExtensionNameSync,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionName,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
+import { createRegistryClient } from "@agentxm/registry-client";
 import {
-  createRegistryClient,
   isVersionEntryEligibleAt,
   normalizeReleaseAgeRecords,
   releaseAgeEvidence,
   releaseAgeHoldbackWarning,
-  type ReleaseAgeEvaluation,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
-} from "@agentxm/client-core/unstable/registry";
-import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+import type { InstallSkillOperation } from "@agentxm/extension-lifecycle";
 import { buildUpdatePlan } from "./plan.js";
-import { installSkill } from "@agentxm/client-core/unstable/skills";
+import { installSkill } from "@agentxm/extension-lifecycle";
 import {
-  previewOrApplyPlan,
+  operationPresentation,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import type { SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
+} from "@agentxm/workspace-operations";
+import type { SkillsLockMap } from "@agentxm/workspace-state";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
   type PackConstraint,
   type SkillConstraints,
 } from "./constraint-resolution.js";
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import {
@@ -76,10 +70,13 @@ import {
   REVIEW_REGISTRY_SOURCES,
   SKILL_NAME_RULES,
 } from "../../suggested-actions.js";
+import {
+  lifecycleFailureToAppError,
+  provideLifecycleFailureAdapter,
+} from "../../../feature-errors.js";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
-  readonly agents: readonly string[];
   readonly skills: readonly string[];
   readonly force: boolean;
   readonly yes: boolean;
@@ -121,6 +118,7 @@ const skippedSkillStep = (
   label: `Skip ${outcome.name}`,
   run: Effect.succeed({
     result: "success",
+    disposition: "skipped",
     message: outcome.reason,
   } satisfies JobStepResult),
 });
@@ -142,7 +140,7 @@ const appendWarningsToResult =
   };
 
 const toRegistrySkillPattern = (source: string) => {
-  const parsed = parseRegistrySourcePatternParts(source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
   if (parsed === undefined) return Option.none();
   if (parsed.type !== undefined && parsed.type !== "skills") {
     return Option.none();
@@ -150,12 +148,28 @@ const toRegistrySkillPattern = (source: string) => {
   return Option.some(parsed);
 };
 
-export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
+export const handleUpdate = (args: UpdateHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "skills.update",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Update skills",
+      presentation: operationPresentation(
+        { imperative: "update", past: "Updated", gerund: "Updating" },
+        "skill",
+      ),
+    },
+    handleUpdateBody(args),
+  );
+
+const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+    Effect.mapError(lifecycleFailureToAppError),
+  );
 
   // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
@@ -165,7 +179,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   const disabledSkillEntries: ReadonlyArray<Extract<ResolveResult, { readonly type: "skip" }>> =
     Object.entries(allSkills).flatMap(([name, entry]) =>
-      entry.enabled === false
+      entry.enabled === false && entry.source !== undefined
         ? [
             {
               type: "skip",
@@ -177,7 +191,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         : [],
     );
   const skillEntries: ReadonlyArray<readonly [string, string]> = Object.entries(allSkills).flatMap(
-    ([name, entry]) => (entry.enabled ? [[name, entry.source]] : []),
+    ([name, entry]) => (entry.enabled && entry.source !== undefined ? [[name, entry.source]] : []),
   );
 
   if (skillEntries.length === 0) {
@@ -676,7 +690,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         name: "install-skill",
         args: {
           ref: item.ref,
-          force: args.force,
+          force: args.force || item.ref.refType !== "registry",
           versionRange: item.versionRange,
           skipSettings: Option.none(),
           strictUnknownAgents: Option.none(),
@@ -694,20 +708,21 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const toJobStepResult = (result: {
     readonly result: string;
     readonly message: string;
-    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
-  }): import("@agentxm/client-core/unstable/plan").JobStepResult =>
+    readonly error?: import("@agentxm/workspace-operations").StepFailure;
+  }): import("@agentxm/workspace-operations").JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }
       : { result: "success", message: result.message };
 
   const makeRunClosure: import("./plan.js").MakeRunClosure = (op) =>
     installSkill(op).pipe(
+      provideLifecycleFailureAdapter,
       Effect.map(toJobStepResult),
       Effect.map(appendWarningsToResult(warningsBySkill.get(op.args.ref.skill.name) ?? [])),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
-      Effect.provideService(CliRenderer, renderer),
+      Effect.provideService(Screen, screen),
       Effect.provideService(SourceHostProviders, sources),
       Effect.provideService(CodingAgentRepository, agentRepo),
       Effect.provideService(HttpClient.HttpClient, httpClient),
@@ -721,25 +736,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     Option.some("Update installed skills"),
     makeRunClosure,
   );
-  const basePlan =
-    warningsBySkill.size === 0
-      ? rawPlan
-      : {
-          ...rawPlan,
-          sections: [
-            ...(rawPlan.sections ?? []),
-            {
-              title: "Publisher ownership changes",
-              items: [...warningsBySkill.entries()].flatMap(([name, warnings]) =>
-                warnings
-                  .filter((warning) => warning.startsWith("Publisher identity changed"))
-                  .map((warning) => `${name}: ${warning}`),
-              ),
-            },
-          ],
-        };
   const basePlanWithWarnings: Plan = {
-    ...basePlan,
+    ...rawPlan,
+    presentation: operationPresentation(
+      { imperative: "update", past: "Updated", gerund: "Updating" },
+      "skill",
+    ),
     releaseAge: {
       evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
       holdbacks: normalizeReleaseAgeRecords([
@@ -748,7 +750,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       ]),
       bypasses: normalizeReleaseAgeRecords(resolved.flatMap((item) => item.bypasses ?? [])),
     },
-    jobs: basePlan.jobs.map((job) => ({
+    jobs: rawPlan.jobs.map((job) => ({
       ...job,
       steps: job.steps.map((step) => {
         if (step.readiness !== "ready") {
@@ -781,7 +783,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       ["skills", "update"],
       [
         recoverySwitch("--ignore-version-constraints", args.force),
-        ...args.agents.map((agent) => recoveryOption("--agent", publicRecoveryValue(agent))),
         ...args.skills.map((skill) => recoveryOption("--name", publicRecoveryValue(skill))),
         ...Option.match(args.source, {
           onNone: () => [],
@@ -798,7 +799,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
             ),
       ),
-    ].map((name) => ({ extensionType: "skill", name, targetEnabled: true })),
+    ].map((name) => ({ extensionType: "skill", name, plannedState: "enabled" as const })),
   );
   const publisherOwnershipChanged = [...warningsBySkill.values()].some((warnings) =>
     warnings.some((warning) => warning.startsWith("Publisher identity changed")),
@@ -830,7 +831,9 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     ],
   };
   const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
-  yield* emitPlanResolutionResult("skills.update", resolution);
+  yield* emitOperationResolution("skills.update", resolution, {
+    suggestions: [LIST_INSTALLED_SKILLS],
+  });
 });
 
 /** Collect per-skill constraints from the authoritative desired pack graph. */

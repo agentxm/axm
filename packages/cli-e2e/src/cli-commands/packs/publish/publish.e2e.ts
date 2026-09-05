@@ -18,16 +18,16 @@ const setupWorkspace = async (tempPath: string, registryPath: string, owner: str
   await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
     cwd: tempPath,
   });
-  const settingsPath = path.join(tempPath, ".axm", "settings.json");
+  const settingsPath = path.join(tempPath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
+  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
   settings.owner = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
-/** Create a skill extension in .axm/extensions/. */
+/** Create an authored skill extension. */
 const createManagedSkill = (tempPath: string, owner: string, name: string, version = "1.0.0") => {
-  const extensionDir = path.join(tempPath, ".axm", "extensions", owner, "skills", name);
+  const extensionDir = path.join(tempPath, "skills", name);
   const srcDir = path.join(extensionDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
@@ -47,13 +47,13 @@ const createManagedSkill = (tempPath: string, owner: string, name: string, versi
       2,
     ) + "\n",
   );
-  const settingsPath = path.join(tempPath, ".axm", "settings.json");
+  const settingsPath = path.join(tempPath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.skills = { ...settings.skills, [name]: `workspace:${owner}/skills/${name}` };
+  settings.skills = { ...settings.skills, [name]: "workspace" };
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
-/** Create a pack in .axm/extensions/ with a pack.json manifest. */
+/** Create an authored pack with a pack.json manifest. */
 const createManagedPack = async (
   tempPath: string,
   owner: string,
@@ -68,7 +68,7 @@ const createManagedPack = async (
   });
   expect(createResult.exitCode, createResult.stderr).toBe(0);
 
-  const packDir = path.join(tempPath, ".axm", "extensions", owner, "packs", name);
+  const packDir = path.join(tempPath, "packs", name);
   fs.writeFileSync(
     path.join(packDir, "pack.json"),
     JSON.stringify(
@@ -285,6 +285,62 @@ describe("axm packs publish", () => {
       }
     });
 
+    it("keeps an external dependency as a Registry reference instead of an upload candidate", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        const owner = "@test";
+
+        await setupWorkspace(temp.path, registryDir.path, owner);
+        createManagedSkill(temp.path, owner, "registry-dep", "1.0.0");
+        const dependencyResult = await runCli(
+          ["skills", "publish", `${owner}/skills/registry-dep`, "--yes"],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+        );
+        expect(dependencyResult.exitCode, dependencyResult.stderr).toBe(0);
+
+        const settingsPath = path.join(temp.path, "axm.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.skills["registry-dep"] = `${owner}/skills/registry-dep@^1.0.0`;
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+        await createManagedPack(temp.path, owner, "registry-reference-pack", {
+          version: "1.0.0",
+          dependencies: {
+            [`${owner}/skills/registry-dep`]: "^1.0.0",
+          },
+        });
+
+        const result = await runCli(
+          [
+            "packs",
+            "publish",
+            `${owner}/packs/registry-reference-pack`,
+            "--include-dependencies",
+            "--yes",
+            "--json",
+          ],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+        );
+        expect(result.exitCode, result.stderr).toBe(0);
+        expect(JSON.parse(result.stdout).result.execution.outcomes).toMatchObject([
+          {
+            name: "registry-dep",
+            action: "skip",
+            reason: "not_authored",
+          },
+          {
+            name: "registry-reference-pack",
+            action: "publish",
+            status: "success",
+          },
+        ]);
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+
     it("does not attempt the pack when an included dependency fails preflight", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
@@ -300,7 +356,7 @@ describe("axm packs publish", () => {
           },
         });
         fs.writeFileSync(
-          path.join(temp.path, ".axm", "extensions", owner, "skills", "invalid-dep", "skill.json"),
+          path.join(temp.path, "skills", "invalid-dep", "skill.json"),
           "{ invalid json",
         );
 

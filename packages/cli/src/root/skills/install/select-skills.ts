@@ -8,12 +8,12 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
-import { isNonInteractive } from "@agentxm/client-core/unstable/cli-flags";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
-import { expandGlobs } from "@agentxm/client-core/unstable/utils";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { requireInteractive } from "../../../prompt/index.js";
+import { isNonInteractive } from "../../../cli-flags/index.js";
+import { makeAppError, type AppError } from "../../../app-error/index.js";
+import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
+import { expandGlobs } from "../../../utils/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -21,6 +21,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
+import { Screen } from "../../../screen/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -37,7 +38,7 @@ interface SelectSkillsInteractions {
   ) => Effect.Effect<
     ReadonlyArray<SkillExtensionRef>,
     PromptCancelled | AppError,
-    FileSystem.FileSystem | Path.Path | Terminal.Terminal
+    FileSystem.FileSystem | Path.Path | Terminal.Terminal | Screen
   >;
 }
 
@@ -70,7 +71,7 @@ export const determineSkillsToInstall = (
       if (matched.length === 0) {
         return yield* makeAppError({
           code: "not_found",
-          detail: `No skills matched: ${args.requestedSkills.join(", ")}`,
+          detail: `No skills matched: ${args.requestedSkills.join(", ")}. Source contains: ${[...allNames].sort((left, right) => left.localeCompare(right)).join(", ")}`,
           recover: "Check the skill names or patterns and try again",
         });
       }
@@ -104,26 +105,29 @@ const selectSkillsPrompt = (skills: Array.NonEmptyReadonlyArray<SkillExtensionRe
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const terminal = yield* Terminal.Terminal;
+    const screen = yield* Screen;
     const promptEnvironment = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fileSystem),
       Layer.succeed(Path.Path, path),
       Layer.succeed(Terminal.Terminal, terminal),
     );
 
-    return yield* requireInteractive(
-      Prompt.multiSelect({
-        message,
-        choices: skills.map((skill) => ({
-          title: skill.skill.name,
-          value: skill,
-          ...(Option.isSome(skill.skill.description)
-            ? { description: skill.skill.description.value }
-            : {}),
-        })),
-        min: 1,
-      }),
-      { message },
-    ).pipe(Effect.provide(promptEnvironment));
+    return yield* screen.prompt(
+      requireInteractive(
+        Prompt.multiSelect({
+          message,
+          choices: skills.map((skill) => ({
+            title: skill.skill.name,
+            value: skill,
+            ...(Option.isSome(skill.skill.description)
+              ? { description: skill.skill.description.value }
+              : {}),
+          })),
+          min: 1,
+        }),
+        { message },
+      ).pipe(Effect.provide(promptEnvironment)),
+    );
   });
 };
 

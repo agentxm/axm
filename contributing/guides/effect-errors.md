@@ -10,8 +10,7 @@ depends-on:
 # Effect Errors in AXM
 
 Portable error modeling belongs to the Effect v4 Knowledge guide for
-[error modeling](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/error-modeling.md),
-routed by the installed `craft-effect-v4` skill.
+[error modeling](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/error-modeling.md).
 This guide defines AXM's application boundary.
 
 ## Boundary model
@@ -34,7 +33,7 @@ original `cause`, and choose one closed category: `issues`, `usage`,
 `not_found`, `auth`, `forbidden`, `conflict`, `rate_limit`, `network`,
 `validation`, `internal`, `unavailable`, or `quota`. Numeric exit status is a
 pure mapping owned by
-[`ExitCode`](../../packages/core/src/unstable/app-error/app-error.ts).
+[`ExitCode`](../../packages/cli/src/app-error/app-error.ts).
 
 - `usage` means the invocation shape is wrong; `validation` means a parsed
   value violates domain rules.
@@ -51,13 +50,14 @@ pure mapping owned by
 ## Registry failures
 
 Translate generated Registry client failures with
-`registryClientErrorToAppError` or `registryErrorToAppError` from
-`packages/core/src/unstable/registry/translate.ts`. Do not add operation-local
-HTTP status switches. Keep RFC 9457 response bodies opaque in
-`metadata.response`; decode a focused schema next to a use case that needs a
-specific field. Configure transport, transient retry, and client provision at
+`registryClientErrorToProblem` or `registryErrorToProblem` from
+`packages/registry-client/src/translate.ts`; the application boundary converts
+the typed registry failures to `AppError` through the registered
+`app-error/conversions` dispatcher. Do not add operation-local HTTP status
+switches. Keep RFC 9457 response bodies opaque in `metadata.response`; decode a
+focused schema next to a use case that needs a specific field. Configure transport, transient retry, and client provision at
 the shared boundary described by the Effect v4
-[HTTP client](../../.axm/extensions/@craigsmitham/knowledge/effect-v4/src/http-client.md)
+[HTTP client](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/http-client.md)
 guide.
 
 ## Cancellation and interruption

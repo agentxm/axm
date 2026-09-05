@@ -1,4 +1,5 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — publication lint translates opaque extension accessor failures into AppError
+import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
 import * as ServiceMap from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -15,121 +16,155 @@ import * as os from "node:os";
 import * as semver from "semver";
 
 import {
+  AppError,
   errorClassForAppErrorCode,
   exitCodeFor,
   makeAppError,
   redactSensitiveText,
-  type AppError,
   type AppErrorCode,
-} from "@agentxm/client-core/unstable/app-error";
+} from "../../app-error/index.js";
 import {
   AuthClient,
+  AuthLoginPresenter,
   DeviceLoginInteraction,
-  RegistryUrl,
   resolveRequestToken,
   runPublishAuthorization,
   type PublishCapabilityResponse,
-} from "@agentxm/client-core/unstable/auth";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/registry-auth";
+import { authFailureToAppError, publishFailureToAppError } from "../../feature-errors.js";
+import { RegistryUrl } from "@agentxm/registry-client";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
 import {
-  credentialFreeLocatorRecoveryValue,
   effectCliExit,
+  recordCommandCompletion,
+  requestedInterruptionSignal,
+  withArgvTracking,
+} from "../../cli-runtime/index.js";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import {
+  awaitDrained,
+  deriveOperationOutcome,
+  observeUnit,
+  previewOrApplyPlan,
+  settleOperation,
+  credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
   renderConfirmationRecoveryCommand,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/workspace-operations";
 import {
   ExtensionDependencyConstraintMapSchema,
   ExtensionMetadataSchema,
   ExtensionNameSchema,
   ExtensionTypeSchema,
-  EXTERNAL_EXTENSIONS_DIR,
   HandleSchema,
   PublishOptionsSchema,
-  REGISTRY_EXTENSIONS_DIR,
   extensionTypes,
   extensionTypeToPlural,
   decodeExtensionNameSync,
-  fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionName,
   type ExtensionType,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
-import type {
-  Job,
-  JobStepResult,
-  OperationPrecondition,
-  Plan,
-  PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
-  extensionConstraintFactText,
+  fqnInvalidErrorToAppError,
+  stepFailureToAppError,
+  toAppError,
+} from "../../app-error/conversions.js";
+import type { Job, JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import {
+  OperationJournal,
+  StepFailure,
+  getOperationJournal,
+  makeOperationJournal,
+  unitIdOf,
+  type OperationJournalState,
+} from "@agentxm/workspace-operations";
+import {
   makeProspectiveExtensionConstraintFacts,
   type ExtensionConstraintInvariantFact,
-} from "@agentxm/client-core/unstable/projection";
+} from "@agentxm/extension-workspace";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
-import { CompanionPackageSchema } from "@agentxm/client-core/unstable/package-urls";
+import { CompanionPackageSchema } from "@agentxm/extension-model/unstable/package-urls";
 import {
   KNOWLEDGE_SOURCE_DIR,
   KnowledgeManifestSchema,
-  inspectKnowledgeBundle,
-} from "@agentxm/client-core/unstable/knowledge";
+} from "@agentxm/extension-model/unstable/knowledge";
+import { inspectKnowledgeBundle } from "@agentxm/registry-protocol/unstable/knowledge";
 import {
   checkForbiddenSourceEntries,
   enforceArchiveSizeLimit,
   resolveVisibilityIntent,
   type PublishVisibility,
   type VisibilityIntent,
-  publishArchiveOptions,
-  runPublishLintGate,
+  normalizePublishInput,
   validateArchive,
-} from "@agentxm/client-core/unstable/publish";
-import { buildLintWorkspace } from "@agentxm/client-core/unstable/lint";
-import type { PackDependencyReachability } from "@agentxm/client-core/unstable/packs";
+} from "@agentxm/registry-protocol/unstable/publish";
+import {
+  alreadyPublishedVersionConflict,
+  assessPublishSourceState,
+  buildPublishJobs,
+  exactPublishUploadBinding,
+  findPackPublishDivergenceFindings,
+  isPublishableType,
+  localPackConstraintFailures,
+  nonMonotonicVersionConflict,
+  planZipArchive,
+  previewPublishUploadBinding,
+  publishArchiveOptions,
+  publishAuthenticationPreconditions,
+  publishRecoverySelection,
+  publishSourceRiskCondition,
+  runPublishLintGate,
+  settlePublish,
+  validatePublishOwners,
+  type ArchivePlan,
+  type PublishableType,
+  type PublishSettlement,
+  type PublishSourceAssessment,
+  type ResolvedPublishPreview,
+  type SettledPublish,
+} from "@agentxm/extension-publish";
+import { GitDirectoryComparison } from "@agentxm/extension-sources";
+import { buildLintWorkspace } from "@agentxm/workspace-lint";
 import {
   PUBLICATION_SET_CONTRACT,
   archiveSha256Hex,
-  createRegistryClient,
   publicationDescriptorDigest,
   publicationSetDigest,
-  type ExtensionVisibility,
   type PackDependencyDescriptor,
-  type PublishExtensionArgs,
   type PreviewPublicationSetRequest,
   type PreviewPublicationSetResponse,
   PreviewPublicationSetResponseSchema,
   type PublicationCandidateResult,
   type PublicationDescriptor,
   type PublicationVisibilityInput,
-  type PublicationPackResult,
-  type RegistryClient,
   type VersionEntry,
-} from "@agentxm/client-core/unstable/registry";
-import { isWorkspaceSourceLocator, type SourceType } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/registry-protocol/unstable/registry";
 import {
-  buildZipArchive,
-  computeIntegrity,
-  expandGlobs,
-  isGlobPattern,
-} from "@agentxm/client-core/unstable/utils";
+  createRegistryClient,
+  type ExtensionVisibility,
+  type RegistryClient,
+} from "@agentxm/registry-client";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import type { SourceType } from "@agentxm/extension-model/unstable/sources/types";
+import { computeIntegrity, expandGlobs, isGlobPattern } from "../../utils/index.js";
 import {
   VersionSchema,
   decodeVersionRangeSync,
   type Version,
-} from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/version-constraints";
 import {
   WorkspaceMutations,
+  acceptedCanonicalObservation,
   configuredRowsByName,
-  type WorkspaceScope,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import {
   emitPublishResult,
@@ -137,7 +172,7 @@ import {
   type PublishPublicationSet,
   type PublishSelectionDecision,
   type PublishResultItem,
-} from "../../json-output.js";
+} from "./result.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   backfillFlag,
@@ -146,31 +181,6 @@ import {
   type OnExistingPolicy,
   type PublishSelectionMode,
 } from "../shared/publish-flags.js";
-import {
-  alreadyPublishedVersionConflict,
-  nonMonotonicVersionConflict,
-} from "../shared/publish-preflight.js";
-
-/**
- * Publish policy, total over every extension type: a new type cannot be added
- * without deciding whether it publishes.
- */
-export const PUBLISHABLE_TYPES = {
-  skill: true,
-  "mcp-server": true,
-  subagent: true,
-  rule: true,
-  hook: true,
-  knowledge: true,
-  pack: true,
-} as const satisfies Record<ExtensionType, boolean>;
-
-type TruthyKeys<T> = { [K in keyof T]: T[K] extends true ? K : never }[keyof T];
-
-export type PublishableType = TruthyKeys<typeof PUBLISHABLE_TYPES>;
-
-export const isPublishableType = (type: ExtensionType): type is PublishableType =>
-  PUBLISHABLE_TYPES[type];
 
 const selectableTypes: ReadonlyArray<PublishableType> = extensionTypes.filter(isPublishableType);
 type SelectableType = PublishableType;
@@ -248,19 +258,38 @@ interface PublishCandidate extends SelectedEntry {
   readonly packages?: ReadonlyArray<Schema.Schema.Type<typeof CompanionPackageSchema>>;
   readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
   readonly publishVisibility?: ExtensionVisibility;
+  readonly publishIgnore?: ReadonlyArray<string>;
   readonly archive: Uint8Array;
+  readonly archivePlan: ArchivePlan;
   readonly integrity: string;
   readonly action: "publish" | "skip";
   readonly backfill: boolean;
   readonly extensionExists: boolean;
   readonly publishPreview?: ResolvedPublishPreview;
+  readonly sourceAssessment?: PublishSourceAssessment;
 }
 
 interface PublishPreparationFailure {
   readonly _tag: "PublishPreparationFailure";
-  readonly reason: "version_exists" | "integrity_drift";
+  readonly reason: "version_exists" | "integrity_drift" | "not_authored";
   readonly error: AppError;
 }
+
+/**
+ * Publish steps settle with the registry `AppError` as the step failure's
+ * cause; the readers below recover it so publish causes keep their
+ * request/response metadata verbatim.
+ */
+const publishStepFailure = (error: AppError): StepFailure =>
+  new StepFailure({
+    category: error.code,
+    detail: error.detail,
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    cause: error,
+  });
+
+const publishStepAppError = (error: StepFailure): AppError =>
+  error.cause instanceof AppError ? error.cause : stepFailureToAppError(error);
 
 const preparationFailure = (
   reason: PublishPreparationFailure["reason"],
@@ -298,127 +327,15 @@ export const publicPublishCause = (error: AppError) => ({
       }),
 });
 
-interface LocalPackConstraintCandidate {
-  readonly fqn: string;
-  readonly type: PublishableType;
-  readonly authored: boolean;
-  readonly version: Version;
-  readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
-}
-
-export const findPackPublishDivergenceFindings = (args: {
-  readonly candidates: ReadonlyArray<LocalPackConstraintCandidate>;
-  readonly reachability: ReadonlyArray<PackDependencyReachability>;
-  readonly packs: ReadonlyArray<PublicationPackResult>;
-}): ReadonlyMap<string, ReadonlyArray<PublishAdvisoryFinding>> => {
-  const authoredPacks = new Set(
-    args.candidates
-      .filter((candidate) => candidate.authored && candidate.type === "pack")
-      .map((candidate) => candidate.fqn),
-  );
-  const localByPair = new Map(
-    args.reachability.map((record) => [`${record.packFqn}\u0000${record.memberFqn}`, record]),
-  );
-  const findings = new Map<string, Array<PublishAdvisoryFinding>>();
-  for (const pack of args.packs) {
-    if (pack.status !== "admitted") continue;
-    const packFqn = formatFqn(pack.target);
-    if (!authoredPacks.has(packFqn)) continue;
-    for (const resolution of pack.resolutions) {
-      const memberFqn = formatFqn(resolution.dependency);
-      const local = localByPair.get(`${packFqn}\u0000${memberFqn}`);
-      if (
-        local?.classification !== "satisfying" ||
-        local.memberVersion === undefined ||
-        local.memberVersion === resolution.effectiveVersion
-      ) {
-        continue;
-      }
-      const finding: PublishAdvisoryFinding = {
-        ruleId: "pack/publish-resolution-divergence",
-        severity: "warning",
-        message: `${packFqn} resolves ${memberFqn}@${local.memberVersion} in this workspace, while Registry consumers resolve ${memberFqn}@${resolution.effectiveVersion} within ${resolution.dependency.range}.`,
-        suggestions: [
-          local.memberAuthority === "workspace"
-            ? {
-                description: `Publish ${memberFqn} before publishing the pack if consumers should receive the workspace version`,
-                cmd: `axm publish ${memberFqn}`,
-              }
-            : {
-                description: `Update ${memberFqn} if this workspace should match Registry consumers`,
-                cmd: `axm update ${memberFqn}`,
-              },
-        ],
-      };
-      const current = findings.get(packFqn);
-      if (current === undefined) findings.set(packFqn, [finding]);
-      else current.push(finding);
-    }
-  }
-  return new Map(
-    [...findings.entries()].map(([packFqn, values]) => [
-      packFqn,
-      [...values].sort((left, right) => left.message.localeCompare(right.message)),
-    ]),
-  );
-};
-
 const localPackConstraintErrors = (
   facts: ReadonlyArray<ExtensionConstraintInvariantFact>,
-): ReadonlyMap<string, AppError> => {
-  return new Map(
-    facts.map((fact) => {
-      const memberFqn = fact.subject.identity;
-      const memberVersion = fact.observation.candidateVersion ?? "unknown";
-      const violations = fact.observation.violations ?? [];
-      return [
-        memberFqn,
-        makeAppError({
-          code: "validation",
-          detail: `${extensionConstraintFactText(fact)}; ${memberFqn}@${memberVersion} is excluded by the current workspace Pack constraints: ${violations
-            .map(
-              (constraint) =>
-                `${constraint.dependingPack ?? "unknown Pack"} declares ${constraint.range}`,
-            )
-            .join("; ")}`,
-          suggestions: violations.flatMap((constraint) =>
-            constraint.authority === "workspace"
-              ? [
-                  {
-                    description: `Replace ${constraint.dependingPack ?? "the Pack"}'s constraint with the selected version, then publish the member and pack together`,
-                    cmd: `axm packs add ${constraint.dependingPack ?? "<name>"} ${memberFqn}`,
-                  },
-                ]
-              : [
-                  {
-                    description: `Update ${constraint.dependingPack ?? "the Pack"} if its owner has published a compatible constraint`,
-                    cmd: `axm update ${constraint.dependingPack ?? "<extension[@version]>"}`,
-                  },
-                  {
-                    description: `Otherwise stop workspace authority from shadowing ${memberFqn}`,
-                  },
-                ],
-          ),
-        }),
-      ];
-    }),
+): ReadonlyMap<string, AppError> =>
+  new Map(
+    [...localPackConstraintFailures(facts)].map(([memberFqn, failure]) => [
+      memberFqn,
+      publishFailureToAppError(failure),
+    ]),
   );
-};
-
-export interface ResolvedPublishPreview {
-  readonly visibility: PublishVisibility;
-  readonly visibilityInput: PublicationVisibilityInput;
-  readonly condition?: string;
-  readonly publicationSetDigest: string;
-  readonly publicationDescriptorDigest: string;
-}
-
-interface PublishPlanCandidate {
-  readonly fqn: string;
-  readonly type: PublishableType;
-  readonly dependencies?: Readonly<Record<string, unknown>>;
-  readonly includedDependency?: true;
-}
 
 interface PublishAuthorizationState {
   readonly exactCapabilities: ReadonlyMap<string, PublishCapabilityResponse>;
@@ -448,39 +365,15 @@ type PublishPlanOutput =
       readonly targetKey: string;
       readonly visibility: PublishVisibility;
       readonly warnings: ReadonlyArray<PublishAdvisoryFinding>;
+      readonly settlement: Exclude<PublishSettlement, "unresolved">;
     };
 
 type PublishPlanRequirements =
-  HttpClient.HttpClient | PublishAuthorization | FileSystem.FileSystem | Path.Path;
-
-/** Creates dependency edges without expanding the user's selection. */
-export const buildPublishJobs = <
-  Candidate extends PublishPlanCandidate,
-  Requirements = never,
-  Output = never,
->(
-  candidates: ReadonlyArray<Candidate>,
-  candidateStep: (candidate: Candidate) => PlannedJobStep<Requirements, Output>,
-): ReadonlyArray<Job<Requirements, Output>> => {
-  const selectedFqns = new Set(candidates.map((candidate) => candidate.fqn));
-  return [
-    {
-      concurrency: 4,
-      executionPolicy: "best-effort",
-      steps: candidates.map((candidate) => ({
-        ...candidateStep(candidate),
-        key: candidate.fqn,
-        ...(candidate.type !== "pack"
-          ? {}
-          : {
-              dependsOn: Object.keys(candidate.dependencies ?? {}).filter((fqn) =>
-                selectedFqns.has(fqn),
-              ),
-            }),
-      })),
-    },
-  ];
-};
+  | HttpClient.HttpClient
+  | PublishAuthorization
+  | FileSystem.FileSystem
+  | Path.Path
+  | GitDirectoryComparison;
 
 interface TargetRegistry {
   readonly name: string;
@@ -489,8 +382,6 @@ interface TargetRegistry {
 
 export interface RootPublishHandlerArgs {
   readonly selectors: ReadonlyArray<string>;
-  readonly authored: boolean;
-  readonly all: boolean;
   readonly owners: ReadonlyArray<string>;
   readonly types: ReadonlyArray<SelectableType>;
   readonly excludes: ReadonlyArray<string>;
@@ -498,19 +389,22 @@ export interface RootPublishHandlerArgs {
   readonly registryUrl: Option.Option<string>;
   readonly onExisting: Option.Option<ExistingVersionPolicy>;
   readonly backfill: boolean;
+  readonly acceptWarnings: boolean;
   readonly yes: boolean;
   readonly preview: boolean;
   readonly scope: WorkspaceScope;
   readonly visibility: Option.Option<ExtensionVisibility>;
   readonly includeDependencies: boolean;
-  readonly includeDependency: ReadonlyArray<string>;
   readonly recoveryCommand?: ReadonlyArray<string>;
   readonly recoverySelectors?: ReadonlyArray<string>;
   readonly recoveryExcludes?: ReadonlyArray<string>;
 }
 
 export const makeExactPublishRecovery = (
-  args: Pick<RootPublishHandlerArgs, "registry" | "registryUrl" | "backfill" | "visibility">,
+  args: Pick<
+    RootPublishHandlerArgs,
+    "registry" | "registryUrl" | "backfill" | "visibility" | "acceptWarnings"
+  >,
   candidateFqns: ReadonlyArray<string>,
 ) =>
   makeConfirmationRecovery(
@@ -528,6 +422,7 @@ export const makeExactPublishRecovery = (
       }),
       recoveryOption("--on-existing", publicRecoveryValue("verify")),
       recoverySwitch("--backfill", args.backfill),
+      recoverySwitch("--accept-warnings", args.acceptWarnings),
       ...Option.match(args.visibility, {
         onNone: () => [],
         onSome: (visibility) => [recoveryOption("--visibility", publicRecoveryValue(visibility))],
@@ -536,107 +431,76 @@ export const makeExactPublishRecovery = (
     ],
   );
 
-export const publishRecoverySelection = (
-  results: ReadonlyArray<PublishResultItem>,
-): {
-  readonly remainingItems: ReadonlyArray<string>;
-  readonly blockedDependents: ReadonlyArray<string>;
-} => ({
-  remainingItems: results
-    .filter((result) => result.status === "failed" || result.status === "blocked")
-    .map((result) => result.id),
-  blockedDependents: results
-    .filter((result) => result.status === "blocked")
-    .map((result) => result.id),
-});
-
-export const publishAuthenticationPreconditions = (options: {
-  readonly preview: boolean;
-  readonly remoteRegistry: boolean;
-  readonly authenticated: boolean;
-  readonly hasPublishCandidates: boolean;
-}): ReadonlyArray<OperationPrecondition> =>
-  options.preview &&
-  options.remoteRegistry &&
-  !options.authenticated &&
-  options.hasPublishCandidates
-    ? [
-        {
-          id: "authentication",
-          label: "Registry authentication",
-          status: "unmet",
-          detail:
-            "Publishing requires human authorization before apply; authenticate before preparing a release workflow.",
-          blockedOn: "human",
-          command: "axm login --device-code --json",
-        },
-      ]
-    : [];
-
-export const exactPublishUploadBinding = (
-  capability: PublishCapabilityResponse,
-  visibilityInput: PublicationVisibilityInput,
-): Pick<
-  PublishExtensionArgs,
-  | "accessToken"
-  | "condition"
-  | "visibility"
-  | "visibilityInput"
-  | "publicationSetDigest"
-  | "publicationDescriptorDigest"
-> => ({
-  accessToken: capability.accessToken,
-  condition: capability.condition,
-  publicationSetDigest: capability.publicationSetDigest,
-  publicationDescriptorDigest: capability.publicationDescriptorDigest,
-  visibilityInput,
-  ...(capability.visibility.disposition === "establish"
-    ? { visibility: capability.visibility }
-    : {}),
-});
-
-export const previewPublishUploadBinding = (
-  preview: ResolvedPublishPreview,
-): Pick<
-  PublishExtensionArgs,
-  | "condition"
-  | "visibility"
-  | "visibilityInput"
-  | "publicationSetDigest"
-  | "publicationDescriptorDigest"
-> => ({
-  ...(preview.condition === undefined ? {} : { condition: preview.condition }),
-  publicationSetDigest: preview.publicationSetDigest,
-  publicationDescriptorDigest: preview.publicationDescriptorDigest,
-  visibilityInput: preview.visibilityInput,
-  ...(preview.visibility.disposition === "establish" ? { visibility: preview.visibility } : {}),
-});
-
-export const validatePublishOwners = (
-  owners: ReadonlyArray<Handle>,
-  client: Pick<RegistryClient, "ownerExists">,
-): Effect.Effect<void, AppError> =>
-  Effect.forEach(
-    [...new Set(owners)],
-    (owner) =>
-      client.ownerExists(owner).pipe(
-        Effect.flatMap(({ exists }) =>
-          exists
-            ? Effect.void
-            : makeAppError({
-                code: "not_found",
-                detail: `Publish owner ${owner} does not exist.`,
-                suggestions: [
-                  {
-                    description: "Create the organization in AgentXM before publishing.",
-                    url: "https://agentxm.ai/orgs/new",
-                  },
-                ],
-              }),
-        ),
-      ),
-    { concurrency: 4, discard: true },
+/**
+ * Per-item evidenced states for an externally interrupted publish apply. The
+ * journal's settlement facts and the dispatch evidence separate four cases:
+ * a recorded response (success or failure stands), a dispatched upload with
+ * no recorded response (the registry may have committed — indeterminate),
+ * and work the interruption prevented (pending; nothing left the process).
+ *
+ * @internal Exported for direct tests.
+ */
+export const interruptedPublishResults = (
+  base: ReadonlyArray<PublishResultItem>,
+  journal: Option.Option<OperationJournalState>,
+  dispatched: ReadonlySet<string>,
+): ReadonlyArray<PublishResultItem> => {
+  const resolvedByUnit = new Map(
+    Option.match(journal, {
+      onNone: () => [],
+      onSome: (state) => state.resolved.map((step) => [unitIdOf(step), step] as const),
+    }),
   );
+  const started = new Set(
+    Option.match(journal, { onNone: () => [], onSome: (state) => state.startedUnitIds }),
+  );
+  return base.map((result): PublishResultItem => {
+    if (result.action !== "publish") return result;
+    const fqn = formatFqn({ owner: result.owner, type: result.type, name: result.name });
+    const step = resolvedByUnit.get(fqn);
+    if (step !== undefined && step.result.result === "success") {
+      return {
+        ...result,
+        phase: "upload_execution",
+        status: "success",
+        ...(step.result.message.length === 0 ? {} : { message: step.result.message }),
+        ...(step.result.links === undefined ? {} : { links: step.result.links }),
+      };
+    }
+    if (step !== undefined && step.result.result === "error") {
+      const stepError = publishStepAppError(step.result.error);
+      return {
+        ...result,
+        action: "error",
+        phase: "upload_execution",
+        reason:
+          stepError.metadata?.response?.problemCode === "publish/precondition-changed"
+            ? "publish_precondition_changed"
+            : "upload_failed",
+        status: "failed",
+        ...(step.result.message.length === 0 ? {} : { message: step.result.message }),
+        cause: publicPublishCause(stepError),
+      };
+    }
+    if (started.has(fqn) && dispatched.has(fqn)) {
+      return {
+        ...result,
+        phase: "upload_execution",
+        status: "unknown",
+        reason: "interrupted",
+        message:
+          "The upload was dispatched but no response was recorded; the registry may have committed this version. Re-run publish to verify.",
+      };
+    }
+    return {
+      ...result,
+      phase: "upload_execution",
+      status: "pending",
+      reason: "interrupted",
+      message: "Interrupted before the upload was dispatched.",
+    };
+  });
+};
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -691,9 +555,7 @@ const sourceType = (source: string): SourceType => {
 };
 
 const identityFromSource = (entry: CatalogEntry) => {
-  const authored = isWorkspaceSourceLocator(entry.source);
-  const identitySource = authored ? entry.source.slice("workspace:".length) : entry.source;
-  const parsed = parseRegistrySourcePatternParts(identitySource);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
   if (
     parsed === undefined ||
     parsed.name === undefined ||
@@ -706,7 +568,7 @@ const identityFromSource = (entry: CatalogEntry) => {
     owner: parsed.owner,
     fqn: `${parsed.owner}/${parsed.type}/${parsed.name}`,
     sourceType: sourceType(entry.source),
-    authored,
+    authored: false,
   } satisfies SelectedEntry;
 };
 
@@ -719,17 +581,22 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const plural = extensionTypeToPlural[entry.type];
-  const extensionRoots = [path.join(ws.baseDir, EXTERNAL_EXTENSIONS_DIR, plural, entry.name)];
-  const canonicalRoot = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR);
-  const ownerDirs = yield* fs
-    .readDirectory(canonicalRoot)
-    .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-  for (const ownerDir of ownerDirs) {
-    if (ownerDir.startsWith("@")) {
-      extensionRoots.push(path.join(canonicalRoot, ownerDir, plural, entry.name));
-    }
-  }
+  const authored = isWorkspaceSourceLocator(entry.source);
+  const accepted = authored
+    ? Option.none()
+    : yield* acceptedCanonicalObservation({
+        workspace: ws,
+        type: entry.type,
+        name: entry.name,
+      });
+  const extensionRoots = authored
+    ? ws.layout.scope === "project"
+      ? [path.join(ws.layout.authoredRoot(entry.type), entry.name)]
+      : []
+    : Option.match(accepted, {
+        onNone: () => [],
+        onSome: ({ observation }) => (observation.path === undefined ? [] : [observation.path]),
+      });
 
   for (const extensionDir of extensionRoots) {
     const manifestPath = path.join(extensionDir, manifestFilename[entry.type]);
@@ -755,7 +622,7 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
       owner: manifest.value.owner,
       fqn: formatFqn(manifest.value),
       sourceType: sourceType(entry.source),
-      authored: false,
+      authored,
       extensionDir,
     } satisfies SelectedEntry;
   }
@@ -819,33 +686,21 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const hasFilters = args.owners.length > 0 || args.types.length > 0 || args.excludes.length > 0;
-  if (args.all && (args.selectors.length > 0 || args.authored)) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "--all cannot be combined with selectors or --authored",
-    });
-  }
   if (args.selectors.length > 0 && hasFilters) {
     return yield* makeAppError({
       code: "usage",
       detail: "Selection filters cannot be combined with explicit selectors",
     });
   }
-  if (args.includeDependency.length > 0 && !args.includeDependencies) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "--include-dependency requires --include-dependencies",
-    });
-  }
-
   const resolvedIdentities = yield* Effect.forEach(
     catalog,
     (entry) => identityFromManagedPackage(entry),
     { concurrency: 8 },
   );
-  const identities = resolvedIdentities.filter(
-    (identity): identity is SelectedEntry => identity !== undefined,
-  );
+  const identities: Array<SelectedEntry> = [];
+  for (const identity of resolvedIdentities) {
+    if (identity !== undefined) identities.push(identity);
+  }
   let selected: ReadonlyArray<SelectedEntry>;
   let mode: SelectionMode;
 
@@ -853,14 +708,13 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
     for (const selector of args.selectors) {
       yield* parseRootSelector(selector);
     }
-    selected = identities.filter((entry) =>
-      args.selectors.some((selector) => matchesSelector(entry, selector)),
-    );
-    if (args.authored) selected = selected.filter((entry) => entry.authored);
-    mode = args.authored ? "filtered-explicit" : "explicit";
+    selected = identities
+      .filter((entry) => args.selectors.some((selector) => matchesSelector(entry, selector)))
+      .map((entry) => (entry.authored ? entry : { ...entry, skipReason: "not_authored" }));
+    mode = "explicit";
   } else {
-    selected = args.all ? identities : identities.filter((entry) => entry.authored);
-    mode = args.all ? "all" : "authored";
+    selected = identities.filter((entry) => entry.authored);
+    mode = "authored";
     if (args.owners.length > 0) {
       selected = selected.filter((entry) => args.owners.includes(entry.owner));
     }
@@ -879,7 +733,9 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
     for (const pack of selectedPacks) {
       const packDir =
         pack.extensionDir ??
-        path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, pack.owner, "packs", pack.name);
+        (ws.layout.scope === "project"
+          ? path.join(ws.layout.authoredRoot("pack"), pack.name)
+          : path.join(ws.layout.acquiredRoot, pack.owner, "packs", pack.name));
       const manifestPath = path.join(packDir, manifestFilename.pack);
       const raw = yield* fs.readFileString(manifestPath).pipe(
         Effect.mapError((cause) =>
@@ -931,12 +787,9 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
           ];
           continue;
         }
-        const explicitlyIncluded = args.includeDependency.some((selector) =>
-          matchesSelector(dependency, selector),
-        );
         selected = [
           ...selected,
-          dependency.authored || explicitlyIncluded
+          dependency.authored
             ? { ...dependency, includedDependency: true, includedBy: [pack.fqn] }
             : {
                 ...dependency,
@@ -1110,6 +963,28 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   registry: TargetRegistry,
   backfillRequested: boolean,
 ) {
+  if (selected.skipReason === "not_authored" && selected.includedDependency !== true) {
+    return yield* Effect.fail(
+      preparationFailure(
+        "not_authored",
+        makeAppError({
+          code: "conflict",
+          detail: `${selected.fqn} is not authored by this workspace and cannot be published from mutable installed content. Run \`axm adopt ${selected.fqn}\` when this workspace should own it, or \`axm fork ${selected.fqn} <new-extension>\` for a separately authored identity.`,
+          suggestions: [
+            {
+              description:
+                "Adopt the canonical package when this workspace should own and publish it.",
+              cmd: `axm adopt ${selected.fqn}`,
+            },
+            {
+              description: "Fork the package when the published result should have a new identity.",
+              cmd: `axm fork ${selected.fqn} <new-extension>`,
+            },
+          ],
+        }),
+      ),
+    );
+  }
   if (selected.skipReason !== undefined) return undefined;
   if (!isPublishableType(selected.type)) return undefined;
   const ws = yield* WorkspaceMutations;
@@ -1117,13 +992,14 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   const path = yield* Path.Path;
   const extensionDir =
     selected.extensionDir ??
-    path.join(
-      ws.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      selected.owner,
-      extensionTypeToPlural[selected.type],
-      selected.name,
-    );
+    (ws.layout.scope === "project" && selected.authored
+      ? path.join(ws.layout.authoredRoot(selected.type), selected.name)
+      : path.join(
+          ws.layout.acquiredRoot,
+          selected.owner,
+          extensionTypeToPlural[selected.type],
+          selected.name,
+        ));
   const manifestPath = path.join(extensionDir, manifestFilename[selected.type]);
   const manifestJson = yield* fs.readFileString(manifestPath).pipe(
     Effect.flatMap((content) =>
@@ -1204,11 +1080,29 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     extensionDir,
     manifestJson,
     platform: { fs, path },
-  });
-  const archive = yield* buildZipArchive(
+  }).pipe(Effect.mapError(publishFailureToAppError));
+  const plannedArchive = yield* planZipArchive(
     extensionDir,
-    yield* publishArchiveOptions(selected.type, manifest.publish?.ignore),
+    yield* publishArchiveOptions(selected.type, manifest.publish?.ignore).pipe(
+      Effect.mapError(publishFailureToAppError),
+    ),
+  ).pipe(Effect.mapError(publishFailureToAppError));
+  const archive = plannedArchive.archive;
+  const likelyDevelopmentRoots = ["evals/", "tests/", "fixtures/", "benchmarks/"];
+  const developmentRoots = likelyDevelopmentRoots.filter((root) =>
+    plannedArchive.plan.included.some((file) => file.path.startsWith(root)),
   );
+  const archivePlan: ArchivePlan = {
+    ...plannedArchive.plan,
+    warnings: [
+      ...plannedArchive.plan.warnings,
+      ...(manifest.publish?.ignore !== undefined || developmentRoots.length === 0
+        ? []
+        : [
+            `Review the Registry distribution boundary: ${developmentRoots.join(", ")} ${developmentRoots.length === 1 ? "is" : "are"} included and publish.ignore has no explicit decision. Shipping these files may be intentional; AXM never excludes them automatically.`,
+          ]),
+    ],
+  };
   // Guardrails run on the built bytes and only ever reject: rewriting the
   // archive here would change its integrity digest and break republishing an
   // already-published version under `--on-existing verify`.
@@ -1245,12 +1139,35 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     ),
   );
   const integrity = yield* computeIntegrity(archive);
+  yield* normalizePublishInput({
+    declaredIdentity: {
+      owner: selected.owner,
+      type: selected.type,
+      name: manifest.name,
+      version: manifest.version,
+    },
+    archive: {
+      archiveBytes: archive,
+      archiveContentType: "application/zip",
+      clientIntegrity: integrity,
+    },
+  }).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Filtered archive validation failed for ${selected.fqn}: ${"detail" in cause ? cause.detail : cause.message}`,
+        cause,
+      }),
+    ),
+  );
   const client = yield* createRegistryClient(registry.url);
-  const index = yield* client.getExtensionIndex({
-    owner: selected.owner,
-    type: selected.type,
-    name: manifest.name,
-  });
+  const index = yield* client
+    .getExtensionIndex({
+      owner: selected.owner,
+      type: selected.type,
+      name: manifest.name,
+    })
+    .pipe(Effect.mapError(toAppError));
   const existing = Option.isSome(index)
     ? index.value.versions.find((entry) => entry.version === manifest.version)
     : undefined;
@@ -1261,7 +1178,11 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       return yield* alreadyPublishedVersionConflict({
         fqn: selected.fqn,
         version: manifest.version,
-      }).pipe(Effect.mapError((error) => preparationFailure("version_exists", error)));
+      }).pipe(
+        Effect.mapError((error) =>
+          preparationFailure("version_exists", publishFailureToAppError(error)),
+        ),
+      );
     }
     if (policy === "verify" && existing.integrity !== integrity) {
       const error = makeAppError({
@@ -1292,7 +1213,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
           fqn: selected.fqn,
           version: manifest.version,
           highestPublished,
-        });
+        }).pipe(Effect.mapError(publishFailureToAppError));
       }
       backfill = true;
     }
@@ -1309,7 +1230,9 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     ...(manifest.publish?.visibility === undefined
       ? {}
       : { publishVisibility: manifest.publish.visibility }),
+    ...(manifest.publish?.ignore === undefined ? {} : { publishIgnore: manifest.publish.ignore }),
     archive,
+    archivePlan,
     integrity,
     action,
     backfill,
@@ -1448,7 +1371,9 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
     visibility,
     workspaceDefaultVisibility,
   );
-  const preview = yield* client.previewExtensionPublishes(publicationSet);
+  const preview = yield* client
+    .previewExtensionPublishes(publicationSet)
+    .pipe(Effect.mapError(toAppError));
   if (preview.status === "blocked") {
     const packErrors = preview.packs.flatMap((pack) =>
       pack.findings.filter((finding) => finding.severity === "error"),
@@ -1510,6 +1435,13 @@ const publishCandidate = (
   registry: TargetRegistry,
   exactCapability: PublishCapabilityResponse | undefined,
   exactVisibilityInput: PublicationVisibilityInput | undefined,
+  /**
+   * Records that the upload request is being dispatched, before the response
+   * wait — the invocation-local evidence that separates "nothing left the
+   * process" from "the registry may have committed before its response was
+   * recorded".
+   */
+  onUploadDispatched: Effect.Effect<void> = Effect.void,
 ) =>
   Effect.gen(function* () {
     const client = yield* createRegistryClient(registry.url);
@@ -1534,6 +1466,13 @@ const publishCandidate = (
         detail: `Missing exact visibility input for ${candidate.fqn}.`,
       });
     }
+    const authoritativeVisibility = publishPreview?.visibility ?? exactCapability?.visibility;
+    if (authoritativeVisibility === undefined) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Missing authoritative visibility outcome for ${candidate.fqn}.`,
+      });
+    }
     const uploadBinding =
       exactCapability === undefined
         ? publishPreview === undefined
@@ -1543,23 +1482,44 @@ const publishCandidate = (
             })
           : previewPublishUploadBinding(publishPreview)
         : exactPublishUploadBinding(exactCapability, visibilityInput);
-    const response = yield* client.publishExtension({
-      owner: candidate.owner,
-      type: candidate.type,
-      name: candidate.name,
-      version: candidate.version,
-      archive: candidate.archive,
-      metadata,
-      ...uploadBinding,
-    });
+    // The dispatch evidence is recorded before the request can leave the
+    // process; the response wait itself stays interruptible. Publication is
+    // replay-unsafe, so an unrecorded response is never auto-retried — it is
+    // reported indeterminate and recovery verifies before re-running.
+    const settlement = yield* Effect.uninterruptibleMask((restore) =>
+      onUploadDispatched.pipe(
+        Effect.andThen(
+          restore(
+            settlePublish(client, {
+              owner: candidate.owner,
+              type: candidate.type,
+              name: candidate.name,
+              version: candidate.version,
+              archive: candidate.archive,
+              metadata,
+              ...uploadBinding,
+            }),
+          ),
+        ),
+      ),
+    ).pipe(Effect.mapError(publishFailureToAppError));
+    if (settlement.status === "unknown") return settlement;
+    const response = settlement.response;
     return {
+      status: "published" as const,
       stepResult: {
         result: "success",
-        message: `Published ${candidate.fqn}@${candidate.version}`,
-        ...(response.links === undefined ? {} : { links: response.links }),
+        message:
+          settlement.settlement === "response"
+            ? `Published ${candidate.fqn}@${candidate.version}`
+            : settlement.settlement === "replay"
+              ? `Published ${candidate.fqn}@${candidate.version} after one exact replay`
+              : `Verified ${candidate.fqn}@${candidate.version} by Registry readback`,
+        ...(response?.links === undefined ? {} : { links: response.links }),
       } satisfies JobStepResult,
-      visibility: response.visibility,
-      warnings: response.warnings,
+      visibility: response?.visibility ?? authoritativeVisibility,
+      warnings: response?.warnings ?? [],
+      settlement: settlement.settlement,
     };
   });
 
@@ -1582,7 +1542,7 @@ const selectedResult = (
       status: "skipped",
       message:
         reason === "not_authored"
-          ? "Dependency is not workspace-sourced; include it explicitly to publish"
+          ? "External dependency remains a Registry reference and is not an upload candidate"
           : "Dependency is not a managed publish candidate",
     };
   }
@@ -1599,6 +1559,14 @@ const selectedResult = (
       phase: "authoritative_preflight",
       reason: "version_already_published",
       status: "success",
+      archive: {
+        ...candidate.archivePlan,
+        zipBytes: candidate.archive.length,
+        integrity: candidate.integrity,
+      },
+      ...(candidate.sourceAssessment?.state === undefined
+        ? {}
+        : { sourceState: candidate.sourceAssessment.state }),
       ...(candidate.publishPreview === undefined
         ? {}
         : { visibility: candidate.publishPreview.visibility }),
@@ -1616,6 +1584,14 @@ const selectedResult = (
     phase: "authoritative_preflight",
     reason: "selected",
     status: "pending",
+    archive: {
+      ...candidate.archivePlan,
+      zipBytes: candidate.archive.length,
+      integrity: candidate.integrity,
+    },
+    ...(candidate.sourceAssessment?.state === undefined
+      ? {}
+      : { sourceState: candidate.sourceAssessment.state }),
     ...(candidate.publishPreview === undefined
       ? {}
       : { visibility: candidate.publishPreview.visibility }),
@@ -1662,6 +1638,14 @@ const failedCandidateResult = (
   status: "failed",
   message: redactSensitiveText(error.detail),
   cause: publicPublishCause(error),
+  archive: {
+    ...candidate.archivePlan,
+    zipBytes: candidate.archive.length,
+    integrity: candidate.integrity,
+  },
+  ...(candidate.sourceAssessment?.state === undefined
+    ? {}
+    : { sourceState: candidate.sourceAssessment.state }),
 });
 
 const publicationSetResult = (options: {
@@ -1746,42 +1730,40 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const workspaceMutations = yield* WorkspaceMutations;
   const authClient = yield* AuthClient;
   const deviceLoginInteraction = yield* DeviceLoginInteraction;
+  const authLoginPresenter = yield* AuthLoginPresenter;
   const registryUrl = yield* RegistryUrl;
-  const renderer = yield* CliRenderer;
-  const prepared = yield* renderer.withSpinner(
-    "Preparing publish candidates",
-    () =>
-      Effect.gen(function* () {
-        const catalog = yield* catalogEntries();
-        const selection = yield* selectEntries(catalog, args);
-        const isRemoteRegistry =
-          registry.url.startsWith("https://") || registry.url.startsWith("http://");
-        if (isRemoteRegistry && selection.entries.length > 0) {
-          const client = yield* createRegistryClient(registry.url);
-          yield* validatePublishOwners(
-            selection.entries.map((entry) => entry.owner),
-            client,
-          );
-        }
-        const decoded = yield* Effect.forEach(
-          selection.entries,
-          (entry) =>
-            Effect.result(
-              decodeCandidate(
-                entry,
-                resolveExistingVersionPolicy(args.onExisting, {
-                  mode: selection.mode,
-                  includedDependency: entry.includedDependency === true,
-                }),
-                registry,
-                args.backfill,
-              ),
+  const prepared = yield* observeUnit(
+    { id: "candidates", label: "publish candidates" },
+    Effect.gen(function* () {
+      const catalog = yield* catalogEntries();
+      const selection = yield* selectEntries(catalog, args);
+      const isRemoteRegistry =
+        registry.url.startsWith("https://") || registry.url.startsWith("http://");
+      if (isRemoteRegistry && selection.entries.length > 0) {
+        const client = yield* createRegistryClient(registry.url);
+        yield* validatePublishOwners(
+          selection.entries.map((entry) => entry.owner),
+          client,
+        ).pipe(Effect.mapError(publishFailureToAppError));
+      }
+      const decoded = yield* Effect.forEach(
+        selection.entries,
+        (entry) =>
+          Effect.result(
+            decodeCandidate(
+              entry,
+              resolveExistingVersionPolicy(args.onExisting, {
+                mode: selection.mode,
+                includedDependency: entry.includedDependency === true,
+              }),
+              registry,
+              args.backfill,
             ),
-          { concurrency: 4 },
-        );
-        return { selection, decoded };
-      }),
-    { successMessage: "Prepared publish candidates" },
+          ),
+        { concurrency: 4 },
+      );
+      return { selection, decoded };
+    }),
   );
   const selection = prepared.selection;
   const selected = selection.entries;
@@ -1792,7 +1774,31 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const decodedPreflightErrors = decoded.flatMap((result) =>
     Result.isFailure(result) ? [preparationError(result.failure)] : [],
   );
-  const shouldCheckLocalPackConstraints = decodedCandidates.some(
+  const sourceAssessments = yield* Effect.forEach(decodedCandidates, (candidate) =>
+    Effect.result(
+      Effect.gen(function* () {
+        if (candidate.action === "skip") return candidate;
+        const sourceAssessment = yield* assessPublishSourceState({
+          directory: candidate.extensionDir,
+          archivePlan: candidate.archivePlan,
+          ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
+        }).pipe(Effect.mapError(publishFailureToAppError));
+        return { ...candidate, sourceAssessment } satisfies PublishCandidate;
+      }),
+    ),
+  );
+  const sourceErrorsByMember = new Map<string, AppError>(
+    sourceAssessments.flatMap((result, index) => {
+      const candidate = decodedCandidates[index];
+      return candidate === undefined || Result.isSuccess(result)
+        ? []
+        : [[candidate.fqn, result.failure] as const];
+    }),
+  );
+  const sourceAssessedCandidates = sourceAssessments.flatMap((result) =>
+    Result.isSuccess(result) ? [result.success] : [],
+  );
+  const shouldCheckLocalPackConstraints = sourceAssessedCandidates.some(
     (candidate) => candidate.authored && candidate.type !== "pack",
   );
   const packDependencyReachability = shouldCheckLocalPackConstraints
@@ -1815,13 +1821,17 @@ const runPublish = Effect.fn("Publish.run")(function* (
       })
     : [];
   const localConstraintFacts = makeProspectiveExtensionConstraintFacts({
-    candidates: decodedCandidates.filter(
+    candidates: sourceAssessedCandidates.filter(
       (candidate) => candidate.type === "pack" || candidate.authored,
     ),
     reachability: packDependencyReachability,
   });
   const localErrorsByMember = localPackConstraintErrors(localConstraintFacts);
-  const preflightErrors = [...decodedPreflightErrors, ...localErrorsByMember.values()];
+  const preflightErrors = [
+    ...decodedPreflightErrors,
+    ...sourceErrorsByMember.values(),
+    ...localErrorsByMember.values(),
+  ];
   const selectionOutput = {
     mode: selection.mode,
     scope: args.scope,
@@ -1841,11 +1851,13 @@ const runPublish = Effect.fn("Publish.run")(function* (
 
   const isRemoteRegistry =
     registry.url.startsWith("https://") || registry.url.startsWith("http://");
-  const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
+  const storedToken = yield* resolveRequestToken(registry.url, registryUrl).pipe(
+    Effect.mapError(authFailureToAppError),
+  );
   const workspaceDefaultVisibility = yield* workspaceMutations.getPublishDefaultVisibility();
   const shouldPreviewAuthoritatively =
     preflightErrors.length === 0 &&
-    decodedCandidates.length > 0 &&
+    sourceAssessedCandidates.length > 0 &&
     (!isRemoteRegistry || Option.isSome(storedToken));
   const authoritativePreview: Result.Result<
     {
@@ -1859,7 +1871,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
         Effect.gen(function* () {
           const client = yield* createRegistryClient(registry.url);
           return yield* previewPublishCandidates(
-            decodedCandidates,
+            sourceAssessedCandidates,
             client,
             args.visibility,
             workspaceDefaultVisibility,
@@ -1869,9 +1881,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
     : yield* Effect.result(
         Effect.gen(function* () {
           return {
-            candidates: decodedCandidates,
+            candidates: sourceAssessedCandidates,
             publicationSet: yield* publicationSetForCandidates(
-              decodedCandidates,
+              sourceAssessedCandidates,
               args.visibility,
               workspaceDefaultVisibility,
             ),
@@ -1891,7 +1903,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
         );
   const candidates: ReadonlyArray<PublishCandidate> = Result.isSuccess(authoritativePreview)
     ? authoritativePreview.success.candidates
-    : decodedCandidates;
+    : sourceAssessedCandidates;
   const publicationSet = Result.isSuccess(authoritativePreview)
     ? authoritativePreview.success.publicationSet
     : undefined;
@@ -1924,6 +1936,8 @@ const runPublish = Effect.fn("Publish.run")(function* (
     if (Result.isFailure(decodedResult)) return failedSelectedResult(entry, decodedResult.failure);
     const candidate = decodedResult.success;
     if (candidate !== undefined) {
+      const sourceError = sourceErrorsByMember.get(candidate.fqn);
+      if (sourceError !== undefined) return failedCandidateResult(candidate, sourceError);
       const localError = localErrorsByMember.get(candidate.fqn);
       if (localError !== undefined) return failedCandidateResult(candidate, localError);
     }
@@ -1997,6 +2011,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
   });
 
   const uploadCandidates = candidates.filter((candidate) => candidate.action === "publish");
+  const sourceRiskConditions = uploadCandidates.flatMap((candidate) => {
+    const condition = publishSourceRiskCondition(candidate.fqn, candidate.sourceAssessment?.state);
+    return condition === undefined ? [] : [condition];
+  });
   const expectedPublicationSetDigest =
     publicationSet === undefined ? undefined : publicationSetDigest(publicationSet.candidates);
   const descriptorDigestsByTarget = new Map(
@@ -2014,7 +2032,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const acquirePublishAuthorization: Effect.Effect<
     PublishAuthorizationState,
     AppError,
-    CliRenderer | AuthClient | DeviceLoginInteraction
+    AuthLoginPresenter | AuthClient | DeviceLoginInteraction
   > =
     isRemoteRegistry && Option.isNone(storedToken)
       ? Effect.gen(function* () {
@@ -2027,7 +2045,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           const exchange = yield* runPublishAuthorization({
             registryUrl: registry.url,
             publicationSet,
-          });
+          }).pipe(Effect.mapError(authFailureToAppError));
           if (exchange.status === "blocked") {
             const firstFinding = exchange.preview.packs
               .flatMap((pack) => pack.findings)
@@ -2086,6 +2104,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
       { concurrency: 4, discard: true },
     );
 
+  // Invocation-local evidence of dispatched uploads: which candidates'
+  // requests were released toward the registry before termination.
+  const dispatchedUploads = yield* Ref.make<ReadonlySet<string>>(new Set());
+  const unresolvedSettlements = yield* Ref.make<ReadonlyMap<string, SettledPublish>>(new Map());
   const candidateStep = (
     candidate: PublishCandidate,
   ): PlannedJobStep<PublishPlanRequirements, PublishPlanOutput> => {
@@ -2110,7 +2132,15 @@ const runPublish = Effect.fn("Publish.run")(function* (
         registry,
         exactCapability,
         visibilityInputsByTarget.get(publishTargetKey(candidate)),
+        Ref.update(dispatchedUploads, (dispatched) => new Set([...dispatched, candidate.fqn])),
       );
+      if (published.status === "unknown") {
+        yield* Ref.update(
+          unresolvedSettlements,
+          (settlements) => new Map([...settlements, [publishTargetKey(candidate), published]]),
+        );
+        return yield* publishFailureToAppError(published.error);
+      }
       return {
         ...published.stepResult,
         output: {
@@ -2118,9 +2148,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
           targetKey: publishTargetKey(candidate),
           visibility: published.visibility,
           warnings: published.warnings,
+          settlement: published.settlement,
         },
       } satisfies JobStepResult<PublishPlanOutput>;
-    });
+    }).pipe(Effect.mapError(publishStepFailure));
     return {
       readiness: "ready",
       label: `${candidate.backfill ? "Backfill" : "Publish"} ${candidate.fqn}`,
@@ -2149,6 +2180,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
                 label: "Authorize exact publication set",
                 run: PublishAuthorization.pipe(
                   Effect.flatMap((authorizationService) => authorizationService.state),
+                  Effect.mapError(publishStepFailure),
                   Effect.map(
                     (authorization) =>
                       ({
@@ -2182,14 +2214,50 @@ const runPublish = Effect.fn("Publish.run")(function* (
       : { preconditions: authenticationPreconditions }),
     materialPaths: uploadCandidates.map((candidate) => candidate.extensionDir),
     executionCapabilities: { rollback: "non-rollbackable" },
+    ...(sourceRiskConditions.length === 0 ? {} : { riskConditions: sourceRiskConditions }),
     jobs,
   };
   const exactRecovery = makeExactPublishRecovery(
     args,
     candidates.map((candidate) => candidate.fqn),
   );
-  const execution = yield* makePlanExecution(args, exactRecovery);
-  const resolution = yield* Effect.scoped(
+  const execution = yield* makePlanExecution(
+    args,
+    exactRecovery,
+    args.acceptWarnings ? ["accept-warnings"] : [],
+  );
+  const revalidatePublishSources = Effect.forEach(
+    uploadCandidates,
+    (candidate) =>
+      Effect.gen(function* () {
+        const planned = candidate.sourceAssessment;
+        if (planned === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Missing source-state evidence for ${candidate.fqn}.`,
+          });
+        }
+        const current = yield* assessPublishSourceState({
+          directory: candidate.extensionDir,
+          archivePlan: candidate.archivePlan,
+          ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
+        }).pipe(Effect.mapError(publishFailureToAppError));
+        if (current.fingerprint !== planned.fingerprint) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Publish source state changed after planning for ${candidate.fqn}; no upload was attempted.`,
+          });
+        }
+      }),
+    { discard: true },
+  );
+  // The journal records per-unit started and resolved facts through the plan
+  // apply; with the dispatch evidence it lets an external termination
+  // request resolve into a publish document of evidenced states — success
+  // and failure where a response was recorded, indeterminate where the
+  // registry may have committed first, pending where nothing was dispatched.
+  const operationJournal = yield* makeOperationJournal;
+  const resolveCandidatePlan = Effect.scoped(
     Effect.gen(function* () {
       const authorizationDeferred = yield* Deferred.make<PublishAuthorizationState, AppError>();
       const acquiredAuthorization = yield* Ref.make(Option.none<PublishAuthorizationState>());
@@ -2207,7 +2275,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
         acquirePublishAuthorization.pipe(
           Effect.provideService(AuthClient, authClient),
           Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
-          Effect.provideService(CliRenderer, renderer),
+          Effect.provideService(AuthLoginPresenter, authLoginPresenter),
           Effect.tap((authorization) => Ref.set(acquiredAuthorization, Option.some(authorization))),
           Effect.tap((authorization) => Deferred.succeed(authorizationDeferred, authorization)),
           Effect.asVoid,
@@ -2219,21 +2287,86 @@ const runPublish = Effect.fn("Publish.run")(function* (
       };
       return yield* previewOrApplyPlan(plan, {
         execution,
-        displayApplied: false,
-        beforeApply: () => authorization.authorize,
+        beforeApply: () =>
+          authorization.authorize.pipe(
+            Effect.andThen(revalidatePublishSources),
+            Effect.mapError(publishStepFailure),
+          ),
       }).pipe(Effect.provideService(PublishAuthorization, authorization));
     }),
+  ).pipe(Effect.provideService(OperationJournal, operationJournal));
+  const resolution = yield* Effect.uninterruptibleMask((restoreInterruptibility) =>
+    restoreInterruptibility(resolveCandidatePlan).pipe(
+      Effect.catchCause((cause) =>
+        Cause.hasInterruptsOnly(cause)
+          ? Effect.gen(function* () {
+              const journalState = yield* getOperationJournal.pipe(
+                Effect.provideService(OperationJournal, operationJournal),
+              );
+              const dispatched = yield* Ref.get(dispatchedUploads);
+              const results = interruptedPublishResults(preflightResults, journalState, dispatched);
+              const recoverySelection = publishRecoverySelection(results);
+              const recoveryExecution =
+                recoverySelection.remainingItems.length > 0
+                  ? yield* makePlanExecution(
+                      args,
+                      makeExactPublishRecovery(args, recoverySelection.remainingItems),
+                    )
+                  : undefined;
+              const recoveryCmd =
+                recoveryExecution !== undefined && "approvalRecovery" in recoveryExecution
+                  ? renderConfirmationRecoveryCommand(recoveryExecution.approvalRecovery)
+                  : undefined;
+              const signal = requestedInterruptionSignal() ?? "SIGINT";
+              const exitCode = signal === "SIGTERM" ? 143 : 130;
+              yield* emitPublishResult("publish", {
+                mode: "apply",
+                selection: selectionOutput,
+                publicationSet: publicationSetOutput,
+                results,
+                interruption: { signal },
+                ...(recoveryCmd === undefined
+                  ? {}
+                  : {
+                      recovery: {
+                        description:
+                          "Verify or re-publish the items the interruption left unsettled.",
+                        cmd: recoveryCmd,
+                        remainingItems: recoverySelection.remainingItems,
+                        blockedDependents: recoverySelection.blockedDependents,
+                      },
+                    }),
+              });
+              // Inside the mask: the completion event lands before the die
+              // releases the pending interrupt.
+              yield* recordCommandCompletion(exitCode);
+              return yield* Effect.die(effectCliExit(exitCode));
+            })
+          : Effect.failCause(cause),
+      ),
+    ),
   );
-  const executionOutputs =
-    resolution._tag === "ExecutedPlan"
-      ? resolution.jobs.flatMap((job) =>
-          job.steps.flatMap((step) =>
-            step.result.result === "success" && step.result.output !== undefined
-              ? [step.result.output]
-              : [],
-          ),
-        )
-      : [];
+  const planBlocking = resolution.blocking;
+  const planFailed = planBlocking !== undefined || resolution.failure !== undefined;
+  const staleCandidate = planBlocking?.class === "stale-candidate";
+  const sourceStateChanged =
+    resolution.failure?.detail.startsWith("Publish source state changed after planning") === true;
+  const planFailureCode: AppErrorCode =
+    resolution.failure?.category ??
+    (planBlocking === undefined
+      ? "internal"
+      : planBlocking.class === "approval-required" || planBlocking.class === "override-required"
+        ? "usage"
+        : (planBlocking.causeCode ?? "conflict"));
+  const planFailureReason = planBlocking?.class ?? "execution-failed";
+  const applyExecuted =
+    resolution.mode === "apply" &&
+    resolution.declined !== true &&
+    (!planFailed ||
+      resolution.units.some((unit) => unit.state === "committed" || unit.state === "failed"));
+  const executionOutputs = resolution.units.flatMap((unit) =>
+    unit.output === undefined ? [] : [unit.output],
+  );
   const authorizationOutput = executionOutputs.find(
     (output) => output._tag === "PublishAuthorizationOutput",
   );
@@ -2242,43 +2375,53 @@ const runPublish = Effect.fn("Publish.run")(function* (
       output._tag === "PublishedCandidateOutput" ? [[output.targetKey, output] as const] : [],
     ),
   );
-  const failedStepErrors =
-    resolution._tag === "ExecutedPlan"
-      ? resolution.jobs
-          .flatMap((job) => job.steps)
-          .flatMap((step) =>
-            step.result.result === "error" && step.blockedBy === undefined
-              ? [step.result.error]
-              : [],
-          )
-      : [];
+  const unresolvedOutputs = yield* Ref.get(unresolvedSettlements);
+  const failedStepErrors = resolution.units.flatMap((unit) =>
+    unit.state === "failed" && unit.error !== undefined ? [publishStepAppError(unit.error)] : [],
+  );
   const baseResults = preflightResults;
   let results: ReadonlyArray<PublishResultItem>;
-  if (resolution._tag === "ExecutedPlan") {
-    const byLabel = new Map(
-      resolution.jobs.flatMap((job) => job.steps).map((step) => [step.label, step]),
-    );
+  if (applyExecuted) {
+    const unitsById = new Map(resolution.units.map((unit) => [unit.id, unit] as const));
     results = baseResults.map((result) => {
       if (result.action !== "publish") return result;
       const fqn = formatFqn({ owner: result.owner, type: result.type, name: result.name });
       const candidate = candidates.find((item) => item.fqn === fqn);
-      const step =
-        candidate === undefined
-          ? undefined
-          : byLabel.get(`${candidate.backfill ? "Backfill" : "Publish"} ${fqn}`);
-      if (step === undefined) return result;
-      if (step.result.result === "error") {
-        if (step.blockedBy !== undefined) {
+      const unit = candidate === undefined ? undefined : unitsById.get(candidate.fqn);
+      if (unit === undefined) return result;
+      if (unit.state === "failed" || unit.state === "blocked") {
+        if (unit.state === "blocked" && unit.blocking?.class === "dependency-failed") {
+          const blockedBy = Object.keys(candidate?.dependencies ?? {}).filter((dependencyFqn) => {
+            const dependencyUnit = unitsById.get(dependencyFqn);
+            return (
+              dependencyUnit !== undefined &&
+              (dependencyUnit.state === "failed" || dependencyUnit.state === "blocked")
+            );
+          });
           return {
             ...result,
             action: "error",
             phase: "dependency_execution",
             reason: "blocked_by_dependency",
             status: "blocked",
-            message: step.result.message,
-            blockedBy: step.blockedBy,
+            ...(unit.message === undefined ? {} : { message: unit.message }),
+            blockedBy,
           };
         }
+        const unresolved =
+          candidate === undefined ? undefined : unresolvedOutputs.get(publishTargetKey(candidate));
+        if (unresolved?.status === "unknown") {
+          return {
+            ...result,
+            phase: "upload_execution",
+            reason: unresolved.reason,
+            status: "unknown",
+            settlement: unresolved.settlement,
+            message:
+              "The Registry may have committed this version, but bounded readback and one exact replay could not prove the outcome.",
+          };
+        }
+        const unitError = unit.error === undefined ? undefined : publishStepAppError(unit.error);
         const failedResult: PublishResultItem = {
           id: result.id,
           owner: result.owner,
@@ -2287,15 +2430,19 @@ const runPublish = Effect.fn("Publish.run")(function* (
           ...(result.version === undefined ? {} : { version: result.version }),
           ...(result.sourceType === undefined ? {} : { sourceType: result.sourceType }),
           ...(result.authored === undefined ? {} : { authored: result.authored }),
+          ...(result.archive === undefined ? {} : { archive: result.archive }),
+          ...(result.sourceState === undefined ? {} : { sourceState: result.sourceState }),
           action: "error",
           phase: "upload_execution",
           reason:
-            step.result.error.metadata?.response?.problemCode === "publish/precondition-changed"
+            unitError?.metadata?.response?.problemCode === "publish/precondition-changed"
               ? "publish_precondition_changed"
-              : "upload_failed",
+              : unitError?.code === "conflict"
+                ? "integrity_conflict"
+                : "upload_failed",
           status: "failed",
-          message: step.result.message,
-          cause: publicPublishCause(step.result.error),
+          ...(unit.message === undefined ? {} : { message: unit.message }),
+          ...(unitError === undefined ? {} : { cause: publicPublishCause(unitError) }),
         };
         return failedResult;
       }
@@ -2317,20 +2464,56 @@ const runPublish = Effect.fn("Publish.run")(function* (
         ...result,
         phase: "upload_execution",
         status: "success",
-        message: step.result.message,
+        ...(unit.message === undefined ? {} : { message: unit.message }),
         ...(publishedOutput === undefined ? {} : { visibility: publishedOutput.visibility }),
-        ...(step.result.links === undefined ? {} : { links: step.result.links }),
+        ...(publishedOutput === undefined ? {} : { settlement: publishedOutput.settlement }),
+        ...(unit.links === undefined ? {} : { links: unit.links }),
         ...(findings.length === 0 ? {} : { findings }),
       };
     });
   } else {
-    results = baseResults.map((result) =>
-      result.action === "publish" ? { ...result, status: "pending" } : result,
+    const unacceptedSourceIds = new Set(
+      uploadCandidates.flatMap((candidate) =>
+        candidate.sourceAssessment?.state?.status === "matches-head" ||
+        candidate.sourceAssessment?.state === undefined
+          ? []
+          : [candidate.fqn],
+      ),
     );
+    results = baseResults.map((result) => {
+      if (result.action !== "publish") return result;
+      if (planBlocking?.class === "override-required" && unacceptedSourceIds.size > 0) {
+        return unacceptedSourceIds.has(result.id)
+          ? {
+              ...result,
+              status: "blocked",
+              reason: "source_state_not_accepted",
+              message:
+                "The Registry archive is not fully represented by Git HEAD; pass --accept-warnings to publish it explicitly.",
+            }
+          : {
+              ...result,
+              status: "blocked",
+              reason: "blocked_by_preflight",
+              message:
+                "Not attempted because another selected archive requires explicit acceptance",
+              blockedBy: [...unacceptedSourceIds],
+            };
+      }
+      if (staleCandidate || sourceStateChanged) {
+        return {
+          ...result,
+          status: "blocked",
+          reason: "stale_material",
+          message: "Workspace material changed after planning; no upload was attempted.",
+        };
+      }
+      return { ...result, status: "pending" };
+    });
   }
   const recoverySelection = publishRecoverySelection(results);
   const recoveryExecution =
-    resolution._tag === "ExecutedPlan" && recoverySelection.remainingItems.length > 0
+    applyExecuted && recoverySelection.remainingItems.length > 0
       ? yield* makePlanExecution(
           args,
           makeExactPublishRecovery(args, recoverySelection.remainingItems),
@@ -2347,17 +2530,21 @@ const runPublish = Effect.fn("Publish.run")(function* (
       : publicationSetResult({
           candidates,
           preview: authorizedPublicationPreview,
-          ...(authorizedPublicationPreview.status === "blocked" && resolution._tag === "FailedPlan"
+          ...(authorizedPublicationPreview.status === "blocked" && planFailed
             ? {
                 blockedError:
-                  resolution.failure ??
-                  makeAppError({
-                    code: resolution.errorCode,
-                    detail: "The reviewed publication set was blocked before upload.",
-                  }),
+                  resolution.failure === undefined
+                    ? makeAppError({
+                        code: planFailureCode,
+                        detail: "The reviewed publication set was blocked before upload.",
+                      })
+                    : publishStepAppError(resolution.failure),
               }
             : {}),
         });
+  // Live-to-settled handoff: observers collapse before the result document.
+  yield* settleOperation(deriveOperationOutcome(resolution));
+  yield* awaitDrained;
   const emitted = yield* emitPublishResult(
     "publish",
     {
@@ -2365,6 +2552,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
       ...(authenticationPreconditions.length === 0
         ? {}
         : { preconditions: authenticationPreconditions }),
+      ...(resolution.riskConditions === undefined
+        ? {}
+        : { riskConditions: resolution.riskConditions }),
       selection: selectionOutput,
       publicationSet: finalPublicationSetOutput,
       results,
@@ -2378,34 +2568,34 @@ const runPublish = Effect.fn("Publish.run")(function* (
               blockedDependents: recoverySelection.blockedDependents,
             },
           }),
-      ...(resolution._tag === "FailedPlan" && !args.preview
+      ...(planFailed && !args.preview
         ? {
             failure:
-              resolution.reason === "stale-candidate" || resolution.failure === undefined
+              staleCandidate || resolution.failure === undefined
                 ? publicPublishCause(
                     makeAppError({
-                      code: resolution.errorCode,
-                      detail:
-                        resolution.reason === "stale-candidate"
-                          ? "Workspace material changed after authorization; no upload was attempted."
-                          : `Publish execution did not start: ${resolution.reason}.`,
+                      code: planFailureCode,
+                      detail: staleCandidate
+                        ? "Workspace material changed after authorization; no upload was attempted."
+                        : (planBlocking?.detail ??
+                          `Publish execution did not start: ${planFailureReason}.`),
                     }),
                   )
-                : publicPublishCause(resolution.failure),
+                : publicPublishCause(publishStepAppError(resolution.failure)),
           }
         : {}),
     },
-    resolution._tag === "FailedPlan" ? { suggestions: resolution.suggestions ?? [] } : undefined,
+    planFailed ? { suggestions: resolution.suggestions ?? [] } : undefined,
   );
   const failed = results.filter((result) => result.status === "failed");
-  if (resolution._tag === "FailedPlan" && !args.preview) {
+  if (planFailed && !args.preview) {
     const failure = makeAppError({
-      code: resolution.errorCode,
-      detail:
-        resolution.reason === "stale-candidate"
-          ? "Workspace material changed after authorization; no upload was attempted."
-          : (resolution.failure?.detail ??
-            `Publish execution did not start: ${resolution.reason}.`),
+      code: planFailureCode,
+      detail: staleCandidate
+        ? "Workspace material changed after authorization; no upload was attempted."
+        : (resolution.failure?.detail ??
+          planBlocking?.detail ??
+          `Publish execution did not start: ${planFailureReason}.`),
       suggestions: resolution.suggestions ?? [],
     });
     return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
@@ -2422,27 +2612,22 @@ const runPublish = Effect.fn("Publish.run")(function* (
 export const handleRootPublish = Effect.fn("Publish.handle")(function* (
   args: RootPublishHandlerArgs,
 ) {
-  const renderer = yield* CliRenderer;
-  const registry = yield* renderer.withSpinner(
-    "Resolving publish registry",
-    () => resolveTargetRegistry(args.registry, args.registryUrl),
-    { successMessage: "Resolved publish registry" },
+  yield* withLiveOperation(
+    { command: "publish", name: "Publish extensions", mode: args.preview ? "preview" : "apply" },
+    Effect.gen(function* () {
+      const registry = yield* observeUnit(
+        { id: "registry", label: "publish registry" },
+        resolveTargetRegistry(args.registry, args.registryUrl),
+      );
+      yield* runPublish(args, registry);
+    }),
   );
-  yield* runPublish(args, registry);
 });
 
 const publishConfig = {
   selectors: Argument.string("extension").pipe(
     Argument.withDescription("FQNs or type-qualified extension selectors"),
     Argument.atLeast(0),
-  ),
-  authored: Flag.boolean("authored").pipe(
-    Flag.withDescription("Publish extensions authored in this workspace"),
-    Flag.withDefault(false),
-  ),
-  all: Flag.boolean("all").pipe(
-    Flag.withDescription("Publish all managed local packages"),
-    Flag.withDefault(false),
   ),
   owner: Flag.string("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
   type: Flag.choice("type", selectableTypes).pipe(
@@ -2463,6 +2648,7 @@ const publishConfig = {
   ),
   onExisting: onExistingFlag,
   backfill: backfillFlag,
+  acceptWarnings: acceptWarningsFlag,
   visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
     Flag.withDescription("Initial visibility for every new extension in the selection"),
     Flag.optional,
@@ -2473,17 +2659,11 @@ const publishConfig = {
     Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
     Flag.withDefault(false),
   ),
-  includeDependency: Flag.string("include-dependency").pipe(
-    Flag.withDescription("Explicitly include a non-workspace pack dependency"),
-    Flag.atLeast(0),
-  ),
 } as const;
 
 export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
   handleRootPublish({
     selectors: [...parsed.selectors],
-    authored: parsed.authored,
-    all: parsed.all,
     owners: [...parsed.owner],
     types: [...parsed.type],
     excludes: [...parsed.exclude],
@@ -2491,25 +2671,27 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     registryUrl: parsed.registryUrl,
     onExisting: parsed.onExisting,
     backfill: parsed.backfill,
+    acceptWarnings: parsed.acceptWarnings,
     yes: parsed.yes,
     preview: parsed.preview,
     scope: "project",
     visibility: parsed.visibility,
     includeDependencies: parsed.includeDependencies,
-    includeDependency: [...parsed.includeDependency],
   }).pipe(withWorkspace("project"), withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),
-  Command.withDescription("Publish project-workspace extensions to a registry"),
+  Command.withDescription(
+    "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
+  ),
   Command.withExamples([
     { command: "axm publish", description: "Publish every workspace-sourced extension" },
     {
-      command: "axm publish --authored --owner @acme --on-existing verify --yes",
+      command: "axm publish --owner @acme --on-existing verify --yes",
       description: "Idempotently publish an authored catalog",
     },
     {
       command: "axm publish @acme/skills/code-review",
-      description: "Publish one configured extension explicitly",
+      description: "Publish one workspace-authored extension explicitly",
     },
   ]),
 );

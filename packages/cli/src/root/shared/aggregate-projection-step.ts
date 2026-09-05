@@ -1,15 +1,17 @@
 import type * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { ExtensionType } from "@agentxm/client-core/unstable/extensions";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import {
   applyProjectionPlans,
+  projectionPlanExclusionWarnings,
   type ProjectionPlan,
-} from "@agentxm/client-core/unstable/projection";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
+  HookManager,
+  KnowledgeManager,
+  RuleManager,
+} from "@agentxm/extension-workspace";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 
 /**
  * One trailing projection write per semantic closure. Member steps commit
@@ -39,7 +41,7 @@ export const buildAggregateProjectionStep = (args: {
       : Option.none<ServiceMap.Service.Shape<typeof KnowledgeManager>>();
     return Option.some<PlannedJobStep>({
       key: "projection:aggregate-units",
-      label: "shared projections",
+      label: "instruction files",
       readiness: "ready",
       run: Effect.gen(function* () {
         const plans: Array<ProjectionPlan> = [];
@@ -53,11 +55,14 @@ export const buildAggregateProjectionStep = (args: {
           plans.push(...(yield* knowledgeManager.value.projectionPlans()));
         }
         yield* applyProjectionPlans(plans);
+        return projectionPlanExclusionWarnings(plans);
       }).pipe(
-        Effect.as({
+        Effect.mapError(failureToStepFailure),
+        Effect.map((warnings): JobStepResult => ({
           result: "success",
           message: "Rendered shared aggregate units from the complete contributor set",
-        } satisfies JobStepResult),
+          ...(warnings.length === 0 ? {} : { warnings }),
+        })),
       ),
     });
   });

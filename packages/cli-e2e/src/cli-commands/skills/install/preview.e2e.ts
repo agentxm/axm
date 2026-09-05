@@ -38,8 +38,8 @@ describe("axm skills install --preview integration", () => {
         expect(previewResult.exitCode).toBe(0);
 
         // Verify no skills were installed during preview (non-interactive skips apply)
-        const skillsDirBefore = path.join(temp.path, ".axm", "extensions", "external", "skills");
-        expect(fs.existsSync(skillsDirBefore)).toBe(false);
+        const localExtensionsRoot = path.join(temp.path, "agent_extensions", "local");
+        expect(fs.existsSync(localExtensionsRoot)).toBe(false);
 
         // Real install
         const installResult = await runCli(
@@ -50,11 +50,11 @@ describe("axm skills install --preview integration", () => {
         expect(installResult.exitCode).toBe(0);
 
         // Verify skills were installed
-        const skillsDir = path.join(temp.path, ".axm", "extensions", "external", "skills");
-        expect(fs.existsSync(skillsDir)).toBe(true);
-
-        const installed = fs.readdirSync(skillsDir);
-        expect(installed.length).toBeGreaterThan(0);
+        expect(fs.existsSync(localExtensionsRoot)).toBe(true);
+        expect(fs.existsSync(path.join(temp.path, ".claude", "skills", "my-skill"))).toBe(true);
+        expect(fs.existsSync(path.join(temp.path, ".claude", "skills", "another-skill"))).toBe(
+          true,
+        );
       } finally {
         temp.cleanup();
       }

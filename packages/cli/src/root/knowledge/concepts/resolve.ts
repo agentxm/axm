@@ -1,10 +1,10 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { effectCliExit, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { resolveKnowledgeConcept } from "@agentxm/client-core/unstable/knowledge";
+import { ExitCode, makeAppError } from "../../../app-error/index.js";
+import { Screen, rawDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
+import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
+import { resolveKnowledgeConcept } from "@agentxm/knowledge-query";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";
@@ -31,7 +31,7 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
   input: string,
   fuzzy = false,
 ) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const captured = yield* captureInstalledKnowledgeIndex();
   if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const resolved = resolveKnowledgeConcept(captured.snapshot, input, 10, fuzzy);
@@ -46,23 +46,27 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
       ? { ...resolved, reason: "ambiguous-reference" as const }
       : resolved;
   const success = resolved.outcome === "resolved";
-  const machine = yield* renderer.result(output, KnowledgeConceptResolveOutputSchema, {
+  const machine = yield* screen.document(output, KnowledgeConceptResolveOutputSchema, {
     ok: success,
   });
   if (!machine) {
     if (output.outcome === "resolved") {
-      yield* renderer.raw(
-        `${sanitizeKnowledgeTerminalText(`${output.candidate.ref.bundle}#${output.candidate.ref.conceptId}`)}\n`,
+      yield* screen.result(
+        rawDoc(
+          `${sanitizeKnowledgeTerminalText(`${output.candidate.ref.bundle}#${output.candidate.ref.conceptId}`)}\n`,
+        ),
       );
     } else if (output.outcome === "ambiguous") {
-      yield* renderer.table(
-        output.candidates.map(({ ref, title, reason }) => ({
-          concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
-          title: sanitizeKnowledgeTerminalText(title ?? "—"),
-          reason,
-        })),
-        CandidateTable,
-        "Ambiguous concept reference",
+      yield* screen.result(
+        tableViewDoc(
+          output.candidates.map(({ ref, title, reason }) => ({
+            concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
+            title: sanitizeKnowledgeTerminalText(title ?? "—"),
+            reason,
+          })),
+          CandidateTable,
+          "Ambiguous concept reference",
+        ),
       );
     }
   }

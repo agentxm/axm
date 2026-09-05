@@ -1,0 +1,56 @@
+{
+  "name": "@agentxm/knowledge-query",
+  "version": "0.28.7",
+  "description": "AXM knowledge-query feature: Knowledge concept resolution, retrieval, search, related concepts, and status for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/knowledge-query"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "axm-source": "./src/index.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./live": {
+      "types": "./dist/src/live.d.ts",
+      "axm-source": "./src/live.ts",
+      "default": "./dist/src/live.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

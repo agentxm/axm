@@ -1,6 +1,8 @@
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -18,6 +20,22 @@ import { createTempDir, runCli } from "./e2e/utils.js";
  * regression in that path would only show up against a deployed registry. These
  * rows run the same flows against a local HTTP server instead.
  */
+
+/**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: [
+    "cli/update/advances-resolution-within-intent",
+    "cli/publish/preview-is-pure",
+    "source-resolution/locator-grammar-is-stable",
+  ],
+  boundary: "process",
+  rationale:
+    "Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.",
+} as const;
 
 const OWNER = "@test";
 const TOKEN = "e2e-test-token";
@@ -94,8 +112,8 @@ const isBlocked = (entry: ScaffoldPublish | BlockedPublish): entry is BlockedPub
  * coverage is decided rather than silently missing from the suite.
  */
 const HTTP_PUBLISH = {
-  skill: { newArgs: ["--agent", "claude-code"] },
-  subagent: { newArgs: ["--agent", "claude-code"] },
+  skill: { newArgs: [] },
+  subagent: { newArgs: [] },
   knowledge: { newArgs: [] },
   hook: { newArgs: [] },
   rule: { newArgs: [] },
@@ -121,12 +139,12 @@ const newArgsFor = (type: MatrixExtensionType): ReadonlyArray<string> => {
   return entry.newArgs;
 };
 
-const settingsPathIn = (workspacePath: string) => path.join(workspacePath, ".axm", "settings.json");
+const settingsPathIn = (workspacePath: string) => path.join(workspacePath, "axm.json");
 
 const configureRegistry = (workspacePath: string, location: string) => {
   const settingsPath = settingsPathIn(workspacePath);
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "local", type: "registry", location }];
+  settings.sources = [{ name: "agentxm", type: "registry", location }];
   settings.owner = OWNER;
   settings.minimumReleaseAge = "0s";
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -217,10 +235,10 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(workspace.path, registry.url);
-      const created = await runCli(
-        ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(created.exitCode, created.stderr).toBe(0);
       const published = await runCli(
         ["skills", "publish", `${OWNER}/skills/${name}`, "--visibility", "private", "--yes"],
@@ -328,10 +346,10 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(publisher.path, registry.url);
-      const created = await runCli(
-        ["skills", "new", "review", "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: publisher.path, env },
-      );
+      const created = await runCli(["skills", "new", "review", "--owner", OWNER, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
       expect(created.exitCode, created.stderr).toBe(0);
       const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
         cwd: publisher.path,
@@ -406,7 +424,7 @@ describe("HTTP registry transport", () => {
         fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
       );
       expect(settingsAfterUpdate).toMatchObject({
-        skills: { review: `${OWNER}/skills/review` },
+        skills: { review: `agentxm:${OWNER}/skills/review` },
       });
 
       const secondRun = await runCli(
@@ -419,7 +437,7 @@ describe("HTTP registry transport", () => {
         fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
       );
       expect(settingsAfterSecondRun).toMatchObject({
-        skills: { review: `${OWNER}/skills/review` },
+        skills: { review: `agentxm:${OWNER}/skills/review` },
       });
     } finally {
       publisher.cleanup();
@@ -434,10 +452,10 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(workspace.path, registry.url);
-      const createReview = await runCli(
-        ["skills", "new", "review", "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const createReview = await runCli(["skills", "new", "review", "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(createReview.exitCode, createReview.stderr).toBe(0);
       const firstPublish = await runCli(["skills", "publish", `${OWNER}/skills/review`, "--yes"], {
         cwd: workspace.path,
@@ -445,10 +463,10 @@ describe("HTTP registry transport", () => {
       });
       expect(firstPublish.exitCode, firstPublish.stderr).toBe(0);
 
-      const createDeploy = await runCli(
-        ["skills", "new", "deploy", "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: workspace.path, env: registryEnv(registry.url) },
-      );
+      const createDeploy = await runCli(["skills", "new", "deploy", "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
       expect(createDeploy.exitCode, createDeploy.stderr).toBe(0);
       const bumpReview = await runCli(["version", `${OWNER}/skills/review`, "minor"], {
         cwd: workspace.path,
@@ -507,16 +525,7 @@ describe("HTTP registry transport", () => {
       try {
         await initWorkspace(workspace.path, registry.url);
         const created = await runCli(
-          [
-            "skills",
-            "new",
-            `blocked-${publishPreviewMode}`,
-            "--owner",
-            OWNER,
-            "--agent",
-            "claude-code",
-            "--yes",
-          ],
+          ["skills", "new", `blocked-${publishPreviewMode}`, "--owner", OWNER, "--yes"],
           { cwd: workspace.path, env: registryEnv(registry.url) },
         );
         expect(created.exitCode, created.stderr).toBe(0);
@@ -558,16 +567,7 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       const created = await runCli(
-        [
-          "skills",
-          "new",
-          "preview-service-unavailable",
-          "--owner",
-          OWNER,
-          "--agent",
-          "claude-code",
-          "--yes",
-        ],
+        ["skills", "new", "preview-service-unavailable", "--owner", OWNER, "--yes"],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(created.exitCode, created.stderr).toBe(0);
@@ -627,7 +627,7 @@ describe("HTTP registry transport", () => {
     try {
       await initWorkspace(workspace.path, registry.url);
       const createdSkill = await runCli(
-        ["skills", "new", "pack-member", "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        ["skills", "new", "pack-member", "--owner", OWNER, "--yes"],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
       expect(createdSkill.exitCode, createdSkill.stderr).toBe(0);
@@ -665,17 +665,17 @@ describe("HTTP registry transport", () => {
     }
   });
 
-  it("recovers an immutable partial publish and converges on the repeated command", async () => {
+  it("settles a transient pre-commit failure with one exact replay", async () => {
     const registry = await startHttpRegistry({ failPublishOnce: ["skills/retry-second"] });
     const workspace = createTempDir();
 
     try {
       await initWorkspace(workspace.path, registry.url);
       for (const name of ["retry-first", "retry-second"]) {
-        const created = await runCli(
-          ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-          { cwd: workspace.path, env: registryEnv(registry.url) },
-        );
+        const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+          cwd: workspace.path,
+          env: registryEnv(registry.url),
+        });
         expect(created.exitCode, created.stderr).toBe(0);
       }
 
@@ -689,62 +689,14 @@ describe("HTTP registry transport", () => {
         ],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
-      expect(initial.exitCode).not.toBe(0);
-      expect(registry.publishes).toHaveLength(1);
-      const initialOutput: unknown = JSON.parse(initial.stdout);
-      if (!isRecord(initialOutput) || !isRecord(initialOutput["result"])) {
-        throw new Error("Expected partial publish result");
-      }
-      const recovery = initialOutput["result"]["recovery"];
-      if (!isRecord(recovery) || typeof recovery["cmd"] !== "string") {
-        throw new Error("Expected executable recovery command");
-      }
-      expect(recovery["cmd"]).toContain("axm publish --on-existing verify");
-      expect(recovery["cmd"]).not.toContain(`${OWNER}/skills/retry-first`);
-      expect(recovery["cmd"]).toContain(`${OWNER}/skills/retry-second`);
-      expect(recovery).toMatchObject({
-        remainingItems: [`${OWNER}/skills/retry-second`],
-        blockedDependents: [],
-      });
-      expect(initialOutput["result"]["execution"]).toMatchObject({
+      expect(initial.exitCode, initial.stderr).toBe(0);
+      expect(registry.publishes).toHaveLength(2);
+      const initialOutput = JSON.parse(initial.stdout);
+      expect(initialOutput.result.execution).toMatchObject({
         outcomes: [
-          { name: "retry-first", status: "success" },
-          {
-            name: "retry-second",
-            status: "failed",
-            cause: {
-              retryable: true,
-              attemptCount: 1,
-              maxAttempts: 1,
-              attemptsExhausted: true,
-              retryStoppedBy: "replay-unsafe",
-            },
-          },
+          { name: "retry-first", status: "success", settlement: "response" },
+          { name: "retry-second", status: "success", settlement: "replay" },
         ],
-      });
-
-      const recoveryArgs = recovery["cmd"].split(" ").slice(1);
-      const firstRecovery = await runCli(recoveryArgs, {
-        cwd: workspace.path,
-        env: registryEnv(registry.url),
-      });
-      expect(firstRecovery.exitCode, firstRecovery.stderr).toBe(0);
-      expect(registry.publishes).toHaveLength(2);
-      expect(JSON.parse(firstRecovery.stdout).result.execution.outcomes).toMatchObject([
-        { name: "retry-second", status: "success" },
-      ]);
-
-      const secondRecovery = await runCli(recoveryArgs, {
-        cwd: workspace.path,
-        env: registryEnv(registry.url),
-      });
-      expect(secondRecovery.exitCode, secondRecovery.stderr).toBe(0);
-      expect(registry.publishes).toHaveLength(2);
-      expect(JSON.parse(secondRecovery.stdout).result.counts).toMatchObject({
-        published: 0,
-        alreadyPublished: 1,
-        failed: 0,
-        blocked: 0,
       });
     } finally {
       await registry.close();
@@ -752,17 +704,131 @@ describe("HTTP registry transport", () => {
     }
   });
 
+  // The registry stores the version but its response never arrives, and the
+  // interruption lands in exactly that window. Only evidenced states may be
+  // reported: the upload's outcome is indeterminate, and the credential-free
+  // recovery command verifies the committed version instead of blindly
+  // re-uploading a replay-unsafe mutation.
+  it("C-15: reports an indeterminate outcome when the registry commits before its response", async () => {
+    const registry = await startHttpRegistry({
+      commitThenHangPublishOnce: ["skills/ambiguous"],
+    });
+    const workspace = createTempDir();
+    const userHome = createTempDir();
+
+    const cliPath = fileURLToPath(new URL("../../cli/dist/src/main.js", import.meta.url));
+    const interruptOnHungPublish = (
+      args: ReadonlyArray<string>,
+      hung: Promise<string>,
+    ): Promise<{
+      readonly code: number | null;
+      readonly stdout: string;
+      readonly stderr: string;
+    }> =>
+      new Promise((resolve, reject) => {
+        const { FORCE_COLOR: _forceColor, ...parentEnv } = process.env;
+        const child = spawn("bun", ["run", cliPath, ...args], {
+          cwd: workspace.path,
+          env: {
+            ...parentEnv,
+            ...registryEnv(registry.url),
+            AXM_TELEMETRY: "0",
+            AXM_USER_HOME: userHome.path,
+            HOME: userHome.path,
+            NO_COLOR: "1",
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk: Buffer | string) => {
+          stdout += chunk.toString();
+        });
+        child.stderr.on("data", (chunk: Buffer | string) => {
+          stderr += chunk.toString();
+        });
+        child.on("error", reject);
+        child.on("close", (code) => resolve({ code, stdout, stderr }));
+        void hung.then(() => child.kill("SIGINT"));
+      });
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const created = await runCli(["skills", "new", "ambiguous", "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(created.exitCode, created.stderr).toBe(0);
+
+      const hung = registry.nextHungPublish();
+      const interrupted = await interruptOnHungPublish(
+        ["publish", `${OWNER}/skills/ambiguous`, "--yes", "--json"],
+        hung,
+      );
+      expect(interrupted.code, interrupted.stdout + interrupted.stderr).toBe(130);
+      // The registry committed the version even though no response was
+      // recorded on the client.
+      expect(registry.publishes).toHaveLength(1);
+
+      const output: unknown = JSON.parse(interrupted.stdout);
+      if (!isRecord(output) || !isRecord(output["result"])) {
+        throw new Error("Expected an interrupted publish result document");
+      }
+      const result = output["result"];
+      expect(result["contract"]).toBe("publish-result-v3");
+      expect(result["interruption"]).toEqual({ signal: "SIGINT" });
+      expect(result["execution"]).toMatchObject({
+        status: "partial",
+        outcomes: [
+          {
+            name: "ambiguous",
+            action: "publish",
+            status: "unknown",
+            reason: "interrupted",
+          },
+        ],
+      });
+      expect(result["counts"]).toMatchObject({ published: 0, failed: 0, unknown: 1 });
+      const recovery = result["recovery"];
+      if (!isRecord(recovery) || typeof recovery["cmd"] !== "string") {
+        throw new Error("Expected a credential-free recovery command");
+      }
+      expect(recovery["cmd"]).toContain("axm publish");
+      expect(recovery["remainingItems"]).toEqual([`${OWNER}/skills/ambiguous`]);
+
+      // The recovery run verifies the committed version byte-for-byte
+      // instead of re-uploading: no second publish reaches the registry.
+      const recoveryArgs = recovery["cmd"].split(" ").slice(1);
+      const recovered = await runCli(recoveryArgs, {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(recovered.exitCode, recovered.stderr).toBe(0);
+      expect(registry.publishes).toHaveLength(1);
+      expect(JSON.parse(recovered.stdout).result.counts).toMatchObject({
+        published: 0,
+        alreadyPublished: 1,
+        failed: 0,
+        unknown: 0,
+      });
+    } finally {
+      userHome.cleanup();
+      workspace.cleanup();
+      await registry.close();
+    }
+  });
+
   it("blocks only a pack whose included dependency upload fails", async () => {
-    const registry = await startHttpRegistry({ failPublishOnce: ["skills/failing-member"] });
+    const registry = await startHttpRegistry({ rejectPublish: ["skills/failing-member"] });
     const workspace = createTempDir();
 
     try {
       await initWorkspace(workspace.path, registry.url);
       for (const name of ["failing-member", "independent-member"]) {
-        const created = await runCli(
-          ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-          { cwd: workspace.path, env: registryEnv(registry.url) },
-        );
+        const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+          cwd: workspace.path,
+          env: registryEnv(registry.url),
+        });
         expect(created.exitCode, created.stderr).toBe(0);
       }
       const createdPack = await runCli(
@@ -853,7 +919,7 @@ describe("HTTP registry transport", () => {
       expect(fileInstall.exitCode).toBe(httpInstall.exitCode);
 
       const extensionDir = (workspacePath: string) =>
-        path.join(workspacePath, ".axm", "extensions", OWNER, "skills", name);
+        path.join(workspacePath, "agent_extensions", "agentxm", OWNER, "skills", name);
 
       expect(snapshotDir(extensionDir(httpWorkspace.path))).toEqual(
         snapshotDir(extensionDir(fileWorkspace.path)),
@@ -879,10 +945,10 @@ describe("HTTP registry transport", () => {
 
     try {
       await initWorkspace(publisher.path, registry.url);
-      const created = await runCli(
-        ["skills", "new", name, "--owner", OWNER, "--agent", "claude-code", "--yes"],
-        { cwd: publisher.path, env },
-      );
+      const created = await runCli(["skills", "new", name, "--owner", OWNER, "--yes"], {
+        cwd: publisher.path,
+        env,
+      });
       expect(created.exitCode, created.stderr).toBe(0);
       const firstPublish = await runCli(
         ["skills", "publish", fqn, "--visibility", "private", "--yes"],

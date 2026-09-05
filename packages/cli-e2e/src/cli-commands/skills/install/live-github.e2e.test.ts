@@ -87,11 +87,10 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
 
       const canonicalSkillDir = path.join(
         temp.path,
-        ".axm",
-        "extensions",
-        "external",
-        "skills",
-        "quality",
+        "agent_extensions",
+        "github",
+        "qualitymd",
+        "quality.md",
       );
       expect(fs.existsSync(path.join(canonicalSkillDir, "SKILL.md"))).toBe(true);
 
@@ -100,12 +99,12 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
       assertSymlink(temp.path, ".cursor/skills/quality");
       assertSymlink(temp.path, ".github/skills/quality");
 
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const settings = expectRecord(JSON.parse(fs.readFileSync(settingsPath, "utf8")), "settings");
       const settingsSkills = expectRecord(settings["skills"], "settings.skills");
       expect(settingsSkills["quality"]).toBe("github:qualitymd/quality.md");
 
-      const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lockPath = path.join(temp.path, "axm-lock.yaml");
       const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")), "lockfile");
       const lockSkills = expectRecord(lock["skills"], "lockfile.skills");
       const lockEntry = expectRecord(lockSkills["quality"], "lockfile.skills.quality");

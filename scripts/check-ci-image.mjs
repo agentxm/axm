@@ -6,15 +6,15 @@ const containerfile = read("containers/ci/Containerfile");
 const dockerignore = read("containers/ci/.dockerignore");
 const ciImagePin = read("containers/ci/CI_IMAGE").trim();
 const version = read("containers/ci/VERSION").trim();
-const affectedCiRunner = read("scripts/verify-affected-ci.sh");
 const ciWorkflow = read(".github/workflows/ci.yml");
 const releaseWorkflow = read(".github/workflows/publish.yml");
 const nxManifest = JSON.parse(read("nx.json"));
 const packageManifest = JSON.parse(read("package.json"));
 const workspaceConfig = read("pnpm-workspace.yaml");
-const project = read("project.json");
-const projectManifest = JSON.parse(project);
+const projectManifest = JSON.parse(read("project.json"));
+const cliE2eProjectManifest = JSON.parse(read("packages/cli-e2e/project.json"));
 const workflow = read(".github/workflows/ci-image.yml");
+const publishWorkflow = read(".github/workflows/ci-image-publish.yml");
 const workflowSources = readdirSync(".github/workflows")
   .filter((path) => path.endsWith(".yml") || path.endsWith(".yaml"))
   .map((path) => [path, read(`.github/workflows/${path}`)]);
@@ -47,6 +47,29 @@ const activeSmoke = activeSmokeMatch?.[1] ?? "";
 const requireText = (subject, text, message) => {
   if (!subject.includes(text)) errors.push(message);
 };
+
+if (publishWorkflow.includes("containers/ci/**")) {
+  errors.push("CI image publication must not run for consumer-only CI_IMAGE changes");
+}
+if (publishWorkflow.includes("scripts/check-ci-image.mjs")) {
+  errors.push("CI image publication must not run for checker-only changes");
+}
+if (publishWorkflow.includes(".github/workflows/ci-image-publish.yml")) {
+  errors.push("CI image publication must not run for publication-wrapper-only changes");
+}
+for (const path of [
+  "containers/ci/Containerfile",
+  "containers/ci/.dockerignore",
+  "containers/ci/VERSION",
+  ".github/workflows/ci-image.yml",
+]) {
+  requireText(publishWorkflow, path, `CI image publication must watch producer input ${path}`);
+}
+if (workflow.includes("--metadata-file")) {
+  errors.push(
+    "CI image promotion must resolve its digest by registry inspection for runner Buildx compatibility",
+  );
+}
 
 if (!/^\d+\.\d+\.\d+$/u.test(version)) {
   errors.push("containers/ci/VERSION must contain one semantic version");
@@ -132,11 +155,45 @@ if (
     "mise.toml npm:pnpm version must match packageManager",
   );
 
-  const releaseSetupCount =
+  const releaseCorepackSetupCount =
     releaseWorkflow.split(`corepack prepare pnpm@${packageManagerPnpmVersion} --activate`).length -
     1;
-  if (releaseSetupCount !== 2) {
-    errors.push("both release jobs must activate the packageManager pnpm version");
+  if (releaseCorepackSetupCount !== 1) {
+    errors.push("the Windows release verification job must activate packageManager pnpm");
+  }
+  requireText(
+    releaseWorkflow,
+    "uses: ./.github/actions/setup-workspace",
+    "the primary release job must use the canonical workspace toolchain setup",
+  );
+}
+
+// The installer-verification matrix cannot use the setup-workspace composite —
+// publish.yml records why — so it is the one job that duplicates mise.toml's
+// toolchain versions instead of reading them. Hold the duplication to the
+// authority so an installer is never verified on an undeclared toolchain.
+if (miseNodeVersion !== undefined) {
+  requireText(
+    releaseWorkflow,
+    `node-version: ${miseNodeVersion}`,
+    "the Corepack installer-verification job must duplicate the mise.toml Node version exactly",
+  );
+}
+if (miseBunVersion !== undefined) {
+  requireText(
+    releaseWorkflow,
+    `bun-version: ${miseBunVersion}`,
+    "the Corepack installer-verification job must duplicate the mise.toml Bun version exactly",
+  );
+}
+
+// One published name per unit of work: workflows reach this checker through
+// `pnpm run check:ci-image`, never through its script path.
+for (const [workflowPath, source] of workflowSources) {
+  if (source.includes("node scripts/check-ci-image.mjs")) {
+    errors.push(
+      `${workflowPath} must invoke the published check:ci-image name, not the checker's script path`,
+    );
   }
 }
 
@@ -171,6 +228,7 @@ if (imagePnpmVersion === undefined) {
 }
 
 for (const text of [
+  "verifyDepsBeforeRun: error",
   "allowBuilds:",
   '"@swc/core": true',
   "esbuild: true",
@@ -188,8 +246,8 @@ if (workspaceConfig.includes("onlyBuiltDependencies:")) {
 
 const storeConfigOccurrences =
   containerLauncher.match(/--env pnpm_config_store_dir=/gu)?.length ?? 0;
-if (storeConfigOccurrences !== 2 || containerLauncher.includes("--env npm_config_store_dir=")) {
-  errors.push("container launchers must pass both pnpm stores through pnpm_config_store_dir");
+if (storeConfigOccurrences !== 1 || containerLauncher.includes("--env npm_config_store_dir=")) {
+  errors.push("the CI container launcher must pass its pnpm store through pnpm_config_store_dir");
 }
 
 for (const text of [
@@ -205,14 +263,19 @@ for (const variable of [
   "AXM_HOST_UID",
   "AXM_HOST_GID",
   "AXM_DEPS_DIRS",
-  "AXM_CI_PHASE_SUMMARY_FILE",
-  "AXM_EXPECT_NX_CACHE_HIT",
   "AXM_RELEASE_PREPARATION",
 ]) {
   requireText(
     containerLauncher,
     `--env ${variable}=`,
     `container launcher must pass ${variable} to the image entrypoint`,
+  );
+}
+for (const variable of ["NX_BASE", "NX_HEAD"]) {
+  requireText(
+    containerLauncher,
+    `--env ${variable} \\\n`,
+    `container launcher must forward ${variable} when the caller sets it`,
   );
 }
 
@@ -244,7 +307,7 @@ if (containerLauncher.includes("NX_REJECT_UNKNOWN_LOCAL_CACHE")) {
 }
 
 for (const text of [
-  "affected_projects: ${{ steps.classify.outputs.affected_projects }}",
+  'install: "false"',
   "id: pnpm-cache",
   "id: nx-cache",
   "axm-ci-cache/pnpm-store",
@@ -252,8 +315,14 @@ for (const text of [
   "hashFiles('containers/ci/CI_IMAGE')",
   'AXM_CONTAINER_NX_PARALLEL: "3"',
   'AXM_CONTAINER_VITEST_MAX_WORKERS: "2"',
-  "AXM_EXPECT_NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}",
-  "scripts/verify-affected-ci.sh",
+  "NX_BASE: ${{ github.event.pull_request.base.sha }}",
+  "NX_HEAD: ${{ github.event.pull_request.head.sha }}",
+  "pnpm run verify:clean",
+  "pnpm run verify:affected",
+  "pnpm run ci:workspace:report",
+  "NX_SKIP_NX_CACHE=true pnpm run test:e2e:report",
+  "verify-e2e-main-trusted",
+  'AXM_CONTAINER_VITEST_MAX_WORKERS: "4"',
   "if: always()",
   '>> "$GITHUB_STEP_SUMMARY"',
   "Exact hit",
@@ -263,28 +332,16 @@ for (const text of [
   requireText(ciWorkflow, text, `CI workflow is missing ${text}`);
 }
 
+if (ciWorkflow.includes("affected_projects")) {
+  errors.push("the path classifier must not install Nx only to render an affected-project summary");
+}
+
 if (
   !/key:\s*>-\s+axm-ci-nx-v2-[\s\S]{0,500}github\.event\.pull_request\.head\.sha\s*\}\}\s+restore-keys:/u.test(
     ciWorkflow,
   )
 ) {
   errors.push("the Nx cache must use a commit-specific primary key");
-}
-
-for (const text of [
-  "::group::%s",
-  'run_phase "Install workspace dependencies"',
-  'run_phase "Validate release plan"',
-  "pnpm release:plan:check",
-  'run_phase "Validate CI image contract"',
-  'run_phase "Validate generated artifacts"',
-  'run_phase "Validate workspace synchronization"',
-  "nx affected -t lint typecheck build test e2e",
-  "-t scripts-lint scripts-typecheck scripts-test verify-e2e-boundaries",
-  "validate_restored_nx_cache",
-  "An exact Actions cache hit produced no Nx task hits",
-]) {
-  requireText(affectedCiRunner, text, `affected CI runner is missing ${text}`);
 }
 
 const workflowFormatChecks = ciWorkflow.match(/pnpm run format:check/gu) ?? [];
@@ -302,19 +359,109 @@ if (
   errors.push("cached test targets must restore their JUnit reports");
 }
 
-if (
-  !projectManifest.targets?.["scripts-test"]?.outputs?.includes(
-    "{workspaceRoot}/test-results/scripts",
-  )
-) {
-  errors.push("the cached scripts test target must restore its JUnit report");
+if (!projectManifest.targets?.test?.outputs?.includes("{workspaceRoot}/test-results/scripts")) {
+  errors.push("the cached root test target must restore its JUnit report");
 }
 
+for (const target of ["test-report", "allure-report"]) {
+  const command = projectManifest.targets?.[target]?.options?.command ?? "";
+  requireText(command, "allure generate", `${target} must generate the Allure report`);
+  if (command.includes("--clean")) {
+    errors.push(
+      `${target} must use the Allure 3 generate contract without the removed --clean flag`,
+    );
+  }
+}
+
+const workspaceCi = packageManifest.scripts?.["ci:workspace"] ?? "";
+requireText(workspaceCi, "pnpm run format:check", "workspace CI must retain formatting");
 requireText(
-  project,
-  '"command": "pnpm exec nx format:check"',
-  "local verification must retain its formatting check",
+  packageManifest.scripts?.ci ?? "",
+  "pnpm run ci:workspace",
+  "full CI must compose the workspace phase",
 );
+requireText(
+  packageManifest.scripts?.ci ?? "",
+  "pnpm run test:e2e",
+  "full CI must compose the E2E phase",
+);
+
+const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "";
+for (const text of [
+  "nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check",
+  "nx run-many -t build --parallel=1 --skip-nx-cache",
+  "nx run-many -t test --parallel=1",
+  "--maxWorkers=2",
+]) {
+  requireText(
+    workspaceVerification,
+    text,
+    `verify:workspace must retain the bounded workspace phase for ${text}`,
+  );
+}
+
+const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
+for (const text of [
+  "nx affected -t lint typecheck",
+  "verify-source-hygiene parity-ledger-check",
+  "nx affected -t build --parallel=1 --skip-nx-cache",
+  "nx affected -t test --parallel=1",
+  "--maxWorkers=2",
+  "nx affected -t e2e",
+]) {
+  requireText(
+    affectedVerification,
+    text,
+    `verify:affected must use the native Nx affected path for ${text}`,
+  );
+}
+// The bundled-skill lint is the only gate over `skills/axm/**`. It reaches the
+// developer through the source-verification names, not only the CI job, so a
+// local `pnpm run ci` covers what CI's `extension-lint` job covers.
+for (const [name, source] of [
+  ["verify:workspace", workspaceVerification],
+  ["verify:affected", affectedVerification],
+]) {
+  requireText(
+    source,
+    "lint-bundled-skill",
+    `${name} must run the bundled AXM skill lint alongside the other lint phases`,
+  );
+}
+
+if (
+  affectedVerification.indexOf("nx affected -t lint typecheck") >=
+    affectedVerification.indexOf("nx affected -t build --parallel=1 --skip-nx-cache") ||
+  affectedVerification.indexOf("nx affected -t build --parallel=1 --skip-nx-cache") >=
+    affectedVerification.indexOf("nx affected -t test") ||
+  affectedVerification.indexOf("nx affected -t test") >=
+    affectedVerification.indexOf("nx affected -t e2e")
+) {
+  errors.push("verify:affected must complete typechecking, builds, tests, and E2E in order");
+}
+
+if (nxManifest.parallel !== 2) {
+  errors.push("the local Nx default must bound workspace task concurrency at two");
+}
+
+const cliE2eTargets = cliE2eProjectManifest.targets ?? {};
+const aggregateDependencies = cliE2eTargets.e2e?.dependsOn ?? [];
+for (const target of ["e2e-main", "binary-smoke", "install-suite"]) {
+  if (!aggregateDependencies.includes(target)) {
+    errors.push(`the aggregate E2E target must depend on cli-e2e:${target}`);
+  }
+  if (cliE2eTargets[target]?.parallelism !== false) {
+    errors.push(`cli-e2e:${target} must run exclusively on its machine`);
+  }
+}
+if (cliE2eTargets.e2e?.executor !== "nx:noop") {
+  errors.push("the aggregate E2E target must delegate to its component target graph");
+}
+for (const text of ["generate:check", "sync:check", "format:check"]) {
+  if (affectedVerification.includes(text)) {
+    errors.push(`verify:affected must leave clean-checkout ${text} to CI`);
+  }
+}
 
 for (const scopeInput of ['"axm|', "$(uname -m)", "$CI_IMAGE", "pnpm-lock.yaml"]) {
   requireText(
@@ -355,6 +502,14 @@ for (const [path, source] of workflowSources) {
       errors.push(`${path} action ${action} must use a full commit SHA`);
     }
   }
+}
+
+for (const text of ["Required CI failures", "GITHUB_STEP_SUMMARY"]) {
+  requireText(
+    ciWorkflow,
+    text,
+    `Required CI rollup must report actionable failure details via ${text}`,
+  );
 }
 
 if (errors.length > 0) {

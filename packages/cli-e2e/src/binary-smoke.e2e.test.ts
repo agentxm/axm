@@ -1,11 +1,21 @@
 import * as fs from "node:fs";
-import * as http from "node:http";
 import * as path from "node:path";
 
 import { createBinaryRunner, createTempDir } from "@agentxm/client-e2e-utils";
 import { describe, expect, it } from "vitest";
 
 import { resolveBinaryPath } from "./distribution-targets.js";
+
+/**
+ * Binds this file's evidence to the requirement identities it executes. The
+ * literal shape is read by the specification catalog.
+ */
+export const executionBinding = {
+  requirements: ["system/compatibility/supported-platform-matrix"],
+  boundary: "binary",
+  rationale:
+    "Executes the compiled platform binary, proving the shipped artifact starts and answers on the target operating system and architecture.",
+} as const;
 
 const binaryPath = resolveBinaryPath();
 
@@ -19,68 +29,20 @@ const writeJson = (filePath: string, value: unknown): void => {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 };
 
-const serveCurrentRelease = async (version: string) => {
-  const server = http.createServer((_request, response) => {
-    const address = server.address();
-    if (address === null || typeof address === "string") {
-      response.statusCode = 500;
-      response.end("Server address unavailable");
-      return;
-    }
-    const origin = `http://127.0.0.1:${address.port}`;
-    const binaryName = path.basename(binaryPath);
-    response.setHeader("content-type", "application/json");
-    response.statusCode = 200;
-    response.end(
-      JSON.stringify([
-        {
-          tag_name: `cli-v${version}`,
-          draft: false,
-          prerelease: false,
-          assets: [
-            {
-              name: binaryName,
-              browser_download_url: `${origin}/${binaryName}`,
-            },
-            {
-              name: "SHA256SUMS",
-              browser_download_url: `${origin}/SHA256SUMS`,
-            },
-          ],
-        },
-      ]),
-    );
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Failed to determine release API server address");
-  }
-
-  return {
-    baseUrl: `http://127.0.0.1:${address.port}`,
-    close: async () =>
-      new Promise<void>((resolve, reject) => {
-        server.close((error) => (error === undefined ? resolve() : reject(error)));
-      }),
-  };
-};
-
 const parseInstallMethod = (stdout: string): unknown => {
   const document: unknown = JSON.parse(stdout);
   if (typeof document !== "object" || document === null || !("result" in document)) {
     return undefined;
   }
   const result = document.result;
-  if (typeof result !== "object" || result === null || !("installMethod" in result)) {
+  if (typeof result !== "object" || result === null || !("ownership" in result)) {
     return undefined;
   }
-  return result.installMethod;
+  const ownership = result.ownership;
+  if (typeof ownership !== "object" || ownership === null || !("method" in ownership)) {
+    return undefined;
+  }
+  return ownership.method;
 };
 
 describe("compiled binary smoke", () => {
@@ -148,7 +110,7 @@ describe("compiled binary smoke", () => {
         },
       );
       expect(setup.exitCode, getOutput(setup)).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
@@ -187,10 +149,8 @@ describe("compiled binary smoke", () => {
     const temp = createTempDir();
 
     try {
-      const axmDir = path.join(temp.path, ".axm");
-      fs.mkdirSync(axmDir, { recursive: true });
       fs.writeFileSync(
-        path.join(axmDir, "settings.json"),
+        path.join(temp.path, "axm.json"),
         JSON.stringify({
           agents: [],
           skills: { review: "@acme/skills/review" },
@@ -275,7 +235,7 @@ describe("compiled binary smoke", () => {
     const temp = createTempDir();
     const versionResult = await runBinary(["--version"]);
     expect(versionResult.exitCode).toBe(0);
-    const server = await serveCurrentRelease(versionResult.stdout.trim());
+    const version = versionResult.stdout.trim();
     const installedBinary = path.join(
       temp.path,
       ".axm",
@@ -292,12 +252,11 @@ describe("compiled binary smoke", () => {
         JSON.stringify({ method: "script", executablePath: installedBinary }),
       );
 
-      const result = await createBinaryRunner(installedBinary)(["upgrade", "--json"], {
+      const result = await createBinaryRunner(installedBinary)(["upgrade", version, "--json"], {
         env: {
           AXM_USER_HOME: temp.path,
           HOME: temp.path,
           USERPROFILE: temp.path,
-          AXM_UPGRADE_GITHUB_API_URL: server.baseUrl,
           npm_config_user_agent: "",
         },
       });
@@ -305,7 +264,6 @@ describe("compiled binary smoke", () => {
       expect(result.exitCode, getOutput(result)).toBe(0);
       expect(parseInstallMethod(result.stdout), result.stdout).toBe("script");
     } finally {
-      await server.close();
       temp.cleanup();
     }
   });

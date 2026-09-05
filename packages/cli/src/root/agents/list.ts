@@ -2,25 +2,20 @@ import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import {
-  AGENTS,
-  CONFIGURABLE_AGENT_IDS,
-  detectAgentsForScope,
-  observeInstructionProjection,
-  resolveInstructionsConfig,
-} from "@agentxm/client-core/unstable/agents";
-import {
-  CliRenderer,
-  count,
-  registerEntity,
-  type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { scopeFlag } from "../../cli-flags.js";
+import { detectAgentsForScope } from "@agentxm/agent-integration";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import { Screen, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { agentLifecycle, lifecycleCell } from "./lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
+import {
+  observeInstructionProjection,
+  resolveInstructionsConfig,
+} from "@agentxm/extension-workspace";
 
 export interface AgentsListArgs {
   readonly detected: boolean;
@@ -55,31 +50,21 @@ export const AgentsListOutputSchema = Schema.Struct({
 });
 export type AgentsListOutput = typeof AgentsListOutputSchema.Type;
 
-const AgentListTable = {
-  columns: {
-    id: { header: "ID" },
-    name: { header: "Agent" },
-    configured: { header: "Configured", render: (value: boolean) => (value ? "yes" : "no") },
-    detected: { header: "Detected", render: (value: boolean) => (value ? "yes" : "no") },
-    instructions: { header: "Rules" },
-    lifecycle: {
-      header: "Lifecycle",
-      render: (_value: string, row: AgentListItem) => lifecycleCell(row.id),
-    },
+const AgentListColumns = [
+  { header: "ID", priority: "required", value: (row: AgentListItem) => row.id },
+  { header: "Agent", value: (row: AgentListItem) => row.name },
+  { header: "Configured", value: (row: AgentListItem) => (row.configured ? "yes" : "no") },
+  { header: "Detected", value: (row: AgentListItem) => (row.detected ? "yes" : "no") },
+  { header: "Rules", priority: "optional", value: (row: AgentListItem) => row.instructions },
+  {
+    header: "Lifecycle",
+    priority: "optional",
+    value: (row: AgentListItem) => lifecycleCell(row.id),
   },
-} as const satisfies TableView<AgentListItem>;
-
-registerEntity<AgentListItem>("agent", {
-  list: {
-    columns: AgentListTable.columns,
-    emptyMessage: "No agents configured",
-    singularLabel: "coding agent",
-    pluralLabel: "coding agents",
-  },
-});
+] satisfies ReadonlyArray<ViewColumn<AgentListItem>>;
 
 export const handleAgentsList = Effect.fn("Agents.list")(function* (args: AgentsListArgs) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const configured = yield* ws.getConfiguredAgents();
   const detected = yield* detectAgentsForScope(ws.baseDir, ws.scope).pipe(
@@ -128,21 +113,18 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
 
   const suggestions = items.length === 0 ? [SET_UP_AXM_WORKSPACE] : [];
 
-  if (yield* renderer.result(output, AgentsListOutputSchema, { suggestions })) {
+  if (yield* screen.document(output, AgentsListOutputSchema, { suggestions })) {
     return;
   }
-
-  if (items.length === 0) {
-    yield* renderer.list("agent", {
-      items,
-      count: items.length,
-      emptyMessage: "No coding agents configured or detected.",
-      suggestions,
-    });
-    return;
-  }
-
-  yield* renderer.table(items, AgentListTable, count(items.length, "coding agent"));
+  yield* screen.result([
+    ...inventoryDoc({
+      rows: items,
+      columns: AgentListColumns,
+      summary: count(items.length, "coding agent"),
+      empty: "No coding agents configured or detected.",
+    }),
+    ...(suggestions.length === 0 ? [] : [{ _tag: "next", actions: suggestions } as const]),
+  ]);
 });
 
 const listConfig = {

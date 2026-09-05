@@ -43,7 +43,7 @@ const initializeWorkspace = async (workspace: string): Promise<void> => {
     { cwd: workspace },
   );
   expect(setup.exitCode).toBe(0);
-  const settingsPath = path.join(workspace, ".axm", "settings.json");
+  const settingsPath = path.join(workspace, "axm.json");
   const settings: Record<string, unknown> = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
   fs.writeFileSync(
     settingsPath,
@@ -59,7 +59,7 @@ describe("create-only extension commands", () => {
 
       for (const type of CREATE_TYPES) {
         const name = `partial-${type}`;
-        const destination = path.join(workspace.path, ".axm", "extensions", OWNER, type, name);
+        const destination = path.join(workspace.path, type, name);
         fs.mkdirSync(destination, { recursive: true });
         fs.writeFileSync(path.join(destination, "keep.bin"), Buffer.from([0, 1, 2, 255]));
         const before = snapshotTree(workspace.path);
@@ -79,14 +79,14 @@ describe("create-only extension commands", () => {
     const workspace = createTempDir();
     try {
       await initializeWorkspace(workspace.path);
-      const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+      const settingsPath = path.join(workspace.path, "axm.json");
       const settings: Record<string, unknown> = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
       fs.writeFileSync(
         settingsPath,
         `${JSON.stringify(
           {
             ...settings,
-            skills: { configured: "workspace:@test/skills/configured" },
+            skills: { configured: "workspace" },
           },
           null,
           2,
@@ -119,9 +119,7 @@ describe("create-only extension commands", () => {
         });
 
         expect(result.exitCode, `${type} new --preview`).toBe(0);
-        expect(result.stdout + result.stderr).toContain(
-          path.join(".axm", "extensions", OWNER, type, name),
-        );
+        expect(result.stdout + result.stderr).toContain(path.join(type, name));
         expect(snapshotTree(workspace.path), `${type} new --preview`).toEqual(before);
       }
     } finally {

@@ -29,7 +29,7 @@ inventory in this document.
 Telemetry does not:
 
 - express workspace desired state or belong in project or user-scope
-  `settings.json`;
+  `axm.json`;
 - let a committed workspace enable collection for its contributors;
 - participate in command planning, lifecycle, reconciliation, diagnostics, or
   recovery;
@@ -51,23 +51,35 @@ workspace setting or command merely to persist it. Environment configuration
 may be applied to one invocation, a shell, a user profile, or an automation
 environment without changing repository state.
 
-No lower-precedence control may override `DO_NOT_TRACK`. Invalid telemetry
-configuration fails closed for collection without failing the requested
-command.
+No lower-precedence control may override `DO_NOT_TRACK` (the executable
+specification `system/security/telemetry-consent-and-precedence` in the
+[specification catalog](../../../specifications/catalog.md) owns consent and
+precedence). Invalid telemetry configuration fails closed for collection
+without failing the requested command.
 
 ## Invariants
 
-- Workspace configuration cannot opt a user into telemetry.
+- Workspace configuration cannot opt a user into telemetry (the executable
+  specification `system/security/telemetry-consent-and-precedence` owns the
+  obligation).
 - Errors-only mode emits no usage events.
 - Disabled mode emits neither usage nor error events.
-- Telemetry failure never alters command output, state changes, or exit status.
-- Telemetry payloads remain within the documented data boundary.
+- Telemetry failure never alters command output, state changes, or exit status
+  (the executable specification
+  `system/reliability/telemetry-failure-never-alters-outcomes` owns the
+  obligation).
+- Telemetry payloads remain within the documented data boundary (the
+  executable specification
+  `system/security/telemetry-payloads-respect-data-boundary` owns the
+  obligation).
 - Registry request logging and CLI telemetry remain independently disclosed and
   controlled.
 
-## Testing strategy
+## Specifications
 
-Behavior tests prove environment precedence, all modes, invalid-value behavior,
-payload redaction and exclusion, and telemetry transport failure isolation.
-Contract tests own the exact event schema and prevent new fields from bypassing
-review.
+The telemetry specifications under `specifications/system/security/` own the
+binding consent, precedence, and data-boundary obligations, and the one under
+`specifications/system/reliability/` owns failure isolation; the
+[specification catalog](../../../specifications/catalog.md) indexes them.
+The exact event schema remains an executable contract owned by code and its
+internal tests.

@@ -4,50 +4,64 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError } from "../../app-error/index.js";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   buildNewExtensionStep,
-  computeSourceHash,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-  decodeExtensionNameSync,
-  formatFqn,
-  preflightCreateOnly,
-  REGISTRY_EXTENSIONS_DIR,
-} from "@agentxm/client-core/unstable/extensions";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-authoring";
+import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
+import type { Plan } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
 import {
   RULE_BODY_FILENAME,
-  RULE_EXTENSION_DIR,
   RULE_MANIFEST_FILENAME,
   RULE_MANIFEST_SCHEMA_URL,
-  RuleManager,
   type RuleManifest,
-} from "@agentxm/client-core/unstable/rules";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-model/unstable/rules/manifest-schema";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import {
   isValidScaffoldName,
   normalizeScaffoldOwner,
   scaffoldNameValidationSuggestion,
 } from "../shared/scaffold-name.js";
-import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
+import { RuleManager } from "@agentxm/extension-workspace";
 
 /** Rule bodies live under `src/` alongside every other package-body type. */
 const RULE_SOURCE_DIR = "src";
 
-export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
+export const handleRulesNew = (args: {
+  readonly name: string;
+  readonly owner: Option.Option<string>;
+  readonly title: Option.Option<string>;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "rules.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New rule",
+    },
+    handleRulesNewBody(args),
+  );
+
+const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
   readonly name: string;
   readonly owner: Option.Option<string>;
   readonly title: Option.Option<string>;
@@ -61,6 +75,7 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
   const owner = Option.isSome(args.owner)
     ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("rule creation");
+  yield* requireAuthoredOwner(owner);
 
   if (!isValidScaffoldName(args.name)) {
     return yield* makeAppError({
@@ -73,8 +88,8 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
   const name = decodeExtensionNameSync(args.name);
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "rule", name });
-  const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, RULE_EXTENSION_DIR, name);
-  const configuredRules = yield* ws.getConfiguredRuleEntries();
+  const targetDir = path.join(workspaceAuthoredRoot(path, ws, "rule", owner), name);
+  const configuredRules = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError));
   yield* preflightCreateOnly({
     subject: "Rule",
     name,
@@ -102,7 +117,7 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
     targets: [
       { path: path.relative(ws.baseDir, manifestPath), change: "created" as const },
       { path: path.relative(ws.baseDir, bodyPath), change: "created" as const },
-      { path: ".axm (config/lockfile)", change: "created" as const },
+      { path: workspaceSettingsPath(ws.scope), change: "created" as const },
     ],
   };
   const scaffold = createCanonicalDirectory({
@@ -146,11 +161,16 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
     _tag: "Plan",
     name: "New rule",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "rule",
+    ),
     jobs: [
       {
         concurrency: 1,
         steps: [
           buildNewExtensionStep(manager, {
+            toStepFailure: failureToStepFailure,
             target: { type: "rule", name },
             ref: {
               type: "rule",
@@ -169,7 +189,9 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
             message: `Created rule ${fqn}`,
             plannedArtifact: artifact,
             preflight: Effect.gen(function* () {
-              const current = yield* ws.getConfiguredRuleEntries();
+              const current = yield* ws
+                .getConfiguredRuleEntries()
+                .pipe(Effect.mapError(toAppError));
               yield* recoverCanonicalDirectory({
                 baseDir: ws.baseDir,
                 canonicalPath: targetDir,
@@ -185,10 +207,12 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
               }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
             }),
             scaffold,
-            markAuthored: ws.setRuleEntry(name, {
-              source: `workspace:${fqn}`,
-              enabled: true,
-            }),
+            markAuthored: ws
+              .setRuleEntry(name, {
+                source: "workspace",
+                enabled: true,
+              })
+              .pipe(Effect.mapError(toAppError)),
             buildArtifact: () => Effect.succeed(artifact),
           }),
         ],
@@ -199,27 +223,13 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
-    displayApplied: false,
   });
-  const summary = `-> ${joinDisplayPath(path, path.relative(ws.baseDir, targetDir))}   ${version} | 2 files`;
   const suggestions = [
     {
       description: `Write the rule body in \`${joinDisplayPath(path, path.relative(ws.baseDir, targetDir), RULE_SOURCE_DIR, RULE_BODY_FILENAME)}\``,
     },
   ];
-  const emitted = yield* emitPlanResolutionResult(
-    "rules.new",
-    resolution,
-    resolution._tag === "ExecutedPlan" ? { summary, suggestions } : undefined,
-  );
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created rule ${fqn}`,
-      summary,
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("rules.new", resolution, { suggestions });
 });
 
 const newConfig = {

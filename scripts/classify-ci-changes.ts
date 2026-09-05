@@ -3,7 +3,6 @@ import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 export interface CiChangeClassification {
-  readonly affectedProjects: readonly string[];
   readonly code: boolean;
   readonly documentation: boolean;
   readonly formatRequired: boolean;
@@ -31,25 +30,20 @@ const isReleaseInfrastructurePath = (path: string) =>
   path === "pnpm-lock.yaml" ||
   path === "project.json";
 
-export const selectNxAffectedPaths = (paths: readonly string[]) =>
+export const selectCodeVerificationPaths = (paths: readonly string[]) =>
   paths.filter(
     (path) => !isDocumentationPath(path) && !path.startsWith(".github/") && !isImagePath(path),
   );
 
-export const classifyCiChanges = (
-  paths: readonly string[],
-  affectedProjects: readonly string[],
-): CiChangeClassification => {
+export const classifyCiChanges = (paths: readonly string[]): CiChangeClassification => {
   const documentation = paths.some(isDocumentationPath);
   const image = paths.some(isImagePath);
   const workflow = paths.some((path) => path.startsWith(".github/"));
   const releaseInfrastructure = paths.some(isReleaseInfrastructurePath);
-  const nxAffectedPaths = selectNxAffectedPaths(paths);
-  const relevantAffectedProjects = nxAffectedPaths.length > 0 ? [...affectedProjects].sort() : [];
+  const codeVerificationPaths = selectCodeVerificationPaths(paths);
 
   return {
-    affectedProjects: relevantAffectedProjects,
-    code: relevantAffectedProjects.length > 0 || releaseInfrastructure,
+    code: codeVerificationPaths.length > 0 || releaseInfrastructure,
     documentation,
     formatRequired: true,
     image,
@@ -72,36 +66,6 @@ const readChangedPaths = (base: string, head: string) =>
     .split("\0")
     .filter(Boolean);
 
-export const parseAffectedProjectsOutput = (output: string): readonly string[] => {
-  const trimmed = output.trim();
-  if (!trimmed) return [];
-
-  if (trimmed.startsWith("[")) {
-    const parsed: unknown = JSON.parse(trimmed);
-    if (
-      Array.isArray(parsed) &&
-      parsed.every((value): value is string => typeof value === "string")
-    ) {
-      return parsed;
-    }
-    throw new Error("Nx affected project output must be a string array");
-  }
-
-  return trimmed
-    .split("\n")
-    .map((project) => project.trim())
-    .filter(Boolean);
-};
-
-const readAffectedProjects = (base: string, head: string) =>
-  parseAffectedProjectsOutput(
-    execFileSync(
-      "pnpm",
-      ["exec", "nx", "show", "projects", "--affected", `--base=${base}`, `--head=${head}`],
-      { encoding: "utf8" },
-    ),
-  );
-
 const writeGitHubOutputs = (classification: CiChangeClassification) => {
   const outputPath = process.env["GITHUB_OUTPUT"];
   if (!outputPath) return;
@@ -109,7 +73,6 @@ const writeGitHubOutputs = (classification: CiChangeClassification) => {
   appendFileSync(
     outputPath,
     [
-      `affected_projects=${classification.affectedProjects.join(",")}`,
       `code=${classification.code}`,
       `documentation=${classification.documentation}`,
       `format_required=${classification.formatRequired}`,
@@ -125,9 +88,7 @@ const main = () => {
   const base = readArgument("--base");
   const head = readArgument("--head");
   const paths = readChangedPaths(base, head);
-  const affectedProjects =
-    selectNxAffectedPaths(paths).length > 0 ? readAffectedProjects(base, head) : [];
-  const classification = classifyCiChanges(paths, affectedProjects);
+  const classification = classifyCiChanges(paths);
 
   writeGitHubOutputs(classification);
   console.log(JSON.stringify(classification, null, 2));

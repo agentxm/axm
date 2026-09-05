@@ -37,7 +37,7 @@ The workspace model does not own:
 
 - shared AgentXM product definitions, which come from the AgentXM Knowledge
   bundle;
-- the fields and editing rules of `settings.json`, which belong to
+- the fields and editing rules of `axm.json`, which belong to
   [Workspace settings](settings.md);
 - configured-agent semantics, which belong to [Coding agents](agents.md);
 - canonical instruction files and aliases, which belong to [Instruction
@@ -53,7 +53,9 @@ The workspace model does not own:
 - type-specific canonical state and realization, which belong to
   [Extensions](../extensions/overview.md);
 - diagnostic and reconciliation behavior, which belong to
-  [Lint](../commands/lint.md) and [Sync](../commands/sync.md); or
+  [Lint](../commands/lint.md) and [Sync](../commands/sync.md);
+- Git attributes, checkout conversion, editor behavior, and formatter policy,
+  which belong to the consuming repository; or
 - agent-specific serialization mechanics, which belong to adapters and their
   tests.
 
@@ -65,10 +67,12 @@ intent; it acts on choices the user expresses through commands or direct edits.
 Workspace configuration records those durable choices: directly requested
 extensions, version constraints, agents, activation, inline definitions,
 workspace capabilities, and workspace-authored manifests. The [workspace
-settings design](settings.md) owns the `.axm/settings.json` boundary. AXM
-combines that configuration with authored Pack manifests and accepted locked
-Pack metadata to derive the complete desired state, including Pack members and
-the outputs required for configured agents.
+settings design](settings.md) owns `axm.json` in both workspace scopes. Project
+scope keeps it at the project root; user scope keeps it at
+`~/.axm/workspace/axm.json`. AXM combines that configuration with
+authored Pack manifests and accepted locked Pack metadata to derive the
+complete desired state, including Pack members and the outputs required for
+configured agents.
 
 The lockfile authoritatively records accepted external source and immutable
 resolution state. Installed files and managed outputs realize current state.
@@ -84,7 +88,7 @@ content.
 | Workspace configuration     | Records the user's explicit, durable choices in [settings](settings.md).                     |
 | Desired state               | Describes desired extensions, activation, agents, and workspace capabilities.                |
 | Authoritative lock state    | Records accepted immutable external resolutions and provenance; see [Lockfile](lockfile.md). |
-| Canonical extension content | Holds authored, installed, or bundled content from which projections are produced.           |
+| Canonical extension content | Holds authored, acquired, or bundled content from which projections are produced.            |
 | Inline configuration        | Authoritatively defines a managed capability directly in settings.                           |
 | Managed outputs             | Present desired capabilities in agent or workspace-native surfaces.                          |
 | Observed content            | Records what exists without implying desired state or authority.                             |
@@ -92,8 +96,11 @@ content.
 Workspace configuration answers which explicit choices the user has made.
 Desired state expands extension choices through Pack membership and derives
 the outputs required by configured agents and workspace capabilities. Accepted
-lock rows and existing files do not make an extension or
-capability desired.
+lock rows and existing files do not make an extension or capability desired
+(the executable specification
+`cli/lock-state-never-creates-reachability` in the
+[specification catalog](../../../specifications/catalog.md) owns the
+lock-state obligation).
 
 ## Authority across workspace surfaces
 
@@ -108,9 +115,31 @@ Canonical extension content has one of three authorities:
 - **Workspace-authored:** The workspace is the source. AXM never overwrites or
   deletes it as an incidental lifecycle or recovery action.
 - **External:** AXM installed a copy from a registry or other supported source.
-  The extension remains AXM-managed even if its local bytes change, but ordinary
-  sync does not overwrite that drift.
+  The extension remains AXM-managed even if its local bytes change, but the
+  drift blocks its use until explicit recovery; ordinary sync does not
+  overwrite it.
 - **Bundled:** The running AXM distribution supplies and controls the content.
+
+Project workspaces keep those authorities physically distinct. Authored
+packages live in the type-specific roots declared by `axm.json`, defaulting to
+`skills/`, `rules/`, `knowledge/`, `subagents/`, `hooks/`, `mcps/`, and
+`packs/`. Acquired packages live under
+`agent_extensions/<source-name>/<source-full-name>/`. For example, Registry
+packages from the built-in `agentxm` source live under
+`agent_extensions/agentxm/@owner/<type>/<name>/`. The ignored `.axm/` directory is
+runtime state, not project configuration or canonical package inventory.
+User scope mirrors the project workspace contract under `~/.axm/workspace/`:
+`axm.json`, `axm-lock.yaml`, `agent_extensions/`, and `.axm/` runtime state.
+It has no authored type roots; user-authored `workspace` sources and authoring
+commands are project-only. The bundled AXM skill uses an internal static
+package, not a user-authored root. Agent-native user projections remain under
+each agent's native user root.
+
+The containing `~/.axm/` directory is AXM application state, not itself a
+workspace. It owns the self-managed `bin/axm` executable, `install-meta.json`,
+and short-lived restricted state such as pending login. Performance caches,
+including update-check state, use the platform cache directory. AXM has no
+`trust.json` state file.
 
 Changing an extension among workspace-authored, external, and bundled authority
 is an explicit operation. A lock row or recommended Pack does not silently
@@ -148,8 +177,10 @@ path, and byte equality are observations, not ownership proof.
 AXM-managed installed state is retained when its extension is reachable from
 desired state. Direct extension configuration and Pack membership can make an
 extension reachable. Lock rows do not keep an otherwise undesired extension
-installed. Workspace-authored inventory is
-preserved by authorship, not retained by desired-state reachability.
+installed (the executable specification
+`cli/lock-state-never-creates-reachability` owns the obligation).
+Workspace-authored inventory is preserved by authorship, not retained by
+desired-state reachability.
 
 Removing one route to an extension does not remove it while another desired
 route still reaches it. Cleanup that depends on knowing the complete desired
@@ -172,9 +203,15 @@ When a mutable source no longer reproduces the locked identity, sync and
 reinstall block rather than substituting different bytes. Desired capabilities
 without an external source have no fabricated resolution row.
 
-The accepted lock does not make later local byte drift a standing security
-violation. Present external canonical content remains valid projection input.
-Replacing divergent content during explicit update or reinstall is disclosed.
+The accepted lock makes later package-tree drift an authority violation for the
+affected content. Drift blocks reads, projection, and mutation preflight until
+explicit `reinstall`, `update`, or `fork` establishes valid authority again.
+Package-tree identity remains exact across paths and bytes; it does not
+normalize line endings or formatter output. AXM detects drift but does not
+create or modify `.gitattributes`, editor configuration, or formatter policy to
+prevent it. Those controls remain consumer-owned because they apply across the
+repository and cannot provide a complete integrity boundary for acquired
+content.
 
 ## Output reconciliation
 
@@ -183,10 +220,16 @@ authority. Every agent adapter and workspace-surface writer follows the same
 rules:
 
 - Create a missing AXM-owned projection.
-- Restore a stale or incomplete AXM-owned projection.
+- Restore an AXM-owned projection whose authoritative-input generation is stale.
 - Remove an obsolete AXM-owned projection.
 - Preserve independently coexisting unowned content.
 - Block on an unowned collision or ambiguous ownership and never overwrite it.
+
+Generated document bodies are not inspected for currency. Valid ownership and
+generation provenance establish whether their authoritative inputs are
+current; body formatting or rewriting alone causes no work. Structured native
+configuration instead compares decoded values, so equivalent serialization is
+also a no-op.
 
 An owned unit's required content is the deterministic rendering of its complete
 contributor set: every enabled extension the desired state routes into that
@@ -218,9 +261,10 @@ manual preservation, relocation, or removal owns recovery.
 
 ## Safe workspace changes
 
-Two AXM changes to the same workspace scope must not interleave. Immediately
-before writing, AXM checks that the inputs and targets still match the proposed
-change. If they do not, it writes nothing.
+Two AXM changes to the same workspace scope must not interleave (the
+executable specification `cli/changes-do-not-interleave` owns the
+obligation). Immediately before writing, AXM checks that the inputs and
+targets still match the proposed change. If they do not, it writes nothing.
 
 Workspace configuration, authoritative lock state, canonical extension content,
 inline configuration, and managed outputs change atomically by semantic

@@ -6,16 +6,18 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 import YAML from "yaml";
 
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/client-core/unstable/knowledge";
-import { LockfileSchema, LOCKFILE_NAME } from "@agentxm/client-core/unstable/lockfile";
-import { SettingsSchema, SETTINGS_FILENAME } from "@agentxm/client-core/unstable/settings";
+import { Screen, rawDoc } from "../../../screen/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/knowledge-query";
+import { LockfileSchema } from "@agentxm/workspace-state";
+import { SettingsSchema } from "@agentxm/workspace-state";
 import {
-  resolveUserScopeDir,
-  type WorkspaceScope,
+  resolveProjectWorkspaceStatePaths,
+  resolveUserHome,
+  resolveUserWorkspaceLayout,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { ExecutionDirectory } from "../../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
@@ -40,16 +42,12 @@ const crossScopeCollisions = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const checkedScope: WorkspaceScope = workspace.scope === "project" ? "user" : "project";
-  const otherAxmDir =
+  const otherPaths =
     checkedScope === "user"
-      ? yield* resolveUserScopeDir()
-      : path.join(executionDirectory.path, ".axm");
-  const settingsResult = yield* Effect.result(
-    fs.readFileString(path.join(otherAxmDir, SETTINGS_FILENAME)),
-  );
-  const lockfileResult = yield* Effect.result(
-    fs.readFileString(path.join(otherAxmDir, LOCKFILE_NAME)),
-  );
+      ? yield* resolveUserWorkspaceLayout(yield* resolveUserHome())
+      : resolveProjectWorkspaceStatePaths(path, executionDirectory.path);
+  const settingsResult = yield* Effect.result(fs.readFileString(otherPaths.settingsPath));
+  const lockfileResult = yield* Effect.result(fs.readFileString(otherPaths.lockPath));
   if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
     return { checkedScope, state: "not-determined" as const, bundleNames: [] };
   }
@@ -77,7 +75,7 @@ const crossScopeCollisions = Effect.gen(function* () {
 });
 
 export const handleKnowledgeConceptStatus = Effect.fn("Knowledge.concepts.status")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const capturedResult = yield* Effect.result(captureInstalledKnowledgeIndex());
   const scopeCollisions = yield* crossScopeCollisions;
   const output =
@@ -102,9 +100,11 @@ export const handleKnowledgeConceptStatus = Effect.fn("Knowledge.concepts.status
           conceptCount: 0,
           scopeCollisions,
         };
-  if (yield* renderer.result(output, KnowledgeConceptStatusOutputSchema)) return;
-  yield* renderer.raw(
-    `Knowledge discovery ${output.capabilities.version}\nStatus   ${output.readiness}\nBundles  ${String(output.bundleCount)}\nConcepts ${String(output.conceptCount)}\n${output.corpusFingerprint === undefined ? "" : `Corpus   ${output.corpusFingerprint}\n`}`,
+  if (yield* screen.document(output, KnowledgeConceptStatusOutputSchema)) return;
+  yield* screen.result(
+    rawDoc(
+      `Knowledge discovery ${output.capabilities.version}\nStatus   ${output.readiness}\nBundles  ${String(output.bundleCount)}\nConcepts ${String(output.conceptCount)}\n${output.corpusFingerprint === undefined ? "" : `Corpus   ${output.corpusFingerprint}\n`}`,
+    ),
   );
 });
 

@@ -4,19 +4,18 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import { Screen, headlineDoc, successDoc } from "../../screen/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   ExtensionFqnSchema,
-  fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
   toExtensionTypePlural,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError, toAppError } from "../../app-error/conversions.js";
 import {
   deprecateExtension,
-  DeprecationTransitionSchema,
   getExtensionDeprecation,
   undeprecateExtension,
   unyankExtensionVersion,
@@ -24,15 +23,21 @@ import {
   yankExtensionVersion,
   type RegistryExtensionReference,
   type RegistryExtensionVersionReference,
+  type YankCategory,
+} from "@agentxm/registry-client";
+import {
+  DeprecationTransitionSchema,
   type DeprecationReplacementIntent,
   type DeprecationTransition,
-  type YankCategory,
-} from "@agentxm/client-core/unstable/registry";
-import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/registry-protocol/unstable/registry";
+import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
+
+import { makeOperationResolution, observeUnit } from "@agentxm/workspace-operations";
 
 import { withRuntime } from "../../runtime.js";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { runWithStepUp } from "../step-up.js";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
 
 const categoryValues = ["broken", "security", "accidental", "other"] as const;
 const decodeVersion = Schema.decodeUnknownResult(VersionSchema);
@@ -101,39 +106,31 @@ const emitLifecycleOutput = (input: {
   readonly warnings?: ReadonlyArray<string>;
   readonly version?: string;
 }) =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    const emitted = yield* emitPlanResolutionResult(input.command, {
-      _tag: "ExecutedPlan",
+  emitOperationResolution(
+    input.command,
+    makeOperationResolution({
       name: input.planName,
       description: Option.none(),
-      jobs: [
+      mode: "apply",
+      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+      units: [
         {
-          concurrency: 1,
-          steps: [
-            {
-              label: input.extension,
-              result: {
-                result: "success",
-                message: input.message,
-                ...(input.warnings === undefined ? {} : { warnings: input.warnings }),
-                artifact: {
-                  path: input.extension,
-                  scope: "user",
-                  change: "updated",
-                  ...(input.version === undefined ? {} : { version: input.version }),
-                },
-              },
-            },
-          ],
+          id: input.extension,
+          label: input.extension,
+          state: "committed",
+          message: input.message,
+          ...(input.warnings === undefined ? {} : { warnings: input.warnings }),
+          artifact: {
+            path: input.extension,
+            scope: "user",
+            change: "updated",
+            ...(input.version === undefined ? {} : { version: input.version }),
+          },
         },
       ],
-    });
-    if (emitted) {
-      return;
-    }
-    yield* renderer.success(input.message);
-  });
+    }),
+    { message: input.message },
+  );
 
 export const handleYank = (input: {
   readonly ref: string;
@@ -156,14 +153,11 @@ export const handleYank = (input: {
               ...(notice === undefined ? {} : { notice }),
             },
             stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-          ),
+          ).pipe(Effect.mapError(toAppError)),
         {
-          initial: `Updating ${input.ref}`,
-          success: `Updated ${input.ref}`,
-          failure: `Failed to update ${input.ref}`,
-          cancelled: `Cancelled update for ${input.ref}`,
-          waiting: `Waiting for verification to update ${input.ref}`,
-          authorized: `Authorized update for ${input.ref}`,
+          command: "yank",
+          name: `Yank ${input.ref}`,
+          waiting: `verification to update ${input.ref}`,
         },
       );
       const extension = `${ref.owner}/${ref.type}/${ref.name}`;
@@ -186,14 +180,11 @@ export const handleYank = (input: {
             ...(notice === undefined ? {} : { notice }),
           },
           stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        ),
+        ).pipe(Effect.mapError(toAppError)),
       {
-        initial: `Updating ${input.ref}`,
-        success: `Updated ${input.ref}`,
-        failure: `Failed to update ${input.ref}`,
-        cancelled: `Cancelled update for ${input.ref}`,
-        waiting: `Waiting for verification to update ${input.ref}`,
-        authorized: `Authorized update for ${input.ref}`,
+        command: "yank",
+        name: `Yank ${input.ref}`,
+        waiting: `verification to update ${input.ref}`,
       },
     );
     yield* emitLifecycleOutput({
@@ -213,14 +204,11 @@ export const handleUnyank = (input: string) =>
         unyankExtensionVersion(
           ref,
           stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        ),
+        ).pipe(Effect.mapError(toAppError)),
       {
-        initial: `Updating ${input}`,
-        success: `Updated ${input}`,
-        failure: `Failed to update ${input}`,
-        cancelled: `Cancelled update for ${input}`,
-        waiting: `Waiting for verification to update ${input}`,
-        authorized: `Authorized update for ${input}`,
+        command: "unyank",
+        name: `Un-yank ${input}`,
+        waiting: `verification to update ${input}`,
       },
     );
     yield* emitLifecycleOutput({
@@ -234,8 +222,8 @@ export const handleUnyank = (input: string) =>
 
 const emitDeprecationTransition = (transition: DeprecationTransition) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    if (yield* renderer.result(transition, LifecycleTransitionOutputSchema)) return;
+    const screen = yield* Screen;
+    if (yield* screen.document(transition, LifecycleTransitionOutputSchema)) return;
     const verb =
       transition.disposition === "created"
         ? "Deprecated"
@@ -246,18 +234,21 @@ const emitDeprecationTransition = (transition: DeprecationTransition) =>
             : transition.after === null
               ? "Already active"
               : "Deprecation already current for";
-    yield* renderer.success(`${verb} ${transition.target}.`);
+    yield* screen.result(successDoc(`${verb} ${transition.target}.`));
     if (transition.after?.message !== undefined) {
-      yield* renderer.info(`Message: ${transition.after.message}`);
+      yield* screen.note(headlineDoc("info", `Message: ${transition.after.message}`));
     }
     if (transition.after?.replacement !== undefined) {
       const replacement = transition.after.replacement;
-      yield* renderer.info(
-        replacement.status === "available"
-          ? `Replacement: ${replacement.fqn}`
-          : replacement.fqn === undefined
-            ? "Replacement: unavailable or not visible"
-            : `Replacement: ${replacement.fqn} (unavailable)`,
+      yield* screen.note(
+        headlineDoc(
+          "info",
+          replacement.status === "available"
+            ? `Replacement: ${replacement.fqn}`
+            : replacement.fqn === undefined
+              ? "Replacement: unavailable or not visible"
+              : `Replacement: ${replacement.fqn} (unavailable)`,
+        ),
       );
     }
   });
@@ -283,11 +274,12 @@ export const handleDeprecate = (input: {
         detail: "--replacement and --clear-replacement cannot be combined.",
       });
     }
-    const renderer = yield* CliRenderer;
-    const current = yield* renderer.withSpinner(
-      `Reading deprecation for ${input.ref}`,
-      () => getExtensionDeprecation(ref),
-      { successMessage: `Read deprecation for ${input.ref}` },
+    const current = yield* withLiveOperation(
+      { command: "deprecate", name: `Read deprecation for ${input.ref}`, mode: "preview" },
+      observeUnit(
+        { id: "deprecation", label: `deprecation for ${input.ref}` },
+        getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
+      ),
     );
     const suppliedMessage = Option.getOrUndefined(input.message)?.trim();
     const message = input.clearMessage
@@ -317,10 +309,14 @@ export const handleDeprecate = (input: {
         ],
       });
     }
-    const transition = yield* renderer.withSpinner(
-      `Deprecating ${input.ref}`,
-      () => deprecateExtension(ref, { revision: current.revision, message, replacement }),
-      { successMessage: `Deprecated ${input.ref}` },
+    const transition = yield* withLiveOperation(
+      { command: "deprecate", name: `Deprecate ${input.ref}`, mode: "apply" },
+      observeUnit(
+        { id: "transition", label: `deprecation of ${input.ref}` },
+        deprecateExtension(ref, { revision: current.revision, message, replacement }).pipe(
+          Effect.mapError(toAppError),
+        ),
+      ),
     );
     yield* emitDeprecationTransition(transition);
   });
@@ -328,16 +324,18 @@ export const handleDeprecate = (input: {
 export const handleUndeprecate = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input);
-    const renderer = yield* CliRenderer;
-    const current = yield* renderer.withSpinner(
-      `Reading deprecation for ${input}`,
-      () => getExtensionDeprecation(ref),
-      { successMessage: `Read deprecation for ${input}` },
-    );
-    const transition = yield* renderer.withSpinner(
-      `Removing deprecation from ${input}`,
-      () => undeprecateExtension(ref, current.revision),
-      { successMessage: `Removed deprecation from ${input}` },
+    const transition = yield* withLiveOperation(
+      { command: "undeprecate", name: `Remove deprecation from ${input}`, mode: "apply" },
+      Effect.gen(function* () {
+        const current = yield* observeUnit(
+          { id: "deprecation", label: `deprecation for ${input}` },
+          getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
+        );
+        return yield* observeUnit(
+          { id: "transition", label: `deprecation removal from ${input}` },
+          undeprecateExtension(ref, current.revision).pipe(Effect.mapError(toAppError)),
+        );
+      }),
     );
     yield* emitDeprecationTransition(transition);
   });

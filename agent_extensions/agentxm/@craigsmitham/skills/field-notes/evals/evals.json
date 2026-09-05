@@ -1,0 +1,59 @@
+{
+  "skill_name": "field-notes",
+  "suite_version": "0.2.2",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "execution",
+      "prompt": "Watch our onboarding process. We know it feels expensive but have not agreed on a desired outcome. Apply the setup.",
+      "expected_output": "A proposed survey-mode subject with bounded scope and retirement condition, without inventing a target condition.",
+      "assertions": [
+        "Survey mode is chosen because no target condition is agreed.",
+        "The subject scope is observable and bounded.",
+        "No target outcome is manufactured.",
+        "The prompt's explicit Apply authority permits writing without a separate confirmation; absent that authority, the edit would be shown first."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "execution",
+      "prompt": "Triage the recorded field notes. Three notes share one repeatable workaround, two are unrelated singletons, and no closure evidence exists.",
+      "expected_output": "A threshold-aware triage that clusters the recurring pattern, holds unsupported singletons, and does not claim closure.",
+      "assertions": [
+        "Occurrences are grouped by shared cause rather than wording alone.",
+        "Singletons are retained or dropped with explicit rationale.",
+        "Promotion does not imply user agreement.",
+        "No finding is closed without post-change evidence."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "execution",
+      "prompt": "While running AXM I just hit an undocumented retry. Use the field-notes skill to append a note right now.",
+      "expected_output": "A responsibility-boundary response leaving in-situ capture eligibility and note creation to the field-notes rule.",
+      "assertions": [
+        "The skill does not create an individual note.",
+        "The capture rule is identified as the owner.",
+        "No batch triage is manufactured from one occurrence.",
+        "The work can continue without turning the incident into a finding."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "routing",
+      "prompt": "Set up a survey field-note subject for recurring friction in our release workflow, then show the proposed instruction change.",
+      "expected_selection": "field-notes",
+      "catalog_neighbors": [
+        "audit-docs",
+        "improve-whatever"
+      ],
+      "assertions": [
+        "The selected skill is field-notes.",
+        "No neighboring skill is selected for a job it does not own.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    }
+  ]
+}

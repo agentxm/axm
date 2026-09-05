@@ -74,15 +74,25 @@ The presence of unowned native content is not itself an invariant violation.
 Lint reports it only when the relevant extension contract makes the state a
 collision, an authority ambiguity, or another durable invalid condition.
 
-Local byte drift in externally installed canonical extension content is not by
-itself a lint or accepted-resolution violation. The content remains externally
-sourced, but only an explicit update or reinstall may replace it.
+Local byte drift in acquired canonical extension content violates its accepted
+package-tree integrity. Lint reports the drift and blocks affected inspection,
+projection, reconciliation, and mutation preflight. The content remains
+externally sourced, but only explicit `reinstall`, `update`, or `fork` may
+establish valid authority again.
 
 ## Views
 
 A lint view selects the local snapshot to inspect, such as the worktree or Git
 index. Views use the same rules and invariant meanings; selecting a view cannot
 turn valid state into a different predicate or add recovery guidance.
+
+The Git-index view reads raw staged and tracked blobs rather than a checkout, so
+Git filters and line-ending conversion do not alter the inspected bytes. A
+package-tree mismatch in the workspace view with a valid Git-index view is
+evidence that the live checkout differs while the bytes intended for commit
+remain valid. A mismatch in both views establishes that the intended commit
+also differs. Newly acquired untracked files must first be staged before the
+index can represent the intended package tree.
 
 ## Rule behavior
 
@@ -91,19 +101,79 @@ root-cause rule reports the primary violation; rules that depend on that failed
 precondition skip instead of emitting cascade symptoms. Independent rules
 continue so one broken area does not hide another.
 
-Platform invariant errors cannot be disabled or lowered. Warnings may be
-disabled, retained, or promoted. `--strict` makes warnings affect the exit code
-without relabeling them as errors.
+Rule applicability follows declared workspace intent. A compatibility rule
+evaluates an extension only when desired state selects it directly or through a
+Pack; an extension that the workspace did not select is not a violated
+compatibility invariant. Lint may report that absence as an informational
+discovery fact without turning it into a manual-attention outcome.
 
-Local lint configuration affects local linting. The registry publish gate owns
-its fixed distribution requirements and remains authoritative for publishing.
+Every catalog severity is a default for local lint. An exact `lint.rules`
+entry in the active scope selects that rule's effective local severity:
+`off` suppresses its findings, `info` emits informational findings, `warn`
+emits warning findings, and `error` emits errors. An absent entry preserves the
+catalog default. One effective severity applies to every finding produced by a
+rule evaluation.
 
-## Testing strategy
+Counts, the exit category, human output, JSON output, and command success are
+derived from those effective findings. `--strict` makes warnings affect the
+exit code without relabeling them as errors. A `clean` exit category means no
+errors or warnings; informational findings can therefore remain in a clean,
+successful result.
 
-Lint tests own the rule catalog, views, and exact findings. The shared
-[workspace invariant design](../workspace/invariants.md) owns exhaustive
-recovery coverage. Completeness coverage proves that every lint rule emits the
-required diagnostic facts and that the schemas, help, or inspection surfaces
-needed to understand its admissible recovery choices remain available.
-Cross-type tests prevent mere unowned presence from becoming a generic error
-while proving type-specific collision and ambiguity findings.
+Local policy and publication policy have separate authority:
+
+```text
+active-scope axm.json                      registry publication
+---------------------                     --------------------
+lint.rules                                platform canonical defaults
+    |                                                |
+    v                                                v
+effective local findings                   fixed admission findings
+    |                                                |
+local output and exit                      publication eligibility
+```
+
+No local setting crosses into the publication path. The registry publish gate
+owns its fixed distribution requirements and remains authoritative for
+publishing.
+
+## Specifications
+
+The lint specifications under `specifications/cli/lint/` own lint's binding
+obligations: honoring configured local severities, reporting facts without
+mutation, and naming the violated invariant with complete diagnostic identity.
+The [specification catalog](../../../specifications/catalog.md) indexes them.
+
+Verification separates actor-visible capability from individual predicates:
+
+```text
+functional handler decision table
+              |
+      +-------+--------+
+      |                |
+      v                v
+evaluator matrix   output and exit integration
+      |                |
+      +-------+--------+
+              |
+              v
+       catalog composition
+              |
+              v
+ per-rule conformance cases and completeness
+              |
+              v
+ focused branch, prerequisite, and interaction tests
+```
+
+The generic evaluator owns the Cartesian product of catalog defaults and local
+override values. Rule conformance does not repeat that matrix: it proves that
+every catalog member has a satisfied case, at least one violation case, its
+own identity/default severity/message/location, and prerequisite behavior when
+another failed invariant makes the rule inapplicable. Exact catalog-to-case
+equality makes a newly added rule fail until its conformance evidence lands.
+Full-catalog fixtures and focused tests retain interaction, multiplicity,
+ordering, and root-cause suppression evidence. Individual rules receive their
+own normative product specification only when the predicate is itself an
+independent product obligation, security boundary, or adopted external
+contract.

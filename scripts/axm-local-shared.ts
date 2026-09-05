@@ -2,6 +2,7 @@ import * as path from "node:path";
 
 export const AXM_LOCAL_DEFAULT_REGISTRY_LOCATION = "http://localhost:4300";
 export const AXM_LOCAL_DEFAULT_TELEMETRY = "0";
+export const AXM_SOURCE_CONDITION_ARGUMENT = "--conditions=axm-source";
 
 export interface AxmLocalInvocation {
   readonly command: string;
@@ -44,7 +45,7 @@ export const createAxmLocalInvocation = (input: {
 
   return {
     command: "bun",
-    args: [cliEntrypoint, ...input.argv],
+    args: [AXM_SOURCE_CONDITION_ARGUMENT, cliEntrypoint, ...input.argv],
     cwd: input.cwd,
     env: {
       ...input.env,

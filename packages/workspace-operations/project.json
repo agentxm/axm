@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-operations",
+  "projectType": "library",
+  "root": "packages/workspace-operations",
+  "sourceRoot": "packages/workspace-operations/src",
+  "tags": ["type:lib", "layer:kernel", "scope:workspace-operations", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/workspace-operations/src/index.ts",
+        "outputPath": "packages/workspace-operations/dist",
+        "tsConfig": "packages/workspace-operations/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

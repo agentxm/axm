@@ -21,7 +21,7 @@ const initializeGit = (root: string): void => {
 };
 
 const skillMdPath = (root: string): string =>
-  path.join(root, ".axm", "extensions", "@agentxm", "skills", "axm", "src", "SKILL.md");
+  path.join(root, "agent_extensions", "agentxm", "@agentxm", "skills", "axm", "src", "SKILL.md");
 
 const removeCompatibilityRange = (content: string): string =>
   content
@@ -54,7 +54,7 @@ describe("AXM skill compatibility lifecycle", () => {
 
       const quiet = await runCli(["lint", "--strict", "--quiet"], { cwd: temp.path, env });
       expect(quiet.exitCode).toBe(0);
-      expect(quiet.stdout).toBe("");
+      expect(quiet.stdout).toContain("No findings");
       expect(quiet.stderr).not.toContain("Loading project workspace");
 
       const noColor = await runCli(["lint", "--strict"], {
@@ -101,7 +101,7 @@ describe("AXM skill compatibility lifecycle", () => {
         ]),
       );
 
-      git(temp.path, ["add", ".axm/extensions/@agentxm/skills/axm/src/SKILL.md"]);
+      git(temp.path, ["add", "agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md"]);
       fs.writeFileSync(skillPath, compatible);
       const live = await runCli(["lint", "--strict", "--json"], {
         cwd: temp.path,

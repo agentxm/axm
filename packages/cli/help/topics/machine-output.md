@@ -1,7 +1,7 @@
 # Machine output
 
 Pass `--json` to receive one complete machine-readable document on stdout.
-Warnings, errors, suggestions, progress, and task logs use one JSON object per
+Warnings, errors, suggestions, and lifecycle progress use one JSON object per
 line (NDJSON) on stderr. Human text never shares the machine stdout channel.
 
 ## Success documents
@@ -21,33 +21,54 @@ The command-specific payload always lives under `result`. Collections put
 fields inside `result`; mutations put their outcome and steps inside `result`.
 Only optional `summary` and `suggestions[]` may sit beside it.
 
-Mutation-plan outcomes are `no-op`, `applied`, `partial`, `failed`,
-`cancelled`, `previewed`, or `reconciliation-required`. For every ordinary
-result, `ok` is `true` exactly when the process exits 0 and `false` when it
-exits nonzero. Inspect step counts and committed artifacts when recovering a
-partial result.
+Workspace mutation results are discriminated by
+`result.contract: "plan-result-v3"`. Outcomes are `previewed`, `applied`,
+`no-op`, `partial`, `failed`, `blocked`, `cancelled`, or `interrupted`. For
+every ordinary result, `ok` is `true` exactly when the process exits 0 and
+`false` when it exits nonzero.
 
-`axm sync --preview --fail-on-change --json` retains the ordinary preview step
-details but returns `ok: false`, `result.outcome:
-"reconciliation-required"`, `result.reconciliationRequired: true`, and exit 1
-when the plan contains changes. A converged workspace returns a `no-op` result
-with `reconciliationRequired: false` and exit 0. Planning or validation
-failures retain their normal error or failed-plan contract.
+Each unit of work is one semantic closure that settles independently:
+committed closures stand even when a later closure fails, a failed closure
+rolls back only itself, and mixed commits and failures report `partial` at
+exit 1. `result.atomicity` names the `declared` and `applied` class —
+`closure-atomic` or `non-rollbackable`. Unit states are `planned`, `ready`,
+`committed`, `unchanged`, `failed`, `rolled-back`, `blocked`, `skipped`,
+`cancelled`, or `interrupted`; a unit of a failed or interrupted closure also
+carries a `disposition` of `restored`, `retained`, `untouched`, or `unknown`.
+An `interrupted` unit was started but its settlement was not observed —
+started work is never reported as not attempted. Inspect `result.counts`,
+unit dispositions, and `result.recovery.retained` when recovering a partial
+or interrupted result.
+
+`axm sync --preview --fail-on-change --json` retains the ordinary preview
+step details but returns `ok: false`, `result.divergence: true`, and exit 1
+when the plan contains changes. A converged workspace returns a `no-op`
+result and exit 0. Planning or validation failures retain their normal error
+or failed-plan contract.
 
 `axm view <extension> <field> --json` places the selected scalar or array directly
 under `result`. Token commands also place their command payload under `result`;
 do not log or forward token result documents.
 
-Publish results are discriminated by `result.contract: "publish-result-v2"`.
+Publish results are discriminated by `result.contract: "publish-result-v3"`.
 They separate `selection.decisions`, the authoritative `publicationSet`, and
 `execution.outcomes`. A failed item identifies an operation that actually
 failed and carries a typed `cause`; a blocked item was not attempted and names
 its causal item or finding through `blockedBy`. Counts are derived from those
 outcomes, so blocked items never increment `failed`.
 
-After a post-preflight partial publication, `result.recovery.cmd` is a
-credential-free generic `axm publish` command over only the failed items and
-their blocked dependents. `result.recovery.remainingItems[]` names that exact
+An interrupted publish still emits one complete document, with
+`result.interruption.signal` and per-item evidenced states: a recorded
+response keeps its `success` or `failed` status, an upload that was
+dispatched with no recorded response reports `status: "unknown"` with
+`reason: "interrupted"` — the registry may have committed the version — and
+work the interruption prevented stays `pending`. AXM never auto-retries the
+replay-unsafe upload; the recovery command verifies before it re-runs.
+
+After a post-preflight partial publication or an interruption,
+`result.recovery.cmd` is a credential-free generic `axm publish` command over
+only the failed, indeterminate, or interrupted items and their blocked
+dependents. `result.recovery.remainingItems[]` names that exact
 continuation set, while `blockedDependents[]` identifies the subset that was
 not attempted. The command verifies byte-identical versions created by an
 earlier attempt and retries versions that remain absent. A rejected preflight
@@ -61,6 +82,11 @@ when a Registry request policy ran, `attemptCount`, `maxAttempts`,
 and `problemCode` are included when the Registry supplied them. Opaque response
 bodies are not included. Automation should use these fields rather than matching
 error messages.
+
+`axm mcps list --json` keeps connection, source, and resolution identities
+separate. Each item includes `localName`, a discriminated `source` object, and
+either a Registry `resolution` with exact version and integrity or `null`.
+Automation should not infer the published source from the local name.
 
 Built-in formatter documents are the two success-envelope exceptions:
 
@@ -85,6 +111,32 @@ Expected errors and defects return the fixed stdout envelope:
 }
 ```
 
+Recognized failures may also include an optional schema-backed `problem`
+object. For example, an unsupported lockfile version reports facts without
+requiring message parsing:
+
+```json
+{
+  "ok": false,
+  "code": "validation",
+  "title": "Unsupported workspace lockfile version",
+  "detail": "Workspace lockfile at /workspace/axm-lock.yaml declares version 8, but this AXM supports version 7. This workspace requires a newer AXM.",
+  "problem": {
+    "code": "workspace-lockfile-version-unsupported",
+    "path": "/workspace/axm-lock.yaml",
+    "observedVersion": 8,
+    "supportedVersion": 7,
+    "direction": "newer"
+  },
+  "suggestions": [
+    {
+      "description": "Upgrade AXM before accessing this workspace.",
+      "cmd": "axm upgrade"
+    }
+  ]
+}
+```
+
 The matching stderr stream ends with an event such as:
 
 ```json
@@ -100,6 +152,8 @@ optional error-envelope fields are:
 
 - `cause[]`: redacted cause-chain entries with `_tag`, `message`, and optional
   `code` and `stack`;
+- `problem`: schema-backed details for a recognized problem, discriminated by
+  its `code`;
 - `metadata.request`: Registry `service`, `url`, and optional `method`;
 - `metadata.response`: numeric `status` and optional `requestId`,
   `problemCode`, and redacted `body`;
@@ -139,6 +193,41 @@ and the request's replay-safety class. Use those typed fields with the stable
 diagnostics. Debug stderr records attempt evidence without changing the stdout
 contract.
 
+## Progress events
+
+Every long-running operation publishes its lifecycle to stderr as it happens,
+one event per line, wrapped in the `progress` envelope:
+
+```json
+{
+  "type": "progress",
+  "event": {
+    "_tag": "UnitStarted",
+    "seq": 4,
+    "atMs": 1756900000123,
+    "unitId": "skill:code-review",
+    "label": "code-review",
+    "index": 0,
+    "total": 2
+  }
+}
+```
+
+`event` is one typed lifecycle event discriminated by `_tag`:
+`OperationStarted` (`operationId`, `name`, `mode`), `PhaseStarted` (`phase`:
+`resolution`, `planning`, `preview`, `confirmation`, `validation`, `apply`, or
+`restoration`), `UnitStarted` and `UnitResolved` (`unitId`, `label`, `index`,
+optional `total`; the resolved event carries the unit `state`), `UnitProgress`
+(`unitId`, `done`, optional `total`, `unit` of `bytes`, `files`, or `items`),
+`Waiting` and `WaitEnded` (`subject`, with the waiting event's `blockingClass`
+and `detail`), and `OperationSettled` (`outcome`). Events carry identifiers,
+labels, counts, and states, never presentation wording.
+
+Within one operation `seq` increases strictly from 1 and `atMs` is wall-clock
+milliseconds. Exactly one `OperationSettled` event ends the operation, and it
+is written before the stdout result document. `--quiet` suppresses progress
+events and nothing else on stderr.
+
 ## Consumption
 
 - Parse the entire stdout buffer once; ordinary `--json` is not a result stream.
@@ -148,8 +237,7 @@ contract.
   own `ok: false`, `code`, `title`, and `detail` without `result`.
 - In JavaScript and TypeScript clients, decode with
   `MachineOutputDocumentSchema` and branch with
-  `detectMachineOutputDocumentKind` from
-  `@agentxm/client-core/unstable/cli-runtime`.
+  `detectMachineOutputDocumentKind` from `axm.sh/runtime`.
 - Branch on `ok` or the process exit code for ordinary results and errors; they
   agree.
 - Read every ordinary command payload from `result`.

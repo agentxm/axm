@@ -5,35 +5,32 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { makeAppError } from "../../app-error/index.js";
+import { ignoreReleaseAgeFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/workspace-operations";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
-  REGISTRY_EXTENSIONS_DIR,
-  buildInstallOperation,
-  extensionTypeToPlural,
   type ExtensionType,
-  fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
-} from "@agentxm/client-core/unstable/extensions";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
-import { PackManager } from "@agentxm/client-core/unstable/packs";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
-  WorkspaceMutations,
+  appErrorToStepFailure,
+  failureToStepFailure,
+  fqnInvalidErrorToAppError,
+  toAppError,
+} from "../../app-error/conversions.js";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
@@ -42,11 +39,22 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-lifecycle";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import {
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
+  RuleManager,
+  SkillManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
+import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -66,19 +74,19 @@ const configuredEntry = Effect.fn("Demote.configuredEntry")(function* (
   const ws = yield* WorkspaceMutations;
   switch (type) {
     case "skill":
-      return (yield* ws.getConfiguredSkillEntries())[name];
+      return (yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError)))[name];
     case "mcp-server":
-      return (yield* ws.getConfiguredMcpServerEntries())[name];
+      return (yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError)))[name];
     case "subagent":
-      return (yield* ws.getConfiguredSubagentEntries())[name];
+      return (yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError)))[name];
     case "rule":
-      return (yield* ws.getConfiguredRuleEntries())[name];
+      return (yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError)))[name];
     case "hook":
-      return (yield* ws.getConfiguredHookEntries())[name];
+      return (yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError)))[name];
     case "knowledge":
-      return (yield* ws.getConfiguredKnowledgeEntries())[name];
+      return (yield* ws.getConfiguredKnowledgeEntries().pipe(Effect.mapError(toAppError)))[name];
     case "pack":
-      return (yield* ws.getConfiguredPackEntries())[name];
+      return (yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError)))[name];
   }
 });
 
@@ -95,22 +103,22 @@ const restoreDisabledState = Effect.fn("Demote.restoreDisabledState")(function* 
   });
   switch (type) {
     case "skill":
-      yield* ws.updateSkillEntry(name, disable);
+      yield* ws.updateSkillEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "mcp-server":
-      yield* ws.updateMcpServerEntry(name, disable);
+      yield* ws.updateMcpServerEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "subagent":
-      yield* ws.updateSubagentEntry(name, disable);
+      yield* ws.updateSubagentEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "rule":
-      yield* ws.updateRuleEntry(name, disable);
+      yield* ws.updateRuleEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "hook":
-      yield* ws.updateHookEntry(name, disable);
+      yield* ws.updateHookEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "knowledge":
-      yield* ws.updateKnowledgeEntry(name, disable);
+      yield* ws.updateKnowledgeEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "pack":
       return;
@@ -137,11 +145,18 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
   }
 
   const operation = yield* Effect.gen(function* () {
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+      Effect.mapError(lifecycleFailureToAppError),
+    );
     switch (parsed.type) {
       case "skill": {
-        const resolved = yield* resolveConfiguredSkill(parsed.name, source, releaseAgeEvaluation);
+        const resolved = yield* resolveConfiguredSkill(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* SkillManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
@@ -151,8 +166,9 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
           parsed.name,
           source,
           releaseAgeEvaluation,
-        );
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* McpServerManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
@@ -162,22 +178,33 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
           parsed.name,
           source,
           releaseAgeEvaluation,
-        );
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* SubagentManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "rule": {
-        const resolved = yield* resolveConfiguredRule(parsed.name, source, releaseAgeEvaluation);
+        const resolved = yield* resolveConfiguredRule(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* RuleManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "hook": {
-        const resolved = yield* resolveConfiguredHook(parsed.name, source, releaseAgeEvaluation);
+        const resolved = yield* resolveConfiguredHook(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* HookManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
@@ -187,15 +214,21 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
           parsed.name,
           source,
           releaseAgeEvaluation,
-        );
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* KnowledgeManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "pack": {
-        const resolved = yield* resolveConfiguredPack(parsed.name, source, releaseAgeEvaluation);
+        const resolved = yield* resolveConfiguredPack(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* PackManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
@@ -207,13 +240,10 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const canonicalDir = path.join(
-    ws.baseDir,
-    REGISTRY_EXTENSIONS_DIR,
-    parsed.owner,
-    extensionTypeToPlural[parsed.type],
-    parsed.name,
-  );
+  if (ws.layout.scope !== "project") {
+    return yield* makeAppError({ code: "usage", detail: "Demote requires project scope" });
+  }
+  const authoredDir = path.join(ws.layout.authoredRoot(parsed.type), parsed.name);
   const run = operation.run.pipe(
     Effect.tap(() => restoreDisabledState(parsed.type, parsed.name, entryEnabled(current))),
     Effect.provideService(WorkspaceMutations, ws),
@@ -224,15 +254,32 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
     warnMessage: "Future updates may replace this package from its new source",
     run: Effect.gen(function* () {
       const result = yield* run;
-      if (!source.startsWith("@")) {
-        yield* fs.remove(canonicalDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
-      }
+      yield* fs.remove(authoredDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
       return result;
-    }),
+    }).pipe(
+      Effect.mapError((error) =>
+        error._tag === "AppError" ? appErrorToStepFailure(error) : error,
+      ),
+    ),
   } satisfies PlannedJobStep;
 });
 
-export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
+export const handleDemote = (args: {
+  readonly fqn: string;
+  readonly source: string;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "demote",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Demote workspace extension",
+    },
+    handleDemoteBody(args),
+  );
+
+const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: {
   readonly fqn: string;
   readonly source: string;
   readonly yes: boolean;
@@ -245,6 +292,11 @@ export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
     description: Option.some(
       "Remove workspace source protection; future updates may replace the package",
     ),
+    presentation: operationPresentation({
+      imperative: "demote",
+      past: "Demoted",
+      gerund: "Demoting",
+    }),
     jobs: [{ concurrency: 1, steps: [step] }],
     riskConditions: [
       {
@@ -265,7 +317,7 @@ export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
     ),
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitPlanResolutionResult("demote", resolution);
+  yield* emitOperationResolution("demote", resolution);
 });
 
 const config = {
@@ -277,10 +329,15 @@ const config = {
   ),
   yes: yesFlag,
   preview: previewFlag,
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const demoteCommand = Command.make("demote", config, (parsed) =>
-  handleDemote(parsed).pipe(withWorkspace("project"), withRuntime("demote")),
+  handleDemote(parsed).pipe(
+    withReleaseAgePosture(parsed.ignoreReleaseAge),
+    withWorkspace("project"),
+    withRuntime("demote"),
+  ),
 ).pipe(
   withArgvTracking(config),
   Command.withDescription("Explicitly remove project-workspace source authority"),

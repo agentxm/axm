@@ -1,9 +1,14 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Option from "effect/Option";
-import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../../cli-flags.js";
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import {
+  ignoreReleaseAgeFlag,
+  previewFlag,
+  reinstallFlag,
+  yesFlag,
+} from "../../../cli-flags/index.js";
+import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { scopeFlag } from "../../../cli-flags/scope-flag.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { handleInstallRule } from "./handler.js";
 
@@ -20,12 +25,13 @@ const installConfig = {
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be installed without making changes"),
   ),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview }) =>
+  ({ source, scope, yes, force, preview, ignoreReleaseAge }) =>
     Option.match(source, {
       onNone: () =>
         handleWorkspaceInstall({
@@ -36,7 +42,11 @@ export const installCommand = Command.make(
           flags: { yes, preview },
         }),
       onSome: (value) => handleInstallRule({ source: value }, { yes, force, preview }),
-    }).pipe(withWorkspace(scope), withRuntime("rules install")),
+    }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("rules install"),
+    ),
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription("Install rules"),

@@ -4,31 +4,34 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import type { InstructionsConfig, InstructionsConfigValue } from "@agentxm/workspace-state";
+import { previewFlag } from "../cli-flags/index.js";
+import { withArgvTracking } from "../cli-runtime/index.js";
+import { Screen, inventoryDoc, type ViewColumn } from "../screen/index.js";
 import type {
-  InstructionsConfig,
-  InstructionsConfigValue,
-} from "@agentxm/client-core/unstable/settings";
+  JobStepResult,
+  JobStepArtifact,
+  OperationPresentation,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/workspace-operations";
 import {
+  applyPlannedProjections,
+  observeProjectionPlans,
+  RuleManager,
+  instructionProjectionEffects,
+  instructionProjectionRemovalEffects,
   observeInstructionProjection,
   resolveInstructionsConfig,
-  type InstructionStatusItem,
-} from "@agentxm/client-core/unstable/agents";
-import { previewFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../json-output.js";
-import { scopeFlag } from "../cli-flags.js";
+} from "@agentxm/extension-workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { emitOperationResolution } from "../operation-output.js";
+import { scopeFlag } from "../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { previewOrApplyLocalPlan } from "./shared/local-plan.js";
+import { withOperationLifecycle } from "./shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
+import { workspaceSettingsPath } from "./shared/workspace-display-paths.js";
 import {
   disableInstructionManagement,
   instructionReconciliationReadiness,
@@ -36,7 +39,13 @@ import {
   observeInstructions,
   reconcileInstructionTransition,
   removeInstructionTargetsFor,
-} from "./instruction-reconciliation.js";
+} from "@agentxm/workspace-configuration";
+import { configurationFailureToAppError } from "../feature-errors.js";
+import { failureToStepFailure, toAppError } from "../app-error/conversions.js";
+import type {
+  InstructionProjectionEffect,
+  InstructionStatusItem,
+} from "@agentxm/extension-workspace";
 
 interface InstructionTableItem {
   readonly agentId: string;
@@ -71,16 +80,18 @@ export const InstructionsStatusOutputSchema = Schema.Struct({
 });
 export type InstructionsStatusOutput = typeof InstructionsStatusOutputSchema.Type;
 
-const InstructionsTable = {
-  columns: {
-    agentId: { header: "Agent" },
-    mechanism: { header: "Mode" },
-    health: { header: "Status" },
-    ownership: { header: "Ownership" },
-    sourceFile: { header: "Source" },
-    targetFile: { header: "Target" },
+const InstructionsColumns = [
+  { header: "Agent", priority: "required", value: (row: InstructionTableItem) => row.agentId },
+  { header: "Mode", value: (row: InstructionTableItem) => row.mechanism },
+  { header: "Status", value: (row: InstructionTableItem) => row.health },
+  {
+    header: "Ownership",
+    priority: "optional",
+    value: (row: InstructionTableItem) => row.ownership,
   },
-} as const satisfies TableView<InstructionTableItem>;
+  { header: "Source", priority: "optional", value: (row: InstructionTableItem) => row.sourceFile },
+  { header: "Target", value: (row: InstructionTableItem) => row.targetFile },
+] satisfies ReadonlyArray<ViewColumn<InstructionTableItem>>;
 
 const toTableItem = (item: InstructionStatusItem): InstructionTableItem => ({
   agentId: item.agentId,
@@ -91,21 +102,9 @@ const toTableItem = (item: InstructionStatusItem): InstructionTableItem => ({
   targetFile: item.targetFile,
 });
 
-// Instruction-file targets are a workspace capability, not rule extensions, so
-// this entity stays under its own id. The catalog entity for the `rule` type is
-// registered by `rules/list.ts` (parity obligation 8.6).
-registerEntity<InstructionTableItem>("agent-rule", {
-  list: {
-    columns: InstructionsTable.columns,
-    emptyMessage: "No instruction files configured",
-    singularLabel: "instruction file",
-    pluralLabel: "instruction files",
-  },
-});
-
 const currentInstructionsConfig = Effect.fn("Instructions.currentConfig")(function* () {
   const ws = yield* WorkspaceMutations;
-  const config = yield* ws.getInstructionsConfig();
+  const config = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
   if (Option.isNone(config) || config.value === false) return Option.none();
   return Option.some(resolveInstructionsConfig(config.value));
 });
@@ -125,11 +124,16 @@ const rawInstructionsConfigEquals = (
 const makeInstructionsConfigPlan = (args: {
   readonly name: string;
   readonly description: string;
+  readonly verb: OperationPresentation["verb"];
   readonly step: PlannedJobStep;
 }): Plan => ({
   _tag: "Plan",
   name: args.name,
   description: Option.some(args.description),
+  presentation: {
+    verb: args.verb,
+    subject: { singular: "instruction file", plural: "instruction files" },
+  },
   jobs: [
     {
       concurrency: 1,
@@ -138,8 +142,31 @@ const makeInstructionsConfigPlan = (args: {
   ],
 });
 
+const makeInstructionArtifact = (args: {
+  readonly ws: { readonly baseDir: string; readonly scope: "project" | "user" };
+  readonly path: Path.Path;
+  readonly effects: ReadonlyArray<InstructionProjectionEffect>;
+}): JobStepArtifact => {
+  const settings = workspaceSettingsPath(args.ws.scope);
+  const byPath = new Map<
+    string,
+    { readonly path: string; readonly change: "created" | "updated" | "removed" }
+  >();
+  byPath.set(settings, { path: settings, change: "updated" });
+  for (const effect of args.effects) {
+    const relative = args.path.relative(args.ws.baseDir, effect.path);
+    byPath.set(relative, { path: relative, change: effect.change });
+  }
+  return {
+    path: settings,
+    scope: args.ws.scope,
+    change: "updated",
+    targets: [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path)),
+  };
+};
+
 export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(function* () {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const ws = yield* WorkspaceMutations;
   const config = yield* currentInstructionsConfig();
 
@@ -153,16 +180,19 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
       items: [],
       staleTargets: [],
     };
-    if (yield* renderer.result(output, InstructionsStatusOutputSchema)) return;
-    yield* renderer.list("agent-rule", {
-      items: [],
-      count: 0,
-      emptyMessage: "Instruction-file management is disabled.",
-    });
+    if (yield* screen.document(output, InstructionsStatusOutputSchema)) return;
+    yield* screen.result(
+      inventoryDoc({
+        rows: [],
+        columns: InstructionsColumns,
+        summary: "",
+        empty: "Instruction-file management is disabled.",
+      }),
+    );
     return;
   }
 
-  const configuredAgents = yield* ws.getConfiguredAgents();
+  const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const { status } = yield* observeInstructionProjection({
     workspaceRoot: ws.baseDir,
     scope: ws.scope,
@@ -170,25 +200,46 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
     config: config.value,
   });
 
-  if (yield* renderer.result(status, InstructionsStatusOutputSchema)) return;
+  if (yield* screen.document(status, InstructionsStatusOutputSchema)) return;
   // Stale rows follow the configured rows so residue AXM still owns is visible
   // beside the targets it currently maintains.
   const tableItems = [...status.items, ...status.staleTargets].map(toTableItem);
   if (tableItems.length === 0) {
-    yield* renderer.list("agent-rule", {
-      items: [],
-      count: 0,
-      emptyMessage: "No configured agents need instruction-file propagation.",
-    });
+    yield* screen.result(
+      inventoryDoc({
+        rows: [],
+        columns: InstructionsColumns,
+        summary: "",
+        empty: "No configured agents need instruction-file propagation.",
+      }),
+    );
     return;
   }
-  yield* renderer.list("agent-rule", {
-    items: tableItems,
-    count: tableItems.length,
-  });
+  yield* screen.result(
+    inventoryDoc({
+      rows: tableItems,
+      columns: InstructionsColumns,
+      summary: `${String(tableItems.length)} instruction ${tableItems.length === 1 ? "file" : "files"}`,
+      empty: "No instruction files configured",
+    }),
+  );
 });
 
-export const handleInstructionsEnable = Effect.fn("Instructions.enable")(function* (args: {
+export const handleInstructionsEnable = (args: {
+  readonly fileName: string;
+  readonly gitignore: boolean;
+  readonly preview?: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "instructions.enable",
+      mode: args.preview === true ? "preview" : "apply",
+      planName: "Enable instruction-file management",
+    },
+    handleInstructionsEnableBody(args),
+  );
+
+const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* (args: {
   readonly fileName: string;
   readonly gitignore: boolean;
   readonly preview?: boolean;
@@ -201,7 +252,7 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
     fileName: args.fileName,
     gitignoreAliases: args.gitignore,
   } satisfies InstructionsConfig;
-  const current = yield* ws.getInstructionsConfig();
+  const current = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
 
   const resolvedConfig = resolveInstructionsConfig(config);
   const previousConfig =
@@ -212,7 +263,9 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
     Option.isSome(previousConfig) &&
     (previousConfig.value.fileName !== resolvedConfig.fileName ||
       previousConfig.value.gitignoreAliases !== resolvedConfig.gitignoreAliases);
-  const observed = yield* observeInstructions({ ws, config: resolvedConfig });
+  const observed = yield* observeInstructions({ ws, config: resolvedConfig }).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const alreadyCurrent =
     Option.isSome(current) &&
     rawInstructionsConfigEquals(current.value, config) &&
@@ -230,18 +283,36 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
   // configuration owns, because those are the files the transition removes.
   const preflight =
     configChanged && Option.isSome(previousConfig)
-      ? yield* observeInstructions({ ws, config: previousConfig.value })
+      ? yield* observeInstructions({ ws, config: previousConfig.value }).pipe(
+          Effect.mapError(configurationFailureToAppError),
+        )
       : observed;
-  const readiness = yield* instructionReconciliationReadiness({ ws, snapshot: preflight });
+  const ruleEffects = (yield* ruleManager
+    .projectionPlans()
+    .pipe(Effect.flatMap(observeProjectionPlans)))
+    .filter((observation) => !observation.current)
+    .map((observation) => ({
+      path: path.resolve(ws.baseDir, observation.path.split("#", 1)[0] ?? observation.path),
+      change: "updated" as const,
+    }));
+  const artifact = makeInstructionArtifact({
+    ws,
+    path,
+    effects: [
+      ...(configChanged ? instructionProjectionRemovalEffects(preflight) : []),
+      ...ruleEffects,
+      ...instructionProjectionEffects(observed),
+    ],
+  });
+  const readiness = Option.map(
+    yield* instructionReconciliationReadiness({ ws, snapshot: preflight }),
+    configurationFailureToAppError,
+  );
   const step: PlannedJobStep = Option.match(readiness, {
     onNone: () => ({
       label: "Enable instruction-file management",
       readiness: "ready",
-      artifact: {
-        path: ".axm/settings.json",
-        scope: ws.scope,
-        change: "updated",
-      },
+      artifact,
       run: ws
         .runTransaction({
           transition: reconcileInstructionTransition({
@@ -254,27 +325,26 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
               if (configChanged && Option.isSome(previousConfig)) {
                 yield* removeInstructionTargetsFor({ ws, config: previousConfig.value });
               }
-              yield* ws.setInstructionsConfig(config);
+              yield* ws.setInstructionsConfig(config).pipe(Effect.mapError(toAppError));
               yield* applyPlannedProjections(ruleManager);
             }).pipe(
+              Effect.mapError(configurationFailureToAppError),
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
             ),
           }).pipe(
+            Effect.mapError(configurationFailureToAppError),
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
           ),
           validate: () => Effect.void,
         })
         .pipe(
+          Effect.mapError(failureToStepFailure),
           Effect.as({
             result: "success",
             message: "Enabled and reconciled instruction-file management",
-            artifact: {
-              path: ".axm/settings.json",
-              scope: ws.scope,
-              change: "updated",
-            },
+            artifact,
           } satisfies JobStepResult),
         ),
     }),
@@ -288,20 +358,31 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
     makeInstructionsConfigPlan({
       name: "Enable instruction-file management",
       description: `Use ${config.fileName} as the source instruction file`,
+      verb: { imperative: "enable", past: "Enabled", gerund: "Enabling" },
       step,
     }),
     { preview: args.preview === true },
   );
-  yield* emitPlanResolutionResult("instructions.enable", resolution);
+  yield* emitOperationResolution("instructions.enable", resolution);
 });
 
-export const handleInstructionsDisable = Effect.fn("Instructions.disable")(function* (args?: {
+export const handleInstructionsDisable = (args?: { readonly preview?: boolean }) =>
+  withOperationLifecycle(
+    {
+      command: "instructions.disable",
+      mode: args?.preview === true ? "preview" : "apply",
+      planName: "Disable instruction-file management",
+    },
+    handleInstructionsDisableBody(args),
+  );
+
+const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function* (args?: {
   readonly preview?: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const current = yield* ws.getInstructionsConfig();
+  const current = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
 
   if (Option.isNone(current) || current.value === false) {
     yield* emitNoOpOutcome("instructions.disable", {
@@ -313,34 +394,38 @@ export const handleInstructionsDisable = Effect.fn("Instructions.disable")(funct
   }
 
   const config = resolveInstructionsConfig(current.value);
-  const snapshot = yield* observeInstructions({ ws, config });
-  const readiness = yield* instructionReconciliationReadiness({ ws, snapshot });
+  const snapshot = yield* observeInstructions({ ws, config }).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
+  const artifact = makeInstructionArtifact({
+    ws,
+    path,
+    effects: instructionProjectionRemovalEffects(snapshot),
+  });
+  const readiness = Option.map(
+    yield* instructionReconciliationReadiness({ ws, snapshot }),
+    configurationFailureToAppError,
+  );
   const step: PlannedJobStep = Option.match(readiness, {
     onNone: () => ({
       label: "Disable instruction-file management",
       readiness: "ready",
-      artifact: {
-        path: ".axm/settings.json",
-        scope: ws.scope,
-        change: "updated",
-      },
+      artifact,
       run: ws
         .runTransaction({
           transition: disableInstructionManagement({ ws, config }).pipe(
+            Effect.mapError(configurationFailureToAppError),
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
           ),
           validate: () => Effect.void,
         })
         .pipe(
+          Effect.mapError(failureToStepFailure),
           Effect.as({
             result: "success",
             message: "Disabled instruction-file management and removed owned aliases",
-            artifact: {
-              path: ".axm/settings.json",
-              scope: ws.scope,
-              change: "updated",
-            },
+            artifact,
           } satisfies JobStepResult),
         ),
     }),
@@ -354,11 +439,12 @@ export const handleInstructionsDisable = Effect.fn("Instructions.disable")(funct
     makeInstructionsConfigPlan({
       name: "Disable instruction-file management",
       description: "Turn off instruction-file propagation",
+      verb: { imperative: "disable", past: "Disabled", gerund: "Disabling" },
       step,
     }),
     { preview: args?.preview === true },
   );
-  yield* emitPlanResolutionResult("instructions.disable", resolution);
+  yield* emitOperationResolution("instructions.disable", resolution);
 });
 
 const instructionsStatusConfig = {

@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 
-import { ExitCode } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
+import { ExitCode } from "../../../app-error/index.js";
+import { Screen, errorDoc } from "../../../screen/index.js";
+import { effectCliExit } from "../../../cli-runtime/index.js";
 
 import {
   KnowledgeConceptCorpusChangingFailureSchema,
@@ -13,24 +13,26 @@ const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(functi
   readonly outcome: "failed";
   readonly reason: "corpus-changing" | "cursor-expired";
 }) {
-  const renderer = yield* CliRenderer;
+  const screen = yield* Screen;
   const schema =
     output.reason === "cursor-expired"
       ? KnowledgeConceptCursorFailureSchema
       : KnowledgeConceptCorpusChangingFailureSchema;
-  const machine = yield* renderer.result(output, schema, { ok: false });
+  const machine = yield* screen.document(output, schema, { ok: false });
   if (!machine) {
-    yield* renderer.error(
-      output.reason === "cursor-expired"
-        ? "Knowledge cursor expired; restart the query"
-        : "Knowledge corpus kept changing; retry after updates finish",
+    yield* screen.note(
+      errorDoc(
+        output.reason === "cursor-expired"
+          ? "Knowledge cursor expired; restart the query"
+          : "Knowledge corpus kept changing; retry after updates finish",
+      ),
     );
   }
   return yield* Effect.die(effectCliExit(ExitCode.Conflict));
 });
 
-export const failKnowledgeCursorExpired = (): Effect.Effect<never, never, CliRenderer> =>
+export const failKnowledgeCursorExpired = (): Effect.Effect<never, never, Screen> =>
   failWithConflict({ outcome: "failed", reason: "cursor-expired" });
 
-export const failKnowledgeCorpusChanging = (): Effect.Effect<never, never, CliRenderer> =>
+export const failKnowledgeCorpusChanging = (): Effect.Effect<never, never, Screen> =>
   failWithConflict({ outcome: "failed", reason: "corpus-changing" });

@@ -1,36 +1,46 @@
 import * as Effect from "effect/Effect";
+import type { AppError } from "../../app-error/index.js";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import {
-  REGISTRY_EXTENSIONS_DIR,
+  CodingAgentRepository,
+  HookManager,
+  KnowledgeManager,
+  RuleManager,
+  SkillManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
+import {
   buildInstallOperation,
   extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
-  targetFromRef,
-  toLabel,
   toLabelWithCompanions,
-  type ExtensionRef,
+} from "@agentxm/extension-workspace";
+import {
+  ACQUIRED_EXTENSIONS_DIR,
+  acquiredExtensionDisplayPath,
+  WorkspaceMutations,
+} from "@agentxm/workspace-state";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import {
   type ExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
-import {
-  KnowledgeManager,
-  type KnowledgeExtensionRef,
-} from "@agentxm/client-core/unstable/knowledge";
-import { installMcpServer, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
-import type { JobStepArtifact, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
-import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import {
-  SubagentManager,
-  type SubagentExtensionRef,
-} from "@agentxm/client-core/unstable/subagents";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+  type ExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions";
+import { installMcpServer, LifecycleFailureAdapter } from "@agentxm/extension-lifecycle";
+import type { JobStepArtifact, PlannedJobStep } from "@agentxm/workspace-operations";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
 
 export type PackMemberRef =
   | SkillExtensionRef
@@ -40,7 +50,7 @@ export type PackMemberRef =
   | HookExtensionRef
   | KnowledgeExtensionRef;
 
-const registryPluralSegment = (type: ExtensionType): string => {
+const registryPluralSegment = (type: ExtensionType): ExtensionTypePlural => {
   switch (type) {
     case "skill":
       return "skills";
@@ -66,15 +76,15 @@ const registrySourceArtifact = (args: {
 }): JobStepArtifact => {
   const change =
     args.ref.refType === "workspace" ? "unchanged" : args.installedBefore ? "updated" : "created";
-  const target = targetFromRef(args.ref);
   const sourcePath =
-    args.ref.refType === "registry"
-      ? `${REGISTRY_EXTENSIONS_DIR}/${args.ref.owner}/${registryPluralSegment(args.ref.type)}/${
-          args.ref.name
-        }`
-      : args.ref.refType === "workspace"
-        ? args.ref.location
-        : toLabel(target);
+    args.ref.refType === "workspace"
+      ? args.ref.location
+      : acquiredExtensionDisplayPath(
+          args.scope === "project" ? ACQUIRED_EXTENSIONS_DIR : ".axm/workspace/agent_extensions",
+          args.ref,
+          registryPluralSegment(args.ref.type),
+          args.ref.name,
+        );
   return {
     path: sourcePath,
     scope: args.scope,
@@ -145,6 +155,7 @@ export const buildPackMemberInstallStep = (args: {
         | FileSystem.FileSystem
         | Path.Path
         | WorkspaceMutations
+        | LifecycleFailureAdapter
       >,
     ): Effect.Effect<A, E, never> =>
       Effect.provide(
@@ -155,15 +166,18 @@ export const buildPackMemberInstallStep = (args: {
           Layer.succeed(Path.Path, path),
           Layer.succeed(CodingAgentRepository, agentRepo),
           Layer.succeed(HttpClient.HttpClient, httpClient),
+          LifecycleFailureAdapterLive,
         ),
       );
     const ref = args.ref;
 
     if (ref.type === "skill") {
-      return buildInstallOperation<SkillExtensionRef>(skillManager, {
+      return buildInstallOperation<SkillExtensionRef, AppError>(skillManager, {
+        toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
         skipSettings: true,
+        deferObservableValidation: true,
         installedBefore: args.graphComplete
           ? skillManager.isInstalled({ target: { type: "skill", name: ref.skill.name } })
           : Effect.succeed(false),
@@ -194,6 +208,7 @@ export const buildPackMemberInstallStep = (args: {
             name: "install-mcp-server",
             args: {
               ref,
+              nonInteractive: yield* isNonInteractiveOptional,
               force: false,
               versionRange: Option.none(),
               skipSettings: Option.some(true),
@@ -220,10 +235,12 @@ export const buildPackMemberInstallStep = (args: {
     }
 
     if (ref.type === "subagent") {
-      return buildInstallOperation<SubagentExtensionRef>(subagentManager, {
+      return buildInstallOperation<SubagentExtensionRef, AppError>(subagentManager, {
+        toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
         skipSettings: true,
+        deferObservableValidation: true,
         installedBefore: args.graphComplete
           ? subagentManager.isInstalled({
               target: { type: "subagent", name: ref.subagent.name },
@@ -245,11 +262,13 @@ export const buildPackMemberInstallStep = (args: {
     }
 
     if (ref.type === "rule") {
-      return buildInstallOperation<RuleExtensionRef>(ruleManager, {
+      return buildInstallOperation<RuleExtensionRef, AppError>(ruleManager, {
+        toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
         skipSettings: true,
         skipProjections: true,
+        deferObservableValidation: true,
         installedBefore: args.graphComplete
           ? ruleManager.isInstalled({ target: { type: "rule", name: ref.rule.name } })
           : Effect.succeed(false),
@@ -269,11 +288,13 @@ export const buildPackMemberInstallStep = (args: {
     }
 
     if (ref.type === "hook") {
-      return buildInstallOperation<HookExtensionRef>(hookManager, {
+      return buildInstallOperation<HookExtensionRef, AppError>(hookManager, {
+        toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
         skipSettings: true,
         skipProjections: true,
+        deferObservableValidation: true,
         installedBefore: args.graphComplete
           ? hookManager.isInstalled({ target: { type: "hook", name: ref.hook.name } })
           : Effect.succeed(false),
@@ -292,11 +313,13 @@ export const buildPackMemberInstallStep = (args: {
       });
     }
 
-    return buildInstallOperation<KnowledgeExtensionRef>(knowledgeManager, {
+    return buildInstallOperation<KnowledgeExtensionRef, AppError>(knowledgeManager, {
+      toStepFailure: failureToStepFailure,
       ref,
       versionRange: Option.none(),
       skipSettings: true,
       skipProjections: true,
+      deferObservableValidation: true,
       installedBefore: args.graphComplete
         ? knowledgeManager.isInstalled({
             target: { type: "knowledge", name: ref.knowledge.name },

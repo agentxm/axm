@@ -1,0 +1,3 @@
+# Python bytecode generated while developing this monorepo
+__pycache__/
+*.py[cod]

@@ -15,6 +15,11 @@ on:
         description: Release tag to publish, for example cli-v0.1.1
         required: true
         type: string
+      channel_already_promoted:
+        description: Verify this exact release is already stable instead of promoting it again
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   actions: read
@@ -44,30 +49,15 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.release_tag || github.event.release.tag_name }}
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22.23.2
-          package-manager-cache: false
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
 
-      - name: Set up pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@11.20.0 --activate
-          pnpm --version
-
+      # npm is not a mise.toml tool; the release job needs a newer npm than the
+      # one bundled with Node for `npm publish --provenance`.
       - name: Set up npm 11.5.1
         run: |
           npm install -g npm@11.5.1
           npm --version
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.3.14
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Resolve release tag and commit
         id: release_meta
@@ -92,27 +82,100 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ steps.release_meta.outputs.tag }}" release-assets/* --clobber
 
-      - name: Build npm packages
-        run: pnpm exec nx run-many -t build --projects utils,core,cli --outputStyle=static
-
-      - name: Pack npm packages
+      - name: Verify pre-promoted stable release channel
+        if: ${{ inputs.channel_already_promoted == true }}
+        env:
+          VERSION: ${{ steps.release_meta.outputs.version }}
+          RELEASE_TAG: ${{ steps.release_meta.outputs.tag }}
+          RELEASE_SHA: ${{ steps.release_meta.outputs.sha }}
         run: |
-          rm -rf release-packages
-          mkdir -p release-packages
-          pnpm --filter @agentxm/client-utils pack --pack-destination release-packages
-          pnpm --filter @agentxm/client-core pack --pack-destination release-packages
-          pnpm --filter axm.sh pack --pack-destination release-packages
+          headers="$(mktemp)"
+          trap 'rm -f "$headers"' EXIT
+          document="$(
+            curl -fsS \
+              -H 'Accept: application/json' \
+              -H 'Accept-Encoding: identity' \
+              -D "$headers" \
+              https://releases.axm.sh/v1/channels/stable.json
+          )"
+          etag="$(
+            awk 'BEGIN { IGNORECASE = 1 } /^etag:/ {
+              sub(/^[^:]+:[[:space:]]*/, "")
+              sub(/\r$/, "")
+              print
+              exit
+            }' "$headers"
+          )"
+          if [[ ! "$etag" =~ ^\"[^\"]+\"$ ]]; then
+            echo "The pre-promoted stable channel did not provide a strong ETag."
+            exit 1
+          fi
+          jq -e \
+            --arg version "$VERSION" \
+            --arg tag "$RELEASE_TAG" \
+            --arg commit "$RELEASE_SHA" \
+            '.schema == "axm.release-channel/v1" and
+             .channel == "stable" and
+             .version == $version and
+             .release.tag == $tag and
+             .release.commit == $commit' \
+            <<<"$document"
 
-      - name: Publish npm packages
+      - name: Promote stable release channel
+        if: ${{ inputs.channel_already_promoted != true }}
+        env:
+          AXM_RELEASE_CONTROL_TOKEN: ${{ secrets.AXM_RELEASE_CONTROL_TOKEN }}
+          AXM_CONTROL_ACCESS_CLIENT_ID: ${{ secrets.AXM_CONTROL_ACCESS_CLIENT_ID }}
+          AXM_CONTROL_ACCESS_CLIENT_SECRET: ${{ secrets.AXM_CONTROL_ACCESS_CLIENT_SECRET }}
+        run: >-
+          pnpm exec nx run axm:promote-release-channel --outputStyle=static --
+          "${{ steps.release_meta.outputs.version }}"
+          "${{ steps.release_meta.outputs.tag }}"
+          "${{ steps.release_meta.outputs.sha }}"
+
+      - name: Build npm packages
+        run: pnpm exec nx run-many -t build --projects tag:release:cli --outputStyle=static
+
+      - name: Pack and publish npm packages
         env:
           VERSION: ${{ steps.release_meta.outputs.version }}
         run: |
+          rm -rf release-packages
+          mkdir -p release-packages
+          release_packages=(
+            "@agentxm/extension-model"
+            "@agentxm/agent-integration"
+            "@agentxm/registry-protocol"
+            "@agentxm/knowledge-query"
+            "@agentxm/registry-client"
+            "@agentxm/workspace-state"
+            "@agentxm/extension-sources"
+            "@agentxm/registry-auth"
+            "@agentxm/workspace-operations"
+            "@agentxm/extension-workspace"
+            "@agentxm/extension-authoring"
+            "@agentxm/extension-discovery"
+            "@agentxm/extension-lifecycle"
+            "@agentxm/extension-publish"
+            "@agentxm/workspace-configuration"
+            "@agentxm/workspace-inspection"
+            "@agentxm/workspace-lint"
+            "@agentxm/workspace-sync"
+            "axm.sh"
+          )
+
+          for package_name in "${release_packages[@]}"; do
+            pnpm --filter "$package_name" pack --pack-destination release-packages
+          done
+
           unset NODE_AUTH_TOKEN
           unset NPM_CONFIG_USERCONFIG
 
           publish_if_missing() {
             local package_name="$1"
-            local tarball_path="$2"
+            local tarball_prefix="${package_name#@}"
+            tarball_prefix="${tarball_prefix//\//-}"
+            local tarball_path="./release-packages/${tarball_prefix}-${VERSION}.tgz"
 
             if npm view "${package_name}@${VERSION}" version >/dev/null 2>&1; then
               echo "Skipping ${package_name}@${VERSION}; already published."
@@ -122,9 +185,9 @@ jobs:
             npm publish "$tarball_path" --provenance --access public
           }
 
-          publish_if_missing "@agentxm/client-utils" "./release-packages/agentxm-client-utils-${VERSION}.tgz"
-          publish_if_missing "@agentxm/client-core" "./release-packages/agentxm-client-core-${VERSION}.tgz"
-          publish_if_missing "axm.sh" "./release-packages/axm.sh-${VERSION}.tgz"
+          for package_name in "${release_packages[@]}"; do
+            publish_if_missing "$package_name"
+          done
 
       - name: Update Homebrew formula
         env:
@@ -222,7 +285,7 @@ jobs:
                 "$axm_binary" skills show axm --json |
                   jq -r '.result.item.version'
               )"
-              skill_document=".axm/extensions/@agentxm/skills/axm/src/SKILL.md"
+              skill_document="agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md"
 
               if [[ "$actual_version" == "$AXM_EXPECTED_VERSION" ]] &&
                 grep -Fq "cli-version: \"$AXM_EXPECTED_VERSION\"" "$skill_document"; then
@@ -259,15 +322,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      # Do NOT switch this job to the setup-workspace (mise) composite. The
-      # install-verification harness spawns `pnpm.cmd` directly on Windows
-      # (install-verification-runner.ts), and only Corepack creates that shim on
-      # PATH — mise exposes pnpm without a `pnpm.cmd`, so the composite breaks
-      # the windows-latest cmd/powershell matrix legs with `ENOENT pnpm.cmd`.
-      - name: Set up Node.js 22
+      # Do NOT switch this job to the setup-workspace (mise) composite without
+      # first re-verifying the windows-latest cmd and powershell legs. They run
+      # on Corepack because mise-provisioned pnpm failed there with
+      # `ENOENT pnpm.cmd`, and installer verification is the last gate before a
+      # release reaches users.
+      #
+      # Because the composite cannot be used here, this job is the one place
+      # that duplicates mise.toml's toolchain versions. They are not
+      # independent pins: they must be kept in step with mise.toml, and
+      # `pnpm run check:ci-image` (scripts/check-ci-image.mjs) fails the build
+      # if they drift.
+      - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 22.23.2
           package-manager-cache: false
 
       - name: Set up pnpm
@@ -279,7 +348,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.3.5
+          bun-version: 1.3.14
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -291,12 +360,25 @@ jobs:
           AXM_EXPECTED_VERSION: ${{ needs.release.outputs.version }}
         run: pnpm exec nx run cli-e2e:install-verification
 
+      - name: Generate Allure report
+        if: always()
+        run: pnpm exec nx run axm:allure-report --outputStyle=static
+
       - name: Upload installer verification artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: install-verification-${{ matrix.os }}-${{ matrix.mode }}
           path: test-results/cli-e2e-install/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload installer verification Allure report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: allure-report-install-verification-${{ matrix.os }}-${{ matrix.mode }}
+          path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
 

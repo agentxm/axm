@@ -1,9 +1,12 @@
 {
   "extends": "./tsconfig.base.json",
-  "files": [],
+  "files": ["allurerc.ts", "vitest.reporting.ts"],
   "include": [],
   "references": [],
   "compilerOptions": {
+    "composite": true,
+    "outDir": "./out-tsc/reporting",
+    "rootDir": ".",
     "ignoreDeprecations": "6.0"
   }
 }

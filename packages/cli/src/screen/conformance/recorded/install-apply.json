@@ -1,0 +1,184 @@
+[
+  {
+    "_tag": "OperationStarted",
+    "seq": 1,
+    "atMs": 0,
+    "operationId": "operation-1",
+    "name": "Install skills",
+    "mode": "apply"
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 2,
+    "atMs": 0,
+    "phase": "resolution"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 3,
+    "atMs": 0,
+    "unitId": "extension-sources",
+    "label": "extension sources",
+    "index": 0
+  },
+  {
+    "_tag": "UnitResolved",
+    "seq": 4,
+    "atMs": 0,
+    "unitId": "extension-sources",
+    "label": "extension sources",
+    "state": "committed",
+    "index": 0
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 5,
+    "atMs": 0,
+    "phase": "planning"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 6,
+    "atMs": 0,
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
+    "index": 1
+  },
+  {
+    "_tag": "UnitResolved",
+    "seq": 7,
+    "atMs": 0,
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
+    "state": "committed",
+    "index": 1
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 8,
+    "atMs": 0,
+    "phase": "validation"
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 9,
+    "atMs": 0,
+    "phase": "apply"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 10,
+    "atMs": 0,
+    "unitId": "skill:code-review",
+    "label": "code-review",
+    "index": 0,
+    "total": 1
+  },
+  {
+    "_tag": "UnitResolved",
+    "seq": 11,
+    "atMs": 0,
+    "unitId": "skill:code-review",
+    "label": "code-review",
+    "state": "committed",
+    "index": 0,
+    "total": 1
+  },
+  {
+    "_tag": "OperationSettled",
+    "seq": 12,
+    "atMs": 0,
+    "outcome": "applied"
+  },
+  {
+    "_tag": "OperationStarted",
+    "seq": 1,
+    "atMs": 0,
+    "operationId": "operation-2",
+    "name": "Install skills",
+    "mode": "apply"
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 2,
+    "atMs": 0,
+    "phase": "resolution"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 3,
+    "atMs": 0,
+    "unitId": "extension-sources",
+    "label": "extension sources",
+    "index": 0
+  },
+  {
+    "_tag": "UnitResolved",
+    "seq": 4,
+    "atMs": 0,
+    "unitId": "extension-sources",
+    "label": "extension sources",
+    "state": "committed",
+    "index": 0
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 5,
+    "atMs": 0,
+    "phase": "planning"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 6,
+    "atMs": 0,
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
+    "index": 1
+  },
+  {
+    "_tag": "UnitResolved",
+    "seq": 7,
+    "atMs": 0,
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
+    "state": "committed",
+    "index": 1
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 8,
+    "atMs": 0,
+    "phase": "validation"
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 9,
+    "atMs": 0,
+    "phase": "apply"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 10,
+    "atMs": 0,
+    "unitId": "skill:deploy",
+    "label": "deploy",
+    "index": 0,
+    "total": 1
+  },
+  {
+    "_tag": "UnitResolved",
+    "seq": 11,
+    "atMs": 0,
+    "unitId": "skill:deploy",
+    "label": "deploy",
+    "state": "committed",
+    "index": 0,
+    "total": 1
+  },
+  {
+    "_tag": "OperationSettled",
+    "seq": 12,
+    "atMs": 0,
+    "outcome": "applied"
+  }
+]

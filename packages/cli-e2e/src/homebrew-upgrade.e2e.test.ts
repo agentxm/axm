@@ -1,68 +1,9 @@
 import * as fs from "node:fs";
-import * as http from "node:http";
 import * as path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { createTempDir, runCli } from "./utils.js";
-
-interface ReleaseServer {
-  readonly url: string;
-  readonly close: () => Promise<void>;
-}
-
-const servers: Array<ReleaseServer> = [];
-
-afterEach(async () => {
-  await Promise.all(servers.splice(0).map((server) => server.close()));
-});
-
-const platformBinaryName = (): string => {
-  if (process.platform === "darwin" && process.arch === "arm64") return "axm-darwin-arm64";
-  if (process.platform === "darwin" && process.arch === "x64") return "axm-darwin-x64";
-  if (process.platform === "linux" && process.arch === "arm64") return "axm-linux-arm64";
-  if (process.platform === "linux" && process.arch === "x64") return "axm-linux-x64";
-  return "axm-windows-x64.exe";
-};
-
-const serveRelease = async (version: string): Promise<ReleaseServer> => {
-  const server = http.createServer((_request, response) => {
-    response.setHeader("content-type", "application/json");
-    response.end(
-      JSON.stringify([
-        {
-          tag_name: `cli-v${version}`,
-          draft: false,
-          prerelease: false,
-          assets: [
-            {
-              name: platformBinaryName(),
-              browser_download_url: `https://assets.test/cli-v${version}/${platformBinaryName()}`,
-            },
-            {
-              name: "SHA256SUMS",
-              browser_download_url: `https://assets.test/cli-v${version}/SHA256SUMS`,
-            },
-          ],
-        },
-      ]),
-    );
-  });
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Release fixture did not expose a TCP address");
-  }
-  const fixture = {
-    url: `http://127.0.0.1:${address.port}`,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  } satisfies ReleaseServer;
-  servers.push(fixture);
-  return fixture;
-};
 
 const writeExecutable = (filePath: string, content: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -81,8 +22,6 @@ describe("Homebrew upgrade convergence", () => {
         const localMajor = /^(\d+)\./u.exec(localVersion)?.[1];
         if (localMajor === undefined) throw new Error(`Invalid built CLI version: ${localVersion}`);
         const targetVersion = `${String(Number(localMajor) + 1)}.0.0`;
-        const release = await serveRelease(targetVersion);
-
         const fakeBin = path.join(fixture.path, "bin");
         const brewPrefix = path.join(fixture.path, "homebrew");
         const statePath = path.join(fixture.path, "installed-version");
@@ -118,12 +57,11 @@ esac
           }),
         );
 
-        const result = await runCli(["upgrade", "--json"], {
+        const result = await runCli(["upgrade", targetVersion, "--json"], {
           env: {
             HOME: fixture.path,
             AXM_USER_HOME: fixture.path,
             PATH: `${fakeBin}${path.delimiter}${process.env["PATH"] ?? ""}`,
-            AXM_UPGRADE_GITHUB_API_URL: release.url,
             AXM_E2E_STATE: statePath,
             AXM_E2E_LOG: logPath,
             AXM_E2E_TARGET: targetVersion,
@@ -137,24 +75,29 @@ esac
         expect(document).toMatchObject({
           ok: true,
           result: {
-            resultStatus: "upgraded",
-            installMethod: "homebrew",
-            targetVersion,
-            reportedVersion: targetVersion,
-            verification: "verified",
-            mutationState: "updated",
-            recommendedCommand: null,
-            executablePath: path.join(brewPrefix, "bin", "axm"),
-            verificationExecutables: expect.arrayContaining([
-              expect.objectContaining({ role: "manager-owned", phase: "pre-mutation" }),
-              expect.objectContaining({ role: "path-resolved", phase: "post-primary" }),
-              expect.objectContaining({ role: "manager-owned", phase: "post-fallback" }),
-              expect.objectContaining({
-                role: "path-resolved",
-                phase: "post-fallback",
-                reportedVersion: targetVersion,
-              }),
-            ]),
+            contract: "axm.upgrade-assessment/v1",
+            disposition: "upgraded",
+            ownership: {
+              method: "homebrew",
+              executablePath: path.join(brewPrefix, "bin", "axm"),
+            },
+            target: { version: targetVersion },
+            mutation: { state: "updated" },
+            recovery: { recommendedCommand: null },
+            verification: {
+              state: "verified",
+              reportedVersion: targetVersion,
+              executables: expect.arrayContaining([
+                expect.objectContaining({ role: "manager-owned", phase: "pre-mutation" }),
+                expect.objectContaining({ role: "path-resolved", phase: "post-primary" }),
+                expect.objectContaining({ role: "manager-owned", phase: "post-fallback" }),
+                expect.objectContaining({
+                  role: "path-resolved",
+                  phase: "post-fallback",
+                  reportedVersion: targetVersion,
+                }),
+              ]),
+            },
           },
         });
         expect(fs.readFileSync(logPath, "utf8").split("\n")).toEqual(

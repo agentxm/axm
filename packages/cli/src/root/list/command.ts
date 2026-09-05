@@ -3,27 +3,26 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "../../app-error/index.js";
+import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { observeUnit } from "@agentxm/workspace-operations";
+import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import {
-  CliRenderer,
-  registerEntity,
-  type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  ExtensionTypeSchema,
   installableExtensionTypes,
   type InstallableExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { DeprecationViewSchema } from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   assessExtensionListItems,
   collectExtensionListItems,
   type ExtensionListFilter,
   type ExtensionListItem,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/workspace-inspection";
+import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
-import { scopeFlag } from "../../cli-flags.js";
+import { inspectionFailureToAppError } from "../../feature-errors.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
 const ListFilterSchema = Schema.Literals(["all", "outdated", "deprecated"] as const);
@@ -92,26 +91,16 @@ interface ListTableRow {
   readonly guidance: string;
 }
 
-const ExtensionListTable = {
-  columns: {
-    extension: { header: "Extension" },
-    type: { header: "Type" },
-    management: { header: "Management" },
-    installed: { header: "Installed" },
-    version: { header: "Version" },
-    source: { header: "Source" },
-    state: { header: "Assessment" },
-    guidance: { header: "Guidance" },
-  },
-} as const satisfies TableView<ListTableRow>;
-
-registerEntity<ListTableRow>("extension-list", {
-  list: {
-    columns: ExtensionListTable.columns,
-    singularLabel: "extension",
-    pluralLabel: "extensions",
-  },
-});
+const ExtensionListColumns = [
+  { header: "Extension", priority: "required", value: (row: ListTableRow) => row.extension },
+  { header: "Type", value: (row: ListTableRow) => row.type },
+  { header: "Management", value: (row: ListTableRow) => row.management },
+  { header: "Installed", value: (row: ListTableRow) => row.installed },
+  { header: "Version", value: (row: ListTableRow) => row.version },
+  { header: "Source", priority: "optional", value: (row: ListTableRow) => row.source },
+  { header: "Assessment", value: (row: ListTableRow) => row.state },
+  { header: "Guidance", priority: "optional", value: (row: ListTableRow) => row.guidance },
+] satisfies ReadonlyArray<ViewColumn<ListTableRow>>;
 
 const matchesFilter = (item: ExtensionListItem, filter: ListFilter): boolean =>
   filter === "all" ||
@@ -146,18 +135,27 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
       detail: "--outdated and --deprecated cannot be combined",
     });
   }
-  const renderer = yield* CliRenderer;
-  const localItems = yield* collectExtensionListItems(Option.getOrUndefined(args.type));
+  const screen = yield* Screen;
+  const localItems = yield* collectExtensionListItems(Option.getOrUndefined(args.type)).pipe(
+    Effect.mapError(inspectionFailureToAppError),
+  );
   const filter: ExtensionListFilter = args.outdated
     ? "outdated"
     : args.deprecated
       ? "deprecated"
       : "all";
   const assessmentFilter = filter === "outdated" ? "outdated" : "deprecated";
-  const assessed = yield* renderer.withSpinner(
-    `Checking extensions for ${assessmentFilter === "outdated" ? "updates" : "deprecation"}`,
-    () => Effect.scoped(assessExtensionListItems(localItems, assessmentFilter)),
-    { successMessage: `Checked extension ${assessmentFilter} status` },
+  const assessed = yield* withLiveOperation(
+    { command: "list", name: "List extensions", mode: "preview" },
+    observeUnit(
+      {
+        id: "assessment",
+        label: `${assessmentFilter === "outdated" ? "update" : "deprecation"} status`,
+      },
+      Effect.scoped(assessExtensionListItems(localItems, assessmentFilter)).pipe(
+        Effect.mapError(inspectionFailureToAppError),
+      ),
+    ),
   );
   const items = assessed
     .filter((item) => matchesFilter(item, filter))
@@ -169,7 +167,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     totalCount: localItems.length,
     ...(filter === "all" ? {} : { coverage: coverageFor(assessed) }),
   };
-  if (yield* renderer.result(document, ExtensionListDocumentSchema)) return;
+  if (yield* screen.document(document, ExtensionListDocumentSchema)) return;
   const guidanceFor = (item: ExtensionListItem): string => {
     if (filter === "all") {
       return item.assessment.state === "deprecated" ? `axm view ${item.ref} deprecation` : "-";
@@ -205,15 +203,17 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     coverage === undefined
       ? `${items.length} extension${items.length === 1 ? "" : "s"}`
       : `${items.length} ${filter} extension${items.length === 1 ? "" : "s"}; checked ${coverage.checked}/${coverage.eligible}, ${coverage.unknown} unknown`;
-  yield* renderer.list("extension-list", {
-    items: tableRows,
-    count: tableRows.length,
-    summary,
-    emptyMessage:
-      filter === "all"
-        ? "No extensions found"
-        : `No ${filter} extensions found${coverage !== undefined && coverage.unknown > 0 ? `; ${coverage.unknown} could not be assessed` : ""}`,
-  });
+  yield* screen.result(
+    inventoryDoc({
+      rows: tableRows,
+      columns: ExtensionListColumns,
+      summary,
+      empty:
+        filter === "all"
+          ? "No extensions found"
+          : `No ${filter} extensions found${coverage !== undefined && coverage.unknown > 0 ? `; ${coverage.unknown} could not be assessed` : ""}`,
+    }),
+  );
 });
 
 const listConfig = {

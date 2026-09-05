@@ -2,18 +2,23 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
-  recoverySwitch,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type SubjectType,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/plan";
+} from "../../cli-runtime/index.js";
+import { previewOrApplyPlan, recoverySwitch } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
 
-import { planResolutionToSummary, toPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
 import { buildWorkspaceInstallPlan, type WorkspaceInstallableType } from "./workspace-install.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  makeInstallCommandActions,
+  type InstallCommandActions,
+} from "../shared/install-command-actions.js";
+import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableType>): SubjectType =>
   Option.match(type, {
@@ -50,23 +55,54 @@ export interface WorkspaceInstallFlags {
   readonly yes: boolean;
   readonly preview: boolean;
   readonly force?: boolean;
-  readonly ignoreReleaseAge?: boolean;
 }
 
-export const handleWorkspaceInstall = (args: {
+export interface WorkspaceInstallHandlerArgs {
   readonly command: string;
   readonly type: Option.Option<WorkspaceInstallableType>;
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
   readonly flags: WorkspaceInstallFlags;
-}) =>
-  Effect.gen(function* () {
-    const planResult = yield* buildWorkspaceInstallPlan({
-      type: args.type,
+}
+
+const handleWorkspaceInstallWithActionEffect = <R>(
+  args: WorkspaceInstallHandlerArgs,
+  actionsEffect: Effect.Effect<InstallCommandActions, never, R>,
+) =>
+  withOperationLifecycle(
+    {
+      command: args.command,
+      mode: args.flags.preview ? "preview" : "apply",
       planName: args.planName,
-      planDescription: args.planDescription,
-      ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
-    });
+      presentation: operationPresentation(
+        { imperative: "install", past: "Installed", gerund: "Installing" },
+        Option.getOrUndefined(args.type),
+      ),
+    },
+    Effect.flatMap(actionsEffect, (actions) => handleWorkspaceInstallBody(args, actions)),
+  );
+
+export const handleWorkspaceInstall = (args: WorkspaceInstallHandlerArgs) =>
+  handleWorkspaceInstallWithActionEffect(args, makeInstallCommandActions);
+
+export const handleWorkspaceInstallWithActions = (
+  args: WorkspaceInstallHandlerArgs,
+  actions: InstallCommandActions,
+) => handleWorkspaceInstallWithActionEffect(args, Effect.succeed(actions));
+
+const handleWorkspaceInstallBody = (
+  args: WorkspaceInstallHandlerArgs,
+  actions: InstallCommandActions,
+) =>
+  Effect.gen(function* () {
+    const planResult = yield* buildWorkspaceInstallPlan(
+      {
+        type: args.type,
+        planName: args.planName,
+        planDescription: args.planDescription,
+      },
+      actions,
+    );
 
     if (planResult._tag === "NoConfiguredExtensions") {
       yield* setCommandSemanticProperties(
@@ -91,7 +127,7 @@ export const handleWorkspaceInstall = (args: {
       args.flags,
       makeConfirmationRecovery(workspaceInstallCommand(args.type), [
         recoverySwitch("--reinstall", args.flags.force === true),
-        recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
+        recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
       ]),
       [],
       planResult.configuredAgentOperations,
@@ -99,52 +135,13 @@ export const handleWorkspaceInstall = (args: {
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(
-        planResolutionToSummary(resolution, {
+        operationResolutionSummary(resolution, {
           subjectType: workspaceInstallSubjectType(args.type),
           sourceKind: "workspace",
         }),
       ),
     );
-    const result = toPlanResolutionResult(resolution);
-    yield* emitAppliedPlanOutcome({
-      command: args.command,
-      headline:
-        result.outcome === "no-op"
-          ? unchangedPlanHeadline(resolution, "Configured extensions are already up to date")
-          : args.planName,
-      resolution,
-      reportInstallationCoverage: Option.isNone(args.type) || args.type.value !== "knowledge",
+    yield* emitOperationResolution(args.command, resolution, {
       suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
     });
-  });
-
-export const runWorkspaceInstall = (args: {
-  readonly type: Option.Option<WorkspaceInstallableType>;
-  readonly planName: string;
-  readonly planDescription: Option.Option<string>;
-  readonly flags: WorkspaceInstallFlags;
-}) =>
-  Effect.gen(function* () {
-    const planResult = yield* buildWorkspaceInstallPlan({
-      type: args.type,
-      planName: args.planName,
-      planDescription: args.planDescription,
-      ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
-    });
-
-    if (planResult._tag === "NoConfiguredExtensions") {
-      return Option.none<PlanResolution>();
-    }
-
-    const execution = yield* makePlanExecution(
-      args.flags,
-      makeConfirmationRecovery(workspaceInstallCommand(args.type), [
-        recoverySwitch("--reinstall", args.flags.force === true),
-        recoverySwitch("--ignore-release-age", args.flags.ignoreReleaseAge === true),
-      ]),
-      [],
-      planResult.configuredAgentOperations,
-    );
-    const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
-    return Option.some(resolution);
   });

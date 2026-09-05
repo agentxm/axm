@@ -28,6 +28,11 @@ Installing an extension already desired at the requested constraint is a
 successful no-op. Supplying a different constraint explicitly authorizes
 changing that durable choice; it does not require a replacement override.
 
+An inline MCP definition is already authoritative configuration, not an
+extension acquisition target. Workspace-wide install reports it as not
+applicable and directs reconciliation to sync; it neither resolves a source nor
+prevents applicable configured extensions from proceeding.
+
 ## Non-responsibilities
 
 Install does not repair unrelated workspace state, adopt existing unowned
@@ -45,9 +50,10 @@ The root command is the normal fully qualified extension surface. A type
 command group may accept additional type-specific inputs, but both forms
 express the same durable intent and produce the same underlying plan and result.
 
-## Testing strategy
+## Specifications
 
-Behavior tests prove configuration and realized-state postconditions,
-idempotence, closure atomicity, preservation of unrelated and unowned state,
-accepted-lock persistence, constraint replacement, and parity between root and
-type-specific forms.
+The install specifications under `specifications/cli/install/` own install's
+binding obligations — recorded intent and realized state, pure preview,
+idempotence, preservation of unrelated and unowned state, and parity between
+root and type-specific forms; the
+[specification catalog](../../../specifications/catalog.md) indexes them.

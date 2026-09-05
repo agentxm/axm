@@ -1,0 +1,59 @@
+{
+  "name": "@agentxm/workspace-state",
+  "version": "0.28.7",
+  "description": "AXM workspace state kernel: settings, lockfile, read model, and desired-state vocabulary for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/workspace-state"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "axm-source": "./src/index.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./testing": {
+      "types": "./dist/src/testing.d.ts",
+      "axm-source": "./src/testing.ts",
+      "default": "./dist/src/testing.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "effect": "catalog:",
+    "jsonc-parser": "catalog:",
+    "semver": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

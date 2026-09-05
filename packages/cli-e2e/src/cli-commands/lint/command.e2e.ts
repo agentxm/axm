@@ -65,14 +65,14 @@ const initializeGit = (root: string): void => {
   git(root, ["config", "user.name", "Test"]);
 };
 
-const writeUnmanagedSkill = (root: string, name: string, description = "E2E skill"): void => {
-  const skillRoot = path.join(root, ".claude", "skills", name);
-  fs.mkdirSync(skillRoot, { recursive: true });
-  fs.writeFileSync(
-    path.join(skillRoot, "SKILL.md"),
-    `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n`,
-  );
-};
+const isolatedMissingLockfileRules = (severity: "info" | "warn") => ({
+  "skill/skill-md-present": "off",
+  "skill/manifest-present": "off",
+  "workspace/desired-state-reconcilable": "off",
+  "workspace/configured-but-not-installed": "off",
+  "workspace/skills-artifacts-correct": "off",
+  "workspace/lockfile-valid": severity,
+});
 
 const sharedMcpPairs = [
   {
@@ -86,6 +86,49 @@ const sharedMcpPairs = [
 ] as const;
 
 describe("axm lint (e2e, Phase 7)", () => {
+  describe("official AXM skill intent", () => {
+    it("reports an undeclared official skill as informational and exits zero", async () => {
+      const temp = createTempDir("axm-lint-opt-in-");
+      try {
+        const env = { HOME: temp.path, AXM_USER_HOME: temp.path, DO_NOT_TRACK: "1" };
+        writeJson(path.join(temp.path, "axm.json"), {
+          owner: "@test",
+          agents: [],
+          skills: {},
+        });
+        fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
+
+        const machine = await runCli(["lint", "--json"], { cwd: temp.path, env });
+        expect(machine.exitCode, `${machine.stderr}\n${machine.stdout}`).toBe(0);
+        const document = JSON.parse(machine.stdout);
+        expect(document.ok).toBe(true);
+        expect(document.result.findings).toEqual([
+          expect.objectContaining({
+            ruleId: "workspace/axm-skill-declared",
+            severity: "info",
+          }),
+        ]);
+        expect(document.result.summary).toEqual({
+          total: 1,
+          errors: 0,
+          warnings: 0,
+          infos: 1,
+          exitCategory: "clean",
+        });
+        expect(document.result).not.toHaveProperty("axmSkillCompatibility");
+
+        const human = await runCli(["lint", "--details"], { cwd: temp.path, env });
+        expect(human.exitCode, `${human.stderr}\n${human.stdout}`).toBe(0);
+        const humanOutput = `${human.stderr}\n${human.stdout}`;
+        expect(humanOutput).toContain("workspace/axm-skill-declared");
+        expect(humanOutput).not.toContain("workspace/axm-skill-compatible");
+        expect(humanOutput).not.toContain("manual attention");
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
   describe("workspace-authored canonical changes", () => {
     it("treats unpublished edits as non-blocking and recommends publish", async () => {
       const temp = createTempDir();
@@ -99,6 +142,12 @@ describe("axm lint (e2e, Phase 7)", () => {
           },
         );
         expect(setup.exitCode).toBe(0);
+        const settingsPath = path.join(temp.path, "axm.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        fs.writeFileSync(
+          settingsPath,
+          `${JSON.stringify({ ...settings, owner: "@test" }, null, 2)}\n`,
+        );
 
         const scaffold = await runCli(
           ["skills", "new", "draft-skill", "--owner", "@test", "--yes"],
@@ -106,16 +155,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         );
         expect(scaffold.exitCode).toBe(0);
 
-        const skillPath = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "@test",
-          "skills",
-          "draft-skill",
-          "src",
-          "SKILL.md",
-        );
+        const skillPath = path.join(temp.path, "skills", "draft-skill", "src", "SKILL.md");
         fs.appendFileSync(skillPath, "\n## Author edit\n\nUnpublished working content.\n");
 
         const lint = await runCli(["lint", "--json"], { cwd: temp.path, env });
@@ -150,7 +190,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         // so `workspace/skills-lockfile-aligned` (missing-arm, error) and
         // `workspace/skills-artifacts-correct` (enabled-but-not-linked,
         // error) both fire.
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.skills = { demo: "@acme/skills/demo" };
         // Remove the lockfile to hit the `workspace/lockfile-valid`
@@ -187,13 +227,13 @@ describe("axm lint (e2e, Phase 7)", () => {
           { cwd: temp.path },
         );
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.skills = { demo: "@acme/skills/demo" };
         writeJson(settingsPath, settings);
 
         // Simulate a stale workspace where the lockfile was wiped.
-        fs.rmSync(path.join(temp.path, ".axm", "axm-lock.yaml"), { force: true });
+        fs.rmSync(path.join(temp.path, "axm-lock.yaml"), { force: true });
 
         const result = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(result.exitCode).toBe(1);
@@ -221,7 +261,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           );
           expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
 
-          const settingsPath = path.join(temp.path, ".axm", "settings.json");
+          const settingsPath = path.join(temp.path, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           settings.agents = [...agents];
           settings.mcpServers = {
@@ -255,9 +295,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           const before = await runCli(["lint", "--json"], { cwd: temp.path, env });
           const beforeFindings = JSON.parse(before.stdout)?.result?.findings ?? [];
           const beforeSharedFinding = beforeFindings.find(
-            (finding: { ruleId: string }) =>
-              finding.ruleId === "workspace/mcps-agent-drift" ||
-              finding.ruleId === "workspace/mcps-shared-target-compatible",
+            (finding: { ruleId: string }) => finding.ruleId === "workspace/mcps-agent-drift",
           );
           expect(beforeSharedFinding).toBeDefined();
           expect(beforeSharedFinding.path).toBe("./.mcp.json");
@@ -279,9 +317,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           const after = await runCli(["lint", "--json"], { cwd: temp.path, env });
           const afterFindings = JSON.parse(after.stdout)?.result?.findings ?? [];
           const sharedMcpFindings = afterFindings.filter(
-            (finding: { ruleId: string }) =>
-              finding.ruleId === "workspace/mcps-agent-drift" ||
-              finding.ruleId === "workspace/mcps-shared-target-compatible",
+            (finding: { ruleId: string }) => finding.ruleId === "workspace/mcps-agent-drift",
           );
           expect(sharedMcpFindings).toEqual([]);
           expect(after.exitCode, `${after.stderr}\n${after.stdout}`).toBe(0);
@@ -297,8 +333,8 @@ describe("axm lint (e2e, Phase 7)", () => {
       const userHome = createTempDir("axm-phase7-user-home-");
       const emptyHome = createTempDir("axm-phase7-empty-home-");
       try {
-        fs.mkdirSync(path.join(userHome.path, ".axm"), { recursive: true });
-        writeJson(path.join(userHome.path, ".axm", "settings.json"), {
+        fs.mkdirSync(path.join(userHome.path, ".axm", "workspace"), { recursive: true });
+        writeJson(path.join(userHome.path, ".axm", "workspace", "axm.json"), {
           agents: ["claude-code"],
           skills: { demo: "@acme/skills/demo" },
         });
@@ -317,11 +353,123 @@ describe("axm lint (e2e, Phase 7)", () => {
         // `agents-detected-declared` fires only on project scope.
         expect(ruleIds).not.toContain("workspace/agents-detected-declared");
         // `lockfile-valid` fires because we declared a skill with no
-        // lockfile present under $AXM_USER_HOME/.axm.
+        // lockfile present under $AXM_USER_HOME/.axm/workspace.
         expect(ruleIds).toContain("workspace/lockfile-valid");
       } finally {
         userHome.cleanup();
         emptyHome.cleanup();
+      }
+    });
+  });
+
+  describe("configured local severity", () => {
+    it("lowers a project error to warning and lets --strict own warning failure", async () => {
+      const temp = createTempDir("axm-lint-severity-e2e-");
+      try {
+        const env = { HOME: temp.path, AXM_USER_HOME: temp.path, DO_NOT_TRACK: "1" };
+        const setup = await runCli(
+          ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
+          { cwd: temp.path, env },
+        );
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+
+        const settingsPath = path.join(temp.path, "axm.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        settings.skills = { ...settings.skills, demo: "@acme/skills/demo" };
+        settings.lint = { rules: isolatedMissingLockfileRules("warn") };
+        writeJson(settingsPath, settings);
+        fs.rmSync(path.join(temp.path, "axm-lock.yaml"));
+
+        const normal = await runCli(["lint", "--json"], { cwd: temp.path, env });
+        expect(normal.exitCode, `${normal.stderr}\n${normal.stdout}`).toBe(0);
+        const normalDocument = JSON.parse(normal.stdout);
+        expect(normalDocument.ok).toBe(true);
+        expect(normalDocument.result.findings).toEqual([
+          expect.objectContaining({
+            ruleId: "workspace/lockfile-valid",
+            severity: "warning",
+          }),
+        ]);
+        expect(normalDocument.result.summary).toEqual({
+          total: 1,
+          errors: 0,
+          warnings: 1,
+          infos: 0,
+          exitCategory: "warnings",
+        });
+
+        const human = await runCli(["lint", "--details"], { cwd: temp.path, env });
+        expect(human.exitCode, `${human.stderr}\n${human.stdout}`).toBe(0);
+        const humanOutput = `${human.stderr}\n${human.stdout}`;
+        expect(humanOutput).toContain("Found 1 warning in 1 location.");
+        expect(humanOutput).toContain("workspace/lockfile-valid");
+        expect(humanOutput).not.toContain("Found 1 error");
+
+        const strict = await runCli(["lint", "--strict", "--json"], {
+          cwd: temp.path,
+          env,
+        });
+        expect(strict.exitCode, `${strict.stderr}\n${strict.stdout}`).toBe(1);
+        const strictDocument = JSON.parse(strict.stdout);
+        expect(strictDocument.ok).toBe(false);
+        expect(strictDocument.result.findings).toEqual([
+          expect.objectContaining({
+            ruleId: "workspace/lockfile-valid",
+            severity: "warning",
+          }),
+        ]);
+        expect(strictDocument.result.summary).toEqual(normalDocument.result.summary);
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("uses the user workspace's local severity policy for user-scope lint", async () => {
+      const userHome = createTempDir("axm-lint-user-severity-e2e-");
+      const processHome = createTempDir("axm-lint-user-process-home-");
+      try {
+        const env = {
+          HOME: processHome.path,
+          AXM_USER_HOME: userHome.path,
+          DO_NOT_TRACK: "1",
+        };
+        const setup = await runCli(
+          ["setup", "--scope", "user", "--agent", "claude-code", "--yes", "--non-interactive"],
+          { cwd: userHome.path, env },
+        );
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+
+        const workspaceRoot = path.join(userHome.path, ".axm", "workspace");
+        const settingsPath = path.join(workspaceRoot, "axm.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        settings.skills = { ...settings.skills, demo: "@acme/skills/demo" };
+        settings.lint = { rules: isolatedMissingLockfileRules("info") };
+        writeJson(settingsPath, settings);
+        fs.rmSync(path.join(workspaceRoot, "axm-lock.yaml"));
+
+        const result = await runCli(["lint", "--scope", "user", "--strict", "--json"], {
+          cwd: userHome.path,
+          env,
+        });
+        expect(result.exitCode, `${result.stderr}\n${result.stdout}`).toBe(0);
+        const document = JSON.parse(result.stdout);
+        expect(document.ok).toBe(true);
+        expect(document.result.findings).toEqual([
+          expect.objectContaining({
+            ruleId: "workspace/lockfile-valid",
+            severity: "info",
+          }),
+        ]);
+        expect(document.result.summary).toEqual({
+          total: 1,
+          errors: 0,
+          warnings: 0,
+          infos: 1,
+          exitCategory: "clean",
+        });
+      } finally {
+        userHome.cleanup();
+        processHome.cleanup();
       }
     });
   });
@@ -360,95 +508,6 @@ describe("axm lint (e2e, Phase 7)", () => {
       }
     });
 
-    it("fingerprints the complete exact index and leaves partial staging untouched", async () => {
-      const temp = createTempDir("axm-staged-lint-e2e-");
-      try {
-        initializeGit(temp.path);
-        const env = {
-          DO_NOT_TRACK: "1",
-          AXM_REGISTRY_LOCATION: "http://127.0.0.1:9",
-          AXM_REGISTRY_URL: "http://127.0.0.1:9",
-        };
-        const setup = await runCli(
-          ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
-          { cwd: temp.path, env },
-        );
-        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
-
-        writeUnmanagedSkill(temp.path, "original");
-        writeUnmanagedSkill(temp.path, "deleted");
-        git(temp.path, ["add", "."]);
-        git(temp.path, ["commit", "--quiet", "-m", "fixture"]);
-
-        git(temp.path, ["mv", ".claude/skills/original", ".claude/skills/renamed"]);
-        writeUnmanagedSkill(temp.path, "renamed", "Staged content");
-        git(temp.path, ["add", ".claude/skills/renamed/SKILL.md"]);
-        fs.writeFileSync(
-          path.join(temp.path, ".claude", "skills", "renamed", "SKILL.md"),
-          "unstaged invalid content\n",
-        );
-        fs.rmSync(path.join(temp.path, ".claude", "skills", "deleted"), {
-          recursive: true,
-        });
-        git(temp.path, ["add", "--all", ".claude/skills/deleted"]);
-        writeUnmanagedSkill(temp.path, "untracked", "Untracked content");
-
-        const statusBefore = git(temp.path, ["status", "--porcelain=v2", "-z"]);
-        const indexBefore = git(temp.path, ["ls-files", "--stage", "-z"]);
-        const staged = await runCli(["lint", "--view", "git-index", "--json"], {
-          cwd: path.join(temp.path, ".claude"),
-          env,
-        });
-
-        expect(staged.exitCode, `${staged.stderr}\n${staged.stdout}`).toBe(0);
-        const stagedDocument = JSON.parse(staged.stdout);
-        expect(stagedDocument.ok).toBe(true);
-        expect(stagedDocument.result.input).toMatchObject({ view: "git-index" });
-        expect(stagedDocument.result.input.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
-        expect(stagedDocument.result.input.fingerprint).not.toContain(temp.path);
-        const strict = await runCli(["lint", "--view", "git-index", "--strict"], {
-          cwd: temp.path,
-          env,
-        });
-        expect(strict.exitCode).toBe(0);
-
-        const details = await runCli(["lint", "--view", "git-index", "--details"], {
-          cwd: temp.path,
-          env,
-        });
-        expect(details.exitCode, `${details.stderr}\n${details.stdout}`).toBe(0);
-
-        const nested = await runCli(
-          ["lint", path.join(temp.path, ".claude"), "--view", "git-index", "--json"],
-          { cwd: temp.path, env },
-        );
-        expect(nested.exitCode).toBe(10);
-        expect(nested.stdout + nested.stderr).toContain(
-          path.join(".claude", ".axm", "settings.json"),
-        );
-
-        const live = await runCli(["lint", "--json"], { cwd: temp.path, env });
-        expect(live.exitCode).toBe(0);
-        const liveDocument = JSON.parse(live.stdout);
-        expect(liveDocument.result.input).toEqual({ view: "workspace" });
-
-        const explicitLive = await runCli(["lint", "--view", "workspace", "--json"], {
-          cwd: temp.path,
-          env,
-        });
-        expect(explicitLive.exitCode).toBe(live.exitCode);
-        expect(JSON.parse(explicitLive.stdout)).toEqual(liveDocument);
-
-        expect(git(temp.path, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
-        expect(git(temp.path, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
-        expect(
-          fs.readFileSync(path.join(temp.path, ".claude", "skills", "renamed", "SKILL.md"), "utf8"),
-        ).toBe("unstaged invalid content\n");
-      } finally {
-        temp.cleanup();
-      }
-    });
-
     it("uses staged bytes instead of a valid unstaged settings file", async () => {
       const temp = createTempDir("axm-staged-settings-e2e-");
       try {
@@ -464,7 +523,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         git(temp.path, ["add", "."]);
         git(temp.path, ["commit", "--quiet", "-m", "fixture"]);
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const validSettings = fs.readFileSync(settingsPath, "utf8");
         const stagedSettings = JSON.parse(validSettings);
         stagedSettings.skills = {
@@ -472,18 +531,22 @@ describe("axm lint (e2e, Phase 7)", () => {
           demo: "@acme/skills/demo",
         };
         writeJson(settingsPath, stagedSettings);
-        git(temp.path, ["add", ".axm/settings.json"]);
+        git(temp.path, ["add", "axm.json"]);
         fs.writeFileSync(settingsPath, validSettings);
 
         const statusBefore = git(temp.path, ["status", "--porcelain=v2", "-z"]);
         const indexBefore = git(temp.path, ["ls-files", "--stage", "-z"]);
         const result = await runCli(["lint", "--view", "git-index", "--json"], {
-          cwd: temp.path,
+          cwd: path.join(temp.path, ".claude"),
           env: { DO_NOT_TRACK: "1" },
         });
 
         expect(result.exitCode).toBe(1);
-        const findings: Array<{ ruleId: string }> = JSON.parse(result.stdout).result.findings;
+        const document = JSON.parse(result.stdout);
+        expect(document.result.input).toMatchObject({ view: "git-index" });
+        expect(document.result.input.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
+        expect(document.result.input.fingerprint).not.toContain(temp.path);
+        const findings: Array<{ ruleId: string }> = document.result.findings;
         expect(findings.map((finding) => finding.ruleId)).toContain(
           "workspace/configured-but-not-installed",
         );

@@ -3,10 +3,24 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: [
+    "cli/agents/add/records-membership-and-realizes-outputs",
+    "cli/agents/remove/removes-membership-and-owned-outputs",
+    "cli/agents/remove/preserves-unowned-agent-content",
+  ],
+  boundary: "process",
+  rationale:
+    "Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.",
+} as const;
+
 const readAgents = (workspace: string): ReadonlyArray<string> => {
-  const settings: unknown = JSON.parse(
-    fs.readFileSync(path.join(workspace, ".axm", "settings.json"), "utf8"),
-  );
+  const settings: unknown = JSON.parse(fs.readFileSync(path.join(workspace, "axm.json"), "utf8"));
   if (typeof settings !== "object" || settings === null || !("agents" in settings)) return [];
   return Array.isArray(settings.agents)
     ? settings.agents.filter((agent): agent is string => typeof agent === "string")
@@ -36,11 +50,14 @@ describe("atomic agent membership lifecycle", () => {
       expect(JSON.parse(addPreview.stdout)).toMatchObject({
         ok: true,
         result: {
+          contract: "plan-result-v3",
           outcome: "previewed",
-          steps: expect.arrayContaining([
-            expect.objectContaining({ label: "Add opencode", status: "ready" }),
+          mode: "preview",
+          counts: { failed: 0, blocked: 0 },
+          units: expect.arrayContaining([
+            expect.objectContaining({ label: "Add opencode", state: "ready" }),
             expect.objectContaining({
-              status: "ready",
+              state: "ready",
               artifact: expect.objectContaining({
                 path: ".opencode/skills/axm",
                 agents: ["opencode"],
@@ -65,6 +82,10 @@ describe("atomic agent membership lifecycle", () => {
       });
       expect(removePreview.exitCode, `${removePreview.stderr}\n${removePreview.stdout}`).toBe(0);
       expect(removePreview.stdout).toContain(".opencode/skills/axm");
+      expect(JSON.parse(removePreview.stdout)).toMatchObject({
+        ok: true,
+        result: { contract: "plan-result-v3", outcome: "previewed", mode: "preview" },
+      });
       expect(readAgents(temp.path)).toEqual(["claude-code", "opencode"]);
       expect(fs.existsSync(opencodeSkill)).toBe(true);
 
@@ -104,9 +125,15 @@ describe("atomic agent membership lifecycle", () => {
       expect(JSON.parse(remove.stdout)).toMatchObject({
         ok: true,
         result: {
-          steps: expect.arrayContaining([
+          contract: "plan-result-v3",
+          outcome: "applied",
+          mode: "apply",
+          counts: { total: 2, committed: 2, failed: 0, blocked: 0 },
+          units: expect.arrayContaining([
             expect.objectContaining({
               label: "Remove managed agent artifacts",
+              state: "committed",
+              message: "Removed 1 managed artifact; preserved 1 unowned artifact",
               artifact: expect.objectContaining({
                 targets: expect.arrayContaining([
                   expect.objectContaining({ path: ".opencode/skills/manual", change: "unchanged" }),

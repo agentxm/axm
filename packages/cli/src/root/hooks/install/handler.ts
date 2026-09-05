@@ -1,7 +1,12 @@
 import * as Effect from "effect/Effect";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { toPlanResolutionResult } from "../../../json-output.js";
-import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
+import {
+  deriveOperationOutcome,
+  operationPresentation,
+  type Plan,
+} from "@agentxm/workspace-operations";
+import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
@@ -13,29 +18,41 @@ export const handleInstallHook = (
   args: InstallHookHandlerArgs,
   flags: { readonly yes: boolean; readonly force: boolean; readonly preview: boolean },
 ) =>
+  withOperationLifecycle(
+    {
+      command: "hooks.install",
+      mode: flags.preview ? "preview" : "apply",
+      planName: "Install hooks",
+    },
+    handleInstallHookBody(args, flags),
+  );
+
+const handleInstallHookBody = (
+  args: InstallHookHandlerArgs,
+  flags: { readonly yes: boolean; readonly force: boolean; readonly preview: boolean },
+) =>
   Effect.gen(function* () {
     const actions = yield* InstallHookCommandWorkflowActions;
     const execution = yield* makeInstallPlanExecution(flags, ["hooks", "install"], [args.source]);
     const resolution = yield* runInstallCommandWorkflow(args, actions, {
       execution,
-      displayApplied: false,
+      transformPlan: (plan) =>
+        Effect.succeed({
+          ...plan,
+          presentation: operationPresentation(
+            { imperative: "install", past: "Installed", gerund: "Installing" },
+            "hook",
+          ),
+        } satisfies Plan),
     });
-    const result = toPlanResolutionResult(resolution);
-    if (result.outcome === "no-op" && result.totalSteps === 0) {
+    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
       yield* emitNoOpOutcome("hooks.install", {
-        planName: result.planName,
+        planName: resolution.name,
         message: "No hooks packages installed.",
       });
       return;
     }
-    yield* emitAppliedPlanOutcome({
-      command: "hooks.install",
-      headline:
-        result.outcome === "no-op"
-          ? unchangedPlanHeadline(resolution, "No hooks packages installed.")
-          : "Installed hooks package " + args.source,
-      resolution,
-      reportInstallationCoverage: true,
+    yield* emitOperationResolution("hooks.install", resolution, {
       suggestions: [{ description: "Inspect installed hooks packages", cmd: "axm hooks list" }],
     });
   });

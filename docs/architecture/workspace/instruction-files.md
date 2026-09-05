@@ -25,7 +25,9 @@ marked regions for which it can establish authority.
 Enabled extension capabilities may contribute independently managed content:
 
 - Rules contribute ordered behavior guidance;
-- Knowledge contributes a compact discovery entry rather than concept content;
+- Knowledge contributes a compact discovery entry rather than concept content
+  for each enabled bundle admitted by its manifest default and optional
+  workspace override;
   and
 - Hooks may contribute an explicitly supported instruction fallback.
 
@@ -94,9 +96,11 @@ concern and are left alone without a report.
 A contribution region is owned by its contributing capability, not by any
 single extension. It is an aggregate ownership unit under the shared
 [output reconciliation contract](overview.md#output-reconciliation): its
-content is the deterministic rendering of every enabled extension the desired
+content is the deterministic rendering of every eligible extension the desired
 state routes into it, whether the route is a direct declaration or Pack
-membership. Enabling, disabling, or removing one contributing extension
+membership. Type-specific admission policy further narrows contributors; for
+Knowledge, an enabled bundle must be admitted by its manifest default and
+optional workspace override. Enabling, disabling, or removing one contributing extension
 re-renders the region from the remaining set; it never rewrites the region to
 contain only the extension being operated on.
 
@@ -108,8 +112,9 @@ alias path is a collision and remains untouched.
 The shared [managed-file ownership grammar](managed-file-ownership.md) names
 the Rules, Knowledge, Hook fallback, and instruction-alias units. Alias copies
 carry a structured `axm:file` banner, while `.gitignore` uses the
-`instruction-aliases` pattern-list region. Formatting-only changes do not
-create drift, and AXM emits no formatter directives.
+`instruction-aliases` pattern-list region. Generated document currency follows
+generation provenance derived from authoritative inputs, so AXM does not
+inspect or classify body rewrites. AXM emits no formatter directives.
 
 The canonical filename and alias behavior are durable instruction-file
 settings choices. Contributor participation follows the contributor's own
@@ -122,8 +127,9 @@ contributors.
 - Canonical authored prose survives enablement, reconciliation, and disablement.
 - Each managed region is identifiable independently of the surrounding file
   and other regions.
-- Each managed region contains every desired contribution routed into it,
-  exactly once, regardless of which operation last wrote the region.
+- Each generated region records provenance for the complete desired
+  contributor set routed into it, regardless of which operation last wrote
+  the region.
 - Composition order is deterministic and repeated reconciliation adds no
   duplicate content.
 - Agent aliases refer to the selected canonical source without becoming new

@@ -30,6 +30,13 @@ tests, and code. It does not promise rollback of remote Registry effects.
 
 ## Observation and fact boundaries
 
+Project workspace construction first loads project and user settings under the
+documented missing-file semantics and validates every present source. This
+shared prerequisite completes before AXM creates an operation snapshot or
+derives facts, desired state, plans, closures, previews, inspection results, or
+mutation candidates. A settings failure produces only its bounded diagnostic;
+the selected operation does not begin and no workspace state changes.
+
 The workspace read model is cached observation, inventory, and diagnostic
 context. It reports what exists without inferring desired membership,
 installation, Pack reachability, accepted resolution, or ownership from names,
@@ -46,9 +53,11 @@ Lint and sync consume the same intrinsic facts. Sync may add live operational
 evidence such as source availability or acquisition failure; that evidence does
 not become a lint predicate.
 
-One operation uses one snapshot. Diagnostics may tolerate invalid state to
-describe it, but planning preserves the distinction among missing, invalid,
-unsupported, and valid inputs.
+After construction succeeds, one operation uses one valid settings-backed
+snapshot. Diagnostics may tolerate later invalid workspace state to describe
+it, but planning preserves the distinction among missing, invalid, unsupported,
+and valid inputs. Closure-local isolation begins at this post-construction
+boundary; it does not substitute for an unavailable settings prerequisite.
 
 ## Planning and semantic closures
 
@@ -85,7 +94,10 @@ leases, heartbeats, PID inference, lock stealing, or distributed coordination.
 
 Under the lock, AXM revalidates every material authoritative input and target
 preimage used by the plan. A stale plan performs no writes, and `--force` cannot
-bypass the check.
+bypass the check (the executable specification
+`cli/force-bypasses-only-named-policies` in the
+[specification catalog](../../../specifications/catalog.md) owns the force
+boundary).
 
 All production settings and lock changes pass through the shared semantic
 mutation boundary. Settings, authoritative lock state, canonical extension
@@ -111,13 +123,14 @@ journal, command-intent marker, receipt, or recovery flag:
 
 | State                                     | Placement and lifecycle                                                                     |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Durable workspace authority               | Canonical files and packages below `.axm/`                                                  |
+| Durable project workspace authority       | Root `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`                   |
+| Durable user workspace authority          | `~/.axm/workspace/{axm.json,axm-lock.yaml,agent_extensions/}`                               |
 | Project-local scratch                     | Unique children of `.axm/tmp/`; the workspace mutex is `.axm/tmp/workspace-transition.lock` |
 | Invocation scratch and rollback snapshots | Uniquely prefixed directories in the operating-system temporary directory                   |
 | Atomic single-file publication            | Exact `<target>.tmp.<unique>` siblings, swept only by that target's writer                  |
 | Atomic canonical-directory publication    | Exact `<canonical>.axm-staging` and `<canonical>.axm-backup` siblings                       |
 | Performance-only cache                    | The platform cache directory, including Registry archives and update-check state            |
-| Restricted user state                     | The user AXM home, including pending login, file credentials, and install metadata          |
+| Restricted application state              | `~/.axm/`, including pending login, file credentials, install metadata, and `bin/axm`       |
 
 Package creation, import, fork, install, and replacement all populate and
 validate the complete sibling staging tree before a same-parent rename makes it

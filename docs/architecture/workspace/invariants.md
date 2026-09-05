@@ -24,8 +24,8 @@ This document owns:
 - the distinction between intrinsic violations and operational blockers;
 - root-cause reporting and dependent-check suppression;
 - closure-local evaluation and isolation; and
-- the requirement that every reported lint error and sync blocker have a
-  complete restoring-transition contract.
+- the recovery-ownership model: every reported lint error and sync blocker has
+  a demonstrated restoring transition.
 
 ## Non-responsibilities
 
@@ -56,15 +56,16 @@ block sync, but does not thereby become a lint violation.
 | Sync            | Maps reconcilable facts to closure-local plan steps and other intrinsic or operational facts to blockers. |
 | Intent commands | Preflight only facts required by the semantic closure they must establish.                                |
 
-Lint and sync cannot disagree about an intrinsic predicate. Sync may use
-additional operational evidence without expanding lint's responsibility.
+Lint validates durable workspace invariants such as ownership safety. Sync
+owns derived-output convergence and may plan regeneration from generation
+provenance without turning currency into a lint finding.
 Publish validation remains separate and may impose fixed distribution
 requirements that do not redefine local workspace validity.
 
-Inspection surfaces are bound by the same facts. If an extension's required
-contribution to an owned unit is absent or stale, a projection fact records it.
-Because inventory, lint, and sync consume the same facts, inventory can never
-report an extension as realized while lint and sync find nothing to reconcile.
+Inspection surfaces are bound by the same ownership and authority facts. If an
+extension's required contribution to an owned unit is absent or its generation
+is stale, sync records reconciliation work. Lint reports only invalid or
+unsupported ownership proof, not body currency.
 
 ## Authority and reachability facts
 
@@ -72,6 +73,13 @@ The desired-state graph is the sole reachability authority. It derives direct
 routes, activation, and Pack dependency routes from settings and authored
 manifests. Lock rows, Pack-member maps, canonical content, and native output
 never create reachability or cleanup authority.
+
+For sourced MCP servers, the graph distinguishes each local connection node
+from its source-resolution closure. Connection nodes own local names and
+per-connection realization choices. A closure groups every node and Pack route
+that resolves the same source identity, intersects all of their constraints,
+and supplies the shared accepted resolution. A conflict in that intersection
+blocks the closure before acquisition or mutation.
 
 This authority binds writers as well as evaluators. Any operation that creates,
 restores, or removes an owned output enumerates the contributors it renders
@@ -81,8 +89,8 @@ never from raw settings entries, which omit Pack-contributed members.
 Authority facts distinguish conditions a catch-all lifecycle label cannot:
 
 - workspace-authored canonical inventory may exist outside desired state;
-- external canonical content requires an accepted lock identity but remains
-  valid projection input when its local bytes drift;
+- acquired canonical content requires an accepted lock identity and matching
+  package-tree integrity before it can serve as projection input;
 - bundled content derives authority from the running CLI;
 - inline definitions derive authority directly from settings without a
   fabricated lock row or canonical copy;
@@ -98,24 +106,36 @@ validation.
 ## Projection facts
 
 The projection fact family is cross-type and relates each owned output unit to
-the contributor set the desired state requires of it. A unit is **incomplete**
-when it is well formed and correctly owned but renders only part of its
-required contributor set. Incomplete is a distinct violation beyond missing,
-stale, obsolete, colliding, or ambiguously owned; without it an aggregate unit
-can lose content while every other predicate remains satisfied.
+the contributor set the desired state requires of it. Generated documents
+record one generation digest for the complete authoritative input set. A
+matching digest establishes currency without interpreting the generated body;
+a missing or different digest is sync work. Because that digest covers the
+aggregate input set, a mismatch establishes divergence only for the ownership
+unit; it does not identify which contributor changed. Contributor point markers
+may aid humans and diagnostics but are neither currency nor causal evidence.
 
-Evidence for projection facts is read from the output: the contributor
-identities, versions, and content read back from the unit decide which
-contributors it carries and whether each is current. The presence, version, or
-content of the canonical extension content that produced a unit is never
-evidence about the unit, so an extension whose canonical content is installed
-and reachable can still be absent from, or stale in, its projection.
+Structured execution-bearing projections derive currency from decoded native
+values and can retain contributor-level observations when their decoded
+structure establishes them exactly. Missing units, stale generation, differing
+structured values, obsolete owned units, collisions, and ambiguous ownership
+remain distinct planning facts. Canonical source content establishes expected
+generation, not proof that a projection exists on disk.
 
 ## Evaluation and isolation
 
-A failed prerequisite suppresses checks whose conclusions would be unreliable
-without it. Those rules do not emit cascade symptoms. Independent rules
-continue so one invalid extension does not hide another.
+Settings-source load and schema validity and current-scope lockfile validity are
+shared workspace-construction prerequisites. They are evaluated before
+invariant facts, desired-state graph construction, semantic closure
+identification, or selected command evaluation. Failure of either project or
+user settings blocks construction and suppresses every dependent
+project-workspace check; a present invalid or unsupported current-scope
+lockfile blocks the selected scope. These are not closure-local blockers and
+cannot be isolated to one extension.
+
+After construction succeeds, a failed prerequisite suppresses checks whose
+conclusions would be unreliable without it. Those rules do not emit cascade
+symptoms. Independent rules continue so one invalid extension does not hide
+another.
 
 Facts and operational blockers identify their semantic mutation closure. A
 command is blocked only by state relevant to the selected closure. Global sync
@@ -136,57 +156,32 @@ Recovery ownership is a test classification, not suggested-action metadata.
 AXM does not adopt unowned native content, even when it is semantically
 equivalent to the required output.
 
-## Recovery-conformance registry
+## Recovery-conformance verification
 
-A test-only exhaustive registry is keyed by every lint error and sync blocker.
-A completeness test fails when a shipped error or blocker lacks a recovery
-contract.
+The whole-surface workspace specifications at the root of `specifications/cli/`
+own the boundary obligations for invalid-state handling — settings validity gating,
+non-interleaving, closure-atomic mutation, and lock state never creating
+reachability; the [specification catalog](../../../specifications/catalog.md)
+indexes them.
 
-Each entry defines:
+Exhaustive restoring-transition coverage is internal verification: a test-only
+recovery-conformance registry in `packages/cli/src/root/sync/` is keyed by
+every lint error and sync blocker, and a completeness check fails when a
+shipped error or blocker lacks a recovery contract. Each entry captures the
+minimal perturbation, expected diagnostic facts and dependent-rule
+suppression, the recovery owner, permitted and forbidden state changes,
+post-recovery state, and second-run idempotence.
 
-- authoritative inputs and a valid base state;
-- the minimal perturbation producing the finding or blocker;
-- expected diagnostic facts and dependent-rule suppression;
-- the recovery owner;
-- exact permitted state changes and forbidden effects;
-- post-recovery lint and projection state; and
-- second-run idempotence.
-
-The cross-type projection family covers missing, incomplete, stale, obsolete,
-unowned collision, ambiguous ownership, safe owned removal, authored inventory
-outside desired state, unreachable managed content, and unclassifiable canonical
-content wherever applicable. Type-specific tests add native merge, ordering,
-region-boundary, and fallback cases.
-
-Every aggregate unit registers the incomplete case using the shared multi-route
-contributor fixture defined by the
-[extension testing strategy](../extensions/overview.md#testing-strategy), so a
-lifecycle transition affecting one contributor is proved not to drop another
-and an incomplete unit is proved unable to produce a sync no-op.
-
-Cross-cutting adversarial coverage proves:
-
-- handled failure leaves no partial closure;
-- unrelated invalid closures do not block ready progress;
-- authored canonical and unowned native content are never incidentally deleted,
-  overwritten, or adopted;
-- a lifecycle transition on one contributor to an aggregate unit never removes,
-  duplicates, or makes stale another reachable contributor;
-- sync does not change authored intent or advance a satisfying lock;
-- lint fix performs no acquisition, lock, canonical, ownership, or projection
-  work;
-- stale plans write nothing and concurrent plans cannot interleave;
-- interruption at every publication boundary converges from surviving
-  authority on the next mutation;
-- formatter-induced external drift remains valid and projectable;
-- update and reinstall disclose replacement of divergent external content;
-- global sync reports closure-local outcomes and nonzero overall results when
-  any requested closure does not converge, including when others commit;
-- lock-only Pack members never change reachability;
-- invalid lock authority is never reconstructed from other state;
-- mutable-source sync and reinstall never substitute a new content identity;
-  and
-- unsupported persisted state is rejected without migration or cleanup.
-
-Minimized fixtures derived from real incidents are authoritative. Live
+The registry's cross-type projection family exercises missing, stale,
+obsolete, unowned collision, ambiguous ownership, safe owned removal,
+authored inventory outside desired state, unreachable managed content, and
+unclassifiable canonical content wherever applicable; type-specific cases add
+native merge, ordering, region-boundary, and fallback behavior. Every
+aggregate unit registers contributor-change regeneration using the shared
+multi-route contributor fixture described by the
+[extension testing strategy](../extensions/overview.md#testing-strategy), and
+cross-cutting adversarial fixtures cover settings failure, partial closures,
+preservation of authored and unowned content, drift, interruption, lock
+authority, and direction-specific recovery for older and newer lockfile gates.
+Minimized fixtures derived from real incidents are authoritative; live
 repositories remain a thin end-to-end confirmation layer.

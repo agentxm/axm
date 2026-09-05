@@ -1,9 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-08-18
-version: 0.2.3
-description: Choosing and using AXM's native, development-container, and repository-owned
-  Linux CI environments.
+description: Choosing AXM's native development environment and repository-owned Linux CI
+  verification environment.
 depends-on:
   - ../../CONTRIBUTING.md
   - ../../AGENTS.md
@@ -11,12 +9,10 @@ depends-on:
 
 # Development Environment
 
-AXM supports a repository-owned Linux CI image, a shared interactive development
-image, and native development. The development image is the documented default
-for Linux feature work; the CI image reproduces required Linux verification.
-Every mode uses `mise.toml` as the repository tool-version authority and the
-same `pnpm`/Nx commands. Images do not replace native macOS, Windows, or
-release-binary verification.
+AXM uses native development with `mise.toml` as the repository tool-version
+authority. Its repository-owned CI image reproduces required Linux verification
+with the same `pnpm` and Nx commands. The image does not replace native macOS,
+Windows, or release-binary verification.
 
 > [Commands](../../AGENTS.md#commands) - repository command policy and quality gates
 
@@ -28,7 +24,7 @@ release-binary verification.
 - [CI image workflow](../../.github/workflows/ci-image.yml) - build, validation,
   attestation, and publication
 - [AgentXM images on GHCR](https://github.com/orgs/agentxm/packages) - versioned
-  CI and development images
+  CI images
 - [GitHub Actions CI](../../.github/workflows/ci.yml) - pinned image consumer
 
 ---
@@ -37,14 +33,13 @@ release-binary verification.
 
 | Need                        | Environment                             |
 | --------------------------- | --------------------------------------- |
-| Default Linux development   | `pnpm run container:dev`                |
-| Native development          | `mise install`, then repository scripts |
+| Interactive development     | `mise install`, then repository scripts |
 | Reproduce required Linux CI | `pnpm run container:ci`                 |
 | Platform-specific behavior  | Native GitHub runner                    |
 
-The images contain tools only. Source, Git metadata, dependencies,
+The CI image contains tools only. Source, Git metadata, dependencies,
 credentials, and user state enter at runtime. The wrapper mounts the current
-worktree and Git common directory at their existing absolute paths. CI uses an
+worktree and Git common directory at their existing absolute paths. It uses an
 ephemeral home and anonymous root `node_modules` volume; Docker removes both
 with the CI container. Its pnpm and Nx stores default to scoped Docker volumes.
 An absolute `AXM_CI_PNPM_CACHE_VOLUME` or `AXM_CI_NX_CACHE_VOLUME` override is
@@ -52,13 +47,11 @@ instead treated as a bind mount; hosted PR verification uses this to restore
 the stores independently through GitHub Actions. The Nx volume retains both
 task artifacts and Nx's database-backed provenance metadata so a new ephemeral
 runner can safely recognize restored entries; unknown-cache checks remain
-enabled. Development uses the
-`axm-dev-home` identity volume and a checksum-suffixed dependency volume for the
-current worktree. The image entrypoint maps its non-root user to the host
-UID/GID, keeping Linux bind mounts writable while preventing container installs
-from replacing native-platform packages in the host `node_modules`. Both modes
-set a 65,536 file-descriptor limit for parallel test reliability across Docker
-Desktop and Linux runners. They default Nx to two concurrent project tasks;
+enabled. The image entrypoint maps its non-root user to the host UID/GID,
+keeping Linux bind mounts writable while preventing container installs from
+replacing native-platform packages in the host `node_modules`. The launcher
+sets a 65,536 file-descriptor limit for parallel test reliability across Docker
+Desktop and Linux runners and defaults Nx to two concurrent project tasks;
 hosted PR verification intentionally uses three. Use
 `AXM_CONTAINER_NX_PARALLEL` or `AXM_CONTAINER_VITEST_MAX_WORKERS` to make another
 substrate-specific override.
@@ -81,7 +74,7 @@ Required CI runs the bounded `Windows workspace lifecycle` job on
 uses the repository toolchain setup and these Nx targets:
 
 ```powershell
-pnpm nx run core:test-windows --outputStyle=static
+pnpm nx run extension-workspace:test-windows --outputStyle=static
 pnpm nx run cli-e2e:e2e-windows --outputStyle=static
 ```
 
@@ -107,12 +100,18 @@ the CLI checkout and target workspace differ:
 
 ```bash
 /path/to/axm/scripts/axm-local -C /path/to/workspace setup --yes
-bun /path/to/axm/packages/cli/src/main.ts -C /path/to/workspace list
+bun --conditions=axm-source /path/to/axm/packages/cli/src/main.ts -C /path/to/workspace list
 ```
 
 Both entrypoints preserve the caller's working directory. `-C` / `--directory`
 then selects the workspace before runtime initialization, and relative command
 arguments resolve from that directory.
+
+These path forms are the one supported exception to invoking `axm:local` by its
+published name, recorded in the
+[Repository task interface](../../docs/guides/repository-task-interface.md#entrypoints-and-host-adapters):
+outside the checkout there is no `pnpm` that resolves the name against AXM's
+`package.json`. Inside the checkout, use `pnpm run axm:local -C <workspace>`.
 
 Do not rely on `pnpm --dir /path/to/axm exec|run` to preserve the target: pnpm
 changes into the AXM checkout before starting the command. If that invocation
@@ -125,51 +124,47 @@ does not restore repository files.
 
 ---
 
-## Container Use
+## CI Container Use
 
-Docker-only bootstrap commands do not require a host Node installation:
+`pnpm run container:ci` and `pnpm run container:smoke` are the published
+workflow names for container CI, and are how the container environment is
+invoked:
 
 ```bash
-scripts/container-environment.sh shell
+pnpm run container:ci
+pnpm run container:smoke
+```
+
+Override `AXM_CI_IMAGE` only to test an intentional image upgrade.
+
+Both names run `scripts/container-environment.sh`, which is their
+implementation rather than a second entry point. Invoke that path directly only
+where no host toolchain is installed and there is therefore no `pnpm` to
+resolve the published name — Docker-only reproduction, and the CI container
+jobs, which install no toolchain by design:
+
+```bash
 scripts/container-environment.sh ci
 scripts/container-environment.sh smoke
 ```
 
-Once the native toolchain is active, the equivalent aliases are
-`pnpm run container:dev`, `pnpm run container:ci`, and
-`pnpm run container:smoke`. Override `AXM_CI_IMAGE` or `AXM_DEV_IMAGE` only to
-test an intentional image upgrade. Set `AXM_DEV_DEPS_VOLUME` only when a stable,
-operator-chosen dependency-volume name is preferable to the per-worktree
-default.
+That path invocation is a recorded exception in the
+[Repository task interface](../../docs/guides/repository-task-interface.md); do
+not add flags or environment to the `container:*` scripts without updating the
+CI call sites in the same change, since those two forms could otherwise
+diverge.
 
 The repository-owned CI image is public and must remain anonymously pullable.
-The shared development image is private; for workstation or VM use,
-authenticate Docker with a personal token that can read packages before running
-a development-container command.
-
-The development image may mount the Docker socket. Socket access is equivalent
-to authority over the host Docker engine; use it only on a trusted workstation
-or disposable development VM. Public and fork PR code runs on ephemeral
-GitHub-hosted runners, never a persistent self-hosted runner.
-
-To discard container-installed dependencies, list
-`axm-dev-deps-<worktree-checksum>` volumes with `docker volume ls` and remove the
-selected inactive worktree volume. This does not modify native `node_modules`.
-Remove `axm-dev-home` separately only when persisted CLI identity should be
-revoked.
+Public and fork PR code runs on ephemeral GitHub-hosted runners, never a
+persistent self-hosted runner.
 
 ### Container Checklist
 
 - [ ] **Docker available** -- The host or VM Docker engine is running
-- [ ] **Smoke green** -- `scripts/container-environment.sh smoke` passes
-- [ ] **Normal commands used** -- Work inside the image through repository
-      `pnpm` scripts
+- [ ] **Smoke green** -- `pnpm run container:smoke` passes
+- [ ] **Normal commands used** -- CI runs through repository `pnpm` scripts
 - [ ] **Dependencies isolated** -- Container package payloads use the Docker
       dependency volume rather than native `node_modules`
-- [ ] **Socket trusted** -- Docker socket mounts occur only on trusted or
-      disposable development substrates
-- [ ] **Volume removable** -- Remove `axm-dev-home` to revoke persisted CLI
-      identity
 
 ---
 
@@ -183,10 +178,6 @@ attestations, and verifies anonymous pullability before recording the manifest
 digest. Only after publication and soak should the required-CI workflow and
 wrapper defaults move together to the new `<version>@sha256:<digest>` reference.
 The previous digest remains the immediate rollback target.
-
-The interactive development image remains an external AgentXM-owned contract;
-its upgrade follows the same pin, smoke, and rollback discipline but is not
-published by this repository.
 
 ### Upgrade Checklist
 

@@ -7,7 +7,7 @@ import {
   nonInteractiveFlag,
   quietFlag,
   verboseFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
+} from "../../cli-flags/index.js";
 import {
   applyPlanExecution,
   credentialFreeLocatorRecoveryValue,
@@ -19,14 +19,14 @@ import {
   type ConfirmationRecoveryArgument,
   type ConfiguredAgentOperation,
   type PlanExecution,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import type { PlanPolicyId } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/workspace-operations";
+import type { PlanPolicyId } from "@agentxm/workspace-operations";
 import {
   isExtensionTypePlural,
   parseExtensionSpecParts,
   toExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 export const makeConfirmationRecovery = (
   command: ReadonlyArray<string>,
@@ -105,7 +105,7 @@ const configuredAgentOperation = (
   return {
     extensionType: toExtensionType(group),
     name,
-    targetEnabled: verb !== "disable" && verb !== "uninstall",
+    plannedState: verb === "uninstall" ? "absent" : verb === "disable" ? "disabled" : "enabled",
   };
 };
 
@@ -163,7 +163,7 @@ export const makeUninstallPlanExecution = (
           : {
               extensionType: rootParts.type,
               name: rootParts.name,
-              targetEnabled: false,
+              plannedState: "absent",
             },
       ].filter((operation): operation is ConfiguredAgentOperation => operation !== undefined);
     })(),

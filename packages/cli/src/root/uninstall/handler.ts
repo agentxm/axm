@@ -1,16 +1,14 @@
 import * as Effect from "effect/Effect";
+import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace-operations";
 import {
-  setCommandSemanticProperties,
-  summarizeCommandOutcome,
-  type SuggestedAction,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
+  type UninstallExtensionCommandWorkflowActions,
+  runUninstallCommandWorkflow,
+} from "@agentxm/extension-lifecycle";
 
-import {
-  emitPlanResolutionResult,
-  planResolutionToSummary,
-  toPlanResolutionResult,
-} from "../../json-output.js";
+import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import {
   UninstallMcpServerCommandWorkflowActions,
   type UninstallMcpServerHandlerArgs,
@@ -20,7 +18,7 @@ import {
   type UninstallHookHandlerArgs,
 } from "../hooks/uninstall/command-actions.js";
 import {
-  makeUninstallKnowledgeCommandWorkflowActions,
+  UninstallKnowledgeCommandWorkflowActions,
   type UninstallKnowledgeHandlerArgs,
 } from "../knowledge/uninstall/command-actions.js";
 import {
@@ -39,13 +37,13 @@ import {
   UninstallSubagentCommandWorkflowActions,
   type UninstallSubagentHandlerArgs,
 } from "../subagents/uninstall/command-actions.js";
-import { summarizeExecutedOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { makeUninstallPlanExecution } from "../shared/confirmation-recovery.js";
 import {
   resolveRootUninstallIntent,
   type RootUninstallableType,
 } from "./resolve-root-uninstall-intent.js";
+import { type AppError } from "../../app-error/index.js";
 
 export interface RootUninstallFlags {
   readonly yes: boolean;
@@ -55,6 +53,43 @@ export interface RootUninstallFlags {
 export interface RootUninstallHandlerArgs extends RootUninstallFlags {
   readonly source: string;
 }
+
+export interface RootUninstallActions {
+  readonly skill: Effect.Success<typeof UninstallSkillCommandWorkflowActions>;
+  readonly mcpServer: Effect.Success<typeof UninstallMcpServerCommandWorkflowActions>;
+  readonly subagent: Effect.Success<typeof UninstallSubagentCommandWorkflowActions>;
+  readonly rule: Effect.Success<typeof UninstallRuleCommandWorkflowActions>;
+  readonly hook: Effect.Success<typeof UninstallHookCommandWorkflowActions>;
+  readonly knowledge: Effect.Success<typeof UninstallKnowledgeCommandWorkflowActions>;
+  readonly pack: Effect.Success<typeof UninstallPackCommandWorkflowActions>;
+}
+
+const makeRootUninstallActions = Effect.all({
+  skill: UninstallSkillCommandWorkflowActions,
+  mcpServer: UninstallMcpServerCommandWorkflowActions,
+  subagent: UninstallSubagentCommandWorkflowActions,
+  rule: UninstallRuleCommandWorkflowActions,
+  hook: UninstallHookCommandWorkflowActions,
+  knowledge: UninstallKnowledgeCommandWorkflowActions,
+  pack: UninstallPackCommandWorkflowActions,
+});
+
+/** Root uninstall routes across every type, so it presents the default subject. */
+const rootUninstallPresentation = operationPresentation({
+  imperative: "uninstall",
+  past: "Uninstalled",
+  gerund: "Uninstalling",
+});
+
+const withRootPresentation = <Args, Parsed, Intent>(
+  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError>,
+): UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError> => ({
+  ...actions,
+  buildUninstallPlan: (intent, flags) =>
+    actions
+      .buildUninstallPlan(intent, flags)
+      .pipe(Effect.map((plan) => ({ ...plan, presentation: rootUninstallPresentation }))),
+});
 
 const uninstallSuggestions = (type: RootUninstallableType): ReadonlyArray<SuggestedAction> => {
   switch (type) {
@@ -100,7 +135,7 @@ const uninstallNoOpMessage = (
   }
 };
 
-const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
+const runUninstallIntent = (args: RootUninstallHandlerArgs, actions: RootUninstallActions) =>
   Effect.gen(function* () {
     const execution = yield* makeUninstallPlanExecution(args, ["uninstall"], [args.source]);
     const intent = yield* resolveRootUninstallIntent(args.source);
@@ -108,87 +143,126 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
     const resolution = yield* Effect.gen(function* () {
       switch (intent.type) {
         case "skill": {
-          const actions = yield* UninstallSkillCommandWorkflowActions;
           const uninstallArgs: UninstallHandlerArgs = { skill: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
-            execution,
-          });
+          return yield* runUninstallCommandWorkflow(
+            uninstallArgs,
+            withRootPresentation(actions.skill),
+            {
+              execution,
+            },
+          );
         }
         case "mcp-server": {
-          const actions = yield* UninstallMcpServerCommandWorkflowActions;
           const uninstallArgs: UninstallMcpServerHandlerArgs = { serverName: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
-            execution,
-          });
+          return yield* runUninstallCommandWorkflow(
+            uninstallArgs,
+            withRootPresentation(actions.mcpServer),
+            {
+              execution,
+            },
+          );
         }
         case "rule": {
-          const actions = yield* UninstallRuleCommandWorkflowActions;
           const uninstallArgs: UninstallRuleHandlerArgs = { name: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
-            execution,
-          });
+          return yield* runUninstallCommandWorkflow(
+            uninstallArgs,
+            withRootPresentation(actions.rule),
+            {
+              execution,
+            },
+          );
         }
         case "hook": {
-          const actions = yield* UninstallHookCommandWorkflowActions;
           const uninstallArgs: UninstallHookHandlerArgs = { name: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
-            execution,
-          });
+          return yield* runUninstallCommandWorkflow(
+            uninstallArgs,
+            withRootPresentation(actions.hook),
+            {
+              execution,
+            },
+          );
         }
         case "knowledge": {
-          const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
           const uninstallArgs: UninstallKnowledgeHandlerArgs = { name: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
-            execution,
-          });
+          return yield* runUninstallCommandWorkflow(
+            uninstallArgs,
+            withRootPresentation(actions.knowledge),
+            {
+              execution,
+            },
+          );
         }
         case "subagent": {
-          const actions = yield* UninstallSubagentCommandWorkflowActions;
           const uninstallArgs: UninstallSubagentHandlerArgs = { subagent: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
-            execution,
-          });
+          return yield* runUninstallCommandWorkflow(
+            uninstallArgs,
+            withRootPresentation(actions.subagent),
+            {
+              execution,
+            },
+          );
         }
         case "pack": {
-          const actions = yield* UninstallPackCommandWorkflowActions;
           const uninstallArgs: UninstallPackHandlerArgs = { name: intent.name };
-          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, {
-            execution,
-          });
+          return yield* runUninstallCommandWorkflow(
+            uninstallArgs,
+            withRootPresentation(actions.pack),
+            {
+              execution,
+            },
+          );
         }
       }
     });
 
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(
-        planResolutionToSummary(resolution, {
+        operationResolutionSummary(resolution, {
           subjectType: intent.type,
           sourceKind: "registry",
         }),
       ),
     );
-    const result = toPlanResolutionResult(resolution);
-    const allStepsAlreadyAbsent =
-      result.totalSteps > 0 &&
-      result.steps.every((step) => step.message === "not installed" || step.status === "unchanged");
-    if (result.outcome === "no-op" || allStepsAlreadyAbsent) {
+    const allUnitsAlreadyAbsent =
+      resolution.units.length > 0 &&
+      resolution.units.every(
+        (unit) => unit.message === "not installed" || unit.state === "unchanged",
+      );
+    if (deriveOperationOutcome(resolution) === "no-op" || allUnitsAlreadyAbsent) {
       yield* emitNoOpOutcome("uninstall", {
-        planName: result.planName,
-        message: uninstallNoOpMessage(intent.type, intent.name, allStepsAlreadyAbsent),
+        planName: resolution.name,
+        message: uninstallNoOpMessage(intent.type, intent.name, allUnitsAlreadyAbsent),
       });
       return;
     }
 
-    if (resolution._tag === "ExecutedPlan") {
-      const summary = summarizeExecutedOutcome(resolution);
-      yield* emitPlanResolutionResult("uninstall", resolution, {
-        ...(summary === undefined ? {} : { summary }),
-        suggestions: uninstallSuggestions(intent.type),
-      });
-      return;
-    }
-
-    yield* emitPlanResolutionResult("uninstall", resolution);
+    yield* emitOperationResolution("uninstall", resolution, {
+      suggestions: uninstallSuggestions(intent.type),
+    });
   });
 
-export const handleUninstall = (args: RootUninstallHandlerArgs) => runUninstallIntent(args);
+const handleUninstallWithActionEffect = <R>(
+  args: RootUninstallHandlerArgs,
+  actionsEffect: Effect.Effect<RootUninstallActions, never, R>,
+) =>
+  withOperationLifecycle(
+    {
+      command: "uninstall",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Uninstall extension",
+      presentation: operationPresentation({
+        imperative: "uninstall",
+        past: "Uninstalled",
+        gerund: "Uninstalling",
+      }),
+    },
+    Effect.flatMap(actionsEffect, (actions) => runUninstallIntent(args, actions)),
+  );
+
+export const handleUninstall = (args: RootUninstallHandlerArgs) =>
+  handleUninstallWithActionEffect(args, makeRootUninstallActions);
+
+export const handleUninstallWithActions = (
+  args: RootUninstallHandlerArgs,
+  actions: RootUninstallActions,
+) => handleUninstallWithActionEffect(args, Effect.succeed(actions));

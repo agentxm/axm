@@ -1,0 +1,45 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@agentxm",
+  "name": "agent-engineering",
+  "version": "0.10.0",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations",
+  "keywords": [
+    "agent-engineering",
+    "ai-agents",
+    "agentic-systems",
+    "agent-design",
+    "control-loops",
+    "planning",
+    "tool-use",
+    "multi-agent",
+    "human-oversight",
+    "agent-safety",
+    "prompt-engineering",
+    "context-engineering",
+    "harness-engineering",
+    "skill-engineering",
+    "agent-skills",
+    "agent-mediated-ux",
+    "human-agent-interaction",
+    "eval-engineering",
+    "agent-evaluation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/agent-extensions",
+    "directory": "knowledge/agent-engineering"
+  },
+  "homepage": "https://github.com/agentxm/agent-extensions",
+  "license": "CC-BY-4.0",
+  "recommendedPacks": [
+    "@agentxm/packs/agent-engineering"
+  ],
+  "standalone": true
+}

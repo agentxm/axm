@@ -5,8 +5,8 @@
  *
  * 1. Resolve workspace root + scope (project: cwd (or `<path>`), user:
  *    `$AXM_USER_HOME` or `$HOME`, ignoring `<path>`).
- * 2. Load `.axm/settings.json` (if present) to recover the configured
- *    `lint.rules` overrides.
+ * 2. Load project-root `axm.json` or user-workspace `.axm/workspace/axm.json` (if
+ *    present) to recover the configured `lint.rules` overrides.
  * 3. Build a `LintWorkspace` (rule context + flat projection) from the
  *    workspace read model, then assemble workspace / skill / pack rule
  *    contexts via the shared-kernel builders.
@@ -14,8 +14,8 @@
  * 5. Emit human text / JSON output through the CLI renderer and translate
  *    the lint exit category into a process exit code.
  *
- * The lint runner primitives live in
- * `@agentxm/client-core/unstable/lint` so the handler stays a thin surface.
+ * The lint runner primitives live in `@agentxm/workspace-lint` so the handler
+ * stays a thin surface.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -24,49 +24,45 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
-import { WorkspaceInvariantFacts } from "@agentxm/client-core/unstable/projection";
-import { AxmSkillCompatibilityPolicy } from "@agentxm/client-core/unstable/skills";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { ExitCode, makeAppError } from "../../app-error/index.js";
+import { Screen } from "../../screen/index.js";
+import { Verbosity } from "../../cli-flags/index.js";
+import { effectCliExit } from "../../cli-runtime/index.js";
+import { WorkspaceInvariantFacts, observeAgentOutputs } from "@agentxm/extension-workspace";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { inspectWorkspaceOwnership } from "@agentxm/workspace-sync";
+import { syncFailureToAppError } from "../../feature-errors.js";
 import {
-  reconcileInstructionTargets,
-  resolveInstructionsConfig,
-} from "@agentxm/client-core/unstable/agents";
-import {
+  applyDeterminedRepairs,
   buildLintWorkspace,
-  buildPackRuleContexts,
-  buildSkillRuleContexts,
-  composePath,
+  lintConfigFromSettings,
+  loadSettingsDocument,
+  remapLintSummaryPaths,
+  resolveLintRoot,
   evaluateAllCatalogs,
   resolveLintExitCategory,
   summarizeEvaluations,
   toLintHumanBlocks,
   toLintJsonDocument,
-  type LintHumanBlock,
-  type LintHumanDiagnostic,
   LintJsonDocumentSchema,
   type LintJsonDocument,
   type LintInput,
   type LintSummary,
-} from "@agentxm/client-core/unstable/lint";
-import type { LintConfig } from "@agentxm/client-core/unstable/lint";
+} from "@agentxm/workspace-lint";
+import { buildPackRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/pack-accessor/contexts";
+import { buildSkillRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/skill-accessor/contexts";
 import {
-  AXM_DIR_NAME,
   WorkspaceMutations,
-  getUserScopeDir,
+  resolveUserHome,
   acceptedCanonicalObservation,
-  inspectWorkspaceOwnership,
-  type WorkspaceScope,
-} from "@agentxm/client-core/unstable/workspace";
-import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
-import type { Settings } from "@agentxm/client-core/unstable/settings";
+} from "@agentxm/workspace-state";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import * as os from "node:os";
 import { ExecutionDirectory } from "../../execution-directory.js";
+import { toAppError } from "../../app-error/conversions.js";
+import { lintView } from "./view.js";
 
 // -----------------------------------------------------------------------------
 // Handler args
@@ -81,87 +77,7 @@ export interface HandleLintArgs {
   readonly fix: boolean;
   readonly input: LintInput;
   readonly displayWorkspaceRoot?: string;
-  readonly ruleOverrides?: LintConfig["rules"];
 }
-
-type PathRemapper = Pick<Path.Path, "isAbsolute" | "join" | "relative">;
-
-const remapAbsolutePath = (
-  value: string,
-  sourceRoot: string,
-  displayRoot: string,
-  path: PathRemapper,
-): string => {
-  if (!path.isAbsolute(value)) return value;
-  const relative = path.relative(sourceRoot, value);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) return value;
-  return relative === "" ? displayRoot : path.join(displayRoot, relative);
-};
-
-/** Replace temporary staged-snapshot roots without changing lint semantics. */
-export const remapLintSummaryPaths = (
-  summary: LintSummary,
-  sourceRoot: string,
-  displayRoot: string,
-  path: PathRemapper,
-): LintSummary => ({
-  ...summary,
-  findings: summary.findings.map((entry) => {
-    const remappedDisplayRoot = remapAbsolutePath(entry.displayRoot, sourceRoot, displayRoot, path);
-    const location = entry.finding.location;
-    const remappedLocation =
-      location === undefined
-        ? undefined
-        : {
-            ...location,
-            file: remapAbsolutePath(location.file, sourceRoot, displayRoot, path),
-          };
-    return {
-      ...entry,
-      displayRoot: remappedDisplayRoot,
-      path: composePath(remappedDisplayRoot, remappedLocation),
-      finding:
-        remappedLocation === undefined
-          ? entry.finding
-          : { ...entry.finding, location: remappedLocation },
-    };
-  }),
-});
-
-// -----------------------------------------------------------------------------
-// Root resolution
-// -----------------------------------------------------------------------------
-
-/**
- * Resolve the workspace root for a lint run.
- *
- * - `--scope=project` (default): use the optional `<path>` argument if
- *   provided, otherwise the caller-supplied `cwd` (defaulting to
- *   the invocation execution directory when loaded via {@link resolveLintRootEffect}).
- * - `--scope=user`: use the parent of the resolved user-scope `.axm`
- *   directory. Ignores `<path>`.
- *
- * XDG layout: v1 honors `AXM_USER_HOME` as an override; full
- * `XDG_DATA_HOME`/`XDG_CONFIG_HOME` integration is deferred to a follow-up
- * (see design doc §10 Open Items #10).
- *
- * @internal Exported for tests.
- */
-export const resolveLintRoot = (args: {
-  readonly pathArg: Option.Option<string>;
-  readonly scope: WorkspaceScope;
-  readonly cwd: string;
-  readonly userScopeDir: string;
-  readonly pathDirname: (path: string) => string;
-}): string => {
-  if (args.scope === "user") {
-    return args.pathDirname(args.userScopeDir);
-  }
-  return Option.match(args.pathArg, {
-    onNone: () => args.cwd,
-    onSome: (p) => p,
-  });
-};
 
 /**
  * Effectful wrapper around {@link resolveLintRoot}. The CLI handler calls this
@@ -172,98 +88,13 @@ const resolveLintRootEffect = (args: {
   readonly scope: WorkspaceScope;
 }) =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
     const executionDirectory = yield* ExecutionDirectory;
-    const userScopeDir = yield* getUserScopeDir();
+    const userHome = yield* resolveUserHome();
     return resolveLintRoot({
       pathArg: args.pathArg,
       scope: args.scope,
       cwd: executionDirectory.path,
-      userScopeDir,
-      pathDirname: path.dirname,
-    });
-  });
-
-// -----------------------------------------------------------------------------
-// Settings loading
-// -----------------------------------------------------------------------------
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
-/**
- * Decode `.axm/settings.json`. Returns `None` when the file is missing, empty,
- * or unparseable, so lint still runs — the relevant
- * `workspace/settings-schema-valid` rule produces the user-facing finding for a
- * bad settings file. Callers derive `lint.rules` and the `--fix` inputs from
- * the one decode.
- *
- * @internal
- */
-const loadSettingsDocument = (
-  workspaceRoot: string,
-): Effect.Effect<Option.Option<Settings>, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const settingsPath = path.join(workspaceRoot, AXM_DIR_NAME, "settings.json");
-    const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
-      return Option.none();
-    }
-    const raw = yield* fs.readFileString(settingsPath).pipe(Effect.catch(() => Effect.succeed("")));
-    if (raw.length === 0) {
-      return Option.none();
-    }
-    const parsed = Effect.try({
-      try: (): unknown => JSON.parse(raw),
-      catch: () => makeAppError({ code: "validation", detail: "" }),
-    });
-    const parsedOpt = yield* parsed.pipe(
-      Effect.map(Option.some),
-      Effect.catch(() => Effect.succeed(Option.none<unknown>())),
-    );
-    if (Option.isNone(parsedOpt)) {
-      return Option.none();
-    }
-    return decodeSettings(parsedOpt.value);
-  });
-
-const lintConfigFromSettings = (settings: Option.Option<Settings>): LintConfig =>
-  Option.match(settings, {
-    onNone: () => ({}),
-    onSome: (s) => s.lint ?? {},
-  });
-
-/**
- * Apply the repairs whose desired state is already determined by authoritative
- * local state. Instruction targets are content-derived from their canonical
- * source, so regenerating them expresses no preference.
- *
- * This delegates to the same reconciliation `axm sync` performs rather than
- * defining a second desired state. A workspace that has not enabled
- * instruction-file management has nothing determined to restore, so `--fix`
- * leaves it untouched.
- */
-const applyDeterminedRepairs = (args: {
-  readonly workspaceRoot: string;
-  readonly scope: WorkspaceScope;
-  readonly settings: Option.Option<Settings>;
-}) =>
-  Effect.gen(function* () {
-    if (Option.isNone(args.settings)) return;
-    const instructionFiles = args.settings.value.instructionFiles;
-    if (instructionFiles === undefined || instructionFiles === false) return;
-    yield* reconcileInstructionTargets({
-      workspaceRoot: args.workspaceRoot,
-      scope: args.scope,
-      configuredAgents: args.settings.value.agents ?? [],
-      config: resolveInstructionsConfig(instructionFiles),
+      userHome,
     });
   });
 
@@ -279,167 +110,24 @@ export type LintResultDocument = typeof LintResultDocumentSchema.Type;
 
 const emitJsonDocument = (doc: LintJsonDocument, ok: boolean) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    return yield* renderer.result({ result: doc }, LintResultDocumentSchema, { ok });
+    const screen = yield* Screen;
+    return yield* screen.document({ result: doc }, LintResultDocumentSchema, { ok });
   });
 
 const emitHumanOutput = (args: { readonly summary: LintSummary; readonly details: boolean }) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const blocks = toLintHumanBlocks({
       summary: args.summary,
       reporter: args.details ? "full" : "grouped",
     });
     const verbosity = yield* Verbosity;
-    if (!verbosity.isAtLeast("normal")) {
-      yield* emitQuietHumanOutput(renderer, blocks);
-      return;
-    }
-
     yield* Effect.forEach(
-      blocks,
-      (block) =>
-        Effect.gen(function* () {
-          switch (block.kind) {
-            case "overview":
-              yield* emitSummary(renderer, block.message, block.counts);
-              yield* Effect.forEach(block.notes, (note) => renderer.message(note), {
-                discard: true,
-              });
-              return;
-            case "blank":
-              yield* renderer.message("");
-              return;
-            case "section": {
-              const label =
-                block.note === undefined ? block.title : `${block.title} (${block.note})`;
-              yield* renderer.step(label);
-              return;
-            }
-            case "diagnostic":
-              yield* emitGroupedHumanDiagnostic(renderer, block.diagnostic);
-              return;
-            case "driftBanner":
-              yield* renderer.warn(block.title);
-              yield* Effect.forEach(block.ruleIds, (id) => renderer.message(`  ${id}`), {
-                discard: true,
-              });
-              return;
-            case "pathGroup":
-              yield* renderer.message(block.path);
-              yield* Effect.forEach(
-                block.diagnostics,
-                (diagnostic) => emitFullHumanDiagnostic(renderer, diagnostic),
-                {
-                  discard: true,
-                },
-              );
-              return;
-            case "empty":
-              yield* renderer.success(block.message);
-              return;
-            case "footer":
-              return;
-          }
-        }),
+      lintView(blocks, verbosity.level),
+      (entry) => (entry.channel === "result" ? screen.result(entry.doc) : screen.note(entry.doc)),
       { discard: true },
     );
   });
-
-const emitQuietHumanOutput = (
-  renderer: typeof CliRenderer.Service,
-  blocks: ReadonlyArray<LintHumanBlock>,
-) =>
-  Effect.forEach(
-    blocks,
-    (block) =>
-      Effect.gen(function* () {
-        switch (block.kind) {
-          case "overview":
-            yield* emitSummary(renderer, block.message, block.counts);
-            return;
-          case "driftBanner":
-            yield* renderer.warn(block.title);
-            return;
-          default:
-            return;
-        }
-      }),
-    { discard: true },
-  );
-
-const emitFullHumanDiagnostic = (
-  renderer: typeof CliRenderer.Service,
-  diagnostic: LintHumanDiagnostic,
-) =>
-  Effect.gen(function* () {
-    const label = `${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}: ${diagnostic.title}`;
-    switch (diagnostic.severity) {
-      case "error":
-        yield* renderer.error(label);
-        break;
-      case "warning":
-        yield* renderer.warn(label);
-        break;
-      case "info":
-        yield* renderer.info(label);
-        break;
-    }
-    yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
-      discard: true,
-    });
-    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
-      discard: true,
-    });
-  });
-
-const emitGroupedHumanDiagnostic = (
-  renderer: typeof CliRenderer.Service,
-  diagnostic: LintHumanDiagnostic,
-) =>
-  Effect.gen(function* () {
-    const location =
-      diagnostic.paths.length === 1
-        ? (diagnostic.paths[0] ?? "")
-        : diagnostic.paths.length > 1
-          ? `(${diagnostic.paths.length} locations)`
-          : "(workspace)";
-    switch (diagnostic.severity) {
-      case "error":
-        yield* renderer.error(location);
-        break;
-      case "warning":
-        yield* renderer.warn(location);
-        break;
-      case "info":
-        yield* renderer.info(location);
-        break;
-    }
-    yield* renderer.message(
-      `  rule: ${diagnostic.ruleId}${diagnostic.fixable ? " (auto-fixable)" : ""}`,
-    );
-    yield* renderer.message(`  ${diagnostic.title}`);
-    yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
-      discard: true,
-    });
-    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
-      discard: true,
-    });
-  });
-
-const emitSummary = (
-  renderer: typeof CliRenderer.Service,
-  message: string,
-  counts: LintSummary["counts"],
-) => {
-  if (counts.errors > 0) {
-    return renderer.error(message);
-  }
-  if (counts.warnings > 0) {
-    return renderer.warn(message);
-  }
-  return renderer.info(message);
-};
 
 // -----------------------------------------------------------------------------
 // Handler entry point
@@ -457,20 +145,16 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   });
 
   // -- Load settings + lockfile + config --
-  const settings = yield* loadSettingsDocument(workspaceRoot);
+  const settings = yield* loadSettingsDocument(workspaceRoot, args.scope);
 
   // -- Repair before observing, so the report reflects the reconciled state --
   if (args.fix) {
-    yield* applyDeterminedRepairs({ workspaceRoot, scope: args.scope, settings });
+    yield* applyDeterminedRepairs({ workspaceRoot, scope: args.scope, settings }).pipe(
+      Effect.mapError(toAppError),
+    );
   }
 
-  const loadedConfig = lintConfigFromSettings(settings);
-  const config =
-    args.ruleOverrides === undefined
-      ? loadedConfig
-      : ({
-          rules: { ...loadedConfig.rules, ...args.ruleOverrides },
-        } satisfies LintConfig);
+  const config = lintConfigFromSettings(settings);
 
   // -- Build WorkspaceReadModel-backed rule contexts --
   const userHome = args.scope === "user" ? workspaceRoot : yield* Effect.sync(() => os.homedir());
@@ -482,7 +166,10 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     scope: args.scope,
     gitIndexView: args.input.view === "git-index",
     axmSkillCompatibilityPolicy,
-    owner: ws.getConfiguredOwner().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+    owner: ws
+      .getConfiguredOwner()
+      .pipe(Effect.mapError(toAppError))
+      .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
     projections: {
       facts: invariantFacts.projectionFacts,
     },
@@ -495,43 +182,12 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
         }),
       ),
     ),
-    Effect.catchTags({
-      SettingsIoError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Unable to read workspace settings at '${error.path}'`,
-        }),
-      SettingsParseError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Workspace settings at '${error.path}' are not valid JSON`,
-        }),
-      SettingsDecodeError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Workspace settings at '${error.path}' are invalid: ${error.issues.join("; ")}`,
-        }),
-      LockfileIoError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Unable to read workspace lockfile at '${error.path}'`,
-        }),
-      LockfileParseError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Workspace lockfile at '${error.path}' is not valid YAML`,
-        }),
-      LockfileDecodeError: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Workspace lockfile at '${error.path}' is invalid: ${error.issues.join("; ")}`,
-        }),
-    }),
+    Effect.mapError(toAppError),
   );
   const skillContexts = buildSkillRuleContexts(view);
   const packContexts = buildPackRuleContexts(view);
   const canonicalObservations = Effect.gen(function* () {
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     return yield* Effect.forEach(
       graph.nodes,
       (node) =>
@@ -540,7 +196,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
             workspace: ws,
             type: node.type,
             name: node.name,
-          });
+          }).pipe(Effect.mapError(toAppError));
           if (Option.isNone(accepted)) {
             return yield* makeAppError({
               code: "internal",
@@ -556,16 +212,48 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     );
   });
   const ownershipIssues = yield* inspectWorkspaceOwnership().pipe(
+    Effect.mapError(syncFailureToAppError),
     Effect.provideService(FileSystem.FileSystem, fs),
     Effect.provideService(Path.Path, path),
     Effect.provideService(WorkspaceMutations, ws),
     Effect.provideService(CodingAgentRepository, agentRepo),
   );
+  const desiredGraph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+  const enabledNames = (extensionType: "skill" | "subagent" | "mcp-server" | "hook") =>
+    new Set(
+      desiredGraph.nodes
+        .filter((node) => node.enabled && node.type === extensionType)
+        .map(({ name }) => name),
+    );
+  const expectedSubagentNames = enabledNames("subagent");
+  const desiredAgentIds = new Set(
+    (yield* agentRepo.getMaterializationAgents()).map(({ id }) => id),
+  );
+  const agentOutputs = yield* observeAgentOutputs({
+    workspaceRoot: ws.baseDir,
+    scope: ws.scope,
+    desiredAgentIds,
+    expectedNames: {
+      skill: new Set([...enabledNames("skill"), ...expectedSubagentNames]),
+      subagent: expectedSubagentNames,
+      "mcp-server": enabledNames("mcp-server"),
+      hook: enabledNames("hook"),
+    },
+    skillOwnershipRoots:
+      ws.layout.scope === "project"
+        ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
+        : [ws.layout.acquiredRoot],
+  }).pipe(
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+    Effect.provideService(CodingAgentRepository, agentRepo),
+  );
   const workspaceHealthContext = {
     ...workspaceContext,
     ownership: Effect.succeed(ownershipIssues),
+    agentOutputs: Effect.succeed(agentOutputs),
     health: {
-      desiredState: ws.getDesiredStateGraph(),
+      desiredState: ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError)),
       canonicalObservations,
     },
   };
@@ -593,7 +281,9 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const axmSkillCompatibility =
     workspaceContext.axmSkillCompatibility === undefined
       ? undefined
-      : Option.getOrUndefined(yield* workspaceContext.axmSkillCompatibility.pipe(Effect.option));
+      : Option.getOrUndefined(
+          Option.flatten(yield* workspaceContext.axmSkillCompatibility.pipe(Effect.option)),
+        );
 
   // -- Resolve the semantic outcome before emitting the machine document so
   // its `ok` field and the eventual process exit code cannot disagree. --

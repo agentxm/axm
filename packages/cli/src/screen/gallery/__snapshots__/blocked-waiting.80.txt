@@ -1,0 +1,10 @@
+▲ Waiting — another operation holds the workspace (axm sync, pid 48213)
+
+▲ Install is blocked — another operation holds the workspace
+axm sync (pid 48213) has held the workspace transition for 30 seconds; nothing
+was attempted.
+▲ @craigsmitham/effect-v4     not attempted: the workspace is held
+▲ @craigsmitham/field-notes   not attempted: the workspace is held
+Next
+  Wait for the other operation, then rerun · axm install
+  Inspect the holder · axm lint --workspace

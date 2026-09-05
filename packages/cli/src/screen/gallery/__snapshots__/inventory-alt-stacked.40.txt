@@ -1,0 +1,36 @@
+4 skills (3 configured, 0 implicit, 3
+installed, 1 unmanaged)
+Name            @craigsmitham/effect-v4
+State           installed
+Activation      enabled
+Type            registry
+Agents          claude-code, codex,
+                cursor, gemini-cli
+Agent outcomes  claude-code:projected,
+                codex:projected,
+                cursor:projected,
+                gemini-cli:projected
+
+Name
+  @craigsmitham/field-notes
+State           installed
+Activation      enabled
+Type            registry
+Agents          claude-code, codex
+Agent outcomes  claude-code:projected,
+                codex:current
+
+Name
+  @agentxm/knowledge/agentxm
+State           installed
+Activation      disabled
+Type            registry
+Agents          none
+Agent outcomes  none
+
+Name            local-notes
+State           detected
+Activation      n/a
+Type            detected
+Agents          none
+Agent outcomes  none

@@ -2,16 +2,16 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import {
   ExtensionNameSchema,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionName,
   type ExtensionType,
   type Handle,
   toExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   VersionRangeSchema,
   type VersionRange,
-} from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/version-constraints";
 
 const decodeExtensionName = Schema.decodeUnknownResult(ExtensionNameSchema);
 const decodeVersionRange = Schema.decodeUnknownResult(VersionRangeSchema);
@@ -93,7 +93,7 @@ export const parseRegistryInstallTarget = (
   input: string,
   options: ParseRegistryInstallTargetOptions,
 ): Result.Result<RegistryInstallTarget, RegistryInstallTargetParseError> => {
-  const parsedRegistry = parseRegistrySourcePatternParts(input);
+  const parsedRegistry = parseSourceQualifiedRegistrySourcePatternParts(input);
   if (parsedRegistry !== undefined) {
     const parsedSingularType =
       parsedRegistry.type !== undefined ? toExtensionType(parsedRegistry.type) : undefined;

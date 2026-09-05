@@ -1,0 +1,18 @@
+  @craigsmitham/effect-v4  skill
+Version       0.4.2
+Source        registry (https://registry.axm.sh/@craigsmitham/effect-v4)
+Owner         @craigsmitham
+Installed at  agent_extensions/agentxm/@craigsmitham/skills/effect-v4
+Description   Checklists to consult when designing, implementing, maintaining,
+              or reviewing Effect v4 TypeScript.
+Activation    enabled
+
+Agents
+  Agent         Status      Path
+  claude-code   projected   .claude/skills/effect-v4
+  codex         projected   .codex/skills/effect-v4
+  cursor        blocked     .cursor/skills/effect-v4
+  Not shown at this width: Detail
+Next
+  Update to the latest version · axm update @craigsmitham/effect-v4
+  Read the package page · https://axm.sh/@craigsmitham/effect-v4

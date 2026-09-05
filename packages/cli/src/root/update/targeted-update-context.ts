@@ -1,16 +1,21 @@
 import * as crypto from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as semver from "semver";
 
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
+import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 import type {
   ConfiguredRecordRow,
   DesiredExtensionOrigin,
   DesiredStateGraph,
-} from "@agentxm/client-core/unstable/workspace";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/workspace-state";
+import {
+  WorkspaceMutations,
+  configuredRowsByName,
+  desiredStateProblemText,
+} from "@agentxm/workspace-state";
+import { toAppError } from "../../app-error/conversions.js";
 
 export type TargetedUpdateBlocker =
   | "not-desired"
@@ -18,6 +23,7 @@ export type TargetedUpdateBlocker =
   | "pack-owned-constraint"
   | "incomplete-graph"
   | "constraint-conflict"
+  | "bundled-source"
   | "source-authority"
   | "stale-plan";
 
@@ -28,7 +34,7 @@ export type TargetedUpdateEffect = "unchanged" | "may-update";
 export interface TargetedUpdatePublicContext {
   readonly target: {
     readonly type: Exclude<
-      import("@agentxm/client-core/unstable/extensions").InstallableExtensionType,
+      import("@agentxm/extension-model/unstable/extensions/installable-types").InstallableExtensionType,
       "pack"
     >;
     readonly name: string;
@@ -38,7 +44,7 @@ export interface TargetedUpdatePublicContext {
   readonly activation: "enabled" | "disabled";
   readonly authority: TargetedUpdateAuthority;
   readonly direct?: {
-    readonly source: "registry" | "workspace";
+    readonly source: "bundled" | "inline" | "registry" | "workspace";
     readonly enabled: boolean;
     readonly constraint?: string;
   };
@@ -53,7 +59,7 @@ export interface TargetedUpdatePublicContext {
   readonly effectiveConstraint?: string;
   readonly memberClosure: ReadonlyArray<{
     readonly type: Exclude<
-      import("@agentxm/client-core/unstable/extensions").InstallableExtensionType,
+      import("@agentxm/extension-model/unstable/extensions/installable-types").InstallableExtensionType,
       "pack"
     >;
     readonly name: string;
@@ -92,8 +98,18 @@ interface ClassifyTargetedUpdateArgs {
   readonly packEvidence?: ReadonlyArray<unknown>;
 }
 
-const normalizedIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+const normalizedIdentity = (identity: string): string => {
+  for (const prefix of ["workspace:", "bundled:"]) {
+    if (identity.startsWith(prefix)) return identity.slice(prefix.length);
+  }
+  return identity;
+};
+
+const registryFqnFromSource = (source: string | undefined): string | undefined => {
+  if (source === undefined) return undefined;
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
+  return parsed?.name === undefined ? undefined : `${parsed.owner}/${parsed.type}/${parsed.name}`;
+};
 
 const sourceAuthority = (source: string): "registry" | "workspace" =>
   isWorkspaceSourceLocator(source) ? "workspace" : "registry";
@@ -102,37 +118,19 @@ const configuredPackFqn = (
   entry: ConfiguredRecordRow,
   configuredOwner?: string,
 ): string | undefined => {
-  if (entry.source === "registry") {
+  if (entry.source === undefined) return undefined;
+  if (entry.source === "registry" || isWorkspaceSourceLocator(entry.source)) {
     return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
   }
   const source = normalizedIdentity(entry.source);
-  const parsed = parseRegistrySourcePatternParts(source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
   return parsed?.type === "packs" && parsed.name !== undefined
     ? `${parsed.owner}/packs/${parsed.name}`
     : undefined;
 };
 
-const intersectConstraints = (constraints: ReadonlyArray<string>): string | undefined => {
-  if (constraints.length === 0) return "";
-  let intersections = [""];
-  for (const constraint of constraints) {
-    const validRange = semver.validRange(constraint);
-    if (validRange === null) return undefined;
-    const range = new semver.Range(validRange);
-    intersections = intersections.flatMap((current) =>
-      range.set.flatMap((comparators) => {
-        const candidate = [current, ...comparators.map((comparator) => comparator.value)]
-          .filter((part) => part.length > 0)
-          .join(" ");
-        return semver.minVersion(candidate) === null ? [] : [candidate];
-      }),
-    );
-    if (intersections.length === 0) return undefined;
-  }
-  return intersections.join(" || ");
-};
-
-const originConstraint = (origin: DesiredExtensionOrigin): string | undefined => origin.constraint;
+const originConstraint = (origin: DesiredExtensionOrigin): string | undefined =>
+  origin.type === "settings" && origin.authority === "inline" ? undefined : origin.constraint;
 
 const blockedEffects = {
   settings: "unchanged",
@@ -162,18 +160,24 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
   const node = args.graph.nodes.find(
     (candidate) =>
       candidate.type === args.target.type &&
-      candidate.name === args.target.name &&
-      normalizedIdentity(candidate.identity) === args.target.fqn,
+      (normalizedIdentity(candidate.identity) === args.target.fqn ||
+        (candidate.type === "mcp-server" &&
+          registryFqnFromSource(candidate.source) === args.target.fqn)),
   );
-  const globalProblems = args.graph.problems.filter((problem) => problem.type.startsWith("pack-"));
   const targetProblems = args.graph.problems.filter(
     (problem) =>
       (problem.type === "projection-collision" || problem.type === "constraint-conflict") &&
       problem.extensionType === args.target.type &&
       problem.name === args.target.name,
   );
-  const relevantProblems = [...globalProblems, ...targetProblems];
+  const relevantProblems = args.graph.problems.filter(
+    (problem) =>
+      problem.type.startsWith("pack-") ||
+      problem.type === "constraint-conflict" ||
+      targetProblems.includes(problem),
+  );
   const directOrigin = node?.origins.find((origin) => origin.type === "settings");
+  const bundled = node?.identity.startsWith("bundled:") === true;
   const packOrigins = (node?.origins ?? [])
     .filter(
       (origin): origin is Extract<DesiredExtensionOrigin, { readonly type: "pack" }> =>
@@ -195,7 +199,7 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     return {
       fqn: normalizedIdentity(origin.pack),
       ...(configured === undefined ? {} : { configuredName: configured.name }),
-      ...(configured === undefined
+      ...(configured?.source === undefined
         ? {}
         : {
             source: sourceAuthority(configured.source),
@@ -205,11 +209,16 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
       enabled: origin.enabled,
     };
   });
-  const direct =
+  const direct: TargetedUpdatePublicContext["direct"] =
     directOrigin === undefined
       ? undefined
       : {
-          source: sourceAuthority(directOrigin.source),
+          source:
+            directOrigin.source === undefined
+              ? "inline"
+              : bundled
+                ? "bundled"
+                : sourceAuthority(directOrigin.source),
           enabled: directOrigin.enabled,
           ...(directOrigin.constraint === undefined ? {} : { constraint: directOrigin.constraint }),
         };
@@ -221,7 +230,7 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
         )),
     ...packOrigins.map((origin) => origin.constraint),
   ];
-  const intersection = intersectConstraints(constraints);
+  const intersection = intersectVersionConstraints(constraints);
   const activation = node?.enabled === true ? "enabled" : "disabled";
   let blocker: TargetedUpdateBlocker | undefined;
   if (relevantProblems.length > 0) {
@@ -232,7 +241,10 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     blocker = "not-desired";
   } else if (!node.enabled) {
     blocker = "disabled";
+  } else if (direct?.source === "bundled") {
+    blocker = "bundled-source";
   } else if (
+    direct?.source === "inline" ||
     direct?.source === "workspace" ||
     packOrigins.some((origin) => isWorkspaceSourceLocator(origin.source))
   ) {
@@ -258,7 +270,9 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     memberClosure: node === undefined ? [] : [args.target],
     effects:
       authority === "blocked" ? blockedEffects : plannedEffects(authority, args.explicitRange),
-    relevantProblems: relevantProblems.map((problem) => problem.type).sort(),
+    relevantProblems: relevantProblems
+      .map((problem) => `${problem.type}: ${desiredStateProblemText(problem)}`)
+      .sort((left, right) => left.localeCompare(right)),
     ...(blocker === undefined ? {} : { blocker }),
   };
 
@@ -280,11 +294,12 @@ export const resolveTargetedUpdateContext = (args: {
 }) =>
   Effect.gen(function* () {
     const workspace = yield* WorkspaceMutations;
-    const graph = yield* workspace.getDesiredStateGraph();
+    const graph = yield* workspace.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     const configuredPacks = yield* workspace.records
       .rows("pack")
+      .pipe(Effect.mapError(toAppError))
       .pipe(Effect.map((rows) => Object.values(configuredRowsByName(rows))));
-    const configuredOwner = yield* workspace.getConfiguredOwner();
+    const configuredOwner = yield* workspace.getConfiguredOwner().pipe(Effect.mapError(toAppError));
     const baseArgs = {
       target: args.target,
       ...(args.explicitRange === undefined ? {} : { explicitRange: args.explicitRange }),
@@ -301,7 +316,9 @@ export const resolveTargetedUpdateContext = (args: {
               candidate.type === "pack" && normalizedIdentity(candidate.identity) === pack.fqn,
           );
           if (packNode === undefined) return { fqn: pack.fqn, accepted: "absent" };
-          const accepted = yield* workspace.getLockedPack(packNode.name);
+          const accepted = yield* workspace
+            .getLockedPack(packNode.name)
+            .pipe(Effect.mapError(toAppError));
           return {
             fqn: pack.fqn,
             accepted: Option.getOrUndefined(accepted) ?? "absent",

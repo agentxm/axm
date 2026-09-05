@@ -56,14 +56,18 @@ resolution, publish content, claim unowned native content, or remove
 workspace-authored inventory merely because it is not desired. It does not
 choose between conflicting explicit choices.
 
-Present byte drift in installed external canonical content is preserved during
-ordinary sync and remains valid projection input. Explicit update or reinstall
-owns replacement and discloses it.
+Present byte drift in acquired canonical content is preserved during ordinary
+sync but is not valid projection input. The affected semantic mutation closure
+blocks until explicit `reinstall`, `update`, or `fork` establishes valid
+authority again.
 
 Sync realizes configured agents, instruction-file behavior, and inline MCP
 definitions without inventing extension archives, canonical copies, or lock
 rows. It does not add detected agents, enable instruction management, choose a
 different canonical instruction file, or activate a disabled contributor.
+Inline MCP definitions are sync-owned reconciliation inputs: their command or
+URL transport is projected directly from workspace configuration without a
+source-resolution step.
 
 ## Accepted resolution and source availability
 
@@ -93,18 +97,21 @@ of decisions at its smallest independently mutable ownership unit:
 | Observed native unit                                | Sync behavior                                         |
 | --------------------------------------------------- | ----------------------------------------------------- |
 | Required and missing                                | Create it with durable unit-local ownership evidence. |
-| Required, AXM-owned, and stale                      | Restore it.                                           |
-| Required, AXM-owned, and incomplete                 | Restore it from its complete contributor set.         |
+| Required, AXM-owned, and stale                      | Restore it from authoritative inputs.                 |
 | No longer required and AXM-owned                    | Remove it.                                            |
 | Unowned and independently coexisting                | Preserve it and plan no change.                       |
 | Required unit occupied by unowned content           | Block the affected closure and preserve it.           |
 | Ownership evidence missing, malformed, or ambiguous | Block the affected closure and preserve the content.  |
 
-Sync decides these cases from the unit's own ownership evidence and content, as
+Sync decides these cases from the unit's ownership evidence and authoritative
+input generation, as
 [projection facts](../workspace/invariants.md#projection-facts) define.
-Installed canonical content is not evidence that the unit derived from it
-exists, is complete, or is current. An incomplete unit is work for sync to
-reconcile, never a no-op.
+Generated document bodies are opaque: their bytes are neither authority nor a
+currency check. Structured native entries compare decoded values. Installed
+canonical content is not evidence that the derived unit exists on disk.
+Accordingly, reconciliation output for an aggregate generated unit names the
+unit and observed status without presenting participant identities as the
+proven cause of divergence.
 
 Path, name, matching bytes, or ownership of a surrounding file never prove
 ownership of the unit. AXM does not adopt equivalent native content. Manual
@@ -144,15 +151,12 @@ canonical directory, or lose authored or unowned content. The next mutation
 converges affected state from surviving authority before evaluating its own
 request; it does not resume or roll back the interrupted command.
 
-## Testing strategy
+## Specifications
 
-The recovery-conformance registry owns exhaustive blocker restoration. Sync
-tests cover shared intrinsic facts, operational blockers, preview/apply
-identity, stable locks, exact source-class rematerialization, adapter ownership
-parity, graph-complete cleanup, closure isolation, rollback, stale plans,
-concurrency, interruption, and nonzero results with committed independent
-closures.
-
-Cross-type tests exercise missing, stale, obsolete, collision, ambiguous
-ownership, safe removal, and manual unowned-collision recovery. Second-run
-assertions prove convergence and idempotence.
+The sync specifications under `specifications/cli/sync/` and the whole-surface
+workspace specifications at the root of `specifications/cli/` own sync's binding
+obligations — realizing desired state, preserving configuration and satisfying
+resolutions, non-interleaving, and closure-atomic mutation; the
+[specification catalog](../../../specifications/catalog.md) indexes them.
+Exhaustive blocker restoration is internal verification owned by the
+recovery-conformance registry in `packages/cli/src/root/sync/`.

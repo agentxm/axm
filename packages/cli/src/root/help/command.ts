@@ -3,20 +3,21 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { Argument, CliError, Command } from "effect/unstable/cli";
 
-import { type AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { quietFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { type AppError, makeAppError } from "../../app-error/index.js";
+import { quietFlag } from "../../cli-flags/index.js";
 import {
-  CliRenderer,
-  InteractiveRenderer,
-  MachineRenderer,
+  Screen,
+  InteractiveScreen,
+  MachineScreen,
+  markdownDoc,
+  rawDoc,
   resolveCliOutputPolicy,
+  suggestionsDoc,
+  tableViewDoc,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  resolveCliFormat,
-  type SuggestedAction,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "../../screen/index.js";
+import { resolveCliFormat, withArgvTracking } from "../../cli-runtime/index.js";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   HELP_TOPICS,
   HELP_TOPIC_KINDS,
@@ -126,19 +127,19 @@ const helpRendererLayer = Layer.unwrap(
     const outputPolicy = resolveCliOutputPolicy({ quiet });
 
     return format === "json"
-      ? MachineRenderer({ quiet: outputPolicy.quiet })
-      : InteractiveRenderer({ outputPolicy });
+      ? MachineScreen({ quiet: outputPolicy.quiet })
+      : InteractiveScreen({ outputPolicy });
   }),
 );
 
 const writeHelpTopicIndex = () =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const rows: ReadonlyArray<HelpTopicRow> = ORDERED_TOPIC_NAMES.map((topic) => ({
       topic,
       description: HELP_TOPIC_DESCRIPTIONS[topic],
     }));
-    const emitted = yield* renderer.result(
+    const emitted = yield* screen.document(
       {
         usage: "axm help <topic>",
         topics: rows.map(({ topic, description }) => ({ name: topic, description })),
@@ -149,22 +150,22 @@ const writeHelpTopicIndex = () =>
     if (emitted) return;
     // Render the index through the renderer's structured table so topics align
     // in columns and pick up the standard chrome — no Markdown reflow.
-    yield* renderer.table(rows, HelpTopicTableView);
-    yield* renderer.suggestions(HELP_INDEX_SUGGESTIONS);
+    yield* screen.result(tableViewDoc(rows, HelpTopicTableView));
+    yield* screen.note(suggestionsDoc(HELP_INDEX_SUGGESTIONS));
   });
 
 const writeHelpTopic = (name: HelpTopicName) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const screen = yield* Screen;
     const raw = HELP_TOPICS[name];
     const content = raw.endsWith("\n") ? raw : `${raw}\n`;
-    const emitted = yield* renderer.result({ topic: name, content }, HelpTopicResultSchema);
+    const emitted = yield* screen.document({ topic: name, content }, HelpTopicResultSchema);
     if (emitted) return;
     if (HELP_TOPIC_KINDS[name] === "json-schema") {
-      yield* renderer.raw(content);
+      yield* screen.result(rawDoc(content));
       return;
     }
-    yield* renderer.markdown(content);
+    yield* screen.result(markdownDoc(content));
   });
 
 export const resolveCommandPath = (
@@ -190,7 +191,7 @@ export const resolveCommandPath = (
 export const handleHelpPath = (
   path: ReadonlyArray<string>,
   root: Command.Command.Any,
-): Effect.Effect<void, AppError | CliError.ShowHelp, CliRenderer> => {
+): Effect.Effect<void, AppError | CliError.ShowHelp, Screen> => {
   if (path.length === 0) return writeHelpTopicIndex();
 
   const [singleTopic] = path;

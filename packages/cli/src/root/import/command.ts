@@ -5,53 +5,68 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { makeAppError } from "../../app-error/index.js";
+import { previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/workspace-operations";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   buildAuthoredExtensionStep,
-  computePackageContentHash,
   copyExtensionDirectory,
   createCanonicalDirectory,
+  recoverCanonicalDirectory,
+} from "@agentxm/extension-workspace";
+import { importNativeExtensionPackage, preflightCreateOnly } from "@agentxm/extension-authoring";
+import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
+import {
   extensionTypeToPlural,
   formatFqn,
-  fqnInvalidErrorToAppError,
-  importNativeExtensionPackage,
   parseFqn,
-  preflightCreateOnly,
-  recoverCanonicalDirectory,
-} from "@agentxm/client-core/unstable/extensions";
-import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
-  acquireExternalSource,
-  resolveSource,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+  failureToStepFailure,
+  fqnInvalidErrorToAppError,
+  toAppError,
+} from "../../app-error/conversions.js";
+import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { acquireExternalSource, resolveSource } from "@agentxm/extension-sources";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { SkillManager, SubagentManager } from "@agentxm/extension-workspace";
 
 type NativeImportType = "skill" | "subagent";
 
-export const handleImport = Effect.fn("Import.handle")(function* (args: {
+interface ImportHandlerArgs {
   readonly type: NativeImportType;
   readonly source: string;
   readonly target: string;
   readonly enable: boolean;
   readonly yes: boolean;
   readonly preview: boolean;
-}) {
+}
+
+export const handleImport = (args: ImportHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: `${extensionTypeToPlural[args.type]} import`,
+      mode: args.preview ? "preview" : "apply",
+      planName: "Import native extension",
+    },
+    handleImportBody(args),
+  );
+
+const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandlerArgs) {
   const target = yield* Effect.fromResult(
     Result.mapError(parseFqn(args.target), fqnInvalidErrorToAppError),
   );
@@ -67,24 +82,22 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
       detail: `Expected a ${extensionTypeToPlural[args.type]} target FQN, got ${args.target}`,
     });
   }
+  yield* requireAuthoredOwner(target.owner);
   const group = extensionTypeToPlural[args.type];
   const ws = yield* WorkspaceMutations;
+  if (ws.layout.scope !== "project") {
+    return yield* makeAppError({ code: "usage", detail: "Import requires project scope" });
+  }
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const source = yield* resolveSource(args.source);
   const acquired = yield* acquireExternalSource(source);
-  const targetDir = path.join(
-    ws.baseDir,
-    REGISTRY_EXTENSIONS_DIR,
-    target.owner,
-    extensionTypeToPlural[target.type],
-    target.name,
-  );
+  const targetDir = path.join(ws.layout.authoredRoot(target.type), target.name);
   yield* preflightCreateOnly({
     subject: "Import target",
     name: target.name,
     configured: false,
-    destinations: [],
+    destinations: [targetDir],
   });
 
   const stagingRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-import-" }).pipe(
@@ -104,24 +117,32 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
   });
   const stagedHash = yield* computePackageContentHash(stagedPackage);
   const fqn = formatFqn(target);
-  const sourceLocator = `workspace:${fqn}`;
+  const sourceLocator = "workspace";
 
   let enabled: boolean;
   let markAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
   let finalizeAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
   switch (target.type) {
     case "skill": {
-      const current = yield* ws.getConfiguredSkillEntries();
+      const current = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setSkillEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setSkillEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setSkillEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setSkillEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
     case "subagent": {
-      const current = yield* ws.getConfiguredSubagentEntries();
+      const current = yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setSubagentEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setSubagentEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setSubagentEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setSubagentEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
   }
@@ -133,7 +154,7 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
     change: "created",
     targets: [
       { path: path.relative(ws.baseDir, targetDir), change: "created" },
-      { path: ".axm (config/lockfile)", change: "created" },
+      { path: workspaceSettingsPath(ws.scope), change: "created" },
     ],
   };
   const common = {
@@ -195,12 +216,14 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
   switch (target.type) {
     case "skill":
       step = buildAuthoredExtensionStep(yield* SkillManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "skill", name: target.name },
       });
       break;
     case "subagent":
       step = buildAuthoredExtensionStep(yield* SubagentManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "subagent", name: target.name },
       });
@@ -212,6 +235,10 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
     name: "Import native extension",
     description: Option.some(
       `Losslessly convert ${acquired.origin} into ${fqn}; the native source remains unchanged and the import starts ${enabled ? "enabled" : "disabled"}`,
+    ),
+    presentation: operationPresentation(
+      { imperative: "import", past: "Imported", gerund: "Importing" },
+      target.type,
     ),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
@@ -227,7 +254,7 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
     ),
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitPlanResolutionResult(`${group} import`, resolution);
+  yield* emitOperationResolution(`${group} import`, resolution);
 });
 
 const config = {

@@ -20,6 +20,19 @@ merges an owned server entry into each supported native configuration. It
 supports both published extension content and explicit inline workspace
 configuration because local server connections are a routine MCP use case.
 
+A sourced connection has three related identities:
+
+- its **local connection name**, used as the `mcpServers` settings key and the
+  agent-native server key;
+- its **source identity**, formed from source authority and published package
+  identity; and
+- its **accepted resolution**, such as an exact Registry version and archive
+  integrity.
+
+The local name is chosen with `axm mcps install <source> --as <name>`. Omitting
+`--as` uses the published package name. Local names use the ordinary extension
+name grammar and are unique within the selected workspace scope.
+
 The MCP command group may add, import, or inspect server definitions. Import is
 a separately invoked authoring capability outside the workspace-recovery
 contract; observation and reconciliation never invoke it or infer its intent.
@@ -41,6 +54,20 @@ extension archive, canonical extension content, or resolved extension version;
 no artificial lock row is created. AXM owns only entries
 it created and can still identify; unrelated entries and surrounding
 configuration remain untouched.
+
+Authority is structural in the workspace model. A sourced definition carries a
+source locator. An inline definition carries a command or URL transport and no
+source locator. Encoding preserves the authored `axm.json` forms: sourced
+entries remain strings or source objects, while inline entries remain command
+or URL objects.
+
+Several sourced connections may carry different local names while referencing
+one source identity. They share one acquired canonical package and accepted
+lock resolution, but retain separate input bindings, activation, agent
+targeting, native entries, and secret namespaces. Every version constraint from
+those connections and any depending Pack contributes to one source closure. An
+update selected by any local name or by exact source advances and reprojects the
+whole closure.
 
 For a publishable MCP Server extension, the server name, transport, external
 software-package or endpoint identity, inputs, and runtime requirements are
@@ -67,6 +94,19 @@ unsupported. Even an equivalent unowned entry remains unowned during ordinary
 observation and reconciliation; manual preservation, relocation, or removal
 owns collision recovery.
 
+The existing version-1 `x-axm` metadata remains the ownership format. Its `ext`
+and `ref` identify the published package while the containing native map key or
+TOML region identifies the local connection. Supporting local names therefore
+does not require an ownership-format version change.
+
+Uninstall selects a local connection name. It removes only that connection's
+settings, projections, and secret namespace while another local connection or
+Pack route still needs the source. The final removal also deletes the shared
+accepted resolution and acquired canonical package. Workspace-state changes
+commit before keychain cleanup; a keychain deletion failure is reported as
+credential residue requiring manual cleanup rather than rolling authoritative
+state back.
+
 ## Invariants
 
 - The projected server preserves the meaning supported by the target agent's
@@ -75,6 +115,8 @@ owns collision recovery.
   machine results.
 - Read-modify-write operations preserve unowned native configuration.
 - Same-target updates are serialized and stale observations write nothing.
+- Source-closure updates resolve once and refresh every local connection in the
+  closure.
 - Unsupported lossless realization is a blocker, not permission to degrade the
   server definition.
 
@@ -84,7 +126,9 @@ Behavior tests prove canonical-content and inline authority, input binding,
 secret-safe output, unrelated-entry preservation, same-name collisions,
 provenance drift, explicit import boundaries, manual unowned-collision
 recovery, target-dialect rendering, shared-target concurrency, unsupported
-transports, activation, safe removal, and repeated reconciliation.
+transports, activation, safe removal, repeated reconciliation, local-name
+coexistence, shared source resolution, closure-wide updates, and one-at-a-time
+uninstall.
 
 JSON and YAML entries prove ownership through versioned `x-axm` metadata with
 the extension or workspace-local inline identity in `ext`, plus source and

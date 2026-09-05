@@ -6,33 +6,39 @@ import * as Path from "effect/Path";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/client-core/unstable/agents";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-workspace";
 import {
+  reconcileAgentOutputs,
+  type ReconcileAgentOutputsArgs,
+  type ReconcileAgentOutputsResult,
+} from "@agentxm/workspace-sync";
+import { makeAppError } from "../../app-error/index.js";
+import {
+  configurationFailureToAppError,
+  configurationFailureToStepFailure,
+  syncFailureToAppError,
+  syncStepFailureAdapter,
+} from "../../feature-errors.js";
+import { acceptWarningsFlag, previewFlag, yesFlag } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { count } from "../../screen/index.js";
+import {
+  previewOrApplyPlan,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  previewOrApplyPlan,
-} from "@agentxm/client-core/unstable/plan";
-import {
-  cleanupManagedArtifactsForRemovedAgents,
-  type RemovedAgentArtifactCleanupResult,
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
-import { scopeFlag } from "../../cli-flags.js";
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { makeAtomicMembershipSteps } from "./atomic-membership.js";
-import { validateAgentIds } from "./shared.js";
-
-const AGENT_SETTINGS_PATH = ".axm/settings.json";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { makeAtomicMembershipSteps, validateAgentIds } from "@agentxm/workspace-configuration";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 
 export interface AgentsRemoveArgs {
   readonly ids: ReadonlyArray<string>;
@@ -48,10 +54,10 @@ interface CleanupServices {
   readonly agentRepo: CodingAgentRepositoryService;
 }
 
-const provideCleanupServices = <A>(
+const provideCleanupServices = <A, E>(
   effect: Effect.Effect<
     A,
-    AppError,
+    E,
     WorkspaceMutations | FileSystem.FileSystem | Path.Path | CodingAgentRepository
   >,
   services: CleanupServices,
@@ -65,8 +71,9 @@ const provideCleanupServices = <A>(
 
 const cleanupStep = (
   removedAgentIds: ReadonlySet<string>,
+  reconciliation: ReconcileAgentOutputsArgs,
   services: CleanupServices,
-  preview: RemovedAgentArtifactCleanupResult,
+  preview: ReconcileAgentOutputsResult,
 ): PlannedJobStep => ({
   label: "Remove managed agent artifacts",
   readiness: "ready",
@@ -88,7 +95,8 @@ const cleanupStep = (
     ],
   },
   run: provideCleanupServices(
-    cleanupManagedArtifactsForRemovedAgents({ removedAgentIds }).pipe(
+    reconcileAgentOutputs(reconciliation).pipe(
+      Effect.mapError(syncStepFailureAdapter.toStepFailure),
       Effect.map(
         (result) =>
           ({
@@ -127,27 +135,33 @@ const removeAgentStep = (ws: WorkspaceMutationsService, agentId: string): Planne
   label: `Remove ${agentId}`,
   readiness: "ready",
   artifact: {
-    path: AGENT_SETTINGS_PATH,
+    path: workspaceSettingsPath(ws.scope),
     scope: ws.scope,
     agents: [agentId],
     change: "updated",
     fileCount: 1,
-    targets: [{ path: AGENT_SETTINGS_PATH, change: "updated", agentIds: [agentId] }],
+    targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] }],
   },
-  run: ws.removeConfiguredAgent(agentId).pipe(
-    Effect.as({
-      result: "success",
-      message: `Removed ${agentId}`,
-      artifact: {
-        path: AGENT_SETTINGS_PATH,
-        scope: ws.scope,
-        agents: [agentId],
-        change: "updated",
-        fileCount: 1,
-        targets: [{ path: AGENT_SETTINGS_PATH, change: "updated", agentIds: [agentId] }],
-      },
-    } satisfies JobStepResult),
-  ),
+  run: ws
+    .removeConfiguredAgent(agentId)
+    .pipe(Effect.mapError(toAppError))
+    .pipe(
+      Effect.mapError(failureToStepFailure),
+      Effect.as({
+        result: "success",
+        message: `Removed ${agentId}`,
+        artifact: {
+          path: workspaceSettingsPath(ws.scope),
+          scope: ws.scope,
+          agents: [agentId],
+          change: "updated",
+          fileCount: 1,
+          targets: [
+            { path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] },
+          ],
+        },
+      } satisfies JobStepResult),
+    ),
 });
 
 const makePlan = <Requirements, Output>(
@@ -157,17 +171,33 @@ const makePlan = <Requirements, Output>(
   _tag: "Plan",
   name: "Remove coding agents",
   description: Option.some(`Remove ${agentIds.join(", ")} and clean up managed artifacts`),
+  presentation: {
+    verb: { imperative: "remove", past: "Removed", gerund: "Removing" },
+    subject: { singular: "agent", plural: "agents" },
+  },
   jobs: [{ concurrency: 1, executionPolicy: "best-effort", steps }],
 });
 
-export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: AgentsRemoveArgs) {
+export const handleAgentsRemove = (args: AgentsRemoveArgs) =>
+  withOperationLifecycle(
+    {
+      command: "agents.remove",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Remove coding agents",
+    },
+    handleAgentsRemoveBody(args),
+  );
+
+const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: AgentsRemoveArgs) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
 
-  const agentIds = yield* validateAgentIds(args.ids);
-  const configured = yield* ws.getConfiguredAgents();
+  const agentIds = yield* validateAgentIds(args.ids).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
+  const configured = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const configuredSet = new Set(configured);
   const missing = agentIds.filter((id) => !configuredSet.has(id));
 
@@ -188,31 +218,64 @@ export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: Ag
   }
 
   const removedAgentIds = new Set(agentIds);
+  const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+  if (!graph.complete) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: "Cannot safely clean agent projections while desired workspace state is incomplete",
+    });
+  }
+  const enabledNames = (extensionType: "skill" | "subagent" | "mcp-server" | "hook") =>
+    new Set(
+      graph.nodes
+        .filter((node) => node.enabled && node.type === extensionType)
+        .map(({ name }) => name),
+    );
+  const expectedSubagentNames = enabledNames("subagent");
+  const desiredAgentIds = new Set([
+    "universal",
+    ...configured.filter((agentId) => !removedAgentIds.has(agentId)),
+  ]);
+  const reconciliation = {
+    desiredAgentIds,
+    expectedNames: {
+      skill: new Set([...enabledNames("skill"), ...expectedSubagentNames]),
+      subagent: expectedSubagentNames,
+      "mcp-server": enabledNames("mcp-server"),
+      hook: enabledNames("hook"),
+    },
+  } as const;
   const cleanupServices = { ws, fs, path, agentRepo };
   const cleanupPreview = yield* provideCleanupServices(
-    cleanupManagedArtifactsForRemovedAgents({ removedAgentIds, dryRun: true }),
+    reconcileAgentOutputs({ ...reconciliation, dryRun: true }).pipe(
+      Effect.mapError(syncFailureToAppError),
+    ),
     cleanupServices,
   );
   const steps = [
-    cleanupStep(removedAgentIds, cleanupServices, cleanupPreview),
+    cleanupStep(removedAgentIds, reconciliation, cleanupServices, cleanupPreview),
     ...agentIds.map((agentId) => removeAgentStep(ws, agentId)),
   ];
   const atomicSteps = yield* makeAtomicMembershipSteps({
     ws,
     steps,
+    toStepFailure: configurationFailureToStepFailure,
     validate: () =>
-      ws.getConfiguredAgents().pipe(
-        Effect.flatMap((current) => {
-          const currentSet = new Set(current);
-          const retained = agentIds.filter((agentId) => currentSet.has(agentId));
-          return retained.length === 0
-            ? Effect.void
-            : makeAppError({
-                code: "internal",
-                detail: `Agent membership transition did not remove: ${retained.join(", ")}`,
-              });
-        }),
-      ),
+      ws
+        .getConfiguredAgents()
+        .pipe(Effect.mapError(toAppError))
+        .pipe(
+          Effect.flatMap((current) => {
+            const currentSet = new Set(current);
+            const retained = agentIds.filter((agentId) => currentSet.has(agentId));
+            return retained.length === 0
+              ? Effect.void
+              : makeAppError({
+                  code: "internal",
+                  detail: `Agent membership transition did not remove: ${retained.join(", ")}`,
+                });
+          }),
+        ),
   });
   const plan = makePlan(agentIds, atomicSteps);
 
@@ -222,15 +285,10 @@ export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: Ag
     agentIds,
     args.force ? ["accept-warnings"] : [],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
 
   const suggestions = [{ description: "Inspect configured agents", cmd: "axm agents list" }];
-  yield* emitAppliedPlanOutcome({
-    command: "agents.remove",
-    headline: `Removed ${count(agentIds.length, "agent")}`,
-    resolution,
-    suggestions,
-  });
+  yield* emitOperationResolution("agents.remove", resolution, { suggestions });
 });
 
 const removeConfig = {

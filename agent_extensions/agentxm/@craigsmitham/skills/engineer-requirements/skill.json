@@ -1,0 +1,35 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "engineer-requirements",
+  "version": "0.1.0",
+  "description": "Develops, specifies, reviews, changes, and maps evidence-aware requirements without imposing a project method, taxonomy, architecture framework, or tool",
+  "keywords": [
+    "requirements-engineering",
+    "requirement",
+    "elicitation",
+    "requirement-candidate",
+    "specification",
+    "requirement-review",
+    "verification",
+    "validation",
+    "traceability",
+    "impact-analysis",
+    "requirements-management"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/engineer-requirements"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "standalone": false,
+  "recommendedPacks": [
+    "@craigsmitham/packs/requirements-engineering"
+  ],
+  "publish": {
+    "ignore": []
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "registry-auth",
+  "projectType": "library",
+  "root": "packages/registry-auth",
+  "sourceRoot": "packages/registry-auth/src",
+  "tags": ["type:lib", "layer:feature", "scope:registry-auth", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/registry-auth/src/index.ts",
+        "outputPath": "packages/registry-auth/dist",
+        "tsConfig": "packages/registry-auth/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

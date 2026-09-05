@@ -1,0 +1,24 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "improve-whatever",
+  "version": "1.0.1",
+  "description": "Evaluates anything through what is true, honorable, just, pure, lovely, commendable, excellent, and praiseworthy, then recommends improvements",
+  "keywords": [
+    "evaluation",
+    "quality",
+    "discernment",
+    "critique",
+    "attention",
+    "philippians",
+    "review"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/improve-whatever"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT"
+}

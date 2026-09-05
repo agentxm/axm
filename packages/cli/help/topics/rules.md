@@ -1,5 +1,8 @@
 # Rules
 
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
 Rule extensions are installable guidance packages. A rule package has a
 `rule.json` manifest and a `src/RULE.md` body. When instruction-file management
 is enabled, active Rules contribute their bodies to the complete managed
@@ -27,8 +30,8 @@ axm rules enable <name>
 axm rules uninstall <name>
 ```
 
-Rules are tracked in `.axm/settings.json` under `rules` and in
-`.axm/axm-lock.yaml` under `rules`. The rule name is always required for
+Rules are tracked in `axm.json` under `rules` and in
+`axm-lock.yaml` under `rules`. The rule name is always required for
 activation. Bare `rules enable` and `rules disable` commands are usage errors.
 
 Every Rule install, update, activation, deactivation, uninstall, and sync

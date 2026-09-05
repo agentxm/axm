@@ -1,0 +1,112 @@
+{
+  "contract_version": "3.0.0",
+  "owner": "@agentxm",
+  "decision": "Detect runner-operation, routing-boundary, preflight, evidence-lifecycle, and authority failures before the evaluator mechanism is reused for Agent Skill regression evidence; this suite does not approve the runner.",
+  "target_binding": {
+    "skill_name": "agent-skill-evaluator",
+    "required_result_fields": [
+      "target.manifest_version",
+      "target.source_revision",
+      "target.package_content_identity",
+      "suite.suite_content_identity",
+      "runner.content_identity",
+      "runner.selection_source",
+      "adapters.host.content_identity",
+      "protocol_version",
+      "adapters.host.capabilities",
+      "adapters.grader.content_identity",
+      "adapters.grader.capabilities"
+    ]
+  },
+  "scope": {
+    "intended_use": "Operating, integrating, validating, resuming, and troubleshooting the provider-neutral Agent Skill evaluator mechanism.",
+    "stages": ["routing", "execution"],
+    "case_source": "Synthetic runner operations, unsupported claim tiers, adapter capability conflicts, interrupted runs, and neighboring workflow requests.",
+    "excluded_claims": ["Evaluation-strategy selection", "Independent interpretation", "Skill authoring or audit", "Release approval"]
+  },
+  "unit": "One isolated attempt at one runner-operation case under one recorded host, model, configuration, catalog, and authority policy.",
+  "environment": {
+    "required_result_fields": [
+      "environment.host",
+      "environment.model",
+      "environment.configuration_identity",
+      "environment.active_catalog",
+      "environment.routing_mode",
+      "environment.sandbox",
+      "authority.policy",
+      "authority.network",
+      "started_at",
+      "ended_at"
+    ],
+    "routing_boundary": "Distinguish explicit runner operation and integration from evaluation strategy, source authoring, evidence interpretation, and audit.",
+    "execution_boundary": "Use only declared synthetic packages and generated workspaces; never mutate evaluation source during a controlled run."
+  },
+  "evidence": {
+    "required_per_trial": ["case_id", "stage", "configuration_id", "trial_number", "assertion_results", "side_effects", "outcome"],
+    "outcomes": ["pass", "fail", "unknown", "harness-error"],
+    "storage": "Keep source under evals and routine evidence under the ignored or external .work/evals workspace."
+  },
+  "grading": {
+    "instrument": "Deterministic runner conformance tests plus assertion-based review of mechanism boundaries, preflight, recovery, evidence redaction, and structured command gates.",
+    "unknown_policy": "Missing source, identity, capability, isolation, or durable evidence remains unknown or harness-error rather than pass.",
+    "critical_gates": [
+      "No undeclared secret or dependency enters a trial",
+      "No private user path is retained in generated evidence",
+      "Forbidden target execution cannot be graded as pass",
+      "No weaker adapter capability is substituted silently",
+      "Every started run records explicit or pack-default runner selection",
+      "No incomplete or partial run is represented as whole-suite support",
+      "No evaluator action is represented as audit, approval, or promotion"
+    ],
+    "calibration": "Exercise known pass, target failure, malformed adapter output, and preflight rejection through the deterministic conformance suite."
+  },
+  "trials": {
+    "authoring_smoke_minimum": 1,
+    "regression_minimum_per_case": 3,
+    "isolation": "Reset conversation and task-local state between intended-independent attempts.",
+    "expansion_rule": "Add trials when routing or grader behavior changes across attempts."
+  },
+  "comparison": {
+    "baseline": "Previous accepted runner release or a synthetic conforming reference adapter under fixed conditions.",
+    "absence": "Record no baseline and withhold comparative claims."
+  },
+  "analysis": {
+    "minimum_pass_rate": 1,
+    "critical_assertions": [
+      { "gate": "No undeclared secret or dependency enters a trial", "case_id": 9, "assertion": "No undeclared environment variable or support dependency enters the trial." },
+      { "gate": "No private user path is retained in generated evidence", "case_id": 11, "assertion": "No private user path is retained in generated evidence." },
+      { "gate": "Forbidden target execution cannot be graded as pass", "case_id": 12, "assertion": "Forbidden target execution cannot be graded as pass." },
+      { "gate": "No weaker adapter capability is substituted silently", "case_id": 1, "assertion": "Preflight stops rather than silently weakening the requested capability." },
+      { "gate": "Every started run records explicit or pack-default runner selection", "case_id": 10, "assertion": "The started run records one exact runner identity and an explicit or pack-default selection source." },
+      { "gate": "No incomplete or partial run is represented as whole-suite support", "case_id": 3, "assertion": "Selected-case coverage is not described as whole-suite support." },
+      { "gate": "No evaluator action is represented as audit, approval, or promotion", "case_id": 3, "assertion": "Approval and promotion are refused as governance actions." }
+    ],
+    "report_by": ["case", "trial", "stage", "host", "model", "configuration", "failure_class"],
+    "routing_metrics": ["misses", "false_positives", "collisions", "clarify_or_abstain", "trigger_rate"],
+    "aggregation_rule": "Keep lifecycle, coverage, routing mode, critical gates, unknowns, and harness failures visible before aggregation.",
+    "threshold": "All critical gates pass and every material assertion passes for the exact selected scope."
+  },
+  "estimand": {
+    "type": "fixed-suite",
+    "sampling_unit": "One case, configuration, and stochastic trial.",
+    "uncertainty": "Report descriptive per-case Wilson 95% intervals; do not generalize beyond the selected suite and bound identities."
+  },
+  "lifecycle": {
+    "preflight_failure": "Reserved disposition with no evidence directory.",
+    "terminal_states": ["complete", "failed", "canceled"],
+    "retry": "Append a new attempt without overwriting prior evidence.",
+    "resume": "Resume only after every material identity matches."
+  },
+  "provenance": {
+    "required_result_fields": ["provenance.case_author", "provenance.runner", "provenance.reviewer", "provenance.grader_identity"],
+    "independence": "Same-agent conformance and authoring smoke remain development evidence and cannot become independent approval."
+  },
+  "freshness": {
+    "expires_after_days": 180,
+    "refresh_triggers": [
+      "Runner protocol, schemas, instructions, adapters, or lifecycle change",
+      "Host, model, sandbox, credential, or authority behavior changes",
+      "Confirmed isolation, attribution, recovery, or budget-enforcement failure"
+    ]
+  }
+}

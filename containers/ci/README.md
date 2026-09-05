@@ -20,11 +20,12 @@ together.
 - Required CI pins `<version>@sha256:<digest>` after the semantic image has been
   published and verified. The active consumer pin lives in `CI_IMAGE`.
 
-The reusable CI image workflow builds amd64 and arm64 once, smoke-tests and
-scans those exact artifacts, promotes them without rebuilding, publishes SBOM
-and provenance attestations, and verifies anonymous pull access and public OCI
-source metadata. Pull-request callers receive read-only permissions and cannot
-promote; the trusted `ci-image-publish.yml` entry point grants package and
+The reusable CI image workflow builds amd64 and arm64 once on architecture-native
+runners, smoke-tests and scans those exact artifacts, promotes them without
+rebuilding, publishes SBOM and provenance attestations, and verifies anonymous
+pull access and public OCI source metadata. Pull-request callers receive
+read-only permissions and cannot promote; the trusted `ci-image-publish.yml`
+entry point grants package and
 attestation write access only for publication. The first publication remains
 private until a package administrator changes `axm-ci` to public in the GitHub
 package settings; that one-way visibility change is required before the

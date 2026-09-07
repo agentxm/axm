@@ -10,16 +10,16 @@ import {
   handleSkillsNew,
   handleSubagentsNew,
 } from "axm.sh/specification-harness";
-import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import type { AuthoringType } from "./authoring-fixtures.js";
 
 export const createNewExtension = (
   row: AuthoringType,
   name: string,
   owner: Option.Option<string> = Option.none(),
+  options: { readonly preview?: boolean } = {},
 ) =>
   Effect.gen(function* () {
-    const args = { name: extensionName(name), owner, preview: false };
+    const args = { name: extensionName(name), owner, preview: options.preview ?? false };
     switch (row.type) {
       case "skill":
         return yield* handleSkillsNew(args);
@@ -42,11 +42,6 @@ export const createNewExtension = (
           description: Option.some("Workspace handbook"),
         });
       case "pack":
-        return yield* handlePacksNew({
-          ...args,
-          owner: Option.map(owner, (value) =>
-            normalizeHandle(value.startsWith("@") ? value : `@${value}`),
-          ),
-        });
+        return yield* handlePacksNew(args);
     }
   });

@@ -10,7 +10,6 @@ import { type WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extens
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   decodeExtensionNameSync,
-  normalizeHandle,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableSkillTarget } from "@agentxm/extension-workspace";
@@ -39,8 +38,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
+import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
 import {
   workspaceAuthoredPath,
   workspaceAuthoredRoot,
@@ -60,8 +58,6 @@ export interface SkillsNewHandlerArgs {
   readonly preview: boolean;
 }
 
-const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
-
 export const handleSkillsNew = (args: SkillsNewHandlerArgs) =>
   withOperationLifecycle(
     {
@@ -78,10 +74,10 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
   const agentRepo = yield* CodingAgentRepository;
 
   // 1. Resolve owner
-  const owner = Option.isSome(args.owner)
-    ? normalizeOwner(args.owner.value)
-    : yield* resolveOwnerForNewContent("skill creation");
-  yield* requireAuthoredOwner(owner);
+  const { owner, establish } = yield* resolveAuthoringOwner(
+    { subject: "skill", command: "skills new", name: args.name },
+    args.owner,
+  );
 
   // 2. Validate name
   if (
@@ -200,12 +196,16 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
         destinations: [canonicalPath],
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
-    markAuthored: ws
-      .setSkillEntry(args.name, {
-        source: "workspace",
-        enabled: true,
-      })
-      .pipe(Effect.mapError(toAppError)),
+    markAuthored: establish.pipe(
+      Effect.andThen(
+        ws
+          .setSkillEntry(args.name, {
+            source: "workspace",
+            enabled: true,
+          })
+          .pipe(Effect.mapError(toAppError)),
+      ),
+    ),
     scaffold: newSkill(op).pipe(
       provideAuthoringFailureAdapter,
       Effect.mapError(toAppError),
@@ -295,7 +295,9 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the skill (without owner)")),
   owner: Flag.string("owner").pipe(
-    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
+    Flag.withDescription(
+      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
+    ),
     Flag.optional,
   ),
   preview: previewCapabilityFlag("Show what files would be created without creating them"),

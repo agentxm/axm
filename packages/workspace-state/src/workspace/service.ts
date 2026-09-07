@@ -87,6 +87,7 @@ import {
   resolveProjectWorkspaceLayout,
   resolveProjectWorkspaceStatePaths,
   resolveUserWorkspaceLayout,
+  withLayoutOwner,
 } from "./layout.js";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -287,7 +288,9 @@ export const makeWorkspaceMutations = (
       projectSettings,
     );
     const userLayout = yield* resolveUserWorkspaceLayout(userHome, userSettings);
-    const layout = options.scope === "project" ? projectLayout : userLayout;
+    // Reassigned by `setOwner`, which is why every reader goes through this
+    // binding rather than a captured snapshot.
+    let layout = options.scope === "project" ? projectLayout : userLayout;
 
     // Built-in sources: parameterized via options, falling back to git forges only
     const builtInSources: ReadonlyArray<SourceHostConfig> = options.builtInSources ?? [
@@ -490,7 +493,9 @@ export const makeWorkspaceMutations = (
       scope: options.scope,
       path: workspaceDir,
       baseDir,
-      layout,
+      get layout() {
+        return layout;
+      },
 
       runTransaction,
 
@@ -530,6 +535,15 @@ export const makeWorkspaceMutations = (
           if (globalSettings.owner) return Option.some(globalSettings.owner);
           return Option.none<Handle>();
         }),
+
+      setOwner: (owner: Handle) =>
+        withMutex(
+          Effect.gen(function* () {
+            const current = yield* readSettingsSafe(workspaceDir);
+            yield* writeScopedSettings({ ...current, owner }).pipe(Effect.provide(fsLayer));
+            layout = withLayoutOwner(layout, owner);
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setOwner")),
 
       getPublishDefaultVisibility: () =>
         readSettingsSafe(workspaceDir).pipe(

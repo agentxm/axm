@@ -40,13 +40,8 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
-import {
-  isValidScaffoldName,
-  normalizeScaffoldOwner,
-  scaffoldNameValidationSuggestion,
-} from "../shared/scaffold-name.js";
+import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
+import { isValidScaffoldName, scaffoldNameValidationSuggestion } from "../shared/scaffold-name.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { HookManager } from "@agentxm/extension-workspace";
@@ -125,10 +120,10 @@ export const handleHooksNew = (args: HooksNewHandlerArgs) =>
 
 const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNewHandlerArgs) {
   // 1. Resolve owner
-  const owner = Option.isSome(args.owner)
-    ? normalizeScaffoldOwner(args.owner.value)
-    : yield* resolveOwnerForNewContent("hook creation");
-  yield* requireAuthoredOwner(owner);
+  const { owner, establish } = yield* resolveAuthoringOwner(
+    { subject: "hook", command: "hooks new", name: args.name },
+    args.owner,
+  );
 
   // 2. Validate name
   if (!isValidScaffoldName(args.name)) {
@@ -263,12 +258,16 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
           pathService: path,
         });
       }),
-    markAuthored: ws
-      .setHookEntry(args.name, {
-        source: "workspace",
-        enabled: true,
-      })
-      .pipe(Effect.mapError(toAppError)),
+    markAuthored: establish.pipe(
+      Effect.andThen(
+        ws
+          .setHookEntry(args.name, {
+            source: "workspace",
+            enabled: true,
+          })
+          .pipe(Effect.mapError(toAppError)),
+      ),
+    ),
     scaffold: newHook(op).pipe(
       provideAuthoringFailureAdapter,
       Effect.map(toJobStepResult),
@@ -303,7 +302,9 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the hook (without owner)")),
   owner: Flag.string("owner").pipe(
-    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
+    Flag.withDescription(
+      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
+    ),
     Flag.optional,
   ),
   runtime: Flag.choice("runtime", HOOK_RUNTIMES).pipe(

@@ -424,6 +424,8 @@ export interface WorkspaceMutationsService {
     Option.Option<Handle>,
     WorkspaceSettingsReadFailure
   >;
+  /** Record the owner in the selected scope's settings. Serialized by semaphore. */
+  readonly setOwner: (owner: Handle) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Repository publication default for this exact workspace scope. */
   readonly getPublishDefaultVisibility: () => Effect.Effect<
     Option.Option<ExtensionVisibility>,

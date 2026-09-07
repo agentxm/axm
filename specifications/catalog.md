@@ -367,13 +367,13 @@ programmatic interfaces, and supporting system behavior.
 ##### Creation uses the configured workspace owner
 
 - Requirement: `cli/creation-uses-configured-workspace-ownership`
-- Statement: When a person creates an extension, AXM shall use the configured workspace owner, accept an explicitly matching owner with or without its leading @, and refuse creation before changing workspace content when no owner is configured or the explicitly requested owner differs.
+- Statement: When a person creates an extension, AXM shall use the owner configured in the selected workspace scope, accept an explicitly requested owner with or without its leading @, record an explicitly requested owner as that scope's owner when it configures none, and refuse creation before changing workspace content when no owner is configured and none is requested or when the requested owner differs from the configured one; every applied creation leaves the scope's configured owner equal to the created package's owner, and a previewed creation records none.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`, `packages/cli/src/root/shared/authored-owner.ts`, `packages/cli/src/root/shared/resolve-owner.ts`
+- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`, `packages/cli/src/root/shared/resolve-owner.ts`
 - Source: [`specifications/cli/creation-uses-configured-workspace-ownership.spec.ts`](../specifications/cli/creation-uses-configured-workspace-ownership.spec.ts)
 
 #### Credentials Follow Explicit Source Precedence

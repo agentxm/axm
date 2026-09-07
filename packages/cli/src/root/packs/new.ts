@@ -14,9 +14,7 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/works
 import {
   decodeExtensionNameSync,
   formatFqn,
-  normalizeHandle,
   type ExtensionName,
-  type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { newPack, preflightCreateOnly, type NewPackOperation } from "@agentxm/extension-authoring";
@@ -33,8 +31,7 @@ import {
 } from "../shared/command-capabilities.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
-import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
+import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
@@ -42,7 +39,7 @@ import { PackManager } from "@agentxm/extension-workspace";
 
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
-  readonly owner: Option.Option<Handle>;
+  readonly owner: Option.Option<string>;
   readonly preview: boolean;
 }
 
@@ -63,10 +60,10 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
   const manager = yield* PackManager;
 
   // Resolve owner
-  const owner = Option.isSome(args.owner)
-    ? args.owner.value
-    : yield* resolveOwnerForNewContent("pack creation");
-  yield* requireAuthoredOwner(owner);
+  const { owner, establish } = yield* resolveAuthoringOwner(
+    { subject: "pack", command: "packs new", name: args.name },
+    args.owner,
+  );
 
   const fqn = formatFqn({ owner, type: "pack", name: args.name });
   const base = ws.baseDir;
@@ -131,9 +128,13 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
         destinations: [packDir.canonicalPath],
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
-    markAuthored: ws
-      .setPackEntry(args.name, { source: "workspace", enabled: true })
-      .pipe(Effect.mapError(toAppError)),
+    markAuthored: establish.pipe(
+      Effect.andThen(
+        ws
+          .setPackEntry(args.name, { source: "workspace", enabled: true })
+          .pipe(Effect.mapError(toAppError)),
+      ),
+    ),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     scaffold: newPack(op).pipe(
@@ -170,7 +171,9 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the pack (without owner)")),
   owner: Flag.string("owner").pipe(
-    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
+    Flag.withDescription(
+      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
+    ),
     Flag.optional,
   ),
   preview: previewCapabilityFlag("Show what files would be created without creating them"),
@@ -179,7 +182,7 @@ const newConfig = {
 export const newCommand = Command.make("new", newConfig, ({ name, owner, preview }) =>
   handlePacksNew({
     name: decodeExtensionNameSync(name),
-    owner: Option.map(owner, (s) => normalizeHandle(s.startsWith("@") ? s : `@${s}`)),
+    owner,
     preview,
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs new")),
 ).pipe(

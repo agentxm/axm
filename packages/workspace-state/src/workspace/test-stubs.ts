@@ -329,6 +329,7 @@ export const makeBaseWorkspaceMock = (
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
     getConfiguredOwner: () => Effect.succeed(Option.none()),
+    setOwner: () => Effect.void,
     getPublishDefaultVisibility: () => Effect.succeed(Option.none()),
     getMinimumReleaseAge: () => Effect.succeed("24h"),
     getMinimumReleaseAgeExclude: () => Effect.succeed([]),

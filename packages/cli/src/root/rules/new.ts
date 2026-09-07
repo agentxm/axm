@@ -35,13 +35,8 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
-import {
-  isValidScaffoldName,
-  normalizeScaffoldOwner,
-  scaffoldNameValidationSuggestion,
-} from "../shared/scaffold-name.js";
+import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
+import { isValidScaffoldName, scaffoldNameValidationSuggestion } from "../shared/scaffold-name.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { RuleManager } from "@agentxm/extension-workspace";
@@ -74,10 +69,10 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
   const path = yield* Path.Path;
   const ws = yield* WorkspaceMutations;
   const manager = yield* RuleManager;
-  const owner = Option.isSome(args.owner)
-    ? normalizeScaffoldOwner(args.owner.value)
-    : yield* resolveOwnerForNewContent("rule creation");
-  yield* requireAuthoredOwner(owner);
+  const { owner, establish } = yield* resolveAuthoringOwner(
+    { subject: "rule", command: "rules new", name: args.name },
+    args.owner,
+  );
 
   if (!isValidScaffoldName(args.name)) {
     return yield* makeAppError({
@@ -209,12 +204,16 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
               }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
             }),
             scaffold,
-            markAuthored: ws
-              .setRuleEntry(name, {
-                source: "workspace",
-                enabled: true,
-              })
-              .pipe(Effect.mapError(toAppError)),
+            markAuthored: establish.pipe(
+              Effect.andThen(
+                ws
+                  .setRuleEntry(name, {
+                    source: "workspace",
+                    enabled: true,
+                  })
+                  .pipe(Effect.mapError(toAppError)),
+              ),
+            ),
             buildArtifact: () => Effect.succeed(artifact),
           }),
         ],
@@ -234,7 +233,9 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the rule (without owner)")),
   owner: Flag.string("owner").pipe(
-    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
+    Flag.withDescription(
+      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
+    ),
     Flag.optional,
   ),
   title: Flag.string("title").pipe(

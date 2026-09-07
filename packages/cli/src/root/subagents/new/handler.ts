@@ -14,7 +14,6 @@ import { type WorkspaceSubagentRef } from "@agentxm/extension-model/unstable/ext
 import {
   decodeExtensionNameSync,
   formatFqn,
-  normalizeHandle,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -30,8 +29,7 @@ import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { joinDisplayPath } from "../../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../../shared/local-plan.js";
-import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
-import { requireAuthoredOwner } from "../../shared/authored-owner.js";
+import { resolveAuthoringOwner } from "../../shared/resolve-owner.js";
 import {
   workspaceAuthoredRoot,
   workspaceSettingsPath,
@@ -47,8 +45,6 @@ export interface SubagentsNewHandlerArgs {
   readonly owner: Option.Option<string>;
   readonly preview: boolean;
 }
-
-const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
 
 const STARTER_BODY = "Describe what this subagent does and when to delegate work to it.\n";
 
@@ -74,10 +70,10 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
   const manager = yield* SubagentManager;
 
   // 1. Resolve owner
-  const owner = Option.isSome(args.owner)
-    ? normalizeOwner(args.owner.value)
-    : yield* resolveOwnerForNewContent("subagent creation");
-  yield* requireAuthoredOwner(owner);
+  const { owner, establish } = yield* resolveAuthoringOwner(
+    { subject: "subagent", command: "subagents new", name: args.name },
+    args.owner,
+  );
 
   // 2. Validate name
   if (
@@ -161,12 +157,16 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
         destinations: [canonicalPath],
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
-    markAuthored: ws
-      .setSubagentEntry(args.name, {
-        source: "workspace",
-        enabled: true,
-      })
-      .pipe(Effect.mapError(toAppError)),
+    markAuthored: establish.pipe(
+      Effect.andThen(
+        ws
+          .setSubagentEntry(args.name, {
+            source: "workspace",
+            enabled: true,
+          })
+          .pipe(Effect.mapError(toAppError)),
+      ),
+    ),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     scaffold: createCanonicalDirectory({

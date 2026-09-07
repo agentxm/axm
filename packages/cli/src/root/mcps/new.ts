@@ -50,9 +50,8 @@ import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
-import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
-import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-name.js";
+import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
+import { isValidScaffoldName } from "../shared/scaffold-name.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
@@ -86,10 +85,10 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
   const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
   const httpClient = yield* HttpClient.HttpClient;
-  const owner = Option.isSome(args.owner)
-    ? normalizeScaffoldOwner(args.owner.value)
-    : yield* resolveOwnerForNewContent("MCP server creation");
-  yield* requireAuthoredOwner(owner);
+  const { owner, establish } = yield* resolveAuthoringOwner(
+    { subject: "MCP server", command: "mcps new", name: args.name },
+    args.owner,
+  );
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "mcp-server", name: args.name });
 
@@ -213,6 +212,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
           );
+          yield* establish;
           yield* ws
             .setMcpServerEntry(args.name, {
               source: "workspace",
@@ -334,7 +334,9 @@ const newConfig = {
     Flag.withDefault(""),
   ),
   owner: Flag.string("owner").pipe(
-    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
+    Flag.withDescription(
+      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
+    ),
     Flag.optional,
   ),
   preview: previewCapabilityFlag(),

@@ -35,9 +35,7 @@ import {
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
-import { normalizeScaffoldOwner } from "../shared/scaffold-name.js";
+import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { KnowledgeManager } from "@agentxm/extension-workspace";
@@ -66,10 +64,10 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (
   const path = yield* Path.Path;
   const ws = yield* WorkspaceMutations;
   const manager = yield* KnowledgeManager;
-  const owner = Option.isSome(args.owner)
-    ? normalizeScaffoldOwner(args.owner.value)
-    : yield* resolveOwnerForNewContent("knowledge bundle creation");
-  yield* requireAuthoredOwner(owner);
+  const { owner, establish } = yield* resolveAuthoringOwner(
+    { subject: "knowledge bundle", command: "knowledge new", name: args.name },
+    args.owner,
+  );
   const name = decodeExtensionNameSync(args.name);
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "knowledge", name });
@@ -203,12 +201,16 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (
               }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
             }),
             scaffold,
-            markAuthored: ws
-              .setKnowledgeEntry(name, {
-                source: "workspace",
-                enabled: true,
-              })
-              .pipe(Effect.mapError(toAppError)),
+            markAuthored: establish.pipe(
+              Effect.andThen(
+                ws
+                  .setKnowledgeEntry(name, {
+                    source: "workspace",
+                    enabled: true,
+                  })
+                  .pipe(Effect.mapError(toAppError)),
+              ),
+            ),
             buildArtifact: () => Effect.succeed(artifact),
           }),
         ],
@@ -239,7 +241,9 @@ const newConfig = {
     Argument.withDescription("Name of the knowledge bundle (without owner)"),
   ),
   owner: Flag.string("owner").pipe(
-    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
+    Flag.withDescription(
+      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
+    ),
     Flag.optional,
   ),
   description: Flag.string("description").pipe(

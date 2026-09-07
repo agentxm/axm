@@ -9,8 +9,6 @@ export default defineConfig({
   root: projectRoot,
   test: {
     ...testExecution,
-    // Re-transform modules while investigating intermittent CI /@fs/ import failures.
-    experimental: { fsModuleCache: false },
     ...makeTestReporting({ layer: "specification", suite: "specifications" }),
     include: [
       "cli/**/*.spec.ts",

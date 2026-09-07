@@ -115,6 +115,14 @@ change the result, and their outputs have one owner. Git-history checks,
 benchmarks, release mutations, artifact/download operations, external install
 verification, and projection observations run fresh.
 
+The root command tests use the runtime prepared by `axm:test` and pass
+`--excludeTaskDependencies` to their nested release-tag and metadata target
+invocations. Rebuilding those prerequisites inside a concurrent test wave can
+delete `dist` files while another project imports them. The tests disable cache
+reuse for the nested invocation and check that the prepared runtime file keeps
+its inode and modification time. The standalone targets declare `^build`;
+`axm:test` satisfies those prerequisites before the command tests execute.
+
 Cached test outputs are evidence from the execution that originally produced
 their task hash. A cache replay is the same input-bound verdict, not a new
 execution on the restoring host. Required main-branch E2E evidence sets

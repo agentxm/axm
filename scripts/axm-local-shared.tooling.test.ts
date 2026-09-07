@@ -3,12 +3,14 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  AXM_LOCAL_DEFAULT_REGISTRY_LOCATION,
   AXM_LOCAL_DEFAULT_TELEMETRY,
   AXM_SOURCE_CONDITION_ARGUMENT,
   createAxmLocalInvocation,
   resolveAxmLocalRepoRoot,
 } from "./axm-local-shared.js";
+
+const readSelection = (value: string | undefined): string | undefined =>
+  value != null && value.length > 0 ? value : undefined;
 
 describe("axm-local shared helpers", () => {
   it("resolves the axm repo root from the wrapper script path", () => {
@@ -17,7 +19,7 @@ describe("axm-local shared helpers", () => {
     expect(resolveAxmLocalRepoRoot(scriptPath)).toBe(path.join("/tmp", "axm"));
   });
 
-  it("defaults registry location, auth URL, and telemetry env vars when they are unset", () => {
+  it("leaves registry selection to the caller and defaults only telemetry", () => {
     const invocation = createAxmLocalInvocation({
       scriptPath: path.join("/tmp", "axm", "scripts", "axm-local.ts"),
       argv: ["whoami", "--json"],
@@ -33,10 +35,22 @@ describe("axm-local shared helpers", () => {
       "--json",
     ]);
     expect(invocation.cwd).toBe(path.join("/tmp", "workspace"));
-    expect(invocation.env["AXM_REGISTRY_LOCATION"]).toBe(AXM_LOCAL_DEFAULT_REGISTRY_LOCATION);
-    expect(invocation.env["AXM_REGISTRY_URL"]).toBe(AXM_LOCAL_DEFAULT_REGISTRY_LOCATION);
+    expect(invocation.env["AXM_REGISTRY_LOCATION"]).toBeUndefined();
+    expect(invocation.env["AXM_REGISTRY_URL"]).toBeUndefined();
     expect(invocation.env["AXM_TELEMETRY"]).toBe(AXM_LOCAL_DEFAULT_TELEMETRY);
     expect(invocation.env["PATH"]).toBe("/bin");
+  });
+
+  it("derives the auth URL from a caller-selected HTTP registry location", () => {
+    const invocation = createAxmLocalInvocation({
+      scriptPath: path.join("/tmp", "axm", "scripts", "axm-local.ts"),
+      argv: ["list"],
+      cwd: path.join("/tmp", "workspace"),
+      env: { AXM_REGISTRY_LOCATION: "http://localhost:4300" },
+    });
+
+    expect(invocation.env["AXM_REGISTRY_LOCATION"]).toBe("http://localhost:4300");
+    expect(invocation.env["AXM_REGISTRY_URL"]).toBe("http://localhost:4300");
   });
 
   it("preserves explicit env overrides", () => {
@@ -56,7 +70,7 @@ describe("axm-local shared helpers", () => {
     expect(invocation.env["AXM_TELEMETRY"]).toBe("errors");
   });
 
-  it("treats empty env vars as unset", () => {
+  it("treats an empty registry location as no selection", () => {
     const invocation = createAxmLocalInvocation({
       scriptPath: path.join("/tmp", "axm", "scripts", "axm-local.ts"),
       argv: ["login"],
@@ -68,8 +82,8 @@ describe("axm-local shared helpers", () => {
       },
     });
 
-    expect(invocation.env["AXM_REGISTRY_LOCATION"]).toBe(AXM_LOCAL_DEFAULT_REGISTRY_LOCATION);
-    expect(invocation.env["AXM_REGISTRY_URL"]).toBe(AXM_LOCAL_DEFAULT_REGISTRY_LOCATION);
+    expect(readSelection(invocation.env["AXM_REGISTRY_LOCATION"])).toBeUndefined();
+    expect(readSelection(invocation.env["AXM_REGISTRY_URL"])).toBeUndefined();
     expect(invocation.env["AXM_TELEMETRY"]).toBe(AXM_LOCAL_DEFAULT_TELEMETRY);
   });
 

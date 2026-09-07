@@ -134,7 +134,7 @@ launchers, and host adapters. These boundaries are intentional:
 
 | Boundary                                                              | Reason                                                                                                                          |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `axm`, `axm:local`, and `axm:link*`                                   | Launch the source CLI or link it into an external workspace                                                                     |
+| `axm` and `axm:local`                                                 | Launch the source CLI, optionally against an external workspace                                                                 |
 | `container:*`                                                         | Create the environment in which the task graph can run                                                                          |
 | `classify:ci` and `check:ci-image`                                    | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
 | `test:spec`, `verify:artifact`, `verify:release`, `verify:deployment` | Resolve an exact subject, then invoke the target that owns the evidence                                                         |

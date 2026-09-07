@@ -8,10 +8,6 @@
   "scripts": {
     "axm": "bun --conditions=axm-source packages/cli/src/main.ts",
     "axm:local": "./scripts/axm-local",
-    "axm:link": "./scripts/axm-link link",
-    "axm:link:local": "./scripts/axm-link link:local",
-    "axm:link:status": "./scripts/axm-link status",
-    "axm:unlink": "./scripts/axm-link unlink",
     "classify:ci": "bun scripts/classify-ci-changes.ts",
     "check:ci-image": "node scripts/check-ci-image.mjs",
     "test:report": "pnpm exec nx run axm:test-report",

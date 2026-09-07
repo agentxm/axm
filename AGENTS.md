@@ -44,7 +44,7 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 | Command                                      | Purpose                                                                                                                        |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `pnpm axm`                                   | Run the main CLI from source                                                                                                   |
-| `pnpm axm:local -C <workspace>`              | Run the in-flight CLI against a selected workspace and local registry                                                          |
+| `pnpm axm:local -C <workspace>`              | Run the in-flight CLI against a selected workspace                                                                             |
 | `pnpm exec nx run cli:watch`                 | Rebuild `cli` on changes                                                                                                       |
 | `pnpm build`                                 | Build all packages                                                                                                             |
 | `pnpm build:affected`                        | Build only packages changed since `main`                                                                                       |
@@ -77,9 +77,12 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 | `pnpm run container:ci`                      | Run full CI in the shared Linux image                                                                                          |
 | `pnpm generate`                              | Run every `generate` target (schemas, clients, generated sources)                                                              |
 
-`axm:local` sets `AXM_REGISTRY_LOCATION=http://localhost:4300` and
-`AXM_TELEMETRY=0` only when unset; for HTTP(S) it also sets `AXM_REGISTRY_URL`
-for auth/API flows. `pnpm` runs it from the repository root, so always select
+`axm:local` runs the source CLI and holds no opinion about which registry it
+targets: with `AXM_REGISTRY_LOCATION` unset the CLI's own default applies, and
+selecting an HTTP(S) location also derives `AXM_REGISTRY_URL` for auth/API flows
+when that is unset. It sets `AXM_TELEMETRY=0` when unset, because a source run
+reports the plain package version and is otherwise indistinguishable from a
+release in telemetry. `pnpm` runs it from the repository root, so always select
 the workspace with `-C <dir>`. To run this checkout's CLI from outside the
 checkout, use the absolute-path forms in
 [Development Environment](contributing/guides/development-environment.md#run-the-source-cli-against-another-workspace).

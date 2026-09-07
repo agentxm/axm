@@ -107,6 +107,23 @@ Both entrypoints preserve the caller's working directory. `-C` / `--directory`
 then selects the workspace before runtime initialization, and relative command
 arguments resolve from that directory.
 
+Neither entrypoint selects a registry. With `AXM_REGISTRY_LOCATION` unset the
+CLI's own default applies; export it to target a local registry instead. The
+`axm-local` wrapper also sets `AXM_TELEMETRY=0` when unset, because a source run
+reports the plain package version and would otherwise be indistinguishable from
+a release in telemetry; set it yourself when invoking `bun` directly.
+
+```bash
+# against the CLI's default registry
+/path/to/axm/scripts/axm-local list
+
+# against a local registry
+AXM_REGISTRY_LOCATION=http://localhost:4300 /path/to/axm/scripts/axm-local list
+```
+
+Shell wrappers are the supported way to keep both forms on `PATH`; define them
+in your own shell profile rather than in this repository.
+
 These path forms are the one supported exception to invoking `axm:local` by its
 published name, recorded in the
 [Repository task interface](../../docs/guides/repository-task-interface.md#entrypoints-and-host-adapters):

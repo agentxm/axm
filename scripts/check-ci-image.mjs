@@ -391,8 +391,7 @@ const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "
 for (const text of [
   "nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check",
   "nx run-many -t build --parallel=1 --skip-nx-cache",
-  "nx run-many -t test --parallel=1",
-  "--maxWorkers=2",
+  "nx run-many -t test --excludeTaskDependencies",
 ]) {
   requireText(
     workspaceVerification,
@@ -406,8 +405,7 @@ for (const text of [
   "nx affected -t lint typecheck",
   "verify-source-hygiene parity-ledger-check",
   "nx affected -t build --parallel=1 --skip-nx-cache",
-  "nx affected -t test --parallel=1",
-  "--maxWorkers=2",
+  "nx affected -t test --excludeTaskDependencies",
   "nx affected -t e2e",
 ]) {
   requireText(
@@ -439,6 +437,26 @@ if (
     affectedVerification.indexOf("nx affected -t e2e")
 ) {
   errors.push("verify:affected must complete typechecking, builds, tests, and E2E in order");
+}
+
+// Test worker count is a shared vitest profile, not a per-script flag: a hosted
+// runner and a developer workstation need different values from one contract.
+const testExecutionProfile = read("vitest.execution.ts");
+for (const text of ['process.env["CI"] ? 2 :', "fsModuleCache: true"]) {
+  requireText(
+    testExecutionProfile,
+    text,
+    `vitest.execution.ts must retain the shared test execution profile for ${text}`,
+  );
+}
+
+for (const [name, source] of [
+  ["verify:workspace", workspaceVerification],
+  ["verify:affected", affectedVerification],
+]) {
+  if (source.includes("--maxWorkers")) {
+    errors.push(`${name} must take its worker count from vitest.execution.ts, not a pinned flag`);
+  }
 }
 
 if (nxManifest.parallel !== 2) {

@@ -17,7 +17,7 @@
       "cache": true,
       "inputs": ["default", "^default", "^production", "{workspaceRoot}/eslint.config.mjs"],
       "options": {
-        "command": "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.reporting.ts scripts --max-warnings=192",
+        "command": "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts scripts --max-warnings=192",
         "cwd": "."
       }
     },
@@ -50,6 +50,7 @@
       "cache": true,
       "inputs": [
         "{workspaceRoot}/allurerc.ts",
+        "{workspaceRoot}/vitest.execution.ts",
         "{workspaceRoot}/vitest.reporting.ts",
         "{workspaceRoot}/scripts/specification-evidence*.ts",
         "{workspaceRoot}/tsconfig*.json",

@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.base.json",
-  "files": ["allurerc.ts", "vitest.reporting.ts"],
+  "files": ["allurerc.ts", "vitest.execution.ts", "vitest.reporting.ts"],
   "include": [],
   "references": [],
   "compilerOptions": {

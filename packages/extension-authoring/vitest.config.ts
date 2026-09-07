@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { configDefaults, defineConfig } from "vitest/config";
+import { testExecution } from "../../vitest.execution.js";
 import { makeTestReporting } from "../../vitest.reporting.js";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
@@ -7,6 +8,7 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   root: projectRoot,
   test: {
+    ...testExecution,
     ...makeTestReporting({ layer: "internal", suite: "extension-authoring" }),
     include: ["src/**/*.internal.test.ts"],
     exclude: [...configDefaults.exclude, "src/**/*.type-test.ts"],

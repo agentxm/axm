@@ -317,6 +317,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Return authenticated user info"
@@ -360,8 +368,24 @@
               }
             }
           },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
+              }
+            }
+          },
           "404": {
             "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -502,7 +526,20 @@
             "description": "ForbiddenError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" },
+                    { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           }
@@ -601,6 +638,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Create scoped access token",
@@ -648,6 +693,14 @@
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ForbiddenErrorEncoded" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           }
@@ -777,6 +830,14 @@
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "List owner extensions"
@@ -884,6 +945,14 @@
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           }
@@ -1062,6 +1131,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Get extension metadata"
@@ -1180,6 +1257,14 @@
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/PreconditionFailedErrorEncoded" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           }
@@ -1346,6 +1431,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Permanently delete a whole Extension",
@@ -1496,6 +1589,19 @@
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ]
+                }
               }
             }
           }
@@ -1741,7 +1847,12 @@
             "description": "InternalError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ]
+                }
               }
             }
           },
@@ -1859,6 +1970,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Get Extension deletion operation status"
@@ -1920,7 +2039,12 @@
             "description": "InternalError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ]
+                }
               }
             }
           }
@@ -2068,6 +2192,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Evaluate extension visibility"
@@ -2138,6 +2270,14 @@
           },
           "404": {
             "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -2236,6 +2376,14 @@
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/PreconditionFailedErrorEncoded" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           }
@@ -2337,6 +2485,14 @@
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/PreconditionFailedErrorEncoded" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           }
@@ -2488,6 +2644,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Yank an extension version",
@@ -2629,6 +2793,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Un-yank an extension version"
@@ -2744,6 +2916,14 @@
           },
           "410": {
             "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -2875,6 +3055,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Preview permanent Extension deletion impact"
@@ -2930,6 +3118,19 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/PublishPreviewBatchTooLargeHttpErrorEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ]
                 }
               }
             }
@@ -3031,6 +3232,14 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "List owner Libraries"
@@ -3080,6 +3289,14 @@
           },
           "422": {
             "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -3162,6 +3379,14 @@
           },
           "422": {
             "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -3254,6 +3479,19 @@
                   "anyOf": [
                     { "$ref": "#/components/schemas/ProblemDetails" },
                     { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
                   ]
                 }
               }
@@ -3552,6 +3790,14 @@
                     { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
                   ]
                 }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           }
@@ -4481,6 +4727,103 @@
         "additionalProperties": false,
         "title": "Step-up Request Status Response"
       },
+      "ScopeCheckDetails": {
+        "type": "object",
+        "properties": {
+          "requiredScope": {
+            "type": "string",
+            "description": "The scope required to perform the requested operation."
+          },
+          "grantedScopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The scopes granted to the current credential."
+          }
+        },
+        "required": ["grantedScopes"],
+        "additionalProperties": false,
+        "title": "Scope Check Details",
+        "description": "Diagnostic details returned when a request is denied due to insufficient scopes."
+      },
+      "AuthorizationDenyDetails": {
+        "type": "object",
+        "properties": {
+          "requiredScope": {
+            "type": "string",
+            "description": "The scope required to perform the requested operation."
+          },
+          "tokenScopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The scopes present on the token used for the request."
+          },
+          "requiredRole": {
+            "type": "string",
+            "description": "The management role required, if applicable."
+          }
+        },
+        "required": ["tokenScopes"],
+        "additionalProperties": false,
+        "title": "Authorization Deny Details",
+        "description": "Diagnostic details returned when a request is denied due to insufficient authorization."
+      },
+      "ForbiddenErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["ForbiddenError"] },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": {
+            "type": "string",
+            "enum": [
+              "forbidden",
+              "insufficient_scope",
+              "resource_restriction",
+              "scope_escalation",
+              "gat_requires_session",
+              "recent_authentication_required",
+              "step_up_wrong_actor",
+              "team_create_not_authorized",
+              "team_delete_not_authorized",
+              "team_update_not_authorized",
+              "add_team_member_not_authorized",
+              "remove_team_member_not_authorized",
+              "change_team_member_role_not_authorized",
+              "library_mutation_not_authorized",
+              "team_extension_grant_delete_not_authorized",
+              "team_extension_grant_not_authorized",
+              "resource_group_create_not_authorized",
+              "resource_group_update_not_authorized",
+              "resource_group_delete_not_authorized",
+              "resource_group_access_not_authorized",
+              "resource_move_not_authorized",
+              "resource_access_not_authorized",
+              "access_policy_not_authorized",
+              "publish/quota-exceeded",
+              "publish/insufficient-scope",
+              "publish/resource-restriction",
+              "publish/handle-not-owned",
+              "publish/publish-forbidden",
+              "publish/capability-binding-mismatch",
+              "publish/capability-expired",
+              "publish/capability-revoked",
+              "publish/capability-consumed"
+            ]
+          },
+          "details": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/ScopeCheckDetails" },
+              { "$ref": "#/components/schemas/AuthorizationDenyDetails" },
+              { "$ref": "#/components/schemas/PublishDetails" }
+            ]
+          }
+        },
+        "required": ["kind", "type", "title", "status", "detail", "code"],
+        "additionalProperties": false
+      },
       "PublicationVisibilityInput": {
         "type": "object",
         "properties": {
@@ -4615,103 +4958,6 @@
         "additionalProperties": false,
         "title": "Token List Response",
         "description": "A page of your access tokens."
-      },
-      "ScopeCheckDetails": {
-        "type": "object",
-        "properties": {
-          "requiredScope": {
-            "type": "string",
-            "description": "The scope required to perform the requested operation."
-          },
-          "grantedScopes": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "The scopes granted to the current credential."
-          }
-        },
-        "required": ["grantedScopes"],
-        "additionalProperties": false,
-        "title": "Scope Check Details",
-        "description": "Diagnostic details returned when a request is denied due to insufficient scopes."
-      },
-      "AuthorizationDenyDetails": {
-        "type": "object",
-        "properties": {
-          "requiredScope": {
-            "type": "string",
-            "description": "The scope required to perform the requested operation."
-          },
-          "tokenScopes": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "The scopes present on the token used for the request."
-          },
-          "requiredRole": {
-            "type": "string",
-            "description": "The management role required, if applicable."
-          }
-        },
-        "required": ["tokenScopes"],
-        "additionalProperties": false,
-        "title": "Authorization Deny Details",
-        "description": "Diagnostic details returned when a request is denied due to insufficient authorization."
-      },
-      "ForbiddenErrorEncoded": {
-        "type": "object",
-        "properties": {
-          "kind": { "type": "string", "enum": ["ForbiddenError"] },
-          "type": { "type": "string" },
-          "title": { "type": "string" },
-          "status": { "type": "integer" },
-          "detail": { "type": "string" },
-          "instance": { "type": "string" },
-          "code": {
-            "type": "string",
-            "enum": [
-              "forbidden",
-              "insufficient_scope",
-              "resource_restriction",
-              "scope_escalation",
-              "gat_requires_session",
-              "recent_authentication_required",
-              "step_up_wrong_actor",
-              "team_create_not_authorized",
-              "team_delete_not_authorized",
-              "team_update_not_authorized",
-              "add_team_member_not_authorized",
-              "remove_team_member_not_authorized",
-              "change_team_member_role_not_authorized",
-              "library_mutation_not_authorized",
-              "team_extension_grant_delete_not_authorized",
-              "team_extension_grant_not_authorized",
-              "resource_group_create_not_authorized",
-              "resource_group_update_not_authorized",
-              "resource_group_delete_not_authorized",
-              "resource_group_access_not_authorized",
-              "resource_move_not_authorized",
-              "resource_access_not_authorized",
-              "access_policy_not_authorized",
-              "publish/quota-exceeded",
-              "publish/insufficient-scope",
-              "publish/resource-restriction",
-              "publish/handle-not-owned",
-              "publish/publish-forbidden",
-              "publish/capability-binding-mismatch",
-              "publish/capability-expired",
-              "publish/capability-revoked",
-              "publish/capability-consumed"
-            ]
-          },
-          "details": {
-            "anyOf": [
-              { "$ref": "#/components/schemas/ScopeCheckDetails" },
-              { "$ref": "#/components/schemas/AuthorizationDenyDetails" },
-              { "$ref": "#/components/schemas/PublishDetails" }
-            ]
-          }
-        },
-        "required": ["kind", "type", "title", "status", "detail", "code"],
-        "additionalProperties": false
       },
       "CreateTokenPermissionsRequest": {
         "type": "object",

@@ -2674,6 +2674,17 @@ programmatic interfaces, and supporting system behavior.
 
 #### Setup
 
+##### Setup treats coding-agent membership as a set
+
+- Requirement: `cli/setup/agent-membership-is-a-set`
+- Statement: When setup resolves coding-agent membership, it shall offer each configurable agent exactly once however many configuration, detection, or suggestion sources name that agent, and shall record the resolved membership as a set, so overlapping evidence or a repeated request never yields a duplicated agent or an unwritable workspace.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`specifications/cli/setup/agent-membership-is-a-set.spec.ts`](../specifications/cli/setup/agent-membership-is-a-set.spec.ts)
+
 ##### Setup initializes the selected workspace
 
 - Requirement: `cli/setup/initializes-selected-workspace`

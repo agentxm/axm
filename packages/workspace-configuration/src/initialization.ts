@@ -99,7 +99,10 @@ const isAutoSelectableAgent = (agent: AgentDescriptor): boolean =>
 const allAgentDescriptors = (
   preferredIds: ReadonlyArray<string>,
 ): ReadonlyArray<AgentDescriptor> => {
-  const preferred = preferredIds.flatMap((id) =>
+  // Preference sources overlap by design — configuration, detection, and the
+  // catalog suggestion name the same agent — so the offer is ordered by first
+  // mention and carries each agent once.
+  const preferred = [...new Set(preferredIds)].flatMap((id) =>
     isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
   );
   const preferredSet = new Set(preferred.map((agent) => agent.id));
@@ -108,6 +111,21 @@ const allAgentDescriptors = (
   );
   return [...preferred, ...remaining];
 };
+
+/**
+ * Configured membership as a set, in selection order.
+ *
+ * An explicit request and a selection each reach setup as a sequence, so
+ * either can name one agent more than once; the settings contract records
+ * each configured agent once.
+ */
+const configuredAgentIds = (
+  selectedAgents: ReadonlyArray<AgentDescriptor>,
+): ReadonlyArray<ConfigurableAgentId> => [
+  ...new Set(
+    selectedAgents.flatMap((agent) => (isConfigurableAgentId(agent.id) ? [agent.id] : [])),
+  ),
+];
 
 const setupAgentCandidates = (args: {
   readonly detections: ReadonlyArray<AgentScopeDetection>;
@@ -648,9 +666,7 @@ const configureProjectWorkspace = (args: {
       existingSettings: args.existingSettings,
       workspaceRoot,
     });
-    const agentIds = selectedAgents.flatMap((agent) =>
-      isConfigurableAgentId(agent.id) ? [agent.id] : [],
-    );
+    const agentIds = configuredAgentIds(selectedAgents);
     const settings: Settings = {
       ...args.existingSettings,
       agents: agentIds,
@@ -753,9 +769,7 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceMutati
       workspaceRoot: options.projectRoot,
     });
     const selectedAgents = selection.selectedAgents;
-    const agentIds = selectedAgents.flatMap((agent) =>
-      isConfigurableAgentId(agent.id) ? [agent.id] : [],
-    );
+    const agentIds = configuredAgentIds(selectedAgents);
     const settings: Settings = {
       agents: agentIds,
       skills: DEFAULT_SETUP_SKILLS,

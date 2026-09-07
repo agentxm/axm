@@ -1,3 +1,15 @@
+## 0.28.10 (2026-09-07)
+
+### 🩹 Fixes
+
+- Build stable-promotion helper dependencies from the workspace graph before starting publication.
+- Refresh Registry error response contracts and generated client.
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test
+
 ## 0.28.9 (2026-09-05)
 
 ### 🩹 Fixes

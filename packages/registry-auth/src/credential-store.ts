@@ -23,6 +23,7 @@ import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { AuthTokenPolicyRequired, RegistryAuthFailed } from "./errors.js";
+import { Keychain, type KeychainService } from "./keychain.js";
 import { envOption, isCI, isContainer, isRoot, isSSH, isWSL } from "./internal/environment.js";
 import type { CredentialEntry, CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
@@ -65,34 +66,6 @@ const CREDENTIALS_FILENAME = "credentials.json";
 const CONFIG_DIR_NAME = "axm";
 const DIR_PERMISSIONS = 0o700;
 const FILE_PERMISSIONS = 0o600;
-const KEYCHAIN_SERVICE = "axm";
-
-type KeyringEntry = {
-  readonly getPassword: () => string | null;
-  readonly setPassword: (password: string) => void;
-  readonly deletePassword: () => void;
-};
-
-type KeyringEntryConstructor = new (service: string, account: string) => KeyringEntry;
-
-type KeyringModule = {
-  readonly Entry: KeyringEntryConstructor;
-};
-
-const keyringModuleSpecifier = ["@napi-rs", "keyring"].join("/");
-
-const loadKeyringEntry = Effect.tryPromise({
-  try: async () => {
-    const keyring: KeyringModule = await import(keyringModuleSpecifier);
-    return keyring.Entry;
-  },
-  catch: (error) =>
-    new RegistryAuthFailed({
-      category: "auth",
-      detail: "OS keychain module could not be loaded",
-      cause: error,
-    }),
-});
 
 // -----------------------------------------------------------------------------
 // Internal helpers (take fs/path as args to avoid context leakage)
@@ -279,24 +252,13 @@ const emptyCredentialFile: CredentialFile = {
 const keychainAccount = (registryUrl: string): string => `registry:${registryUrl}`;
 
 const readKeychainCredentialFile = (
+  keychain: KeychainService,
   registryUrl: string,
 ): Effect.Effect<Option.Option<CredentialFile>, RegistryAuthFailed> =>
   Effect.gen(function* () {
-    const Entry = yield* loadKeyringEntry;
-    const content = yield* Effect.try({
-      try: () => {
-        const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
-        return entry.getPassword();
-      },
-      catch: (error) =>
-        new RegistryAuthFailed({
-          category: "auth",
-          detail: "OS keychain could not be read",
-          cause: error,
-        }),
-    });
-    if (content === null) return Option.none<CredentialFile>();
-    return yield* decodeCredentialFileFromJsonString(content).pipe(
+    const content = yield* keychain.get(keychainAccount(registryUrl));
+    if (Option.isNone(content)) return Option.none<CredentialFile>();
+    return yield* decodeCredentialFileFromJsonString(content.value).pipe(
       Effect.map((file) => Option.some(file)),
       Effect.mapError(
         (error) =>
@@ -310,6 +272,7 @@ const readKeychainCredentialFile = (
   });
 
 const writeKeychainCredentialFile = (
+  keychain: KeychainService,
   registryUrl: string,
   data: CredentialFile,
 ): Effect.Effect<void, RegistryAuthFailed> =>
@@ -324,40 +287,14 @@ const writeKeychainCredentialFile = (
           }),
       ),
     );
-    const content = JSON.stringify(encoded);
-    const Entry = yield* loadKeyringEntry;
-    yield* Effect.try({
-      try: () => {
-        const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
-        entry.setPassword(content);
-      },
-      catch: (error) =>
-        new RegistryAuthFailed({
-          category: "auth",
-          detail: "OS keychain could not be written",
-          cause: error,
-        }),
-    });
+    yield* keychain.set(keychainAccount(registryUrl), JSON.stringify(encoded));
   });
 
 const deleteKeychainCredentialFile = (
+  keychain: KeychainService,
   registryUrl: string,
 ): Effect.Effect<void, RegistryAuthFailed> =>
-  Effect.gen(function* () {
-    const Entry = yield* loadKeyringEntry;
-    yield* Effect.try({
-      try: () => {
-        const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
-        entry.deletePassword();
-      },
-      catch: (error) =>
-        new RegistryAuthFailed({
-          category: "auth",
-          detail: "OS keychain credential could not be deleted",
-          cause: error,
-        }),
-    }).pipe(Effect.catch(() => Effect.void));
-  });
+  keychain.delete(keychainAccount(registryUrl)).pipe(Effect.catch(() => Effect.void));
 
 // -----------------------------------------------------------------------------
 // Tier selection based on environment
@@ -369,13 +306,7 @@ export interface EnvironmentInfo {
   readonly isWSL: boolean;
   readonly isCI: boolean;
   readonly isRoot: boolean;
-  readonly isGenericBunExecutable: boolean;
 }
-
-const isGenericBunExecutable = (): boolean => {
-  const executable = process.execPath.replaceAll("\\", "/").toLowerCase();
-  return executable.endsWith("/bun") || executable.endsWith("/bun.exe");
-};
 
 export const detectEnvironment = Effect.gen(function* () {
   return {
@@ -384,7 +315,6 @@ export const detectEnvironment = Effect.gen(function* () {
     isWSL: yield* isWSL,
     isCI: yield* isCI,
     isRoot: isRoot(),
-    isGenericBunExecutable: isGenericBunExecutable(),
   } satisfies EnvironmentInfo;
 });
 
@@ -392,13 +322,15 @@ export const detectEnvironment = Effect.gen(function* () {
  * Select storage tier based on detected environment.
  *
  * Use OS keychain by default, falling back to the restricted file backend when
- * keychain access is unavailable. Whether persistence is allowed is a separate
- * policy decision.
+ * keychain access is unavailable. Only environments that have no usable
+ * keychain select the file tier ahead of time; how the CLI was launched does
+ * not decide the store, because a released binary and a source run on one host
+ * are the same user with the same sessions. A keychain that cannot answer is
+ * handled where it is called, not predicted here. Whether persistence is
+ * allowed is a separate policy decision.
  */
 export const selectTier = (env: EnvironmentInfo): StorageTier =>
-  env.isContainer || env.isCI || env.isSSH || env.isGenericBunExecutable
-    ? "restricted-file"
-    : "keychain";
+  env.isContainer || env.isCI || env.isSSH ? "restricted-file" : "keychain";
 
 export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean => !env.isCI;
 
@@ -409,23 +341,44 @@ export const makePersistedCredentialsUnsupportedError = (): AuthTokenPolicyRequi
 // Live layer
 // -----------------------------------------------------------------------------
 
-export const CredentialStoreLive = Layer.effect(
-  CredentialStore,
+/**
+ * Build a credential store on an explicit storage tier. `CredentialStoreLive`
+ * selects the tier from the environment; callers that must pin one — a
+ * specification establishing keychain-tier behavior on any host — use this.
+ */
+export const makeCredentialStore = (
+  storageTier: StorageTier,
+  persistedCredentialsAllowed: boolean,
+): Effect.Effect<CredentialStoreService, never, FileSystem.FileSystem | Path.Path | Keychain> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const keychain = yield* Keychain;
     const axmUserHome = yield* envOption("AXM_USER_HOME");
     const home = yield* envOption("HOME");
     const userProfile = yield* envOption("USERPROFILE");
     const homePath = yield* envOption("HOMEPATH");
     const homeDir = resolveCredentialHomeDir({ axmUserHome, home, userProfile, homePath });
-    const env = yield* detectEnvironment;
-    const storageTier = selectTier(env);
-    const persistedCredentialsAllowed = canUsePersistedCredentials(env);
+    const isRootUser = isRoot();
     const readStoredFile = () =>
       withCredentialFileLock(fs, path, homeDir, readCredentialFile(fs, path, homeDir));
     const writeStoredFile = (data: CredentialFile) =>
       withCredentialFileLock(fs, path, homeDir, writeCredentialFile(fs, path, homeDir, data));
+    /** Remove one origin from the restricted file, deleting it once empty. */
+    const pruneStoredFileOrigin = (registryUrl: string) =>
+      withCredentialFileLock(
+        fs,
+        path,
+        homeDir,
+        Effect.gen(function* () {
+          const existing = yield* readCredentialFile(fs, path, homeDir);
+          if (Option.isNone(existing)) return;
+          const { [registryUrl]: _removed, ...remaining } = existing.value.registries;
+          yield* Object.keys(remaining).length === 0
+            ? deleteCredentialFile(fs, path, homeDir)
+            : writeCredentialFile(fs, path, homeDir, { ...existing.value, registries: remaining });
+        }),
+      );
 
     // A read falls back silently. The auth middleware looks a credential up
     // for every request origin, so a read happens on commands that never
@@ -437,7 +390,7 @@ export const CredentialStoreLive = Layer.effect(
     // instead of the keychain.
     const loadCredentialFile = (registryUrl: string) =>
       storageTier === "keychain"
-        ? readKeychainCredentialFile(registryUrl).pipe(
+        ? readKeychainCredentialFile(keychain, registryUrl).pipe(
             Effect.catch(() =>
               Effect.logDebug(
                 "OS keychain unavailable; reading the restricted credential file.",
@@ -451,7 +404,7 @@ export const CredentialStoreLive = Layer.effect(
     // fell back to writing that file because the keychain was unavailable.
     const saveCredentialFile = (registryUrl: string, data: CredentialFile) =>
       storageTier === "keychain"
-        ? writeKeychainCredentialFile(registryUrl, data).pipe(
+        ? writeKeychainCredentialFile(keychain, registryUrl, data).pipe(
             Effect.as("keychain" as const),
             Effect.catch(() =>
               Effect.logWarning("OS keychain unavailable; using restricted credential file.").pipe(
@@ -467,7 +420,7 @@ export const CredentialStoreLive = Layer.effect(
           return yield* makePersistedCredentialsUnsupportedError();
         }
 
-        if (env.isRoot) {
+        if (isRootUser) {
           yield* Effect.logWarning("Running as root. Credentials will be owned by root.");
         }
 
@@ -497,10 +450,12 @@ export const CredentialStoreLive = Layer.effect(
         };
 
         const usedTier = yield* saveCredentialFile(registryUrl, updated);
-        // Only clear the plaintext file when credentials actually landed in the
+        // Only clear the plaintext copy when credentials actually landed in the
         // keychain; if we fell back to the file, deleting it would lose them.
+        // Retire this origin alone: the file also carries sessions for other
+        // Registries, written by runs this one knows nothing about.
         if (usedTier === "keychain") {
-          yield* deleteCredentialFile(fs, path, homeDir);
+          yield* pruneStoredFileOrigin(registryUrl);
         }
       },
     );
@@ -526,21 +481,14 @@ export const CredentialStoreLive = Layer.effect(
         return Option.none<StoredCredentials>();
       },
     );
+    // Sign-out is not tier-scoped. A session for this origin may sit in either
+    // backend — written by a run under a different tier on the same host — and
+    // leaving one behind would report a sign-out that did not happen. The
+    // keychain call is bounded, so an unreachable keychain cannot block it.
     const clear: CredentialStoreService["clear"] = Effect.fn("CredentialStore.clear")(
       function* (registryUrl) {
-        if (storageTier === "keychain") {
-          yield* deleteKeychainCredentialFile(registryUrl);
-        }
-        const existing = yield* readStoredFile();
-        if (Option.isNone(existing)) return;
-
-        const { [registryUrl]: _, ...remainingRegistries } = existing.value.registries;
-        const updated: CredentialFile = {
-          ...existing.value,
-          registries: remainingRegistries,
-        };
-
-        yield* writeStoredFile(updated);
+        yield* deleteKeychainCredentialFile(keychain, registryUrl);
+        yield* pruneStoredFileOrigin(registryUrl);
       },
     );
 
@@ -551,8 +499,22 @@ export const CredentialStoreLive = Layer.effect(
       load,
       clear,
     } satisfies CredentialStoreService;
+  });
+
+/** Credential store on the tier the current environment supports. */
+export const CredentialStoreLive = Layer.effect(
+  CredentialStore,
+  Effect.gen(function* () {
+    const env = yield* detectEnvironment;
+    return yield* makeCredentialStore(selectTier(env), canUsePersistedCredentials(env));
   }),
 );
+
+/** Credential store pinned to one tier, for tests and specifications. */
+export const makeCredentialStoreLive = (
+  storageTier: StorageTier,
+  persistedCredentialsAllowed = true,
+) => Layer.effect(CredentialStore, makeCredentialStore(storageTier, persistedCredentialsAllowed));
 
 /**
  * Decorates a credential store with a per-layer, per-origin read memo.

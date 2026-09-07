@@ -69,6 +69,8 @@ export {
 export {
   AuthClientLive,
   CredentialStoreLive,
+  KeychainLive,
+  makeCredentialStoreLive,
   PendingDeviceLoginStoreLive,
 } from "@agentxm/registry-auth/live";
 export { handleEnableHook } from "./root/hooks/enable.js";

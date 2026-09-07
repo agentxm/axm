@@ -8,6 +8,11 @@
 
 export { AuthClientLive } from "./auth-client.js";
 export { AuthMiddlewareLive, makeAuthMiddlewareLive } from "./auth-middleware.js";
-export { CredentialStoreLive, CredentialStoreSessionLive } from "./credential-store.js";
+export {
+  CredentialStoreLive,
+  CredentialStoreSessionLive,
+  makeCredentialStoreLive,
+} from "./credential-store.js";
+export { KeychainLive } from "./keychain.js";
 export { AuthLoginInteractionLive } from "./login-interaction.js";
 export { PendingDeviceLoginStoreLive } from "./pending-device-login-store.js";

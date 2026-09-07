@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { KeychainTest } from "@agentxm/registry-auth/testing";
 import {
   CredentialStore,
   CredentialStoreLive,
@@ -188,16 +189,20 @@ describe("Application-resource home", () => {
           ConfigProvider.fromEnv({ env: { AXM_USER_HOME: fixture.applicationHome } }),
         ),
       );
+      // The supported SSH tier never reaches the keychain; an in-memory port
+      // keeps that observable rather than trusting the host keychain.
+      const keychain = KeychainTest();
       const services = Layer.mergeAll(
         CredentialStoreLive,
         PendingDeviceLoginStoreLive,
         InstallMetaLive,
-      ).pipe(Layer.provide(platform));
+      ).pipe(Layer.provide(Layer.mergeAll(platform, keychain.layer)));
       return Effect.gen(function* () {
         const credentials = yield* CredentialStore;
         // The supported SSH file tier is selected before any credential action;
         // no operating-system keychain entry is read, written, or cleared.
         expect(credentials.tier).toBe("restricted-file");
+        expect(keychain.state.calls).toEqual([]);
         const pendingStore = yield* PendingDeviceLoginStore;
         const metadata = yield* InstallMeta;
         expect(Option.isNone(yield* credentials.load(registry))).toBe(true);

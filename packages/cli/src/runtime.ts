@@ -75,6 +75,7 @@ import {
   AuthMiddlewareLive,
   CredentialStoreLive,
   CredentialStoreSessionLive,
+  KeychainLive,
   PendingDeviceLoginStoreLive,
 } from "@agentxm/registry-auth/live";
 import { RegistryUrl } from "@agentxm/registry-client";
@@ -130,7 +131,7 @@ const RegistryRuntimeLayer = Layer.mergeAll(PlatformLayer, RegistryUrlLayer);
 
 const CredentialStoreLayer = Layer.provide(
   CredentialStoreSessionLive,
-  Layer.provide(CredentialStoreLive, RegistryRuntimeLayer),
+  Layer.provide(CredentialStoreLive, Layer.mergeAll(RegistryRuntimeLayer, KeychainLive)),
 );
 
 const AuthServicesLayer = Layer.provideMerge(

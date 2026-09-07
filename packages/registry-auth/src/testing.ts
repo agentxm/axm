@@ -8,6 +8,7 @@
 
 export { AuthClientTest } from "./auth-client.js";
 export { CredentialStoreTest } from "./credential-store.js";
+export { KeychainTest, type KeychainTestState } from "./keychain.js";
 export {
   DeviceLoginInteractionTest,
   type DeviceLoginInteractionTestState,

@@ -149,7 +149,6 @@ describe("CredentialStore", () => {
       isWSL: false,
       isCI: false,
       isRoot: false,
-      isGenericBunExecutable: false,
     };
 
     it("selects keychain for default environment", () => {
@@ -168,8 +167,10 @@ describe("CredentialStore", () => {
       expect(selectTier({ ...baseEnv, isSSH: true })).toBe("restricted-file");
     });
 
-    it("selects restricted-file for the generic Bun development executable", () => {
-      expect(selectTier({ ...baseEnv, isGenericBunExecutable: true })).toBe("restricted-file");
+    it("selects keychain however the CLI was launched", () => {
+      // A source run under a generic interpreter is the same user on the same
+      // host as the released binary, so it reads and writes the same sessions.
+      expect(selectTier(baseEnv)).toBe("keychain");
     });
 
     it("selects keychain for WSL desktop environments", () => {
@@ -192,7 +193,6 @@ describe("CredentialStore", () => {
       isWSL: false,
       isCI: false,
       isRoot: false,
-      isGenericBunExecutable: false,
     };
 
     it("allows persisted credentials in normal local environments", () => {

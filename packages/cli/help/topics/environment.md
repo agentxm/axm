@@ -16,6 +16,12 @@ and the default self-managed executable also use the selected home.
 Project state remains in the selected project. This setting does not change
 the operating-system account or its keychain.
 
+A sign-in is saved to the operating-system keychain, and to a restricted file
+under the selected home when the environment has no usable keychain — a
+container, a CI run, an SSH session, or a keychain that does not answer. One
+host and one user therefore hold one set of sessions however AXM was launched,
+and `axm logout` removes the selected Registry session from both.
+
 ## Registry and authentication precedence
 
 `AXM_REGISTRY_LOCATION` replaces the built-in extension source location. It

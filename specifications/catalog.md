@@ -1709,7 +1709,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Sign-out removes only the selected Registry session
 
 - Requirement: `cli/logout/erases-selected-registry-credentials`
-- Statement: When logout finds saved credentials, AXM shall remove the selected Registry session even if remote revocation fails, leaving other Registry credentials available.
+- Statement: When logout finds saved credentials, AXM shall remove the selected Registry session from every credential storage it can reach on the host even if remote revocation fails, leaving other Registry credentials available.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -2671,6 +2671,20 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `cli/every-type-completes-the-shared-lifecycle`
 - Source: [`specifications/cli/rules/update/preview-is-pure.spec.ts`](../specifications/cli/rules/update/preview-is-pure.spec.ts)
+
+#### Saving Credentials Preserves Other Registry Sessions
+
+##### Saving a session leaves other Registry sessions available
+
+- Requirement: `cli/saving-credentials-preserves-other-registry-sessions`
+- Statement: When AXM saves credentials for the selected Registry, it shall leave saved sessions for every other Registry available, whichever supported credential storage holds them.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/credential-store.internal.test.ts`
+- Source: [`specifications/cli/saving-credentials-preserves-other-registry-sessions.spec.ts`](../specifications/cli/saving-credentials-preserves-other-registry-sessions.spec.ts)
 
 #### Setup
 

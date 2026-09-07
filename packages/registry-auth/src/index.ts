@@ -55,9 +55,14 @@ export {
   canUsePersistedCredentials,
   CredentialStore,
   detectEnvironment,
+  makeCredentialStore,
   makePersistedCredentialsUnsupportedError,
   selectTier,
 } from "./credential-store.js";
+
+// Operating-system keychain port
+export type { KeychainService } from "./keychain.js";
+export { Keychain, KEYCHAIN_CALL_TIMEOUT, makeKeychain } from "./keychain.js";
 
 export type {
   PendingDeviceLogin,

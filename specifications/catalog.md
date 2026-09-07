@@ -5032,6 +5032,7 @@ programmatic interfaces, and supporting system behavior.
 - Supersedes: `system/process/release-promotion-precedes-independent-distribution`
 - Assumptions: The release coordinate is immutable and each required verifier reports truthful evidence about its named candidate.
 - Limitation: Repository evidence checks the workflow graph; it does not execute the published installer platform matrix. Retires when: An authorized release supplies successful exact-candidate matrix results and promotion readback.
+- Bound evidence: `test: axm:test (scripts/repository-task-interface.tooling.test.ts)` — Inspects the resolved promotion target and requires its workspace build prerequisites to follow the project graph, so a fresh candidate checkout does not depend on artifacts left by another job.
 - Bound evidence: `test: specifications:test` — Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.
 - Bound evidence: `test: axm:test (scripts/verify-installed-package.tooling.test.ts)` — Runs the published-package verifier through a package-manager launcher with sibling entrypoints from an unrelated directory, including paths with spaces, and rejects wrong installed versions and unexpected stderr; Windows CI executes the batch-launcher cases.
 - Source: [`specifications/system/process/stable-promotion-follows-verified-distribution.spec.ts`](../specifications/system/process/stable-promotion-follows-verified-distribution.spec.ts)

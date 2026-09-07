@@ -97,6 +97,9 @@ including deterministic repacking, compiled executables and dependency closure.
 These targets are uncached because they mutate or observe external state.
 
 The release promotion target consumes the exact validated asset directory and
+derives its workspace build prerequisites from the project graph through
+`^build`. It starts from a clean candidate checkout after dependency installation;
+the workflow does not supply separately built package artifacts. The target
 owns public validator preflight before its
 conditional update. It checks identity, gzip, Brotli, and Zstandard negotiation
 without sending promotion credentials to the public endpoint. Representation

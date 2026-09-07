@@ -427,7 +427,7 @@ export const getAppError = (error: unknown): AppError => {
   if (isKnownFailure(error)) {
     return toAppError(error);
   }
-  throw new Error("Expected AppError");
+  throw new Error("Expected AppError", { cause: error });
 };
 
 export const getErrorResult = (result: unknown): AppErrorResult => {

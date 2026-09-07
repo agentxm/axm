@@ -1,5 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -28,6 +36,7 @@ const readJsonRecord = (path: string): Record<PropertyKey, unknown> => {
 };
 
 const temporaryDirectories: string[] = [];
+const preparedRuntimeFile = "packages/extension-model/dist/src/unstable/extensions/common.js";
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
@@ -91,7 +100,8 @@ describe("release tag helpers", () => {
     expect(pattern.test("release: cli-v0.27.3 follow-up")).toBe(false);
   });
 
-  it("validates release tags through the root target", () => {
+  it("validates release tags through the root target without rebuilding prepared runtime", () => {
+    const runtimeBefore = statSync(preparedRuntimeFile, { bigint: true });
     const cliPackageJson = JSON.parse(readFileSync("packages/cli/package.json", "utf8")) as {
       readonly version: string;
     };
@@ -103,6 +113,7 @@ describe("release tag helpers", () => {
         "nx",
         "run",
         "axm:validate-release-tag",
+        "--excludeTaskDependencies",
         "--outputStyle=stream-without-prefixes",
         "--",
         tag,
@@ -115,14 +126,19 @@ describe("release tag helpers", () => {
           NX_TUI: "false",
           NX_DEFAULT_OUTPUT_STYLE: "stream-without-prefixes",
           NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
+          NX_SKIP_NX_CACHE: "true",
         },
       },
     );
 
     expect(output).toContain(cliPackageJson.version);
+    const runtimeAfter = statSync(preparedRuntimeFile, { bigint: true });
+    expect(runtimeAfter.ino).toBe(runtimeBefore.ino);
+    expect(runtimeAfter.mtimeNs).toBe(runtimeBefore.mtimeNs);
   });
 
-  it("emits release metadata through the root target", () => {
+  it("emits release metadata through the root target without rebuilding prepared runtime", () => {
+    const runtimeBefore = statSync(preparedRuntimeFile, { bigint: true });
     const cliPackageJson = JSON.parse(readFileSync("packages/cli/package.json", "utf8")) as {
       readonly version: string;
     };
@@ -148,6 +164,7 @@ describe("release tag helpers", () => {
           "nx",
           "run",
           "axm:resolve-release-meta",
+          "--excludeTaskDependencies",
           "--outputStyle=stream-without-prefixes",
           "--",
           tag,
@@ -160,12 +177,16 @@ describe("release tag helpers", () => {
             NX_TUI: "false",
             NX_DEFAULT_OUTPUT_STYLE: "stream-without-prefixes",
             NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
+            NX_SKIP_NX_CACHE: "true",
           },
         },
       );
 
       expect(output).toContain(`tag=${tag}`);
       expect(output).toContain(`version=${cliPackageJson.version}`);
+      const runtimeAfter = statSync(preparedRuntimeFile, { bigint: true });
+      expect(runtimeAfter.ino).toBe(runtimeBefore.ino);
+      expect(runtimeAfter.mtimeNs).toBe(runtimeBefore.mtimeNs);
     } finally {
       if (createdTag) {
         execFileSync("git", ["tag", "-d", tag], {

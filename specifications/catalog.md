@@ -1692,6 +1692,19 @@ programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`specifications/cli/login/terminal-authorization-failures-preserve-credentials.spec.ts`](../specifications/cli/login/terminal-authorization-failures-preserve-credentials.spec.ts)
 
+##### Hosted browser sign-in uses the selected Registry's web origin
+
+- Requirement: `cli/login/uses-matching-hosted-authorization-origin`
+- Statement: When browser sign-in targets an AgentXM-hosted Registry, AXM shall use the corresponding web origin for the authorization request and expected callback issuer.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Assumptions: The hosted Registry and web origins are configured as the environment pairs exercised here.
+- Limitation: In-memory evidence verifies request routing and issuer selection but does not establish availability of the deployed authorization endpoint. Retires when: Released CLI browser sign-in is verified against each deployed environment.
+- Source: [`specifications/cli/login/uses-matching-hosted-authorization-origin.spec.ts`](../specifications/cli/login/uses-matching-hosted-authorization-origin.spec.ts)
+
 ##### A bounded wait leaves sign-in resumable
 
 - Requirement: `cli/login/wait-timeout-preserves-authorization`

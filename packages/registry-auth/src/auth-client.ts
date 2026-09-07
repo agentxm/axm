@@ -354,8 +354,8 @@ const deriveAuthorizationOrigin = (registryUrl: string): string => {
   if (url.origin === "https://registry.agentxm.ai") {
     return "https://agentxm.ai";
   }
-  if (url.origin === "https://registry-dev.agentxm-ai.workers.dev") {
-    return "https://web-dev.agentxm-ai.workers.dev";
+  if (url.origin === "https://registry-dev.agentxm.ai") {
+    return "https://web-dev.agentxm.ai";
   }
   if (url.host === "localhost:4300") {
     return "http://localhost:4200";

@@ -157,6 +157,7 @@ describe("repository task interface", () => {
       "validate-release-tag",
       "resolve-release-meta",
       "download-ci-binaries",
+      "promote-release-channel",
     ]) {
       const dependencies = root?.data.targets?.[targetName]?.dependsOn ?? [];
       expect(dependencies, targetName).toContain("^build");

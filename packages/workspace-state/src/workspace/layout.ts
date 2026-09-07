@@ -65,6 +65,16 @@ export interface UserWorkspaceLayout {
 
 export type WorkspaceLayout = ProjectWorkspaceLayout | UserWorkspaceLayout;
 
+/**
+ * The same layout with `owner` established.
+ *
+ * A layout is resolved once from settings, so a command that records an owner
+ * must replace it for the owner to be visible to the resolution that follows
+ * in the same run.
+ */
+export const withLayoutOwner = (layout: WorkspaceLayout, owner: Handle): WorkspaceLayout =>
+  layout.scope === "project" ? { ...layout, owner } : { ...layout, owner };
+
 export const resolveProjectWorkspaceStatePaths = (path: Path.Path, projectRoot: AbsolutePath) => ({
   settingsPath: makeAbsolutePath(path, path.join(projectRoot, SETTINGS_FILENAME)),
   lockPath: makeAbsolutePath(path, path.join(projectRoot, LOCK_FILENAME)),

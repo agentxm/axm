@@ -68,6 +68,7 @@ export default [
           banTransitiveDependencies: true,
           allow: [
             "^.*/eslint(\\.base)?\\.config\\.[cm]?js$",
+            "^.*/vitest\\.execution\\.js$",
             "^.*/vitest\\.reporting\\.js$",
             // Specifications exercise the CLI application boundary in-process
             // through its published harness entry points.

@@ -15,7 +15,9 @@ const newConfig = {
     Argument.withDescription("Name of the subagent (without owner)"),
   ),
   owner: Flag.string("owner").pipe(
-    Flag.withDescription("Override the workspace owner (e.g., @acme)"),
+    Flag.withDescription(
+      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
+    ),
     Flag.optional,
   ),
   preview: previewCapabilityFlag("Show what files would be created without creating them"),

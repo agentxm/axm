@@ -44,6 +44,7 @@
   "namedInputs": {
     "sharedGlobals": [
       "{workspaceRoot}/tsconfig*.json",
+      "{workspaceRoot}/vitest.execution.ts",
       "{workspaceRoot}/vitest.reporting.ts",
       "{workspaceRoot}/scripts/specification-evidence*.ts"
     ],
@@ -89,7 +90,9 @@
   "release": {
     "projects": ["tag:release:cli"],
     "projectsRelationship": "fixed",
-    "versionPlans": true,
+    "versionPlans": {
+      "ignorePatternsForPlanCheck": ["{projectRoot}/vitest*.config.ts", "vitest.execution.ts"]
+    },
     "releaseTag": {
       "pattern": "cli-v{version}",
       "requireSemver": true

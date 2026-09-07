@@ -119,7 +119,7 @@ describe("repository task interface", () => {
       if (typeof script !== "string") throw new Error(`Missing ${name} script.`);
       const phases = script.split("&&");
       expect(phases[1], name).toContain("-t build --parallel=1 --skip-nx-cache");
-      expect(phases[2], name).toContain("-t test --parallel=1 --excludeTaskDependencies");
+      expect(phases[2], name).toContain("-t test --excludeTaskDependencies");
       for (const [index, phase] of phases.entries()) {
         expect(phase, `${name} phase ${index + 1}`).not.toContain("--batch");
       }
@@ -173,7 +173,7 @@ describe("repository task interface", () => {
     const command = commandText(lint?.options?.command);
     expect(lint?.executor).toBe("nx:run-commands");
     expect(command).toBe(
-      "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.reporting.ts scripts --max-warnings=192",
+      "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts scripts --max-warnings=192",
     );
     expect(command).not.toContain("eslint .");
   });

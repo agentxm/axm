@@ -2,51 +2,118 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../../app-error/index.js";
 import { CredentialStore, getCurrentUserHandle } from "@agentxm/registry-auth";
-import { registryAuthFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { normalizeScaffoldOwner } from "./scaffold-name.js";
 import { workspaceSettingsPath } from "./workspace-display-paths.js";
 import { toAppError } from "../../app-error/conversions.js";
 
-const makeOwnerRequiredError = (action: string, scope: WorkspaceScope): AppError =>
-  makeAppError({
-    code: "validation",
-    detail: `No owner configured for ${action}`,
-    suggestions: [
-      {
-        description: `Set \`owner\` in \`${workspaceSettingsPath(scope)}\`, pass an explicit owner flag, or sign in.`,
-        cmd: "axm login",
-      },
-    ],
+/** The `axm <type> new <name>` invocation named in an ownership refusal. */
+export interface AuthoringTarget {
+  /** Subject named in the refusal, e.g. `skill`. */
+  readonly subject: string;
+  /** Command route named in the recovery action, e.g. `skills new`. */
+  readonly command: string;
+  /** Name being created, so the recovery action is a runnable command. */
+  readonly name: string;
+}
+
+export interface AuthoringOwner {
+  /** The owner the new package and its workspace declaration carry. */
+  readonly owner: Handle;
+  /**
+   * Record `owner` in the selected scope's settings, or `Effect.void` when the
+   * scope already names it. Run it inside the authoring transaction so
+   * establishment is atomic with the desired-state entry and absent from
+   * preview.
+   */
+  readonly establish: Effect.Effect<void, AppError>;
+}
+
+/**
+ * Owners the person could plausibly have meant, most local first.
+ *
+ * These are named in the refusal only. Neither the user-scope owner nor the
+ * signed-in handle silently supplies authorship for the selected scope, because
+ * creating under an owner the scope does not record leaves the workspace
+ * failing its own desired-state invariant.
+ */
+const ownerCandidates = (
+  ws: WorkspaceMutationsService,
+): Effect.Effect<ReadonlyArray<Handle>, AppError, CredentialStore | RegistryUrl> =>
+  Effect.gen(function* () {
+    const configured = yield* ws.getConfiguredOwner().pipe(Effect.mapError(toAppError));
+    const registryUrl = yield* RegistryUrl;
+    // A keychain that cannot be read must not mask the ownership refusal that
+    // this lookup only decorates.
+    const loggedIn = yield* getCurrentUserHandle(registryUrl).pipe(
+      Effect.catch(() => Effect.succeed(Option.none<Handle>())),
+    );
+    const candidates = new Set<Handle>();
+    if (Option.isSome(configured)) candidates.add(configured.value);
+    if (Option.isSome(loggedIn)) candidates.add(loggedIn.value);
+    return Array.from(candidates);
+  });
+
+const ownerRequired = (
+  target: AuthoringTarget,
+  ws: WorkspaceMutationsService,
+): Effect.Effect<never, AppError, CredentialStore | RegistryUrl> =>
+  Effect.gen(function* () {
+    const candidates = yield* ownerCandidates(ws);
+    const [candidate] = candidates;
+    const settings = workspaceSettingsPath(ws.scope);
+    return yield* makeAppError({
+      code: "validation",
+      detail: `No owner configured for ${target.subject} creation`,
+      suggestions: [
+        candidate === undefined
+          ? {
+              description: `Name the owner to create under; it becomes the workspace owner in \`${settings}\`.`,
+              cmd: `axm ${target.command} ${target.name} --owner @handle`,
+            }
+          : {
+              description: `Create under ${candidates.join(" or ")}, recording it as the workspace owner in \`${settings}\`.`,
+              cmd: `axm ${target.command} ${target.name} --owner ${candidate}`,
+            },
+      ],
+    });
   });
 
 /**
- * Resolve the owner that should be used when authoring new content
- * (new, scaffold). Cascade:
- *   1. Configured owner from project/global settings
- *   2. Locally-stored handle for the configured registry (if logged in)
- *   3. Optional fallback supplied by caller
- *   4. Fail with OWNER_REQUIRED.
+ * Resolve the owner every `new` command creates under.
+ *
+ * The selected workspace scope is the only silent source. An explicitly
+ * requested owner must match a configured one, and establishes ownership when
+ * the scope configures none. When neither is present the refusal names the
+ * owners the person could have meant rather than resolving one for them.
  */
-export const resolveOwnerForNewContent = (
-  action: string,
-  fallback?: Option.Option<Handle>,
-): Effect.Effect<Handle, AppError, WorkspaceMutations | CredentialStore | RegistryUrl> =>
+export const resolveAuthoringOwner = (
+  target: AuthoringTarget,
+  explicit: Option.Option<string>,
+): Effect.Effect<AuthoringOwner, AppError, WorkspaceMutations | CredentialStore | RegistryUrl> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const configured = ws.layout.owner;
 
-    const configured = yield* ws.getConfiguredOwner().pipe(Effect.mapError(toAppError));
-    if (Option.isSome(configured)) return configured.value;
+    if (Option.isNone(explicit)) {
+      if (configured === undefined) return yield* ownerRequired(target, ws);
+      return { owner: configured, establish: Effect.void };
+    }
 
-    const registryUrl = yield* RegistryUrl;
-    const loggedIn = yield* getCurrentUserHandle(registryUrl).pipe(
-      Effect.mapError(registryAuthFailureToAppError),
-    );
-    if (Option.isSome(loggedIn)) return loggedIn.value;
-
-    if (fallback && Option.isSome(fallback)) return fallback.value;
-
-    return yield* makeOwnerRequiredError(action, ws.scope);
+    const requested = normalizeScaffoldOwner(explicit.value);
+    if (configured === undefined) {
+      return {
+        owner: requested,
+        establish: ws.setOwner(requested).pipe(Effect.mapError(toAppError)),
+      };
+    }
+    if (configured !== requested) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Package owner ${requested} does not match workspace owner ${configured}`,
+      });
+    }
+    return { owner: requested, establish: Effect.void };
   });

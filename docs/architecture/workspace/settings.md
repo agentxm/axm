@@ -115,6 +115,13 @@ establish an accepted external resolution, or grant AXM authority over
 existing content. Authentication may verify a Registry operation or present an
 owner choice, but it never silently supplies durable authorship.
 
+Owner is the one authoring default that does not cascade across scopes.
+Creation reads it from the selected scope alone, because content created under
+an owner the scope does not record would leave the workspace failing its own
+desired-state invariant. An explicitly named owner establishes the scope's
+owner when it has none. A user-scope owner and a signed-in handle are named as
+candidates when creation is refused; neither supplies one silently.
+
 Owner, author attribution, publisher authorization, and license are distinct.
 A configured license is an expressed legal choice; `UNLICENSED` is likewise a
 deliberate choice rather than a fallback. External software-package identity

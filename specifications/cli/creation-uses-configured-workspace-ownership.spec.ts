@@ -23,14 +23,13 @@ export const specification = defineSpecification({
   requirement: "cli/creation-uses-configured-workspace-ownership",
   title: "Creation uses the configured workspace owner",
   statement:
-    "When a person creates an extension, AXM shall use the configured workspace owner, accept an explicitly matching owner with or without its leading @, and refuse creation before changing workspace content when no owner is configured or the explicitly requested owner differs.",
+    "When a person creates an extension, AXM shall use the owner configured in the selected workspace scope, accept an explicitly requested owner with or without its leading @, record an explicitly requested owner as that scope's owner when it configures none, and refuse creation before changing workspace content when no owner is configured and none is requested or when the requested owner differs from the configured one; every applied creation leaves the scope's configured owner equal to the created package's owner, and a previewed creation records none.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
     "packages/cli/src/root/hooks/new.internal.test.ts",
-    "packages/cli/src/root/shared/authored-owner.ts",
     "packages/cli/src/root/shared/resolve-owner.ts",
   ],
   supersedes: [],
@@ -44,40 +43,73 @@ describe("Workspace author ownership", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
+  /** Every way a creation reaches @acme as the owner it writes. */
+  const successRows = [
+    {
+      label: "the configured owner with no override",
+      override: Option.none<string>(),
+      establishes: false,
+    },
+    { label: "an override of @acme", override: Option.some("@acme"), establishes: false },
+    { label: "an override of acme", override: Option.some("acme"), establishes: false },
+    {
+      label: "an override that establishes ownership",
+      override: Option.some("@acme"),
+      establishes: true,
+    },
+  ] as const;
+
   for (const row of authoringTypes)
-    for (const override of ["@acme", "acme"])
-      it.effect(`accepts ${override} for a ${row.type} in the @acme workspace`, () =>
+    for (const success of successRows)
+      it.effect(`accepts ${success.label} for a ${row.type}`, () =>
         Effect.gen(function* () {
           const workspace = makeSpecWorkspace({
             machine: true,
-            settings: { agents: [], owner: "@acme" },
+            settings: {
+              agents: [],
+              ...(success.establishes ? { owner: undefined } : { owner: "@acme" }),
+            },
           });
           cleanups.push(workspace.cleanup);
-          yield* createNewExtension(row, "review", Option.some(override)).pipe(
+          yield* createNewExtension(row, "review", success.override).pipe(
             Effect.provide(workspace.layer),
           );
           expect(
             readPackageJson(workspace.root, `${row.plural}/review/${row.manifest}`),
           ).toMatchObject({ owner: "@acme", name: "review", type: row.type });
+          // The created package is reachable from settings, so the scope must
+          // name the owner it was created under.
+          expect(workspace.readSettings()).toMatchObject({ owner: "@acme" });
         }),
       );
 
   for (const row of authoringTypes)
-    for (const fault of [
-      "missing-owner",
-      "override-without-workspace-owner",
-      "different-owner",
-    ] as const)
+    it.effect(`previews an establishing ${row.type} creation without recording an owner`, () =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace({
+          machine: true,
+          settings: { agents: [], owner: undefined },
+        });
+        cleanups.push(workspace.cleanup);
+        const before = snapshotWorkspaceContent(workspace.root);
+        yield* createNewExtension(row, "review", Option.some("@acme"), { preview: true }).pipe(
+          Effect.provide(workspace.layer),
+        );
+        expect(workspace.readSettings()).not.toMatchObject({ owner: "@acme" });
+        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+      }),
+    );
+
+  for (const row of authoringTypes)
+    for (const fault of ["missing-owner", "different-owner"] as const)
       it.effect(`refuses ${fault} for ${row.type} before creating content`, () =>
         Effect.gen(function* () {
           const workspace = makeSpecWorkspace({ machine: true, settings: { agents: [] } });
           cleanups.push(workspace.cleanup);
-          if (fault !== "different-owner") workspace.writeSettings({ agents: [] });
+          if (fault === "missing-owner") workspace.writeSettings({ agents: [] });
           const before = snapshotWorkspaceContent(workspace.root);
           const override =
-            fault === "missing-owner"
-              ? Option.none<string>()
-              : Option.some(fault === "different-owner" ? "@other" : "@acme");
+            fault === "missing-owner" ? Option.none<string>() : Option.some("@other");
           const outcome = yield* createNewExtension(row, "review", override).pipe(
             Effect.flip,
             Effect.provide(workspace.layer),

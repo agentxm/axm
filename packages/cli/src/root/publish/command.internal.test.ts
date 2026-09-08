@@ -63,6 +63,7 @@ import {
   handleRootPublish,
   makeExactPublishRecovery,
   publicPublishCause,
+  unconfirmedPublishOutcomes,
   type RootPublishHandlerArgs,
 } from "./command.js";
 
@@ -785,6 +786,77 @@ describe("root publish", () => {
         }),
       );
     });
+
+    it.effect("reports an apply that confirmed nothing as an unsettled outcome", () => {
+      const { provide, logs } = makeContext(false);
+      const unknownItem = (name: string): PublishResultItem => ({
+        id: `@acme/skills/${name}`,
+        owner: handle("@acme"),
+        type: "skill",
+        name: extensionName(name),
+        version: exactVersion("1.0.0"),
+        action: "publish",
+        phase: "upload_execution",
+        status: "unknown",
+        reason: "settlement_unresolved",
+        settlement: "unresolved",
+        message:
+          "The Registry may have committed this version, but bounded readback and one exact replay could not prove the outcome.",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* emitPublishResult("publish", {
+            mode: "apply",
+            results: [unknownItem("review"), unknownItem("triage")],
+            recovery: {
+              description: "Continue the failed items and their blocked dependents",
+              cmd: "axm publish --on-existing verify @acme/skills/review",
+              remainingItems: ["@acme/skills/review", "@acme/skills/triage"],
+              blockedDependents: [],
+            },
+          });
+
+          expect(logs.error).toContain("Publish did not confirm 2 extensions");
+          const details = logs.info.join("\n");
+          for (const name of ["review", "triage"]) {
+            expect(details).toContain(
+              `@acme/skills/${name}@1.0.0 — settlement unknown during upload: registry settlement could not be verified`,
+            );
+          }
+          expect(logs.success.join("\n")).not.toContain("No extensions published");
+        }),
+      );
+    });
+
+    it.effect("names the single unconfirmed extension when nothing settled", () => {
+      const { provide, logs } = makeContext(false);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* emitPublishResult("publish", {
+            mode: "apply",
+            results: [
+              {
+                id: "@acme/skills/review",
+                owner: handle("@acme"),
+                type: "skill",
+                name: extensionName("review"),
+                version: exactVersion("1.0.0"),
+                action: "publish",
+                phase: "upload_execution",
+                status: "unknown",
+                reason: "settlement_unresolved",
+                settlement: "unresolved",
+              },
+            ],
+          });
+
+          expect(logs.error).toContain("Publish did not confirm @acme/skills/review@1.0.0");
+          expect(logs.success).not.toContain("No extensions published — 0 extensions skipped");
+        }),
+      );
+    });
   });
 
   describe("existing version policy", () => {
@@ -1046,6 +1118,39 @@ describe("root publish", () => {
       );
     });
 
+    it.effect("does not report an unsettled apply as a no-op", () => {
+      const { provide } = makeContext();
+
+      return provide(
+        Effect.gen(function* () {
+          const properties = yield* semanticProperties(
+            emitPublishResult("publish", {
+              mode: "apply",
+              results: [
+                {
+                  id: "@acme/skills/review",
+                  owner: handle("@acme"),
+                  type: "skill",
+                  name: extensionName("review"),
+                  version: exactVersion("1.0.0"),
+                  action: "publish",
+                  phase: "upload_execution",
+                  status: "unknown",
+                  reason: "settlement_unresolved",
+                  settlement: "unresolved",
+                },
+              ],
+            }),
+          );
+
+          expect(properties["cli.outcome"]).not.toBe("no-op");
+          expect(properties["cli.outcome"]).toBe("failed");
+          expect(properties["cli.applied_count"]).toBe(0);
+          expect(properties["cli.failed_count"]).toBe(1);
+        }),
+      );
+    });
+
     it.effect("reports mixed subject types across a multi-type selection", () => {
       writeReviewSkill({ rules: { style: "workspace" } });
       const ruleDir = path.join(tempDir, "rules", "style");
@@ -1109,6 +1214,50 @@ describe("aggregatePublishFailure", () => {
     ]);
 
     expect(error.code).toBe("network");
+  });
+});
+
+describe("unconfirmedPublishOutcomes", () => {
+  const base: Pick<PublishResultItem, "id" | "owner" | "type" | "name" | "phase"> = {
+    id: "@acme/skills/review",
+    owner: handle("@acme"),
+    type: "skill",
+    name: extensionName("review"),
+    phase: "upload_execution",
+  };
+  const unknown: PublishResultItem = {
+    ...base,
+    action: "publish",
+    status: "unknown",
+    reason: "settlement_unresolved",
+  };
+  const pending: PublishResultItem = {
+    ...base,
+    id: "@acme/skills/triage",
+    name: extensionName("triage"),
+    action: "publish",
+    status: "pending",
+    reason: "selected",
+  };
+  const published: PublishResultItem = {
+    ...base,
+    id: "@acme/skills/audit",
+    name: extensionName("audit"),
+    action: "publish",
+    status: "success",
+    reason: "selected",
+  };
+
+  it("reports every unsettled outcome when an executed apply confirmed nothing", () => {
+    expect(unconfirmedPublishOutcomes([unknown, pending], true)).toEqual([unknown, pending]);
+  });
+
+  it("reports nothing once a publication settled", () => {
+    expect(unconfirmedPublishOutcomes([published, unknown], true)).toEqual([]);
+  });
+
+  it("reports nothing when the apply never executed", () => {
+    expect(unconfirmedPublishOutcomes([unknown, pending], false)).toEqual([]);
   });
 });
 

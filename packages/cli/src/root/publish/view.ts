@@ -130,6 +130,12 @@ export const renderHumanPublishResult = (
   screen: typeof Screen.Service,
   result: PublishResult,
   options: {
+    /**
+     * Whether the run is a success outcome. Computed once by the caller from
+     * the same result document the machine surface emits, so the human and
+     * document paths cannot disagree about the verdict.
+     */
+    readonly ok: boolean;
     readonly suggestions: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
   },
@@ -252,6 +258,11 @@ export const renderHumanPublishResult = (
     );
     const blocked = result.execution.outcomes.filter((item) => item.status === "blocked");
     const failed = result.execution.outcomes.filter((item) => item.status === "failed");
+    // Dispatched but unproven, or never dispatched: nothing here confirms a
+    // publication, so neither status may be reported as a settled outcome.
+    const unconfirmed = result.execution.outcomes.filter(
+      (item) => item.status === "unknown" || item.status === "pending",
+    );
     const suggestions =
       options.suggestions.length === 0
         ? undefined
@@ -338,7 +349,7 @@ export const renderHumanPublishResult = (
       return;
     }
 
-    if (published.length > 0 && failed.length === 0) {
+    if (published.length > 0 && failed.length === 0 && unconfirmed.length === 0) {
       const [publishedItem] = published;
       const headline =
         publishedItem !== undefined && published.length === 1
@@ -368,7 +379,9 @@ export const renderHumanPublishResult = (
     }
 
     if (published.length > 0) {
-      const headline = `Published ${count(published.length, "extension")}; ${count(failed.length, "extension")} failed; ${count(blocked.length, "extension")} not attempted`;
+      const headline = `Published ${count(published.length, "extension")}; ${count(failed.length, "extension")} failed; ${count(blocked.length, "extension")} not attempted${
+        unconfirmed.length === 0 ? "" : `; ${count(unconfirmed.length, "extension")} unconfirmed`
+      }`;
       yield* screen.note(errorDoc(headline, suggestions));
       yield* screen.note(
         headlineDoc(
@@ -376,8 +389,37 @@ export const renderHumanPublishResult = (
           [
             ...published.map((item) => publishItemLine(item)),
             ...failed.map(publishOutcomeLine),
+            ...unconfirmed.map(publishOutcomeLine),
             ...blocked.map(publishOutcomeLine),
           ].join("\n"),
+        ),
+      );
+      if (verifiedExisting.length > 0) {
+        yield* screen.note(
+          headlineDoc(
+            "info",
+            `${count(verifiedExisting.length, "version")} already published and integrity-verified\n${verifiedExisting
+              .map((item) => publishItemLine(item))
+              .join("\n")}`,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (unconfirmed.length > 0) {
+      const [unconfirmedItem] = unconfirmed;
+      const headline =
+        failed.length > 0
+          ? `Publish failed for ${count(failed.length, "extension")}; ${count(unconfirmed.length, "extension")} unconfirmed`
+          : unconfirmedItem !== undefined && unconfirmed.length === 1
+            ? `Publish did not confirm ${publishIdentity(unconfirmedItem)}`
+            : `Publish did not confirm ${count(unconfirmed.length, "extension")}`;
+      yield* screen.note(errorDoc(headline, suggestions));
+      yield* screen.note(
+        headlineDoc(
+          "info",
+          [...failed, ...unconfirmed, ...blocked].map(publishOutcomeLine).join("\n"),
         ),
       );
       if (verifiedExisting.length > 0) {
@@ -434,6 +476,16 @@ export const renderHumanPublishResult = (
         : verifiedExisting.length > 0
           ? `All ${verifiedExisting.length} selected versions are already published and integrity-verified`
           : `No extensions published — ${count(skipped.length, "extension")} skipped`;
+    if (!options.ok) {
+      // The verdict is the caller's; the terminal line never reports a run the
+      // result document calls unsuccessful as a success.
+      yield* screen.result(errorDoc(headline, suggestions));
+      const remaining = [...verifiedExisting, ...blocked];
+      if (remaining.length > 0) {
+        yield* screen.note(headlineDoc("info", remaining.map(publishOutcomeLine).join("\n")));
+      }
+      return;
+    }
     yield* screen.result(
       successDoc(headline, {
         ...(verifiedExisting.length > 1

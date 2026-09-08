@@ -506,6 +506,27 @@ export const interruptedPublishResults = (
   });
 };
 
+/**
+ * The outcomes of an executed apply that confirmed no publication and still
+ * has work outstanding: an unproven settlement (`unknown`) or an item that
+ * never left the process (`pending`). Empty when the apply did not execute
+ * (preview, declined confirmation) or when at least one publication settled.
+ * An interrupted run resolves before this decision and keeps its own exit.
+ *
+ * @internal Exported for direct tests.
+ */
+export const unconfirmedPublishOutcomes = (
+  results: ReadonlyArray<PublishResultItem>,
+  applyExecuted: boolean,
+): ReadonlyArray<PublishResultItem> => {
+  const confirmed = results.some(
+    (result) => result.action === "publish" && result.status === "success",
+  );
+  return !applyExecuted || confirmed
+    ? []
+    : results.filter((result) => result.status === "unknown" || result.status === "pending");
+};
+
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
   if (typeof entry !== "object" || entry === null || !("source" in entry)) return undefined;
@@ -2611,6 +2632,18 @@ const runPublish = Effect.fn("Publish.run")(function* (
       ...preflightErrors,
       ...failedStepErrors,
     ]);
+    return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
+  }
+  // Nothing confirmed and work left unsettled is neither failure nor success:
+  // the run reports issues so no caller reads its exit as a publication.
+  const unconfirmed = unconfirmedPublishOutcomes(results, applyExecuted);
+  if (unconfirmed.length > 0) {
+    const failure = makeAppError({
+      code: "issues",
+      detail: `No publication was confirmed; ${unconfirmed.length} extension${
+        unconfirmed.length === 1 ? "" : "s"
+      } left unsettled. Verify the target registry before re-publishing.`,
+    });
     return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
   }
 });

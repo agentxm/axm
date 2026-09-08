@@ -477,6 +477,7 @@ export const emitPublishResult = <TCommand extends string>(
     const emitted = yield* screen.document(result, PublishResultSchema, renderOptions);
     if (!emitted) {
       yield* renderHumanPublishResult(screen, result, {
+        ok: renderOptions.ok,
         suggestions,
         ...(options?.withoutSuggestions === undefined
           ? {}
@@ -492,11 +493,23 @@ export const emitPublishResult = <TCommand extends string>(
  * Outcome follows the same convention as executed plans: a run that touched
  * nothing is `no-op`, and any applied or failed work is `applied` even when
  * every item failed, so partial failures stay in one bucket.
+ *
+ * Unconfirmed work is not "touched nothing": an indeterminate upload joins the
+ * failed bucket because its settlement is unproven and needs attention, and an
+ * item that never left the process joins the blocked bucket. Either keeps the
+ * run out of `no-op`. An interrupted run still reports `interrupted`.
  */
 export const publishResultToSummary = (result: PublishResult): CommandOutcomeSummary => {
   const appliedCount = result.counts.published;
-  const failedCount = result.counts.failed + (result.execution.failure === undefined ? 0 : 1);
-  const blockedCount = result.counts.blocked;
+  // A preview leaves every selected item `pending` by construction, so only an
+  // apply carries unconfirmed work.
+  const unconfirmed =
+    result.mode === "apply"
+      ? { unknown: result.counts.unknown, pending: result.counts.pending }
+      : { unknown: 0, pending: 0 };
+  const failedCount =
+    result.counts.failed + unconfirmed.unknown + (result.execution.failure === undefined ? 0 : 1);
+  const blockedCount = result.counts.blocked + unconfirmed.pending;
   const types = new Set(result.execution.outcomes.map((item) => item.type));
   const [onlyType] = [...types];
   const subjectType: SubjectType =

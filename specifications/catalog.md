@@ -2409,7 +2409,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Publication results distinguish confirmed, failed, blocked, pending and unresolved work
 
 - Requirement: `cli/publish/outcomes-distinguish-unresolved-uploads`
-- Statement: When publication partially fails or is interrupted, AXM shall report each candidate according to the available evidence, retain acknowledged independent successes, block dependents of failed uploads, distinguish unattempted work from dispatched uploads with unknown outcomes, and provide credential-free recovery for the unfinished selection.
+- Statement: When publication does not confirm every selected candidate — failing in part or entirely, or being interrupted — AXM shall report each candidate according to the available evidence, retain acknowledged independent successes, block dependents of failed uploads, distinguish unattempted work from dispatched uploads with unknown outcomes, never present a run that confirms no publication as a success in its rendered result or its exit status, and provide credential-free recovery for the unfinished selection.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `machine-automation`, `safe-repetition`

@@ -35,6 +35,7 @@ const interruptOnFirstRegistryRequest = async (
         cwd: options.cwd,
         env: {
           ...parentEnv,
+          AXM_REGISTRY_LOCATION: `http://127.0.0.1:${address.port}`,
           AXM_REGISTRY_URL: `http://127.0.0.1:${address.port}`,
           AXM_TELEMETRY: "0",
           AXM_USER_HOME: options.userHome,

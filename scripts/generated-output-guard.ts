@@ -11,6 +11,7 @@ import {
   readlinkSync,
   rmSync,
   symlinkSync,
+  type Stats,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -139,6 +140,16 @@ export const findGeneratedOutputDrift = (
 const gitEnvironment = (): NodeJS.ProcessEnv =>
   Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
 
+/** `undefined` when the path no longer exists, so a path removed from the working tree is not fatal. */
+const lstatIfPresent = (path: string): Stats | undefined => {
+  try {
+    return lstatSync(path);
+  } catch (error) {
+    if (isRecord(error) && error["code"] === "ENOENT") return undefined;
+    throw error;
+  }
+};
+
 export const mirrorNodeModules = (source: string, destination: string, root = true): void => {
   mkdirSync(destination, { recursive: true });
   for (const entry of readdirSync(source, { withFileTypes: true })) {
@@ -162,9 +173,13 @@ const copyWorkspaceSnapshot = (workspaceRoot: string, snapshotRoot: string): voi
     .filter((path) => path.length > 0);
   for (const path of files) {
     const source = join(workspaceRoot, path);
+    // `git ls-files -c` reports index entries, which still name tracked files the developer
+    // has deleted from the working tree. The snapshot mirrors the working-tree view, so a
+    // deleted path is simply absent from it and regeneration reports it as drift.
+    const stat = lstatIfPresent(source);
+    if (stat === undefined) continue;
     const destination = join(snapshotRoot, path);
     mkdirSync(dirname(destination), { recursive: true });
-    const stat = lstatSync(source);
     if (stat.isSymbolicLink()) symlinkSync(readlinkSync(source), destination);
     else
       cpSync(source, destination, {
@@ -199,14 +214,7 @@ const describeTree = (
   const entries = new Map<string, string>();
   const visit = (path: string): void => {
     const absolute = join(workspaceRoot, path);
-    const stat = (() => {
-      try {
-        return lstatSync(absolute);
-      } catch (error) {
-        if (isRecord(error) && error["code"] === "ENOENT") return undefined;
-        throw error;
-      }
-    })();
+    const stat = lstatIfPresent(absolute);
     if (stat === undefined) return;
     const normalized = path.replaceAll("\\", "/");
     if (stat.isSymbolicLink()) {

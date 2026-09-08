@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -143,6 +144,22 @@ describe("generated output guard", () => {
 
     writeFileSync(join(directory, "generated", "new.ts"), "export const added = true;\n");
     expect(findGeneratedOutputDrift(directory, ["generated"])).toContain("generated/new.ts");
+  });
+
+  it("reports a tracked owned output deleted from the working tree instead of failing to snapshot", () => {
+    const directory = makeRepository();
+    const generated = join(directory, "generated", "client.ts");
+    unlinkSync(generated);
+    const beforeStatus = gitText(directory, "status", "--porcelain=v2", "-z");
+
+    const drift = findGeneratedOutputDriftWithoutMutation(directory, ["generated"], (snapshot) => {
+      mkdirSync(join(snapshot, "generated"), { recursive: true });
+      writeFileSync(join(snapshot, "generated", "client.ts"), "export const value = 1;\n");
+    });
+
+    expect(drift).toContain("generated/client.ts");
+    expect(existsSync(generated)).toBe(false);
+    expect(gitText(directory, "status", "--porcelain=v2", "-z")).toBe(beforeStatus);
   });
 
   it("detects drift without changing staged, unstaged, or untracked state", () => {

@@ -1,5 +1,5 @@
 import { copyFileSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import { RELEASE_PACKAGES } from "./release-shared.js";
@@ -58,14 +58,15 @@ const orderedJson = (value: unknown): unknown => {
 /** pnpm resolves workspace/catalog references concurrently; normalize key order
  * before npm's portable deterministic tar writer produces the published bytes. */
 const canonicalizePack = (tarball: string, destination: string): void => {
-  const staging = mkdtempSync(join(destination, "unpacked-"));
+  const packDestination = resolve(destination);
+  const staging = mkdtempSync(join(packDestination, "unpacked-"));
   try {
     run("tar", ["-xzf", tarball, "-C", staging]);
     const packageRoot = join(staging, "package");
     const manifestPath = join(packageRoot, "package.json");
     const manifest: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
     writeFileSync(manifestPath, `${JSON.stringify(orderedJson(manifest), null, 2)}\n`);
-    runIn(packageRoot, "npm", ["pack", "--ignore-scripts", "--pack-destination", destination]);
+    runIn(packageRoot, "npm", ["pack", "--ignore-scripts", "--pack-destination", packDestination]);
   } finally {
     rmSync(staging, { recursive: true, force: true });
   }

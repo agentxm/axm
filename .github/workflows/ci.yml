@@ -578,6 +578,10 @@ jobs:
         run: pnpm nx run extension-workspace:test-windows --outputStyle=static
 
       - name: Verify Windows workspace mutations
+        env:
+          # This lifecycle target builds the portable JS CLI; dedicated main E2E
+          # partitions own compiled-host coverage.
+          AXM_E2E_CLI_SOURCE: built
         run: pnpm nx run cli-e2e:e2e-windows --outputStyle=static
 
       - name: Verify published-package launcher isolation

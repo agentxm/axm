@@ -16,7 +16,7 @@
     "e2e-windows": {
       "cache": true,
       "dependsOn": ["cli:build"],
-      "inputs": ["default", "^production", "hostPlatform"],
+      "inputs": ["default", "^production", "hostPlatform", { "env": "AXM_E2E_CLI_SOURCE" }],
       "outputs": ["{workspaceRoot}/test-results/cli-e2e-windows"],
       "executor": "nx:run-commands",
       "options": {

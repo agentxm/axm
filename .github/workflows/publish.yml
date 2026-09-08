@@ -81,15 +81,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          set +e
-          pnpm exec nx run axm:distribute-release --outputStyle=static -- \
-            "${{ steps.release_meta.outputs.version }}" \
-            "${{ steps.release_meta.outputs.tag }}" \
-            release-assets > release-distribution.log 2>&1
-          status=$?
-          set -e
-          tail -n 200 release-distribution.log
-          exit "$status"
+          attempt=1
+          while true; do
+            set +e
+            pnpm exec nx run axm:distribute-release --outputStyle=static -- \
+              "${{ steps.release_meta.outputs.version }}" \
+              "${{ steps.release_meta.outputs.tag }}" \
+              release-assets > release-distribution.log 2>&1
+            status=$?
+            set -e
+            tail -n 200 release-distribution.log
+
+            if [ "$status" -eq 0 ]; then
+              break
+            fi
+            if [ "$attempt" -ge 20 ] || ! grep -Fq "Published content readback failed:" release-distribution.log; then
+              exit "$status"
+            fi
+
+            echo "Published content has not propagated; retrying immutable distribution ($attempt/20)."
+            attempt=$((attempt + 1))
+            sleep 10
+          done
 
   skill-publish:
     name: Publish AXM Skill

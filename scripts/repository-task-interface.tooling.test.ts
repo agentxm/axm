@@ -110,7 +110,7 @@ describe("repository task interface", () => {
     );
   });
 
-  it("keeps verification output phases isolated", () => {
+  it("keeps deterministic verification in one dependency-aware graph", () => {
     const scripts = readObject("package.json")["scripts"];
     if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
 
@@ -118,11 +118,13 @@ describe("repository task interface", () => {
       const script = scripts[name];
       if (typeof script !== "string") throw new Error(`Missing ${name} script.`);
       const phases = script.split("&&");
-      expect(phases[1], name).toContain("-t build --parallel=1 --skip-nx-cache");
-      expect(phases[2], name).toContain("-t test --excludeTaskDependencies");
-      for (const [index, phase] of phases.entries()) {
-        expect(phase, `${name} phase ${index + 1}`).not.toContain("--batch");
-      }
+      expect(phases[0], name).toContain("-t lint typecheck build test");
+      expect(phases[0], name).toContain("scripts/profile-nx.ts");
+      expect(script, name).not.toContain("--skip-nx-cache");
+      expect(script, name).not.toContain("--excludeTaskDependencies");
+      expect(script, name).not.toContain("--batch");
+      if (name === "verify:workspace") expect(phases).toHaveLength(1);
+      else expect(phases[1], name).toContain("affected -t e2e");
     }
   });
 

@@ -321,7 +321,9 @@ for (const text of [
   "pnpm run verify:clean",
   "pnpm run verify:affected",
   "pnpm run ci:workspace:report",
-  "NX_SKIP_NX_CACHE=true pnpm run test:e2e:report",
+  "bun scripts/profile-nx.ts e2e-main-1",
+  "bun scripts/profile-nx.ts e2e-main-2",
+  "bun scripts/profile-nx.ts e2e-distribution",
   "verify-e2e-main-trusted",
   'AXM_CONTAINER_VITEST_MAX_WORKERS: "4"',
   "if: always()",
@@ -389,9 +391,8 @@ requireText(
 
 const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "";
 for (const text of [
-  "nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check",
-  "nx run-many -t build --parallel=1 --skip-nx-cache",
-  "nx run-many -t test --excludeTaskDependencies",
+  "bun scripts/profile-nx.ts verify-workspace run-many",
+  "-t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill",
 ]) {
   requireText(
     workspaceVerification,
@@ -402,11 +403,9 @@ for (const text of [
 
 const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
 for (const text of [
-  "nx affected -t lint typecheck",
-  "verify-source-hygiene parity-ledger-check",
-  "nx affected -t build --parallel=1 --skip-nx-cache",
-  "nx affected -t test --excludeTaskDependencies",
-  "nx affected -t e2e",
+  "bun scripts/profile-nx.ts verify-affected affected",
+  "-t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill",
+  "bun scripts/profile-nx.ts verify-affected-e2e affected -t e2e",
 ]) {
   requireText(
     affectedVerification,
@@ -428,15 +427,10 @@ for (const [name, source] of [
   );
 }
 
-if (
-  affectedVerification.indexOf("nx affected -t lint typecheck") >=
-    affectedVerification.indexOf("nx affected -t build --parallel=1 --skip-nx-cache") ||
-  affectedVerification.indexOf("nx affected -t build --parallel=1 --skip-nx-cache") >=
-    affectedVerification.indexOf("nx affected -t test") ||
-  affectedVerification.indexOf("nx affected -t test") >=
-    affectedVerification.indexOf("nx affected -t e2e")
-) {
-  errors.push("verify:affected must complete typechecking, builds, tests, and E2E in order");
+for (const source of [workspaceVerification, affectedVerification]) {
+  if (source.includes("--skip-nx-cache") || source.includes("--excludeTaskDependencies")) {
+    errors.push("verification must preserve graph-owned dependencies and valid cache reuse");
+  }
 }
 
 // Test worker count is a shared vitest profile, not a per-script flag: a hosted
@@ -472,6 +466,12 @@ for (const target of ["e2e-main", "binary-smoke", "install-suite"]) {
   if (cliE2eTargets[target]?.parallelism !== false) {
     errors.push(`cli-e2e:${target} must run exclusively on its machine`);
   }
+}
+if (cliE2eTargets["e2e-main"]?.cache !== false) {
+  errors.push("cli-e2e:e2e-main must remain a fresh, non-cacheable observation leaf");
+}
+if (!cliE2eTargets["e2e-main"]?.dependsOn?.includes("cli:compile-host")) {
+  errors.push("cli-e2e:e2e-main must reuse the graph-owned compiled host artifact");
 }
 if (cliE2eTargets.e2e?.executor !== "nx:noop") {
   errors.push("the aggregate E2E target must delegate to its component target graph");

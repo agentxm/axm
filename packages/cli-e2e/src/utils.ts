@@ -3,12 +3,20 @@ import { fileURLToPath } from "node:url";
 
 import {
   copyFixture,
+  createBinaryRunner,
   createCliRunner,
   createTempDir,
   type RunCliOptions,
 } from "@agentxm/client-e2e-utils";
+import { resolveHostBinaryPath } from "./distribution-targets.js";
 
-const runBuiltCli = createCliRunner(new URL("../../cli/dist/src/main.js", import.meta.url));
+const cliSource = process.env["AXM_E2E_CLI_SOURCE"] ?? "compiled";
+if (cliSource !== "built" && cliSource !== "compiled")
+  throw new Error(`Unsupported AXM_E2E_CLI_SOURCE: ${cliSource}.`);
+const runCliArtifact =
+  cliSource === "compiled"
+    ? createBinaryRunner(resolveHostBinaryPath())
+    : createCliRunner(new URL("../../cli/dist/src/main.js", import.meta.url));
 const isolatedUserHome = createTempDir();
 
 process.once("exit", () => {
@@ -16,7 +24,7 @@ process.once("exit", () => {
 });
 
 export const runCli = (args: ReadonlyArray<string>, options: RunCliOptions = {}) =>
-  runBuiltCli(args, {
+  runCliArtifact(args, {
     ...options,
     env: {
       HOME: isolatedUserHome.path,

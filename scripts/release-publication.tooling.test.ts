@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   contentIntegrity,
+  observePublication,
+  PublicationHttpError,
   readNpmPublication,
   distributeRelease,
   guardPublicationVersion,
   publishImmutable,
+  publishImmutableCohort,
   SupersededRelease,
   type PublicationStates,
 } from "./release-publication.js";
@@ -12,6 +15,19 @@ import { prepareFormula } from "./release-formula.js";
 
 const bytes = new TextEncoder().encode("candidate");
 const integrity = contentIntegrity(bytes);
+const boundedObservation = (timeoutMs = 10) => {
+  let current = 0;
+  return {
+    timeoutMs,
+    initialDelayMs: 1,
+    maxDelayMs: 1,
+    now: () => current,
+    random: () => 0.5,
+    sleep: async (delayMs: number) => {
+      current += delayMs;
+    },
+  };
+};
 
 describe("immutable release publication", () => {
   it("publishes an absent output once and verifies its readback", async () => {
@@ -59,7 +75,7 @@ describe("immutable release publication", () => {
         integrity,
         read: async () => null,
         publish: async () => undefined,
-        observation: { attempts: 1 },
+        observation: boundedObservation(1),
       }),
     ).rejects.toThrow("readback timed out");
   });
@@ -72,7 +88,7 @@ describe("immutable release publication", () => {
         integrity,
         read: async () => (++reads < 4 ? null : integrity),
         publish,
-        observation: { attempts: 4, delayMs: 0 },
+        observation: boundedObservation(),
       }),
     ).resolves.toBe("published");
     expect(publish).toHaveBeenCalledTimes(1);
@@ -88,10 +104,83 @@ describe("immutable release publication", () => {
         integrity,
         read: async () => (++reads < 3 ? null : integrity),
         publish,
-        observation: { attempts: 3, delayMs: 0 },
+        observation: boundedObservation(),
       }),
     ).resolves.toBe("published");
     expect(publish).toHaveBeenCalledTimes(1);
+  });
+  it("preflights a cohort before writing and observes missing coordinates concurrently", async () => {
+    const writes: string[] = [];
+    const stored = new Map<string, string>();
+    const publications = ["one", "two", "three"].map((name) => ({
+      name,
+      integrity,
+      read: async () => stored.get(name) ?? null,
+      publish: async () => {
+        writes.push(name);
+        stored.set(name, integrity);
+      },
+    }));
+    await expect(publishImmutableCohort(publications, { concurrency: 2 })).resolves.toEqual([
+      { name: "one", outcome: "published" },
+      { name: "two", outcome: "published" },
+      { name: "three", outcome: "published" },
+    ]);
+    expect(writes).toEqual(["one", "two", "three"]);
+  });
+  it("rejects a cohort conflict before any write", async () => {
+    const publish = vi.fn(async () => undefined);
+    await expect(
+      publishImmutableCohort([
+        { name: "missing", integrity, read: async () => null, publish },
+        { name: "conflict", integrity, read: async () => "different", publish },
+      ]),
+    ).rejects.toThrow("integrity conflict");
+    expect(publish).not.toHaveBeenCalled();
+  });
+});
+
+describe("bounded publication observation", () => {
+  it("retries explicit transient failures and honors retry-after", async () => {
+    let reads = 0;
+    const delays: number[] = [];
+    let current = 0;
+    await expect(
+      observePublication({
+        name: "candidate",
+        read: async () => {
+          reads += 1;
+          if (reads === 1) throw new PublicationHttpError("busy", 429, 7);
+          return integrity;
+        },
+        matches: (value) => value === integrity,
+        retryError: (error) => error instanceof PublicationHttpError && error.retryable,
+        timeoutMs: 20,
+        initialDelayMs: 1,
+        maxDelayMs: 2,
+        random: () => 0.5,
+        now: () => current,
+        sleep: async (delayMs) => {
+          delays.push(delayMs);
+          current += delayMs;
+        },
+      }),
+    ).resolves.toBe(integrity);
+    expect(delays).toEqual([7]);
+  });
+  it("fails terminal read errors immediately", async () => {
+    const read = vi.fn(async () => {
+      throw new PublicationHttpError("unauthorized", 401);
+    });
+    await expect(
+      observePublication({
+        name: "candidate",
+        read,
+        matches: () => false,
+        retryError: (error) => error instanceof PublicationHttpError && error.retryable,
+      }),
+    ).rejects.toThrow("unauthorized");
+    expect(read).toHaveBeenCalledTimes(1);
   });
 });
 

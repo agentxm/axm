@@ -1,5 +1,19 @@
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import {
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 type JsonRecord = Record<string, unknown>;
@@ -31,8 +45,13 @@ const optionalArray = (value: unknown): ReadonlyArray<unknown> =>
 
 const optionalRecord = (value: unknown): JsonRecord => (isRecord(value) ? value : {});
 
-const runText = (command: string, args: ReadonlyArray<string>, cwd: string): string => {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8" });
+const runText = (
+  command: string,
+  args: ReadonlyArray<string>,
+  cwd: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string => {
+  const result = spawnSync(command, args, { cwd, encoding: "utf8", env });
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(
@@ -44,10 +63,19 @@ const runText = (command: string, args: ReadonlyArray<string>, cwd: string): str
   return result.stdout;
 };
 
-const runInherited = (command: string, args: ReadonlyArray<string>, cwd: string): void => {
-  const result = spawnSync(command, args, { cwd, stdio: "inherit" });
+const runInherited = (
+  command: string,
+  args: ReadonlyArray<string>,
+  cwd: string,
+  env: NodeJS.ProcessEnv = process.env,
+): void => {
+  const result = spawnSync(command, args, { cwd, stdio: "inherit", env });
   if (result.error) throw result.error;
-  if (result.status !== 0) process.exit(result.status ?? 1);
+  if (result.status !== 0) {
+    throw new Error(
+      `Command failed (${command} ${args.join(" ")}) with exit ${result.status ?? 1}.`,
+    );
+  }
 };
 
 const parseProjectDefinition = (value: unknown, expectedName: string): ProjectDefinition => {
@@ -131,23 +159,138 @@ export const findGeneratedOutputDrift = (
     "git",
     ["status", "--short", "--untracked-files=all", "--", ...outputs],
     workspaceRoot,
+    gitEnvironment(),
   ).trim();
+
+const gitEnvironment = (): NodeJS.ProcessEnv =>
+  Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
+
+const copyWorkspaceSnapshot = (workspaceRoot: string, snapshotRoot: string): void => {
+  const files = runText("git", ["ls-files", "-co", "--exclude-standard", "-z"], workspaceRoot)
+    .split("\0")
+    .filter((path) => path.length > 0);
+  for (const path of files) {
+    const source = join(workspaceRoot, path);
+    const destination = join(snapshotRoot, path);
+    mkdirSync(dirname(destination), { recursive: true });
+    const stat = lstatSync(source);
+    if (stat.isSymbolicLink()) symlinkSync(readlinkSync(source), destination);
+    else
+      cpSync(source, destination, {
+        dereference: false,
+        preserveTimestamps: true,
+        recursive: stat.isDirectory(),
+      });
+  }
+  const packageManifests = runText("git", ["ls-files", "-z", "**/package.json"], workspaceRoot)
+    .split("\0")
+    .filter((path) => path.length > 0);
+  for (const path of ["package.json", ...packageManifests]) {
+    const modules = join(dirname(path), "node_modules");
+    const source = resolve(workspaceRoot, modules);
+    const destination = join(snapshotRoot, modules);
+    if (!existsSync(source) || existsSync(destination)) continue;
+    mkdirSync(dirname(destination), { recursive: true });
+    symlinkSync(source, destination, process.platform === "win32" ? "junction" : "dir");
+  }
+  const initialize = spawnSync("git", ["init", "--quiet"], {
+    cwd: snapshotRoot,
+    encoding: "utf8",
+    env: gitEnvironment(),
+  });
+  if (initialize.error) throw initialize.error;
+  if (initialize.status !== 0) throw new Error(initialize.stderr);
+};
+
+const describeTree = (
+  workspaceRoot: string,
+  outputs: ReadonlyArray<string>,
+): Map<string, string> => {
+  const entries = new Map<string, string>();
+  const visit = (path: string): void => {
+    const absolute = join(workspaceRoot, path);
+    const stat = (() => {
+      try {
+        return lstatSync(absolute);
+      } catch (error) {
+        if (isRecord(error) && error["code"] === "ENOENT") return undefined;
+        throw error;
+      }
+    })();
+    if (stat === undefined) return;
+    const normalized = path.replaceAll("\\", "/");
+    if (stat.isSymbolicLink()) {
+      entries.set(normalized, `link:${readlinkSync(absolute)}`);
+      return;
+    }
+    if (stat.isDirectory()) {
+      for (const child of readdirSync(absolute)) visit(join(path, child));
+      return;
+    }
+    const digest = createHash("sha256").update(readFileSync(absolute)).digest("hex");
+    entries.set(normalized, `file:${stat.mode & 0o111}:${digest}`);
+  };
+  for (const output of outputs) visit(output);
+  return entries;
+};
+
+export const compareGeneratedOutputTrees = (
+  expected: ReadonlyMap<string, string>,
+  actual: ReadonlyMap<string, string>,
+): string => {
+  const paths = [...new Set([...expected.keys(), ...actual.keys()])].sort();
+  return paths
+    .flatMap((path) => {
+      const before = expected.get(path);
+      const after = actual.get(path);
+      if (before === after) return [];
+      return [`${before === undefined ? "A" : after === undefined ? "D" : "M"} ${path}`];
+    })
+    .join("\n");
+};
+
+/** Regenerate in a disposable snapshot so staged, unstaged, and untracked user state is immutable. */
+export const findGeneratedOutputDriftWithoutMutation = (
+  workspaceRoot: string,
+  outputs: ReadonlyArray<string>,
+  generate: (snapshotRoot: string) => void = (snapshotRoot) => {
+    const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+    runInherited(
+      pnpm,
+      ["exec", "nx", "run-many", "-t", "generate", "--skip-nx-cache"],
+      snapshotRoot,
+      { ...gitEnvironment(), NX_DAEMON: "false" },
+    );
+  },
+): string => {
+  const snapshotRoot = mkdtempSync(join(tmpdir(), "axm-generated-output-snapshot-"));
+  try {
+    const expected = describeTree(workspaceRoot, outputs);
+    copyWorkspaceSnapshot(workspaceRoot, snapshotRoot);
+    generate(snapshotRoot);
+    return compareGeneratedOutputTrees(expected, describeTree(snapshotRoot, outputs));
+  } finally {
+    rmSync(snapshotRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+};
 
 const readOwnedOutputs = (workspaceRoot: string): ReadonlyArray<string> => {
   const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const namesValue: unknown = JSON.parse(
-    runText(
-      pnpm,
-      ["exec", "nx", "show", "projects", "--with-target", "generate", "--json"],
-      workspaceRoot,
-    ),
+  const graphValue: unknown = JSON.parse(
+    runText(pnpm, ["exec", "nx", "graph", "--file=stdout"], workspaceRoot),
   );
-  const names = stringArray(namesValue, "Nx generate project selection");
+  if (!isRecord(graphValue) || !isRecord(graphValue["graph"])) {
+    throw new Error("Nx returned an invalid project graph.");
+  }
+  const graph = graphValue["graph"];
+  if (!isRecord(graph["nodes"])) throw new Error("Nx project graph has no nodes.");
   const outputs = new Set<string>();
-  for (const name of names) {
-    const projectValue: unknown = JSON.parse(
-      runText(pnpm, ["exec", "nx", "show", "project", name, "--json"], workspaceRoot),
-    );
+  for (const [name, nodeValue] of Object.entries(graph["nodes"])) {
+    if (!isRecord(nodeValue) || !isRecord(nodeValue["data"])) continue;
+    const projectValue = nodeValue["data"];
+    if (!isRecord(projectValue["targets"]) || projectValue["targets"]["generate"] === undefined) {
+      continue;
+    }
     for (const output of collectGeneratedOutputs(parseProjectDefinition(projectValue, name))) {
       outputs.add(output);
     }
@@ -161,13 +304,7 @@ const readOwnedOutputs = (workspaceRoot: string): ReadonlyArray<string> => {
 const main = (): void => {
   const workspaceRoot = process.cwd();
   const outputs = readOwnedOutputs(workspaceRoot);
-  const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  runInherited(
-    pnpm,
-    ["exec", "nx", "run-many", "-t", "generate", "--skip-nx-cache"],
-    workspaceRoot,
-  );
-  const drift = findGeneratedOutputDrift(workspaceRoot, outputs);
+  const drift = findGeneratedOutputDriftWithoutMutation(workspaceRoot, outputs);
   if (drift.length === 0) return;
   console.error("Generated output drift detected in Nx-owned outputs:\n");
   console.error(drift);

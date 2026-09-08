@@ -1,7 +1,12 @@
 import { mkdirSync } from "node:fs";
 
 import { run } from "./release-command.js";
-import { fail, RELEASE_REPO, requireSuccessfulCiRun } from "./release-shared.js";
+import {
+  fail,
+  RELEASE_REPO,
+  requireCiArtifacts,
+  requireSuccessfulCiRun,
+} from "./release-shared.js";
 
 import { EXPECTED_BINARY_ASSETS } from "./release-checksums.js";
 
@@ -24,6 +29,10 @@ const sha = args[0] ?? fail(usage);
 const outputDir = args[1] ?? fail(usage);
 const npmOutputDir = args[2] ?? fail(usage);
 const ciRun = requireSuccessfulCiRun(sha);
+requireCiArtifacts(ciRun, [
+  ...EXPECTED_BINARY_ASSETS.map((asset) => `axm-binary-${asset}-${sha}`),
+  `axm-npm-cohort-${sha}`,
+]);
 
 mkdirSync(outputDir, { recursive: true });
 mkdirSync(npmOutputDir, { recursive: true });

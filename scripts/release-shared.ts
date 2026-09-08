@@ -154,9 +154,21 @@ const RELEASE_VERSION_JSON_PATHS = [
 
 export type GitHubRun = {
   databaseId: number;
+  event: string;
+  headSha: string;
+  number: number;
   status: string;
   conclusion: string | null;
   url: string;
+  workflowName: string;
+};
+
+export type VerifiedGitHubRun = GitHubRun & { readonly attempt: number };
+
+export type GitHubArtifact = {
+  readonly id: number;
+  readonly name: string;
+  readonly digest: string;
 };
 
 export const RELEASE_PROCESS_ENV = {
@@ -559,7 +571,7 @@ export const releaseVersionFromTag = (tag: string): string =>
 
 export const currentHeadSha = (): string => git("rev-parse", "HEAD");
 
-const parseGitHubRuns = (value: string): GitHubRun[] => {
+export const parseGitHubRuns = (value: string): GitHubRun[] => {
   const parsed: unknown = JSON.parse(value);
   if (!Array.isArray(parsed)) {
     return fail("Unexpected gh run list response.");
@@ -571,17 +583,25 @@ const parseGitHubRuns = (value: string): GitHubRun[] => {
     }
 
     const databaseId = Reflect.get(item, "databaseId");
+    const event = Reflect.get(item, "event");
+    const headSha = Reflect.get(item, "headSha");
+    const number = Reflect.get(item, "number");
     const status = Reflect.get(item, "status");
     const conclusion = Reflect.get(item, "conclusion");
     const url = Reflect.get(item, "url");
+    const workflowName = Reflect.get(item, "workflowName");
 
     if (
       typeof databaseId === "number" &&
+      typeof event === "string" &&
+      typeof headSha === "string" &&
+      typeof number === "number" &&
       typeof status === "string" &&
       (typeof conclusion === "string" || conclusion === null) &&
-      typeof url === "string"
+      typeof url === "string" &&
+      typeof workflowName === "string"
     ) {
-      return [{ databaseId, status, conclusion, url }];
+      return [{ databaseId, event, headSha, number, status, conclusion, url, workflowName }];
     }
 
     return [];
@@ -598,22 +618,47 @@ export const listCiRunsForCommit = (sha: string): GitHubRun[] => {
     "ci.yml",
     "--commit",
     sha,
-    "--event",
-    "push",
     "--limit",
     "20",
     "--json",
-    "databaseId,status,conclusion,url",
+    "databaseId,event,headSha,number,status,conclusion,url,workflowName",
   ]);
 
   return parseGitHubRuns(output);
 };
 
-export const requireSuccessfulCiRun = (sha: string): GitHubRun => {
+export const validateCiRunDetails = (value: unknown, expected: GitHubRun): VerifiedGitHubRun => {
+  if (!isRecord(value)) throw new Error("Unexpected GitHub Actions run response.");
+  const attempt = Reflect.get(value, "run_attempt");
+  if (
+    Reflect.get(value, "id") !== expected.databaseId ||
+    Reflect.get(value, "head_sha") !== expected.headSha ||
+    Reflect.get(value, "path") !== ".github/workflows/ci.yml" ||
+    Reflect.get(value, "status") !== "completed" ||
+    Reflect.get(value, "conclusion") !== "success" ||
+    Reflect.get(value, "event") !== expected.event ||
+    typeof attempt !== "number" ||
+    !Number.isInteger(attempt) ||
+    attempt < 1
+  )
+    throw new Error(`CI run provenance does not match its selected producer: ${expected.url}`);
+  if (expected.workflowName !== "CI")
+    throw new Error(`Expected the CI workflow, observed ${expected.workflowName}.`);
+  if (expected.event !== "push" && expected.event !== "workflow_dispatch")
+    throw new Error(`CI run event ${expected.event} is not an eligible release producer.`);
+  return { ...expected, attempt };
+};
+
+export const requireSuccessfulCiRun = (sha: string): VerifiedGitHubRun => {
   const runs = listCiRunsForCommit(sha);
-  const successfulRun = runs.find((run) => run.conclusion === "success");
+  const successfulRun = runs.find(
+    (run) => run.headSha === sha && run.status === "completed" && run.conclusion === "success",
+  );
   if (successfulRun != null) {
-    return successfulRun;
+    const details: unknown = JSON.parse(
+      capture("gh", ["api", `repos/${RELEASE_REPO}/actions/runs/${successfulRun.databaseId}`]),
+    );
+    return validateCiRunDetails(details, successfulRun);
   }
 
   const latestRun =
@@ -631,6 +676,59 @@ export const requireSuccessfulCiRun = (sha: string): GitHubRun => {
   return fail(
     `CI workflow for commit ${sha} concluded with ${latestRun.conclusion}: ${latestRun.url}`,
   );
+};
+
+export const parseCiArtifacts = (
+  value: unknown,
+  run: VerifiedGitHubRun,
+): ReadonlyArray<GitHubArtifact> => {
+  const pages = Array.isArray(value) ? value : [value];
+  return pages.flatMap((page: unknown) => {
+    if (!isRecord(page) || !Array.isArray(page["artifacts"]))
+      throw new Error("Unexpected GitHub Actions artifacts response.");
+    return page["artifacts"].map((artifact: unknown) => {
+      if (!isRecord(artifact)) throw new Error("Unexpected GitHub Actions artifact entry.");
+      const workflowRun = artifact["workflow_run"];
+      const id = artifact["id"];
+      const name = artifact["name"];
+      const digest = artifact["digest"];
+      if (
+        !isRecord(workflowRun) ||
+        workflowRun["id"] !== run.databaseId ||
+        workflowRun["head_sha"] !== run.headSha ||
+        artifact["expired"] !== false ||
+        typeof id !== "number" ||
+        typeof name !== "string" ||
+        typeof digest !== "string" ||
+        !digest.startsWith("sha256:")
+      )
+        throw new Error(`Artifact provenance is incomplete for CI run ${run.url}.`);
+      return { id, name, digest };
+    });
+  });
+};
+
+export const requireCiArtifacts = (
+  run: VerifiedGitHubRun,
+  expectedNames: ReadonlyArray<string>,
+): ReadonlyArray<GitHubArtifact> => {
+  const response: unknown = JSON.parse(
+    capture("gh", [
+      "api",
+      "--paginate",
+      "--slurp",
+      `repos/${RELEASE_REPO}/actions/runs/${run.databaseId}/artifacts?per_page=100`,
+    ]),
+  );
+  const artifacts = parseCiArtifacts(response, run);
+  for (const expected of expectedNames) {
+    const matches = artifacts.filter((artifact) => artifact.name === expected);
+    if (matches.length !== 1)
+      throw new Error(
+        `Expected exactly one ${expected} artifact from CI run ${run.databaseId} attempt ${run.attempt}; found ${matches.length}.`,
+      );
+  }
+  return artifacts;
 };
 
 export const requireNoExistingGitHubRelease = (tag: string) => {

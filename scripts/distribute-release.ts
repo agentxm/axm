@@ -2,10 +2,15 @@ import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import * as Schema from "effect/Schema";
-import * as semver from "semver";
 import { validateReleaseCohort } from "./release-packages.js";
 import { RELEASE_PACKAGES, RELEASE_REPO } from "./release-shared.js";
-import { capture, run, runIn } from "./release-command.js";
+import {
+  capture,
+  foreignGitEnvironment,
+  requireForeignGitRoot,
+  run,
+  runIn,
+} from "./release-command.js";
 import {
   CHECKSUM_MANIFEST,
   EXPECTED_BINARY_ASSETS,
@@ -16,8 +21,11 @@ import {
   contentIntegrity,
   distributeRelease,
   guardPublicationVersion,
-  publishImmutable,
+  isTransientPublicationError,
+  mapWithConcurrency,
   observePublication,
+  publicationHttpError,
+  publishImmutableCohort,
   readNpmPublication,
 } from "./release-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
@@ -32,17 +40,24 @@ guardPublicationVersion(version, null, "candidate");
 validateReleaseAssets(assets);
 validateReleaseCohort(npmCohort, version, capture("git", ["rev-parse", "HEAD"]));
 
-const readFormula = async (fetchImplementation: typeof fetch = fetch): Promise<string> => {
+const readFormula = async (
+  signal?: AbortSignal,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<string> => {
+  const requestSignal =
+    signal === undefined
+      ? AbortSignal.timeout(30_000)
+      : AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
   const response = await fetchImplementation(
     "https://raw.githubusercontent.com/agentxm/homebrew-tap/main/Formula/axm.rb",
-    { cache: "no-store", signal: AbortSignal.timeout(30_000) },
+    { cache: "no-store", signal: requestSignal },
   );
   if (response.status !== 200)
-    throw new Error(`Homebrew formula query failed: HTTP ${response.status}.`);
+    throw publicationHttpError("Homebrew formula query failed", response);
   return response.text();
 };
-const latestGuard = async (name: string) => {
-  const metadata = await readNpmPublication(name, version);
+const latestGuard = async (name: string, signal?: AbortSignal) => {
+  const metadata = await readNpmPublication(name, version, fetch, signal);
   guardPublicationVersion(version, metadata.latest, name);
   return metadata;
 };
@@ -58,8 +73,12 @@ try {
     async () => {
       // Global preflight prevents historical repair when any distribution owner
       // already exposes a newer version, regardless of canonical queue order.
-      for (const pkg of RELEASE_PACKAGES) await latestGuard(pkg.name);
-      guardPublicationVersion(version, formulaVersion(await readFormula()), "Homebrew");
+      await Promise.all([
+        mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) => latestGuard(pkg.name)),
+        readFormula().then((formula) =>
+          guardPublicationVersion(version, formulaVersion(formula), "Homebrew"),
+        ),
+      ]);
     },
     [
       {
@@ -86,16 +105,17 @@ try {
             ]);
             return contentIntegrity(readFileSync(join(directory, name)));
           };
-          for (const name of [...EXPECTED_BINARY_ASSETS, CHECKSUM_MANIFEST]) {
-            await publishImmutable({
+          await publishImmutableCohort(
+            [...EXPECTED_BINARY_ASSETS, CHECKSUM_MANIFEST].map((name) => ({
               name,
               integrity: contentIntegrity(readFileSync(join(assets, name))),
               read: () => readAsset(name),
               publish: async () => {
                 run("gh", ["release", "upload", tag, join(assets, name), "--repo", RELEASE_REPO]);
               },
-            });
-          }
+            })),
+            { concurrency: 3 },
+          );
         },
       },
       {
@@ -104,13 +124,13 @@ try {
           const publicationEnv = { ...process.env };
           delete publicationEnv["NODE_AUTH_TOKEN"];
           delete publicationEnv["NPM_CONFIG_USERCONFIG"];
-          for (const pkg of RELEASE_PACKAGES) {
+          const publications = RELEASE_PACKAGES.map((pkg) => {
             const tarball = join(npmCohort, `${pkg.tarballPrefix}${version}.tgz`);
             const integrity = contentIntegrity(readFileSync(tarball));
-            await publishImmutable({
+            return {
               name: `${pkg.name}@${version}`,
               integrity,
-              read: async () => (await latestGuard(pkg.name)).integrity,
+              read: async (signal: AbortSignal) => (await latestGuard(pkg.name, signal)).integrity,
               publish: async () => {
                 await latestGuard(pkg.name);
                 run(
@@ -119,19 +139,29 @@ try {
                   publicationEnv,
                 );
               },
-            });
-            // A previous interruption may have published identical content before its tag update.
-            const metadata = await latestGuard(pkg.name);
-            if (metadata.latest !== version) {
-              run("npm", ["dist-tag", "add", `${pkg.name}@${version}`, "latest"], publicationEnv);
-              await observePublication({
-                name: `npm latest ${pkg.name}@${version}`,
-                read: async () => (await latestGuard(pkg.name)).latest,
-                matches: (latest) => latest === version,
-                conflicts: (latest) => latest !== null && semver.gt(latest, version),
-              });
-            }
-          }
+            };
+          });
+          await publishImmutableCohort(publications, { concurrency: 6, timeoutMs: 120_000 });
+          await mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) =>
+            observePublication({
+              name: `npm latest ${pkg.name}@${version}`,
+              read: async (signal) => (await latestGuard(pkg.name, signal)).latest,
+              matches: (latest) => latest === version,
+              conflicts: (latest) => {
+                if (latest === null) return false;
+                guardPublicationVersion(version, latest, pkg.name);
+                return false;
+              },
+              retryError: isTransientPublicationError,
+              timeoutMs: 120_000,
+            }).catch((cause: unknown) => {
+              throw new Error(
+                `The latest tag for ${pkg.name}@${version} did not converge. ` +
+                  "Immutable publication is safe to rerun; changing a mutable tag requires narrow repair authority.",
+                { cause },
+              );
+            }),
+          );
         },
       },
       {
@@ -144,9 +174,14 @@ try {
           if (token === undefined || token === "")
             throw new Error("HOMEBREW_TAP_TOKEN is required to publish the missing formula.");
           const tap = join(temporary, "tap");
-          run("git", ["clone", "--depth", "1", "https://github.com/agentxm/homebrew-tap.git", tap]);
+          run(
+            "git",
+            ["clone", "--depth", "1", "https://github.com/agentxm/homebrew-tap.git", tap],
+            foreignGitEnvironment(),
+          );
+          requireForeignGitRoot(tap, tap);
           const env = {
-            ...process.env,
+            ...foreignGitEnvironment(),
             HOMEBREW_TAP_DIR: tap,
             RELEASE_ASSET_DIR: assets,
             GIT_CONFIG_COUNT: "1",
@@ -164,9 +199,10 @@ try {
             try {
               await observePublication({
                 name: `Homebrew formula ${version}`,
-                read: async () =>
-                  prepareFormula(await readFormula(), version, RELEASE_REPO, checksums),
+                read: async (signal) =>
+                  prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
                 matches: (observed) => !observed.changed,
+                retryError: isTransientPublicationError,
               });
             } catch (readbackFailure) {
               throw new AggregateError(
@@ -178,8 +214,10 @@ try {
           }
           await observePublication({
             name: `Homebrew formula ${version}`,
-            read: async () => prepareFormula(await readFormula(), version, RELEASE_REPO, checksums),
+            read: async (signal) =>
+              prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
             matches: (candidate) => !candidate.changed,
+            retryError: isTransientPublicationError,
           });
         },
       },

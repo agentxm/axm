@@ -7,10 +7,10 @@
   "tags": ["type:e2e", "scope:cli"],
   "targets": {
     "e2e-main": {
-      "cache": true,
+      "cache": false,
       "parallelism": false,
-      "dependsOn": ["cli:build"],
-      "inputs": ["...", "^production", "hostPlatform"],
+      "dependsOn": ["cli:compile-host"],
+      "inputs": ["...", "^production", "hostPlatform", { "env": "AXM_E2E_CLI_SOURCE" }],
       "outputs": ["{workspaceRoot}/test-results/cli-e2e"]
     },
     "e2e-windows": {

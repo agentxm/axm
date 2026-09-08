@@ -1,9 +1,9 @@
 import { copyFileSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import { RELEASE_PACKAGES } from "./release-shared.js";
-import { capture, run, runIn } from "./release-command.js";
+import { capture, run } from "./release-command.js";
 import { contentIntegrity } from "./release-publication.js";
 
 const packedManifest = Schema.Struct({
@@ -44,34 +44,6 @@ export const validatePack = (tarball: string, name: string, version: string) => 
   }
 };
 
-const orderedJson = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(orderedJson);
-  if (value !== null && typeof value === "object")
-    return Object.fromEntries(
-      Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right, "en"))
-        .map(([key, child]) => [key, orderedJson(child)]),
-    );
-  return value;
-};
-
-/** pnpm resolves workspace/catalog references concurrently; normalize key order
- * before npm's portable deterministic tar writer produces the published bytes. */
-const canonicalizePack = (tarball: string, destination: string): void => {
-  const packDestination = resolve(destination);
-  const staging = mkdtempSync(join(packDestination, "unpacked-"));
-  try {
-    run("tar", ["-xzf", tarball, "-C", staging]);
-    const packageRoot = join(staging, "package");
-    const manifestPath = join(packageRoot, "package.json");
-    const manifest: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
-    writeFileSync(manifestPath, `${JSON.stringify(orderedJson(manifest), null, 2)}\n`);
-    runIn(packageRoot, "npm", ["pack", "--ignore-scripts", "--pack-destination", packDestination]);
-  } finally {
-    rmSync(staging, { recursive: true, force: true });
-  }
-};
-
 export const packReleaseCohort = (version: string, directory: string): string => {
   const first = join(directory, "first");
   const second = join(directory, "second");
@@ -81,7 +53,6 @@ export const packReleaseCohort = (version: string, directory: string): string =>
     const filename = `${pkg.tarballPrefix}${version}.tgz`;
     for (const destination of [first, second]) {
       run("pnpm", ["--filter", pkg.name, "pack", "--pack-destination", destination]);
-      canonicalizePack(join(destination, filename), destination);
     }
     const tarball = join(first, filename);
     validatePack(tarball, pkg.name, version);

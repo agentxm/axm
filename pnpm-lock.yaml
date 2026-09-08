@@ -139,6 +139,8 @@ overrides:
   postcss@>=8.0.0 <8.5.23: 8.5.23
   undici@>=8.0.0 <8.9.0: 8.9.0
 
+pnpmfileChecksum: sha256-W3uWyWJsWL3O2awhpiP2sharEpBKH01snVXimWjShl4=
+
 importers:
 
   .:

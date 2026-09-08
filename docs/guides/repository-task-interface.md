@@ -101,6 +101,11 @@ state prevents faithful graph representation.
 fixed-cohort npm and Homebrew publication. It depends on cohort builds, checks
 mutable owners before publication, validates deterministic packs, verifies
 immutable reuse and readback, and reports superseded candidates explicitly.
+It preflights the complete cohort before the first write, submits each confirmed
+absent immutable coordinate once, and observes pending npm and Homebrew state
+concurrently under bounded total deadlines. Terminal authorization, metadata,
+integrity, and superseded outcomes are not retried. Mutable `latest` repair is
+not attempted without separately supplied narrow npm authority.
 `axm:update-homebrew-formula -- <version>` consumes the exact local asset set
 from `RELEASE_ASSET_DIR` and a tap checkout from `HOMEBREW_TAP_DIR`; a rejected
 concurrent push is not retried.
@@ -110,7 +115,10 @@ published package in temporary global state and runs its installed executable
 outside the repository, without source export conditions or workspace module
 resolution. Release automation owns the platform matrix and credentials.
 `axm:verify-release-packs` builds and checks the complete candidate cohort,
-including deterministic repacking, compiled executables and dependency closure.
+including two deterministic native pnpm packs, compiled executables and
+dependency closure. Manifest normalization runs through pnpm's `beforePacking`
+hook after workspace and catalog references have been resolved; no second npm
+repack is involved.
 These targets are uncached because they mutate or observe external state.
 
 The release promotion target consumes the exact validated asset directory and
@@ -142,16 +150,19 @@ its inode and modification time. The standalone targets declare `^build`;
 
 Cached test outputs are evidence from the execution that originally produced
 their task hash. A cache replay is the same input-bound verdict, not a new
-execution on the restoring host. Required main-branch E2E evidence sets
-`NX_SKIP_NX_CACHE=true`; reports that may contain restored results must disclose
-that result meaning until per-result provenance is available.
+execution on the restoring host. Broad verification submits lint, typecheck,
+build, test, and repository checks to one Nx graph so graph-owned dependencies
+and valid reuse replace manually serialized build phases. Required CLI E2E leaf
+targets remain non-cacheable, while their deterministic compiled-artifact
+prerequisites may be restored. Main E2E runs as two native Vitest shards plus a
+separate binary/install partition with isolated reports.
 
-`generate:check` resolves every project with a `generate` target, follows its
-local generator dependencies, and scopes Git drift detection to the outputs
-declared by those resolved targets. Existing modified or deleted output and new
-untracked output all fail the check. Unrelated working-tree edits are outside
-that observation, while `sync:check` separately uses Nx's native synchronization
-check for Nx-owned project synchronization.
+`generate:check` reads the resolved project graph once, follows local generator
+dependencies, and scopes comparison to their declared outputs. It copies the
+tracked and nonignored workspace view into a disposable snapshot, regenerates
+there, and compares content, executable modes, symlinks, additions, and
+deletions without mutating the developer's index or working tree. `sync:check`
+separately uses Nx's native synchronization check for Nx-owned synchronization.
 
 Specification evidence records whether runtime code was loaded from `source`
 or `built` artifacts. Freshness compares the recorded runtime digest with the
@@ -168,6 +179,15 @@ GitHub Actions may restore the repository's lockfile- and revision-scoped Nx
 cache. A restored entry is trusted only as a deterministic result for its Nx
 hash. Package-store and container-layer caches supply dependencies, not task
 verdicts.
+
+Profiled root workflows set Nx's supported `NX_PROFILE` trace and emit a
+machine-readable report under `test-results/nx-cache`. Each task is classified
+as local hit, remote hit, miss, bypassed, non-cacheable, skipped, or unknown,
+with task duration, cache-restore duration when exposed, revision and execution
+identity, and collection overhead. Nx 23 does not expose cache lookup time in
+this profile, so the report records it as unavailable rather than inventing a
+zero. A GitHub Actions cache archive hit remains a separate setup/transport
+signal and is never counted as a task-cache hit.
 
 ## Entrypoints and host adapters
 

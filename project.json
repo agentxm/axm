@@ -78,7 +78,13 @@
     "bench": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["cli:build"],
+      "dependsOn": [
+        "cli:build",
+        {
+          "projects": ["cli"],
+          "target": "compile-host"
+        }
+      ],
       "options": {
         "command": "bun scripts/bench.ts",
         "cwd": "."

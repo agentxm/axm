@@ -1,4 +1,23 @@
 import { execFileSync } from "node:child_process";
+import { isAbsolute, relative, resolve } from "node:path";
+
+const REPOSITORY_LOCAL_GIT_VARIABLES = new Set([
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CEILING_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_DIR",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_PREFIX",
+  "GIT_WORK_TREE",
+]);
+
+export const foreignGitEnvironment = (
+  environment: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv =>
+  Object.fromEntries(
+    Object.entries(environment).filter(([key]) => !REPOSITORY_LOCAL_GIT_VARIABLES.has(key)),
+  );
 
 const runWithOptions = (
   command: string,
@@ -51,6 +70,23 @@ export const captureIn = (
   args: readonly string[],
   env?: NodeJS.ProcessEnv,
 ): string => captureWithOptions(command, args, env === undefined ? { cwd } : { cwd, env });
+
+export const requireForeignGitRoot = (
+  cwd: string,
+  expectedRoot: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): void => {
+  const env = foreignGitEnvironment(environment);
+  const topLevel = resolve(captureIn(cwd, "git", ["rev-parse", "--show-toplevel"], env));
+  const expected = resolve(expectedRoot);
+  if (topLevel !== expected)
+    throw new Error(`Foreign Git root mismatch: expected ${expected}, observed ${topLevel}.`);
+  const commonValue = captureIn(cwd, "git", ["rev-parse", "--git-common-dir"], env);
+  const common = resolve(cwd, commonValue);
+  const commonRelative = relative(expected, common);
+  if (commonRelative.startsWith("..") || isAbsolute(commonRelative))
+    throw new Error(`Foreign Git common directory escapes ${expected}: ${common}.`);
+};
 
 export const tryCapture = (
   command: string,

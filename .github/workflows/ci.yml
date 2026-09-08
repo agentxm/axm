@@ -395,14 +395,25 @@ jobs:
           include_passed: true
 
   verify-e2e-main-trusted:
-    name: Verify CLI E2E (trusted-ci)
-    needs: verify-main-trusted
+    name: Verify CLI E2E - ${{ matrix.name }}
+    needs: classify
     if: >-
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.runner == 'trusted-ci')
-    runs-on:
-      group: trusted-ci
-      labels: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: main-1
+            name: main shard 1/2
+            command: bun scripts/profile-nx.ts e2e-main-1 run cli-e2e:e2e-main --outputStyle=static -- --shard=1/2
+          - id: main-2
+            name: main shard 2/2
+            command: bun scripts/profile-nx.ts e2e-main-2 run cli-e2e:e2e-main --outputStyle=static -- --shard=2/2
+          - id: distribution
+            name: binary and install distribution
+            command: bun scripts/profile-nx.ts e2e-distribution run-many --projects cli-e2e -t binary-smoke install-suite --nxBail --outputStyle=static
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       checks: write
@@ -414,17 +425,18 @@ jobs:
       - name: Clear prior workspace evidence
         run: rm -rf "$GITHUB_WORKSPACE/test-results"
 
-      - name: Verify fresh CLI E2E targets in pinned CI image
+      - name: Verify fresh CLI E2E partition in pinned CI image
         id: verify
         env:
-          AXM_CONTAINER_NX_PARALLEL: "2"
+          AXM_CONTAINER_NX_PARALLEL: "3"
           AXM_CONTAINER_VITEST_MAX_WORKERS: "4"
+          AXM_E2E_COMMAND: ${{ matrix.command }}
         # Host-adapter boundary in docs/guides/repository-task-interface.md:
         # this job
         # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: >-
           scripts/container-environment.sh ci bash -lc
-          'pnpm install --frozen-lockfile && NX_SKIP_NX_CACHE=true pnpm run test:e2e:report'
+          'pnpm install --frozen-lockfile && scripts/with-allure-report.sh bash -lc "$AXM_E2E_COMMAND"'
 
       - name: Publish E2E verification summary
         if: always()
@@ -432,21 +444,21 @@ jobs:
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
         run: |
           {
-            echo "## Trusted CLI E2E verification"
+            echo "## CLI E2E verification — ${{ matrix.name }}"
             echo
             echo "| Signal | Result |"
             echo "| --- | --- |"
             echo "| Outcome | ${VERIFY_OUTCOME:-not run} |"
-            echo "| Freshness | Nx task cache bypassed for required E2E evidence |"
-            echo "| Concurrency | Exclusive E2E targets; Vitest 4 within the main suite |"
-            echo "| Cache | Persistent pnpm store; workspace build cache intentionally bypassed |"
+            echo "| Freshness | Leaf E2E targets are non-cacheable; build prerequisites may be reused |"
+            echo "| Concurrency | Three hosted partitions; Vitest 4 within each main shard |"
+            echo "| Cache | Nx retains only reusable prerequisite work |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JUnit artifacts
         if: always() && steps.verify.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-results-main-trusted-e2e
+          name: test-results-main-e2e-${{ matrix.id }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
@@ -455,7 +467,7 @@ jobs:
         if: always() && steps.verify.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: allure-report-main-trusted-e2e
+          name: allure-report-main-e2e-${{ matrix.id }}
           path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
@@ -465,7 +477,7 @@ jobs:
         uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
         with:
           report_paths: "test-results/**/junit.xml"
-          check_name: CLI E2E Test Results
+          check_name: CLI E2E Test Results (${{ matrix.name }})
           include_passed: true
 
   verify-main-hosted:
@@ -605,13 +617,11 @@ jobs:
 
   binary-smoke:
     name: Binary Smoke - ${{ matrix.os }}
-    needs: [verify-main-trusted, verify-main-hosted]
+    needs: classify
     if: >-
       always() &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      needs.verify-main-trusted.result == 'success') ||
-      (github.event_name == 'workflow_dispatch' &&
-      (needs.verify-main-trusted.result == 'success' || needs.verify-main-hosted.result == 'success')))
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch')
     strategy:
       fail-fast: false
       matrix:
@@ -670,13 +680,11 @@ jobs:
 
   npm-cohort:
     name: Produce verified npm cohort
-    needs: [verify-main-trusted, verify-main-hosted]
+    needs: classify
     if: >-
       always() &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      needs.verify-main-trusted.result == 'success') ||
-      (github.event_name == 'workflow_dispatch' &&
-      (needs.verify-main-trusted.result == 'success' || needs.verify-main-hosted.result == 'success')))
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

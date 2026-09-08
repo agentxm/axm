@@ -146,6 +146,13 @@ execution on the restoring host. Required main-branch E2E evidence sets
 `NX_SKIP_NX_CACHE=true`; reports that may contain restored results must disclose
 that result meaning until per-result provenance is available.
 
+`generate:check` resolves every project with a `generate` target, follows its
+local generator dependencies, and scopes Git drift detection to the outputs
+declared by those resolved targets. Existing modified or deleted output and new
+untracked output all fail the check. Unrelated working-tree edits are outside
+that observation, while `sync:check` separately uses Nx's native synchronization
+check for Nx-owned project synchronization.
+
 Specification evidence records whether runtime code was loaded from `source`
 or `built` artifacts. Freshness compares the recorded runtime digest with the
 same mode: source executions track their source inputs and built executions

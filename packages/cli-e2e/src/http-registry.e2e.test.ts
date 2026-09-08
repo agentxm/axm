@@ -47,13 +47,18 @@ const TOKEN = "e2e-test-token";
  * publish authorization flow, which an e2e run cannot complete. This mirrors
  * how a self-hosted registry is configured.
  */
-const registryEnv = (registryUrl: string): Record<string, string> => ({
-  AXM_REGISTRY_URL: registryUrl,
+const registryTargetEnv = (location: string): Record<string, string> =>
+  location.startsWith("file:")
+    ? { AXM_REGISTRY_LOCATION: location }
+    : { AXM_REGISTRY_URL: location };
+
+const registryEnv = (location: string): Record<string, string> => ({
+  ...registryTargetEnv(location),
   AXM_TOKEN: TOKEN,
 });
 
-const anonymousRegistryEnv = (registryUrl: string): Record<string, string> => ({
-  AXM_REGISTRY_URL: registryUrl,
+const anonymousRegistryEnv = (location: string): Record<string, string> => ({
+  ...registryTargetEnv(location),
   AXM_TOKEN: "",
 });
 

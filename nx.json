@@ -105,8 +105,7 @@
       "automaticFromRef": true
     },
     "version": {
-      "currentVersionResolver": "disk",
-      "preVersionCommand": "pnpm run ci"
+      "currentVersionResolver": "disk"
     }
   },
   "analytics": false

@@ -15,6 +15,7 @@ import {
   getBuiltInSources,
   makeCliLoggerLayer,
   resolveBuiltInRegistryLocation,
+  resolveRegistryTargetSelection,
   withAxmUserAgent,
   withWorkspace,
 } from "./runtime.js";
@@ -76,6 +77,57 @@ describe("resolveBuiltInRegistryLocation", () => {
     );
 
     expect(location).toBe("https://registry.example.test/");
+  });
+});
+
+describe("resolveRegistryTargetSelection", () => {
+  it.each([
+    {
+      name: "defaults both source and services",
+      input: {},
+      expected: { ok: true, registryUrl: "https://registry.agentxm.ai" },
+    },
+    {
+      name: "uses an explicit service URL",
+      input: { registryUrl: "https://service.example.test" },
+      expected: { ok: true, registryUrl: "https://service.example.test" },
+    },
+    {
+      name: "uses an HTTP source for services when no separate URL is selected",
+      input: { registryLocation: "https://custom.example.test" },
+      expected: { ok: true, registryUrl: "https://custom.example.test" },
+    },
+    {
+      name: "allows a file source with a separate HTTP service",
+      input: {
+        registryLocation: "file:///tmp/registry",
+        registryUrl: "https://service.example.test",
+      },
+      expected: { ok: true, registryUrl: "https://service.example.test" },
+    },
+    {
+      name: "allows matching HTTP origins",
+      input: {
+        registryLocation: "https://custom.example.test/source",
+        registryUrl: "https://custom.example.test/service",
+      },
+      expected: { ok: true, registryUrl: "https://custom.example.test/source" },
+    },
+  ])("$name", ({ input, expected }) => {
+    expect(resolveRegistryTargetSelection(input)).toEqual(expected);
+  });
+
+  it("rejects conflicting HTTP origins without echoing either value", () => {
+    const result = resolveRegistryTargetSelection({
+      registryLocation: "https://source.example.test/private-path",
+      registryUrl: "https://service.example.test/secret-path",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "AXM_REGISTRY_LOCATION and AXM_REGISTRY_URL select different HTTP origins. Align them, or use a file source with the intended service URL.",
+    });
   });
 });
 

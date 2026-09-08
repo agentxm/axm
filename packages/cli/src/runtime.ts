@@ -105,13 +105,78 @@ export const axmGlobalFlags = [
 ] as const;
 
 // -- Runtime layers --
-// eslint-disable-next-line no-restricted-syntax -- A defaulted string is total; layer failure means the Config provider violated its contract.
-const RegistryUrlLayer = Layer.orDie(
-  Layer.effect(
-    RegistryUrl,
-    Config.string("AXM_REGISTRY_URL").pipe(Config.withDefault("https://registry.agentxm.ai")),
-  ),
+const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
+
+export type RegistryTargetSelection =
+  | { readonly ok: true; readonly registryUrl: string }
+  | { readonly ok: false; readonly message: string };
+
+const nonEmpty = (value: string | undefined): string | undefined =>
+  value !== undefined && value.length > 0 ? value : undefined;
+
+const parseHttpUrl = (
+  value: string,
+  variable: "AXM_REGISTRY_LOCATION" | "AXM_REGISTRY_URL",
+): URL | RegistryTargetSelection => {
+  try {
+    const url = new URL(value);
+    if (url.protocol === "http:" || url.protocol === "https:") return url;
+    return {
+      ok: false,
+      message: `${variable} must use http or https when it selects Registry services.`,
+    };
+  } catch {
+    return { ok: false, message: `${variable} must be a valid absolute HTTP(S) URL.` };
+  }
+};
+
+export const resolveRegistryTargetSelection = (input: {
+  readonly registryLocation?: string | undefined;
+  readonly registryUrl?: string | undefined;
+}): RegistryTargetSelection => {
+  const location = nonEmpty(input.registryLocation);
+  const explicitRegistryUrl = nonEmpty(input.registryUrl);
+  const serviceValue = explicitRegistryUrl ?? DEFAULT_REGISTRY_URL;
+  const serviceUrl = parseHttpUrl(serviceValue, "AXM_REGISTRY_URL");
+  if (!(serviceUrl instanceof URL)) return serviceUrl;
+  if (location === undefined) return { ok: true, registryUrl: serviceValue };
+
+  let locationUrl: URL;
+  try {
+    locationUrl = new URL(location);
+  } catch {
+    return { ok: true, registryUrl: serviceValue };
+  }
+  if (locationUrl.protocol !== "http:" && locationUrl.protocol !== "https:") {
+    return { ok: true, registryUrl: serviceValue };
+  }
+  if (explicitRegistryUrl !== undefined && locationUrl.origin !== serviceUrl.origin) {
+    return {
+      ok: false,
+      message:
+        "AXM_REGISTRY_LOCATION and AXM_REGISTRY_URL select different HTTP origins. Align them, or use a file source with the intended service URL.",
+    };
+  }
+  return { ok: true, registryUrl: location };
+};
+
+const RegistryUrlConfig = Config.all({
+  registryLocation: Config.option(Config.string("AXM_REGISTRY_LOCATION")),
+  registryUrl: Config.option(Config.string("AXM_REGISTRY_URL")),
+}).pipe(
+  Config.map(({ registryLocation, registryUrl }) => {
+    const selection = resolveRegistryTargetSelection({
+      registryLocation: Option.getOrUndefined(registryLocation),
+      registryUrl: Option.getOrUndefined(registryUrl),
+    });
+    return selection.ok
+      ? selection.registryUrl
+      : (nonEmpty(Option.getOrUndefined(registryUrl)) ?? DEFAULT_REGISTRY_URL);
+  }),
 );
+
+// eslint-disable-next-line no-restricted-syntax -- RegistryUrlConfig is total; command startup translates its explicit cross-field validation below.
+const RegistryUrlLayer = Layer.orDie(Layer.effect(RegistryUrl, RegistryUrlConfig));
 
 export const withAxmUserAgent = (httpClient: HttpClient.HttpClient, version: string) =>
   httpClient.pipe(
@@ -226,6 +291,13 @@ export const getBuiltInSources = (registryLocation: string): ReadonlyArray<Sourc
 const readRuntimeEnvConfig = (executionDirectory: string) =>
   Effect.gen(function* () {
     const registryUrl = yield* RegistryUrl;
+    const registrySelection = resolveRegistryTargetSelection({
+      registryLocation: process.env["AXM_REGISTRY_LOCATION"],
+      registryUrl: process.env["AXM_REGISTRY_URL"],
+    });
+    if (!registrySelection.ok) {
+      return yield* makeAppError({ code: "usage", detail: registrySelection.message });
+    }
     return {
       registryLocation: resolveBuiltInRegistryLocation(
         process.env,

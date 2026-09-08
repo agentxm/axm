@@ -59,8 +59,39 @@ describe("immutable release publication", () => {
         integrity,
         read: async () => null,
         publish: async () => undefined,
+        observation: { attempts: 1 },
       }),
-    ).rejects.toThrow("readback failed");
+    ).rejects.toThrow("readback timed out");
+  });
+  it("recovers delayed visibility after one successful write", async () => {
+    let reads = 0;
+    const publish = vi.fn(async () => undefined);
+    await expect(
+      publishImmutable({
+        name: "candidate",
+        integrity,
+        read: async () => (++reads < 4 ? null : integrity),
+        publish,
+        observation: { attempts: 4, delayMs: 0 },
+      }),
+    ).resolves.toBe("published");
+    expect(publish).toHaveBeenCalledTimes(1);
+  });
+  it("confirms an ambiguous submission through bounded readback without resubmitting", async () => {
+    let reads = 0;
+    const publish = vi.fn(async () => {
+      throw new Error("connection lost");
+    });
+    await expect(
+      publishImmutable({
+        name: "candidate",
+        integrity,
+        read: async () => (++reads < 3 ? null : integrity),
+        publish,
+        observation: { attempts: 3, delayMs: 0 },
+      }),
+    ).resolves.toBe("published");
+    expect(publish).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -26,6 +26,9 @@ state in the [specification catalog](../../specifications/catalog.md).
   GitHub Releases manually.
 - `pnpm release:prepare` is the only supported local entry point for cutting a
   release commit and opening its pull request.
+- Run `pnpm run verify:affected` explicitly when local release verification is
+  wanted. Git push does not repeat that broad workflow; pull-request and
+  merged-commit CI remain authoritative.
 - Every project tagged `release:cli` is part of one fixed release group. Their
   versions must match, and publication follows package dependency order.
 - Pending version plans in `.nx/version-plans/*.md` and those package
@@ -48,10 +51,15 @@ state in the [specification catalog](../../specifications/catalog.md).
    presence of a version plan for touched release projects with
    `pnpm release:plan:check`.
 
-2. Prepare the release from clean, up-to-date `main`.
+2. Prepare the release from a clean checkout whose `HEAD` exactly matches
+   `origin/main`. The checkout may be attached to any local branch or detached;
+   the exact source commit is authoritative.
 
    ```bash
+   # Optional rehearsal:
    pnpm release:prepare -- --dry-run
+
+   # Ordinary preparation:
    pnpm release:prepare
    ```
 
@@ -67,7 +75,7 @@ state in the [specification catalog](../../specifications/catalog.md).
    before CI or release generation.
 
    Preparation then creates a disposable detached Git worktree from the
-   preflighted `main` commit and installs the locked workspace dependencies.
+   preflighted source commit and installs the locked workspace dependencies.
    Dry-run performs real versioning, changelog generation, bundled-skill
    generation, and an exact production Registry preview inside that worktree,
    then removes it without committing, pushing, opening a pull request, or
@@ -78,7 +86,7 @@ state in the [specification catalog](../../specifications/catalog.md).
    The real run performs the same isolated candidate preparation, commits it in
    the detached worktree, pushes `release/cli-v{VERSION}`, opens the release
    pull request, and removes the worktree. The invoking checkout stays clean on
-   `main` throughout.
+   its original commit throughout.
 
 3. Wait for pull request CI, then squash-merge with the exact release subject.
 
@@ -92,8 +100,10 @@ state in the [specification catalog](../../specifications/catalog.md).
 4. Wait for CI on the merged release commit.
 
    The release commit must complete the `ci.yml` workflow successfully before
-   publishing. That run also produces the compiled artifacts used by the publish
-   workflow.
+   publishing. That exact push run compiles and smoke-tests the native binaries,
+   packs the fixed npm cohort once, verifies reproducible bytes and package
+   contents, and uploads both artifact families with commit identity. CI
+   artifacts are retained for 90 days.
 
 5. Publish the GitHub release after CI is green.
 
@@ -110,8 +120,9 @@ state in the [specification catalog](../../specifications/catalog.md).
 6. Let GitHub Actions finish the publish.
 
    The GitHub Release triggers `publish.yml`, which validates the exact tag and
-   commit, downloads and validates matching CI binaries and checksums, and
-   publishes the assets, fixed npm cohort, and Homebrew formula. Every
+   commit, downloads and validates matching CI binaries, npm tarballs,
+   metadata, and checksums, then publishes those exact bytes and the Homebrew
+   formula. The publish job never rebuilds or repacks npm packages. Every
    verification checkout is pinned to the resolved commit. Required evidence
    includes exact-version bash installations on Linux/macOS, PowerShell and cmd
    on Windows, clean published npm installations on Linux/macOS/Windows,
@@ -130,9 +141,19 @@ state in the [specification catalog](../../specifications/catalog.md).
    Recovery uses the same workflow with the existing `release_tag`, without a
    promotion-bypass input. Identical outputs are verified and reused; missing
    outputs are published; different content and failed existence reads stop the
-   run. Missing tap credentials fail when a formula write is needed. The
-   complete npm cohort is packed twice and compared before publication, so
-   differing repacks are reproducibility failures.
+   run. A successful or ambiguous write gets bounded readback; it is never
+   repeated merely because public visibility is delayed. Missing tap
+   credentials fail when a formula write is needed.
+
+   If an exact-commit CI artifact has expired or is missing, publication fails
+   before writes. Regenerate it only by dispatching `ci.yml` at the release tag,
+   then rerun `publish.yml` for the same tag. CI verifies the commit, versions,
+   reproducibility, and packlists again. Publication rejects incomplete,
+   wrong-commit, wrong-version, or hash-mismatched cohorts; it never substitutes
+   another run or silently packs from the publish checkout. npm provenance
+   attests the publish workflow invocation, while the cohort manifest and
+   successful CI run identify the earlier producer; provenance alone does not
+   claim to attest that build step.
 
    Canonical releases share one concurrency group without canceling active
    runs. npm latest and the tap are checked before publication and at their

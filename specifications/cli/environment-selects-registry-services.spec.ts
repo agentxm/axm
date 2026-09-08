@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/environment-selects-registry-services",
   title: "Registry services use the selected environment origin",
   statement:
-    "When AXM_REGISTRY_LOCATION is unset, AXM shall direct default Registry service and authentication requests to a non-empty AXM_REGISTRY_URL, or to https://registry.agentxm.ai when AXM_REGISTRY_URL is unset or empty.",
+    "AXM shall use an HTTP(S) AXM_REGISTRY_LOCATION as its Registry service and authentication target, retain file-source selection independently, and reject an explicitly different AXM_REGISTRY_URL origin before a Registry request.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "extension-adoption"],
@@ -32,9 +32,7 @@ export const specification = defineSpecification({
   derivedFrom: ["packages/cli/help/topics/environment.md", "packages/cli/src/runtime.ts"],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "When AXM_REGISTRY_LOCATION and AXM_REGISTRY_URL name different origins, which origin should view and authentication use? Extension-source precedence alone does not settle this service-target policy.",
-  ],
+  openQuestions: [],
 });
 
 const deviceResponse = {
@@ -51,13 +49,43 @@ describe("Environment Registry service origin", () => {
     readonly name: string;
     readonly env: Readonly<Record<string, string>>;
     readonly expected: string;
+    readonly expectedAuthorizationOrigin: string;
   }> = [
-    { name: "unset", env: {}, expected: "https://registry.agentxm.ai" },
-    { name: "empty", env: { AXM_REGISTRY_URL: "" }, expected: "https://registry.agentxm.ai" },
     {
-      name: "explicit",
+      name: "unset",
+      env: {},
+      expected: "https://registry.agentxm.ai",
+      expectedAuthorizationOrigin: "https://agentxm.ai",
+    },
+    {
+      name: "empty",
+      env: { AXM_REGISTRY_URL: "" },
+      expected: "https://registry.agentxm.ai",
+      expectedAuthorizationOrigin: "https://agentxm.ai",
+    },
+    {
+      name: "custom service URL",
       env: { AXM_REGISTRY_URL: "https://selected.example.test" },
       expected: "https://selected.example.test",
+      expectedAuthorizationOrigin: "https://selected.example.test",
+    },
+    {
+      name: "custom HTTP source",
+      env: { AXM_REGISTRY_LOCATION: "https://source.example.test" },
+      expected: "https://source.example.test",
+      expectedAuthorizationOrigin: "https://source.example.test",
+    },
+    {
+      name: "hosted development",
+      env: { AXM_REGISTRY_URL: "https://registry-dev.agentxm.ai" },
+      expected: "https://registry-dev.agentxm.ai",
+      expectedAuthorizationOrigin: "https://web-dev.agentxm.ai",
+    },
+    {
+      name: "local development",
+      env: { AXM_REGISTRY_URL: "http://127.0.0.1:4300" },
+      expected: "http://127.0.0.1:4300",
+      expectedAuthorizationOrigin: "http://127.0.0.1:4200",
     },
   ];
   for (const scenario of scenarios)
@@ -86,6 +114,7 @@ describe("Environment Registry service origin", () => {
       return Effect.gen(function* () {
         expect(yield* RegistryUrl).toBe(scenario.expected);
         const client = yield* AuthClient;
+        expect(client.getAuthorizationIssuer()).toBe(scenario.expectedAuthorizationOrigin);
         expect((yield* client.initiateDeviceFlow()).user_code).toBe(deviceResponse.user_code);
         expect(requests).toHaveLength(1);
         expect(new URL(requests[0] ?? "").origin).toBe(scenario.expected);
@@ -112,6 +141,28 @@ describe("Environment Registry service origin", () => {
             result: { description: "Selected environment service" },
           });
           expect(requests).toEqual(["/v1/extensions/@acme/skills/review"]);
+        },
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects conflicting HTTP selectors before contacting either Registry", async () => {
+    const fixture = makeEnvironmentProcessFixture();
+    try {
+      await withEnvironmentRegistry(
+        () => ({ body: JSON.stringify(readExtensionIndex) }),
+        async (origin, requests) => {
+          const result = await fixture.run(["view", "@acme/skills/review", "--json"], {
+            AXM_REGISTRY_LOCATION: origin,
+            AXM_REGISTRY_URL: "https://different.example.test/private",
+          });
+          expect(result.exitCode).not.toBe(0);
+          expect(result.stderr).toContain("AXM_REGISTRY_LOCATION");
+          expect(result.stderr).toContain("AXM_REGISTRY_URL");
+          expect(result.stderr).not.toContain("/private");
+          expect(requests).toEqual([]);
         },
       );
     } finally {

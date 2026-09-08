@@ -119,7 +119,20 @@ a release in telemetry; set it yourself when invoking `bun` directly.
 
 # against a local registry
 AXM_REGISTRY_LOCATION=http://localhost:4300 /path/to/axm/scripts/axm-local list
+
+# isolate AXM user state while preserving the shell/toolchain HOME
+mkdir -p /tmp/axm-source-user
+AXM_USER_HOME=/tmp/axm-source-user \
+  AXM_REGISTRY_URL=http://localhost:4300 \
+  /path/to/axm/scripts/axm-local -C /path/to/workspace list
 ```
+
+`AXM_USER_HOME` relocates only AXM's user workspace and application resources;
+it does not replace `HOME`, so Bun, pnpm, Git, and credential helpers continue
+to resolve through the caller's normal toolchain environment. An HTTP(S)
+`AXM_REGISTRY_LOCATION` selects both extension resolution and the Registry
+service when `AXM_REGISTRY_URL` is absent. Set both only to the same origin;
+different HTTP origins are rejected before a request.
 
 Shell wrappers are the supported way to keep both forms on `PATH`; define them
 in your own shell profile rather than in this repository.

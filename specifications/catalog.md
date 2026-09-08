@@ -3879,7 +3879,7 @@ programmatic interfaces, and supporting system behavior.
 ##### The environment selects the built-in extension source
 
 - Requirement: `cli/environment-selects-built-in-extension-source`
-- Statement: For extension resolution through the built-in AgentXM source, AXM shall use a non-empty AXM_REGISTRY_LOCATION before AXM_REGISTRY_URL, and otherwise use AXM_REGISTRY_URL or https://registry.agentxm.ai when that variable is unset or empty.
+- Statement: For extension resolution through the built-in AgentXM source, AXM shall use a non-empty AXM_REGISTRY_LOCATION before the selected Registry service URL while preserving a file source independently from HTTP services.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `machine-automation`
@@ -3887,7 +3887,6 @@ programmatic interfaces, and supporting system behavior.
 - Boundary rationale: Fresh built CLI invocations resolve and acquire distinct package bytes from real file Registries and a controlled HTTP origin, so an environment value merely parsed but ignored cannot satisfy the cases.
 - Methods: decision-table, example
 - Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/runtime.internal.test.ts`
-- Open questions: Does AXM_REGISTRY_LOCATION also select non-resolution Registry commands such as view, authentication, and publication? Those commands currently use separate service-target selection; this requirement does not allocate their target policy.
 - Source: [`specifications/cli/environment-selects-built-in-extension-source.spec.ts`](../specifications/cli/environment-selects-built-in-extension-source.spec.ts)
 
 #### Environment Selects Registry Services
@@ -3895,7 +3894,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Registry services use the selected environment origin
 
 - Requirement: `cli/environment-selects-registry-services`
-- Statement: When AXM_REGISTRY_LOCATION is unset, AXM shall direct default Registry service and authentication requests to a non-empty AXM_REGISTRY_URL, or to https://registry.agentxm.ai when AXM_REGISTRY_URL is unset or empty.
+- Statement: AXM shall use an HTTP(S) AXM_REGISTRY_LOCATION as its Registry service and authentication target, retain file-source selection independently, and reject an explicitly different AXM_REGISTRY_URL origin before a Registry request.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `extension-adoption`
@@ -3903,7 +3902,6 @@ programmatic interfaces, and supporting system behavior.
 - Boundary rationale: A built CLI view retrieves distinct metadata from a local HTTP origin; separate runtime-layer cases retain production environment decoding and AuthClient request construction while controlling the HTTP transport to avoid real Registry access.
 - Methods: example, decision-table
 - Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/runtime.ts`
-- Open questions: When AXM_REGISTRY_LOCATION and AXM_REGISTRY_URL name different origins, which origin should view and authentication use? Extension-source precedence alone does not settle this service-target policy.
 - Source: [`specifications/cli/environment-selects-registry-services.spec.ts`](../specifications/cli/environment-selects-registry-services.spec.ts)
 
 #### Exit Codes Match Published Reference

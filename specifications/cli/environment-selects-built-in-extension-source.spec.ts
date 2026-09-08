@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/environment-selects-built-in-extension-source",
   title: "The environment selects the built-in extension source",
   statement:
-    "For extension resolution through the built-in AgentXM source, AXM shall use a non-empty AXM_REGISTRY_LOCATION before AXM_REGISTRY_URL, and otherwise use AXM_REGISTRY_URL or https://registry.agentxm.ai when that variable is unset or empty.",
+    "For extension resolution through the built-in AgentXM source, AXM shall use a non-empty AXM_REGISTRY_LOCATION before the selected Registry service URL while preserving a file source independently from HTTP services.",
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "machine-automation"],
@@ -39,9 +39,7 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "Does AXM_REGISTRY_LOCATION also select non-resolution Registry commands such as view, authentication, and publication? Those commands currently use separate service-target selection; this requirement does not allocate their target policy.",
-  ],
+  openQuestions: [],
 });
 
 describe("Environment-selected extension resolution", () => {
@@ -132,7 +130,8 @@ describe("Environment-selected extension resolution", () => {
                 ],
                 {
                   AXM_REGISTRY_LOCATION: location,
-                  AXM_REGISTRY_URL: fallback ? origin : "https://registry.invalid",
+                  AXM_REGISTRY_URL:
+                    fallback || sourceForm === "HTTP URL" ? origin : "https://registry.invalid",
                 },
               );
               expect(result.exitCode, result.stdout + result.stderr).toBe(0);

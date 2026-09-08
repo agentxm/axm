@@ -1,7 +1,0 @@
-export NX_TUI=false
-export NX_DEFAULT_OUTPUT_STYLE=static
-export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
-export NX_BASE=origin/main
-export NX_HEAD=HEAD
-
-pnpm run verify:affected

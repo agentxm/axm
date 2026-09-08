@@ -27,12 +27,50 @@ export const guardPublicationVersion = (
 export const contentIntegrity = (bytes: Uint8Array): string =>
   `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
 
+export const observePublication = async <Value>(input: {
+  readonly name: string;
+  readonly read: () => Promise<Value>;
+  readonly matches: (value: Value) => boolean;
+  readonly conflicts?: (value: Value) => boolean;
+  readonly attempts?: number;
+  readonly delayMs?: number;
+  readonly sleep?: (delayMs: number) => Promise<void>;
+}): Promise<Value> => {
+  const attempts = input.attempts ?? 12;
+  const delayMs = input.delayMs ?? 5_000;
+  const sleep =
+    input.sleep ?? ((duration) => new Promise<void>((resolve) => setTimeout(resolve, duration)));
+  let lastFailure: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    let value: Value;
+    try {
+      value = await input.read();
+    } catch (error) {
+      lastFailure = error;
+      if (attempt < attempts) await sleep(delayMs);
+      continue;
+    }
+    if (input.matches(value)) return value;
+    if (input.conflicts?.(value) === true)
+      throw new Error(`Published content integrity conflict: ${input.name}.`);
+    if (attempt < attempts) await sleep(delayMs);
+  }
+  throw new Error(`Published content readback timed out: ${input.name}.`, {
+    ...(lastFailure === undefined ? {} : { cause: lastFailure }),
+  });
+};
+
 /** Existence-read failures propagate; only an affirmative absence permits a write. */
 export const publishImmutable = async (input: {
   readonly name: string;
   readonly integrity: string;
   readonly read: () => Promise<string | null>;
   readonly publish: () => Promise<void>;
+  readonly observation?: {
+    readonly attempts?: number;
+    readonly delayMs?: number;
+    readonly sleep?: (delayMs: number) => Promise<void>;
+  };
 }): Promise<"reused" | "published"> => {
   const existing = await input.read();
   if (existing !== null) {
@@ -40,9 +78,29 @@ export const publishImmutable = async (input: {
       throw new Error(`Published content integrity conflict: ${input.name}.`);
     return "reused";
   }
-  await input.publish();
-  if ((await input.read()) !== input.integrity)
-    throw new Error(`Published content readback failed: ${input.name}.`);
+  let submissionFailure: unknown;
+  try {
+    await input.publish();
+  } catch (error) {
+    submissionFailure = error;
+  }
+  try {
+    await observePublication({
+      name: input.name,
+      read: input.read,
+      matches: (value) => value === input.integrity,
+      conflicts: (value) => value !== null && value !== input.integrity,
+      ...input.observation,
+    });
+  } catch (readbackFailure) {
+    if (submissionFailure !== undefined)
+      throw new AggregateError(
+        [submissionFailure, readbackFailure],
+        `Publication submission and bounded readback failed: ${input.name}.`,
+        { cause: readbackFailure },
+      );
+    throw readbackFailure;
+  }
   return "published";
 };
 

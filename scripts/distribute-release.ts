@@ -2,7 +2,8 @@ import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import * as Schema from "effect/Schema";
-import { packReleaseCohort } from "./release-packages.js";
+import * as semver from "semver";
+import { validateReleaseCohort } from "./release-packages.js";
 import { RELEASE_PACKAGES, RELEASE_REPO } from "./release-shared.js";
 import { capture, run, runIn } from "./release-command.js";
 import {
@@ -16,6 +17,7 @@ import {
   distributeRelease,
   guardPublicationVersion,
   publishImmutable,
+  observePublication,
   readNpmPublication,
 } from "./release-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
@@ -23,10 +25,12 @@ import { formulaVersion, prepareFormula } from "./release-formula.js";
 const version = process.argv[2];
 const tag = process.argv[3];
 const assets = resolve(process.argv[4] ?? "release-assets");
+const npmCohort = resolve(process.argv[5] ?? "release-npm");
 if (version === undefined || tag !== `cli-v${version}`)
-  throw new Error("Expected <version> <cli-vVERSION> [asset-directory].");
+  throw new Error("Expected <version> <cli-vVERSION> [asset-directory] [npm-cohort-directory].");
 guardPublicationVersion(version, null, "candidate");
 validateReleaseAssets(assets);
+validateReleaseCohort(npmCohort, version, capture("git", ["rev-parse", "HEAD"]));
 
 const readFormula = async (fetchImplementation: typeof fetch = fetch): Promise<string> => {
   const response = await fetchImplementation(
@@ -97,12 +101,11 @@ try {
       {
         name: "npm",
         publish: async () => {
-          const first = packReleaseCohort(version, temporary);
           const publicationEnv = { ...process.env };
           delete publicationEnv["NODE_AUTH_TOKEN"];
           delete publicationEnv["NPM_CONFIG_USERCONFIG"];
           for (const pkg of RELEASE_PACKAGES) {
-            const tarball = join(first, `${pkg.tarballPrefix}${version}.tgz`);
+            const tarball = join(npmCohort, `${pkg.tarballPrefix}${version}.tgz`);
             const integrity = contentIntegrity(readFileSync(tarball));
             await publishImmutable({
               name: `${pkg.name}@${version}`,
@@ -121,8 +124,12 @@ try {
             const metadata = await latestGuard(pkg.name);
             if (metadata.latest !== version) {
               run("npm", ["dist-tag", "add", `${pkg.name}@${version}`, "latest"], publicationEnv);
-              if ((await latestGuard(pkg.name)).latest !== version)
-                throw new Error(`npm latest readback failed: ${pkg.name}.`);
+              await observePublication({
+                name: `npm latest ${pkg.name}@${version}`,
+                read: async () => (await latestGuard(pkg.name)).latest,
+                matches: (latest) => latest === version,
+                conflicts: (latest) => latest !== null && semver.gt(latest, version),
+              });
             }
           }
         },
@@ -154,13 +161,26 @@ try {
               env,
             );
           } catch (cause) {
-            // Preserve a superseding tap observation after a rejected child
-            // mutation; this is readback, never an automatic write retry.
-            guardPublicationVersion(version, formulaVersion(await readFormula()), "Homebrew");
-            throw cause;
+            try {
+              await observePublication({
+                name: `Homebrew formula ${version}`,
+                read: async () =>
+                  prepareFormula(await readFormula(), version, RELEASE_REPO, checksums),
+                matches: (observed) => !observed.changed,
+              });
+            } catch (readbackFailure) {
+              throw new AggregateError(
+                [cause, readbackFailure],
+                "Homebrew submission and bounded public readback failed.",
+                { cause: readbackFailure },
+              );
+            }
           }
-          const verified = prepareFormula(await readFormula(), version, RELEASE_REPO, checksums);
-          if (verified.changed) throw new Error("Homebrew formula publication readback failed.");
+          await observePublication({
+            name: `Homebrew formula ${version}`,
+            read: async () => prepareFormula(await readFormula(), version, RELEASE_REPO, checksums),
+            matches: (candidate) => !candidate.changed,
+          });
         },
       },
     ],

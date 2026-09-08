@@ -20,8 +20,15 @@ the operating-system account or its keychain.
 
 `AXM_REGISTRY_LOCATION` replaces the built-in extension source location. It
 accepts a non-empty URL or filesystem path; relative paths resolve from the
-current execution directory. When it is unset, AXM uses `AXM_REGISTRY_URL`,
-which defaults to `https://registry.agentxm.ai`.
+current execution directory. An HTTP(S) location also selects Registry service
+and authentication requests when `AXM_REGISTRY_URL` is unset or names the same
+origin. Different HTTP origins are rejected before a Registry request. A file
+location affects extension resolution only, so `AXM_REGISTRY_URL` independently
+selects its Registry services and defaults to `https://registry.agentxm.ai`.
+The hosted AgentXM production and development Registries use their paired web
+authorization origins, and supported localhost ports use the paired local web
+port. Any other custom HTTP(S) Registry uses that Registry's own origin for
+authorization.
 
 For the default AgentXM Registry origin, ambient credentials resolve in this
 order:
@@ -94,8 +101,8 @@ characters. These display controls do not change JSON documents.
 
 | Variable                       | Classification    | Values and default                                               | Effect, precedence, and applicable modes                                                                                                                                 |
 | ------------------------------ | ----------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `AXM_REGISTRY_LOCATION`        | stable automation | Non-empty URL or path; built-in source when unset                | Highest-precedence extension source location for all modes. Relative paths resolve from the execution directory.                                                         |
-| `AXM_REGISTRY_URL`             | stable automation | URL; `https://registry.agentxm.ai`                               | Default Registry service and authentication origin when `AXM_REGISTRY_LOCATION` is unset.                                                                                |
+| `AXM_REGISTRY_LOCATION`        | stable automation | Non-empty URL or path; built-in source when unset                | Highest-precedence extension source. HTTP(S) also selects services; a file source remains independent. Relative paths resolve from the execution directory.              |
+| `AXM_REGISTRY_URL`             | stable automation | URL; `https://registry.agentxm.ai`                               | Registry service and authentication origin unless an HTTP(S) location selects the same origin. Conflicting HTTP origins are rejected.                                    |
 | `AXM_TOKEN_FILE`               | stable automation | Readable file path; unset                                        | Preferred non-interactive credential. Its trimmed contents take precedence over stored credentials, but follow `AXM_TOKEN`. Applies only to the default Registry origin. |
 | `AXM_TOKEN`                    | stable automation | Non-empty token; unset                                           | Highest-precedence ambient credential for the default Registry origin. More exposed than `AXM_TOKEN_FILE`; never log it.                                                 |
 | `AXM_USER_HOME`                | stable automation | Non-empty home-directory path; platform home when unset          | Relocates the user workspace and application resources described above; project state remains in the selected project.                                                   |

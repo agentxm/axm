@@ -23,9 +23,8 @@ import {
   fetchOriginMain,
   productionRegistryPreviewArgs,
   requireCleanWorkingTree,
-  requireMainBranch,
+  requireHeadAtOriginMain,
   requireMatchingReleasePackageVersions,
-  requireNotBehindOriginMain,
   releaseTagFromVersion,
 } from "./release-shared.js";
 
@@ -118,15 +117,13 @@ const preflightRegistryFromReleasedSkill = () => {
 const releaseHost: ReleasePreparationHost = {
   preflightSource: (isDryRun) => {
     console.log("==> Source preflight checks");
-    requireMainBranch();
     requireCleanWorkingTree();
     run("pnpm", ["format:check"], RELEASE_PROCESS_ENV);
     fetchOriginMain();
-    requireNotBehindOriginMain();
+    requireHeadAtOriginMain();
 
     const version = requireMatchingReleasePackageVersions();
     const sourceSha = currentHeadSha();
-    console.log("  Branch: main");
     console.log(`  Source commit: ${sourceSha}`);
     console.log(`  Current version: ${version}`);
     if (isDryRun) console.log("  Mode: dry-run");

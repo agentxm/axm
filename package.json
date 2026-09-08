@@ -46,7 +46,7 @@
     "release:publish": "pnpm exec nx run axm:release-publish",
     "release:publish:local": "pnpm exec nx run axm:release-publish-local",
     "generate": "pnpm exec nx run-many -t generate",
-    "generate:check": "pnpm exec nx run-many -t generate --skip-nx-cache && git diff --exit-code",
+    "generate:check": "bun scripts/generated-output-guard.ts",
     "generate:registry": "pnpm exec nx run registry-client:generate:registry-client",
     "generate:telemetry": "pnpm exec nx run cli:generate:telemetry-client",
     "sync:registry": "pnpm exec nx run registry-client:sync:registry-spec",

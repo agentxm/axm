@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const readHook = (name: string): string => readFileSync(`.husky/${name}`, "utf8");
@@ -11,11 +11,7 @@ describe("repository Git hooks", () => {
     expect(content).not.toMatch(/^axm lint/m);
   });
 
-  it("runs the canonical affected verification path before push", () => {
-    const content = readHook("pre-push");
-
-    expect(content).toContain("export NX_BASE=origin/main");
-    expect(content).toContain("export NX_HEAD=HEAD");
-    expect(content).toContain("pnpm run verify:affected");
+  it("leaves broad verification to explicit workflows and CI", () => {
+    expect(existsSync(".husky/pre-push")).toBe(false);
   });
 });

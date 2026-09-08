@@ -67,7 +67,9 @@ jobs:
       - name: Download release binaries from CI
         env:
           GH_TOKEN: ${{ github.token }}
-        run: pnpm exec nx run axm:download-ci-binaries --outputStyle=static -- "${{ steps.release_meta.outputs.sha }}" release-assets
+        run: >-
+          pnpm exec nx run axm:download-ci-binaries --outputStyle=static --
+          "${{ steps.release_meta.outputs.sha }}" release-assets release-npm
 
       - name: Generate release checksums
         run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static -- release-assets
@@ -80,41 +82,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          attempt=1
-          while true; do
-            set +e
-            pnpm exec nx run axm:distribute-release --outputStyle=static -- \
-              "${{ steps.release_meta.outputs.version }}" \
-              "${{ steps.release_meta.outputs.tag }}" \
-              release-assets > release-distribution.log 2>&1
-            status=$?
-            set -e
-            tail -n 200 release-distribution.log
-
-            if [ "$status" -eq 0 ]; then
-              break
-            fi
-            if [ "$attempt" -ge 50 ]; then
-              exit "$status"
-            fi
-
-            if grep -Fq "Published content readback failed:" release-distribution.log; then
-              retry_reason="published content has not propagated"
-            elif grep -Fq 'Cannot publish over previously staged version "${{ steps.release_meta.outputs.version }}".' release-distribution.log; then
-              retry_reason="staged version has not propagated"
-            elif grep -Fq 'You cannot publish over the previously published versions: ${{ steps.release_meta.outputs.version }}.' release-distribution.log; then
-              retry_reason="published version has not propagated"
-            elif grep -Fq "Homebrew formula publication readback failed." release-distribution.log; then
-              retry_reason="Homebrew formula has not propagated"
-            else
-              exit "$status"
-            fi
-
-            echo "$retry_reason; retrying immutable distribution ($attempt/50)."
-            attempt=$((attempt + 1))
-            sleep 10
-          done
+        run: >-
+          pnpm exec nx run axm:distribute-release --outputStyle=static --
+          "${{ steps.release_meta.outputs.version }}"
+          "${{ steps.release_meta.outputs.tag }}"
+          release-assets release-npm
 
   skill-publish:
     name: Publish AXM Skill

@@ -178,6 +178,20 @@
         "cwd": "."
       }
     },
+    "produce-release-cohort": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [
+        {
+          "projects": ["tag:release:cli"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "command": "bun scripts/produce-release-cohort.ts",
+        "cwd": "."
+      }
+    },
     "generate-release-checksums": {
       "executor": "nx:run-commands",
       "cache": false,
@@ -244,12 +258,6 @@
     "distribute-release": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        {
-          "projects": ["tag:release:cli"],
-          "target": "build"
-        }
-      ],
       "options": {
         "command": "bun scripts/distribute-release.ts",
         "cwd": "."

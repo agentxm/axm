@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
@@ -91,4 +91,93 @@ export const packReleaseCohort = (version: string, directory: string): string =>
       throw new Error(`Nondeterministic release pack: ${pkg.name}.`);
   }
   return first;
+};
+
+const releaseCohortManifest = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  commit: Schema.String,
+  version: Schema.String,
+  packages: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      filename: Schema.String,
+      integrity: Schema.String,
+    }),
+  ),
+});
+
+export type ReleaseCohortManifest = typeof releaseCohortManifest.Type;
+export const RELEASE_COHORT_MANIFEST = "release-cohort.json";
+
+export const produceReleaseCohort = (
+  version: string,
+  commit: string,
+  outputDirectory: string,
+): ReleaseCohortManifest => {
+  if (!/^[0-9a-f]{40}$/u.test(commit)) throw new Error("Expected an exact release commit SHA.");
+  mkdirSync(outputDirectory, { recursive: true });
+  const staging = mkdtempSync(join(outputDirectory, ".pack-"));
+  try {
+    const packed = packReleaseCohort(version, staging);
+    const packages = RELEASE_PACKAGES.map((pkg) => {
+      const filename = `${pkg.tarballPrefix}${version}.tgz`;
+      const source = join(packed, filename);
+      copyFileSync(source, join(outputDirectory, filename));
+      return {
+        name: pkg.name,
+        filename,
+        integrity: contentIntegrity(readFileSync(source)),
+      };
+    });
+    const manifest = { schemaVersion: 1, commit, version, packages } as const;
+    writeFileSync(
+      join(outputDirectory, RELEASE_COHORT_MANIFEST),
+      `${JSON.stringify(manifest, undefined, 2)}\n`,
+    );
+    return manifest;
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
+};
+
+export const validateReleaseCohort = (
+  directory: string,
+  version: string,
+  commit: string,
+): ReleaseCohortManifest => {
+  const decoded: unknown = JSON.parse(
+    readFileSync(join(directory, RELEASE_COHORT_MANIFEST), "utf8"),
+  );
+  const manifest = validateReleaseCohortManifest(decoded, version, commit);
+
+  for (const pkg of RELEASE_PACKAGES) {
+    const expectedFilename = `${pkg.tarballPrefix}${version}.tgz`;
+    const entry = manifest.packages.find((candidate) => candidate.name === pkg.name);
+    if (entry === undefined) throw new Error(`Release cohort is missing ${pkg.name}@${version}.`);
+    const tarball = join(directory, expectedFilename);
+    if (contentIntegrity(readFileSync(tarball)) !== entry.integrity)
+      throw new Error(`Release cohort integrity mismatch: ${pkg.name}@${version}.`);
+    validatePack(tarball, pkg.name, version);
+  }
+  return manifest;
+};
+
+export const validateReleaseCohortManifest = (
+  value: unknown,
+  version: string,
+  commit: string,
+): ReleaseCohortManifest => {
+  const manifest = Schema.decodeUnknownSync(releaseCohortManifest)(value);
+  if (manifest.version !== version) throw new Error("Release cohort version does not match tag.");
+  if (manifest.commit !== commit) throw new Error("Release cohort commit does not match tag.");
+  if (manifest.packages.length !== RELEASE_PACKAGES.length)
+    throw new Error("Release cohort is incomplete.");
+
+  for (const pkg of RELEASE_PACKAGES) {
+    const expectedFilename = `${pkg.tarballPrefix}${version}.tgz`;
+    const entries = manifest.packages.filter((entry) => entry.name === pkg.name);
+    if (entries.length !== 1 || entries[0]?.filename !== expectedFilename)
+      throw new Error(`Release cohort is missing ${pkg.name}@${version}.`);
+  }
+  return manifest;
 };

@@ -15,19 +15,6 @@ export type ControlByteViolation = {
   readonly byte: number;
 };
 
-export type MachineOutputBoundaryViolation = {
-  readonly filePath: string;
-  readonly line: number;
-  readonly construct: string;
-  readonly reason: string;
-};
-
-export type PromptBoundaryViolation = {
-  readonly filePath: string;
-  readonly line: number;
-  readonly reason: string;
-};
-
 export type AxmEnvironmentContractViolation = {
   readonly variable: string;
   readonly filePath: string;
@@ -101,15 +88,6 @@ export const findSourceHygieneViolations = (
   return violations;
 };
 
-const MACHINE_STDOUT_WRITERS = new Set([
-  path.join("packages", "cli", "src", "cli-renderer", "renderer-helpers.ts"),
-  path.join("packages", "cli", "src", "cli-runtime", "handle-error.ts"),
-  path.join("packages", "cli", "src", "cli-runtime", "run-cli-main.ts"),
-  path.join("packages", "cli", "src", "cli-runtime", "runtime-envelope.ts"),
-]);
-
-const PROMPT_RUN_BOUNDARY = path.join("packages", "cli", "src", "prompt", "helpers.ts");
-
 const lineAtOffset = (source: string, offset: number): number =>
   source.slice(0, offset).split("\n").length;
 
@@ -128,86 +106,6 @@ const productionPackageSourceRoots = (repoRoot: string): ReadonlyArray<string> =
     .map((entry) => path.join(packagesDir, entry.name, "src"))
     .filter((root) => fs.existsSync(root))
     .sort();
-};
-
-/**
- * Guard the production machine-output boundary.
- *
- * Command handlers must render through CliRenderer, and ordinary `--json`
- * output is one buffered document rather than a stream. Only the renderer and
- * runtime envelope/bootstrap implementations may write stdout directly.
- */
-export const findMachineOutputBoundaryViolations = (
-  repoRoot: string,
-): ReadonlyArray<MachineOutputBoundaryViolation> => {
-  const roots = productionPackageSourceRoots(repoRoot);
-  const sourceFiles: string[] = [];
-  for (const root of roots) {
-    if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
-  }
-
-  const violations: Array<MachineOutputBoundaryViolation> = [];
-  for (const filePath of sourceFiles.filter(isProductionTypeScriptSource)) {
-    const relativePath = path.relative(repoRoot, filePath);
-    const source = fs.readFileSync(filePath, "utf8");
-
-    if (!MACHINE_STDOUT_WRITERS.has(relativePath)) {
-      for (const construct of ["process.stdout.write", "console.log"] as const) {
-        let offset = source.indexOf(construct);
-        while (offset >= 0) {
-          violations.push({
-            filePath: relativePath,
-            line: lineAtOffset(source, offset),
-            construct,
-            reason:
-              "production stdout must flow through the approved CLI renderer/runtime boundary",
-          });
-          offset = source.indexOf(construct, offset + construct.length);
-        }
-      }
-    }
-
-    let streamOffset = source.indexOf("resultStream");
-    while (streamOffset >= 0) {
-      violations.push({
-        filePath: relativePath,
-        line: lineAtOffset(source, streamOffset),
-        construct: "resultStream",
-        reason:
-          "ordinary --json output is one document; streaming requires a future explicit output mode",
-      });
-      streamOffset = source.indexOf("resultStream", streamOffset + "resultStream".length);
-    }
-  }
-
-  return violations;
-};
-
-/** Ensure production prompts cannot bypass non-interactive and JSON-mode policy. */
-export const findPromptBoundaryViolations = (
-  repoRoot: string,
-): ReadonlyArray<PromptBoundaryViolation> => {
-  const sourceFiles: string[] = [];
-  for (const root of productionPackageSourceRoots(repoRoot)) {
-    if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
-  }
-
-  const violations: PromptBoundaryViolation[] = [];
-  for (const filePath of sourceFiles.filter(isProductionTypeScriptSource)) {
-    const relativePath = path.relative(repoRoot, filePath);
-    if (relativePath === PROMPT_RUN_BOUNDARY) continue;
-    const source = fs.readFileSync(filePath, "utf8");
-    let offset = source.indexOf("Prompt.run");
-    while (offset >= 0) {
-      violations.push({
-        filePath: relativePath,
-        line: lineAtOffset(source, offset),
-        reason: "production prompts must run through requireInteractive",
-      });
-      offset = source.indexOf("Prompt.run", offset + "Prompt.run".length);
-    }
-  }
-  return violations;
 };
 
 const UNBOUNDED_CONCURRENCY_LITERAL = /concurrency\s*:\s*["']unbounded["']/g;
@@ -347,14 +245,6 @@ export const formatViolation = (violation: ControlByteViolation): string =>
   `${violation.filePath}:${violation.line} contains forbidden control byte 0x${violation.byte
     .toString(16)
     .padStart(2, "0")}`;
-
-export const formatMachineOutputBoundaryViolation = (
-  violation: MachineOutputBoundaryViolation,
-): string =>
-  `${violation.filePath}:${violation.line} uses ${violation.construct}: ${violation.reason}`;
-
-export const formatPromptBoundaryViolation = (violation: PromptBoundaryViolation): string =>
-  `${violation.filePath}:${violation.line} uses Prompt.run: ${violation.reason}`;
 
 export const formatAxmEnvironmentContractViolation = (
   violation: AxmEnvironmentContractViolation,

@@ -8,14 +8,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   findAxmEnvironmentContractViolations,
   findControlBytes,
-  findMachineOutputBoundaryViolations,
-  findPromptBoundaryViolations,
   findSourceHygieneViolations,
   findTestTaxonomyViolations,
   countUnboundedConcurrencySites,
   formatAxmEnvironmentContractViolation,
-  formatMachineOutputBoundaryViolation,
-  formatPromptBoundaryViolation,
   formatViolation,
 } from "./verify-source-hygiene-lib.js";
 
@@ -85,56 +81,6 @@ describe("findSourceHygieneViolations", () => {
     const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
     const repoRoot = path.resolve(scriptsRoot, "..");
     expect(findSourceHygieneViolations(repoRoot).map(formatViolation)).toEqual([]);
-  });
-});
-
-describe("findMachineOutputBoundaryViolations", () => {
-  it("reports handler stdout writes and implicit result streaming", () => {
-    const repoRoot = createRepoFixture({
-      "packages/cli/src/root/unsafe.ts": [
-        "process.stdout.write('unsafe');",
-        "console.log('also unsafe');",
-        "renderer.resultStream(stream, schema);",
-        "",
-      ].join("\n"),
-      "packages/cli/src/cli-renderer/renderer-helpers.ts": "process.stdout.write('approved');\n",
-    });
-
-    expect(
-      findMachineOutputBoundaryViolations(repoRoot).map(formatMachineOutputBoundaryViolation),
-    ).toEqual([
-      `${path.join("packages", "cli", "src", "root", "unsafe.ts")}:1 uses process.stdout.write: production stdout must flow through the approved CLI renderer/runtime boundary`,
-      `${path.join("packages", "cli", "src", "root", "unsafe.ts")}:2 uses console.log: production stdout must flow through the approved CLI renderer/runtime boundary`,
-      `${path.join("packages", "cli", "src", "root", "unsafe.ts")}:3 uses resultStream: ordinary --json output is one document; streaming requires a future explicit output mode`,
-    ]);
-  });
-
-  it("finds no machine-output boundary violations in this repository", () => {
-    const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
-    const repoRoot = path.resolve(scriptsRoot, "..");
-    expect(
-      findMachineOutputBoundaryViolations(repoRoot).map(formatMachineOutputBoundaryViolation),
-    ).toEqual([]);
-  });
-});
-
-describe("findPromptBoundaryViolations", () => {
-  it("rejects direct production prompts outside the guarded helper", () => {
-    const repoRoot = createRepoFixture({
-      "packages/cli/src/root/unsafe.ts": "const answer = Prompt.run(prompt);\n",
-      "packages/cli/src/prompt/helpers.ts": "const answer = Prompt.run(prompt);\n",
-      "packages/cli/src/root/allowed.test.ts": "const answer = Prompt.run(prompt);\n",
-    });
-
-    expect(findPromptBoundaryViolations(repoRoot).map(formatPromptBoundaryViolation)).toEqual([
-      `${path.join("packages", "cli", "src", "root", "unsafe.ts")}:1 uses Prompt.run: production prompts must run through requireInteractive`,
-    ]);
-  });
-
-  it("finds no prompt boundary violations in this repository", () => {
-    const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
-    const repoRoot = path.resolve(scriptsRoot, "..");
-    expect(findPromptBoundaryViolations(repoRoot).map(formatPromptBoundaryViolation)).toEqual([]);
   });
 });
 

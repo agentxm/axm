@@ -28,6 +28,102 @@ const axmPolicyPlugin = {
         };
       },
     },
+    "no-direct-process-output": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          processStream:
+            "Route CLI output through Screen instead of writing process.{{stream}} directly.",
+          console: "Route CLI output through Screen instead of the global console.",
+        },
+      },
+      create(context) {
+        return {
+          CallExpression(node) {
+            const callee = node.callee;
+            if (callee.type !== "MemberExpression" || callee.computed) return;
+            if (callee.object.type === "Identifier" && callee.object.name === "console") {
+              context.report({ node, messageId: "console" });
+              return;
+            }
+            if (
+              callee.property.type === "Identifier" &&
+              callee.property.name === "write" &&
+              callee.object.type === "MemberExpression" &&
+              !callee.object.computed &&
+              callee.object.object.type === "Identifier" &&
+              callee.object.object.name === "process" &&
+              callee.object.property.type === "Identifier" &&
+              (callee.object.property.name === "stdout" || callee.object.property.name === "stderr")
+            ) {
+              context.report({
+                node,
+                messageId: "processStream",
+                data: { stream: callee.object.property.name },
+              });
+            }
+          },
+        };
+      },
+    },
+    "no-result-stream": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          buffered:
+            "Ordinary --json output is one document; streaming requires a future explicit output mode.",
+        },
+      },
+      // Bans the `resultStream` binding, member, and property key. Comments and
+      // ordinary string data are deliberately out of scope: the policy governs
+      // the streaming result shape, not the word.
+      create(context) {
+        const reportLiteralKey = (node) => {
+          if (node.type === "Literal" && node.value === "resultStream") {
+            context.report({ node, messageId: "buffered" });
+          }
+        };
+        return {
+          Identifier(node) {
+            if (node.name === "resultStream") {
+              context.report({ node, messageId: "buffered" });
+            }
+          },
+          MemberExpression(node) {
+            if (node.computed) reportLiteralKey(node.property);
+          },
+          Property(node) {
+            if (!node.computed) reportLiteralKey(node.key);
+          },
+        };
+      },
+    },
+    "no-unguarded-prompt-run": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          guarded: "Production prompts must run through the requireInteractive prompt boundary.",
+        },
+      },
+      create(context) {
+        return {
+          MemberExpression(node) {
+            if (
+              !node.computed &&
+              node.object.type === "Identifier" &&
+              node.object.name === "Prompt" &&
+              node.property.type === "Identifier" &&
+              node.property.name === "run"
+            ) {
+              context.report({ node, messageId: "guarded" });
+            }
+          },
+        };
+      },
+    },
   },
 };
 
@@ -248,29 +344,51 @@ export default [
     },
   },
   {
-    // Screen exclusively owns runtime stdout/stderr. The startup update notice
-    // runs before the runtime exists; streams.ts is Screen's process adapter.
-    files: ["packages/cli/src/**/*.ts"],
+    // Production machine-output, streaming, and prompt boundaries.
+    //
+    // These are dedicated rule keys rather than `no-restricted-syntax` entries
+    // on purpose: flat config replaces a rule's options wholesale, so any later
+    // block matching the same files silently drops earlier selectors. The
+    // previous `no-restricted-syntax` form of these restrictions was inert for
+    // exactly that reason. Distinct keys compose with the blocks below.
+    //
+    // Scope is the production source selection: package sources only, excluding
+    // tests, generated clients, and the e2e/test-support packages that observe
+    // published artifacts rather than owning production literals.
+    files: ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
     ignores: [
       "**/*.test.ts",
+      "**/*.test.tsx",
       "**/*.spec.ts",
-      "packages/cli/src/screen/streams.ts",
-      "packages/cli/src/update-check-startup.ts",
+      "**/*.spec.tsx",
+      "**/__generated__/**",
+      "packages/cli-e2e/**",
+      "packages/e2e-utils/**",
     ],
+    plugins: {
+      "axm-policy": axmPolicyPlugin,
+    },
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector:
-            "CallExpression[callee.type='MemberExpression'][callee.object.type='MemberExpression'][callee.object.object.name='process'][callee.object.property.name=/^(stdout|stderr)$/][callee.property.name='write']",
-          message: "Route CLI output through Screen instead of writing process streams directly.",
-        },
-        {
-          selector:
-            "CallExpression[callee.type='MemberExpression'][callee.object.name='console'][callee.property.name=/^(log|error|warn|info)$/]",
-          message: "Route CLI output through Screen instead of the global console.",
-        },
-      ],
+      "axm-policy/no-direct-process-output": "error",
+      "axm-policy/no-result-stream": "error",
+      "axm-policy/no-unguarded-prompt-run": "error",
+    },
+  },
+  {
+    // `Screen` is the sole writer after runtime startup
+    // (docs/architecture/commands/output.md); streams.ts is its process
+    // adapter and owns the process stream handles.
+    files: ["packages/cli/src/screen/streams.ts"],
+    rules: {
+      "axm-policy/no-direct-process-output": "off",
+    },
+  },
+  {
+    // The guarded prompt boundary: requireInteractive lives here, so this is
+    // the one production module that may reach Prompt.run.
+    files: ["packages/cli/src/prompt/helpers.ts"],
+    rules: {
+      "axm-policy/no-unguarded-prompt-run": "off",
     },
   },
   {

@@ -87,6 +87,7 @@
     "@effect/tsgo": "catalog:",
     "@effect/vitest": "catalog:",
     "@eslint/js": "catalog:",
+    "@nx/devkit": "catalog:",
     "@nx/eslint": "catalog:",
     "@nx/eslint-plugin": "catalog:",
     "@nx/js": "catalog:",

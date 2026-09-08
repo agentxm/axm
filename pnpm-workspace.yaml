@@ -16,6 +16,7 @@ catalog:
   "@effect/tsgo": ^0.36.5
   "@effect/vitest": 4.0.0-rc.112
   "@eslint/js": ^10.0.0
+  "@nx/devkit": 23.1.1
   "@nx/eslint": 23.1.1
   "@nx/eslint-plugin": 23.1.1
   "@nx/js": 23.1.1

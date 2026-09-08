@@ -158,7 +158,10 @@ prerequisites may be restored. Main E2E runs as two native Vitest shards plus a
 separate binary/install partition with isolated reports.
 
 `generate:check` reads the resolved project graph once, follows local generator
-dependencies, and scopes comparison to their declared outputs. It copies the
+dependencies, and scopes comparison to their declared outputs, which Nx's own
+output interpolation resolves. Ownership stays explicit: a generate target that
+declares no `outputs` owns nothing, and a declared output whose tokens do not
+resolve fails the check rather than narrowing its scope. It copies the
 tracked and nonignored workspace view into a disposable snapshot, regenerates
 there, and compares content, executable modes, symlinks, additions, and
 deletions without mutating the developer's index or working tree. `sync:check`

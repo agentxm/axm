@@ -13,6 +13,7 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
+import type { ProjectGraphProjectNode, TargetConfiguration } from "@nx/devkit";
 import {
   collectGeneratedOutputs,
   findGeneratedOutputDrift,
@@ -21,6 +22,13 @@ import {
 } from "./generated-output-guard.js";
 
 const temporaryDirectories: Array<string> = [];
+
+const projectNode = (targets: Record<string, TargetConfiguration>): ProjectGraphProjectNode => ({
+  name: "client",
+  type: "lib",
+  data: { root: "packages/client", targets },
+});
+
 const isolatedGitEnvironment = Object.fromEntries(
   Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
 );
@@ -90,20 +98,35 @@ describe("generated output guard", () => {
   });
 
   it("derives owned outputs from a generate target and its local generator dependencies", () => {
-    const outputs = collectGeneratedOutputs({
-      name: "client",
-      root: "packages/client",
-      targets: {
-        generate: { dependsOn: ["generate:client", "^build"], options: {}, outputs: [] },
+    const outputs = collectGeneratedOutputs(
+      projectNode({
+        generate: { dependsOn: ["generate:client", "^build"], options: {} },
         "generate:client": {
           dependsOn: [],
           options: { outputPath: "src/__generated__" },
           outputs: ["{projectRoot}/{options.outputPath}", "{workspaceRoot}/schema.json"],
         },
-      },
-    });
+      }),
+    );
 
     expect(outputs).toEqual(["packages/client/src/__generated__", "schema.json"]);
+  });
+
+  it("claims no ownership for a target that declares no outputs", () => {
+    expect(
+      collectGeneratedOutputs(
+        projectNode({ generate: { options: { outputPath: "src/__generated__" } } }),
+      ),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ["a missing option", "{projectRoot}/{options.outputPath}"],
+    ["an unknown token", "{projectRoot}/{outputPath}"],
+  ])("fails when a declared output carries %s", (_label, output) => {
+    expect(() =>
+      collectGeneratedOutputs(projectNode({ generate: { options: {}, outputs: [output] } })),
+    ).toThrow(/do not resolve/u);
   });
 
   it("ignores unrelated dirty files while naming modified, deleted, and added owned outputs", () => {

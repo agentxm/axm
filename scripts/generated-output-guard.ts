@@ -16,34 +16,18 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-type JsonRecord = Record<string, unknown>;
+import {
+  createProjectGraphAsync,
+  getOutputsForTargetAndConfiguration,
+  workspaceRoot as nxWorkspaceRoot,
+  type ProjectGraphProjectNode,
+  type TargetConfiguration,
+} from "@nx/devkit";
 
-type TargetDefinition = {
-  readonly dependsOn: ReadonlyArray<unknown>;
-  readonly options: JsonRecord;
-  readonly outputs: ReadonlyArray<string>;
-};
+const GENERATE_TARGET = "generate";
 
-type ProjectDefinition = {
-  readonly name: string;
-  readonly root: string;
-  readonly targets: Readonly<Record<string, TargetDefinition>>;
-};
-
-const isRecord = (value: unknown): value is JsonRecord =>
+const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const stringArray = (value: unknown, label: string): ReadonlyArray<string> => {
-  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
-    throw new Error(`${label} must be an array of strings.`);
-  }
-  return value;
-};
-
-const optionalArray = (value: unknown): ReadonlyArray<unknown> =>
-  Array.isArray(value) ? value : [];
-
-const optionalRecord = (value: unknown): JsonRecord => (isRecord(value) ? value : {});
 
 const runText = (
   command: string,
@@ -78,57 +62,44 @@ const runInherited = (
   }
 };
 
-const parseProjectDefinition = (value: unknown, expectedName: string): ProjectDefinition => {
-  if (!isRecord(value) || typeof value["root"] !== "string" || !isRecord(value["targets"])) {
-    throw new Error(`Nx returned an invalid project definition for ${expectedName}.`);
-  }
-
-  const targets: Record<string, TargetDefinition> = {};
-  for (const [name, targetValue] of Object.entries(value["targets"])) {
-    if (!isRecord(targetValue)) continue;
-    targets[name] = {
-      dependsOn: optionalArray(targetValue["dependsOn"]),
-      options: optionalRecord(targetValue["options"]),
-      outputs:
-        targetValue["outputs"] === undefined
-          ? []
-          : stringArray(targetValue["outputs"], `${expectedName}:${name} outputs`),
-    };
-  }
-
-  return { name: expectedName, root: value["root"], targets };
-};
-
-const readOption = (options: JsonRecord, key: string): string => {
-  const value = options[key];
-  if (typeof value !== "string") {
-    throw new Error(`Generated output token {options.${key}} does not resolve to a string.`);
-  }
-  return value;
-};
-
-export const resolveGeneratedOutput = (
-  template: string,
-  project: ProjectDefinition,
-  target: TargetDefinition,
+/**
+ * Nx interpolates all of a target's declared outputs together, drops any template whose
+ * workspace, project, or option tokens do not resolve, and leaves any other unknown token
+ * in place. Ownership is resolved one template at a time, and a template that does not
+ * fully resolve fails the guard instead of narrowing its scope.
+ */
+const resolveGeneratedOutput = (
+  project: ProjectGraphProjectNode,
+  targetName: string,
+  target: TargetConfiguration,
+  output: string,
 ): string => {
-  const output = template.replaceAll(/\{([^}]+)\}/gu, (_match, token: string) => {
-    if (token === "workspaceRoot") return "";
-    if (token === "projectRoot") return project.root;
-    if (token === "projectName") return project.name;
-    if (token.startsWith("options.")) return readOption(target.options, token.slice(8));
-    throw new Error(`Unsupported generated output token {${token}} in ${project.name}.`);
-  });
-  const normalized = output.replaceAll("\\", "/").replace(/^\/+|\/+$/gu, "");
+  const [resolved] = getOutputsForTargetAndConfiguration(
+    { project: project.name, target: targetName },
+    {},
+    {
+      ...project,
+      data: {
+        ...project.data,
+        targets: { ...project.data.targets, [targetName]: { ...target, outputs: [output] } },
+      },
+    },
+  );
+  if (resolved === undefined || /[{}]/u.test(resolved)) {
+    throw new Error(
+      `Generated output ${output} in ${project.name}:${targetName} has tokens that do not resolve.`,
+    );
+  }
+  const normalized = resolved.replaceAll("\\", "/").replace(/^\/+|\/+$/gu, "");
   if (normalized.length === 0 || normalized === "." || normalized.startsWith("../")) {
-    throw new Error(`Generated output ${template} resolves outside the workspace.`);
+    throw new Error(`Generated output ${output} resolves outside the workspace.`);
   }
   return normalized;
 };
 
 export const collectGeneratedOutputs = (
-  project: ProjectDefinition,
-  entryTarget = "generate",
+  project: ProjectGraphProjectNode,
+  entryTarget = GENERATE_TARGET,
 ): ReadonlyArray<string> => {
   const visited = new Set<string>();
   const outputs = new Set<string>();
@@ -136,13 +107,16 @@ export const collectGeneratedOutputs = (
   const visit = (targetName: string): void => {
     if (visited.has(targetName)) return;
     visited.add(targetName);
-    const target = project.targets[targetName];
+    const target = project.data.targets?.[targetName];
     if (!target) throw new Error(`Nx project ${project.name} has no ${targetName} target.`);
 
-    for (const output of target.outputs) {
-      outputs.add(resolveGeneratedOutput(output, project, target));
+    // Only explicitly declared outputs are owned. When `outputs` is absent Nx falls back to
+    // `options.outputPath` and to conventional build directories, which would widen the
+    // guard's Git scope beyond what these targets actually generate.
+    for (const output of target.outputs ?? []) {
+      outputs.add(resolveGeneratedOutput(project, targetName, target, output));
     }
-    for (const dependency of target.dependsOn) {
+    for (const dependency of target.dependsOn ?? []) {
       if (typeof dependency === "string" && !dependency.startsWith("^")) visit(dependency);
     }
   };
@@ -273,7 +247,7 @@ export const findGeneratedOutputDriftWithoutMutation = (
     const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
     runInherited(
       pnpm,
-      ["exec", "nx", "run-many", "-t", "generate", "--skip-nx-cache"],
+      ["exec", "nx", "run-many", "-t", GENERATE_TARGET, "--skip-nx-cache"],
       snapshotRoot,
       { ...gitEnvironment(), NX_DAEMON: "false" },
     );
@@ -290,26 +264,12 @@ export const findGeneratedOutputDriftWithoutMutation = (
   }
 };
 
-const readOwnedOutputs = (workspaceRoot: string): ReadonlyArray<string> => {
-  const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const graphValue: unknown = JSON.parse(
-    runText(pnpm, ["exec", "nx", "graph", "--file=stdout"], workspaceRoot),
-  );
-  if (!isRecord(graphValue) || !isRecord(graphValue["graph"])) {
-    throw new Error("Nx returned an invalid project graph.");
-  }
-  const graph = graphValue["graph"];
-  if (!isRecord(graph["nodes"])) throw new Error("Nx project graph has no nodes.");
+const readOwnedOutputs = async (): Promise<ReadonlyArray<string>> => {
+  const graph = await createProjectGraphAsync({ exitOnError: false });
   const outputs = new Set<string>();
-  for (const [name, nodeValue] of Object.entries(graph["nodes"])) {
-    if (!isRecord(nodeValue) || !isRecord(nodeValue["data"])) continue;
-    const projectValue = nodeValue["data"];
-    if (!isRecord(projectValue["targets"]) || projectValue["targets"]["generate"] === undefined) {
-      continue;
-    }
-    for (const output of collectGeneratedOutputs(parseProjectDefinition(projectValue, name))) {
-      outputs.add(output);
-    }
+  for (const project of Object.values(graph.nodes)) {
+    if (project.data.targets?.[GENERATE_TARGET] === undefined) continue;
+    for (const output of collectGeneratedOutputs(project)) outputs.add(output);
   }
   if (outputs.size === 0) {
     throw new Error("No generated outputs are declared by the resolved Nx generate targets.");
@@ -317,10 +277,9 @@ const readOwnedOutputs = (workspaceRoot: string): ReadonlyArray<string> => {
   return [...outputs].sort();
 };
 
-const main = (): void => {
-  const workspaceRoot = process.cwd();
-  const outputs = readOwnedOutputs(workspaceRoot);
-  const drift = findGeneratedOutputDriftWithoutMutation(workspaceRoot, outputs);
+const main = async (): Promise<void> => {
+  const outputs = await readOwnedOutputs();
+  const drift = findGeneratedOutputDriftWithoutMutation(nxWorkspaceRoot, outputs);
   if (drift.length === 0) return;
   console.error("Generated output drift detected in Nx-owned outputs:\n");
   console.error(drift);
@@ -329,4 +288,8 @@ const main = (): void => {
 };
 
 const invokedPath = process.argv[1];
-if (invokedPath !== undefined && fileURLToPath(import.meta.url) === resolve(invokedPath)) main();
+if (invokedPath !== undefined && fileURLToPath(import.meta.url) === resolve(invokedPath))
+  main().catch((error: unknown) => {
+    console.error(error);
+    process.exit(1);
+  });

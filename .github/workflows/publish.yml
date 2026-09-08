@@ -95,11 +95,19 @@ jobs:
             if [ "$status" -eq 0 ]; then
               break
             fi
-            if [ "$attempt" -ge 20 ] || ! grep -Fq "Published content readback failed:" release-distribution.log; then
+            if [ "$attempt" -ge 50 ]; then
               exit "$status"
             fi
 
-            echo "Published content has not propagated; retrying immutable distribution ($attempt/20)."
+            if grep -Fq "Published content readback failed:" release-distribution.log; then
+              retry_reason="published content has not propagated"
+            elif grep -Fq 'Cannot publish over previously staged version "${{ steps.release_meta.outputs.version }}".' release-distribution.log; then
+              retry_reason="staged version has not propagated"
+            else
+              exit "$status"
+            fi
+
+            echo "$retry_reason; retrying immutable distribution ($attempt/50)."
             attempt=$((attempt + 1))
             sleep 10
           done

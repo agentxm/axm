@@ -1944,7 +1944,8 @@ export const AuthIssueDeviceCodeRequestFormUrlEncoded = Schema.Struct({
   scope: Schema.optionalKey(
     Schema.Union([
       Schema.String.annotate({
-        description: "Optional space-delimited registry scopes requested by the client.",
+        description:
+          "Optional space-delimited scopes requested by the client, drawn from its registered allowlist.",
       }),
       Schema.Null,
     ]),

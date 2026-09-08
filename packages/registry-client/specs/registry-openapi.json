@@ -84,7 +84,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "description": "Optional space-delimited registry scopes requested by the client."
+                        "description": "Optional space-delimited scopes requested by the client, drawn from its registered allowlist."
                       },
                       { "type": "null" }
                     ]

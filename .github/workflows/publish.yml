@@ -103,6 +103,8 @@ jobs:
               retry_reason="published content has not propagated"
             elif grep -Fq 'Cannot publish over previously staged version "${{ steps.release_meta.outputs.version }}".' release-distribution.log; then
               retry_reason="staged version has not propagated"
+            elif grep -Fq 'You cannot publish over the previously published versions: ${{ steps.release_meta.outputs.version }}.' release-distribution.log; then
+              retry_reason="published version has not propagated"
             else
               exit "$status"
             fi

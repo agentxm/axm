@@ -1,3 +1,13 @@
+## 0.28.12 (2026-09-08)
+
+### 🩹 Fixes
+
+- Make browser sign-in completion truthful and human verification handoffs resumable.
+
+### ❤️ Thank You
+
+- Test
+
 ## 0.28.11 (2026-09-08)
 
 ### 🩹 Fixes

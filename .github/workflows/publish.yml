@@ -80,11 +80,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: >-
-          pnpm exec nx run axm:distribute-release --outputStyle=static --
-          "${{ steps.release_meta.outputs.version }}"
-          "${{ steps.release_meta.outputs.tag }}"
-          release-assets
+        run: |
+          set +e
+          pnpm exec nx run axm:distribute-release --outputStyle=static -- \
+            "${{ steps.release_meta.outputs.version }}" \
+            "${{ steps.release_meta.outputs.tag }}" \
+            release-assets > release-distribution.log 2>&1
+          status=$?
+          set -e
+          tail -n 200 release-distribution.log
+          exit "$status"
 
   skill-publish:
     name: Publish AXM Skill

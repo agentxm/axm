@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Semaphore from "effect/Semaphore";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { acquireWorkspaceTransitionLock, runWorkspaceTransaction } from "@agentxm/workspace-operations";
+import { acquireWorkspaceTransitionLock, liveWorkspaceTransitionLock, runWorkspaceTransaction } from "@agentxm/workspace-operations";
 const [root, label] = process.argv.slice(1);
 if (root === undefined || (label !== "first" && label !== "second")) throw new Error("Invalid worker inputs");
 const statePath = path.join(root, "state.json");
@@ -41,6 +41,7 @@ await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
   yield* Effect.addFinalizer(() => Effect.sync(() => send("scope-closing")));
   const semaphore = yield* Semaphore.make(1);
   yield* runWorkspaceTransaction({
+    lock: liveWorkspaceTransitionLock,
     workspaceDir: path.join(root, ".axm"),
     semaphore,
     targets: [statePath, mirrorPath],

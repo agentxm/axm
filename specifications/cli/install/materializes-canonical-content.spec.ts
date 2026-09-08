@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import * as path from "node:path";
+import { unzipSync } from "fflate";
 import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -11,7 +11,6 @@ import { handleInstall } from "axm.sh/specification-harness";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 import { makeSpecRegistry } from "../../support/registry-fixture.js";
-import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/materializes-canonical-content",
@@ -46,16 +45,18 @@ describe("Install materializes canonical content", () => {
 
   it.effect("materializes canonical extension content inside the workspace", () =>
     Effect.gen(function* () {
-      const workspace = makeSpecWorkspace();
+      const workspace = makeSpecWorkspace({ storage: "memory" });
       cleanups.push(workspace.cleanup);
-      const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
+      const skillPackage = writeLocalSkillPackage(workspace, { name: "code-review" });
       expect(workspace.exists("agent_extensions")).toBe(false);
 
-      yield* handleInstall({
-        source: Option.some(skillPackage),
-        force: false,
-        preview: false,
-      }).pipe(Effect.provide(workspace.layer));
+      yield* workspace.provide(
+        handleInstall({
+          source: Option.some(skillPackage),
+          force: false,
+          preview: false,
+        }),
+      );
 
       expect(workspace.snapshotTree("agent_extensions")).toContain(CANONICAL_SKILL_DOCUMENT);
       expect(workspace.readFile(CANONICAL_SKILL_DOCUMENT)).toContain("# code-review");
@@ -63,12 +64,12 @@ describe("Install materializes canonical content", () => {
   );
   it.effect.each(localLifecycleRows)("materializes the source content for a local $label", (row) =>
     Effect.gen(function* () {
-      const workspace = makeSpecWorkspace();
+      const workspace = makeSpecWorkspace({ storage: "memory" });
       cleanups.push(workspace.cleanup);
       const name = `conformance-${row.label}`;
-      const source = row.writePackage(workspace.root, { name });
-      yield* handleInstall({ source: Option.some(source), force: false, preview: false }).pipe(
-        Effect.provide(workspace.layer),
+      const source = row.writePackage(workspace, { name });
+      yield* workspace.provide(
+        handleInstall({ source: Option.some(source), force: false, preview: false }),
       );
       const relativeContent = row.canonicalFile(name);
       expect(workspace.readFile(`agent_extensions/local/vendor/${name}/${relativeContent}`)).toBe(
@@ -78,44 +79,47 @@ describe("Install materializes canonical content", () => {
   );
   it.effect("materializes exactly the regular file bytes of the selected Registry archive", () =>
     Effect.gen(function* () {
-      const registry = makeSpecRegistry();
+      const workspace = makeSpecWorkspace({
+        storage: "memory",
+        userSettings: {},
+      });
+      cleanups.push(workspace.cleanup);
+      const registry = makeSpecRegistry(workspace);
       cleanups.push(registry.cleanup);
       registry.writeSkill("registry-review", [
         { version: "1.2.3", body: "Registry guidance with café and Ω.\n" },
       ]);
-      const archive = path.join(registry.root, "extensions/@acme/skills/registry-review/1.2.3.zip");
-      // An independent ZIP reader supplies the oracle, not AXM's extraction helper.
-      const entries = execFileSync("unzip", ["-Z1", archive], { encoding: "utf8" })
-        .trim()
-        .split("\n");
-      expect(entries.filter((entry) => !entry.endsWith("/")).sort()).toEqual([
-        "skill.json",
-        "src/SKILL.md",
-      ]);
-      const expected = Object.fromEntries(
-        entries.map((relative): readonly [string, string] =>
-          relative.endsWith("/")
-            ? [relative.slice(0, -1), "directory"]
-            : [
-                relative,
-                `file:${execFileSync("unzip", ["-p", archive, relative]).toString("base64")}`,
-              ],
-        ),
-      );
-      const workspace = makeSpecWorkspace({
-        userSettings: {},
-        settings: { sources: [registry.source] },
+      workspace.writeSettings({
+        ...workspace.readSettingsRecord(),
+        sources: [registry.source],
       });
-      cleanups.push(workspace.cleanup);
-      yield* handleInstall({
-        source: Option.some("@acme/skills/registry-review@1.2.3"),
-        force: false,
-        preview: false,
-      }).pipe(Effect.provide(workspace.layer));
+      const archivePath = path.join(
+        registry.root,
+        "extensions/@acme/skills/registry-review/1.2.3.zip",
+      );
+      // An independent ZIP reader supplies the oracle, not AXM's extraction helper.
+      const archiveEntries = unzipSync(registry.files.readFile(archivePath));
+      expect(Object.keys(archiveEntries).sort()).toEqual(["skill.json", "src/SKILL.md"]);
+      const expected = Object.fromEntries([
+        [
+          "skill.json",
+          `file:${Buffer.from(archiveEntries["skill.json"] ?? []).toString("base64")}`,
+        ],
+        ["src", "directory"],
+        [
+          "src/SKILL.md",
+          `file:${Buffer.from(archiveEntries["src/SKILL.md"] ?? []).toString("base64")}`,
+        ],
+      ]);
+      yield* workspace.provide(
+        handleInstall({
+          source: Option.some("@acme/skills/registry-review@1.2.3"),
+          force: false,
+          preview: false,
+        }),
+      );
       expect(
-        snapshotWorkspaceContent(
-          path.join(workspace.root, "agent_extensions/agentxm/@acme/skills/registry-review"),
-        ),
+        workspace.snapshotContent("agent_extensions/agentxm/@acme/skills/registry-review"),
       ).toEqual(expected);
     }),
   );

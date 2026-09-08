@@ -14,6 +14,7 @@ const count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 const InputSnapshot = Schema.Struct({
   sourceDigest: Schema.NonEmptyString,
   runtimeDigest: Schema.NonEmptyString,
+  runtimeMode: Schema.Literals(["source", "built"]),
   revision: Schema.NonEmptyString,
 });
 const FileEvidence = Schema.Struct({
@@ -110,7 +111,10 @@ const outputFiles = (repoRoot: string, directory: string): string[] => {
  * Built workspace packages are separate runtime inputs because tests load dist.
  * node_modules is represented by the lockfile, assuming a frozen installation.
  */
-export const captureEvidenceInputs = (repoRoot: string): EvidenceInputs => {
+export const captureEvidenceInputs = (
+  repoRoot: string,
+  runtimeMode: EvidenceInputs["runtimeMode"] = "built",
+): EvidenceInputs => {
   const git = (...args: string[]): string =>
     execFileSync("git", args, {
       cwd: repoRoot,
@@ -126,18 +130,26 @@ export const captureEvidenceInputs = (repoRoot: string): EvidenceInputs => {
     .split("\0")
     .filter(Boolean);
   const packagesPath = path.join(repoRoot, "packages");
-  const runtimeFiles = fs.existsSync(packagesPath)
-    ? fs.readdirSync(packagesPath).flatMap((name) => outputFiles(repoRoot, `packages/${name}/dist`))
-    : [];
+  const runtimeFiles =
+    runtimeMode === "source"
+      ? sources
+      : fs.existsSync(packagesPath)
+        ? fs
+            .readdirSync(packagesPath)
+            .flatMap((name) => outputFiles(repoRoot, `packages/${name}/dist`))
+        : [];
   return {
     sourceDigest: digestFiles(repoRoot, sources),
     runtimeDigest: digestFiles(repoRoot, runtimeFiles),
+    runtimeMode,
     revision: git("rev-parse", "HEAD").trim(),
   };
 };
 
 export const sameEvidenceInputs = (left: EvidenceInputs, right: EvidenceInputs): boolean =>
-  left.sourceDigest === right.sourceDigest && left.runtimeDigest === right.runtimeDigest;
+  left.sourceDigest === right.sourceDigest &&
+  left.runtimeDigest === right.runtimeDigest &&
+  left.runtimeMode === right.runtimeMode;
 
 export const readEvidenceRuns = (
   repoRoot: string,

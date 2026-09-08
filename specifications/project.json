@@ -6,6 +6,27 @@
   "sourceRoot": "specifications",
   "tags": ["type:specification", "scope:specifications"],
   "targets": {
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "test-memory": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": [],
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/vitest.reporting.ts",
+        "{workspaceRoot}/scripts/specification-evidence-reporter.ts",
+        { "externalDependencies": ["vitest"] },
+        { "env": "CI" }
+      ],
+      "outputs": ["{workspaceRoot}/test-results/specifications-memory"],
+      "options": {
+        "command": "vitest run --config vitest.memory.config.ts",
+        "cwd": "specifications"
+      }
+    },
     "generate": {
       "executor": "nx:run-commands",
       "cache": true,

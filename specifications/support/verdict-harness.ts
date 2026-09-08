@@ -6,7 +6,7 @@ export const evaluateVerdict = (expression: string): unknown => {
   const fixture = new URL("../../scripts/specification-verdict-fixtures.ts", import.meta.url).href;
   const verdict = new URL("../../scripts/specification-verdict-lib.ts", import.meta.url).href;
   const program = `
-    import { fixtureContext, fixtureInputs, fixtureRun, fixtureSource } from ${JSON.stringify(fixture)};
+    import { fixtureContext, fixtureInputs, fixtureRun, fixtureSource, fixtureSourceInputs } from ${JSON.stringify(fixture)};
     import { computeVerdict, renderVerdictMarkdown } from ${JSON.stringify(verdict)};
     const report = (context = fixtureContext(), source = fixtureSource()) =>
       computeVerdict([], [source], context).affected[0]?.evidence;

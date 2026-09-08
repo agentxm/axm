@@ -15,6 +15,7 @@ interface Options {
   readonly repoRoot: string;
   readonly outputDirectory: string;
   readonly suite: string;
+  readonly runtimeMode: EvidenceInputs["runtimeMode"];
 }
 
 export default class SpecificationEvidenceReporter implements Reporter {
@@ -26,7 +27,7 @@ export default class SpecificationEvidenceReporter implements Reporter {
 
   onTestRunStart(specifications: readonly TestSpecification[]): void {
     this.startedAt = new Date().toISOString();
-    this.inputs = captureEvidenceInputs(this.options.repoRoot);
+    this.inputs = captureEvidenceInputs(this.options.repoRoot, this.options.runtimeMode);
     this.selected = new Map(
       specifications.map((specification) => [
         specification.moduleId,
@@ -51,7 +52,7 @@ export default class SpecificationEvidenceReporter implements Reporter {
     reason: "passed" | "failed" | "interrupted",
   ): void {
     if (this.inputs === undefined) return;
-    const inputsAfter = captureEvidenceInputs(this.options.repoRoot);
+    const inputsAfter = captureEvidenceInputs(this.options.repoRoot, this.options.runtimeMode);
     const relative = (file: string): string =>
       path.relative(this.options.repoRoot, file).split(path.sep).join("/");
     const run: EvidenceRun = {

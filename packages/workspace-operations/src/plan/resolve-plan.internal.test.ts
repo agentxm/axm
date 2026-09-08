@@ -1,3 +1,4 @@
+import { liveWorkspaceTransitionLock } from "../operations/transition-lock.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -878,6 +879,7 @@ describe("previewOrApplyPlan", () => {
           ...baseWorkspace,
           runTransaction: (args) =>
             runWorkspaceTransaction({
+              lock: liveWorkspaceTransitionLock,
               semaphore,
               workspaceDir,
               targets: args.targets ?? [],
@@ -987,6 +989,7 @@ describe("previewOrApplyPlan", () => {
         ...baseWorkspace,
         runTransaction: (args) =>
           runWorkspaceTransaction({
+            lock: liveWorkspaceTransitionLock,
             semaphore,
             workspaceDir,
             targets: args.targets ?? [],
@@ -1091,6 +1094,7 @@ describe("previewOrApplyPlan", () => {
         ...baseWorkspace,
         runTransaction: (args) =>
           runWorkspaceTransaction({
+            lock: liveWorkspaceTransitionLock,
             semaphore,
             workspaceDir,
             targets: args.targets ?? [],
@@ -1195,6 +1199,7 @@ describe("previewOrApplyPlan", () => {
         ...baseWorkspace,
         runTransaction: (args) =>
           runWorkspaceTransaction({
+            lock: liveWorkspaceTransitionLock,
             semaphore,
             workspaceDir,
             targets: args.targets ?? [],
@@ -1293,6 +1298,7 @@ describe("previewOrApplyPlan", () => {
         ...baseWorkspace,
         runTransaction: (args) =>
           runWorkspaceTransaction({
+            lock: liveWorkspaceTransitionLock,
             semaphore,
             workspaceDir,
             targets: args.targets ?? [],
@@ -1419,6 +1425,7 @@ describe("previewOrApplyPlan", () => {
           ),
         runTransaction: (args) =>
           runWorkspaceTransaction({
+            lock: liveWorkspaceTransitionLock,
             semaphore,
             workspaceDir,
             targets: args.targets ?? [],

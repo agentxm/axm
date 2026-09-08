@@ -1,3 +1,4 @@
+import { liveWorkspaceTransitionLock } from "./transition-lock.js";
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
@@ -66,6 +67,7 @@ describe("runWorkspaceTransaction", () => {
   it.effect("restores every target when the transition fails", () =>
     withContext(
       runWorkspaceTransaction({
+        lock: liveWorkspaceTransitionLock,
         workspaceDir,
         targets: [settingsPath],
         transition: Effect.gen(function* () {
@@ -120,6 +122,7 @@ describe("runWorkspaceTransaction", () => {
         ({ family, target }) => {
           const before = nodeFs.readFileSync(target, "utf8");
           return runWorkspaceTransaction({
+            lock: liveWorkspaceTransitionLock,
             workspaceDir,
             targets: [target],
             transition: Effect.sync(() => nodeFs.writeFileSync(target, `${family} changed\n`)).pipe(
@@ -147,6 +150,7 @@ describe("runWorkspaceTransaction", () => {
     const createdPath = nodePath.join(workspaceDir, "created.json");
     return withContext(
       runWorkspaceTransaction({
+        lock: liveWorkspaceTransitionLock,
         workspaceDir,
         targets: [createdPath],
         transition: Effect.sync(() => nodeFs.writeFileSync(createdPath, "created\n")).pipe(
@@ -169,6 +173,7 @@ describe("runWorkspaceTransaction", () => {
     const createdPath = nodePath.join(absentWorkspaceDir, "axm.json");
     return withContext(
       runWorkspaceTransaction({
+        lock: liveWorkspaceTransitionLock,
         workspaceDir: absentWorkspaceDir,
         targets: [createdPath],
         transition: Effect.sync(() => nodeFs.writeFileSync(createdPath, "created\n")).pipe(
@@ -193,6 +198,7 @@ describe("runWorkspaceTransaction", () => {
   it.effect("rolls back when postcondition validation fails", () =>
     withContext(
       runWorkspaceTransaction({
+        lock: liveWorkspaceTransitionLock,
         workspaceDir,
         targets: [settingsPath],
         transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')),
@@ -214,11 +220,13 @@ describe("runWorkspaceTransaction", () => {
     const laterTarget = nodePath.join(workspaceDir, "later.json");
     return withContext(
       runWorkspaceTransaction({
+        lock: liveWorkspaceTransitionLock,
         workspaceDir,
         targets: [settingsPath],
         transition: Effect.gen(function* () {
           yield* Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n'));
           yield* runWorkspaceTransaction({
+            lock: liveWorkspaceTransitionLock,
             workspaceDir,
             targets: [canonicalPath],
             transition: Effect.sync(() =>
@@ -227,6 +235,7 @@ describe("runWorkspaceTransaction", () => {
             validate: () => Effect.void,
           });
           return yield* runWorkspaceTransaction({
+            lock: liveWorkspaceTransitionLock,
             workspaceDir,
             targets: [laterTarget],
             transition: Effect.sync(() => nodeFs.writeFileSync(laterTarget, "created\n")).pipe(
@@ -265,6 +274,7 @@ describe("runWorkspaceTransaction", () => {
     let snapshotDir: string | undefined;
     return withContext(
       runWorkspaceTransaction({
+        lock: liveWorkspaceTransitionLock,
         workspaceDir,
         targets: [settingsPath],
         transition: Effect.sync(() => {
@@ -335,6 +345,7 @@ describe("runWorkspaceTransaction", () => {
           });
           expect(Option.isNone(contention)).toBe(true);
           const failure = yield* runWorkspaceTransaction({
+            lock: liveWorkspaceTransitionLock,
             workspaceDir,
             targets: [settingsPath],
             transition: Effect.gen(function* () {
@@ -417,6 +428,7 @@ describe("runWorkspaceTransaction", () => {
     ).pipe(Layer.provideMerge(NodeServices.layer));
     let snapshotDir: string | undefined;
     return runWorkspaceTransaction({
+      lock: liveWorkspaceTransitionLock,
       workspaceDir,
       targets: [settingsPath],
       transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')).pipe(
@@ -473,6 +485,7 @@ describe("runWorkspaceTransaction", () => {
       }),
     ).pipe(Layer.provideMerge(NodeServices.layer));
     return runWorkspaceTransaction({
+      lock: liveWorkspaceTransitionLock,
       workspaceDir,
       targets: [settingsPath],
       transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')).pipe(
@@ -504,6 +517,7 @@ describe("runWorkspaceTransaction", () => {
         const active = yield* Ref.make(0);
         const maximum = yield* Ref.make(0);
         const transition = runWorkspaceTransaction({
+          lock: liveWorkspaceTransitionLock,
           workspaceDir,
           targets: [settingsPath],
           transition: Effect.gen(function* () {
@@ -526,6 +540,7 @@ describe("runWorkspaceTransaction", () => {
         const scratchDir = nodePath.join(workspaceDir, "tmp");
         const lockPath = nodePath.join(scratchDir, "workspace-transition.lock");
         yield* runWorkspaceTransaction({
+          lock: liveWorkspaceTransitionLock,
           workspaceDir,
           targets: [settingsPath],
           transition: Effect.sync(() => {
@@ -548,6 +563,7 @@ describe("runWorkspaceTransaction", () => {
         nodeFs.writeFileSync(nodePath.join(unrelated, "keep.txt"), "keep\n");
 
         yield* runWorkspaceTransaction({
+          lock: liveWorkspaceTransitionLock,
           workspaceDir,
           targets: [settingsPath],
           transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')),

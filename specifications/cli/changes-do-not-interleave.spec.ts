@@ -90,18 +90,22 @@ describe("Concurrent workspace changes", () => {
     "two concurrent installs serialize or terminate without applying, never interleaving",
     () =>
       Effect.gen(function* () {
-        const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+        const workspace = makeSpecWorkspace({
+          storage: "memory",
+          machine: true,
+          flags: { json: true },
+        });
         cleanups.push(workspace.cleanup);
         const names = ["alpha", "beta"] as const;
         const sources = new Map(
-          names.map((name) => [name, writeLocalSkillPackage(workspace.root, { name })]),
+          names.map((name) => [name, writeLocalSkillPackage(workspace, { name })]),
         );
         const install = (name: (typeof names)[number]) =>
           handleInstall({
             source: Option.fromUndefinedOr(sources.get(name)),
             force: false,
             preview: false,
-          }).pipe(Effect.provide(workspace.layer), Effect.exit);
+          }).pipe(workspace.provide, Effect.exit);
 
         // Contention against the workspace transition hold waits on the
         // clock, so the race runs on a forked fiber while a driver fiber

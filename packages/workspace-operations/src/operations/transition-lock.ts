@@ -412,3 +412,14 @@ export const acquireWorkspaceTransitionLock = (args: {
       waitedMillis += Duration.toMillis(WAIT_INTERVAL);
     }
   });
+
+/** One invocation's view of transition admission and ownership. */
+export interface WorkspaceTransitionLock {
+  readonly acquire: typeof acquireWorkspaceTransitionLock;
+  readonly held: typeof heldWorkspaceTransition;
+}
+
+export const liveWorkspaceTransitionLock: WorkspaceTransitionLock = {
+  acquire: acquireWorkspaceTransitionLock,
+  held: heldWorkspaceTransition,
+};

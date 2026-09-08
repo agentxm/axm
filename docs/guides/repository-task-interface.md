@@ -75,6 +75,23 @@ Aggregate targets such as `generate`, `e2e`, and `install-verification` are
 lifecycle nodes: they perform no duplicate check and declare the work they
 aggregate through `dependsOn`.
 
+The `specifications:test-memory` target is the source-backed fast lane for
+migrated functional specifications. It deliberately has no build dependency:
+the `axm-source` export condition and its source loader resolve workspace
+packages from TypeScript in a disposable checkout with no `dist` directories.
+It runs the selected specifications in one worker without test-file isolation,
+so they share the cost of loading the application while each scenario owns a
+fresh in-memory filesystem, transition-lock world, and application Layer.
+Shuffled file and test order continually exercises that isolation. The target
+owns only `test-results/specifications-memory` and its inputs include source
+dependencies, reporter configuration, Vitest, and the CI environment.
+
+`specifications:test` remains the built-runtime lane. Its explicit `^build`
+dependency preserves executions that require compiled workspace artifacts and
+the broader process, native-filesystem, locking, callback-transport, and
+artifact witnesses. The two targets are complementary evidence boundaries;
+the memory lane does not replace the built or host-boundary lane.
+
 Dependencies express prerequisite artifacts or lifecycle ordering. Callers do
 not sequence a dependency already owned by a target. Host workflows may order
 steps only where failure handling, credentials, platform setup, or external
@@ -128,6 +145,13 @@ their task hash. A cache replay is the same input-bound verdict, not a new
 execution on the restoring host. Required main-branch E2E evidence sets
 `NX_SKIP_NX_CACHE=true`; reports that may contain restored results must disclose
 that result meaning until per-result provenance is available.
+
+Specification evidence records whether runtime code was loaded from `source`
+or `built` artifacts. Freshness compares the recorded runtime digest with the
+same mode: source executions track their source inputs and built executions
+track package `dist` outputs. A source receipt is therefore not invalidated by
+irrelevant build artifacts, while neither mode can satisfy evidence recorded
+for the other runtime boundary.
 
 For a single Nx invocation, append `--skip-nx-cache`. For a multi-stage root
 workflow, set `NX_SKIP_NX_CACHE=true`; pnpm would otherwise forward an appended

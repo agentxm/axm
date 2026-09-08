@@ -209,6 +209,8 @@ export {
 
 // Transition lock runtime
 export {
+  liveWorkspaceTransitionLock,
+  type WorkspaceTransitionLock,
   TRANSITION_WAIT_BOUND_MILLIS,
   acquireWorkspaceTransitionLock,
   heldWorkspaceTransition,

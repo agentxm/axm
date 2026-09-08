@@ -6,7 +6,11 @@ import {
   writeLocalSubagentPackage,
   type LocalExtensionFixture,
 } from "./extension-fixtures.js";
-import { makeSpecWorkspace, writeLocalSkillPackage } from "./install-harness.js";
+import {
+  makeSpecWorkspace,
+  writeLocalSkillPackage,
+  type SpecWorkspaceInput,
+} from "./install-harness.js";
 
 type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 
@@ -28,7 +32,7 @@ export interface LocalLifecycleRow {
   readonly type: "skill" | "rule" | "hook" | "knowledge" | "subagent";
   readonly plural: "skills" | "rules" | "hooks" | "knowledge" | "subagents";
   readonly settingsKey: "skills" | "rules" | "hooks" | "knowledge" | "subagents";
-  readonly writePackage: (workspaceRoot: string, fixture: LocalExtensionFixture) => string;
+  readonly writePackage: (workspace: SpecWorkspaceInput, fixture: LocalExtensionFixture) => string;
   /** Canonical content file inside the acquired package, relative to its root. */
   readonly canonicalFile: (name: string) => string;
   /** Product-observable realized surfaces while the extension is active. */

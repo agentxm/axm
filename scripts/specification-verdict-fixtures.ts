@@ -30,8 +30,14 @@ export const fixtureSource = (
 export const fixtureInputs = {
   sourceDigest: "source-inputs",
   runtimeDigest: "built-inputs",
+  runtimeMode: "built",
   revision: "recorded-revision",
-};
+} as const;
+export const fixtureSourceInputs = {
+  ...fixtureInputs,
+  runtimeDigest: fixtureInputs.sourceDigest,
+  runtimeMode: "source",
+} as const;
 export const fixtureRun = (
   file: Partial<EvidenceFile> = {},
   overrides: Partial<EvidenceRun> = {},
@@ -66,6 +72,7 @@ export const fixtureRun = (
 };
 export const fixtureContext = (overrides: Partial<VerdictEvidence> = {}): VerdictEvidence => ({
   inputs: fixtureInputs,
+  sourceInputs: fixtureSourceInputs,
   runs: [fixtureRun()],
   executionBindings: [],
   sourceDigests: new Map(),

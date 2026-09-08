@@ -31,6 +31,7 @@ export { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 
 export {
   ensureWorkspaceFiles,
+  makeWorkspaceFileContents,
   writeWorkspaceFiles,
   writeKnowledgeExtension,
   computeMaterializedTreeIntegritySync,
@@ -154,6 +155,7 @@ export { handleUninstallPack } from "./root/packs/uninstall/handler.js";
 export { handlePackActivation } from "./root/packs/activation.js";
 export { handlePacksUpdate } from "./root/packs/update.js";
 export { handleRootPublish } from "./root/publish/command.js";
+export { normalizePerTypePublishSelection } from "./root/publish/per-type-command.js";
 // The published publish-result contract, so interface specifications can
 // decode the rendered document against the schema machine consumers read.
 export { PublishResultSchema } from "./root/publish/result.js";
@@ -185,6 +187,9 @@ export {
 // may not import the kernel root or its /live module directly, so the harness
 // re-exports it (the Live through the sanctioned test-support module).
 export { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
+export { makeWorkspaceTransactionCapabilities } from "@agentxm/workspace-operations/live";
+export { makeMemoryTransitionLockWorld } from "@agentxm/workspace-operations/testing";
+export { WorkspaceMutations, makeWorkspaceMutations } from "@agentxm/workspace-state";
 export { CodingAgentRepositoryLive } from "./test-helpers.js";
 export { HelpTopicResultSchema, handleHelpPath } from "./root/help/command.js";
 export { loadVersion } from "./version.js";

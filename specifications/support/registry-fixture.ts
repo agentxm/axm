@@ -10,10 +10,14 @@
  */
 
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
-import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
+import { strToU8, zipSync } from "fflate";
+
+import {
+  resolveSpecWorkspaceStorage,
+  type SpecFileStore,
+  type SpecWorkspaceInput,
+} from "./install-harness.js";
 
 export interface RegistrySkillVersion {
   readonly version: string;
@@ -53,6 +57,7 @@ export interface RegistryKnowledgeVersion {
 export interface SpecRegistry {
   /** Absolute Registry root directory. */
   readonly root: string;
+  readonly files: SpecFileStore;
   /** Settings `sources` entry pointing at this Registry. */
   readonly source: {
     readonly name: string;
@@ -77,6 +82,7 @@ export interface SpecRegistry {
 
 const PUBLISHED_AT = "1960-01-01T00:00:00Z";
 const OWNER = "@acme";
+const ARCHIVE_MTIME = new Date("1980-01-01T00:00:00.000Z");
 
 const versionParts = (version: string): ReadonlyArray<number> =>
   (version.split("-")[0] ?? version).split(".").map((part) => Number.parseInt(part, 10));
@@ -98,37 +104,46 @@ const newestFirst = <T extends { readonly version: string }>(
     return 0;
   });
 
-export const makeSpecRegistry = (): SpecRegistry => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-spec-registry-")));
+export const makeSpecRegistry = (workspace?: SpecWorkspaceInput): SpecRegistry => {
+  const storage = resolveSpecWorkspaceStorage(workspace ?? "/tmp");
+  const files = storage.files;
+  const root = files.makeTempDirectory("axm-spec-registry-");
+
+  const writeArchive = (
+    directory: string,
+    version: string,
+    entries: Readonly<Record<string, string>>,
+  ): Uint8Array => {
+    files.makeDirectory(directory);
+    const archive = zipSync(
+      Object.fromEntries(
+        Object.entries(entries).map(([relative, content]) => [relative, strToU8(content)]),
+      ),
+      { mtime: ARCHIVE_MTIME },
+    );
+    files.writeFile(path.join(directory, `${version}.zip`), archive);
+    return archive;
+  };
 
   const writeSkill = (name: string, versions: ReadonlyArray<RegistrySkillVersion>): void => {
     const skillDir = path.join(root, "extensions", OWNER, "skills", name);
     const entries = versions.map(({ version, body, published }) => {
-      const stagingDir = path.join(skillDir, `staging-${version}`);
-      fs.mkdirSync(path.join(stagingDir, "src"), { recursive: true });
-      fs.writeFileSync(
-        path.join(stagingDir, "skill.json"),
-        `${JSON.stringify(
+      const archive = writeArchive(skillDir, version, {
+        "skill.json": `${JSON.stringify(
           { owner: OWNER, type: "skill", name, version, description: `The ${name} skill.` },
           null,
           2,
         )}\n`,
-      );
-      fs.writeFileSync(
-        path.join(stagingDir, "src", "SKILL.md"),
-        `---\nname: "${name}"\ndescription: "The ${name} skill."\n---\n\n# ${name}\n\n${body}\n`,
-      );
-      const archivePath = path.join(skillDir, `${version}.zip`);
-      execFileSync("zip", ["-qr", archivePath, "skill.json", "src"], { cwd: stagingDir });
-      fs.rmSync(stagingDir, { recursive: true, force: true });
-      const archive = fs.readFileSync(archivePath);
+        "src/SKILL.md": `---\nname: "${name}"\ndescription: "The ${name} skill."\n---\n\n# ${name}\n\n${body}\n`,
+      });
       return {
         version,
         published: published ?? PUBLISHED_AT,
         integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
       };
     });
-    fs.writeFileSync(
+    files.makeDirectory(skillDir);
+    files.writeFile(
       path.join(skillDir, "index.json"),
       `${JSON.stringify(
         {
@@ -147,12 +162,9 @@ export const makeSpecRegistry = (): SpecRegistry => {
 
   const writeMcp = (name: string, versions: ReadonlyArray<RegistryMcpVersion>): void => {
     const mcpDir = path.join(root, "extensions", OWNER, "mcps", name);
-    const entries = versions.map(({ version, secretInput, files }) => {
-      const stagingDir = path.join(mcpDir, `staging-${version}`);
-      fs.mkdirSync(stagingDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(stagingDir, "mcp.json"),
-        `${JSON.stringify(
+    const entries = versions.map(({ version, secretInput, files: packageFiles }) => {
+      const archive = writeArchive(mcpDir, version, {
+        "mcp.json": `${JSON.stringify(
           {
             owner: OWNER,
             type: "mcp-server",
@@ -182,25 +194,16 @@ export const makeSpecRegistry = (): SpecRegistry => {
           null,
           2,
         )}\n`,
-      );
-      const archivePath = path.join(mcpDir, `${version}.zip`);
-      for (const [relative, content] of Object.entries(files ?? {})) {
-        const target = path.join(stagingDir, relative);
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.writeFileSync(target, content);
-      }
-      execFileSync("zip", ["-qr", archivePath, "mcp.json", ...Object.keys(files ?? {})], {
-        cwd: stagingDir,
+        ...packageFiles,
       });
-      fs.rmSync(stagingDir, { recursive: true, force: true });
-      const archive = fs.readFileSync(archivePath);
       return {
         version,
         published: PUBLISHED_AT,
         integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
       };
     });
-    fs.writeFileSync(
+    files.makeDirectory(mcpDir);
+    files.writeFile(
       path.join(mcpDir, "index.json"),
       `${JSON.stringify(
         {
@@ -219,12 +222,9 @@ export const makeSpecRegistry = (): SpecRegistry => {
 
   const writePack = (name: string, versions: ReadonlyArray<RegistryPackVersion>): void => {
     const packDir = path.join(root, "extensions", OWNER, "packs", name);
-    const entries = versions.map(({ version, dependencies, published, files }) => {
-      const stagingDir = path.join(packDir, `staging-${version}`);
-      fs.mkdirSync(stagingDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(stagingDir, "pack.json"),
-        `${JSON.stringify(
+    const entries = versions.map(({ version, dependencies, published, files: packageFiles }) => {
+      const archive = writeArchive(packDir, version, {
+        "pack.json": `${JSON.stringify(
           {
             owner: OWNER,
             type: "pack",
@@ -236,18 +236,8 @@ export const makeSpecRegistry = (): SpecRegistry => {
           null,
           2,
         )}\n`,
-      );
-      const archivePath = path.join(packDir, `${version}.zip`);
-      for (const [relative, content] of Object.entries(files ?? {})) {
-        const target = path.join(stagingDir, relative);
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.writeFileSync(target, content);
-      }
-      execFileSync("zip", ["-qr", archivePath, "pack.json", ...Object.keys(files ?? {})], {
-        cwd: stagingDir,
+        ...packageFiles,
       });
-      fs.rmSync(stagingDir, { recursive: true, force: true });
-      const archive = fs.readFileSync(archivePath);
       // The Registry index carries the member constraints the resolver reads;
       // the archive manifest must agree with it for the accepted identity to
       // match the realized package.
@@ -258,7 +248,8 @@ export const makeSpecRegistry = (): SpecRegistry => {
         dependencies,
       };
     });
-    fs.writeFileSync(
+    files.makeDirectory(packDir);
+    files.writeFile(
       path.join(packDir, "index.json"),
       `${JSON.stringify(
         {
@@ -281,11 +272,8 @@ export const makeSpecRegistry = (): SpecRegistry => {
   ): void => {
     const knowledgeDir = path.join(root, "extensions", OWNER, "knowledge", name);
     const entries = versions.map(({ version, body, published }) => {
-      const stagingDir = path.join(knowledgeDir, `staging-${version}`);
-      fs.mkdirSync(path.join(stagingDir, "src"), { recursive: true });
-      fs.writeFileSync(
-        path.join(stagingDir, "knowledge.json"),
-        `${JSON.stringify(
+      const archive = writeArchive(knowledgeDir, version, {
+        "knowledge.json": `${JSON.stringify(
           {
             owner: OWNER,
             type: "knowledge",
@@ -298,22 +286,16 @@ export const makeSpecRegistry = (): SpecRegistry => {
           null,
           2,
         )}\n`,
-      );
-      fs.writeFileSync(
-        path.join(stagingDir, "src", "index.md"),
-        `---\nokf_version: "0.2"\ndescription: "The ${name} knowledge bundle."\n---\n\n# ${name}\n\n${body}\n`,
-      );
-      const archivePath = path.join(knowledgeDir, `${version}.zip`);
-      execFileSync("zip", ["-qr", archivePath, "knowledge.json", "src"], { cwd: stagingDir });
-      fs.rmSync(stagingDir, { recursive: true, force: true });
-      const archive = fs.readFileSync(archivePath);
+        "src/index.md": `---\nokf_version: "0.2"\ndescription: "The ${name} knowledge bundle."\n---\n\n# ${name}\n\n${body}\n`,
+      });
       return {
         version,
         published: published ?? PUBLISHED_AT,
         integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
       };
     });
-    fs.writeFileSync(
+    files.makeDirectory(knowledgeDir);
+    files.writeFile(
       path.join(knowledgeDir, "index.json"),
       `${JSON.stringify(
         {
@@ -332,13 +314,14 @@ export const makeSpecRegistry = (): SpecRegistry => {
 
   return {
     root,
+    files,
     source: { name: "agentxm", type: "registry", location: `file://${root}` },
     writeSkill,
     writeMcp,
     writePack,
     writeKnowledge,
     cleanup: (): void => {
-      fs.rmSync(root, { recursive: true, force: true });
+      files.remove(root);
     },
   };
 };

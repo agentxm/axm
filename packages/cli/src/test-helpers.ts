@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
@@ -23,7 +24,11 @@ import { TestFlagsLayer } from "./cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer, logsByTag, type Screen } from "./screen/index.js";
 import { presentPlan } from "./operation-view.js";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
-import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import type {
+  WorkspaceMutations,
+  WorkspaceMutationsError,
+  WorkspaceMutationsOptions,
+} from "@agentxm/workspace-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { AxmSkillCandidateGateLive, WorkspaceCatalogLive } from "./cli-runtime/index.js";
@@ -606,6 +611,12 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly onFileSystemWrite?: ((event: FileSystemWriteEvent) => void) | undefined;
   /** Override filesystem operations before workspace services capture the platform. */
   readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
+  /** An already initialized workspace, composed over the selected test platform. */
+  readonly workspaceLayer?: Layer.Layer<
+    WorkspaceMutations,
+    WorkspaceMutationsError,
+    FileSystem.FileSystem | Path.Path
+  >;
   readonly wsOptions?:
     | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
         readonly projectRoot?: string;
@@ -621,7 +632,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   } satisfies WorkspaceMutationsOptions;
 
   // Ensure workspace settings exist — loadWorkspace requires an initialized workspace
-  if (wsOptions.scope === "project") {
+  if (wsOptions.scope === "project" && opts?.workspaceLayer === undefined) {
     const workspaceRoot = projectRoot;
 
     if (opts?.wsOptions?.projectRoot === undefined && isRepositoryPath(workspaceRoot)) {
@@ -633,7 +644,10 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     ensureWorkspaceFiles(path.join(workspaceRoot, ".axm"));
   }
 
-  const coreWsLayer = Layer.provide(coreWorkspaceLayer(wsOptions), cliTestContext.baseLayer);
+  const coreWsLayer = Layer.provide(
+    opts?.workspaceLayer ?? coreWorkspaceLayer(wsOptions),
+    cliTestContext.baseLayer,
+  );
   const wsLayer = Layer.mergeAll(
     coreWsLayer,
     Layer.provide(

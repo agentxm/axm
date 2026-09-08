@@ -6,11 +6,13 @@ type TestLayer = "e2e" | "internal" | "specification" | "tooling";
 
 type TestReportingOptions = {
   readonly layer: TestLayer;
+  readonly runtimeMode?: "source" | "built";
   readonly suite: string;
 };
 
 export const makeTestReporting = ({
   layer,
+  runtimeMode = "built",
   suite,
 }: TestReportingOptions): Pick<InlineConfig, "outputFile" | "reporters"> => {
   const outputDirectory = fileURLToPath(new URL(`test-results/${suite}/`, import.meta.url));
@@ -24,6 +26,7 @@ export const makeTestReporting = ({
         {
           repoRoot: fileURLToPath(new URL(".", import.meta.url)),
           outputDirectory,
+          runtimeMode,
           suite,
         },
       ],

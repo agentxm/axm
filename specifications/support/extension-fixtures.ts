@@ -8,8 +8,9 @@
  * `install-harness.ts`.
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
+
+import { resolveSpecWorkspaceStorage, type SpecWorkspaceInput } from "./install-harness.js";
 
 export interface LocalExtensionFixture {
   readonly name: string;
@@ -19,14 +20,15 @@ export interface LocalExtensionFixture {
 }
 
 const preparePackageRoot = (
-  workspaceRoot: string,
+  workspace: SpecWorkspaceInput,
   fixture: LocalExtensionFixture,
   manifestFilename: string,
   manifest: Readonly<Record<string, unknown>>,
 ): string => {
+  const { root: workspaceRoot, files } = resolveSpecWorkspaceStorage(workspace);
   const packageRoot = path.join(workspaceRoot, "vendor", fixture.name);
-  fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
-  fs.writeFileSync(
+  files.makeDirectory(path.join(packageRoot, "src"));
+  files.writeFile(
     path.join(packageRoot, manifestFilename),
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
@@ -35,11 +37,11 @@ const preparePackageRoot = (
 
 /** Writes a local rule package (`rule.json` plus `src/RULE.md`). */
 export const writeLocalRulePackage = (
-  workspaceRoot: string,
+  workspace: SpecWorkspaceInput,
   fixture: LocalExtensionFixture,
 ): string => {
   const description = fixture.description ?? `The ${fixture.name} rule.`;
-  const packageRoot = preparePackageRoot(workspaceRoot, fixture, "rule.json", {
+  const packageRoot = preparePackageRoot(workspace, fixture, "rule.json", {
     $schema: "https://axm.sh/schemas/rule.schema.json",
     owner: fixture.owner ?? "@acme",
     type: "rule",
@@ -47,7 +49,7 @@ export const writeLocalRulePackage = (
     version: fixture.version ?? "1.0.0",
     description,
   });
-  fs.writeFileSync(
+  resolveSpecWorkspaceStorage(workspace).files.writeFile(
     path.join(packageRoot, "src", "RULE.md"),
     `Guidance for ${fixture.name}: ${description}\n`,
   );
@@ -56,11 +58,11 @@ export const writeLocalRulePackage = (
 
 /** Writes a local hook package (`hook.json` plus `src/hook.sh`). */
 export const writeLocalHookPackage = (
-  workspaceRoot: string,
+  workspace: SpecWorkspaceInput,
   fixture: LocalExtensionFixture,
 ): string => {
   const description = fixture.description ?? `The ${fixture.name} hook.`;
-  const packageRoot = preparePackageRoot(workspaceRoot, fixture, "hook.json", {
+  const packageRoot = preparePackageRoot(workspace, fixture, "hook.json", {
     $schema: "https://axm.sh/schemas/hook.schema.json",
     owner: fixture.owner ?? "@acme",
     type: "hook",
@@ -71,7 +73,7 @@ export const writeLocalHookPackage = (
     entrypoint: "src/hook.sh",
     bindings: [{ on: "tool.pre", match: { tools: ["file.write"] } }],
   });
-  fs.writeFileSync(
+  resolveSpecWorkspaceStorage(workspace).files.writeFile(
     path.join(packageRoot, "src", "hook.sh"),
     `#!/usr/bin/env bash\necho "${fixture.name}"\n`,
   );
@@ -80,11 +82,11 @@ export const writeLocalHookPackage = (
 
 /** Writes a local OKF knowledge package (`knowledge.json` plus `src/index.md`). */
 export const writeLocalKnowledgePackage = (
-  workspaceRoot: string,
+  workspace: SpecWorkspaceInput,
   fixture: LocalExtensionFixture,
 ): string => {
   const description = fixture.description ?? `The ${fixture.name} knowledge bundle.`;
-  const packageRoot = preparePackageRoot(workspaceRoot, fixture, "knowledge.json", {
+  const packageRoot = preparePackageRoot(workspace, fixture, "knowledge.json", {
     $schema: "https://axm.sh/schemas/knowledge.schema.json",
     owner: fixture.owner ?? "@acme",
     type: "knowledge",
@@ -94,7 +96,7 @@ export const writeLocalKnowledgePackage = (
     format: { name: "okf", version: "0.2" },
     bundleRoot: "src",
   });
-  fs.writeFileSync(
+  resolveSpecWorkspaceStorage(workspace).files.writeFile(
     path.join(packageRoot, "src", "index.md"),
     `---\nokf_version: "0.2"\ndescription: "${description}"\n---\n\n# ${fixture.name}\n`,
   );
@@ -103,11 +105,11 @@ export const writeLocalKnowledgePackage = (
 
 /** Writes a local subagent package (`subagent.json` plus `src/<name>.md`). */
 export const writeLocalSubagentPackage = (
-  workspaceRoot: string,
+  workspace: SpecWorkspaceInput,
   fixture: LocalExtensionFixture,
 ): string => {
   const description = fixture.description ?? `The ${fixture.name} subagent.`;
-  const packageRoot = preparePackageRoot(workspaceRoot, fixture, "subagent.json", {
+  const packageRoot = preparePackageRoot(workspace, fixture, "subagent.json", {
     $schema: "https://axm.sh/schemas/subagent.schema.json",
     owner: fixture.owner ?? "@acme",
     type: "subagent",
@@ -115,7 +117,7 @@ export const writeLocalSubagentPackage = (
     version: fixture.version ?? "1.0.0",
     description,
   });
-  fs.writeFileSync(
+  resolveSpecWorkspaceStorage(workspace).files.writeFile(
     path.join(packageRoot, "src", `${fixture.name}.md`),
     `---\nname: ${fixture.name}\ndescription: ${description}\n---\n\n# ${fixture.name}\n`,
   );

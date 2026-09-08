@@ -24,58 +24,59 @@ import {
   type WorkspaceTransitionAcquirer,
 } from "@agentxm/workspace-state";
 import { runWorkspaceTransaction } from "./transaction.js";
-import { acquireWorkspaceTransitionLock } from "./transition-lock.js";
+import { liveWorkspaceTransitionLock, type WorkspaceTransitionLock } from "./transition-lock.js";
 
 /**
  * The live transaction capabilities: the runner claims the shared settings
  * and lockfile targets by default, and both members eliminate FileSystem and
  * Path so the facade's methods stay `R = never` for callers.
  */
-export const makeWorkspaceTransactionCapabilities: MakeWorkspaceTransactionCapabilities = ({
-  workspaceDir,
-  settingsPath,
-  lockPath,
-}) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    // Transaction admission must be distinct from the facade's mutation
-    // mutex: a transaction calls the same service's mutation methods while
-    // it owns the outer admission permit.
-    const transactionSemaphore = yield* Semaphore.make(1);
-    const fsLayer = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
-    );
+export const makeWorkspaceTransactionCapabilities =
+  (lock: WorkspaceTransitionLock): MakeWorkspaceTransactionCapabilities =>
+  ({ workspaceDir, settingsPath, lockPath }) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      // Transaction admission must be distinct from the facade's mutation
+      // mutex: a transaction calls the same service's mutation methods while
+      // it owns the outer admission permit.
+      const transactionSemaphore = yield* Semaphore.make(1);
+      const fsLayer = Layer.mergeAll(
+        Layer.succeed(FileSystem.FileSystem, fs),
+        Layer.succeed(Path.Path, path),
+      );
 
-    const runTransaction: WorkspaceTransactionRunner = (args) =>
-      runWorkspaceTransaction({
-        workspaceDir,
-        semaphore: transactionSemaphore,
-        targets: [
-          ...(args.claimDefaultTargets === false ? [] : [settingsPath, lockPath]),
-          ...(args.targets ?? []),
-        ],
-        transition: args.transition,
-        validate: args.validate,
-        ...(args.onRestorationStarted === undefined
-          ? {}
-          : { onRestorationStarted: args.onRestorationStarted }),
-      }).pipe(Effect.provide(fsLayer));
+      const runTransaction: WorkspaceTransactionRunner = (args) =>
+        runWorkspaceTransaction({
+          lock,
+          workspaceDir,
+          semaphore: transactionSemaphore,
+          targets: [
+            ...(args.claimDefaultTargets === false ? [] : [settingsPath, lockPath]),
+            ...(args.targets ?? []),
+          ],
+          transition: args.transition,
+          validate: args.validate,
+          ...(args.onRestorationStarted === undefined
+            ? {}
+            : { onRestorationStarted: args.onRestorationStarted }),
+        }).pipe(Effect.provide(fsLayer));
 
-    const acquireTransition: WorkspaceTransitionAcquirer = (request) =>
-      acquireWorkspaceTransitionLock({
-        workspaceDir,
-        holder: {
-          command: request.command,
-          pid: process.pid,
-          ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
-        },
-        ...(request.onWaiting === undefined ? {} : { onWaiting: request.onWaiting }),
-      }).pipe(Effect.provide(fsLayer));
+      const acquireTransition: WorkspaceTransitionAcquirer = (request) =>
+        lock
+          .acquire({
+            workspaceDir,
+            holder: {
+              command: request.command,
+              pid: process.pid,
+              ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
+            },
+            ...(request.onWaiting === undefined ? {} : { onWaiting: request.onWaiting }),
+          })
+          .pipe(Effect.provide(fsLayer));
 
-    return { runTransaction, acquireTransition };
-  });
+      return { runTransaction, acquireTransition };
+    });
 
 /**
  * Create workspace mutations effect.
@@ -94,7 +95,11 @@ export const loadWorkspace = (
   WorkspaceMutationsService,
   WorkspaceMutationsError,
   FileSystem.FileSystem | Path.Path
-> => makeWorkspaceMutations(options, makeWorkspaceTransactionCapabilities);
+> =>
+  makeWorkspaceMutations(
+    options,
+    makeWorkspaceTransactionCapabilities(liveWorkspaceTransitionLock),
+  );
 
 /**
  * Create a layer that loads workspace read model from disk.

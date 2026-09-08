@@ -89,6 +89,18 @@ describe("repository execution inputs", () => {
     expect(captureEvidenceInputs(root)).toEqual(after);
   });
 
+  it("tracks source execution without requiring or inheriting built artifacts", () => {
+    const root = repository();
+    write(root, "packages/cli/src/index.ts", "before");
+    const before = captureEvidenceInputs(root, "source");
+    expect(before.runtimeMode).toBe("source");
+    write(root, "packages/cli/dist/index.js", "generated");
+    expect(captureEvidenceInputs(root, "source")).toEqual(before);
+    write(root, "packages/cli/src/index.ts", "after");
+    const after = captureEvidenceInputs(root, "source");
+    expect(after.runtimeDigest).not.toBe(before.runtimeDigest);
+  });
+
   it("detects removal, mode, and symlink target changes", () => {
     const root = repository();
     write(root, "input", "bytes");

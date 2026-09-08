@@ -40,6 +40,28 @@ const normalizeSelector = (type: PerTypePublishType, selector: string) =>
     return selector;
   });
 
+/** Normalize the type-specific adapter inputs consumed by root publication. */
+export const normalizePerTypePublishSelection = (args: {
+  readonly type: PerTypePublishType;
+  readonly selectors: ReadonlyArray<string>;
+  readonly owners: ReadonlyArray<string>;
+  readonly excludes: ReadonlyArray<string>;
+}) =>
+  Effect.gen(function* () {
+    const selectors = yield* Effect.forEach(args.selectors, (selector) =>
+      normalizeSelector(args.type, selector),
+    );
+    const excludes = yield* Effect.forEach(args.excludes, (selector) =>
+      normalizeSelector(args.type, selector),
+    );
+    return {
+      selectors,
+      owners: [...args.owners],
+      types: selectors.length === 0 ? [args.type] : [],
+      excludes,
+    };
+  });
+
 export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   const plural = extensionTypeToPlural[type];
   const commonConfig = {
@@ -91,17 +113,14 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     } as const;
     return Command.make("publish", config, (parsed) =>
       Effect.gen(function* () {
-        const selectors = yield* Effect.forEach(parsed.extensions, (selector) =>
-          normalizeSelector(type, selector),
-        );
-        const excludes = yield* Effect.forEach(parsed.exclude, (selector) =>
-          normalizeSelector(type, selector),
-        );
+        const selection = yield* normalizePerTypePublishSelection({
+          type,
+          selectors: parsed.extensions,
+          owners: parsed.owner,
+          excludes: parsed.exclude,
+        });
         yield* handleRootPublish({
-          selectors,
-          owners: [...parsed.owner],
-          types: selectors.length === 0 ? [type] : [],
-          excludes,
+          ...selection,
           registry: parsed.registry,
           registryUrl: parsed.registryUrl,
           onExisting: parsed.onExisting,
@@ -127,17 +146,14 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   const config = commonConfig;
   return Command.make("publish", config, (parsed) =>
     Effect.gen(function* () {
-      const selectors = yield* Effect.forEach(parsed.extensions, (selector) =>
-        normalizeSelector(type, selector),
-      );
-      const excludes = yield* Effect.forEach(parsed.exclude, (selector) =>
-        normalizeSelector(type, selector),
-      );
+      const selection = yield* normalizePerTypePublishSelection({
+        type,
+        selectors: parsed.extensions,
+        owners: parsed.owner,
+        excludes: parsed.exclude,
+      });
       yield* handleRootPublish({
-        selectors,
-        owners: [...parsed.owner],
-        types: selectors.length === 0 ? [type] : [],
-        excludes,
+        ...selection,
         registry: parsed.registry,
         registryUrl: parsed.registryUrl,
         onExisting: parsed.onExisting,

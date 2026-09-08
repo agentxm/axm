@@ -15,13 +15,13 @@ import {
 } from "./publish-harness.js";
 
 export const publicationTypes = [
-  { route: "skills", write: writeAuthoredSkill },
-  { route: "mcps", write: writeAuthoredMcpServer },
-  { route: "subagents", write: writeAuthoredSubagent },
-  { route: "rules", write: writeAuthoredRule },
-  { route: "hooks", write: writeAuthoredHook },
-  { route: "knowledge", write: writeAuthoredKnowledge },
-  { route: "packs", write: writeAuthoredPack },
+  { type: "skill", route: "skills", write: writeAuthoredSkill },
+  { type: "mcp-server", route: "mcps", write: writeAuthoredMcpServer },
+  { type: "subagent", route: "subagents", write: writeAuthoredSubagent },
+  { type: "rule", route: "rules", write: writeAuthoredRule },
+  { type: "hook", route: "hooks", write: writeAuthoredHook },
+  { type: "knowledge", route: "knowledge", write: writeAuthoredKnowledge },
+  { type: "pack", route: "packs", write: writeAuthoredPack },
 ] as const;
 export type PublicationType = (typeof publicationTypes)[number];
 

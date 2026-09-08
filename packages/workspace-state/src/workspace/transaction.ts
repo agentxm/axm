@@ -37,6 +37,7 @@ export interface PendingClosureRestorationFailure {
 }
 
 export interface WorkspaceTransactionContext {
+  readonly isTransitionCompromised: () => boolean;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly workspaceDir: string;

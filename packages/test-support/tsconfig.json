@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.test-base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ],
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0"
+  }
+}

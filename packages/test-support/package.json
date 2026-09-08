@@ -1,0 +1,27 @@
+{
+  "name": "@agentxm/test-support",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared deterministic test-world adapters for AXM",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "memfs": "^4.71.0",
+    "vitest": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:"
+  }
+}

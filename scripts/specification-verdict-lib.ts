@@ -36,7 +36,10 @@ export interface Verdict {
   readonly evidenceIssues: readonly string[];
 }
 export interface VerdictEvidence {
+  /** Current built-artifact input snapshot. */
   readonly inputs: EvidenceInputs;
+  /** Current source-runtime input snapshot. */
+  readonly sourceInputs?: EvidenceInputs;
   readonly runs: readonly EvidenceRun[];
   readonly executionBindings: readonly CatalogExecutionBinding[];
   readonly sourceDigests: ReadonlyMap<string, string>;
@@ -52,7 +55,7 @@ export const assessExecutionEvidence = (
   contentDigest: string | undefined,
   boundary: string,
   selection: string,
-  evidence: Pick<VerdictEvidence, "inputs" | "runs">,
+  evidence: Pick<VerdictEvidence, "inputs" | "sourceInputs" | "runs">,
 ): EvidenceAssessment => {
   const base = { source, boundary, selection };
   const run = [...evidence.runs]
@@ -74,17 +77,21 @@ export const assessExecutionEvidence = (
         : file.passed > 0
           ? "passed"
           : "not-run";
-  const provenance = `${run.suite}; ${run.finishedAt}; revision ${run.inputs.revision}; ${run.environment.node} ${run.environment.platform}/${run.environment.architecture}; ${file.passed}/${file.tests} passed`;
+  const provenance = `${run.suite}; ${run.finishedAt}; revision ${run.inputs.revision}; ${run.inputs.runtimeMode} runtime; ${run.environment.node} ${run.environment.platform}/${run.environment.architecture}; ${file.passed}/${file.tests} passed`;
+  const currentInputs =
+    run.inputs.runtimeMode === "source"
+      ? (evidence.sourceInputs ?? evidence.inputs)
+      : evidence.inputs;
   if (
     !run.inputsStable ||
-    !sameEvidenceInputs(run.inputs, evidence.inputs) ||
+    !sameEvidenceInputs(run.inputs, currentInputs) ||
     file.contentDigest !== contentDigest
   )
     return {
       ...base,
       status: "stale",
       outcome,
-      detail: `${provenance}; source or built runtime inputs differ, or changed during execution.`,
+      detail: `${provenance}; source or selected runtime inputs differ, or changed during execution.`,
     };
   if (
     !run.complete ||

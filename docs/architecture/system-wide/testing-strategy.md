@@ -456,6 +456,16 @@ Within the fast functional subset, specification tests normally:
   their semantics must agree; and
 - use snapshots only for stable, reviewable exact contracts.
 
+The source-backed memory lane loads the application once per run and gives
+every scenario fresh in-memory adapters and a fresh application Layer. Files,
+transition-lock ownership, configuration, and injected failures belong to the
+scenario rather than the worker. File and test order is shuffled while the
+worker and module graph are deliberately reused, making state leakage visible
+without paying application startup for every file. Shared adapter-contract
+tests compare the in-memory filesystem and transition lock with their live
+counterparts; process, native-lock, atomic-replacement, callback-transport, and
+artifact executions remain separate boundary evidence.
+
 Reporter adapters normalize native framework results into the specification
 catalog, Allure, and CI projections. They consume test results without
 controlling how tests are authored. Supporting a new testing method should
@@ -606,6 +616,13 @@ process, binary, packed-artifact, installed, platform, published-artifact,
 deployed, and other evidence independently. Reports preserve the execution
 revision, exact artifact identity, environment, timing, attachments, and retry
 or flaky state.
+
+Each execution receipt also identifies its runtime mode. A source-mode receipt
+binds freshness to the executed TypeScript sources and can be produced from a
+disposable checkout with no compiled package output. A built-mode receipt binds
+freshness to both source and package runtime artifacts. Skipped, pending,
+filtered, interrupted, incomplete, input-changing, and stale executions retain
+their existing non-passing semantics in either mode.
 
 Performance specification reports also preserve workload, hardware, operating
 system, runtime, configuration, dataset, warm-up, sampling, variance, and

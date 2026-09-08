@@ -1,7 +1,6 @@
-import { fileURLToPath } from "node:url";
-import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
+import { normalizePerTypePublishSelection } from "axm.sh/specification-harness";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makePublicationSpecContext } from "../support/publication-evidence-harness.js";
 import {
@@ -10,12 +9,7 @@ import {
   writeAuthoredSkill,
 } from "../support/publish-harness.js";
 
-import {
-  makePublicationCommandFixture,
-  publicationTypes,
-  readPublicationCommandResult,
-} from "../support/publication-command-fixture.js";
-import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
+import { publicationTypes } from "../support/publication-command-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/publication-selects-matching-authored-extensions",
@@ -27,7 +21,7 @@ export const specification = defineSpecification({
   goals: ["workspace-intent-fidelity"],
   boundary: "process",
   boundaryRationale:
-    "The root selection table exercises actual publication orchestration and stored archives; the type-specific table enters the built CLI to verify adapter normalization before the same handler runs.",
+    "The tables call the production publication handler and type-specific adapter within the test process, then observe its result document and stored archives; explicit Registry routing retains a separate built-CLI process specification.",
   methods: ["decision-table", "example"],
   derivedFrom: [
     "cli/publish/selectors-and-filters-narrow-authored-candidates",
@@ -43,7 +37,7 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
-        "The process examples use file Registry destinations and a bounded selector/filter decision table. They do not establish every glob shape, repeated-filter combination, or remote Registry interaction.",
+        "The in-process examples use file Registry destinations and a bounded selector/filter decision table. They do not establish every glob shape, repeated-filter combination, or remote Registry interaction.",
       retirementCondition:
         "Retain the type-bound selection evidence while adding any newly accepted selector grammar and interaction cases under their exact applicability.",
     },
@@ -168,78 +162,101 @@ describe("Type-specific publication selection", () => {
     const cases = [
       {
         name: "all authored entries in this type",
-        arguments: [],
+        selectors: [],
+        owners: [],
+        excludes: [],
         expected: ["redwood", "review", "unrelated"],
       },
-      { name: "bare name", arguments: ["review"], expected: ["review"] },
-      { name: "bare glob", arguments: ["r*"], expected: ["redwood", "review"] },
+      {
+        name: "bare name",
+        selectors: ["review"],
+        owners: [],
+        excludes: [],
+        expected: ["review"],
+      },
+      {
+        name: "bare glob",
+        selectors: ["r*"],
+        owners: [],
+        excludes: [],
+        expected: ["redwood", "review"],
+      },
       {
         name: "fully qualified selector",
-        arguments: [`@acme/${type.route}/review`],
+        selectors: [`@acme/${type.route}/review`],
+        owners: [],
+        excludes: [],
         expected: ["review"],
       },
       {
         name: "owner and type-relative exclusion",
-        arguments: ["--owner", "@acme", "--exclude", "red*"],
+        selectors: [],
+        owners: ["@acme"],
+        excludes: ["red*"],
         expected: ["review", "unrelated"],
       },
-      { name: "unmatched owner filter", arguments: ["--owner", "@another"], expected: [] },
+      {
+        name: "unmatched owner filter",
+        selectors: [],
+        owners: ["@another"],
+        excludes: [],
+        expected: [],
+      },
     ] as const;
     for (const scenario of cases) {
-      it(`${type.route} publish: ${scenario.name}`, async () => {
-        const fixture = makePublicationCommandFixture(type);
-        try {
-          const result = await fixture.run(
-            [type.route, "publish", ...scenario.arguments],
-            ["--registry-url", fixture.selected.url],
-          );
-          expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-          const expectedArchives = scenario.expected.map(
-            (name) => `extensions/@acme/${type.route}/${name}/1.0.0.zip`,
-          );
-          expect(fixture.selectedArchives()).toEqual(expectedArchives);
-          for (const archive of expectedArchives)
-            expect(fixture.archiveBytes(archive).length).toBeGreaterThan(0);
-          expect(fixture.distractor.storedFiles()).toEqual([]);
-          const document = readPublicationCommandResult(result.stdout);
-          expect(document.counts.published).toBe(scenario.expected.length);
-          expect(
-            document.execution.outcomes
-              .filter((item) => item.status === "success")
-              .map((item) => item.id)
-              .sort(),
-          ).toEqual(scenario.expected.map((name) => `@acme/${type.route}/${name}`));
-        } finally {
-          fixture.cleanup();
-        }
-      }, 120_000);
+      it.effect(`${type.route} publish: ${scenario.name}`, () =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const context = yield* makePublicationSpecContext({
+              settings: {
+                [type.route]: {
+                  review: "workspace",
+                  redwood: "workspace",
+                  unrelated: "workspace",
+                },
+              },
+            });
+            for (const name of ["review", "redwood", "unrelated"]) {
+              type.write(context.workspace.root, { name });
+            }
+            const selection = yield* normalizePerTypePublishSelection({
+              type: type.type,
+              selectors: scenario.selectors,
+              owners: scenario.owners,
+              excludes: scenario.excludes,
+            });
+            yield* context.run(selection);
+            const result = yield* context.result();
+            expect(result.counts.published).toBe(scenario.expected.length);
+            expect(
+              result.execution.outcomes
+                .filter((item) => item.status === "success")
+                .map((item) => item.id)
+                .sort(),
+            ).toEqual(scenario.expected.map((name) => `@acme/${type.route}/${name}`));
+            expect(
+              context.registry
+                .storedFiles()
+                .filter((file) => file.endsWith(".zip"))
+                .sort(),
+            ).toEqual(
+              scenario.expected.map((name) => `extensions/@acme/${type.route}/${name}/1.0.0.zip`),
+            );
+          }),
+        ),
+      );
     }
-    it(`${type.route} publish never widens to a foreign-type fully qualified selector`, async () => {
-      const fixture = makePublicationCommandFixture(type);
-      try {
-        // Affirmative control establishes a working own-type publication first.
-        const own = await fixture.run(
-          [type.route, "publish", "review"],
-          ["--registry-url", fixture.selected.url],
-        );
-        expect(own.exitCode, own.stdout + own.stderr).toBe(0);
-        expect(
-          fixture.archiveBytes(`extensions/@acme/${type.route}/review/1.0.0.zip`).length,
-        ).toBeGreaterThan(0);
-        const before = snapshotWorkspaceContent(fileURLToPath(fixture.selected.url));
-        const foreign = await fixture.run(
-          [type.route, "publish", `@acme/${fixture.foreign}/review`],
-          ["--registry-url", fixture.selected.url],
-        );
-        // Require a real CLI response; a process-launch failure cannot satisfy absence.
-        Schema.decodeUnknownSync(Schema.Struct({ ok: Schema.Boolean }))(JSON.parse(foreign.stdout));
-        // Exact rejection/no-match status remains an open decision; the promised
-        // selection boundary forbids publishing the valid foreign-type package.
-        expect(snapshotWorkspaceContent(fileURLToPath(fixture.selected.url))).toEqual(before);
-        expect(fixture.distractor.storedFiles()).toEqual([]);
-      } finally {
-        fixture.cleanup();
-      }
-    }, 120_000);
+    it.effect(`${type.route} publish never widens to a foreign-type fully qualified selector`, () =>
+      Effect.gen(function* () {
+        const foreign = type.route === "skills" ? "rules" : "skills";
+        const result = yield* normalizePerTypePublishSelection({
+          type: type.type,
+          selectors: [`@acme/${foreign}/review`],
+          owners: [],
+          excludes: [],
+        }).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+      }),
+    );
   }
 });

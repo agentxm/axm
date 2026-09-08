@@ -15,6 +15,7 @@
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/registry-auth": "workspace:^",
     "@agentxm/workspace-configuration": "workspace:^",
+    "@agentxm/test-support": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "axm.sh": "workspace:^"
   },
@@ -25,6 +26,7 @@
     "@typescript/native": "catalog:",
     "allure-js-commons": "catalog:",
     "effect": "catalog:",
+    "fflate": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"

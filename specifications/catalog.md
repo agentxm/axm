@@ -2363,12 +2363,12 @@ programmatic interfaces, and supporting system behavior.
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
 - Boundary: process; selection: per-change
-- Boundary rationale: The root selection table exercises actual publication orchestration and stored archives; the type-specific table enters the built CLI to verify adapter normalization before the same handler runs.
+- Boundary rationale: The tables call the production publication handler and type-specific adapter within the test process, then observe its result document and stored archives; explicit Registry routing retains a separate built-CLI process specification.
 - Methods: decision-table, example
 - Derived from: `cli/publish/selectors-and-filters-narrow-authored-candidates`, `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.ts`, `packages/cli/src/root/publish/per-type-command.ts`
 - Supersedes: `cli/publish/selectors-and-filters-narrow-authored-candidates`
 - Open questions: For an explicit selector with no match, including a fully qualified name of another type at a type-specific command, which diagnostic and result status are required? The selection must not broaden, but this owner does not fix the no-match reporting policy.
-- Limitation: The process examples use file Registry destinations and a bounded selector/filter decision table. They do not establish every glob shape, repeated-filter combination, or remote Registry interaction. Retires when: Retain the type-bound selection evidence while adding any newly accepted selector grammar and interaction cases under their exact applicability.
+- Limitation: The in-process examples use file Registry destinations and a bounded selector/filter decision table. They do not establish every glob shape, repeated-filter combination, or remote Registry interaction. Retires when: Retain the type-bound selection evidence while adding any newly accepted selector grammar and interaction cases under their exact applicability.
 - Source: [`specifications/cli/publication-selects-matching-authored-extensions.spec.ts`](../specifications/cli/publication-selects-matching-authored-extensions.spec.ts)
 
 #### Publish
@@ -4936,7 +4936,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Evidence reports distinguish current execution from incomplete or absent verification
 
 - Requirement: `system/process/evidence-reports-match-executed-inputs`
-- Statement: When reporting requirement evidence, AXM's repository tools shall identify the executed source and built runtime inputs, observation boundary and selection, distinguishing current complete outcomes from stale, partial, missing, and unverified evidence.
+- Statement: When reporting requirement evidence, AXM's repository tools shall identify the executed source inputs, whether runtime code came from source or built artifacts, the corresponding runtime inputs, observation boundary, and selection, distinguishing current complete outcomes from stale, partial, missing, and unverified evidence.
 - Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`

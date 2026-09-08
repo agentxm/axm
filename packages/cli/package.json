@@ -45,16 +45,19 @@
   "exports": {
     "./app": {
       "types": "./dist/src/app.d.ts",
+      "axm-source": "./src/app.ts",
       "experimental": "./dist/src/app.js",
       "default": "./dist/src/app.js"
     },
     "./runtime": {
       "types": "./dist/src/runtime.d.ts",
+      "axm-source": "./src/runtime.ts",
       "experimental": "./dist/src/runtime.js",
       "default": "./dist/src/runtime.js"
     },
     "./specification-harness": {
       "types": "./dist/src/specification-harness.d.ts",
+      "axm-source": "./src/specification-harness.ts",
       "experimental": "./dist/src/specification-harness.js",
       "default": "./dist/src/specification-harness.js"
     },

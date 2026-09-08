@@ -17,3 +17,7 @@ export {
   preapprovedPlanExecution,
   promptablePlanExecution,
 } from "./plan/plan-execution-fixtures.js";
+export {
+  makeMemoryTransitionLockWorld,
+  type MemoryTransitionLockWorld,
+} from "./operations/memory-transition-lock.js";

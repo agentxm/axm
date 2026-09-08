@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
@@ -43,24 +42,27 @@ describe("Install preview purity", () => {
   it.effect("a previewed install of a local package changes no protected state", () =>
     Effect.gen(function* () {
       const workspace = makeSpecWorkspace({
+        storage: "memory",
         machine: true,
         flags: { json: true },
         recordWrites: true,
       });
       cleanups.push(workspace.cleanup);
-      const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
-      const before = snapshotProtectedState(workspace.root);
+      const skillPackage = writeLocalSkillPackage(workspace, { name: "code-review" });
+      const before = snapshotProtectedState(workspace);
       workspace.writes.splice(0);
       workspace.rendererState.results.splice(0);
 
-      yield* handleInstall({
-        source: Option.some(skillPackage),
-        force: false,
-        preview: true,
-      }).pipe(Effect.provide(workspace.layer));
+      yield* workspace.provide(
+        handleInstall({
+          source: Option.some(skillPackage),
+          force: false,
+          preview: true,
+        }),
+      );
 
       expectProtectedStateUntouched({
-        root: workspace.root,
+        workspace,
         before,
         writes: workspace.writes,
       });
@@ -70,6 +72,7 @@ describe("Install preview purity", () => {
       expect(entry?.data).toMatchObject({
         result: { outcome: "previewed", counts: { total: 1, committed: 0 } },
       });
+      expect(workspace.transitionCounts?.()).toEqual({ acquisitions: 0, releases: 0 });
     }),
   );
 
@@ -77,41 +80,49 @@ describe("Install preview purity", () => {
     "a previewed reinstall that would change publisher reports the change and changes nothing",
     () =>
       Effect.gen(function* () {
-        const registry = makeSpecRegistry();
-        cleanups.push(registry.cleanup);
-        registry.writeSkill("code-review", [{ version: "1.0.0", body: "First guidance." }]);
         const workspace = makeSpecWorkspace({
+          storage: "memory",
           machine: true,
           flags: { json: true },
           recordWrites: true,
-          settings: { sources: [registry.source] },
         });
         cleanups.push(workspace.cleanup);
-        yield* handleInstall({
-          source: Option.some("@acme/skills/code-review"),
-          force: false,
-          preview: false,
-        }).pipe(Effect.provide(workspace.layer));
+        const registry = makeSpecRegistry(workspace);
+        cleanups.push(registry.cleanup);
+        registry.writeSkill("code-review", [{ version: "1.0.0", body: "First guidance." }]);
+        workspace.writeSettings({
+          ...workspace.readSettingsRecord(),
+          sources: [registry.source],
+        });
+        yield* workspace.provide(
+          handleInstall({
+            source: Option.some("@acme/skills/code-review"),
+            force: false,
+            preview: false,
+          }),
+        );
         // The Registry now binds the same extension to a different publisher
         // than the one this workspace accepted.
         const lock = workspace.readLockfileText();
         expect(lock).toContain("publisherBindingId: hbnd_test");
-        fs.writeFileSync(
+        workspace.files.writeFile(
           path.join(workspace.root, "axm-lock.yaml"),
           lock.replace("publisherBindingId: hbnd_test", "publisherBindingId: hbnd_previous"),
         );
-        const before = snapshotProtectedState(workspace.root);
+        const before = snapshotProtectedState(workspace);
         workspace.writes.splice(0);
         workspace.rendererState.results.splice(0);
 
-        yield* handleInstall({
-          source: Option.some("@acme/skills/code-review"),
-          force: true,
-          preview: true,
-        }).pipe(Effect.provide(workspace.layer));
+        yield* workspace.provide(
+          handleInstall({
+            source: Option.some("@acme/skills/code-review"),
+            force: true,
+            preview: true,
+          }),
+        );
 
         expectProtectedStateUntouched({
-          root: workspace.root,
+          workspace,
           before,
           writes: workspace.writes,
         });

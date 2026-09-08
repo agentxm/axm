@@ -1,3 +1,4 @@
+import { liveWorkspaceTransitionLock } from "@agentxm/workspace-operations";
 import { CodingAgentRepository, resolveInstructionTarget } from "@agentxm/extension-workspace";
 import { bootstrapWorkspace, type SetupAgentCandidate } from "@agentxm/workspace-configuration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
@@ -667,6 +668,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
     args.preview === true || settingsExists
       ? yield* initialize
       : yield* runWorkspaceTransaction({
+          lock: liveWorkspaceTransitionLock,
           semaphore: Semaphore.makeUnsafe(1),
           workspaceDir,
           targets: [],

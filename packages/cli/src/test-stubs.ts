@@ -506,9 +506,8 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfileSubagents?: Record<string, unknown> | undefined;
 }
 
-export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
-  const scope = opts.scope ?? "project";
-  const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
+/** Build the exact initial workspace documents without performing I/O. */
+export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {}) => {
   const registrySourceNames = new Set(
     [
       opts.lockfileSkills,
@@ -592,12 +591,23 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
     }),
   };
 
+  return {
+    settings: JSON.stringify(settings),
+    lockfile: YAML.stringify(lockfile),
+  };
+};
+
+export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
+  const scope = opts.scope ?? "project";
+  const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
+  const contents = makeWorkspaceFileContents(opts);
+
   const workspaceRoot = scope === "user" ? path.join(runtimeDir, "workspace") : projectRoot;
   const settingsPath = path.join(workspaceRoot, "axm.json");
   const lockPath = path.join(workspaceRoot, "axm-lock.yaml");
   fs.mkdirSync(path.join(workspaceRoot, ".axm"), { recursive: true });
-  fs.writeFileSync(settingsPath, JSON.stringify(settings));
-  fs.writeFileSync(lockPath, YAML.stringify(lockfile));
+  fs.writeFileSync(settingsPath, contents.settings);
+  fs.writeFileSync(lockPath, contents.lockfile);
 };
 
 export const computePackageContentHashSync = (packageDir: string): string => {

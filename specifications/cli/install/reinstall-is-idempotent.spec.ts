@@ -35,14 +35,20 @@ describe("Repeat installs are safe", () => {
 
   it.effect("repeating an install reports an unchanged no-op", () =>
     Effect.gen(function* () {
-      const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+      const workspace = makeSpecWorkspace({
+        storage: "memory",
+        machine: true,
+        flags: { json: true },
+      });
       cleanups.push(workspace.cleanup);
-      const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
-      const install = handleInstall({
-        source: Option.some(skillPackage),
-        force: false,
-        preview: false,
-      }).pipe(Effect.provide(workspace.layer));
+      const skillPackage = writeLocalSkillPackage(workspace, { name: "code-review" });
+      const install = workspace.provide(
+        handleInstall({
+          source: Option.some(skillPackage),
+          force: false,
+          preview: false,
+        }),
+      );
 
       yield* install;
       const settingsAfterFirst = JSON.stringify(workspace.readSettings());
@@ -60,6 +66,7 @@ describe("Repeat installs are safe", () => {
       expect(workspace.readLockfileText()).toBe(lockAfterFirst);
       expect(workspace.snapshotTree("agent_extensions")).toEqual(canonicalAfterFirst);
       expect(workspace.snapshotTree(".claude")).toEqual(projectionAfterFirst);
+      expect(workspace.transitionCounts?.()).toEqual({ acquisitions: 2, releases: 2 });
     }),
   );
 });

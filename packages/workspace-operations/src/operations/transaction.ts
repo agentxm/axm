@@ -30,11 +30,7 @@ import {
   type WorkspaceTransactionContext,
   type WorkspaceTransactionFailure,
 } from "@agentxm/workspace-state";
-import {
-  acquireWorkspaceTransitionLock,
-  heldWorkspaceTransition,
-  isWorkspaceTransitionHeldByThisInvocation,
-} from "./transition-lock.js";
+import type { WorkspaceTransitionLock } from "./transition-lock.js";
 
 /** Run one semantic closure's mutations under its closure identity. */
 export const withWorkspaceClosure =
@@ -43,6 +39,7 @@ export const withWorkspaceClosure =
     effect.pipe(Effect.provideService(CurrentWorkspaceClosure, closureId));
 
 export interface WorkspaceTransactionArgs<A, E, R> {
+  readonly lock: WorkspaceTransitionLock;
   readonly workspaceDir: string;
   /** In-process admission owned by the workspace service instance. */
   readonly semaphore: Semaphore.Semaphore;
@@ -161,8 +158,7 @@ export const rollbackWorkspaceClosure = (closureId: string): Effect.Effect<void>
                 dropClosureSnapshots(context, closureId);
                 return;
               }
-              const held = heldWorkspaceTransition(path.resolve(context.workspaceDir));
-              const transitionCompromised = held === undefined ? () => false : held.isCompromised;
+              const transitionCompromised = context.isTransitionCompromised;
               yield* restoreAll(fs, path, owned, transitionCompromised).pipe(
                 Effect.andThen(verifySnapshots(fs, path, owned)),
                 Effect.matchEffect({
@@ -425,8 +421,8 @@ export const runWorkspaceTransaction = <A, E, R>(
             // The invocation-level transition hold already provides
             // cross-process exclusion; acquiring here again would deadlock on
             // our own lock.
-            if (!isWorkspaceTransitionHeldByThisInvocation(workspaceDir)) {
-              const contention = yield* acquireWorkspaceTransitionLock({
+            if (args.lock.held(workspaceDir) === undefined) {
+              const contention = yield* args.lock.acquire({
                 workspaceDir,
                 holder: { command: "workspace-transaction", pid: process.pid },
               });
@@ -437,7 +433,9 @@ export const runWorkspaceTransaction = <A, E, R>(
                 });
               }
             }
+            const held = args.lock.held(workspaceDir);
             const context: WorkspaceTransactionContext = {
+              isTransitionCompromised: held?.isCompromised ?? (() => false),
               fs,
               path,
               workspaceDir,
@@ -464,7 +462,7 @@ export const runWorkspaceTransaction = <A, E, R>(
             // the invocation-level hold when one exists, else the one just
             // acquired above. Mutation races against it and stops when
             // ownership is lost.
-            const held = heldWorkspaceTransition(workspaceDir);
+
             // Interruptible like the business side: the race runs inside the
             // uninterruptible rollback guard, and its loser must be
             // interruptible for the race to settle.

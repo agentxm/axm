@@ -1,12 +1,11 @@
 /**
  * In-memory workspace harness for CLI specifications.
  *
- * Composes the production workspace program layers over a real temporary
- * project directory with controlled ports: captured rendering, canned
- * interaction, test credentials, and no live network. Specifications drive
- * the real command handlers in-process and assert product-observable
- * postconditions — settings, lockfile, canonical content, agent projections,
- * and rendered results.
+ * Composes the production workspace program layers over an isolated memory or
+ * disk world with controlled ports: captured rendering, canned interaction,
+ * test credentials, and no live network. Specifications drive the real command
+ * handlers in-process and assert product-observable postconditions — settings,
+ * lockfile, canonical content, agent projections, and rendered results.
  */
 
 import * as fs from "node:fs";
@@ -14,10 +13,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as Layer from "effect/Layer";
-import type * as FileSystem from "effect/FileSystem";
-
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { makeMemoryFileSystem, type MemoryFileStore, withoutNativeIo } from "@agentxm/test-support";
 
 import {
   humanScreenLayer,
@@ -29,6 +30,7 @@ import {
 import {
   KnowledgeIndexLive,
   makeWorkspaceHandlerTestContext,
+  makeWorkspaceFileContents,
   writeWorkspaceFiles,
   type FileSystemWriteEvent,
   type TestPromptConfig,
@@ -47,9 +49,15 @@ import {
   SubagentManagerLive,
   ReleaseAgePosture,
   type ReleaseAgePostureValue,
+  makeMemoryTransitionLockWorld,
+  makeWorkspaceTransactionCapabilities,
+  WorkspaceMutations,
+  makeWorkspaceMutations,
 } from "axm.sh/specification-harness";
 
 export interface SpecWorkspaceOptions {
+  /** Persistent-state implementation. Memory worlds never touch the host filesystem. */
+  readonly storage?: "disk" | "memory";
   /** Workspace scope composed for command handlers. Defaults to project. */
   readonly scope?: "project" | "user";
   /** Render through the machine (JSON) renderer instead of the human one. */
@@ -96,18 +104,76 @@ export interface SpecWorkspaceOptions {
   readonly userSettings?: Parameters<typeof writeWorkspaceFiles>[1];
 }
 
+export type SpecFileStore = MemoryFileStore;
+
+export interface SpecWorkspaceStorage {
+  readonly root: string;
+  readonly files: SpecFileStore;
+}
+
+export type SpecWorkspaceInput = string | SpecWorkspaceStorage;
+
+const makeNativeFileStore = (): SpecFileStore => ({
+  exists: fs.existsSync,
+  makeDirectory: (target) => void fs.mkdirSync(target, { recursive: true }),
+  makeTempDirectory: (prefix) => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix))),
+  readDirectory: (target) =>
+    fs.readdirSync(target, { withFileTypes: true }).map((entry) => ({
+      name: entry.name,
+      type: entry.isSymbolicLink() ? "symlink" : entry.isDirectory() ? "directory" : "file",
+    })),
+  readFile: (target) => new Uint8Array(fs.readFileSync(target)),
+  readFileString: (target) => fs.readFileSync(target, "utf8"),
+  readLink: fs.readlinkSync,
+  realPath: fs.realpathSync,
+  remove: (target) => void fs.rmSync(target, { recursive: true, force: true }),
+  type: (target) => {
+    try {
+      const entry = fs.lstatSync(target);
+      if (entry.isSymbolicLink()) return "symlink";
+      return entry.isDirectory() ? "directory" : "file";
+    } catch {
+      return undefined;
+    }
+  },
+  writeFile: fs.writeFileSync,
+});
+
+export const resolveSpecWorkspaceStorage = (workspace: SpecWorkspaceInput): SpecWorkspaceStorage =>
+  typeof workspace === "string" ? { root: workspace, files: makeNativeFileStore() } : workspace;
+
+const initializeWorkspace = (
+  files: SpecFileStore,
+  runtimeDir: string,
+  options: Parameters<typeof writeWorkspaceFiles>[1],
+): void => {
+  const scope = options?.scope ?? "project";
+  const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
+  const workspaceRoot = scope === "user" ? path.join(runtimeDir, "workspace") : projectRoot;
+  const contents = makeWorkspaceFileContents(options);
+  files.makeDirectory(path.join(workspaceRoot, ".axm"));
+  files.writeFile(path.join(workspaceRoot, "axm.json"), contents.settings);
+  files.writeFile(path.join(workspaceRoot, "axm-lock.yaml"), contents.lockfile);
+};
+
 export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-spec-")));
-  writeWorkspaceFiles(root, options.settings ?? {});
+  const storage = options.storage ?? "disk";
+  const memory = storage === "memory" ? makeMemoryFileSystem() : undefined;
+  const files = memory?.files ?? makeNativeFileStore();
+  const root = files.makeTempDirectory("axm-spec-");
+  initializeWorkspace(files, root, options.settings ?? {});
 
   // A hermetic user home, so user-scope settings are this workspace's and the
   // machine's real home is never read or written.
   const userHome =
-    options.userSettings === undefined
+    options.userSettings === undefined && storage === "disk"
       ? undefined
-      : fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-spec-home-")));
-  if (userHome !== undefined) {
-    writeWorkspaceFiles(path.join(userHome, ".axm"), { ...options.userSettings, scope: "user" });
+      : files.makeTempDirectory("axm-spec-home-");
+  if (userHome !== undefined && options.userSettings !== undefined) {
+    initializeWorkspace(files, path.join(userHome, ".axm"), {
+      ...options.userSettings,
+      scope: "user",
+    });
   }
 
   const streams: RecordingStreams | undefined =
@@ -130,11 +196,32 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
         : humanScreenLayer(streams);
 
   const writes: Array<FileSystemWriteEvent> = [];
+  const transitionWorld = storage === "memory" ? makeMemoryTransitionLockWorld() : undefined;
+  const fileSystemLayer =
+    memory === undefined
+      ? options.fileSystemLayer
+      : Layer.succeed(FileSystem.FileSystem, memory.fileSystem);
+  const workspaceLayer =
+    transitionWorld === undefined
+      ? undefined
+      : Layer.effect(
+          WorkspaceMutations,
+          Effect.suspend(() =>
+            makeWorkspaceMutations(
+              {
+                projectRoot: decodeAbsolutePathSync(root),
+                scope: options.scope ?? "project",
+              },
+              makeWorkspaceTransactionCapabilities(transitionWorld.invocation()),
+            ),
+          ),
+        );
   const context = makeWorkspaceHandlerTestContext({
     ...(options.machine !== undefined ? { machine: options.machine } : {}),
     ...(screenLayer === undefined ? {} : { screenLayer }),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
-    ...(options.fileSystemLayer === undefined ? {} : { fileSystemLayer: options.fileSystemLayer }),
+    ...(fileSystemLayer === undefined ? {} : { fileSystemLayer }),
+    ...(workspaceLayer === undefined ? {} : { workspaceLayer }),
     ...(options.recordWrites === true
       ? { onFileSystemWrite: (event: FileSystemWriteEvent) => void writes.push(event) }
       : {}),
@@ -192,8 +279,12 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   return {
     /** Absolute project root of the temporary workspace. */
     root,
+    files,
     layer,
-    provide: Effect.provide(layer),
+    provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => {
+      const provided = effect.pipe(Effect.provide(layer));
+      return storage === "memory" ? withoutNativeIo(provided) : provided;
+    },
     rendererState: context.rendererState,
     /** Every mutating file-system call recorded when `recordWrites` was requested. */
     writes,
@@ -202,32 +293,43 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     /** The recording output streams when `screen` was requested. */
     streams,
     logs: context.logs,
-    readSettings: (): unknown => JSON.parse(fs.readFileSync(path.join(root, "axm.json"), "utf8")),
+    readSettings: (): unknown => JSON.parse(files.readFileString(path.join(root, "axm.json"))),
+    readSettingsRecord: (): Readonly<Record<string, unknown>> => {
+      const parsed: unknown = JSON.parse(files.readFileString(path.join(root, "axm.json")));
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        throw new Error("Expected axm.json to contain an object");
+      }
+      return Object.fromEntries(Object.entries(parsed));
+    },
     writeSettings: (settings: unknown): void => {
-      fs.writeFileSync(path.join(root, "axm.json"), `${JSON.stringify(settings, null, 2)}\n`);
+      files.writeFile(path.join(root, "axm.json"), `${JSON.stringify(settings, null, 2)}\n`);
     },
     readLockfileText: (): string => {
       const lockPath = path.join(root, "axm-lock.yaml");
-      return fs.existsSync(lockPath) ? fs.readFileSync(lockPath, "utf8") : "";
+      return files.exists(lockPath) ? files.readFileString(lockPath) : "";
     },
-    exists: (relativePath: string): boolean => fs.existsSync(path.join(root, relativePath)),
-    readFile: (relativePath: string): string =>
-      fs.readFileSync(path.join(root, relativePath), "utf8"),
+    exists: (relativePath: string): boolean => files.exists(path.join(root, relativePath)),
+    readFile: (relativePath: string): string => files.readFileString(path.join(root, relativePath)),
     listDirectory: (relativePath: string): readonly string[] =>
-      fs.existsSync(path.join(root, relativePath))
-        ? fs.readdirSync(path.join(root, relativePath)).sort()
+      files.exists(path.join(root, relativePath))
+        ? files
+            .readDirectory(path.join(root, relativePath))
+            .map((entry) => entry.name)
+            .sort()
         : [],
     snapshotTree: (relativePath: string): readonly string[] => {
       const start = path.join(root, relativePath);
-      if (!fs.existsSync(start)) {
+      if (!files.exists(start)) {
         return [];
       }
       const entries: string[] = [];
       const walk = (directory: string): void => {
-        for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort()) {
+        for (const entry of [...files.readDirectory(directory)].sort((left, right) =>
+          left.name.localeCompare(right.name, "en"),
+        )) {
           const entryPath = path.join(directory, entry.name);
           entries.push(path.relative(root, entryPath));
-          if (entry.isDirectory()) {
+          if (entry.type === "directory") {
             walk(entryPath);
           }
         }
@@ -235,9 +337,37 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
       walk(start);
       return entries.sort();
     },
+    snapshotContent: (relativePath: string): Readonly<Record<string, string>> => {
+      const start = path.join(root, relativePath);
+      if (!files.exists(start)) return {};
+      const entries: Array<readonly [string, string]> = [];
+      const walk = (directory: string, relativeDirectory: string): void => {
+        for (const entry of [...files.readDirectory(directory)].sort((left, right) =>
+          left.name.localeCompare(right.name, "en"),
+        )) {
+          const relative =
+            relativeDirectory.length === 0 ? entry.name : `${relativeDirectory}/${entry.name}`;
+          const target = path.join(directory, entry.name);
+          if (entry.type === "directory") {
+            entries.push([relative, "directory"]);
+            walk(target, relative);
+          } else if (entry.type === "symlink") {
+            entries.push([relative, `symlink:${files.readLink(target)}`]);
+          } else {
+            entries.push([
+              relative,
+              `file:${Buffer.from(files.readFile(target)).toString("base64")}`,
+            ]);
+          }
+        }
+      };
+      walk(start, "");
+      return Object.fromEntries(entries);
+    },
+    transitionCounts: transitionWorld?.counts,
     cleanup: (): void => {
-      fs.rmSync(root, { recursive: true, force: true });
-      if (userHome !== undefined) fs.rmSync(userHome, { recursive: true, force: true });
+      files.remove(root);
+      if (userHome !== undefined) files.remove(userHome);
     },
   };
 };
@@ -256,13 +386,14 @@ export interface LocalSkillFixture {
  * install source.
  */
 export const writeLocalSkillPackage = (
-  workspaceRoot: string,
+  workspace: SpecWorkspaceInput,
   fixture: LocalSkillFixture,
 ): string => {
+  const { root: workspaceRoot, files } = resolveSpecWorkspaceStorage(workspace);
   const packageRoot = path.join(workspaceRoot, "vendor", fixture.name);
-  fs.mkdirSync(packageRoot, { recursive: true });
+  files.makeDirectory(packageRoot);
   const description = fixture.description ?? `The ${fixture.name} skill.`;
-  fs.writeFileSync(
+  files.writeFile(
     path.join(packageRoot, "skill.json"),
     `${JSON.stringify(
       {
@@ -277,8 +408,8 @@ export const writeLocalSkillPackage = (
       2,
     )}\n`,
   );
-  fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
-  fs.writeFileSync(
+  files.makeDirectory(path.join(packageRoot, "src"));
+  files.writeFile(
     path.join(packageRoot, "src", "SKILL.md"),
     `---\nname: "${fixture.name}"\ndescription: "${description}"\n---\n\n# ${fixture.name}\n\n${fixture.body ?? description}\n`,
   );

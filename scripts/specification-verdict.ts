@@ -95,6 +95,7 @@ const sourceDigests = new Map([
 ]);
 const verdict = computeVerdict(baseSources, headSources, {
   inputs: captureEvidenceInputs(repoRoot),
+  sourceInputs: captureEvidenceInputs(repoRoot, "source"),
   runs: evidence.runs,
   executionBindings: headCatalog.executionBindings,
   sourceDigests,

@@ -6,7 +6,7 @@ export const specification = defineSpecification({
   requirement: "system/process/evidence-reports-match-executed-inputs",
   title: "Evidence reports distinguish current execution from incomplete or absent verification",
   statement:
-    "When reporting requirement evidence, AXM's repository tools shall identify the executed source and built runtime inputs, observation boundary and selection, distinguishing current complete outcomes from stale, partial, missing, and unverified evidence.",
+    "When reporting requirement evidence, AXM's repository tools shall identify the executed source inputs, whether runtime code came from source or built artifacts, the corresponding runtime inputs, observation boundary, and selection, distinguishing current complete outcomes from stale, partial, missing, and unverified evidence.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
@@ -50,6 +50,13 @@ describe("Execution evidence at the review boundary", () => {
         `report(fixtureContext({ inputs: { ...fixtureInputs, ${input}: "changed-input" } }))[0].status`,
       ),
     ).toBe("stale");
+  });
+  it("reports whether the executed runtime came from source or built artifacts", () => {
+    expect(
+      evaluateVerdict(
+        "report(fixtureContext({ runs: [fixtureRun({}, { inputs: fixtureSourceInputs })] }))[0]",
+      ),
+    ).toMatchObject({ status: "fresh", detail: expect.stringContaining("source runtime") });
   });
   it("rejects an unchanged path whose specification contents differ", () => {
     expect(

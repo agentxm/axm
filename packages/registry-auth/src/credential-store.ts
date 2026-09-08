@@ -13,13 +13,14 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
+import * as Cache from "effect/Cache";
 import type * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
-import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { AuthTokenPolicyRequired, RegistryAuthFailed } from "./errors.js";
@@ -556,70 +557,69 @@ export const CredentialStoreLive = Layer.effect(
 
 /**
  * Decorates a credential store with a per-layer, per-origin read memo.
- * Successful empty reads are memoized; failures remain retryable. Every
- * successful write invalidates only the affected origin.
+ *
+ * Reads go through an `Effect.Cache` keyed by registry origin, which owns the
+ * concurrent-lookup sharing, per-key invalidation, and result-dependent expiry
+ * that this layer previously hand-rolled with a value map, a semaphore map, and
+ * a double-checked read.
+ *
+ * Capacity is `Number.POSITIVE_INFINITY`: the cache never evicts on size, which
+ * preserves the unbounded map this layer already used. The key space is the set
+ * of distinct registry origins a single process contacts — the configured
+ * registry plus any origins named by workspace extension sources — so there is
+ * no measured workload that justifies a numeric bound. The bound that matters
+ * is lifetime, and it is the layer's: the cache is created per
+ * `CredentialStoreSessionLive` construction and released with it, so a CLI
+ * session is its longest possible life.
+ *
+ * Expiry is result-dependent. Successful reads — including a successful empty
+ * read — live for the session, so repeated authentication paths pay one load
+ * per origin. Failed reads expire immediately, so a failure is never memoized
+ * and a later request retries against the store.
+ *
+ * Callers that arrive while a lookup is in flight share it rather than issuing
+ * their own; callers that arrive after a failed lookup resolves start a new
+ * one. That replaces the old per-origin semaphore, under which every waiter on
+ * a failing origin retried serially. Sharing is safe here because each auth
+ * path issues a single load and none of them depends on serial retry.
+ *
+ * `Effect.onInterrupt` is load-path scaffolding, not decoration. `Cache.get`
+ * runs its lookup on a detached daemon fiber and leaves the pending entry in
+ * the map when the only caller is interrupted, so without this guard the next
+ * read of that origin would await an abandoned lookup forever. Invalidating on
+ * interrupt restores the pre-cache behavior, where an interrupted read left
+ * nothing behind and the next read simply ran again.
+ *
+ * Known limitation, unchanged by this layer's move to `Cache` and not fixed by
+ * it: a `save` or `clear` whose invalidation lands while a read of the same
+ * origin is still in flight can be overwritten when that read populates the
+ * memo, leaving the pre-write value cached for the rest of the session. The
+ * previous value-map-and-semaphore memo lost the same invalidation through its
+ * own write-after-invalidate window.
  */
 export const CredentialStoreSessionLive = Layer.effect(
   CredentialStore,
   Effect.gen(function* () {
     const store = yield* CredentialStore;
-    const cache = yield* Ref.make(new Map<string, Option.Option<StoredCredentials>>());
-    const locks = yield* Ref.make(new Map<string, Semaphore.Semaphore>());
-
-    const getLock = (registryUrl: string) =>
-      Ref.modify(locks, (current) => {
-        const existing = current.get(registryUrl);
-        if (existing !== undefined) return [existing, current];
-        const created = Semaphore.makeUnsafe(1);
-        const updated = new Map(current);
-        updated.set(registryUrl, created);
-        return [created, updated];
-      });
-
-    const getCached = (registryUrl: string) =>
-      Effect.map(Ref.get(cache), (current) => {
-        const cached = current.get(registryUrl);
-        return cached === undefined
-          ? Option.none<Option.Option<StoredCredentials>>()
-          : Option.some(cached);
-      });
-
-    const invalidate = (registryUrl: string) =>
-      Ref.update(cache, (current) => {
-        const updated = new Map(current);
-        updated.delete(registryUrl);
-        return updated;
-      });
-
-    const load: CredentialStoreService["load"] = (registryUrl) =>
-      Effect.gen(function* () {
-        const cached = yield* getCached(registryUrl);
-        if (Option.isSome(cached)) return cached.value;
-
-        const lock = yield* getLock(registryUrl);
-        return yield* lock.withPermits(1)(
-          Effect.gen(function* () {
-            const afterWait = yield* getCached(registryUrl);
-            if (Option.isSome(afterWait)) return afterWait.value;
-            const loaded = yield* store.load(registryUrl);
-            yield* Ref.update(cache, (current) => {
-              const updated = new Map(current);
-              updated.set(registryUrl, loaded);
-              return updated;
-            });
-            return loaded;
-          }),
-        );
-      });
+    const cache = yield* Cache.makeWith((registryUrl: string) => store.load(registryUrl), {
+      capacity: Number.POSITIVE_INFINITY,
+      timeToLive: (exit: Exit.Exit<Option.Option<StoredCredentials>, RegistryAuthFailed>) =>
+        Exit.isSuccess(exit) ? Duration.infinity : Duration.zero,
+    });
 
     return {
       tier: store.tier,
       allowsPersistedCredentials: store.allowsPersistedCredentials,
-      load,
+      load: (registryUrl) =>
+        Cache.get(cache, registryUrl).pipe(
+          Effect.onInterrupt(() => Cache.invalidate(cache, registryUrl)),
+        ),
       save: (registryUrl, handle, credentials) =>
-        store.save(registryUrl, handle, credentials).pipe(Effect.andThen(invalidate(registryUrl))),
+        store
+          .save(registryUrl, handle, credentials)
+          .pipe(Effect.andThen(Cache.invalidate(cache, registryUrl))),
       clear: (registryUrl) =>
-        store.clear(registryUrl).pipe(Effect.andThen(invalidate(registryUrl))),
+        store.clear(registryUrl).pipe(Effect.andThen(Cache.invalidate(cache, registryUrl))),
     } satisfies CredentialStoreService;
   }),
 );

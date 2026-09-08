@@ -1,3 +1,4 @@
+import { runPollingPublishAuthorization } from "./publish-authorization-polling.js";
 import * as Effect from "effect/Effect";
 
 import type { PreviewPublicationSetRequest } from "@agentxm/registry-protocol/unstable/registry/publication-set";
@@ -17,6 +18,9 @@ const PUBLISH_AUTHORIZATION_TIMEOUT_MS = 10 * 60_000;
 export interface PublishAuthorizationInput {
   readonly registryUrl: string;
   readonly publicationSet: PreviewPublicationSetRequest;
+  readonly unattended?: boolean;
+  readonly authorizationRequest?: string;
+  readonly waitForHumanSeconds?: number;
 }
 
 const loopbackFailureToAuthFailure = (
@@ -56,6 +60,20 @@ const loopbackFailureToAuthFailure = (
 export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")(function* (
   input: PublishAuthorizationInput,
 ) {
+  if (
+    input.waitForHumanSeconds !== undefined &&
+    (!Number.isSafeInteger(input.waitForHumanSeconds) || input.waitForHumanSeconds <= 0)
+  )
+    return yield* new RegistryAuthFailed({
+      category: "validation",
+      detail: "--wait-for-human must be a positive whole number of seconds.",
+    });
+  if (
+    input.unattended === true ||
+    input.authorizationRequest !== undefined ||
+    input.waitForHumanSeconds !== undefined
+  )
+    return yield* runPollingPublishAuthorization(input);
   return yield* Effect.scoped(
     Effect.gen(function* () {
       const authClient = yield* AuthClient;
@@ -64,15 +82,19 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
       const verifier = makePkceVerifier();
       const challenge = makePkceChallenge(verifier);
       const state = makeOAuthState();
-      const server = yield* startLoopbackServer(state).pipe(
+      const server = yield* startLoopbackServer(state, "publish").pipe(
         Effect.mapError(loopbackFailureToAuthFailure),
       );
 
       const request = yield* authClient.createPublishAuthorizationRequest({
         registryUrl: input.registryUrl,
-        redirectUri: server.redirectUri,
-        state,
-        codeChallenge: challenge,
+        delivery: {
+          kind: "loopback",
+          redirect_uri: server.redirectUri,
+          state,
+          code_challenge: challenge,
+          code_challenge_method: "S256",
+        },
         publicationSet: input.publicationSet,
       });
 
@@ -84,7 +106,14 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
       });
 
       const callback = yield* server
-        .awaitCallback(PUBLISH_AUTHORIZATION_TIMEOUT_MS)
+        .awaitCallback(
+          Math.min(
+            PUBLISH_AUTHORIZATION_TIMEOUT_MS,
+            input.waitForHumanSeconds === undefined
+              ? PUBLISH_AUTHORIZATION_TIMEOUT_MS
+              : input.waitForHumanSeconds * 1000,
+          ),
+        )
         .pipe(Effect.mapError(loopbackFailureToAuthFailure));
       const expectedIssuer = new URL(request.authorizationUrl).origin;
       if (callback.iss !== expectedIssuer) {
@@ -102,6 +131,7 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
         redirectUri: server.redirectUri,
       });
 
+      if (capability.status === "admitted") yield* server.complete;
       return capability;
     }),
   );

@@ -1,3 +1,10 @@
+import { HumanVerificationOptions } from "./human-verification.js";
+export {
+  HumanVerificationOptions,
+  humanVerificationFlags,
+  waitForHumanOption,
+  withHumanVerificationOptions,
+} from "./human-verification.js";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
@@ -170,6 +177,8 @@ export const TestFlagsLayer = (overrides?: {
   quiet?: boolean;
   nonInteractive?: boolean;
   json?: boolean;
+  stepUpRequest?: string;
+  waitForHuman?: number;
 }) => {
   const level: VerbosityLevel = overrides?.quiet
     ? "quiet"
@@ -180,6 +189,10 @@ export const TestFlagsLayer = (overrides?: {
         : "normal";
   return Layer.mergeAll(
     makeVerbosityLayer(level),
+    Layer.succeed(HumanVerificationOptions, {
+      stepUpRequest: Option.fromNullishOr(overrides?.stepUpRequest),
+      waitForHuman: Option.fromNullishOr(overrides?.waitForHuman),
+    }),
     Layer.succeed(
       nonInteractiveFlag,
       overrides?.nonInteractive === undefined

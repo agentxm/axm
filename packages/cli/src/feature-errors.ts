@@ -323,6 +323,10 @@ export const deviceAuthorizationPendingToAppError = (error: DeviceAuthorizationP
     blockedOn: "human",
     action: {
       kind: "open-url",
+      purpose: "login",
+      requestRef: error.verificationUriComplete,
+      registryUrl: error.registryUrl,
+      intervalSeconds: error.intervalSeconds,
       url: error.verificationUriComplete,
       fallbackUrl: error.verificationUri,
       code: error.userCode,
@@ -382,6 +386,16 @@ export const registryAuthFailureToAppError = (failure: RegistryAuthFailure): App
       return deviceLoginDeniedToAppError(failure);
     case "DeviceLoginCodeExpired":
       return deviceLoginCodeExpiredToAppError(failure);
+    case "PublishAuthorizationPending":
+      return makeAppError({
+        code: failure.timedOut ? "timeout" : "auth_required",
+        detail: "Human approval of this exact publication set is pending. No upload was attempted.",
+        status: "pending-human",
+        blockedOn: "human",
+        retryable: true,
+        action: failure.action,
+        recover: failure.action.resume,
+      });
     case "DeviceAuthorizationPending":
       return deviceAuthorizationPendingToAppError(failure);
     case "StepUpRequired":

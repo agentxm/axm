@@ -1,3 +1,4 @@
+import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/human-handoff";
 /**
  * Shared device-code login flow for auth commands and guards.
  *
@@ -110,12 +111,10 @@ export interface ResumeDeviceLoginOptions {
 }
 
 const DeviceLoginActionSchema = Schema.Struct({
-  kind: Schema.Literal("open-url"),
-  url: Schema.String,
+  ...HumanHandoffActionSchema.fields,
+  purpose: Schema.Literal("login"),
   fallbackUrl: Schema.String,
   code: Schema.String,
-  expiresAt: Schema.String,
-  resume: Schema.String,
 });
 
 export const DeviceLoginPendingResultSchema = Schema.Struct({
@@ -189,6 +188,10 @@ const makePendingResult = (
     resume,
     action: {
       kind: "open-url",
+      purpose: "login",
+      requestRef: pending.verificationUriComplete,
+      registryUrl: pending.registryUrl,
+      intervalSeconds: pending.interval,
       url: pending.verificationUriComplete,
       fallbackUrl: pending.verificationUri,
       code: pending.userCode,
@@ -371,6 +374,8 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
                 return Effect.fail(
                   new DeviceAuthorizationPending({
                     timeoutSeconds,
+                    registryUrl: pending.registryUrl,
+                    intervalSeconds: pending.interval,
                     verificationUri: action.fallbackUrl,
                     verificationUriComplete: action.url,
                     userCode: action.code,

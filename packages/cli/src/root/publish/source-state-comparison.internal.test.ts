@@ -13,7 +13,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-auth/testing";
+import {
+  AuthClientTest,
+  DeviceLoginInteractionTest,
+  PendingPublishAuthorizationStoreTest,
+} from "@agentxm/registry-auth/testing";
 import {
   GitDirectoryComparison,
   type GitDirectoryComparisonService,
@@ -121,6 +125,7 @@ describe("publish source-state comparison scheduling", () => {
           context.fullLayer,
           AuthClientTest(),
           DeviceLoginInteractionTest().layer,
+          PendingPublishAuthorizationStoreTest(),
           Layer.succeed(GitDirectoryComparison, { compare }),
         ),
       ),

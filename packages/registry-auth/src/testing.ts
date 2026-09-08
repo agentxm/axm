@@ -18,3 +18,5 @@ export {
 } from "./login-interaction.js";
 export { AuthLoginPresenterTest, type AuthLoginPresenterTestState } from "./login-presenter.js";
 export { PendingDeviceLoginStoreTest } from "./pending-device-login-store.js";
+
+export { PendingPublishAuthorizationStoreTest } from "./pending-publish-authorization-store.js";

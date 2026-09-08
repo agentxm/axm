@@ -378,7 +378,7 @@ export const startHttpRegistry = async (
               request_id: STEP_UP_REQUEST_ID,
               verification_url: `${requestOrigin}/step-up/${STEP_UP_REQUEST_ID}`,
               status_url: `${requestOrigin}/v1/auth/step-up/requests/${STEP_UP_REQUEST_ID}`,
-              expires_at: "2026-08-10T16:05:00.000Z",
+              expires_at: "2099-01-01T00:05:00.000Z",
               interval: 0,
               action: "Create access token",
               target: "e2e-step-up",
@@ -688,7 +688,7 @@ export const startHttpRegistry = async (
       ) {
         sendJson(response, 200, {
           status: "verified",
-          expires_at: "2026-08-10T16:05:00.000Z",
+          expires_at: "2099-01-01T00:05:00.000Z",
         });
         return;
       }

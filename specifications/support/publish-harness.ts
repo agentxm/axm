@@ -1,4 +1,8 @@
-import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-auth/testing";
+import {
+  AuthClientTest,
+  DeviceLoginInteractionTest,
+  PendingPublishAuthorizationStoreTest,
+} from "@agentxm/registry-auth/testing";
 /**
  * Publish fixtures for CLI specifications.
  *
@@ -312,6 +316,7 @@ export const makePublishLayer = (
   Layer.mergeAll(
     workspace.layer,
     AuthClientTest(),
+    PendingPublishAuthorizationStoreTest(),
     DeviceLoginInteractionTest().layer,
     Layer.succeed(GitDirectoryComparison, { compare }),
   );

@@ -18,6 +18,7 @@ export {
   AuthTokenPolicyRequired,
   authLoginRequired,
   DeviceAuthorizationPending,
+  PublishAuthorizationPending,
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
   isAuthError,
@@ -86,6 +87,7 @@ export type {
   MeResponse,
   PollResult,
   PublishAuthorizationRequestResponse,
+  PublishAuthorizationExchangeResponse,
   PublishCapabilityResponse,
 } from "./auth-client.js";
 export { AuthClient, pollOnce, readStepUpRequest } from "./auth-client.js";
@@ -153,3 +155,10 @@ export { AuthLoginInteraction } from "./login-interaction.js";
 
 // Auth guard combinator
 export { withAuthGuard } from "./guard.js";
+
+export {
+  PendingPublishAuthorizationStore,
+  PendingPublishAuthorizationSchema,
+  type PendingPublishAuthorization,
+  type PendingPublishAuthorizationStoreService,
+} from "./pending-publish-authorization-store.js";

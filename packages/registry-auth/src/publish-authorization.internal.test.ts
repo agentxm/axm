@@ -1,3 +1,4 @@
+import { PendingPublishAuthorizationStoreTest } from "./pending-publish-authorization-store.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeHttp from "node:http";
 import * as DateTime from "effect/DateTime";
@@ -89,10 +90,10 @@ describe("runPublishAuthorization", () => {
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () =>
         Effect.sync(() => {
-          if (created === undefined) return false;
-          const callback = new URL(created.redirectUri);
+          if (created === undefined || created.delivery.kind !== "loopback") return false;
+          const callback = new URL(created.delivery.redirect_uri);
           callback.searchParams.set("code", "axm_pubac_code");
-          callback.searchParams.set("state", created.state);
+          callback.searchParams.set("state", created.delivery.state);
           callback.searchParams.set("iss", "https://agentxm.ai");
           scheduleCallback(callback.href);
           return true;
@@ -104,6 +105,7 @@ describe("runPublishAuthorization", () => {
         return Effect.succeed({
           requestId: "pubreq_test",
           authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_test",
+          interval: 2,
           expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
         });
       },
@@ -132,12 +134,19 @@ describe("runPublishAuthorization", () => {
           Effect.tap(() =>
             Effect.sync(() => {
               expect(params.code).toBe("axm_pubac_code");
-              expect(params.redirectUri).toBe(created?.redirectUri);
+              expect(params.redirectUri).toBe(
+                created?.delivery.kind === "loopback" ? created.delivery.redirect_uri : undefined,
+              );
             }),
           ),
         ),
     });
-    const layer = Layer.mergeAll(presenter.layer, interaction.layer, authClient);
+    const layer = Layer.mergeAll(
+      presenter.layer,
+      interaction.layer,
+      authClient,
+      PendingPublishAuthorizationStoreTest(),
+    );
 
     return runPublishAuthorization(input).pipe(
       Effect.provide(layer),
@@ -173,10 +182,10 @@ describe("runPublishAuthorization", () => {
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () =>
         Effect.sync(() => {
-          if (created === undefined) return false;
-          const callback = new URL(created.redirectUri);
+          if (created === undefined || created.delivery.kind !== "loopback") return false;
+          const callback = new URL(created.delivery.redirect_uri);
           callback.searchParams.set("error", "access_denied");
-          callback.searchParams.set("state", created.state);
+          callback.searchParams.set("state", created.delivery.state);
           callback.searchParams.set("iss", "https://agentxm.ai");
           scheduleCallback(callback.href);
           return true;
@@ -188,6 +197,7 @@ describe("runPublishAuthorization", () => {
         return Effect.succeed({
           requestId: "pubreq_denied",
           authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_denied",
+          interval: 2,
           expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
         });
       },
@@ -195,7 +205,14 @@ describe("runPublishAuthorization", () => {
 
     return Effect.flip(
       runPublishAuthorization(input).pipe(
-        Effect.provide(Layer.mergeAll(presenter.layer, interaction.layer, authClient)),
+        Effect.provide(
+          Layer.mergeAll(
+            presenter.layer,
+            interaction.layer,
+            authClient,
+            PendingPublishAuthorizationStoreTest(),
+          ),
+        ),
       ),
     ).pipe(
       Effect.map(asAuthFailed),
@@ -212,10 +229,10 @@ describe("runPublishAuthorization", () => {
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () =>
         Effect.sync(() => {
-          if (created === undefined) return false;
-          const callback = new URL(created.redirectUri);
+          if (created === undefined || created.delivery.kind !== "loopback") return false;
+          const callback = new URL(created.delivery.redirect_uri);
           callback.searchParams.set("code", "axm_pubac_code");
-          callback.searchParams.set("state", created.state);
+          callback.searchParams.set("state", created.delivery.state);
           callback.searchParams.set("iss", "https://attacker.example");
           scheduleCallback(callback.href);
           return true;
@@ -227,6 +244,7 @@ describe("runPublishAuthorization", () => {
         return Effect.succeed({
           requestId: "pubreq_wrong_issuer",
           authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_wrong_issuer",
+          interval: 2,
           expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
         });
       },
@@ -234,7 +252,14 @@ describe("runPublishAuthorization", () => {
 
     return Effect.flip(
       runPublishAuthorization(input).pipe(
-        Effect.provide(Layer.mergeAll(presenter.layer, interaction.layer, authClient)),
+        Effect.provide(
+          Layer.mergeAll(
+            presenter.layer,
+            interaction.layer,
+            authClient,
+            PendingPublishAuthorizationStoreTest(),
+          ),
+        ),
       ),
     ).pipe(
       Effect.map(asAuthFailed),
@@ -251,10 +276,10 @@ describe("runPublishAuthorization", () => {
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () =>
         Effect.sync(() => {
-          if (created === undefined) return false;
-          const callback = new URL(created.redirectUri);
+          if (created === undefined || created.delivery.kind !== "loopback") return false;
+          const callback = new URL(created.delivery.redirect_uri);
           callback.searchParams.set("code", "axm_pubac_expired");
-          callback.searchParams.set("state", created.state);
+          callback.searchParams.set("state", created.delivery.state);
           callback.searchParams.set("iss", "https://agentxm.ai");
           scheduleCallback(callback.href);
           return true;
@@ -266,6 +291,7 @@ describe("runPublishAuthorization", () => {
         return Effect.succeed({
           requestId: "pubreq_exchange_failure",
           authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_exchange_failure",
+          interval: 2,
           expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
         });
       },
@@ -280,7 +306,14 @@ describe("runPublishAuthorization", () => {
 
     return Effect.flip(
       runPublishAuthorization(input).pipe(
-        Effect.provide(Layer.mergeAll(presenter.layer, interaction.layer, authClient)),
+        Effect.provide(
+          Layer.mergeAll(
+            presenter.layer,
+            interaction.layer,
+            authClient,
+            PendingPublishAuthorizationStoreTest(),
+          ),
+        ),
       ),
     ).pipe(
       Effect.map(asAuthFailed),

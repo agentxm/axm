@@ -1,3 +1,4 @@
+import { humanVerificationFlags, withHumanVerificationOptions } from "../../cli-flags/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -346,6 +347,7 @@ export const handleUndeprecate = (input: string) =>
   });
 
 const yankConfig = {
+  ...humanVerificationFlags,
   ref: Argument.string("extension").pipe(
     Argument.withDescription("Exact version ref, or an extension FQN with --all-versions"),
   ),
@@ -364,6 +366,7 @@ const yankConfig = {
 } as const;
 
 const exactRefConfig = {
+  ...humanVerificationFlags,
   ref: Argument.string("extension").pipe(
     Argument.withDescription("Exact extension version ref (@owner/<plural-type>/name@1.2.3)"),
   ),
@@ -412,6 +415,7 @@ const deprecateCapabilities: CommandCapabilities = {
 export const yankCommand = Command.make("yank", yankConfig, (input) =>
   handleYank(input).pipe(withRuntime("yank")),
 ).pipe(
+  withHumanVerificationOptions,
   withArgvTracking(yankConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Exclude extension versions from fresh resolution"),
@@ -427,6 +431,7 @@ export const yankCommand = Command.make("yank", yankConfig, (input) =>
 export const unyankCommand = Command.make("unyank", exactRefConfig, ({ ref }) =>
   handleUnyank(ref).pipe(withRuntime("unyank")),
 ).pipe(
+  withHumanVerificationOptions,
   withArgvTracking(exactRefConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Restore one exact version to fresh resolution"),

@@ -1,3 +1,4 @@
+import type { HumanHandoffAction } from "@agentxm/registry-protocol/unstable/human-handoff";
 /**
  * Typed failures for the registry-auth feature. The producer owns the
  * category choice and user-facing wording; the application boundary converts
@@ -80,6 +81,8 @@ export class DeviceLoginCodeExpired extends Data.TaggedError("DeviceLoginCodeExp
  */
 export class DeviceAuthorizationPending extends Data.TaggedError("DeviceAuthorizationPending")<{
   readonly timeoutSeconds: number;
+  readonly registryUrl: string;
+  readonly intervalSeconds: number;
   readonly verificationUri: string;
   readonly verificationUriComplete: string;
   readonly userCode: string;
@@ -123,6 +126,11 @@ export class AuthExchangeFailed extends Data.TaggedError("AuthExchangeFailed")<{
   readonly failure: RegistryClientFailure;
 }> {}
 
+export class PublishAuthorizationPending extends Data.TaggedError("PublishAuthorizationPending")<{
+  readonly action: HumanHandoffAction;
+  readonly timedOut: boolean;
+}> {}
+
 /** Every typed failure the registry-auth feature constructs. */
 export type RegistryAuthFailure =
   | RegistryAuthFailed
@@ -131,6 +139,7 @@ export type RegistryAuthFailure =
   | DeviceLoginDenied
   | DeviceLoginCodeExpired
   | DeviceAuthorizationPending
+  | PublishAuthorizationPending
   | StepUpRequired
   | AuthExchangeFailed;
 
@@ -141,6 +150,7 @@ export const isRegistryAuthFailure = (error: unknown): error is RegistryAuthFail
   error instanceof DeviceLoginDenied ||
   error instanceof DeviceLoginCodeExpired ||
   error instanceof DeviceAuthorizationPending ||
+  error instanceof PublishAuthorizationPending ||
   error instanceof StepUpRequired ||
   error instanceof AuthExchangeFailed;
 

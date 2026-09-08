@@ -74,9 +74,12 @@ const makeNetworkErrorHttpClient = () =>
     ),
   );
 
-const makeTestLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) => {
+const makeTestLayer = (
+  handler: (request: HttpClientRequest.HttpClientRequest) => Response,
+  registryUrl = REGISTRY_URL,
+) => {
   const httpLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
-  const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+  const registryUrlLayer = Layer.succeed(RegistryUrl, registryUrl);
   return Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
 };
 
@@ -156,6 +159,29 @@ const makeRefreshTokenError = () => ({
 // -----------------------------------------------------------------------------
 
 describe("AuthClient.buildAuthorizeUrl", () => {
+  for (const [registryUrl, authorizationOrigin] of [
+    ["http://localhost:4300", "http://localhost:4200"],
+    ["http://localhost:4310", "http://localhost:4210"],
+    ["http://127.0.0.1:4320", "http://127.0.0.1:4220"],
+    ["http://[::1]:4399", "http://[::1]:4299"],
+  ] as const) {
+    it.effect(`uses ${authorizationOrigin} for ${registryUrl}`, () => {
+      const layer = makeTestLayer(() => new Response(null, { status: 204 }), registryUrl);
+      return Effect.gen(function* () {
+        const client = yield* AuthClient;
+        const authorizeUrl = new URL(
+          client.buildAuthorizeUrl({
+            challenge: "challenge",
+            state: "state",
+            redirectUri: "http://127.0.0.1:49152/callback",
+          }),
+        );
+        expect(authorizeUrl.origin).toBe(authorizationOrigin);
+        expect(client.getAuthorizationIssuer()).toBe(authorizationOrigin);
+      }).pipe(Effect.provide(layer));
+    });
+  }
+
   it.effect("includes a request expiry when provided", () => {
     const layer = makeTestLayer(() => new Response(null, { status: 204 }));
     const expiresAt = DateTime.makeUnsafe("2026-05-12T12:00:00.000Z");
@@ -199,6 +225,7 @@ describe("AuthClient exact publish authorization", () => {
             authorization_url:
               "https://agentxm.ai/publish/authorize/pubreq_01h455vb4pexka56gq5w2r7cpc",
             expires_at: "2099-01-01T00:10:00.000Z",
+            interval: 2,
           }),
           { status: 201, headers: { "content-type": "application/json" } },
         );
@@ -280,9 +307,13 @@ describe("AuthClient exact publish authorization", () => {
       };
       yield* client.createPublishAuthorizationRequest({
         registryUrl: REGISTRY_URL,
-        redirectUri: "http://127.0.0.1:49152/callback",
-        state: "state",
-        codeChallenge: "challenge",
+        delivery: {
+          kind: "loopback",
+          redirect_uri: "http://127.0.0.1:49152/callback",
+          state: "state",
+          code_challenge: "a".repeat(43),
+          code_challenge_method: "S256",
+        },
         publicationSet: {
           contract: PUBLICATION_SET_CONTRACT,
           candidates: [descriptor],

@@ -51,12 +51,11 @@ export const publishAuthenticationPreconditions = (options: {
     ? [
         {
           id: "authentication",
-          label: "Registry authentication",
+          label: "Publication authorization",
           status: "unmet",
           detail:
-            "Publishing requires human authorization before apply; authenticate before preparing a release workflow.",
+            "Apply the same publish selection to request approval for this exact publication set.",
           blockedOn: "human",
-          command: "axm login --device-code --json",
         },
       ]
     : [];

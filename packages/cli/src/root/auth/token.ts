@@ -1,3 +1,4 @@
+import { humanVerificationFlags, withHumanVerificationOptions } from "../../cli-flags/index.js";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -405,6 +406,7 @@ const permissionValues = ["read", "publish", "admin"] as const;
 const orgPermissionValues = ["read", "write", "admin"] as const;
 
 const createTokenConfig = {
+  ...humanVerificationFlags,
   name: Flag.string("name").pipe(Flag.withDescription("Human-readable token name")),
   expires: Flag.string("expires").pipe(
     Flag.withDescription("Token lifetime: 7d, 30d, 1y, or an ISO timestamp"),
@@ -451,6 +453,7 @@ const createTokenCommand = Command.make(
       bypassMfa,
     }).pipe(withRuntime("auth token create")),
 ).pipe(
+  withHumanVerificationOptions,
   withArgvTracking(createTokenConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),
   Command.withDescription("Create a granular access token"),
@@ -480,12 +483,14 @@ const listTokenCommand = Command.make("list", listTokenConfig, () =>
 );
 
 const revokeTokenConfig = {
+  ...humanVerificationFlags,
   id: Argument.string("id").pipe(Argument.withDescription("Token id to revoke")),
 } as const;
 
 const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
   handleRevokeToken(id).pipe(withRuntime("auth token revoke")),
 ).pipe(
+  withHumanVerificationOptions,
   withArgvTracking(revokeTokenConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),
   Command.withDescription("Revoke a granular access token"),

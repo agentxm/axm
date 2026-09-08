@@ -660,42 +660,25 @@ describe("auth token handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleRevokeToken("token_123");
+        const error = yield* handleRevokeToken("token_123").pipe(Effect.flip);
 
         expect(interactionState.openBrowserCalls).toEqual([]);
-        expect(deleteCalls).toMatchObject([
-          { tokenId: "token_123", options: undefined },
-          {
-            tokenId: "token_123",
-            options: {
-              stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
-            },
-          },
-        ]);
-        expect(rendererState.results[0]?.data).toMatchObject({
-          result: {
-            status: "revoked",
-            tokenId: "token_123",
-            stepUpCompleted: true,
+        expect(deleteCalls).toEqual([{ tokenId: "token_123", options: undefined }]);
+        expect(error).toMatchObject({
+          code: "auth_required",
+          status: "pending-human",
+          blockedOn: "human",
+          action: {
+            kind: "open-url",
+            purpose: "step-up",
+            requestRef:
+              "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
+            url: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
           },
         });
-        expect(rendererState.logs).toEqual(
-          expect.arrayContaining([
-            { _tag: "info", message: "Action: Revoke access token" },
-            { _tag: "info", message: "Target: token_123" },
-            {
-              _tag: "info",
-              message: "Verify at: https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-            },
-            {
-              _tag: "info",
-              message: "If verification expires or is cancelled, rerun the command to restart.",
-            },
-          ]),
-        );
-        expect(rendererState.suggestions).toEqual([
-          { description: "List remaining tokens", cmd: "axm token list" },
-        ]);
+        expect(rendererState.results).toEqual([]);
+        expect(rendererState.logs).toEqual([]);
+        expect(rendererState.suggestions).toEqual([]);
       }),
     );
   });

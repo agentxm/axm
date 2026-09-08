@@ -44,7 +44,17 @@ describe("axm token", () => {
     const registry = await startHttpRegistry({ stepUpTokenCreate: true });
     try {
       const result = await runCli(
-        ["token", "create", "--name", "e2e-step-up", "--permission", "read", "--json"],
+        [
+          "token",
+          "create",
+          "--name",
+          "e2e-step-up",
+          "--permission",
+          "read",
+          "--wait-for-human",
+          "5",
+          "--json",
+        ],
         {
           env: {
             AXM_REGISTRY_URL: registry.url,

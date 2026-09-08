@@ -8,6 +8,7 @@ import * as Data from "effect/Data";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 
 export interface LoopbackCallback {
   readonly code: string;
@@ -29,6 +30,7 @@ export class LoopbackCallbackRejected extends Data.TaggedError("LoopbackCallback
 export interface LoopbackServer {
   readonly port: number;
   readonly redirectUri: string;
+  readonly complete: Effect.Effect<void>;
   readonly awaitCallback: (
     timeoutMs: number,
   ) => Effect.Effect<LoopbackCallback, LoopbackLoginFallback | LoopbackCallbackRejected>;
@@ -49,16 +51,12 @@ type AwaitOutcome = AwaitSuccess | AwaitFailure;
 const page = (title: string, content: string) =>
   `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body><main style="font-family: system-ui, sans-serif; margin: 3rem auto; max-width: 34rem;"><h1>${title}</h1><p>${content}</p></main></body></html>`;
 
-const successPage = page(
-  "You’re signed in to AgentXM.ai",
-  'Return to your terminal to continue. You can close this tab. <a href="https://agentxm.ai">AgentXM.ai</a>',
-);
 const cancellationPage = page(
-  "Sign-in was cancelled",
-  "No credentials were changed. Return to your terminal to try again.",
+  "Authorization was denied",
+  "Return to your terminal for recovery instructions.",
 );
 const errorPage = page(
-  "AXM sign-in could not be completed",
+  "AXM authorization could not be completed",
   "Return to your terminal for details and recovery instructions.",
 );
 
@@ -146,7 +144,7 @@ const makeCallbackOutcome = (request: IncomingRequest, expectedState: string): A
   };
 };
 
-export const startLoopbackServer = (expectedState: string) =>
+export const startLoopbackServer = (expectedState: string, purpose: "login" | "publish") =>
   Effect.gen(function* () {
     const http = yield* Effect.tryPromise({
       try: () => import("node:http"),
@@ -162,6 +160,35 @@ export const startLoopbackServer = (expectedState: string) =>
       LoopbackCallback,
       LoopbackLoginFallback | LoopbackCallbackRejected
     >();
+    const browserResponse = yield* Deferred.make<import("node:http").ServerResponse>();
+    const finish = (completed: boolean) =>
+      Effect.gen(function* () {
+        const pending = yield* Deferred.poll(browserResponse);
+        if (Option.isNone(pending)) return;
+        const response = yield* pending.value;
+        if (response.writableEnded || response.destroyed) return;
+        const title = completed
+          ? purpose === "login"
+            ? "You’re signed in to AgentXM.ai"
+            : "Publish authorization received"
+          : "AXM authorization could not be completed";
+        const content = completed
+          ? purpose === "login"
+            ? "Your credentials have been saved. Return to your terminal to continue. You can close this tab."
+            : "AXM received permission for the reviewed publication. Return to your terminal to check the publish result. You can close this tab."
+          : "Return to your terminal for details and recovery instructions.";
+        yield* Effect.callback<void>((resume) => {
+          const done = () => resume(Effect.void);
+          response.once("close", done);
+          response.end(
+            `<style>#receipt{display:none}</style><section role="status"><h1>${title}</h1><p>${content}</p></section></main></body></html>`,
+            done,
+          );
+          return Effect.sync(() => {
+            response.off("close", done);
+          });
+        });
+      });
     const listener = yield* Effect.acquireRelease(
       Effect.callback<
         { readonly server: import("node:http").Server; readonly port: number },
@@ -169,17 +196,41 @@ export const startLoopbackServer = (expectedState: string) =>
       >((resume) => {
         let acquired = false;
         const server = http.createServer((request, response) => {
+          if (Deferred.isDoneUnsafe(callback)) {
+            writeHtml(
+              response,
+              409,
+              page(
+                "Callback already received",
+                "Return to the original tab or your terminal to check the result.",
+              ),
+            );
+            return;
+          }
           const outcome = makeCallbackOutcome(request, expectedState);
-          writeHtml(
-            response,
-            outcome._tag === "success" ? 200 : 400,
-            outcome._tag === "success"
-              ? successPage
-              : outcome.error._tag === "LoopbackCallbackRejected" &&
-                  outcome.error.reason === "access_denied"
+          if (outcome._tag === "success") {
+            response.writeHead(200, {
+              "content-type": "text/html; charset=utf-8",
+              "cache-control": "no-store",
+              "referrer-policy": "no-referrer",
+              "x-content-type-options": "nosniff",
+              "content-security-policy":
+                "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+            });
+            response.write(
+              '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AXM authorization</title></head><body><main style="font-family:system-ui,sans-serif;margin:3rem auto;max-width:34rem;padding:1rem"><section id="receipt" role="status"><h1>Callback received</h1><p>AXM is finishing authorization. Check your terminal if this page stops updating.</p></section>',
+            );
+            Deferred.doneUnsafe(browserResponse, Effect.succeed(response));
+          } else {
+            writeHtml(
+              response,
+              400,
+              outcome.error._tag === "LoopbackCallbackRejected" &&
+                outcome.error.reason === "access_denied"
                 ? cancellationPage
                 : errorPage,
-          );
+            );
+          }
           Deferred.doneUnsafe(
             callback,
             outcome._tag === "success"
@@ -246,6 +297,7 @@ export const startLoopbackServer = (expectedState: string) =>
           catch: () => undefined,
         }).pipe(Effect.ignore),
     );
+    yield* Effect.addFinalizer(() => finish(false));
 
     listener.server.on("error", (cause) => {
       Deferred.doneUnsafe(
@@ -263,6 +315,7 @@ export const startLoopbackServer = (expectedState: string) =>
     return {
       port: listener.port,
       redirectUri: `http://127.0.0.1:${listener.port}/callback`,
+      complete: finish(true),
       awaitCallback: (timeoutMs) =>
         Deferred.await(callback).pipe(
           Effect.timeoutOrElse({

@@ -125,6 +125,8 @@ describe("registry-auth envelope conversions", () => {
   it("renders the pending-human timeout envelope with the full open-url action", () => {
     const error = deviceAuthorizationPendingToAppError(
       new DeviceAuthorizationPending({
+        registryUrl: "https://registry.example.test",
+        intervalSeconds: 2,
         timeoutSeconds: 30,
         verificationUri: "https://auth.agentxm.ai/device",
         verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
@@ -139,6 +141,10 @@ describe("registry-auth envelope conversions", () => {
     expect(error.blockedOn).toBe("human");
     expect(error.action).toEqual({
       kind: "open-url",
+      purpose: "login",
+      registryUrl: "https://registry.example.test",
+      requestRef: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+      intervalSeconds: 2,
       url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
       fallbackUrl: "https://auth.agentxm.ai/device",
       code: "ABCD-1234",

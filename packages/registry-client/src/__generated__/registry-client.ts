@@ -413,6 +413,50 @@ export const AuthorizationDenyDetails = Schema.Struct({
     "Diagnostic details returned when a request is denied due to insufficient authorization.",
   identifier: "AuthorizationDenyDetails",
 });
+export type PublishAuthorizationDelivery =
+  | {
+      readonly kind: "loopback";
+      readonly redirect_uri: string;
+      readonly state: string;
+      readonly code_challenge: string;
+      readonly code_challenge_method: "S256";
+    }
+  | {
+      readonly kind: "polling";
+      readonly proof_challenge: string;
+      readonly proof_challenge_method: "S256";
+    };
+export const PublishAuthorizationDelivery = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("loopback"),
+    redirect_uri: Schema.String.check(
+      Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+    ),
+    state: Schema.String.check(
+      Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+    ),
+    code_challenge: Schema.String.check(
+      Schema.isPattern(new RegExp("^[A-Za-z0-9_-]{43}$")).annotate({
+        expected: "a string matching the RegExp ^[A-Za-z0-9_-]{43}$",
+      }),
+    ),
+    code_challenge_method: Schema.Literal("S256"),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("polling"),
+    proof_challenge: Schema.String.check(
+      Schema.isPattern(new RegExp("^[A-Za-z0-9_-]{43}$")).annotate({
+        expected: "a string matching the RegExp ^[A-Za-z0-9_-]{43}$",
+      }),
+    ),
+    proof_challenge_method: Schema.Literal("S256"),
+  }),
+]).annotate({
+  title: "Publish authorization delivery",
+  description:
+    "Loopback code delivery or resumable polling protected by a distinct initiator proof.",
+  identifier: "PublishAuthorizationDelivery",
+});
 export type PublishAuthorizationRequestId = string;
 export const PublishAuthorizationRequestId = Schema.String.annotate({
   title: "Publish Authorization Request ID",
@@ -424,6 +468,18 @@ export const PublishAuthorizationRequestId = Schema.String.annotate({
     identifier: "PublishAuthorizationRequestId",
   }),
 );
+export type PublishAuthorizationPollingProof = { readonly initiator_proof: string };
+export const PublishAuthorizationPollingProof = Schema.Struct({
+  initiator_proof: Schema.String.check(
+    Schema.isPattern(new RegExp("^[A-Za-z0-9_-]{43,128}$")).annotate({
+      expected: "a string matching the RegExp ^[A-Za-z0-9_-]{43,128}$",
+    }),
+  ),
+}).annotate({
+  description:
+    "Secret proof held by the initiator; never a public request reference or browser code.",
+  identifier: "PublishAuthorizationPollingProof",
+});
 export type TokenId = string;
 export const TokenId = Schema.String.annotate({
   title: "Token ID",
@@ -912,6 +968,27 @@ export const PublishVisibility = Schema.Union([
   description:
     "Authoritative whole-Extension visibility and provenance resolved for a publication.",
   identifier: "PublishVisibility",
+});
+export type PublishAuthorizationPollingStatus = {
+  readonly purpose: "publish";
+  readonly status: "pending" | "approved" | "denied" | "expired" | "exchanged";
+  readonly expires_at: IsoDateTimeString;
+  readonly interval: number;
+  readonly publication_set_digest: Sha256Hex;
+};
+export const PublishAuthorizationPollingStatus = Schema.Struct({
+  purpose: Schema.Literal("publish"),
+  status: Schema.Literals(["pending", "approved", "denied", "expired", "exchanged"]),
+  expires_at: IsoDateTimeString,
+  interval: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+    Schema.isGreaterThan(0).annotate({ expected: "a value greater than 0" }),
+  ),
+  publication_set_digest: Sha256Hex,
+}).annotate({
+  title: "Publish authorization status",
+  description:
+    "Proof-protected authorization status and material binding; approval is not publication completion.",
+  identifier: "PublishAuthorizationPollingStatus",
 });
 export type PublicationTarget = {
   readonly owner: Handle;
@@ -2089,43 +2166,57 @@ export type AuthGetStepUpRequest500 = ProblemDetails;
 export const AuthGetStepUpRequest500 = ProblemDetails;
 export type AuthCreatePublishAuthorizationRequestRequestJson = {
   readonly client_id: string;
-  readonly redirect_uri: string;
-  readonly state: string;
-  readonly code_challenge: string;
-  readonly code_challenge_method: "S256";
+  readonly delivery: PublishAuthorizationDelivery;
   readonly publication_set: PreviewPublicationSetRequest;
 };
 export const AuthCreatePublishAuthorizationRequestRequestJson = Schema.Struct({
   client_id: Schema.String.check(
     Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
   ),
-  redirect_uri: Schema.String.check(
-    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-  ),
-  state: Schema.String.check(
-    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-  ),
-  code_challenge: Schema.String.check(
-    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-  ),
-  code_challenge_method: Schema.Literal("S256"),
+  delivery: PublishAuthorizationDelivery,
   publication_set: PreviewPublicationSetRequest,
 });
 export type AuthCreatePublishAuthorizationRequest201 = {
   readonly request_id: PublishAuthorizationRequestId;
   readonly authorization_url: string;
   readonly expires_at: IsoDateTimeString;
+  readonly interval: number;
 };
 export const AuthCreatePublishAuthorizationRequest201 = Schema.Struct({
   request_id: PublishAuthorizationRequestId,
   authorization_url: Schema.String,
   expires_at: IsoDateTimeString,
+  interval: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+    Schema.isGreaterThan(0).annotate({ expected: "a value greater than 0" }),
+  ),
 });
 export type AuthCreatePublishAuthorizationRequest400 = ProblemDetails | DecodeErrorResponseEncoded;
 export const AuthCreatePublishAuthorizationRequest400 = Schema.Union([
   ProblemDetails,
   DecodeErrorResponseEncoded,
 ]);
+export type AuthPollPublishAuthorizationRequestJson = PublishAuthorizationPollingProof;
+export const AuthPollPublishAuthorizationRequestJson = PublishAuthorizationPollingProof;
+export type AuthPollPublishAuthorization200 = PublishAuthorizationPollingStatus;
+export const AuthPollPublishAuthorization200 = PublishAuthorizationPollingStatus;
+export type AuthPollPublishAuthorization400 = ProblemDetails | DecodeErrorResponseEncoded;
+export const AuthPollPublishAuthorization400 = Schema.Union([
+  ProblemDetails,
+  DecodeErrorResponseEncoded,
+]);
+export type AuthExchangePublishAuthorizationRequestJson = PublishAuthorizationPollingProof;
+export const AuthExchangePublishAuthorizationRequestJson = PublishAuthorizationPollingProof;
+export type AuthExchangePublishAuthorization200 = PublishAuthorizationExchangeResponse;
+export const AuthExchangePublishAuthorization200 = PublishAuthorizationExchangeResponse;
+export type AuthExchangePublishAuthorization400 = ProblemDetails | DecodeErrorResponseEncoded;
+export const AuthExchangePublishAuthorization400 = Schema.Union([
+  ProblemDetails,
+  DecodeErrorResponseEncoded,
+]);
+export type AuthExchangePublishAuthorization409 = ProblemDetails;
+export const AuthExchangePublishAuthorization409 = ProblemDetails;
+export type AuthExchangePublishAuthorization410 = ProblemDetails;
+export const AuthExchangePublishAuthorization410 = ProblemDetails;
 export type TokensListParams = { readonly cursor?: string | null; readonly limit?: string | null };
 export const TokensListParams = Schema.Struct({
   cursor: Schema.optionalKey(
@@ -3449,6 +3540,39 @@ export const make = (
           }),
         ),
       ),
+    AuthPollPublishAuthorization: (requestId, options) =>
+      HttpClientRequest.post(`/v1/auth/publish-requests/${requestId}/status`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(AuthPollPublishAuthorization200),
+            "400": decodeError("AuthPollPublishAuthorization400", AuthPollPublishAuthorization400),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    AuthExchangePublishAuthorization: (requestId, options) =>
+      HttpClientRequest.post(`/v1/auth/publish-requests/${requestId}/exchange`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(AuthExchangePublishAuthorization200),
+            "400": decodeError(
+              "AuthExchangePublishAuthorization400",
+              AuthExchangePublishAuthorization400,
+            ),
+            "409": decodeError(
+              "AuthExchangePublishAuthorization409",
+              AuthExchangePublishAuthorization409,
+            ),
+            "410": decodeError(
+              "AuthExchangePublishAuthorization410",
+              AuthExchangePublishAuthorization410,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     TokensList: (options) =>
       HttpClientRequest.get(`/v1/tokens`).pipe(
         HttpClientRequest.setUrlParams({
@@ -4126,6 +4250,50 @@ export interface RegistryClient {
     | RegistryClientError<
         "AuthCreatePublishAuthorizationRequest400",
         typeof AuthCreatePublishAuthorizationRequest400.Type
+      >
+  >;
+  /**
+   * Read publish approval status using the initiating CLI's private proof
+   */
+  readonly AuthPollPublishAuthorization: <Config extends OperationConfig>(
+    requestId: string,
+    options: {
+      readonly payload: typeof AuthPollPublishAuthorizationRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof AuthPollPublishAuthorization200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "AuthPollPublishAuthorization400",
+        typeof AuthPollPublishAuthorization400.Type
+      >
+  >;
+  /**
+   * Exchange an approved publish request once using its private initiator proof
+   */
+  readonly AuthExchangePublishAuthorization: <Config extends OperationConfig>(
+    requestId: string,
+    options: {
+      readonly payload: typeof AuthExchangePublishAuthorizationRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof AuthExchangePublishAuthorization200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "AuthExchangePublishAuthorization400",
+        typeof AuthExchangePublishAuthorization400.Type
+      >
+    | RegistryClientError<
+        "AuthExchangePublishAuthorization409",
+        typeof AuthExchangePublishAuthorization409.Type
+      >
+    | RegistryClientError<
+        "AuthExchangePublishAuthorization410",
+        typeof AuthExchangePublishAuthorization410.Type
       >
   >;
   /**

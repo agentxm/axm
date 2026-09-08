@@ -2,10 +2,13 @@ import { startedUnits } from "../../screen/index.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeHttp from "node:http";
 import { pathToFileURL } from "node:url";
 import { type CreatePublishAuthorizationRequestParams } from "@agentxm/registry-auth";
-import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-auth/testing";
+import {
+  AuthClientTest,
+  DeviceLoginInteractionTest,
+  PendingPublishAuthorizationStoreTest,
+} from "@agentxm/registry-auth/testing";
 import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
@@ -195,6 +198,7 @@ describe("root publish", () => {
       provide: makeEffectProvide(
         Layer.mergeAll(
           context.fullLayer,
+          PendingPublishAuthorizationStoreTest(),
           AuthClientTest(),
           interaction.layer,
           gitDirectoryComparisonLayer,
@@ -224,13 +228,6 @@ describe("root publish", () => {
     );
   };
 
-  const scheduleCallback = (url: string) => {
-    setTimeout(() => {
-      const request = NodeHttp.get(url, (response) => response.resume());
-      request.on("error", () => undefined);
-    }, 10);
-  };
-
   it("reports authentication as a human-blocked preview precondition only when needed", () => {
     expect(
       publishAuthenticationPreconditions({
@@ -242,12 +239,11 @@ describe("root publish", () => {
     ).toEqual([
       {
         id: "authentication",
-        label: "Registry authentication",
+        label: "Publication authorization",
         status: "unmet",
         detail:
-          "Publishing requires human authorization before apply; authenticate before preparing a release workflow.",
+          "Apply the same publish selection to request approval for this exact publication set.",
         blockedOn: "human",
-        command: "axm login --device-code --json",
       },
     ]);
 
@@ -397,6 +393,7 @@ describe("root publish", () => {
     const provide = makeEffectProvide(
       Layer.mergeAll(
         context.fullLayer,
+        PendingPublishAuthorizationStoreTest(),
         authClient,
         DeviceLoginInteractionTest().layer,
         Layer.succeed(HttpClient.HttpClient, httpClient),
@@ -466,79 +463,99 @@ describe("root publish", () => {
         );
       }),
     );
+    const exchangeApproved = () =>
+      Effect.gen(function* () {
+        const request = authorizationRequest;
+        if (request === undefined) {
+          return yield* new RegistryAuthFailed({
+            category: "internal",
+            detail: "Missing auth request",
+          });
+        }
+        const descriptor = request.publicationSet.candidates[0];
+        if (descriptor === undefined) {
+          return yield* new RegistryAuthFailed({
+            category: "internal",
+            detail: "Missing descriptor",
+          });
+        }
+        const setDigest = publicationSetDigest(request.publicationSet.candidates);
+        return {
+          status: "admitted" as const,
+          preview: {
+            contract: "publication-set-v2" as const,
+            publicationSetDigest: setDigest,
+            status: "admitted" as const,
+            candidates: [
+              {
+                kind: "resolved" as const,
+                target: descriptor.target,
+                participation: descriptor.participation,
+                descriptorDigest: publicationDescriptorDigest(descriptor),
+                visibility: {
+                  target: formatFqn(descriptor.target),
+                  intent: descriptor.visibility.intent,
+                  request: descriptor.visibility.request,
+                  resolved: {
+                    value: "public" as const,
+                    disposition: "establish" as const,
+                    source: "platform" as const,
+                  },
+                  actual: null,
+                  comparison: "not-established" as const,
+                  findings: [],
+                },
+                condition: '"pv2-stale"',
+              },
+            ],
+            packs: [],
+          },
+          grants: [
+            {
+              accessToken: "axm_pub_stale",
+              expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
+              scope: "extensions:publish:new",
+              publishRequestId: "pubreq_01h455vb4pexka56gq5w2r7cpd",
+              visibilityContract: "v2" as const,
+              visibility: {
+                value: "public" as const,
+                disposition: "establish" as const,
+                source: "platform" as const,
+              },
+              condition: '"pv2-stale"',
+              publicationSetDigest: setDigest,
+              publicationDescriptorDigest: publicationDescriptorDigest(descriptor),
+            },
+          ],
+        };
+      });
     const authClient = AuthClientTest({
       createPublishAuthorizationRequest: (request) => {
         authorizationRequest = request;
         return Effect.succeed({
-          requestId: "pubreq_stale",
-          authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_stale",
+          requestId: "pubreq_01h455vb4pexka56gq5w2r7cpd",
+          authorizationUrl:
+            "https://agentxm.ai/publish/authorize/pubreq_01h455vb4pexka56gq5w2r7cpd",
+          interval: 2,
           expiresAt: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
         });
       },
-      exchangePublishAuthorizationCode: () =>
-        Effect.gen(function* () {
+      exchangePublishAuthorizationCode: exchangeApproved,
+      exchangePublishAuthorization: exchangeApproved,
+      pollPublishAuthorization: () =>
+        Effect.sync(() => {
           const request = authorizationRequest;
-          if (request === undefined) {
-            return yield* new RegistryAuthFailed({
-              category: "internal",
-              detail: "Missing auth request",
-            });
-          }
-          const descriptor = request.publicationSet.candidates[0];
-          if (descriptor === undefined) {
-            return yield* new RegistryAuthFailed({
-              category: "internal",
-              detail: "Missing descriptor",
-            });
-          }
-          const setDigest = publicationSetDigest(request.publicationSet.candidates);
+          if (request === undefined) throw new Error("Expected publish request");
+          fs.appendFileSync(
+            path.join(tempDir, "skills", "review", "src", "SKILL.md"),
+            "\nChanged during authorization.\n",
+          );
           return {
-            status: "admitted" as const,
-            preview: {
-              contract: "publication-set-v2" as const,
-              publicationSetDigest: setDigest,
-              status: "admitted" as const,
-              candidates: [
-                {
-                  kind: "resolved" as const,
-                  target: descriptor.target,
-                  participation: descriptor.participation,
-                  descriptorDigest: publicationDescriptorDigest(descriptor),
-                  visibility: {
-                    target: formatFqn(descriptor.target),
-                    intent: descriptor.visibility.intent,
-                    request: descriptor.visibility.request,
-                    resolved: {
-                      value: "public" as const,
-                      disposition: "establish" as const,
-                      source: "platform" as const,
-                    },
-                    actual: null,
-                    comparison: "not-established" as const,
-                    findings: [],
-                  },
-                  condition: '"pv2-stale"',
-                },
-              ],
-              packs: [],
-            },
-            grants: [
-              {
-                accessToken: "axm_pub_stale",
-                expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
-                scope: "extensions:publish:new",
-                publishRequestId: "pubreq_stale",
-                visibilityContract: "v2" as const,
-                visibility: {
-                  value: "public" as const,
-                  disposition: "establish" as const,
-                  source: "platform" as const,
-                },
-                condition: '"pv2-stale"',
-                publicationSetDigest: setDigest,
-                publicationDescriptorDigest: publicationDescriptorDigest(descriptor),
-              },
-            ],
+            purpose: "publish",
+            status: "approved",
+            expires_at: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
+            interval: 2,
+            publication_set_digest: publicationSetDigest(request.publicationSet.candidates),
           };
         }),
       revokeToken: () =>
@@ -547,25 +564,12 @@ describe("root publish", () => {
         }),
     });
     const interaction = DeviceLoginInteractionTest({
-      openBrowser: () =>
-        Effect.sync(() => {
-          const request = authorizationRequest;
-          if (request === undefined) return false;
-          fs.appendFileSync(
-            path.join(tempDir, "skills", "review", "src", "SKILL.md"),
-            "\nChanged during authorization.\n",
-          );
-          const callback = new URL(request.redirectUri);
-          callback.searchParams.set("code", "axm_pubac_code");
-          callback.searchParams.set("state", request.state);
-          callback.searchParams.set("iss", "https://agentxm.ai");
-          scheduleCallback(callback.href);
-          return true;
-        }),
+      openBrowser: () => Effect.die("Unattended authorization must not open a browser"),
     });
     const provide = makeEffectProvide(
       Layer.mergeAll(
         context.fullLayer,
+        PendingPublishAuthorizationStoreTest(),
         authClient,
         interaction.layer,
         Layer.succeed(HttpClient.HttpClient, httpClient),
@@ -575,9 +579,9 @@ describe("root publish", () => {
 
     return provide(
       Effect.gen(function* () {
-        const exit = yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(
-          Effect.exit,
-        );
+        const exit = yield* handleRootPublish(
+          args(registryUrl, { preview: false, waitForHumanSeconds: 60 }),
+        ).pipe(Effect.exit);
         expect(Exit.isFailure(exit)).toBe(true);
         expect(uploadCount).toBe(0);
         expect(revokeCount).toBe(1);
@@ -637,7 +641,7 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          yield* handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 }));
 
           expect(
             logs.success.some((message) =>
@@ -687,7 +691,7 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          yield* handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 }));
 
           expect(logs.success).toContain("No extensions selected for publishing");
         }),
@@ -893,9 +897,9 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          yield* handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 }));
           writeSkill("new-release", "1.1.0");
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          yield* handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 }));
 
           const result = expectPublishResult(at(rendererState.results, 1).data, {
             mode: "apply",
@@ -952,7 +956,9 @@ describe("root publish", () => {
         return provide(
           Effect.gen(function* () {
             writeReviewSkill("1.1.0");
-            yield* handleRootPublish(args(registryUrl, { preview: false }));
+            yield* handleRootPublish(
+              args(registryUrl, { preview: false, waitForHumanSeconds: 60 }),
+            );
 
             writeReviewSkill("1.0.5");
             const error = getAppError(
@@ -1090,7 +1096,7 @@ describe("root publish", () => {
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            handleRootPublish(args(registryUrl, { preview: false })),
+            handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 })),
           );
 
           expect(properties["cli.outcome"]).toBe("applied");
@@ -1108,7 +1114,7 @@ describe("root publish", () => {
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            handleRootPublish(args(registryUrl, { preview: false })),
+            handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 })),
           );
 
           expect(properties["cli.outcome"]).toBe("no-op");
@@ -1166,7 +1172,7 @@ describe("root publish", () => {
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            handleRootPublish(args(registryUrl, { preview: false })),
+            handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 })),
           );
 
           expect(properties["cli.subject_type"]).toBe("mixed");

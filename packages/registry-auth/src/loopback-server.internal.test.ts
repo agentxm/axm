@@ -44,7 +44,7 @@ describe("startLoopbackServer", () => {
 
       yield* Effect.scoped(
         Effect.gen(function* () {
-          const server = yield* startLoopbackServer("expected-state");
+          const server = yield* startLoopbackServer("expected-state", "login");
           listenerOrigin = new URL(server.redirectUri).origin;
         }),
       );
@@ -58,7 +58,7 @@ describe("startLoopbackServer", () => {
 
   it.effect("accepts an exact callback and returns its authorization values", () =>
     Effect.gen(function* () {
-      const server = yield* startLoopbackServer("expected-state");
+      const server = yield* startLoopbackServer("expected-state", "login");
       const callback = new URL(server.redirectUri);
       callback.searchParams.set("code", "axm_pubac_exact");
       callback.searchParams.set("state", "expected-state");
@@ -66,6 +66,7 @@ describe("startLoopbackServer", () => {
       const pageResponse = scheduleCallback(callback.href);
 
       const result = yield* server.awaitCallback(1_000);
+      yield* server.complete;
       const response = yield* Effect.promise(() => pageResponse);
 
       expect(result).toEqual({
@@ -82,7 +83,7 @@ describe("startLoopbackServer", () => {
 
   it.effect("reports an explicit browser denial", () =>
     Effect.gen(function* () {
-      const server = yield* startLoopbackServer("expected-state");
+      const server = yield* startLoopbackServer("expected-state", "login");
       const callback = new URL(server.redirectUri);
       callback.searchParams.set("error", "access_denied");
       callback.searchParams.set("state", "expected-state");
@@ -95,14 +96,14 @@ describe("startLoopbackServer", () => {
       expect(error).toBeInstanceOf(LoopbackCallbackRejected);
       expect(error).toMatchObject({ reason: "access_denied" });
       expect(response).toMatchObject({ statusCode: 400, cacheControl: "no-store" });
-      expect(response.body).toContain("Sign-in was cancelled");
-      expect(response.body).toContain("No credentials were changed");
+      expect(response.body).toContain("Authorization was denied");
+      expect(response.body).toContain("Return to your terminal for recovery instructions");
     }).pipe(Effect.scoped),
   );
 
   it.effect("rejects a callback whose OAuth state does not match", () =>
     Effect.gen(function* () {
-      const server = yield* startLoopbackServer("expected-state");
+      const server = yield* startLoopbackServer("expected-state", "login");
       const callback = new URL(server.redirectUri);
       callback.searchParams.set("code", "axm_pubac_wrong_state");
       callback.searchParams.set("state", "unexpected-state");
@@ -115,14 +116,14 @@ describe("startLoopbackServer", () => {
       expect(error).toBeInstanceOf(LoopbackCallbackRejected);
       expect(error).toMatchObject({ reason: "invalid_callback" });
       expect(response).toMatchObject({ statusCode: 400, cacheControl: "no-store" });
-      expect(response.body).toContain("AXM sign-in could not be completed");
+      expect(response.body).toContain("AXM authorization could not be completed");
       expect(response.body).not.toContain("unexpected-state");
     }).pipe(Effect.scoped),
   );
 
   it.live("closes the listener and reports a timeout when no callback arrives", () =>
     Effect.gen(function* () {
-      const server = yield* startLoopbackServer("expected-state");
+      const server = yield* startLoopbackServer("expected-state", "login");
 
       const error = yield* Effect.flip(server.awaitCallback(10));
 

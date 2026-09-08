@@ -27,13 +27,19 @@ import {
   AuthClient,
   AuthLoginPresenter,
   DeviceLoginInteraction,
+  PendingPublishAuthorizationStore,
   resolveRequestToken,
   runPublishAuthorization,
   type PublishCapabilityResponse,
 } from "@agentxm/registry-auth";
 import { authFailureToAppError, publishFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { acceptWarningsFlag } from "../../cli-flags/index.js";
+import {
+  acceptWarningsFlag,
+  isNonInteractive,
+  jsonFlag,
+  waitForHumanOption,
+} from "../../cli-flags/index.js";
 import {
   effectCliExit,
   recordCommandCompletion,
@@ -399,6 +405,8 @@ export interface RootPublishHandlerArgs {
   readonly scope: WorkspaceScope;
   readonly visibility: Option.Option<ExtensionVisibility>;
   readonly includeDependencies: boolean;
+  readonly authorizationRequest?: string;
+  readonly waitForHumanSeconds?: number;
   readonly recoveryCommand?: ReadonlyArray<string>;
   readonly recoverySelectors?: ReadonlyArray<string>;
   readonly recoveryExcludes?: ReadonlyArray<string>;
@@ -1752,8 +1760,23 @@ const runPublish = Effect.fn("Publish.run")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
+  if (
+    args.waitForHumanSeconds !== undefined &&
+    (!Number.isSafeInteger(args.waitForHumanSeconds) || args.waitForHumanSeconds <= 0)
+  )
+    return yield* makeAppError({
+      code: "validation",
+      detail: "--wait-for-human must be a positive whole number of seconds.",
+    });
+  if (args.authorizationRequest !== undefined && (args.preview || !/^https?:/.test(registry.url)))
+    return yield* makeAppError({
+      code: "validation",
+      detail: "--authorization-request requires a remote publish operation.",
+    });
   const workspaceMutations = yield* WorkspaceMutations;
   const authClient = yield* AuthClient;
+  const pendingPublishStore = yield* PendingPublishAuthorizationStore;
   const deviceLoginInteraction = yield* DeviceLoginInteraction;
   const authLoginPresenter = yield* AuthLoginPresenter;
   const registryUrl = yield* RegistryUrl;
@@ -2057,9 +2080,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const acquirePublishAuthorization: Effect.Effect<
     PublishAuthorizationState,
     AppError,
-    AuthLoginPresenter | AuthClient | DeviceLoginInteraction
+    AuthLoginPresenter | AuthClient | DeviceLoginInteraction | PendingPublishAuthorizationStore
   > =
-    isRemoteRegistry && Option.isNone(storedToken)
+    isRemoteRegistry && (Option.isNone(storedToken) || args.authorizationRequest !== undefined)
       ? Effect.gen(function* () {
           if (publicationSet === undefined) {
             return yield* makeAppError({
@@ -2070,6 +2093,13 @@ const runPublish = Effect.fn("Publish.run")(function* (
           const exchange = yield* runPublishAuthorization({
             registryUrl: registry.url,
             publicationSet,
+            unattended,
+            ...(args.authorizationRequest === undefined
+              ? {}
+              : { authorizationRequest: args.authorizationRequest }),
+            ...(args.waitForHumanSeconds === undefined
+              ? {}
+              : { waitForHumanSeconds: args.waitForHumanSeconds }),
           }).pipe(Effect.mapError(authFailureToAppError));
           if (exchange.status === "blocked") {
             const firstFinding = exchange.preview.packs
@@ -2299,6 +2329,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
       const authorize = yield* Effect.cached(
         acquirePublishAuthorization.pipe(
           Effect.provideService(AuthClient, authClient),
+          Effect.provideService(PendingPublishAuthorizationStore, pendingPublishStore),
           Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
           Effect.provideService(AuthLoginPresenter, authLoginPresenter),
           Effect.tap((authorization) => Ref.set(acquiredAuthorization, Option.some(authorization))),
@@ -2373,6 +2404,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
       ),
     ),
   );
+  if (resolution.failure !== undefined) {
+    const failure = publishStepAppError(resolution.failure);
+    if (failure.status === "pending-human") return yield* failure;
+  }
   const planBlocking = resolution.blocking;
   const planFailed = planBlocking !== undefined || resolution.failure !== undefined;
   const staleCandidate = planBlocking?.class === "stale-candidate";
@@ -2664,6 +2699,13 @@ export const handleRootPublish = Effect.fn("Publish.handle")(function* (
 });
 
 const publishConfig = {
+  authorizationRequest: Flag.string("authorization-request").pipe(
+    Flag.withDescription(
+      "Resume this exact publication request using its URL and unchanged inputs",
+    ),
+    Flag.optional,
+  ),
+  waitForHuman: waitForHumanOption,
   selectors: Argument.string("extension").pipe(
     Argument.withDescription("FQNs or type-qualified extension selectors"),
     Argument.atLeast(0),
@@ -2714,6 +2756,12 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     scope: "project",
     visibility: parsed.visibility,
     includeDependencies: parsed.includeDependencies,
+    ...(Option.isNone(parsed.authorizationRequest)
+      ? {}
+      : { authorizationRequest: parsed.authorizationRequest.value }),
+    ...(Option.isNone(parsed.waitForHuman)
+      ? {}
+      : { waitForHumanSeconds: parsed.waitForHuman.value }),
   }).pipe(withWorkspace("project"), withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),

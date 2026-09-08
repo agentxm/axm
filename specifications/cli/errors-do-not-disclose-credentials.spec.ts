@@ -38,10 +38,36 @@ const levels = [
 
 describe("Credential-safe error reports", () => {
   for (const format of ["text", "json"] as const) {
+    it(`${format} diagnostics redact proofs embedded in a JSON response string`, () => {
+      const proof = "DISPOSABLE_INITIATOR_PROOF_ENCODED";
+      const error = new AppError({
+        code: "internal",
+        title: "Request failed",
+        detail: "Invalid authorization response",
+        cause: undefined,
+        metadata: {
+          response: {
+            status: 400,
+            body: JSON.stringify({
+              initiator_proof: proof,
+              code_verifier: proof,
+              device_code: proof,
+            }),
+          },
+        },
+      });
+      expect(
+        JSON.stringify(classifyError(error, format, { verbose: true, debug: true })),
+      ).not.toContain(proof);
+    });
+  }
+
+  for (const format of ["text", "json"] as const) {
     for (const level of levels) {
       it(`${format} ${level.name} errors redact credentials while retaining useful context`, () => {
         const token = "DISPOSABLE_ERROR_CREDENTIAL_A";
         const password = "DISPOSABLE_ERROR_CREDENTIAL_B";
+        const proof = "DISPOSABLE_INITIATOR_PROOF_C";
         const cause = new Error(`Provider rejected ${token}`);
         cause.stack = `Error: Provider rejected ${token}\n at diagnostic ${password}`;
         const error = new AppError({
@@ -51,7 +77,17 @@ describe("Credential-safe error reports", () => {
           cause,
           metadata: {
             request: { service: "registry", url: `https://registry.test/packages?token=${token}` },
-            response: { status: 500, body: { token, password, message: `Rejected ${token}` } },
+            response: {
+              status: 500,
+              body: {
+                token,
+                password,
+                initiator_proof: proof,
+                code_verifier: proof,
+                device_code: proof,
+                message: `Rejected ${token}`,
+              },
+            },
           },
           suggestions: [
             {
@@ -62,7 +98,8 @@ describe("Credential-safe error reports", () => {
         });
         const classified = classifyError(error, format, level);
         const rendered = JSON.stringify(classified);
-        for (const credential of [token, password]) expect(rendered).not.toContain(credential);
+        for (const credential of [token, password, proof])
+          expect(rendered).not.toContain(credential);
         expect(rendered).toContain("[REDACTED]");
         expect(rendered).toContain("The Registry rejected credential");
         expect(rendered).toContain("Retry after replacing");

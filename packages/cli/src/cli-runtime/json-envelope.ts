@@ -1,3 +1,4 @@
+import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/human-handoff";
 import * as Schema from "effect/Schema";
 
 import {
@@ -70,14 +71,17 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
   retryable: Schema.optional(Schema.Boolean),
   blockedOn: Schema.optional(Schema.Literal("human")),
   action: Schema.optional(
-    Schema.Struct({
-      kind: Schema.Literal("open-url"),
-      url: Schema.String,
-      fallbackUrl: Schema.optional(Schema.String),
-      code: Schema.optional(Schema.String),
-      expiresAt: Schema.optional(Schema.String),
-      resume: Schema.optional(Schema.String),
-    }),
+    Schema.Union([
+      HumanHandoffActionSchema,
+      Schema.Struct({
+        kind: Schema.Literal("open-url"),
+        url: Schema.String,
+        fallbackUrl: Schema.optional(Schema.String),
+        code: Schema.optional(Schema.String),
+        expiresAt: Schema.optional(Schema.String),
+        resume: Schema.optional(Schema.String),
+      }),
+    ]),
   ),
   suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
 }).annotate({

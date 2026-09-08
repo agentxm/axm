@@ -75,7 +75,7 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
       const verifier = makePkceVerifier();
       const challenge = makePkceChallenge(verifier);
       const state = makeOAuthState();
-      const server = yield* startLoopbackServer(state);
+      const server = yield* startLoopbackServer(state, "login");
       const authorizeUrl = authClient.buildAuthorizeUrl({
         challenge,
         expiresAt: DateTime.addDuration(yield* DateTime.now, LOOPBACK_TIMEOUT),
@@ -117,6 +117,7 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
           return yield* persistLoginCredentials(registryUrl, token);
         }),
       );
+      yield* server.complete;
       yield* emitLoginSuccess(registryUrl, handle);
     }),
   );

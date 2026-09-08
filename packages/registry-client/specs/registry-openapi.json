@@ -412,9 +412,10 @@
                   "properties": {
                     "request_id": { "$ref": "#/components/schemas/PublishAuthorizationRequestId" },
                     "authorization_url": { "type": "string" },
-                    "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
+                    "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
+                    "interval": { "type": "integer", "exclusiveMinimum": 0 }
                   },
-                  "required": ["request_id", "authorization_url", "expires_at"],
+                  "required": ["request_id", "authorization_url", "expires_at", "interval"],
                   "additionalProperties": false
                 }
               }
@@ -442,22 +443,122 @@
                 "type": "object",
                 "properties": {
                   "client_id": { "type": "string", "minLength": 1 },
-                  "redirect_uri": { "type": "string", "minLength": 1 },
-                  "state": { "type": "string", "minLength": 1 },
-                  "code_challenge": { "type": "string", "minLength": 1 },
-                  "code_challenge_method": { "type": "string", "enum": ["S256"] },
+                  "delivery": { "$ref": "#/components/schemas/PublishAuthorizationDelivery" },
                   "publication_set": { "$ref": "#/components/schemas/PreviewPublicationSetRequest" }
                 },
-                "required": [
-                  "client_id",
-                  "redirect_uri",
-                  "state",
-                  "code_challenge",
-                  "code_challenge_method",
-                  "publication_set"
-                ],
+                "required": ["client_id", "delivery", "publication_set"],
                 "additionalProperties": false
               }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/v1/auth/publish-requests/{requestId}/status": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "Auth.pollPublishAuthorization",
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/PublishAuthorizationRequestId" },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Proof-protected authorization status and material binding; approval is not publication completion.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PublishAuthorizationPollingStatus" }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read publish approval status using the initiating CLI's private proof",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PublishAuthorizationPollingProof" }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/v1/auth/publish-requests/{requestId}/exchange": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "Auth.exchangePublishAuthorization",
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/PublishAuthorizationRequestId" },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "PublishAuthorizationExchangeResponse",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PublishAuthorizationExchangeResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "410": {
+            "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Exchange an approved publish request once using its private initiator proof",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PublishAuthorizationPollingProof" }
             }
           },
           "required": true
@@ -4824,6 +4925,40 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
+      "PublishAuthorizationDelivery": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["loopback"] },
+              "redirect_uri": { "type": "string", "minLength": 1 },
+              "state": { "type": "string", "minLength": 1 },
+              "code_challenge": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
+              "code_challenge_method": { "type": "string", "enum": ["S256"] }
+            },
+            "required": [
+              "kind",
+              "redirect_uri",
+              "state",
+              "code_challenge",
+              "code_challenge_method"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["polling"] },
+              "proof_challenge": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
+              "proof_challenge_method": { "type": "string", "enum": ["S256"] }
+            },
+            "required": ["kind", "proof_challenge", "proof_challenge_method"],
+            "additionalProperties": false
+          }
+        ],
+        "title": "Publish authorization delivery",
+        "description": "Loopback code delivery or resumable polling protected by a distinct initiator proof."
+      },
       "PublicationVisibilityInput": {
         "type": "object",
         "properties": {
@@ -4884,6 +5019,32 @@
         "title": "Publish Authorization Request ID",
         "description": "Identifies one exact browser-reviewed publish authorization request.",
         "examples": ["pubreq_01h455vb4pexka56gq5w2r7cpc"]
+      },
+      "PublishAuthorizationPollingProof": {
+        "type": "object",
+        "properties": {
+          "initiator_proof": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43,128}$" }
+        },
+        "required": ["initiator_proof"],
+        "additionalProperties": false,
+        "description": "Secret proof held by the initiator; never a public request reference or browser code."
+      },
+      "PublishAuthorizationPollingStatus": {
+        "type": "object",
+        "properties": {
+          "purpose": { "type": "string", "enum": ["publish"] },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "approved", "denied", "expired", "exchanged"]
+          },
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
+          "interval": { "type": "integer", "exclusiveMinimum": 0 },
+          "publication_set_digest": { "$ref": "#/components/schemas/Sha256Hex" }
+        },
+        "required": ["purpose", "status", "expires_at", "interval", "publication_set_digest"],
+        "additionalProperties": false,
+        "title": "Publish authorization status",
+        "description": "Proof-protected authorization status and material binding; approval is not publication completion."
       },
       "TokenId": {
         "type": "string",

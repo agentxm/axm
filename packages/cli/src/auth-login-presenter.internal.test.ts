@@ -29,6 +29,10 @@ const pendingResult: DeviceLoginPendingResult = {
   resume: "axm login --wait --json",
   action: {
     kind: "open-url",
+    purpose: "login",
+    requestRef: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+    registryUrl: "https://registry.agentxm.ai",
+    intervalSeconds: 5,
     url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
     fallbackUrl: "https://auth.agentxm.ai/device",
     code: "ABCD-1234",

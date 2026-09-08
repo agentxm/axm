@@ -1,5 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -24,7 +28,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/preview-is-pure",
   title: "Publish preview reports the admitted publication set without distributing anything",
   statement:
-    "When publish runs in preview mode, it shall report the admitted publication set with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.",
+    "When publish runs in preview mode, AXM shall report the admitted publication set or identify missing exact-publication authorization with a next action for the same selection, without creating authorization, uploading anything to the target registry, or changing settings, the lockfile, or authored content.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "trustworthy-distribution"],
@@ -61,6 +65,79 @@ describe("Publish preview purity", () => {
     workspace.rendererState.results.splice(0);
     return { workspace, registry, before };
   };
+
+  it.effect("an unauthenticated preview directs the same selection to publication approval", () =>
+    Effect.gen(function* () {
+      const { workspace, before } = authoredWorkspace();
+      const httpClient = HttpClient.make((request) => {
+        if (request.method !== "GET") {
+          return Effect.die(new Error("Preview must not create authority or upload"));
+        }
+        const ownerRead = new URL(request.url).pathname === "/v1/owners/@acme";
+        return Effect.succeed(
+          HttpClientResponse.fromWeb(
+            request,
+            new Response(
+              JSON.stringify(
+                ownerRead
+                  ? { displayName: "Acme" }
+                  : {
+                      type: "about:blank",
+                      title: "Not Found",
+                      status: 404,
+                      detail: "Extension not found",
+                      code: "not_found",
+                    },
+              ),
+              { status: ownerRead ? 200 : 404, headers: { "content-type": "application/json" } },
+            ),
+          ),
+        );
+      });
+
+      const execution = yield* handleRootPublish(
+        publishArgs("https://registry.example.test", {
+          selectors: ["@acme/skills/review"],
+          visibility: Option.some("private"),
+        }),
+      ).pipe(
+        Effect.provide(
+          Layer.merge(
+            makePublishLayer(workspace),
+            Layer.succeed(HttpClient.HttpClient, httpClient),
+          ),
+        ),
+        Effect.exit,
+      );
+
+      expectProtectedStateUntouched({
+        root: workspace.root,
+        before,
+        writes: workspace.writes,
+        protectedPaths: PUBLISH_PROTECTED_STATE,
+      });
+      const output = workspace.rendererState.results[0]?.data;
+      expect(output).toMatchObject({
+        mode: "preview",
+        publicationSet: { status: "unavailable" },
+        execution: {
+          status: "not-run",
+          preconditions: [
+            {
+              status: "unmet",
+              blockedOn: "human",
+              label: "Publication authorization",
+              detail:
+                "Apply the same publish selection to request approval for this exact publication set.",
+            },
+          ],
+        },
+        counts: { selected: 1, published: 0 },
+      });
+      expect(JSON.stringify(output)).not.toContain("axm login");
+      expect(Exit.isSuccess(execution)).toBe(true);
+    }),
+  );
 
   it.effect(
     "a preview reports the admitted publication set without uploading or changing state",

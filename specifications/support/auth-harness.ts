@@ -47,6 +47,7 @@ export const resumeLoginOptions = { yes: false, deviceCode: false, scopes: [], w
 export const makeAuthSpecContext = (
   options: {
     readonly machine?: boolean;
+    readonly flags?: Parameters<typeof TestFlagsLayer>[0];
     readonly credentials?: CredentialFile;
     readonly allowsPersistedCredentials?: boolean;
     readonly pending?: PendingDeviceLogin;
@@ -94,7 +95,7 @@ export const makeAuthSpecContext = (
   const layer = Layer.mergeAll(
     renderer.layer,
     AuthLoginPresenterLive.pipe(Layer.provide(renderer.layer)),
-    TestFlagsLayer({ nonInteractive: true, json: options.machine !== false }),
+    TestFlagsLayer({ nonInteractive: true, json: options.machine !== false, ...options.flags }),
     Layer.succeed(RegistryUrl, options.registry ?? authRegistry),
     CredentialStoreTest("restricted-file", options.credentials, options.allowsPersistedCredentials),
     PendingDeviceLoginStoreTest(options.pending),

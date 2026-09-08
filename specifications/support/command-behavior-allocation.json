@@ -5234,6 +5234,22 @@
     "publish": {
       "flags": [
         {
+          "name": "authorization-request",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "wait-for-human",
+          "rawHelp": {
+            "aliases": [],
+            "type": "integer",
+            "required": false
+          }
+        },
+        {
           "name": "owner",
           "rawHelp": {
             "aliases": [],
@@ -5333,6 +5349,7 @@
         }
       ],
       "relatedRequirements": [
+        "cli/publish/authorization-resumes-the-exact-publication",
         "cli/publish/archive-inventory-matches-published-bytes",
         "cli/publish/archives-satisfy-distribution-contract",
         "cli/publish/ignore-patterns-have-declared-path-semantics",
@@ -5346,6 +5363,10 @@
         "cli/publish/uploads-the-reviewed-publication-set"
       ],
       "parameterBindings": [
+        {
+          "parameters": ["flag:authorization-request", "flag:wait-for-human"],
+          "requirements": ["cli/publish/authorization-resumes-the-exact-publication"]
+        },
         {
           "parameters": ["argument:extension"],
           "requirements": [
@@ -7818,6 +7839,22 @@
     "token create": {
       "flags": [
         {
+          "name": "step-up-request",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "wait-for-human",
+          "rawHelp": {
+            "aliases": [],
+            "type": "integer",
+            "required": false
+          }
+        },
+        {
           "name": "name",
           "rawHelp": {
             "aliases": [],
@@ -7897,7 +7934,8 @@
       "arguments": [],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
-        "cli/token/completes-required-human-verification"
+        "cli/token/completes-required-human-verification",
+        "cli/unattended-verification-is-resumable"
       ],
       "conditionalLinks": [
         {
@@ -7910,6 +7948,13 @@
         }
       ],
       "parameterBindings": [
+        {
+          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
+          "requirements": [
+            "cli/token/completes-required-human-verification",
+            "cli/unattended-verification-is-resumable"
+          ]
+        },
         {
           "parameters": [
             "flag:name",
@@ -7949,7 +7994,24 @@
       "parameterBindings": []
     },
     "token revoke": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "step-up-request",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "wait-for-human",
+          "rawHelp": {
+            "aliases": [],
+            "type": "integer",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "id",
@@ -7960,7 +8022,11 @@
           }
         }
       ],
-      "relatedRequirements": ["cli/credentials-follow-explicit-source-precedence"],
+      "relatedRequirements": [
+        "cli/credentials-follow-explicit-source-precedence",
+        "cli/token/completes-required-human-verification",
+        "cli/unattended-verification-is-resumable"
+      ],
       "conditionalLinks": [
         {
           "requirement": "cli/credentials-stay-with-their-registry",
@@ -7972,6 +8038,13 @@
         }
       ],
       "parameterBindings": [
+        {
+          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
+          "requirements": [
+            "cli/token/completes-required-human-verification",
+            "cli/unattended-verification-is-resumable"
+          ]
+        },
         {
           "parameters": ["argument:id"],
           "requirements": [
@@ -8060,7 +8133,24 @@
       ]
     },
     "unyank": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "step-up-request",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "wait-for-human",
+          "rawHelp": {
+            "aliases": [],
+            "type": "integer",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "extension",
@@ -8071,8 +8161,18 @@
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/registry-writes-complete-required-verification",
+        "cli/unattended-verification-is-resumable"
+      ],
       "parameterBindings": [
+        {
+          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
+          "requirements": [
+            "cli/registry-writes-complete-required-verification",
+            "cli/unattended-verification-is-resumable"
+          ]
+        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/unyank/requires-an-exact-version"],
@@ -8412,7 +8512,24 @@
       "parameterBindings": []
     },
     "visibility reconcile": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "step-up-request",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "wait-for-human",
+          "rawHelp": {
+            "aliases": [],
+            "type": "integer",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "extension",
@@ -8423,8 +8540,18 @@
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/registry-writes-complete-required-verification",
+        "cli/unattended-verification-is-resumable"
+      ],
       "parameterBindings": [
+        {
+          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
+          "requirements": [
+            "cli/registry-writes-complete-required-verification",
+            "cli/unattended-verification-is-resumable"
+          ]
+        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/visibility/reconcile/applies-declared-repository-intent"],
@@ -8433,7 +8560,24 @@
       ]
     },
     "visibility set": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "step-up-request",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "wait-for-human",
+          "rawHelp": {
+            "aliases": [],
+            "type": "integer",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "extension",
@@ -8452,8 +8596,18 @@
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/registry-writes-complete-required-verification",
+        "cli/unattended-verification-is-resumable"
+      ],
       "parameterBindings": [
+        {
+          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
+          "requirements": [
+            "cli/registry-writes-complete-required-verification",
+            "cli/unattended-verification-is-resumable"
+          ]
+        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/visibility/set/uses-explicit-intent-and-observed-revision"],
@@ -8512,6 +8666,22 @@
     "yank": {
       "flags": [
         {
+          "name": "step-up-request",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "wait-for-human",
+          "rawHelp": {
+            "aliases": [],
+            "type": "integer",
+            "required": false
+          }
+        },
+        {
           "name": "all-versions",
           "rawHelp": {
             "aliases": [],
@@ -8546,8 +8716,18 @@
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/registry-writes-complete-required-verification",
+        "cli/unattended-verification-is-resumable"
+      ],
       "parameterBindings": [
+        {
+          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
+          "requirements": [
+            "cli/registry-writes-complete-required-verification",
+            "cli/unattended-verification-is-resumable"
+          ]
+        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/yank/submits-the-requested-version-selection"],

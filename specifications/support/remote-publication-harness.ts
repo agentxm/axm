@@ -1,4 +1,8 @@
-import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-auth/testing";
+import {
+  AuthClientTest,
+  DeviceLoginInteractionTest,
+  PendingPublishAuthorizationStoreTest,
+} from "@agentxm/registry-auth/testing";
 /** Real publish preparation, loopback authorization, upload adapters and settlement over controlled Registry responses. */
 import * as crypto from "node:crypto";
 import * as NodeHttp from "node:http";
@@ -42,10 +46,11 @@ export const makeRemotePublicationContext = (
   } = {},
 ) =>
   Effect.gen(function* () {
+    const machine = options.workspace?.machine ?? true;
     const workspace = makeSpecWorkspace({
       ...options.workspace,
-      machine: options.workspace?.machine ?? true,
-      flags: { nonInteractive: false, json: options.workspace?.machine ?? true },
+      machine,
+      flags: { nonInteractive: false, json: machine },
     });
     const callbacks = new Set<NodeHttp.ClientRequest>();
     const timers = new Set<ReturnType<typeof setTimeout>>();
@@ -66,88 +71,101 @@ export const makeRemotePublicationContext = (
       return authorizationRequest;
     };
     const visibility = { value: "private", disposition: "establish", source: "explicit" } as const;
+    const exchangeApproved = () =>
+      Effect.sync(() => {
+        const candidates = authorized().publicationSet.candidates;
+        const setDigest = publicationSetDigest(candidates);
+        return {
+          status: "admitted" as const,
+          preview: {
+            contract: "publication-set-v2" as const,
+            publicationSetDigest: setDigest,
+            status: "admitted" as const,
+            candidates: candidates.map((candidate) => ({
+              kind: "resolved" as const,
+              target: candidate.target,
+              participation: candidate.participation,
+              descriptorDigest: publicationDescriptorDigest(candidate),
+              visibility: {
+                target: formatFqn(candidate.target),
+                intent: candidate.visibility.intent,
+                request: candidate.visibility.request,
+                resolved: visibility,
+                actual: null,
+                comparison: "not-established" as const,
+                findings: [],
+              },
+              condition: publicationCondition,
+            })),
+            packs: candidates.flatMap((candidate) =>
+              candidate.pack === undefined
+                ? []
+                : [
+                    {
+                      target: candidate.target,
+                      status: "admitted" as const,
+                      findings: [],
+                      resolutions: candidate.pack.dependencies.map((dependency) => {
+                        const selected = candidates.find(
+                          (item) => formatFqn(item.target) === formatFqn(dependency),
+                        );
+                        if (selected === undefined)
+                          throw new Error(
+                            "Remote publication fixture requires an authored selected dependency",
+                          );
+                        return { dependency, effectiveVersion: selected.target.version };
+                      }),
+                    },
+                  ],
+            ),
+          },
+          grants: candidates
+            .filter((candidate) => candidate.participation === "publish")
+            .map((candidate) => ({
+              accessToken: publicationCapability,
+              expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
+              scope: "extensions:publish:new",
+              publishRequestId: "pubreq_01h455vb4pexka56gq5w2r7cpc",
+              visibilityContract: "v2" as const,
+              visibility,
+              condition: publicationCondition,
+              publicationSetDigest: setDigest,
+              publicationDescriptorDigest: publicationDescriptorDigest(candidate),
+            })),
+        };
+      });
     const auth = AuthClientTest({
       createPublishAuthorizationRequest: (request) =>
         Effect.gen(function* () {
           authorizationRequest = request;
           if (options.beforeAuthorization !== undefined) yield* options.beforeAuthorization;
           return {
-            requestId: "pubreq_specification",
-            authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_specification",
+            requestId: "pubreq_01h455vb4pexka56gq5w2r7cpc",
+            authorizationUrl:
+              "https://agentxm.ai/publish/authorize/pubreq_01h455vb4pexka56gq5w2r7cpc",
+            interval: 2,
             expiresAt: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
           };
         }),
-      exchangePublishAuthorizationCode: () =>
-        Effect.sync(() => {
-          const candidates = authorized().publicationSet.candidates;
-          const setDigest = publicationSetDigest(candidates);
-          return {
-            status: "admitted" as const,
-            preview: {
-              contract: "publication-set-v2" as const,
-              publicationSetDigest: setDigest,
-              status: "admitted" as const,
-              candidates: candidates.map((candidate) => ({
-                kind: "resolved" as const,
-                target: candidate.target,
-                participation: candidate.participation,
-                descriptorDigest: publicationDescriptorDigest(candidate),
-                visibility: {
-                  target: formatFqn(candidate.target),
-                  intent: candidate.visibility.intent,
-                  request: candidate.visibility.request,
-                  resolved: visibility,
-                  actual: null,
-                  comparison: "not-established" as const,
-                  findings: [],
-                },
-                condition: publicationCondition,
-              })),
-              packs: candidates.flatMap((candidate) =>
-                candidate.pack === undefined
-                  ? []
-                  : [
-                      {
-                        target: candidate.target,
-                        status: "admitted" as const,
-                        findings: [],
-                        resolutions: candidate.pack.dependencies.map((dependency) => {
-                          const selected = candidates.find(
-                            (item) => formatFqn(item.target) === formatFqn(dependency),
-                          );
-                          if (selected === undefined)
-                            throw new Error(
-                              "Remote publication fixture requires an authored selected dependency",
-                            );
-                          return { dependency, effectiveVersion: selected.target.version };
-                        }),
-                      },
-                    ],
-              ),
-            },
-            grants: candidates
-              .filter((candidate) => candidate.participation === "publish")
-              .map((candidate) => ({
-                accessToken: publicationCapability,
-                expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
-                scope: "extensions:publish:new",
-                publishRequestId: "pubreq_specification",
-                visibilityContract: "v2" as const,
-                visibility,
-                condition: publicationCondition,
-                publicationSetDigest: setDigest,
-                publicationDescriptorDigest: publicationDescriptorDigest(candidate),
-              })),
-          };
+      exchangePublishAuthorizationCode: exchangeApproved,
+      exchangePublishAuthorization: exchangeApproved,
+      pollPublishAuthorization: () =>
+        Effect.succeed({
+          purpose: "publish",
+          status: "approved",
+          expires_at: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
+          interval: 2,
+          publication_set_digest: publicationSetDigest(authorized().publicationSet.candidates),
         }),
     });
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () =>
         Effect.sync(() => {
           const request = authorized();
-          const callback = new URL(request.redirectUri);
+          if (request.delivery.kind !== "loopback") throw new Error("Expected loopback delivery");
+          const callback = new URL(request.delivery.redirect_uri);
           callback.searchParams.set("code", "SYNTHETIC_PUBLISH_CALLBACK_CODE");
-          callback.searchParams.set("state", request.state);
+          callback.searchParams.set("state", request.delivery.state);
           callback.searchParams.set("iss", "https://agentxm.ai");
           const timer = setTimeout(() => {
             timers.delete(timer);
@@ -203,6 +221,7 @@ export const makeRemotePublicationContext = (
       }),
     );
     const layer = Layer.mergeAll(
+      PendingPublishAuthorizationStoreTest(),
       workspace.layer,
       auth,
       interaction.layer,
@@ -213,6 +232,7 @@ export const makeRemotePublicationContext = (
       handleRootPublish(
         publishArgs(remotePublicationRegistry, {
           preview: false,
+          ...(machine ? { waitForHumanSeconds: 60 } : {}),
           visibility: Option.some("private"),
           ...overrides,
         }),

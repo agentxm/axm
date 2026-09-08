@@ -1592,6 +1592,33 @@ programmatic interfaces, and supporting system behavior.
 
 #### Login
 
+##### Browser sign-in completion follows saved credentials
+
+- Requirement: `cli/login/browser-completion-follows-credential-persistence`
+- Statement: For loopback sign-in, AXM shall report browser completion only after issuer validation, successful code exchange, and credential persistence, reporting callback receipt while finishing and terminal recovery on failure.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The examples observe the streamed response from the real loopback HTTP listener while exchange and credential storage are controlled through their services.
+- Methods: example
+- Derived from: `packages/registry-auth/src/loopback-login.ts`
+- Limitation: The HTTP evidence does not establish visual rendering or a real identity-provider round trip. Retires when: Record browser verification of the provider, callback, and terminal result.
+- Source: [`specifications/cli/login/browser-completion-follows-credential-persistence.spec.ts`](../specifications/cli/login/browser-completion-follows-credential-persistence.spec.ts)
+
+##### Browser sign-in uses the paired local web surface
+
+- Requirement: `cli/login/browser-sign-in-uses-the-local-web-surface`
+- Statement: When AXM signs in through a loopback flow against a supported local registry port, it shall open the authorization request on the paired local web surface and validate the callback issuer against that same origin.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/registry-auth/src/auth-client.ts`
+- Limitation: The examples establish local origin selection but do not establish browser launch, callback exchange, or credential persistence. Retires when: Combine these examples with live loopback journey evidence and the browser-completion specification.
+- Source: [`specifications/cli/login/browser-sign-in-uses-the-local-web-surface.spec.ts`](../specifications/cli/login/browser-sign-in-uses-the-local-web-surface.spec.ts)
+
 ##### Login preapproval starts a new sign-in over a valid session in every mode
 
 - Requirement: `cli/login/preapproval-requests-new-sign-in`
@@ -2358,6 +2385,18 @@ programmatic interfaces, and supporting system behavior.
 - Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/cli/src/root/publish/command.ts`
 - Source: [`specifications/cli/publish/archives-satisfy-distribution-contract.spec.ts`](../specifications/cli/publish/archives-satisfy-distribution-contract.spec.ts)
 
+##### Publish authorization resumes the exact reviewed publication
+
+- Requirement: `cli/publish/authorization-resumes-the-exact-publication`
+- Statement: For JSON or unattended publish without existing publication authority, AXM shall persist a private initiator proof and return the existing pending-human error envelope with purpose publish, Registry, public request reference, verification URL, expiry, interval and resume instruction, exiting 13 without waiting or uploading. --authorization-request URL shall resume only that same request with unchanged publication material and locally retained proof; --wait-for-human SECONDS shall select a positive bounded wait and exit 16 with the same handoff when the wait expires. Resume shall reject changed Registry, purpose, archives or visibility before exchange, exchange only an approved request, and require explicit recovery for denial, expiry or prior exchange without silently replacing requests or replaying uploads.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `privacy-and-consent`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Limitation: These cases control the Registry boundary and exercise the authorization adapter and error renderer; the server owns approval and atomic exchange enforcement, and full publish command evidence separately covers upload settlement. Retires when: Coordinated end-to-end evidence binds persisted CLI resume, server approval and publication outcome recovery.
+- Source: [`specifications/cli/publish/authorization-resumes-the-exact-publication.spec.ts`](../specifications/cli/publish/authorization-resumes-the-exact-publication.spec.ts)
+
 ##### Pack dependency inclusion adds only workspace-authored members
 
 - Requirement: `cli/publish/dependency-inclusion-adds-only-authored-pack-members`
@@ -2446,7 +2485,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Publish preview reports the admitted publication set without distributing anything
 
 - Requirement: `cli/publish/preview-is-pure`
-- Statement: When publish runs in preview mode, it shall report the admitted publication set with no execution and shall not upload anything to the target registry or change settings, the lockfile, or authored content.
+- Statement: When publish runs in preview mode, AXM shall report the admitted publication set or identify missing exact-publication authorization with a next action for the same selection, without creating authorization, uploading anything to the target registry, or changing settings, the lockfile, or authored content.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `trustworthy-distribution`
@@ -2563,7 +2602,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Challenged Registry writes complete the required verification before retrying
 
 - Requirement: `cli/registry-writes-complete-required-verification`
-- Statement: When yank, unyank, visibility set, or visibility reconcile receives a human-verification challenge, AXM shall present the action, target and verification URL, wait for that challenge's completion, retry the same mutation at most once with its verification identifier while preserving any observed revision, and report no success if verification or the retry fails.
+- Statement: When an interactive yank, unyank, visibility set, or visibility reconcile command, or one explicitly requesting a bounded wait, receives a human-verification challenge, AXM shall present the action, target and verification URL, wait for that challenge's completion within its lifetime and the requested wait bound, retry the same mutation at most once with its verification identifier while preserving any observed revision, and report no success if verification or the retry fails.
 - Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`, `safe-repetition`
@@ -3074,7 +3113,7 @@ programmatic interfaces, and supporting system behavior.
 ##### Token administration waits for required human verification
 
 - Requirement: `cli/token/completes-required-human-verification`
-- Statement: When the Registry requires human verification for token creation or revocation, AXM shall present the verification action, wait for its approval, and retry the unchanged request with that verification identifier only after approval, without opening a browser in machine mode.
+- Statement: When the Registry requires human verification for token creation or revocation and machine mode explicitly requests a positive bounded wait, AXM shall present the verification action, wait within that bound, and retry the unchanged request with that verification identifier only after approval, without opening a browser.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -3148,6 +3187,21 @@ programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Derived from: `packages/cli/src/root/shared/extension-show.internal.test.ts`, `packages/cli/src/root/shared/extension-show.ts`
 - Source: [`specifications/cli/type-shows-report-missing-entries.spec.ts`](../specifications/cli/type-shows-report-missing-entries.spec.ts)
+
+#### Unattended Verification Is Resumable
+
+##### Unattended verification returns the same resumable request
+
+- Requirement: `cli/unattended-verification-is-resumable`
+- Statement: When a Registry write requires human verification in JSON or noninteractive mode, AXM shall return a pending-human action immediately unless a bounded wait was explicitly requested, identify its purpose, Registry, nonsecret request reference, verification URL, expiry, polling interval and resume instruction, and resume only that request through --step-up-request URL with the original inputs without creating a replacement or performing the write before verification; --wait-for-human SECONDS shall select the positive bounded wait, and the existing JSON error envelope shall report ok=false with exit 13 for pending verification or exit 16 when that wait elapses.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `privacy-and-consent`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `cli/registry-writes-complete-required-verification`
+- Limitation: The Registry boundary is controlled; server-side action, actor and intent binding enforcement is outside this CLI evidence. Retires when: Deployed Registry conformance evidence verifies rejection of altered action, actor and intent bindings.
+- Source: [`specifications/cli/unattended-verification-is-resumable.spec.ts`](../specifications/cli/unattended-verification-is-resumable.spec.ts)
 
 #### Undeprecate
 

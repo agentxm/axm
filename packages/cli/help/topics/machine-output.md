@@ -159,9 +159,10 @@ optional error-envelope fields are:
   `problemCode`, and redacted `body`;
 - `metadata.requestPolicy`: `retryable`, `attemptCount`, `maxAttempts`,
   `exhausted`, `replaySafety`, and optional `stoppedBy`;
-- `blockedOn: "human"`: the command requires a person to continue;
-- `action`: an `open-url` action with `url` and optional `code`, `expiresAt`,
-  and `resume` fields; and
+- `status: "pending-human"`, `retryable`, and `blockedOn: "human"`: the command is waiting for a person and can resume;
+- `action`: an `open-url` action; human handoffs include `purpose`,
+  `requestRef`, `registryUrl`, `url`, `expiresAt`, `intervalSeconds`, and
+  `resume`, with `fallbackUrl` and `code` for device sign-in; and
 - `suggestions[]`: typed recovery actions with a description and optional
   command or URL.
 
@@ -173,6 +174,72 @@ needs a person uses exit 13 with `code: "auth_required"` and
 
 Normal, verbose, and debug error surfaces redact credentials from metadata,
 response bodies, causes, stacks, URLs, suggestions, and telemetry.
+
+## Human verification and resume
+
+An unattended Registry write (`--json` or `--non-interactive`) returns its
+pending verification immediately. It does not open a browser, wait for the
+person, or retry the challenged write. Its existing error envelope has
+`ok: false`, `code: "auth_required"`, `status: "pending-human"`,
+`blockedOn: "human"`, and exit 13. The `action` identifies the request and
+contains the browser URL and resume instructions.
+
+Open `action.url`, verify the displayed action and target, then rerun the same
+command with its original inputs and `--step-up-request` set to
+`action.requestRef`:
+
+```sh
+axm unyank @acme/skills/review@1.2.3 --json
+axm unyank @acme/skills/review@1.2.3 --json \
+  --step-up-request 'https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc'
+```
+
+The reference above is illustrative; use the exact value returned for your
+request. Resume first checks that request on the selected Registry. Pending
+verification returns the same handoff, verified evidence permits one attempt
+through the original command, and terminal requests are never silently
+replaced. Changed inputs remain subject to the Registry's intent-binding
+checks. A request reference is not a credential or authorization proof.
+
+Add `--wait-for-human 60` to wait for at most 60 seconds, bounded further by
+the request expiry. A wait timeout returns the same pending action with
+`code: "timeout"` and exit 16. Expiry uses exit 14; cancellation uses exit 15.
+An already consumed request requires checking the earlier action's outcome.
+Existing login credentials remain in place throughout this handoff.
+
+Device sign-in uses `axm login --device-code --json` to start or re-emit the
+matching pending request. Its successful initiation returns `ok: true`, exit 0,
+and `result.status: "pending-human"`; this means the handoff is available,
+not that credentials were stored. Resume it with `axm login --wait --json`,
+optionally adding `--timeout 60`. The `action` uses `purpose: "login"` and
+includes both the complete browser link and the clean fallback URL and code.
+Keep the same Registry and scopes. `--restart` explicitly replaces a pending
+sign-in; repeating initiation does not.
+
+Publish without existing publication authority uses the same pending-human
+error envelope, with `action.purpose: "publish"` and exit 13:
+
+```sh
+axm publish @acme/skills/review --json
+axm publish @acme/skills/review --json \
+  --authorization-request 'https://registry.agentxm.ai/v1/auth/publish-requests/pubreq_01h455vb4pexka56gq5w2r7cpc'
+```
+
+Use the exact returned `action.requestRef`; the URL above is illustrative.
+Keep the original command inputs and local AXM user home. AXM retains a private
+proof there so a later process can resume the request. Copying its public URL to
+another machine does not transfer that proof. Changed archive bytes, publication
+membership, visibility inputs, or Registry require a new review.
+
+Add `--wait-for-human 60` for a bounded wait. Approval authorizes the reviewed
+publication; check the final `publish-result-v3` document to determine which
+uploads completed. If approval was already exchanged, follow the explicit
+recovery instruction to verify publication outcomes before requesting fresh
+consent. AXM does not silently replace the request or replay uploads.
+
+Interactive Registry writes open the verification page and retry once after
+verification. The browser's approval page and the originating command report
+different milestones: read the final command result to establish completion.
 
 ## Registry request recovery
 

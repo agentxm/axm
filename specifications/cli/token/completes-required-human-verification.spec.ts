@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/token/completes-required-human-verification",
   title: "Token administration waits for required human verification",
   statement:
-    "When the Registry requires human verification for token creation or revocation, AXM shall present the verification action, wait for its approval, and retry the unchanged request with that verification identifier only after approval, without opening a browser in machine mode.",
+    "When the Registry requires human verification for token creation or revocation and machine mode explicitly requests a positive bounded wait, AXM shall present the verification action, wait within that bound, and retry the unchanged request with that verification identifier only after approval, without opening a browser.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -38,9 +38,10 @@ describe("Required human verification", () => {
     for (const approved of [true, false]) {
       it.effect(`${command}: ${approved ? "approved" : "denied"}`, () => {
         const stepUp = {
-          requestId: "fixture-verification",
+          requestId: "step_fixtureverification",
           verificationUrl: "https://identity.example.test/verify/fixture-verification",
-          statusUrl: "https://registry.example.test/verification/fixture-verification",
+          statusUrl:
+            "https://registry.example.test/v1/auth/step-up/requests/step_fixtureverification",
           expiresAt: "2099-01-01T00:00:00.000Z",
           intervalSeconds: 1,
           action: command === "create" ? "Create access token" : "Revoke access token",
@@ -72,6 +73,7 @@ describe("Required human verification", () => {
           });
         const context = makeAuthSpecContext({
           credentials: authCredentialFile,
+          flags: { waitForHuman: 60 },
           auth: {
             createToken: (token, params, options) =>
               checkVerification(token, params, options?.stepUpRequestId).pipe(

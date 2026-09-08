@@ -24,6 +24,9 @@ const isSensitiveKey = (key: string): boolean => {
     normalized === "cookie" ||
     normalized === "setcookie" ||
     normalized === "privatekey" ||
+    normalized === "initiatorproof" ||
+    normalized === "codeverifier" ||
+    normalized === "devicecode" ||
     normalized === "credential"
   );
 };
@@ -42,11 +45,11 @@ export const redactSensitiveText = (
   let output = input
     .replaceAll(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, `$1 ${REDACTED}`)
     .replaceAll(
-      /([?&](?:access_token|refresh_token|token|api_key|apikey|key|secret|password|code)=)[^&#\s]*/gi,
+      /([?&](?:access_token|refresh_token|token|api_key|apikey|key|secret|password|code|initiator_proof|code_verifier|device_code)=)[^&#\s]*/gi,
       `$1${REDACTED}`,
     )
     .replaceAll(
-      /((?:access_token|refresh_token|step_up_token|token|api_key|apikey|client_secret|secret|password|authorization)\s*[:=]\s*["']?)[^"',\s&}]+/gi,
+      /((?:access_token|refresh_token|step_up_token|token|api_key|apikey|client_secret|secret|password|authorization|initiator_?proof|code_?verifier|device_?code)["']?\s*[:=]\s*["']?)[^"',\s&}]+/gi,
       `$1${REDACTED}`,
     )
     .replaceAll(/\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, REDACTED)

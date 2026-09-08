@@ -31,7 +31,7 @@ export const specification = defineSpecification({
   requirement: "cli/registry-writes-complete-required-verification",
   title: "Challenged Registry writes complete the required verification before retrying",
   statement:
-    "When yank, unyank, visibility set, or visibility reconcile receives a human-verification challenge, AXM shall present the action, target and verification URL, wait for that challenge's completion, retry the same mutation at most once with its verification identifier while preserving any observed revision, and report no success if verification or the retry fails.",
+    "When an interactive yank, unyank, visibility set, or visibility reconcile command, or one explicitly requesting a bounded wait, receives a human-verification challenge, AXM shall present the action, target and verification URL, wait for that challenge's completion within its lifetime and the requested wait bound, retry the same mutation at most once with its verification identifier while preserving any observed revision, and report no success if verification or the retry fails.",
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent", "safe-repetition"],
@@ -90,6 +90,7 @@ describe("Registry mutation verification", () => {
                 : versionLifecycleResponse(command === "yank");
             },
             {
+              flags: { waitForHuman: 60 },
               auth: {
                 waitForStepUpRequest: (token, url, interval) => {
                   waits.push({ token, url, interval });

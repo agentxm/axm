@@ -1,3 +1,4 @@
+import { humanVerificationFlags, withHumanVerificationOptions } from "../../cli-flags/index.js";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -41,12 +42,14 @@ const statusCommandWithExamples = statusCommand.pipe(
 );
 
 const setConfig = {
+  ...humanVerificationFlags,
   fqn: targetArgument,
   visibility: Argument.choice("visibility", ["public", "private"] as const),
 } as const;
 const setCommand = Command.make("set", setConfig, ({ fqn, visibility }) =>
   handleVisibilitySet(fqn, visibility).pipe(withRuntime("visibility set")),
 ).pipe(
+  withHumanVerificationOptions,
   withArgvTracking(setConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Set established Registry visibility"),
@@ -60,13 +63,17 @@ const setCommandWithExamples = setCommand.pipe(
   ]),
 );
 
-const reconcileConfig = { fqn: targetArgument } as const;
+const reconcileConfig = {
+  ...humanVerificationFlags,
+  fqn: targetArgument,
+} as const;
 const reconcileCommand = Command.make("reconcile", reconcileConfig, ({ fqn }) =>
   handleVisibilityReconcile(fqn).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
     withRuntime("visibility reconcile"),
   ),
 ).pipe(
+  withHumanVerificationOptions,
   withArgvTracking(reconcileConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Apply repository visibility intent to the Registry"),

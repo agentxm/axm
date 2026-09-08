@@ -1,3 +1,4 @@
+import type { HumanHandoffAction } from "@agentxm/registry-protocol/unstable/human-handoff";
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 
@@ -242,14 +243,16 @@ export type AppErrorMetadata = {
   };
 };
 
-export type AppErrorAction = {
-  readonly kind: "open-url";
-  readonly url: string;
-  readonly fallbackUrl?: string;
-  readonly code?: string;
-  readonly expiresAt?: string;
-  readonly resume?: string;
-};
+export type AppErrorAction =
+  | HumanHandoffAction
+  | {
+      readonly kind: "open-url";
+      readonly url: string;
+      readonly fallbackUrl?: string;
+      readonly code?: string;
+      readonly expiresAt?: string;
+      readonly resume?: string;
+    };
 
 const LockfileVersionNumberSchema = Schema.Int.pipe(
   Schema.check(

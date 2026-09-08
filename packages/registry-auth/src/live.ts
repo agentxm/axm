@@ -11,3 +11,5 @@ export { AuthMiddlewareLive, makeAuthMiddlewareLive } from "./auth-middleware.js
 export { CredentialStoreLive, CredentialStoreSessionLive } from "./credential-store.js";
 export { AuthLoginInteractionLive } from "./login-interaction.js";
 export { PendingDeviceLoginStoreLive } from "./pending-device-login-store.js";
+
+export { PendingPublishAuthorizationStoreLive } from "./pending-publish-authorization-store.js";

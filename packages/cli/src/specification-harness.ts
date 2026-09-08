@@ -248,7 +248,12 @@ export {
   ResolvePlanInteractionLive,
   getOperationExitCode,
 } from "./cli-runtime/index.js";
-export { NAMED_OVERRIDE_POLICIES, TestFlagsLayer, Verbosity } from "./cli-flags/index.js";
+export {
+  HumanVerificationOptions,
+  NAMED_OVERRIDE_POLICIES,
+  TestFlagsLayer,
+  Verbosity,
+} from "./cli-flags/index.js";
 export {
   FrameLive,
   OutputStreams,
@@ -314,13 +319,20 @@ export {
 } from "./cli-runtime/telemetry.js";
 export {
   PendingDeviceLoginStore,
+  PendingPublishAuthorizationStore,
+  PublishAuthorizationPending,
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
   RegistryAuthFailed,
   StepUpRequired,
   resolveRequestToken,
+  runLoopbackLogin,
+  runPublishAuthorization,
+  type AuthClientService,
   type CredentialFile,
   type PendingDeviceLogin,
+  type PendingPublishAuthorization,
+  type PublishAuthorizationExchangeResponse,
 } from "@agentxm/registry-auth";
 
 export { handleKnowledgeConceptSearch } from "./root/knowledge/concepts/search.js";
@@ -381,3 +393,5 @@ export { mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 // Production environment and startup boundaries for environment specifications.
 export { runtimeBaseLayer, resolveBuiltInSources } from "./runtime.js";
 export { withUpdateCheck } from "./update-check-startup.js";
+
+export { authFailureToAppError } from "./feature-errors.js";

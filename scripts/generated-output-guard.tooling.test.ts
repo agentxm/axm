@@ -4,7 +4,9 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
+  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -15,6 +17,7 @@ import {
   collectGeneratedOutputs,
   findGeneratedOutputDrift,
   findGeneratedOutputDriftWithoutMutation,
+  mirrorNodeModules,
 } from "./generated-output-guard.js";
 
 const temporaryDirectories: Array<string> = [];
@@ -63,6 +66,29 @@ afterEach(() => {
 });
 
 describe("generated output guard", () => {
+  it("keeps workspace dependency links inside the snapshot while sharing the external store", () => {
+    const source = mkdtempSync(join(tmpdir(), "axm-generated-modules-source-"));
+    const snapshot = mkdtempSync(join(tmpdir(), "axm-generated-modules-snapshot-"));
+    temporaryDirectories.push(source, snapshot);
+    mkdirSync(join(source, "node_modules", ".pnpm"), { recursive: true });
+    mkdirSync(join(source, "node_modules", "@agentxm"));
+    mkdirSync(join(source, "packages", "extension-model"), { recursive: true });
+    mkdirSync(join(snapshot, "packages", "extension-model"), { recursive: true });
+    symlinkSync(
+      "../../packages/extension-model",
+      join(source, "node_modules", "@agentxm", "extension-model"),
+    );
+
+    mirrorNodeModules(join(source, "node_modules"), join(snapshot, "node_modules"));
+
+    expect(realpathSync(join(snapshot, "node_modules", "@agentxm", "extension-model"))).toBe(
+      realpathSync(join(snapshot, "packages", "extension-model")),
+    );
+    expect(realpathSync(join(snapshot, "node_modules", ".pnpm"))).toBe(
+      realpathSync(join(source, "node_modules", ".pnpm")),
+    );
+  });
+
   it("derives owned outputs from a generate target and its local generator dependencies", () => {
     const outputs = collectGeneratedOutputs({
       name: "client",

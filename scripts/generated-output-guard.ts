@@ -165,6 +165,23 @@ export const findGeneratedOutputDrift = (
 const gitEnvironment = (): NodeJS.ProcessEnv =>
   Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
 
+export const mirrorNodeModules = (source: string, destination: string, root = true): void => {
+  mkdirSync(destination, { recursive: true });
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = join(source, entry.name);
+    const destinationPath = join(destination, entry.name);
+    if (root && entry.name === ".pnpm") {
+      symlinkSync(sourcePath, destinationPath, process.platform === "win32" ? "junction" : "dir");
+    } else if (entry.isSymbolicLink()) {
+      symlinkSync(readlinkSync(sourcePath), destinationPath);
+    } else if (entry.isDirectory()) {
+      mirrorNodeModules(sourcePath, destinationPath, false);
+    } else {
+      cpSync(sourcePath, destinationPath, { preserveTimestamps: true });
+    }
+  }
+};
+
 const copyWorkspaceSnapshot = (workspaceRoot: string, snapshotRoot: string): void => {
   const files = runText("git", ["ls-files", "-co", "--exclude-standard", "-z"], workspaceRoot)
     .split("\0")
@@ -190,8 +207,7 @@ const copyWorkspaceSnapshot = (workspaceRoot: string, snapshotRoot: string): voi
     const source = resolve(workspaceRoot, modules);
     const destination = join(snapshotRoot, modules);
     if (!existsSync(source) || existsSync(destination)) continue;
-    mkdirSync(dirname(destination), { recursive: true });
-    symlinkSync(source, destination, process.platform === "win32" ? "junction" : "dir");
+    mirrorNodeModules(source, destination);
   }
   const initialize = spawnSync("git", ["init", "--quiet"], {
     cwd: snapshotRoot,

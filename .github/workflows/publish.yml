@@ -105,6 +105,8 @@ jobs:
               retry_reason="staged version has not propagated"
             elif grep -Fq 'You cannot publish over the previously published versions: ${{ steps.release_meta.outputs.version }}.' release-distribution.log; then
               retry_reason="published version has not propagated"
+            elif grep -Fq "Homebrew formula publication readback failed." release-distribution.log; then
+              retry_reason="Homebrew formula has not propagated"
             else
               exit "$status"
             fi

@@ -1,3 +1,17 @@
+## 0.28.11 (2026-09-08)
+
+### 🩹 Fixes
+
+- Fix hosted development browser sign-in to use the matching authorization web origin and callback issuer.
+- Clarify device authorization scope documentation against the registered client allowlist.
+- Take test worker count from a shared execution profile so hosted runners stay bounded while developer machines use the available cores, and enable the Vitest filesystem module cache.
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Craig Smitham
+- Test
+
 ## 0.28.10 (2026-09-07)
 
 ### 🩹 Fixes

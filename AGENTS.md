@@ -3,6 +3,8 @@
 **A**gent e**X**tension **M**anager — open agent extension manager for skills
 and more.
 
+Use capabilities and configurability offered by our adopted software, infrastructure, and tool supply chain to solve for needs before adding custom code, especially for generic, non-core domain needs.
+
 Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md instructions.
 
 Shared product language and naming live in the

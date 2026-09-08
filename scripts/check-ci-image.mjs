@@ -442,7 +442,7 @@ if (
 // Test worker count is a shared vitest profile, not a per-script flag: a hosted
 // runner and a developer workstation need different values from one contract.
 const testExecutionProfile = read("vitest.execution.ts");
-for (const text of ['process.env["CI"] ? 2 :', "fsModuleCache: true"]) {
+for (const text of ['process.env["CI"] ? 2 :', "fsModuleCache: false"]) {
   requireText(
     testExecutionProfile,
     text,

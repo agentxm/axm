@@ -31,6 +31,11 @@ state in the [specification catalog](../../specifications/catalog.md).
   merged-commit CI remain authoritative.
 - Every project tagged `release:cli` is part of one fixed release group. Their
   versions must match, and publication follows package dependency order.
+- That tag is the only place cohort membership is declared. Release tooling
+  derives the package list, manifest paths, and publication order from it, so
+  tagging a new publishable project is enough — there is no second list to
+  update. A validator that judges a named commit resolves the cohort from that
+  commit rather than from the current checkout.
 - Pending version plans in `.nx/version-plans/*.md` and those package
   manifests are the release version source of truth.
 - Release tags use the `cli-v{SEMVER}` format, for example `cli-v0.1.0`.

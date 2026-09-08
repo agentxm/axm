@@ -39,6 +39,9 @@ const captureWithOptions = (
 ): string =>
   execFileSync(command, [...args], {
     encoding: "utf8",
+    // Release listings (tracked paths at a ref, paginated GitHub responses)
+    // outgrow the 1 MiB default long before they stop being reasonable.
+    maxBuffer: 64 * 1024 * 1024,
     env: options.env ?? process.env,
     ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
   }).trim();

@@ -1,17 +1,10 @@
 import { execFileSync } from "node:child_process";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { RELEASE_COHORT_TAG } from "./release-cohort.js";
 import {
   RELEASE_PACKAGES,
   parseCiArtifacts,
@@ -48,27 +41,20 @@ afterEach(() => {
 });
 
 describe("release tag helpers", () => {
-  it("publishes every release:cli project in dependency order", () => {
-    const releaseNames = RELEASE_PACKAGES.map(({ name }) => name);
-    const releaseOrder = new Map(releaseNames.map((name, index) => [name, index]));
-    const taggedReleaseNames = readdirSync("packages", { withFileTypes: true }).flatMap((entry) => {
-      if (!entry.isDirectory()) return [];
+  it("derives the cohort from the release group nx.json selects", () => {
+    const nxJson = readJsonRecord("nx.json");
+    const release = Reflect.get(nxJson, "release");
+    if (!isRecord(release)) throw new Error("Expected a release configuration in nx.json.");
 
-      const projectPath = join("packages", entry.name, "project.json");
-      const packagePath = join("packages", entry.name, "package.json");
-      if (!existsSync(projectPath) || !existsSync(packagePath)) return [];
+    // Derivation reads the `release:cli` tag directly, so Nx must still select
+    // the release group by that same tag for the two to describe one cohort.
+    expect(Reflect.get(release, "projects")).toEqual([`tag:${RELEASE_COHORT_TAG}`]);
+    expect(Reflect.get(release, "projectsRelationship")).toBe("fixed");
+    expect(RELEASE_PACKAGES.length).toBeGreaterThan(0);
+  });
 
-      const projectJson = readJsonRecord(projectPath);
-      const tags = Reflect.get(projectJson, "tags");
-      if (!Array.isArray(tags) || !tags.includes("release:cli")) return [];
-
-      const packageJson = readJsonRecord(packagePath);
-      const name = Reflect.get(packageJson, "name");
-      if (typeof name !== "string") throw new Error(`Missing package name in ${packagePath}.`);
-      return [name];
-    });
-
-    expect([...releaseNames].sort()).toEqual([...taggedReleaseNames].sort());
+  it("publishes every cohort member after the members its manifest depends on", () => {
+    const releaseOrder = new Map(RELEASE_PACKAGES.map(({ name }, index) => [name, index]));
 
     for (const releasePackage of RELEASE_PACKAGES) {
       const packageJson = readJsonRecord(releasePackage.path);

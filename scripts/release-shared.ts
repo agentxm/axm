@@ -9,137 +9,20 @@ import {
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
 
 import { capture, run, tryCapture } from "./release-command.js";
+import {
+  type ReleasePackage,
+  gitRefSnapshot,
+  resolveReleaseCohort,
+  workingTreeSnapshot,
+} from "./release-cohort.js";
 
 const readEnvWithDefault = (env: NodeJS.ProcessEnv, name: string, fallback: string): string => {
   const value = env[name];
   return typeof value === "string" && value.length > 0 ? value : fallback;
 };
 
-export type ReleasePackage = {
-  readonly name: string;
-  readonly path: string;
-  readonly project: string;
-  readonly tarballPrefix: string;
-};
-
-// Dependency order is intentional: local preview publishing must make every
-// internal dependency available before publishing its consumers.
-export const RELEASE_PACKAGES: readonly ReleasePackage[] = [
-  {
-    name: "@agentxm/extension-model",
-    path: "packages/extension-model/package.json",
-    project: "extension-model",
-    tarballPrefix: "agentxm-extension-model-",
-  },
-  {
-    name: "@agentxm/agent-integration",
-    path: "packages/agent-integration/package.json",
-    project: "agent-integration",
-    tarballPrefix: "agentxm-agent-integration-",
-  },
-  {
-    name: "@agentxm/registry-protocol",
-    path: "packages/registry-protocol/package.json",
-    project: "registry-protocol",
-    tarballPrefix: "agentxm-registry-protocol-",
-  },
-  {
-    name: "@agentxm/knowledge-query",
-    path: "packages/knowledge-query/package.json",
-    project: "knowledge-query",
-    tarballPrefix: "agentxm-knowledge-query-",
-  },
-  {
-    name: "@agentxm/registry-client",
-    path: "packages/registry-client/package.json",
-    project: "registry-client",
-    tarballPrefix: "agentxm-registry-client-",
-  },
-  {
-    name: "@agentxm/workspace-state",
-    path: "packages/workspace-state/package.json",
-    project: "workspace-state",
-    tarballPrefix: "agentxm-workspace-state-",
-  },
-  {
-    name: "@agentxm/extension-sources",
-    path: "packages/extension-sources/package.json",
-    project: "extension-sources",
-    tarballPrefix: "agentxm-extension-sources-",
-  },
-  {
-    name: "@agentxm/registry-auth",
-    path: "packages/registry-auth/package.json",
-    project: "registry-auth",
-    tarballPrefix: "agentxm-registry-auth-",
-  },
-  {
-    name: "@agentxm/workspace-operations",
-    path: "packages/workspace-operations/package.json",
-    project: "workspace-operations",
-    tarballPrefix: "agentxm-workspace-operations-",
-  },
-  {
-    name: "@agentxm/extension-workspace",
-    path: "packages/extension-workspace/package.json",
-    project: "extension-workspace",
-    tarballPrefix: "agentxm-extension-workspace-",
-  },
-  {
-    name: "@agentxm/extension-authoring",
-    path: "packages/extension-authoring/package.json",
-    project: "extension-authoring",
-    tarballPrefix: "agentxm-extension-authoring-",
-  },
-  {
-    name: "@agentxm/extension-discovery",
-    path: "packages/extension-discovery/package.json",
-    project: "extension-discovery",
-    tarballPrefix: "agentxm-extension-discovery-",
-  },
-  {
-    name: "@agentxm/extension-lifecycle",
-    path: "packages/extension-lifecycle/package.json",
-    project: "extension-lifecycle",
-    tarballPrefix: "agentxm-extension-lifecycle-",
-  },
-  {
-    name: "@agentxm/extension-publish",
-    path: "packages/extension-publish/package.json",
-    project: "extension-publish",
-    tarballPrefix: "agentxm-extension-publish-",
-  },
-  {
-    name: "@agentxm/workspace-configuration",
-    path: "packages/workspace-configuration/package.json",
-    project: "workspace-configuration",
-    tarballPrefix: "agentxm-workspace-configuration-",
-  },
-  {
-    name: "@agentxm/workspace-inspection",
-    path: "packages/workspace-inspection/package.json",
-    project: "workspace-inspection",
-    tarballPrefix: "agentxm-workspace-inspection-",
-  },
-  {
-    name: "@agentxm/workspace-lint",
-    path: "packages/workspace-lint/package.json",
-    project: "workspace-lint",
-    tarballPrefix: "agentxm-workspace-lint-",
-  },
-  {
-    name: "@agentxm/workspace-sync",
-    path: "packages/workspace-sync/package.json",
-    project: "workspace-sync",
-    tarballPrefix: "agentxm-workspace-sync-",
-  },
-  {
-    name: "axm.sh",
-    path: "packages/cli/package.json",
-    project: "cli",
-    tarballPrefix: "axm.sh-",
-  },
-];
+export const RELEASE_PACKAGES: readonly ReleasePackage[] =
+  resolveReleaseCohort(workingTreeSnapshot());
 
 export const RELEASE_PACKAGE_JSON_PATHS = RELEASE_PACKAGES.map(({ path }) => path);
 
@@ -147,10 +30,10 @@ export const AXM_SKILL_MANIFEST_PATH = "skills/axm/skill.json";
 export const AXM_SKILL_DOCUMENT_PATH = "skills/axm/src/SKILL.md";
 export const AXM_SKILL_GENERATED_PATH = "packages/cli/src/__generated__/bundled-axm-skill.ts";
 
-const RELEASE_VERSION_JSON_PATHS = [
-  ...RELEASE_PACKAGE_JSON_PATHS,
+const releaseVersionJsonPaths = (packages: readonly ReleasePackage[]): readonly string[] => [
+  ...packages.map(({ path }) => path),
   AXM_SKILL_MANIFEST_PATH,
-] as const;
+];
 
 export type GitHubRun = {
   databaseId: number;
@@ -513,11 +396,9 @@ export const validateGeneratedSkillCompatibility = (
 export const requireMatchingReleasePackageVersions = (): string =>
   failOnReleaseCompatibilityError(() =>
     requireMatchingReleaseCompatibility(
-      [
-        ...RELEASE_VERSION_JSON_PATHS.map(
-          (filePath) => [filePath, readPackageVersion(filePath)] as const,
-        ),
-      ],
+      releaseVersionJsonPaths(RELEASE_PACKAGES).map(
+        (filePath) => [filePath, readPackageVersion(filePath)] as const,
+      ),
       readSkillCompatibility(),
       readGeneratedSkillCompatibility(),
       "working tree",
@@ -527,11 +408,9 @@ export const requireMatchingReleasePackageVersions = (): string =>
 export const requireMatchingReleasePackageVersionsAtRef = (ref: string): string =>
   failOnReleaseCompatibilityError(() =>
     requireMatchingReleaseCompatibility(
-      [
-        ...RELEASE_VERSION_JSON_PATHS.map(
-          (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
-        ),
-      ],
+      releaseVersionJsonPaths(resolveReleaseCohort(gitRefSnapshot(ref))).map(
+        (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
+      ),
       readSkillCompatibilityAtRef(ref),
       readGeneratedSkillCompatibilityAtRef(ref),
       ref,

@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/preview-is-pure",
   title: "Install preview describes the plan without changing any state",
   statement:
-    "When install runs in preview mode, it shall report the planned closure with a previewed outcome, including any publisher change the acceptance would make, and shall not change settings, the lockfile, canonical content, or agent projections.",
+    "When install runs in preview mode, it shall not change settings, the lockfile, canonical content, or agent projections, and, when the request passes the applicable checks and requires workspace changes, it shall report the planned closure with a previewed outcome, including any publisher change the acceptance would make.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],

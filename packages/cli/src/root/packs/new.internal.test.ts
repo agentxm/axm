@@ -182,20 +182,6 @@ describe("packs-new.handler", () => {
   });
 
   describe("owner override", () => {
-    it.effect("rejects an owner override that conflicts with the workspace owner", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
-
-      return provide(
-        Effect.gen(function* () {
-          const error = yield* handlePacksNew(
-            defaultArgs("frontend-tools", { owner: Option.some(handle("@corp")) }),
-          ).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("conflict");
-        }),
-      );
-    });
-
     it.effect("rejects a different normalized owner", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });

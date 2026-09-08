@@ -66,4 +66,65 @@ describe("Cross-type local inventory", () => {
       );
     },
   );
+  it.effect("keeps all seven extension types distinct and selects each type independently", () => {
+    const workspace = makeReadSpecWorkspace({
+      settings: {
+        skills: { example: { source: "@acme/skills/example", enabled: false } },
+        mcps: { example: { source: "@acme/mcps/example", enabled: true } },
+        subagents: { example: { source: "@acme/subagents/example", enabled: true } },
+        rules: { example: { source: "@acme/rules/example", enabled: true } },
+        hooks: { example: { source: "@acme/hooks/example", enabled: true } },
+        knowledge: { example: { source: "@acme/knowledge/example", enabled: true } },
+        packs: { example: { source: "@acme/packs/example", enabled: true } },
+      },
+    });
+    // Repeated names ensure inventory identity includes the extension type.
+    // Missing canonical packages keep this a local desired-state read control.
+    const expected = [
+      { type: "skill", enabled: false },
+      { type: "mcp-server", enabled: true },
+      { type: "subagent", enabled: true },
+      { type: "rule", enabled: true },
+      { type: "hook", enabled: true },
+      { type: "knowledge", enabled: true },
+      { type: "pack", enabled: true },
+    ] as const;
+    return workspace.provide(
+      Effect.gen(function* () {
+        const read = () =>
+          Schema.decodeUnknownSync(Schema.toType(ExtensionListDocumentSchema))(
+            workspace.rendererState.results.at(-1)?.data,
+          );
+        yield* handleList({ type: Option.none(), outdated: false, deprecated: false });
+        const all = read();
+        expect(all).toMatchObject({
+          filter: "all",
+          count: expected.length,
+          totalCount: expected.length,
+        });
+        expect(all.items.map((item) => item.type).sort()).toEqual(
+          expected.map((item) => item.type).sort(),
+        );
+        for (const row of expected) {
+          expect(all.items.find((item) => item.type === row.type)).toMatchObject({
+            ...row,
+            name: "example",
+            management: "configured",
+            installed: false,
+          });
+          yield* handleList({ type: Option.some(row.type), outdated: false, deprecated: false });
+          const selected = read();
+          expect(selected.count).toBe(1);
+          expect(selected.items).toEqual([
+            expect.objectContaining({
+              ...row,
+              name: "example",
+              management: "configured",
+              installed: false,
+            }),
+          ]);
+        }
+      }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
+    );
+  });
 });

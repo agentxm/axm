@@ -327,6 +327,134 @@ describe("collectCatalog", () => {
     expect(markdown).toContain("### Local to AXM");
   });
 
+  it("uses directory ancestry without turning specification filenames into groups", () => {
+    writeSpec(
+      "cli/preserves-unrelated-state.spec.ts",
+      "cli/preserves-unrelated-state",
+      "extension-adoption",
+      `title: "Workspace changes preserve unrelated files",`,
+    );
+    writeSpec(
+      "cli/skills/retains-intent.spec.ts",
+      "cli/skills/retains-intent",
+      "extension-adoption",
+      `title: "Skill commands retain declared intent",`,
+    );
+    writeSpec(
+      "cli/skills/install/realizes-content.spec.ts",
+      "cli/skills/install/realizes-content",
+      "extension-adoption",
+      `title: "Skill installation realizes selected content",`,
+    );
+    writeSpec(
+      "cli/skills/uninstall/removes-content.spec.ts",
+      "cli/skills/uninstall/removes-content",
+      "extension-adoption",
+      `title: "Skill removal clears its acquired content",`,
+    );
+    writeSpec(
+      "cli/knowledge/concepts/get/returns-content.spec.ts",
+      "cli/knowledge/concepts/get/returns-content",
+      "extension-adoption",
+      `title: "Concept reads return canonical text",`,
+    );
+    writeSpec(
+      "extension-identity/retains-type.spec.ts",
+      "extension-identity/retains-type",
+      "extension-adoption",
+      `title: "Extension identities retain their type",`,
+    );
+    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    const markdown = renderCatalogMarkdown(catalog);
+    const headings = markdown.split("\n").filter((line) => /^#{2,6} /u.test(line));
+    expect(headings).toEqual([
+      "## Product behavior",
+      "### CLI",
+      "#### Workspace changes preserve unrelated files",
+      "#### Knowledge",
+      "##### Concepts",
+      "###### Get",
+      "#### Skills",
+      "##### Skill commands retain declared intent",
+      "##### Install",
+      "###### Skill installation realizes selected content",
+      "##### Uninstall",
+      "###### Skill removal clears its acquired content",
+      "### Extension identity",
+      "#### Extension identities retain their type",
+      "## Product goals",
+      "### Shared across AgentXM repositories",
+      "### Local to AXM",
+    ]);
+    expect(markdown).toContain(
+      "**Concept reads return canonical text**\n\n- Requirement: `cli/knowledge/concepts/get/returns-content`",
+    );
+    expect(markdown).not.toMatch(/^#{7,} /mu);
+    for (const entry of catalog.specifications) {
+      expect(markdown.split(`- Requirement: \`${entry.metadata.requirement}\``)).toHaveLength(2);
+      expect(markdown).toContain(`- Source: [\`${entry.source}\`](../${entry.source})`);
+    }
+  });
+
+  it("keeps role sections, goal references and additional evidence attached to their owners", () => {
+    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
+    writeSpec(
+      "cli/machine-result.spec.ts",
+      "cli/machine-result",
+      "extension-adoption",
+      `title: "Machine output identifies the result", role: "interface",`,
+    );
+    writeSpec(
+      "system/process/repetition.spec.ts",
+      "system/process/repetition",
+      "safe-repetition",
+      `title: "Repository changes keep repeatable checks", role: "supporting",`,
+    );
+    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    const markdown = renderCatalogMarkdown({
+      ...catalog,
+      executionBindings: [
+        {
+          requirements: ["cli/machine-result"],
+          boundary: "process",
+          source: "packages/cli-e2e/src/machine.e2e.test.ts",
+          rationale: "Observes the emitted process result.",
+        },
+      ],
+    });
+    expect(markdown).toContain(
+      "## Programmatic interfaces\n\n### CLI\n\n#### Machine output identifies the result",
+    );
+    expect(markdown).toContain(
+      "## Supporting system behavior\n\n### System\n\n#### Process\n\n##### Repository changes keep repeatable checks",
+    );
+    expect(markdown).toContain("- Product goals: `extension-adoption`");
+    expect(markdown).toContain("- Product goals: `safe-repetition`");
+    expect(markdown).toContain("- `safe-repetition` — Reruns are no-ops.");
+    expect(markdown).toContain(
+      "- Additional evidence: process via [`packages/cli-e2e/src/machine.e2e.test.ts`](../packages/cli-e2e/src/machine.e2e.test.ts) — Observes the emitted process result.",
+    );
+    expect(markdown.indexOf("- Requirement: `cli/machine-result`")).toBeLessThan(
+      markdown.indexOf("- Additional evidence: process"),
+    );
+    expect(markdown.indexOf("- Additional evidence: process")).toBeLessThan(
+      markdown.indexOf("## Supporting system behavior"),
+    );
+  });
+
+  it("links the structural inventories without presenting them as behavioral evidence", () => {
+    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
+    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    const markdown = renderCatalogMarkdown(catalog);
+    expect(markdown).toContain(
+      "[Command and parameter inventory](support/command-behavior-allocation.json)",
+    );
+    expect(markdown).toContain("[Context inventory](support/context-allocation.json)");
+    expect(markdown).toContain(
+      "These maps support navigation and structural checks. They do not establish\nsemantic completeness, correct applicability, or passing behavior.",
+    );
+  });
+
   it("renders bound evidence beside its owning requirement", () => {
     const target = path.join(repoRoot, "specifications", "cli", "install", "a.spec.ts");
     fs.writeFileSync(

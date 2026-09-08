@@ -525,6 +525,40 @@ const blockedTargetedUpdate = (
   });
 };
 
+/**
+ * A pack is not classified as a member, so the member-oriented blockers never
+ * see it. Desired state still gates it: updating a pack the workspace never
+ * asked for would acquire the pack and its whole member closure.
+ */
+const blockedUndesiredPack = (
+  intent: RootUpdateIntent,
+  mode: "preview" | "apply",
+): OperationResolution => {
+  const detail = `${intent.target} is not desired by this workspace`;
+  const escape = {
+    description: "Install the pack to create direct workspace intent",
+    cmd: `axm install ${intent.target}`,
+  };
+  return makeOperationResolution({
+    name: `Update ${intent.target}`,
+    description: Option.some(detail),
+    mode,
+    atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+    units: [],
+    presentation: updatePresentation(intent.type),
+    blocking: {
+      class: "precondition-unmet",
+      subject: intent.target,
+      phase: "planning",
+      detail,
+      causeCode: "conflict",
+      reference: "not-desired",
+      escape,
+    },
+    suggestions: [escape],
+  });
+};
+
 const staleOutputContext = (context: TargetedUpdatePublicContext): TargetedUpdatePublicContext => ({
   ...context,
   authority: "blocked",
@@ -552,7 +586,15 @@ const resolveTargetedUpdate = (
 ) =>
   Effect.gen(function* () {
     let targetedContext: TargetedUpdateContext | undefined;
-    if (intent.type !== "pack") {
+    if (intent.type === "pack") {
+      const workspace = yield* WorkspaceMutations;
+      const graph = yield* workspace.getDesiredStateGraph();
+      if (desiredNodeForIntent(graph, intent) === undefined) {
+        return {
+          resolution: blockedUndesiredPack(intent, execution.request.mode),
+        } satisfies TargetedUpdateResolution;
+      }
+    } else {
       targetedContext = yield* resolveTargetedUpdateContext({
         target: { type: intent.type, name: intent.name, fqn: intent.target },
         ...(Option.isNone(intent.versionRange) ? {} : { explicitRange: intent.versionRange.value }),

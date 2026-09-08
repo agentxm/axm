@@ -1,10 +1,18 @@
+import * as path from "node:path";
+
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { handleUninstall, handleUninstallPack } from "axm.sh/specification-harness";
+import {
+  handleUninstall,
+  handleUninstallPack,
+  PlanResolutionDocumentSchema,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 import {
   makePackRetirementWorkspace,
   type PackFixture,
@@ -46,7 +54,7 @@ const latestResult = (fixture: ReturnType<typeof makePackRetirementWorkspace>): 
 const snapshot = (fixture: ReturnType<typeof makePackRetirementWorkspace>, name: string) => ({
   settings: JSON.stringify(fixture.workspace.readSettings()),
   lockfile: fixture.workspace.readLockfileText(),
-  tree: fixture.workspace.snapshotTree(fixture.packDirectory(name)),
+  tree: snapshotWorkspaceContent(path.join(fixture.workspace.root, fixture.packDirectory(name))),
 });
 
 describe("Uninstall a desired pack whose package cannot be read", () => {
@@ -94,9 +102,11 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
         expect(JSON.stringify(fixture.workspace.readSettings())).not.toContain(target.name);
         expect(fixture.workspace.readLockfileText()).not.toContain(target.name);
         // Content whose manifest could not be read is never deleted.
-        expect(fixture.workspace.snapshotTree(fixture.packDirectory(target.name))).toEqual(
-          before.tree,
-        );
+        expect(
+          snapshotWorkspaceContent(
+            path.join(fixture.workspace.root, fixture.packDirectory(target.name)),
+          ),
+        ).toEqual(before.tree);
         expect(before.settings).toContain(target.name);
       }),
   );
@@ -141,9 +151,11 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
 
       expect(latestResult(fixture)).toMatchObject({ result: { outcome: "applied" } });
       expect(JSON.stringify(fixture.workspace.readSettings())).not.toContain(target.name);
-      expect(fixture.workspace.snapshotTree(fixture.packDirectory(target.name))).toEqual(
-        before.tree,
-      );
+      expect(
+        snapshotWorkspaceContent(
+          path.join(fixture.workspace.root, fixture.packDirectory(target.name)),
+        ),
+      ).toEqual(before.tree);
     }),
   );
 
@@ -186,32 +198,45 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
     },
   ];
 
-  it.effect.each(blockedCases)("stays blocked and changes nothing for $label", ({ fixtures }) =>
-    Effect.gen(function* () {
-      const fixture = start(fixtures);
-      const before = snapshot(fixture, "toolkit");
+  for (const route of ["root", "packs"] as const)
+    it.effect.each(blockedCases)(
+      `stays blocked through ${route} and changes nothing for $label`,
+      ({ fixtures }) =>
+        Effect.gen(function* () {
+          const fixture = start(fixtures);
+          for (const pack of fixtures) {
+            expect(
+              fixture.workspace.readFile(path.join(fixture.packDirectory(pack.name), "README.md")),
+            ).toBe(`# ${pack.name}\n`);
+          }
+          const before = snapshotWorkspaceContent(fixture.workspace.root);
 
-      yield* runUninstall(fixture, "packs", "toolkit", "preview");
-      const previewed = latestResult(fixture);
-      yield* runUninstall(fixture, "packs", "toolkit", "apply");
-      const applied = latestResult(fixture);
+          yield* runUninstall(fixture, route, "toolkit", "preview");
+          const previewed = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+            latestResult(fixture),
+          );
+          expect(snapshotWorkspaceContent(fixture.workspace.root)).toEqual(before);
 
-      const blocked = {
-        result: {
-          outcome: "blocked",
-          riskConditions: [
-            expect.objectContaining({
-              level: "blocked",
-              id: "packs/uninstall/desired-state-graph-complete",
-            }),
-          ],
-        },
-      };
-      expect(previewed).toMatchObject(blocked);
-      expect(applied).toMatchObject(blocked);
-      expect(JSON.stringify(fixture.workspace.readSettings())).toBe(before.settings);
-      expect(fixture.workspace.readLockfileText()).toBe(before.lockfile);
-      expect(fixture.workspace.snapshotTree(fixture.packDirectory("toolkit"))).toEqual(before.tree);
-    }),
-  );
+          yield* runUninstall(fixture, route, "toolkit", "apply");
+          const applied = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+            latestResult(fixture),
+          );
+
+          const blocked = {
+            result: {
+              outcome: "blocked",
+              counts: { committed: 0 },
+              riskConditions: [
+                expect.objectContaining({
+                  level: "blocked",
+                  id: "packs/uninstall/desired-state-graph-complete",
+                }),
+              ],
+            },
+          };
+          expect(previewed).toMatchObject(blocked);
+          expect(applied).toMatchObject(blocked);
+          expect(snapshotWorkspaceContent(fixture.workspace.root)).toEqual(before);
+        }),
+    );
 });

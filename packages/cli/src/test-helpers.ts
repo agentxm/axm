@@ -79,6 +79,8 @@ const path = (() => {
 
 export interface TestPromptConfig {
   readonly confirmResponses?: ReadonlyArray<boolean>;
+  /** Observe state at the real confirmation port, before consuming its canned answer. */
+  readonly onConfirmApplyChanges?: () => void;
   readonly multiselectResponses?: ReadonlyArray<ReadonlyArray<string>>;
 }
 
@@ -491,6 +493,7 @@ export const makeCliTestContext = (opts?: {
   const nextConfirm = () =>
     Effect.gen(function* () {
       promptState.confirmCalls.push({ kind: "resolve-plan" });
+      opts?.prompt?.onConfirmApplyChanges?.();
       const response = confirmQueue.shift();
       if (response === undefined) {
         return yield* Effect.die(

@@ -19,6 +19,14 @@ export const makeDirectoryFixture = () => {
       env: {
         HOME: home,
         AXM_USER_HOME: home,
+        // The runtime executing the CLI writes its own transpiler cache under
+        // HOME. That is apparatus, not workspace state, and would otherwise
+        // appear as a change to any directory this fixture observes.
+        BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
+        // The startup update check refreshes a non-authoritative cache from a
+        // background fiber that races process exit. Its own specification owns
+        // that behavior; here it would only make observed state nondeterministic.
+        AXM_NO_UPDATE_CHECK: "1",
         AXM_REGISTRY_LOCATION: "https://registry.invalid",
         AXM_REGISTRY_URL: "https://registry.invalid",
       },

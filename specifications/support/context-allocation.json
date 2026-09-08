@@ -1,0 +1,1244 @@
+{
+  "formatVersion": 1,
+  "commandInventory": "command-behavior-allocation.json",
+  "populations": {
+    "extension-types": {
+      "path": "packages/extension-model/src/unstable/extensions/common.ts",
+      "symbol": "extensionTypes"
+    },
+    "extension-placement": {
+      "path": "packages/extension-model/src/unstable/extensions/common.ts",
+      "symbol": "EXTENSION_TYPE_TABLE",
+      "projection": "distinct row.placement; associated extension type keys"
+    },
+    "extension-inputs": {
+      "path": "packages/extension-model/src/unstable/extensions/common.ts",
+      "symbol": "EXTENSION_TYPE_TABLE",
+      "projection": "row.installInputs keyed by extension type"
+    },
+    "catalog-types": {
+      "path": "packages/extension-model/src/unstable/extension-types/schema.ts",
+      "symbol": "CATALOG_EXTENSION_TYPES"
+    },
+    "source-kinds": {
+      "path": "packages/extension-model/src/unstable/sources/types.ts",
+      "symbol": "SourceTypeSchema"
+    },
+    "reference-kinds": {
+      "path": "packages/extension-model/src/unstable/sources/types.ts",
+      "symbol": "RefTypeSchema"
+    },
+    "workspace-scopes": {
+      "path": "packages/extension-model/src/unstable/workspace-scope.ts",
+      "symbol": "WORKSPACE_SCOPES"
+    },
+    "agents": {
+      "path": "packages/extension-model/src/unstable/agent-capabilities/catalog.ts",
+      "symbol": "AGENTS / CONFIGURABLE_AGENT_IDS / HOSTED_AGENTS_BY_ID",
+      "projection": "configurable vs hosted membership; dynamic IDs remain catalog-owned"
+    },
+    "native-availability": {
+      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "symbol": "AvailabilitySchema",
+      "projection": "union member.via"
+    },
+    "vendor-surface-state": {
+      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "symbol": "VendorStatusSchema",
+      "projection": "union member.state"
+    },
+    "axm-support": {
+      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "symbol": "AxmSupportSchema"
+    },
+    "agent-lifecycle": {
+      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "symbol": "AgentLifecycleStateSchema"
+    },
+    "agent-interface": {
+      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "symbol": "AgentInterfaceSchema"
+    },
+    "agent-mcp-transport": {
+      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "symbol": "McpTransportSchema"
+    },
+    "inventory-lifecycle": {
+      "path": "packages/workspace-state/src/workspace/read-model/extensions/inventory.ts",
+      "symbol": "ExtensionInventoryLifecycleSchema"
+    },
+    "inventory-activation": {
+      "path": "packages/workspace-state/src/workspace/read-model/extensions/inventory.ts",
+      "symbol": "ExtensionInventoryRowSchema",
+      "projection": "enabled: boolean | null"
+    },
+    "inventory-materialization": {
+      "path": "packages/workspace-state/src/workspace/read-model/extensions/inventory.ts",
+      "symbol": "ExtensionInventoryRowSchema",
+      "projection": "installed: boolean"
+    },
+    "configured-agent-outcome": {
+      "path": "packages/workspace-state/src/workspace/configured-agent-outcome.ts",
+      "symbol": "ConfiguredAgentOutcomeSchema",
+      "projection": "outcome"
+    },
+    "unit-state": {
+      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "symbol": "UnitStateSchema"
+    },
+    "operation-outcome": {
+      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "symbol": "OperationOutcomeSchema"
+    },
+    "unit-disposition": {
+      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "symbol": "UnitDispositionSchema"
+    },
+    "operation-phase": {
+      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "symbol": "OperationPhaseSchema"
+    },
+    "atomicity-class": {
+      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "symbol": "AtomicityClassSchema"
+    },
+    "blocking-class": {
+      "path": "packages/workspace-operations/src/plan/plan.ts",
+      "symbol": "BlockingClassSchema"
+    },
+    "operation-error": {
+      "path": "packages/cli/src/app-error/app-error.ts",
+      "symbol": "AppErrorCodeSchema",
+      "projection": "CLI machine error-category vocabulary; operation-to-exit-code agreement retains its separate published-reference owner"
+    },
+    "machine-document": {
+      "path": "packages/cli/src/cli-runtime/machine-output-document.ts",
+      "symbol": "MachineOutputDocumentKindSchema"
+    },
+    "publish-status": {
+      "path": "packages/cli/src/root/publish/result.ts",
+      "symbol": "PublishStatusSchema",
+      "projection": "private schema embedded by exported Publish result; no new export needed"
+    },
+    "publish-action": {
+      "path": "packages/cli/src/root/publish/result.ts",
+      "symbol": "PublishActionSchema",
+      "projection": "private schema embedded by exported Publish result"
+    },
+    "publish-reason": {
+      "path": "packages/cli/src/root/publish/result.ts",
+      "symbol": "PublishReasonSchema",
+      "projection": "private schema embedded by exported Publish result"
+    },
+    "upgrade-outcome": {
+      "path": "packages/cli/src/root/upgrade/handler.ts",
+      "symbol": "UpgradeAssessmentResultSchema",
+      "projection": "outcome"
+    },
+    "upgrade-disposition": {
+      "path": "packages/cli/src/root/upgrade/handler.ts",
+      "symbol": "UpgradeAssessmentResultSchema",
+      "projection": "disposition"
+    },
+    "upgrade-availability": {
+      "path": "packages/cli/src/root/upgrade/handler.ts",
+      "symbol": "UpgradeAssessmentResultSchema",
+      "projection": "installerAvailability.state"
+    },
+    "knowledge-readiness": {
+      "path": "packages/cli/src/root/knowledge/concepts/schemas.ts",
+      "symbol": "KnowledgeConceptStatusOutputSchema",
+      "projection": "readiness"
+    },
+    "knowledge-health": {
+      "path": "packages/cli/src/root/knowledge/concepts/schemas.ts",
+      "symbol": "KnowledgeConceptStatusOutputSchema",
+      "projection": "health.status"
+    },
+    "knowledge-collisions": {
+      "path": "packages/cli/src/root/knowledge/concepts/schemas.ts",
+      "symbol": "KnowledgeConceptStatusOutputSchema",
+      "projection": "scopeCollisions.state"
+    }
+  },
+  "openTopics": {
+    "hook-decision-installability": {
+      "nearestRequirement": "cli/install/realizes-for-every-configured-agent",
+      "question": "Which accepted Hook installability obligation governs advisory decision subfields consumed by lifecycle and hook outcomes? The current helper behavior is a candidate, not policy acceptance."
+    },
+    "shared-pack-compatibility": {
+      "boundary": "@agentxm/extension-model/unstable/agent-capabilities",
+      "question": "Should exported all-member and empty-Pack compatibility helpers have a shared-library requirement? No CLI consumer was identified, so no CLI Pack rejection is allocated."
+    },
+    "inventory-nonconfigured": {
+      "nearestRequirement": "cli/list/reports-the-cross-type-inventory",
+      "question": "Which exact implicit/unmanaged classifications, precedence and aggregate counts are promised on each inventory surface? Retain producer/read-model evidence until that scope is established."
+    },
+    "inventory-null-activation": {
+      "nearestRequirement": "cli/type-lists-report-local-state",
+      "question": "What public interpretation of enabled:null is required for unmanaged or other non-desired entries? Nullability alone does not settle the policy."
+    },
+    "configured-agent-outcome-causes": {
+      "nearestRequirement": "cli/install/realizes-for-every-configured-agent",
+      "question": "Which unsupported/not-applicable/blocked/failed causes and resulting persistence are accepted for each type/adapter? Do not infer causes from the outcome enum."
+    },
+    "post-write-failure-disposition": {
+      "nearestRequirement": "cli/mutations-are-closure-atomic",
+      "question": "Are independently successful groups retained after another group fails, and which post-write failures return failed results versus typed errors? Current general atomicity evidence is preflight-only."
+    },
+    "plan-terminal-causes": {
+      "nearestRequirement": "cli/machine-progress-events-follow-the-lifecycle-schema",
+      "question": "Which concrete skipped/cancelled/interrupted/partial/blocked causes are promised for the applicable command families? Schema admission alone does not decide trigger or recovery policy."
+    }
+  },
+  "bindings": {
+    "all-type-lifecycle": {
+      "requirements": [
+        "cli/install/realizes-for-every-configured-agent",
+        "cli/update/advances-resolution-within-intent",
+        "cli/activation-follows-desired-state",
+        "cli/uninstall/removes-direct-route-and-recomputes-reachability"
+      ],
+      "when": "Acquirable extension; declared per-agent/shared surfaces, activation and instruction settings apply. Pack effects are its applicable member closure."
+    },
+    "ordinary-type-read": {
+      "requirements": [
+        "cli/type-lists-report-local-state",
+        "cli/type-shows-report-source-and-version"
+      ],
+      "when": "Skill, Subagent, Rule, Hook and Pack inventory; Pack has a separate membership owner."
+    },
+    "mcp-read": {
+      "requirements": [
+        "cli/mcps/list/local-name-source-and-resolution-are-distinct",
+        "cli/mcps/list/human-inventory-separates-local-name-and-source"
+      ],
+      "when": "MCP local connection identity is distinct from package source and accepted resolution."
+    },
+    "knowledge-read": {
+      "requirements": [
+        "cli/knowledge/list/reports-bundle-inspection",
+        "cli/knowledge/list/explains-instruction-entry-inclusion",
+        "cli/knowledge/concepts/reads-only-enabled-selected-corpus"
+      ],
+      "when": "Bundle inspection and enabled concept corpus are different selections and counts."
+    },
+    "pack-read": {
+      "requirements": ["cli/packs/show/reports-authored-membership-and-observed-state"],
+      "when": "Authored Pack membership and observed member state; no inferred all-agent compatibility refusal."
+    },
+    "cross-type-list": {
+      "requirements": ["cli/list/reports-the-cross-type-inventory"],
+      "when": "Root list union or explicit type filter, including disabled and missing configured entries."
+    },
+    "placement": {
+      "requirements": ["cli/install/realizes-for-every-configured-agent"],
+      "when": "Per-agent, workspace or container placement declared for the type; no generic agent directory promise for workspace/container types.",
+      "interface": "extension-placement"
+    },
+    "install-inputs": {
+      "requirements": ["cli/mcps/install/local-connection-names-share-source-resolution"],
+      "when": "MCP sourced connections with installation inputs; other types do not acquire an input policy from this table.",
+      "interface": "extension-inputs"
+    },
+    "catalog-description": {
+      "interface": "catalog-types",
+      "exclusion": "Description/catalog population excludes Pack; this is not the installation type population. All seven extension types are installable model members."
+    },
+    "locator": {
+      "requirements": ["source-resolution/locator-grammar-is-stable"],
+      "when": "Exact authored locator and selected configured host; grammar acceptance does not itself establish network acquisition.",
+      "interface": "source-kinds",
+      "openTopics": ["command:source-defaults"]
+    },
+    "acquisition": {
+      "requirements": [
+        "cli/install/records-accepted-resolution",
+        "cli/type-shows-report-source-and-version"
+      ],
+      "when": "Accepted immutable source resolution and downloaded-byte integrity; provider failures/defaults beyond accepted cases remain unresolved."
+    },
+    "relative-path": {
+      "requirements": ["cli/relative-paths-start-in-selected-directory"],
+      "when": "CLI-relative source input resolves in the selected execution directory."
+    },
+    "source-workspace": {
+      "requirements": [
+        "cli/authoring-uses-project-workspace",
+        "cli/adopt/moves-package-into-workspace-authorship",
+        "cli/publish/requires-established-authorship"
+      ],
+      "when": "Authored workspace package; acquired or inline entries do not become publishable by source-type membership."
+    },
+    "source-inline": {
+      "requirements": [
+        "cli/mcps/inline-entries-are-authoritative-as-authored",
+        "cli/mcps/add/records-and-realizes-inline-configuration"
+      ],
+      "when": "Inline MCP configuration only; package import with --as has separate creation/scope owners.",
+      "openTopics": [
+        "command:inline-mcp-scope",
+        "command:inline-mcp-inputs",
+        "command:inline-mcp-transport"
+      ]
+    },
+    "ref-shape": {
+      "interface": "reference-kinds",
+      "exclusion": "Reference categories describe structured identity. Inline SourceParams is not a RefType, and the Source union differs from SourceParams; do not equate these populations."
+    },
+    "registry-target": {
+      "requirements": [
+        "cli/environment-selects-built-in-extension-source",
+        "cli/environment-selects-registry-services",
+        "cli/publication-uses-explicit-registry-target",
+        "cli/credentials-stay-with-their-registry"
+      ],
+      "when": "Built-in extension source, Registry service target, explicit publication target and credential origin are separate conditional choices; this review adds no combined-selector precedence.",
+      "openTopics": ["command:publish-registry-selection", "command:publish-url-selection"]
+    },
+    "scope": {
+      "requirements": ["cli/installed-state-stays-in-selected-scope"],
+      "when": "Supported installed-extension operations, agent listing/membership and instruction inspection/enable/disable; project default where supported. Excludes inline MCP authored configuration, OAuth scope, and capability catalog filtering."
+    },
+    "scope-setup": {
+      "requirements": [
+        "cli/setup/initializes-selected-workspace",
+        "cli/setup/rerun-preserves-existing-configuration"
+      ],
+      "when": "Selected workspace initialization or rerun; unattended intent/preapproval governed by setup owners."
+    },
+    "scope-invalid": {
+      "requirements": ["cli/invalid-workspace-state-gates-operations"],
+      "when": "Malformed, invalid, unreadable or unsupported-version authoritative workspace state; no silent reset."
+    },
+    "scope-absent": {
+      "requirements": ["cli/setup/initializes-selected-workspace"],
+      "when": "Missing state is an initialization context, not automatically corruption.",
+      "openTopics": ["command:show-before-setup"]
+    },
+    "scope-authoring": {
+      "requirements": ["cli/authoring-uses-project-workspace"],
+      "when": "Project-only authoring routes and MCP --as package creation as allocated in the command map; no blanket link for inline MCP add/import."
+    },
+    "home": {
+      "requirements": ["cli/environment-relocates-user-resources"],
+      "when": "Application-resource relocation with nonempty AXM_USER_HOME; OS keychain is a separate host service, and Registry origins remain isolated."
+    },
+    "scope-collision": {
+      "requirements": ["cli/knowledge/concepts/status/reports-current-corpus-health"],
+      "when": "Only declared checked scope; do not infer a full cross-scope collision scan.",
+      "openTopics": ["command:scope-collisions"]
+    },
+    "capability-report": {
+      "requirements": ["cli/agents/capabilities/describes-native-support-and-axm-integration"],
+      "when": "Report current modeled distinctions; catalog records are evidence, not permanent guarantees for named vendors."
+    },
+    "agent-selection": {
+      "requirements": ["cli/agents/list/reports-configured-detected-and-available-agents"],
+      "when": "Configurable-agent inventory and configured/detected selections, excluding hosted-only identities from configurability.",
+      "openTopics": ["command:agent-list-combined-filters", "command:agent-detected-selection"]
+    },
+    "capability-model": {
+      "interface": "axm-support",
+      "exclusion": "Model membership, catalog provenance, vendor paths and writer mechanics have producer authority only for their declared interface; they do not accept new installation or automatic-selection policies."
+    },
+    "hook-advisory": {
+      "openTopics": ["hook-decision-installability"]
+    },
+    "pack-compatibility": {
+      "openTopics": ["shared-pack-compatibility"]
+    },
+    "transport": {
+      "requirements": ["cli/mcps/add/records-and-realizes-inline-configuration"],
+      "when": "Native realization only for representable configured-agent transport; authored inline state remains authoritative.",
+      "openTopics": ["command:inline-mcp-transport"]
+    },
+    "inventory": {
+      "requirements": [
+        "cli/list/reports-the-cross-type-inventory",
+        "cli/type-lists-report-local-state"
+      ],
+      "when": "Configured, missing and disabled rows; implicit/unmanaged distinctions require evidence on the consuming read surface.",
+      "interface": "inventory-lifecycle",
+      "openTopics": ["inventory-nonconfigured"]
+    },
+    "activation": {
+      "requirements": ["cli/activation-follows-desired-state"],
+      "when": "Desired enabled/disabled state changes realization without replacing canonical content or accepted resolution.",
+      "interface": "inventory-activation"
+    },
+    "activation-null": {
+      "interface": "inventory-activation",
+      "openTopics": ["inventory-null-activation"]
+    },
+    "materialization": {
+      "requirements": [
+        "cli/list/reports-the-cross-type-inventory",
+        "cli/type-lists-report-local-state",
+        "cli/install/realizes-for-every-configured-agent"
+      ],
+      "when": "Canonical installed state and individual-agent realization are independent.",
+      "interface": "inventory-materialization"
+    },
+    "authorship": {
+      "requirements": [
+        "cli/publication-selects-matching-authored-extensions",
+        "cli/publish/requires-established-authorship",
+        "cli/publish/dependency-inclusion-adds-only-authored-pack-members"
+      ],
+      "when": "Only eligible authored entries upload; mixed authored/acquired bulk may publish its authored subset."
+    },
+    "publisher-continuity": {
+      "requirements": ["cli/publisher-changes-require-interactive-approval"],
+      "when": "Replacing an accepted Registry binding under a different publisher; same publisher and first acceptance are explicit controls, not publisher changes."
+    },
+    "release-eligibility": {
+      "requirements": [
+        "source-resolution/minimum-release-age-withholds-unaged-releases",
+        "cli/withheld-releases-name-recovery-from-the-emitting-command",
+        "cli/force-bypasses-only-named-policies"
+      ],
+      "when": "Release selection without an explicit version request; configured age/exemptions and named one-shot override apply. Do not infer candidate availability from version presence alone."
+    },
+    "registry-lifecycle": {
+      "requirements": [
+        "cli/yank/submits-the-requested-version-selection",
+        "cli/unyank/requires-an-exact-version",
+        "cli/deprecate/updates-guidance-at-the-observed-revision",
+        "cli/undeprecate/removes-guidance-at-the-observed-revision",
+        "cli/registry-management-preserves-authentication-failures"
+      ],
+      "when": "CLI request, observed-revision and refusal obligations; no authority over live server lifecycle implementation."
+    },
+    "deprecation-read": {
+      "requirements": [
+        "cli/list/ordinary-inventory-identifies-deprecation",
+        "cli/view/reports-deprecation-and-replacement-availability"
+      ],
+      "when": "Existing deprecation guidance and replacement availability; explicit selected states only."
+    },
+    "visibility": {
+      "requirements": [
+        "cli/visibility/status/reports-repository-intent-and-registry-evaluation",
+        "cli/visibility/set/uses-explicit-intent-and-observed-revision",
+        "cli/visibility/reconcile/applies-declared-repository-intent",
+        "cli/publish/preserves-established-visibility"
+      ],
+      "when": "Declared repository intent and observed Registry evaluation/revision; preserve established visibility absent explicit change."
+    },
+    "agent-outcome": {
+      "requirements": [
+        "cli/install/realizes-for-every-configured-agent",
+        "cli/projection-currency-follows-state-authority"
+      ],
+      "when": "Report real configured-agent realization consequences under supported surfaces; catalog support is not proof of projection.",
+      "interface": "configured-agent-outcome",
+      "openTopics": ["configured-agent-outcome-causes"]
+    },
+    "plan-shape": {
+      "requirements": [
+        "cli/install/machine-result-is-schema-backed",
+        "cli/machine-progress-events-follow-the-lifecycle-schema"
+      ],
+      "when": "Plan-family result/event interface only, not every command family and not a completion/rollback policy for every member.",
+      "interface": "operation-outcome"
+    },
+    "plan-success": {
+      "requirements": [
+        "cli/install/apply-realizes-the-previewed-closure",
+        "cli/sync/preserves-configuration-and-resolutions"
+      ],
+      "when": "Applicable install/sync success or no-change conditions, alongside command-specific preview/idempotence owners."
+    },
+    "plan-refusal": {
+      "requirements": ["cli/mutations-are-closure-atomic"],
+      "when": "Current decisive examples establish failure before writes; no inferred universal post-write typed-error or rollback policy.",
+      "openTopics": ["post-write-failure-disposition"]
+    },
+    "plan-non-success": {
+      "interface": "operation-outcome",
+      "openTopics": ["post-write-failure-disposition", "plan-terminal-causes"]
+    },
+    "unit-interface": {
+      "interface": "unit-state",
+      "openTopics": ["plan-terminal-causes"]
+    },
+    "disposition-interface": {
+      "interface": "unit-disposition",
+      "openTopics": ["post-write-failure-disposition"]
+    },
+    "phase-interface": {
+      "interface": "operation-phase",
+      "exclusion": "Wire lifecycle phase classification does not independently prescribe a new command sequence, progress timing or retry strategy."
+    },
+    "atomicity-interface": {
+      "interface": "atomicity-class",
+      "openTopics": ["post-write-failure-disposition"]
+    },
+    "block-interface": {
+      "interface": "blocking-class",
+      "openTopics": ["plan-terminal-causes"]
+    },
+    "errors": {
+      "requirements": [
+        "cli/exit-codes-match-published-reference",
+        "cli/machine-errors-use-the-stable-envelope"
+      ],
+      "when": "Vocabulary and published mapping plus exercised boundary examples; not evidence of every category-trigger combination.",
+      "interface": "operation-error"
+    },
+    "ordinary-document": {
+      "requirements": ["cli/machine-errors-use-the-stable-envelope"],
+      "when": "Error-envelope owner applies only to errors; ordinary result envelope shape remains published-interface authority, with per-command payload obligations allocated to their owners.",
+      "interface": "machine-document"
+    },
+    "help-document": {
+      "requirements": ["cli/command-help-is-complete"],
+      "when": "Formatter-owned command help document.",
+      "interface": "machine-document"
+    },
+    "version-document": {
+      "requirements": ["cli/version-output-identifies-running-release"],
+      "when": "Formatter-owned global version document; independent from root version mutation.",
+      "interface": "machine-document"
+    },
+    "publish-outcome": {
+      "requirements": [
+        "cli/publish/outcomes-distinguish-unresolved-uploads",
+        "cli/publish/preflight-blocks-the-whole-selection"
+      ],
+      "when": "Independent success, blocked dependent work and unattempted/dispatched-but-unresolved upload distinctions; no inferred abort/revoke recovery strategy.",
+      "interface": "publish-status"
+    },
+    "publish-selection": {
+      "requirements": [
+        "cli/publication-selects-matching-authored-extensions",
+        "cli/publish/requires-established-authorship"
+      ],
+      "when": "Applicable selected/authored candidates and explicit policy refusals; no default selector/Registry precedence.",
+      "interface": "publish-action"
+    },
+    "publish-reason-shape": {
+      "interface": "publish-reason",
+      "exclusion": "Finite serialized reason vocabulary is interface evidence. Concrete policy owners are already allocated in the publication command map and reviewed source cases; no blanket behavior promise for every reason."
+    },
+    "upgrade": {
+      "requirements": [
+        "cli/upgrade/machine-result-is-upgrade-assessment",
+        "cli/upgrade/installer-availability-gates-mutation",
+        "cli/upgrade/restores-original-after-failed-replacement",
+        "cli/upgrade/preserves-current-or-newer-installations"
+      ],
+      "when": "Self-upgrade assessment with ownership/availability/verification and recovery; does not inherit plan-family outcome semantics.",
+      "interface": "upgrade-outcome"
+    },
+    "knowledge-health": {
+      "requirements": [
+        "cli/knowledge/concepts/status/reports-current-corpus-health",
+        "cli/knowledge/concepts/refuses-changing-corpus"
+      ],
+      "when": "Stable read/validation failure is unavailable; changing means actual capture instability. Empty readable corpus is ready.",
+      "interface": "knowledge-readiness"
+    },
+    "auth-flow": {
+      "requirements": [
+        "cli/login/starts-resumable-device-sign-in",
+        "cli/login/reuses-pending-authorization",
+        "cli/login/resumes-approved-authorization",
+        "cli/login/terminal-authorization-failures-preserve-credentials",
+        "cli/login/wait-timeout-preserves-authorization",
+        "cli/login/retains-issued-session-when-identity-unavailable"
+      ],
+      "when": "Device authorization, wait deadline and identity lookup availability are separate state dimensions. Issued credentials survive temporary identity lookup failure."
+    }
+  },
+  "dimensions": {
+    "extension-type": {
+      "family": "extension-types",
+      "groups": [
+        {
+          "members": ["skill", "subagent", "rule", "hook"],
+          "bindings": ["all-type-lifecycle", "ordinary-type-read", "cross-type-list"]
+        },
+        {
+          "members": ["mcp-server"],
+          "bindings": ["all-type-lifecycle", "mcp-read", "install-inputs", "cross-type-list"]
+        },
+        {
+          "members": ["knowledge"],
+          "bindings": ["all-type-lifecycle", "knowledge-read", "cross-type-list"]
+        },
+        {
+          "members": ["pack"],
+          "bindings": ["all-type-lifecycle", "ordinary-type-read", "pack-read", "cross-type-list"]
+        }
+      ],
+      "population": "extension-types"
+    },
+    "placement": {
+      "family": "extension-types",
+      "groups": [
+        {
+          "members": ["per-agent"],
+          "bindings": ["placement"]
+        },
+        {
+          "members": ["workspace"],
+          "bindings": ["placement"]
+        },
+        {
+          "members": ["container"],
+          "bindings": ["placement", "pack-compatibility"]
+        }
+      ],
+      "population": "extension-placement"
+    },
+    "catalog-type": {
+      "family": "extension-types",
+      "groups": [
+        {
+          "members": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge"],
+          "bindings": ["catalog-description"]
+        }
+      ],
+      "population": "catalog-types"
+    },
+    "source-kind": {
+      "family": "source-kinds",
+      "groups": [
+        {
+          "members": ["github", "gitlab", "bitbucket", "azurerepos", "git"],
+          "bindings": ["locator", "acquisition"]
+        },
+        {
+          "members": ["registry"],
+          "bindings": ["locator", "acquisition", "registry-target"]
+        },
+        {
+          "members": ["local"],
+          "bindings": ["locator", "relative-path", "acquisition"]
+        },
+        {
+          "members": ["workspace"],
+          "bindings": ["locator", "source-workspace"]
+        },
+        {
+          "members": ["inline"],
+          "bindings": ["source-inline"]
+        }
+      ],
+      "population": "source-kinds"
+    },
+    "reference-kind": {
+      "family": "source-kinds",
+      "groups": [
+        {
+          "members": ["git-hosted", "registry", "local", "workspace"],
+          "bindings": ["ref-shape"]
+        }
+      ],
+      "population": "reference-kinds"
+    },
+    "source-resolution-context": {
+      "family": "source-kinds",
+      "groups": [
+        {
+          "members": [
+            "exact-configured-name",
+            "URL-host-coordinate",
+            "project-overrides-same-name-built-in"
+          ],
+          "bindings": ["locator"]
+        },
+        {
+          "members": ["local-relative-to-selected-directory"],
+          "bindings": ["relative-path"]
+        },
+        {
+          "members": [
+            "built-in-location",
+            "Registry-service-origin",
+            "explicit-publication-target"
+          ],
+          "bindings": ["registry-target"]
+        },
+        {
+          "members": ["authored-workspace", "acquired-installed", "inline-authored"],
+          "bindings": ["source-workspace", "authorship"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration",
+      "note": "Authored/acquired/inline classifications here do not restate SourceType or define a new source-kind enum."
+    },
+    "workspace-scope": {
+      "family": "scope-states",
+      "groups": [
+        {
+          "members": ["project", "user"],
+          "bindings": ["scope", "scope-setup", "home"]
+        }
+      ],
+      "population": "workspace-scopes"
+    },
+    "workspace-validity": {
+      "family": "scope-states",
+      "groups": [
+        {
+          "members": ["absent"],
+          "bindings": ["scope-absent"]
+        },
+        {
+          "members": ["valid"],
+          "bindings": ["scope", "scope-setup"]
+        },
+        {
+          "members": ["malformed", "schema-invalid", "unreadable", "unsupported-version"],
+          "bindings": ["scope-invalid"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration"
+    },
+    "workspace-operation-context": {
+      "family": "scope-states",
+      "groups": [
+        {
+          "members": [
+            "supported-installed-state",
+            "agent-membership",
+            "instruction-inspection-or-enable-disable"
+          ],
+          "bindings": ["scope"]
+        },
+        {
+          "members": ["project-only-authoring"],
+          "bindings": ["scope-authoring"]
+        },
+        {
+          "members": ["inline-MCP-authored-configuration"],
+          "bindings": ["source-inline"]
+        },
+        {
+          "members": ["Knowledge-selected-corpus"],
+          "bindings": ["knowledge-read", "scope-collision"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration"
+    },
+    "agent-population": {
+      "family": "agent-capabilities",
+      "groups": [
+        {
+          "members": ["configurable-catalog-members"],
+          "bindings": ["agent-selection", "capability-report"]
+        },
+        {
+          "members": ["hosted-only-catalog-members"],
+          "bindings": ["capability-model"]
+        }
+      ],
+      "population": "agents",
+      "note": "Members name catalog-derived partitions, not individual frozen agent IDs; resolve the selector against the actual catalog."
+    },
+    "native-capability-availability": {
+      "family": "agent-capabilities",
+      "groups": [
+        {
+          "members": ["native", "plugin", "none"],
+          "bindings": ["capability-report"]
+        }
+      ],
+      "population": "native-availability"
+    },
+    "vendor-surface-state": {
+      "family": "agent-capabilities",
+      "groups": [
+        {
+          "members": ["active", "maintenance", "deprecated", "removed"],
+          "bindings": ["capability-report", "capability-model"]
+        }
+      ],
+      "population": "vendor-surface-state"
+    },
+    "AXM-support": {
+      "family": "agent-capabilities",
+      "groups": [
+        {
+          "members": ["supported", "planned", "unsupported", "unknown"],
+          "bindings": ["capability-report"]
+        }
+      ],
+      "population": "axm-support"
+    },
+    "agent-lifecycle": {
+      "family": "agent-capabilities",
+      "groups": [
+        {
+          "members": ["active", "deprecated", "retired"],
+          "bindings": ["capability-report", "agent-selection"]
+        }
+      ],
+      "population": "agent-lifecycle"
+    },
+    "agent-interface": {
+      "family": "agent-capabilities",
+      "groups": [
+        {
+          "members": ["cli", "ide-extension", "chat", "hosted-agent"],
+          "bindings": ["capability-model"]
+        }
+      ],
+      "population": "agent-interface"
+    },
+    "agent-writer": {
+      "family": "agent-capabilities",
+      "groups": [
+        {
+          "members": ["modeled-writer-present", "modeled-writer-absent"],
+          "bindings": ["capability-report", "agent-outcome"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration",
+      "note": "Writer presence is independent from native availability and AXM-support state; do not derive support by presence alone."
+    },
+    "agent-MCP-transport": {
+      "family": "agent-capabilities",
+      "groups": [
+        {
+          "members": ["stdio", "http", "sse"],
+          "bindings": ["transport"]
+        }
+      ],
+      "population": "agent-mcp-transport"
+    },
+    "agent-special-policy": {
+      "family": "agent-capabilities",
+      "groups": [
+        {
+          "members": ["Hook-decision-subfields"],
+          "bindings": ["hook-advisory"]
+        },
+        {
+          "members": ["Pack-all-member-compatibility", "empty-Pack-compatibility"],
+          "bindings": ["pack-compatibility"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration"
+    },
+    "inventory-lifecycle": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": ["configured"],
+          "bindings": ["inventory"]
+        },
+        {
+          "members": ["implicit", "unmanaged"],
+          "bindings": ["inventory"]
+        }
+      ],
+      "population": "inventory-lifecycle"
+    },
+    "desired-activation": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": [true, false],
+          "bindings": ["activation"]
+        },
+        {
+          "members": [null],
+          "bindings": ["activation-null"]
+        }
+      ],
+      "population": "inventory-activation"
+    },
+    "canonical-materialization": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": [true, false],
+          "bindings": ["materialization"]
+        }
+      ],
+      "population": "inventory-materialization"
+    },
+    "authorship": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": [
+            "eligible-authored",
+            "acquired",
+            "mixed-authored-and-acquired",
+            "inline-authored"
+          ],
+          "bindings": ["authorship"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration"
+    },
+    "Registry-release-yank": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": ["selected-release-yanked", "selected-release-not-yanked"],
+          "bindings": ["registry-lifecycle"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration",
+      "note": "CLI request/refusal boundary; release selection and server storage are separate obligations."
+    },
+    "Registry-extension-deprecation": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": ["extension-deprecated", "extension-not-deprecated"],
+          "bindings": ["registry-lifecycle", "deprecation-read"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration"
+    },
+    "Registry-established-visibility": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": ["established-public", "established-private"],
+          "bindings": ["visibility"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration"
+    },
+    "Registry-repository-visibility-intent": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": ["repository-intent-present", "repository-intent-absent"],
+          "bindings": ["visibility"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration"
+    },
+    "Registry-publisher-continuity": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": [
+            "first-acceptance",
+            "same-accepted-publisher",
+            "different-accepted-publisher"
+          ],
+          "bindings": ["publisher-continuity"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration"
+    },
+    "Registry-release-eligibility": {
+      "family": "lifecycle-states",
+      "groups": [
+        {
+          "members": [
+            "aged",
+            "unaged",
+            "declared-exemption",
+            "one-shot-override",
+            "explicit-version-request"
+          ],
+          "bindings": ["release-eligibility"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration",
+      "note": "Eligibility causes may overlap; this is a reviewed decision-context list, not a replacement policy enum."
+    },
+    "configured-agent-outcome": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["projected", "current", "not-applicable", "unsupported", "blocked", "failed"],
+          "bindings": ["agent-outcome"]
+        }
+      ],
+      "population": "configured-agent-outcome"
+    },
+    "operation-outcome": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["previewed", "applied", "no-op"],
+          "bindings": ["plan-shape", "plan-success"]
+        },
+        {
+          "members": ["failed"],
+          "bindings": ["plan-shape", "plan-refusal"]
+        },
+        {
+          "members": ["partial", "blocked", "cancelled", "interrupted"],
+          "bindings": ["plan-shape", "plan-non-success"]
+        }
+      ],
+      "population": "operation-outcome"
+    },
+    "unit-state": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": [
+            "planned",
+            "ready",
+            "committed",
+            "unchanged",
+            "failed",
+            "rolled-back",
+            "blocked",
+            "skipped",
+            "cancelled",
+            "interrupted"
+          ],
+          "bindings": ["unit-interface"]
+        }
+      ],
+      "population": "unit-state"
+    },
+    "unit-disposition": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["restored", "retained", "untouched", "unknown"],
+          "bindings": ["disposition-interface"]
+        }
+      ],
+      "population": "unit-disposition"
+    },
+    "operation-phase": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": [
+            "resolution",
+            "planning",
+            "preview",
+            "confirmation",
+            "validation",
+            "apply",
+            "restoration"
+          ],
+          "bindings": ["phase-interface"]
+        }
+      ],
+      "population": "operation-phase"
+    },
+    "atomicity-class": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["closure-atomic", "non-rollbackable"],
+          "bindings": ["atomicity-interface"]
+        }
+      ],
+      "population": "atomicity-class"
+    },
+    "blocking-class": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": [
+            "approval-required",
+            "override-required",
+            "precondition-unmet",
+            "dependency-failed",
+            "dependency-cycle",
+            "stale-candidate",
+            "policy-excluded",
+            "resource-conflict",
+            "external-blocked",
+            "operation-aborted"
+          ],
+          "bindings": ["block-interface"]
+        }
+      ],
+      "population": "blocking-class"
+    },
+    "error-category": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": [
+            "issues",
+            "usage",
+            "not_found",
+            "auth",
+            "forbidden",
+            "conflict",
+            "rate_limit",
+            "network",
+            "validation",
+            "internal",
+            "unavailable",
+            "quota",
+            "auth_required",
+            "auth_expired",
+            "auth_denied",
+            "timeout"
+          ],
+          "bindings": ["errors"]
+        }
+      ],
+      "population": "operation-error"
+    },
+    "machine-document": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["result-envelope-v1", "error-envelope-v1"],
+          "bindings": ["ordinary-document"]
+        },
+        {
+          "members": ["help-document-v1"],
+          "bindings": ["help-document"]
+        },
+        {
+          "members": ["version-document-v1"],
+          "bindings": ["version-document"]
+        }
+      ],
+      "population": "machine-document"
+    },
+    "publication-item-status": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["success", "failed", "pending", "blocked", "skipped", "unknown"],
+          "bindings": ["publish-outcome"]
+        }
+      ],
+      "population": "publish-status"
+    },
+    "publication-item-action": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["publish", "skip", "error"],
+          "bindings": ["publish-selection"]
+        }
+      ],
+      "population": "publish-action"
+    },
+    "publication-item-reason": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "selector": "all declared PublishReasonSchema literals",
+          "bindings": ["publish-reason-shape"]
+        }
+      ],
+      "population": "publish-reason"
+    },
+    "upgrade-outcome": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["previewed", "applied", "no-op", "failed", "indeterminate"],
+          "bindings": ["upgrade"]
+        }
+      ],
+      "population": "upgrade-outcome"
+    },
+    "upgrade-disposition": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": [
+            "previewed",
+            "upgraded",
+            "reinstalled",
+            "already-current",
+            "local-newer",
+            "downgrade-refused",
+            "installer-lagging",
+            "installer-leading",
+            "installer-unavailable",
+            "installer-indeterminate",
+            "mutation-failed",
+            "verification-failed",
+            "rolled-back",
+            "recovery-required"
+          ],
+          "bindings": ["upgrade"]
+        }
+      ],
+      "population": "upgrade-disposition"
+    },
+    "upgrade-installer-availability": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": [
+            "ready",
+            "lagging",
+            "leading",
+            "unavailable",
+            "indeterminate",
+            "not-required"
+          ],
+          "bindings": ["upgrade"]
+        }
+      ],
+      "population": "upgrade-availability"
+    },
+    "Knowledge-corpus-readiness": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["ready", "changing", "unavailable"],
+          "bindings": ["knowledge-health"]
+        }
+      ],
+      "population": "knowledge-readiness"
+    },
+    "Knowledge-corpus-health": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["healthy", "unhealthy"],
+          "bindings": ["knowledge-health"]
+        }
+      ],
+      "population": "knowledge-health"
+    },
+    "Knowledge-collision-assessment": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["determined", "not-determined"],
+          "bindings": ["scope-collision"]
+        }
+      ],
+      "population": "knowledge-collisions"
+    },
+    "device-authorization": {
+      "family": "outcome-variants",
+      "groups": [
+        {
+          "members": ["pending", "approved", "denied", "authorization-expired"],
+          "bindings": ["auth-flow"]
+        },
+        {
+          "members": ["wait-deadline-exceeded", "issued-session-identity-unavailable"],
+          "bindings": ["auth-flow"]
+        }
+      ],
+      "populationKind": "reviewed-context-partition; not a closed schema enumeration",
+      "note": "Wait timeout does not imply device authorization expiry; identity lookup failure does not imply issued session erasure."
+    },
+    "extension-install-inputs": {
+      "family": "extension-types",
+      "population": "extension-inputs",
+      "groups": [
+        {
+          "members": ["mcp-server"],
+          "bindings": ["install-inputs"]
+        }
+      ],
+      "note": "Types for which the model declares installation inputs; this does not infer a policy for unsupported input flags on other types."
+    }
+  }
+}

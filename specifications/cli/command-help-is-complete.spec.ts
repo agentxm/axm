@@ -10,6 +10,9 @@ import {
 } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { makeDirectoryFixture } from "../support/directory-harness.js";
+import { writeMalformedWorkspaceState } from "../support/malformed-workspace-fixture.js";
+import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/command-help-is-complete",
@@ -19,7 +22,10 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["knowledge-access"],
-  methods: ["model"],
+  boundary: "process",
+  boundaryRationale:
+    "Registered-tree examples establish help completeness; built CLI controls establish that malformed populated project and user workspace inputs do not prevent the required help reply or cause workspace writes.",
+  methods: ["model", "example"],
   derivedFrom: ["cli/command-help-is-complete-and-alias-free"],
   supersedes: ["cli/command-help-is-complete-and-alias-free"],
   assumptions: [],
@@ -69,5 +75,31 @@ describe("Command help completeness", () => {
       );
       expect(new Set(rendered)).toEqual(listed);
     }),
+  );
+
+  it.each([
+    { name: "root", command: [] },
+    { name: "skills install", command: ["skills", "install"] },
+  ])(
+    "$name help replies without changing malformed populated project or user workspaces",
+    async ({ command }) => {
+      const fixture = makeDirectoryFixture();
+      try {
+        const args = [...command, "--help"];
+        const clean = await fixture.run(args);
+        expect(clean.exitCode, clean.stdout + clean.stderr).toBe(0);
+        expect(clean.stdout).toContain(["axm", ...command].join(" "));
+        expect(clean.stdout.length).toBeGreaterThan(0);
+        writeMalformedWorkspaceState(fixture.invoking, fixture.home);
+        const before = snapshotWorkspaceContent(fixture.root);
+        const malformed = await fixture.run(args);
+        expect(malformed.exitCode, malformed.stdout + malformed.stderr).toBe(0);
+        expect(malformed.stdout).toBe(clean.stdout);
+        expect(malformed.stderr).toBe(clean.stderr);
+        expect(snapshotWorkspaceContent(fixture.root)).toEqual(before);
+      } finally {
+        fixture.cleanup();
+      }
+    },
   );
 });

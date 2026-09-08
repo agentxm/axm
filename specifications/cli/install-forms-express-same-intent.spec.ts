@@ -1,9 +1,14 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { handleInstall, handleSkillsInstall } from "axm.sh/specification-harness";
+import {
+  handleInstall,
+  handleSkillsInstall,
+  PlanResolutionDocumentSchema,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
@@ -56,20 +61,35 @@ describe("Root and type-specific install parity", () => {
     }
   });
 
-  it.effect("both forms produce the same configuration, resolution, and realized state", () =>
-    Effect.gen(function* () {
-      const rootWorkspace = makeSpecWorkspace();
-      const typeWorkspace = makeSpecWorkspace();
-      cleanups.push(rootWorkspace.cleanup, typeWorkspace.cleanup);
+  it.effect(
+    "both forms report applied and produce the same configuration and realized content",
+    () =>
+      Effect.gen(function* () {
+        const rootWorkspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+        const typeWorkspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+        cleanups.push(rootWorkspace.cleanup, typeWorkspace.cleanup);
 
-      const rootPackage = writeLocalSkillPackage(rootWorkspace.root, { name: "code-review" });
-      const typePackage = writeLocalSkillPackage(typeWorkspace.root, { name: "code-review" });
+        const rootPackage = writeLocalSkillPackage(rootWorkspace.root, { name: "code-review" });
+        const typePackage = writeLocalSkillPackage(typeWorkspace.root, { name: "code-review" });
 
-      yield* rootInstall(rootWorkspace, rootPackage);
-      yield* typeInstall(typeWorkspace, typePackage);
+        yield* rootInstall(rootWorkspace, rootPackage);
+        yield* typeInstall(typeWorkspace, typePackage);
 
-      expectSameRealizedState(rootWorkspace, typeWorkspace);
-    }),
+        for (const workspace of [rootWorkspace, typeWorkspace]) {
+          expect(workspace.rendererState.results).toHaveLength(1);
+          const document = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+            workspace.rendererState.results[0]?.data,
+          );
+          expect(document.result.outcome).toBe("applied");
+          const sourceBody = workspace.readFile("vendor/code-review/src/SKILL.md");
+          expect(sourceBody).toContain("The code-review skill.");
+          expect(workspace.readFile("agent_extensions/local/vendor/code-review/src/SKILL.md")).toBe(
+            sourceBody,
+          );
+          expect(workspace.readFile(".claude/skills/code-review/SKILL.md")).toBe(sourceBody);
+        }
+        expectSameRealizedState(rootWorkspace, typeWorkspace);
+      }),
   );
 
   it.effect("repeating the install through either form reports the same no-op and state", () =>

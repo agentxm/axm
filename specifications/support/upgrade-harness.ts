@@ -76,6 +76,8 @@ export interface InstallerOptions {
   readonly formulaVersion?: string;
   readonly respond?: (invocation: Invocation) => CommandResult | undefined;
   readonly refreshDelayMs?: number;
+  /** Runs inside the substituted external command, before it returns a reply. */
+  readonly beforeReply?: (invocation: Invocation) => Effect.Effect<void>;
 }
 
 export const homebrewInstaller = (options?: InstallerOptions) => {
@@ -104,6 +106,7 @@ export const homebrewInstaller = (options?: InstallerOptions) => {
         Effect.gen(function* () {
           const invocation = { executable, args: [...args], options: commandOptions };
           calls.push(invocation);
+          if (options?.beforeReply !== undefined) yield* options.beforeReply(invocation);
           if (
             executable === "brew" &&
             args[0] === "update" &&
@@ -136,7 +139,7 @@ const releaseChannel = HttpClient.make((request) =>
 const decodeProgressEvent = Schema.decodeUnknownEffect(ProgressEventSchema);
 
 /** Every lifecycle event the machine screen wrote to standard error, in order. */
-const recordedEvents = (log: ReadonlyArray<RecordedWrite>) =>
+export const recordedUpgradeEvents = (log: ReadonlyArray<RecordedWrite>) =>
   Effect.forEach(
     log.flatMap((entry) =>
       entry.channel === "stderr"
@@ -172,7 +175,15 @@ export interface UpgradeRun {
   readonly humanOutput: string;
 }
 
-export interface UpgradeRunOptions extends InstallerOptions {
+export interface ExternalCommandObservation {
+  readonly invocation: Invocation;
+  /** Actual stream writes already emitted when the external command began. */
+  readonly writes: ReadonlyArray<RecordedWrite>;
+}
+
+export interface UpgradeRunOptions extends Omit<InstallerOptions, "beforeReply"> {
+  /** May hold a substituted external command while a specification inspects already-written output. */
+  readonly duringExternalCommand?: (observation: ExternalCommandObservation) => Effect.Effect<void>;
   readonly human?: boolean;
   readonly requestedVersion?: string;
   readonly localVersion?: string;
@@ -192,7 +203,28 @@ export interface UpgradeRunOptions extends InstallerOptions {
 export const runUpgrade = (options?: UpgradeRunOptions) =>
   Effect.gen(function* () {
     const streams = makeRecordingStreams();
-    const installer = homebrewInstaller(options);
+    const duringExternalCommand = options?.duringExternalCommand;
+    const installer = homebrewInstaller({
+      ...options,
+      ...(duringExternalCommand === undefined
+        ? {}
+        : {
+            beforeReply: (invocation: Invocation) =>
+              Effect.gen(function* () {
+                // Events are published before the command runs, but a
+                // subscriber fiber turns them into stream writes. Let those
+                // already-published events drain so the observation reports
+                // what a reader could see; the external command stays held, so
+                // no further work advances while this settles.
+                let seen = -1;
+                while (seen !== streams.log.length) {
+                  seen = streams.log.length;
+                  yield* Effect.yieldNow;
+                }
+                yield* duringExternalCommand({ invocation, writes: [...streams.log] });
+              }),
+          }),
+    });
     const installMetaWrites: Array<InstallMetaData> = [];
     const updateCheckWrites: Array<{ readonly version: string }> = [];
     const layer = Layer.mergeAll(
@@ -245,7 +277,7 @@ export const runUpgrade = (options?: UpgradeRunOptions) =>
     if (options?.advanceMs !== undefined) yield* TestClock.adjust(options.advanceMs);
     yield* Fiber.join(fiber);
 
-    const events = options?.human === true ? [] : yield* recordedEvents(streams.log);
+    const events = options?.human === true ? [] : yield* recordedUpgradeEvents(streams.log);
     const stdout = streams.log
       .filter((entry) => entry.channel === "stdout")
       .map((entry) => entry.content)

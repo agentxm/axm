@@ -13,7 +13,7 @@ export const specification = defineSpecification({
   requirement: "cli/native-imports-preserve-content-and-source",
   title: "Native imports create workspace packages without changing original content",
   statement:
-    "When a person imports native Skill or Subagent content, AXM shall preserve the original source and its instructions while creating the requested workspace package, disabled unless activation is requested or already configured, and shall reject a managed package or mismatched target type.",
+    "When a person imports native Skill or Subagent content, AXM shall preserve the original source and its instructions while creating the requested workspace package, disabled unless activation is requested or the target is already enabled, and shall reject a managed package or mismatched target type.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -39,17 +39,32 @@ describe("Importing native instructions", () => {
   };
 
   for (const type of ["skill", "subagent"] as const)
-    for (const activation of ["disabled", "requested", "already-enabled"] as const)
+    for (const activation of [
+      "disabled",
+      "requested",
+      "already-enabled",
+      "already-disabled",
+      "requested-over-disabled",
+    ] as const)
       it.effect(`imports ${type} with ${activation} activation`, () =>
         Effect.gen(function* () {
           const plural = type === "skill" ? "skills" : "subagents";
-          const enable = activation === "requested";
-          const enabled = activation !== "disabled";
+          const enable = activation === "requested" || activation === "requested-over-disabled";
+          const enabled = enable || activation === "already-enabled";
+          const configuredBefore =
+            activation === "already-enabled" ||
+            activation === "already-disabled" ||
+            activation === "requested-over-disabled";
+          const priorEnabled = activation === "already-enabled";
           const created = workspace({
             settings: {
               agents: ["claude-code"],
-              ...(activation === "already-enabled"
-                ? { [plural]: { custom: "@acme/" + plural + "/original" } }
+              ...(configuredBefore
+                ? {
+                    [plural]: {
+                      custom: { source: "@acme/" + plural + "/original", enabled: priorEnabled },
+                    },
+                  }
                 : {}),
             },
           });
@@ -58,6 +73,13 @@ describe("Importing native instructions", () => {
             "---\nname: original\ndescription: Review code carefully\n---\n\nKeep every recommendation evidence backed.\n";
           writePackageFile(created.root, source, body);
           const before = snapshotWorkspaceContent(path.join(created.root, "native"));
+          if (configuredBefore) {
+            expect(created.readSettings()).toMatchObject({
+              [plural]: {
+                custom: { source: "@acme/" + plural + "/original", enabled: priorEnabled },
+              },
+            });
+          }
           yield* handleImport({
             type,
             source: path.join(created.root, type === "skill" ? "native" : source),
@@ -86,6 +108,13 @@ describe("Importing native instructions", () => {
           expect(
             created.exists(type === "skill" ? ".claude/skills/custom" : ".claude/agents/custom.md"),
           ).toBe(enabled);
+          if (enabled) {
+            expect(
+              created.readFile(
+                type === "skill" ? ".claude/skills/custom/SKILL.md" : ".claude/agents/custom.md",
+              ),
+            ).toContain("Keep every recommendation evidence backed.");
+          }
         }),
       );
   for (const fault of ["managed-source", "wrong-type"] as const)

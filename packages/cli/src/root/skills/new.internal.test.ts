@@ -204,20 +204,6 @@ describe("skills-new.handler", () => {
   });
 
   describe("owner override", () => {
-    it.effect("rejects an owner override that conflicts with the workspace owner", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
-
-      return provide(
-        Effect.gen(function* () {
-          const error = yield* handleSkillsNew(
-            defaultArgs("my-skill", { owner: Option.some("@corp") }),
-          ).pipe(Effect.flip);
-          expect(getAppError(error).code).toBe("conflict");
-        }),
-      );
-    });
-
     it.effect("normalizes an owner override before checking for a conflict", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });

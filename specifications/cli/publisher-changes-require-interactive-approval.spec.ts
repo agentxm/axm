@@ -3,13 +3,17 @@ import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
+import YAML from "yaml";
 
 import {
   handleInstall,
   handleSkillsInstall,
   handleSkillsUpdate,
+  handleSubagentsUpdate,
+  LockfileSchema,
   handleUpdate,
 } from "axm.sh/specification-harness";
 
@@ -18,8 +22,13 @@ import { makeSpecWorkspace } from "../support/install-harness.js";
 import {
   expectProtectedStateUntouched,
   snapshotProtectedState,
+  type ProtectedStateSnapshot,
 } from "../support/preview-purity.js";
 import { makeSpecRegistry, type SpecRegistry } from "../support/registry-fixture.js";
+import {
+  writeRegistrySubagent,
+  type RegistrySubagentVersion,
+} from "../support/registry-subagent-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/publisher-changes-require-interactive-approval",
@@ -72,8 +81,8 @@ const publisherCondition = expect.objectContaining({
 });
 
 /**
- * Every route that can accept a Registry binding for an already accepted
- * extension. Each runs the real handler over the given workspace.
+ * Root and typed Skill routes exercised over the shared Skill fixture.
+ * Typed Subagent update has its own acquired-content controls below.
  */
 const affectedRoutes: ReadonlyArray<{
   readonly route: string;
@@ -274,5 +283,209 @@ describe("Publisher changes", () => {
       expect(JSON.stringify(entry?.data)).not.toContain(CONDITION);
       expect(workspace.readLockfileText()).toContain(`publisherBindingId: ${ACCEPTED_BINDING}`);
     }),
+  );
+});
+
+// The Subagent branch has its own manager and native document adapter. Start
+// with real accepted content so a version-only update cannot satisfy trust.
+const SUBAGENT = "researcher";
+const UNRELATED_SUBAGENT = "unrelated-researcher";
+const UNRELATED_BINDING = "hbnd_unrelated";
+const UNRELATED = { version: "1.0.0", body: "Keep this independent research guidance." };
+const SUBAGENT_CANONICAL = `agent_extensions/agentxm/@acme/subagents/${SUBAGENT}`;
+const SUBAGENT_NATIVE = `.claude/agents/${SUBAGENT}.md`;
+const decodeLockfile = Schema.decodeUnknownEffect(LockfileSchema);
+
+const expectSubagentContent = (
+  workspace: SpecWorkspace,
+  name: string,
+  publication: RegistrySubagentVersion,
+): void => {
+  const canonical = `agent_extensions/agentxm/@acme/subagents/${name}`;
+  const manifest: unknown = JSON.parse(workspace.readFile(`${canonical}/subagent.json`));
+  expect(manifest).toMatchObject({
+    owner: "@acme",
+    type: "subagent",
+    name,
+    version: publication.version,
+  });
+  expect(workspace.readFile(`${canonical}/src/${name}.md`)).toBe(
+    `---\nname: ${name}\ndescription: The ${name} subagent.\n---\n\n${publication.body}\n`,
+  );
+  const native = workspace.readFile(`.claude/agents/${name}.md`);
+  expect(native).toContain(`name: ${name}`);
+  expect(native).toContain(publication.body);
+};
+
+/**
+ * Keep every protected family and entry except the explicitly updated
+ * canonical package and its native file. The lockfile is compared separately
+ * after replacing only this Subagent's accepted row with its prior value.
+ */
+const outsideSubagentUpdate = (snapshot: ProtectedStateSnapshot): ProtectedStateSnapshot =>
+  Object.fromEntries(
+    Object.entries(snapshot)
+      .filter(([root]) => root !== "axm-lock.yaml")
+      .map(([root, entries]) => [
+        root,
+        Object.fromEntries(
+          Object.entries(entries).filter(([entry]) => {
+            const relative = entry === "." ? root : `${root}/${entry}`;
+            return (
+              relative !== SUBAGENT_CANONICAL &&
+              !relative.startsWith(`${SUBAGENT_CANONICAL}/`) &&
+              relative !== SUBAGENT_NATIVE
+            );
+          }),
+        ),
+      ]),
+  );
+
+describe("Publisher changes through typed Subagent update", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  const acquiredThenRepublished = (interactive: boolean) =>
+    Effect.gen(function* () {
+      const registry = makeSpecRegistry();
+      cleanups.push(registry.cleanup);
+      writeRegistrySubagent(registry, SUBAGENT, [FIRST], ACCEPTED_BINDING);
+      writeRegistrySubagent(registry, UNRELATED_SUBAGENT, [UNRELATED], UNRELATED_BINDING);
+      const workspace = makeSpecWorkspace({
+        machine: !interactive,
+        flags: { json: !interactive, nonInteractive: !interactive },
+        prompt: {
+          confirmResponses: interactive ? [true] : [],
+          onConfirmApplyChanges: (): void => {
+            // The answer is still pending here. Neither the changed binding
+            // nor any protected workspace write may precede that answer.
+            expectSubagentContent(workspace, SUBAGENT, FIRST);
+            const currentLock: unknown = YAML.parse(workspace.readLockfileText());
+            expect(currentLock).toMatchObject({
+              subagents: { [SUBAGENT]: { publisherBindingId: ACCEPTED_BINDING } },
+            });
+            expectProtectedStateUntouched({
+              root: workspace.root,
+              before,
+              writes: workspace.writes,
+            });
+          },
+        },
+        recordWrites: true,
+        settings: { agents: ["claude-code"], sources: [registry.source] },
+        userSettings: { agents: [] },
+      });
+      cleanups.push(workspace.cleanup);
+      for (const name of [SUBAGENT, UNRELATED_SUBAGENT]) {
+        yield* handleInstall({
+          source: Option.some(`@acme/subagents/${name}`),
+          force: false,
+          preview: false,
+        }).pipe(Effect.provide(workspace.layer));
+      }
+      // First acceptance needs no publisher-change approval and produces real
+      // canonical/native files before the Registry changes its publisher.
+      expect(workspace.resolvePlanState.confirmApplyChangesCalls).toEqual([]);
+      expectSubagentContent(workspace, SUBAGENT, FIRST);
+      expectSubagentContent(workspace, UNRELATED_SUBAGENT, UNRELATED);
+      const lockBefore = yield* decodeLockfile(YAML.parse(workspace.readLockfileText()));
+      expect(lockBefore.subagents?.[SUBAGENT]).toMatchObject({
+        type: "registry",
+        owner: "@acme",
+        name: SUBAGENT,
+        resolvedVersion: FIRST.version,
+        publisherBindingId: ACCEPTED_BINDING,
+      });
+      expect(lockBefore.subagents?.[UNRELATED_SUBAGENT]).toMatchObject({
+        type: "registry",
+        name: UNRELATED_SUBAGENT,
+        publisherBindingId: UNRELATED_BINDING,
+      });
+      fs.writeFileSync(
+        path.join(workspace.root, ".claude", "agents", "personal-notes.md"),
+        "---\nname: personal-notes\ndescription: Personal notes.\n---\n\nKeep this unowned file exactly as written.\n",
+      );
+      writeRegistrySubagent(registry, SUBAGENT, [SECOND, FIRST], REPUBLISHED_BINDING);
+      const before = snapshotProtectedState(workspace.root);
+      workspace.writes.splice(0);
+      workspace.rendererState.results.splice(0);
+      return { workspace, before, lockBefore };
+    });
+
+  const updateSubagent = (workspace: SpecWorkspace) =>
+    handleSubagentsUpdate({
+      source: Option.none(),
+      subagents: [],
+      force: false,
+      preview: false,
+    }).pipe(Effect.provide(workspace.layer));
+
+  it.effect(
+    "unattended Subagent update preserves the accepted binding and all protected state",
+    () =>
+      Effect.gen(function* () {
+        const { workspace, before, lockBefore } = yield* acquiredThenRepublished(false);
+
+        yield* updateSubagent(workspace);
+
+        expectProtectedStateUntouched({ root: workspace.root, before, writes: workspace.writes });
+        expect(yield* decodeLockfile(YAML.parse(workspace.readLockfileText()))).toEqual(lockBefore);
+        expect(workspace.resolvePlanState.confirmApplyChangesCalls).toEqual([]);
+        const [entry] = workspace.rendererState.results;
+        expect(entry?.ok).toBe(false);
+        expect(entry?.data).toMatchObject({
+          result: {
+            outcome: "blocked",
+            counts: { committed: 0 },
+            blocking: {
+              class: "approval-required",
+              subject: CONDITION,
+              detail: expect.stringContaining("Interactive approval is required"),
+              escape: {
+                description: expect.stringContaining("Approve interactively"),
+                cmd: expect.any(String),
+              },
+            },
+          },
+        });
+        expect(JSON.stringify(entry?.data)).not.toContain("--yes");
+        expectSubagentContent(workspace, SUBAGENT, FIRST);
+        expect(workspace.readFile(SUBAGENT_NATIVE)).not.toContain(SECOND.body);
+      }),
+  );
+
+  it.effect(
+    "approved Subagent update records the new binding and content without changing unrelated state",
+    () =>
+      Effect.gen(function* () {
+        const { workspace, before, lockBefore } = yield* acquiredThenRepublished(true);
+
+        yield* updateSubagent(workspace);
+
+        expect(workspace.resolvePlanState.confirmApplyChangesCalls).toHaveLength(1);
+        expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
+          result: { outcome: "applied" },
+        });
+        const lockAfter = yield* decodeLockfile(YAML.parse(workspace.readLockfileText()));
+        expect(lockAfter.subagents?.[SUBAGENT]).toMatchObject({
+          type: "registry",
+          owner: "@acme",
+          name: SUBAGENT,
+          resolvedVersion: SECOND.version,
+          publisherBindingId: REPUBLISHED_BINDING,
+        });
+        expectSubagentContent(workspace, SUBAGENT, SECOND);
+        expect(workspace.readFile(SUBAGENT_NATIVE)).not.toContain(FIRST.body);
+        expect({
+          ...lockAfter,
+          subagents: { ...lockAfter.subagents, [SUBAGENT]: lockBefore.subagents?.[SUBAGENT] },
+        }).toEqual(lockBefore);
+        expect(outsideSubagentUpdate(snapshotProtectedState(workspace.root))).toEqual(
+          outsideSubagentUpdate(before),
+        );
+        expectSubagentContent(workspace, UNRELATED_SUBAGENT, UNRELATED);
+      }),
   );
 });

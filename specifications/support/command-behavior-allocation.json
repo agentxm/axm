@@ -6437,15 +6437,21 @@
         },
         {
           "parameters": ["flag:skill"],
-          "requirements": ["cli/install/records-direct-intent"],
-          "when": "An explicit source is supplied and discovered candidates are acquirable.",
-          "openTopics": ["install-name-selection"]
+          "requirements": ["cli/skills/install/selects-requested-source-skills"],
+          "when": "An installable source is supplied, every supplied --skill value is an existing exact name, and --all is absent.",
+          "openTopics": ["install-name-selection"],
+          "details": [
+            "Repeatable exact-name selection is owned here; glob grammar, partially or wholly unmatched requests and combination with --all remain unresolved in the owner and shared topic."
+          ]
         },
         {
           "parameters": ["flag:all"],
-          "requirements": ["cli/install/records-direct-intent"],
-          "when": "An explicit source is supplied and no more-specific name selector is active.",
-          "openTopics": ["install-all-selection"]
+          "requirements": ["cli/skills/install/selects-requested-source-skills"],
+          "when": "An installable source is supplied, --all is present, and --skill is absent.",
+          "openTopics": ["install-all-selection"],
+          "details": [
+            "Explicit all selects every discovered skill without a selection prompt; omission of both selectors and combination with --skill remain unresolved."
+          ]
         },
         {
           "parameters": ["flag:reinstall"],

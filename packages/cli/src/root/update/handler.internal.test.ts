@@ -388,7 +388,6 @@ describe("root update handler", () => {
         "@acme/rules/workspace-guidance",
         "@acme/hooks/tool-audit",
         "@acme/knowledge/handbook",
-        "@acme/packs/frontend-tools",
       ] as const;
 
       yield* Effect.forEach(sources, (source) =>
@@ -402,8 +401,40 @@ describe("root update handler", () => {
         { type: "rule", source: "@acme/rules/workspace-guidance@1.0.0", ...flags },
         { type: "hook", source: "@acme/hooks/tool-audit@1.0.0", ...flags },
         { type: "knowledge", source: "@acme/knowledge/handbook@1.0.0", ...flags },
-        { type: "pack", source: "@acme/packs/frontend-tools@1.0.0", ...flags },
       ]);
+    }),
+  );
+
+  it.effect("blocks a non-desired pack before dispatching its install surface", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, { machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+      });
+
+      yield* provide(
+        handleUpdate({
+          source: Option.some("@acme/packs/frontend-tools"),
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "blocked",
+          blocking: {
+            class: "precondition-unmet",
+            subject: "@acme/packs/frontend-tools",
+            reference: "not-desired",
+          },
+          counts: { total: 0 },
+        },
+      });
+      expect(calls).toEqual([]);
     }),
   );
 

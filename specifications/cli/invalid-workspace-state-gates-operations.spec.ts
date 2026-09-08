@@ -21,9 +21,9 @@ import { pinSpecUserHome, snapshotWorkspaceContent } from "../support/workspace-
 
 export const specification = defineSpecification({
   requirement: "cli/invalid-workspace-state-gates-operations",
-  title: "Invalid workspace settings or lockfile state gates every operation",
+  title: "Invalid workspace settings or lockfiles block workspace operations",
   statement:
-    "When a present project or user settings file, or a present workspace lockfile in the selected scope, is malformed, schema-invalid, unreadable, or of an unsupported version, every read, diagnose, preview, and mutate operation shall stop before it begins with a validation error naming the file, the observed fault, and a non-destructive recovery route, and shall change no workspace state.",
+    "When a present project or user settings file, or a present workspace lockfile in the selected scope, is malformed, schema-invalid, unreadable, or of an unsupported version, operations that read or change workspace state, including diagnosis and preview, shall stop before workspace work begins with a validation error naming the file, the observed fault, and a non-destructive recovery route, and shall change no workspace state.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "machine-automation"],

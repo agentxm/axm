@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   requirement: "cli/packs/uninstall/preview-is-pure",
   title: "Pack uninstall preview describes the removal without changing any state",
   statement:
-    "When packs uninstall runs in preview mode against an installed pack, it shall report the pack and orphaned members it would remove with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.",
+    "When packs uninstall runs in preview mode against an installed pack, it shall not change settings, the lockfile, canonical content, or agent projections, and, when the request passes the applicable checks, it shall report the pack and orphaned members it would remove with a previewed outcome.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],

@@ -2,15 +2,24 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { handleDemote, handleInstall, handleSkillsUpdate } from "axm.sh/specification-harness";
+import {
+  handleDemote,
+  handleInstall,
+  handleSkillsUpdate,
+  PlanResolutionDocumentSchema,
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
-import { unrecognizedOptions } from "../support/parser-probe.js";
+import { admitRecoveryArgv } from "../support/recovery-argv-admission.js";
+import { makeDirectoryFixture } from "../support/directory-harness.js";
+import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 import { writeAuthoredSkill } from "../support/publish-harness.js";
 import { makeSpecRegistry, type SpecRegistry } from "../support/registry-fixture.js";
 
@@ -22,7 +31,10 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics"],
-  methods: ["example"],
+  boundary: "process",
+  boundaryRationale:
+    "The built CLI executes the emitted demote recovery and verifies the resulting workspace transition; complementary in-process cases admit full argument vectors with the registered parser while substituting only the target handler for interactive-only recovery.",
+  methods: ["example", "contract"],
   derivedFrom: [
     "cli/lockfile-rejections-name-recovery-routes",
     "cli/confirmation-flags-have-a-supported-purpose",
@@ -30,6 +42,14 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [],
+  limitations: [
+    {
+      limitation:
+        "These replays use inert values without shell quoting; the interactive-only recovery is parsed through its complete registered branch with an observing handler and does not establish terminal prompt behavior.",
+      retirementCondition:
+        "Add quoted recovery values and an interactive terminal replay through a supported process harness; existing confirmation specifications continue to own prompt behavior.",
+    },
+  ],
 });
 
 const SKILL = "review";
@@ -51,8 +71,9 @@ const escapeOf = (data: unknown): { readonly description?: string; readonly cmd?
   };
 };
 
-/** The tokens of a rendered `axm …` command after the program name. */
+/** These fixtures use unquoted tokens; replay never evaluates a shell command. */
 const argvOf = (cmd: string): ReadonlyArray<string> => {
+  expect(cmd).toMatch(/^[A-Za-z0-9_@%+=:,./^ -]+$/u);
   const [program, ...rest] = cmd.split(" ");
   expect(program).toBe("axm");
   return rest;
@@ -111,7 +132,15 @@ describe("Approval-required recovery", () => {
         const argv = argvOf(escape.cmd ?? "");
         expect(argv).toContain("--yes");
         expect(argv.slice(0, 1)).toEqual(["demote"]);
-        expect(yield* unrecognizedOptions(argv)).toEqual([]);
+        expect(yield* admitRecoveryArgv(argv, ["demote"])).toMatchObject({
+          fqn: FQN,
+          source: replacement,
+          yes: true,
+        });
+        const missingSource = argv.filter((token) => token !== replacement);
+        expect(missingSource).toHaveLength(argv.length - 1);
+        const refused = yield* admitRecoveryArgv(missingSource, ["demote"]).pipe(Effect.exit);
+        expect(Exit.isFailure(refused)).toBe(true);
       }),
   );
 
@@ -160,7 +189,7 @@ describe("Approval-required recovery", () => {
         expect(argv).not.toContain("--yes");
         expect(argv).not.toContain("--json");
         expect(argv).not.toContain("--non-interactive");
-        expect(yield* unrecognizedOptions(argv)).toEqual([]);
+        yield* admitRecoveryArgv(argv, ["skills", "update"]);
         expect(workspace.readLockfileText()).toContain("publisherBindingId: hbnd_test");
       }),
   );
@@ -194,4 +223,79 @@ describe("Approval-required recovery", () => {
         expect(workspace.readSettings()).toMatchObject({ skills: { [SKILL]: "workspace" } });
       }),
   );
+
+  it("executes the emitted advance-approval replay through the built CLI and replaces only the selected authored package", async () => {
+    const fixture = makeDirectoryFixture();
+    try {
+      fs.writeFileSync(
+        path.join(fixture.invoking, "axm.json"),
+        JSON.stringify({
+          owner: "@acme",
+          agents: [],
+          skills: { review: "workspace" },
+          minimumReleaseAge: "0s",
+        }),
+      );
+      writeAuthoredSkill(fixture.invoking, {
+        name: SKILL,
+        description: "Previous authored guidance.",
+      });
+      const replacement = writeLocalSkillPackage(fixture.invoking, {
+        name: SKILL,
+        body: "Selected replacement guidance.",
+      });
+      fs.writeFileSync(
+        path.join(fixture.invoking, "unrelated.txt"),
+        "Unrelated workspace content.\n",
+      );
+      const sourceBefore = snapshotWorkspaceContent(replacement);
+      const before = snapshotWorkspaceContent(fixture.invoking);
+      const blocked = await fixture.run([
+        "demote",
+        FQN,
+        "./vendor/review",
+        "--json",
+        "--non-interactive",
+      ]);
+      expect(blocked.exitCode, blocked.stdout + blocked.stderr).toBe(2);
+      const blockedDocument = Schema.decodeUnknownSync(PlanResolutionDocumentSchema)(
+        JSON.parse(blocked.stdout),
+      );
+      expect(blockedDocument.result).toMatchObject({
+        outcome: "blocked",
+        counts: { committed: 0 },
+        blocking: { class: "approval-required", subject: "replace-workspace-authority" },
+      });
+      expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
+      const recovery = blockedDocument.result.blocking?.escape?.cmd;
+      if (recovery === undefined) throw new Error("Expected an emitted demote recovery command");
+      const argv = argvOf(recovery);
+      expect(argv[0]).toBe("demote");
+      expect(argv).toContain("--yes");
+      expect(argv).toContain(FQN);
+      expect(argv).toContain("./vendor/review");
+      const applied = await fixture.run(argv);
+      expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
+      const appliedDocument = Schema.decodeUnknownSync(PlanResolutionDocumentSchema)(
+        JSON.parse(applied.stdout),
+      );
+      expect(appliedDocument.result.outcome).toBe("applied");
+      const settings: unknown = JSON.parse(
+        fs.readFileSync(path.join(fixture.invoking, "axm.json"), "utf8"),
+      );
+      expect(settings).toMatchObject({ skills: { review: "./vendor/review" } });
+      expect(fs.existsSync(path.join(fixture.invoking, "skills/review"))).toBe(false);
+      expect(
+        snapshotWorkspaceContent(
+          path.join(fixture.invoking, "agent_extensions/local/vendor/review"),
+        ),
+      ).toEqual(sourceBefore);
+      expect(snapshotWorkspaceContent(replacement)).toEqual(sourceBefore);
+      expect(fs.readFileSync(path.join(fixture.invoking, "unrelated.txt"), "utf8")).toBe(
+        "Unrelated workspace content.\n",
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
 });

@@ -2,6 +2,8 @@ import * as fs from "node:fs";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import { makeDirectoryFixture } from "../support/directory-harness.js";
+import { writeMalformedWorkspaceState } from "../support/malformed-workspace-fixture.js";
+import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
   requirement: "cli/version-output-identifies-running-release",
@@ -47,24 +49,32 @@ if (
 const expectedVersion = manifest.version;
 
 describe("CLI release identity", () => {
-  it.each([
-    { label: "human", flags: ["--version"], machine: false },
-    { label: "machine after version", flags: ["--version", "--json"], machine: true },
-    { label: "machine before version", flags: ["--json", "--version"], machine: true },
-  ])("$label identifies the running release without a workspace", async ({ flags, machine }) => {
-    const fixture = makeDirectoryFixture();
-    try {
-      const result = await fixture.run(flags);
-      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-      expect(result.stderr).toBe("");
-      if (machine) {
-        const document: unknown = JSON.parse(result.stdout);
-        expect(document).toEqual({ type: "version", name: "axm", version: expectedVersion });
-      } else {
-        expect(result.stdout.trim()).toBe(expectedVersion);
-      }
-    } finally {
-      fixture.cleanup();
-    }
-  });
+  for (const state of ["absent", "malformed populated"] as const)
+    it.each([
+      { label: "human", flags: ["--version"], machine: false },
+      { label: "machine after version", flags: ["--version", "--json"], machine: true },
+      { label: "machine before version", flags: ["--json", "--version"], machine: true },
+    ])(
+      `$label identifies the running release with ${state} workspace state`,
+      async ({ flags, machine }) => {
+        const fixture = makeDirectoryFixture();
+        try {
+          if (state === "malformed populated")
+            writeMalformedWorkspaceState(fixture.invoking, fixture.home);
+          const before = snapshotWorkspaceContent(fixture.root);
+          const result = await fixture.run(flags);
+          expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+          expect(result.stderr).toBe("");
+          if (machine) {
+            const document: unknown = JSON.parse(result.stdout);
+            expect(document).toEqual({ type: "version", name: "axm", version: expectedVersion });
+          } else {
+            expect(result.stdout.trim()).toBe(expectedVersion);
+          }
+          expect(snapshotWorkspaceContent(fixture.root)).toEqual(before);
+        } finally {
+          fixture.cleanup();
+        }
+      },
+    );
 });

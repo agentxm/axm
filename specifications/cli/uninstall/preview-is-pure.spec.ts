@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "cli/uninstall/preview-is-pure",
   title: "Uninstall preview describes the removal without changing any state",
   statement:
-    "When uninstall runs in preview mode against a desired extension, it shall report the removal it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.",
+    "When uninstall runs in preview mode against a desired extension, it shall not change settings, the lockfile, canonical content, or agent projections, and, when the request passes the applicable checks, it shall report the removal it would apply with a previewed outcome.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],

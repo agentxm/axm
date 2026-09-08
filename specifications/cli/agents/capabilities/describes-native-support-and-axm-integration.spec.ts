@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { agentById } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -26,6 +27,20 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [],
+  limitations: [
+    {
+      limitation:
+        "These cases inspect AXM's catalog report; they do not establish that the named vendors or plugins currently realize the modeled behavior.",
+      retirementCondition:
+        "Verify vendor interoperability through separately identified vendor/runtime evidence when making that claim.",
+    },
+    {
+      limitation:
+        "The current catalog provides no planned or unknown AXM-support row for this handler to report; those distinctions retain producer-only fixture evidence.",
+      retirementCondition:
+        "Exercise a real catalog row or an explicitly controlled production catalog input for each missing report distinction.",
+    },
+  ],
 });
 
 describe("Coding-agent capability reports", () => {
@@ -74,6 +89,51 @@ describe("Coding-agent capability reports", () => {
       expect(report.agent).toBe("gemini-cli");
       expect(report.lifecycle).toBe("retired");
       expect(report.count).toBeGreaterThan(0);
+    }),
+  );
+  it.effect("distinguishes supported native capability from plugin and absent surfaces", () =>
+    Effect.gen(function* () {
+      // Pi supplies contrasting current model inputs, not a permanent vendor guarantee.
+      const modeled = agentById("pi");
+      expect(
+        modeled.capabilities.skill,
+        "Replace this fixture if the catalog distinction changes",
+      ).toMatchObject({
+        native: { availability: { via: "native" }, vendorStatus: { state: "active" } },
+        axm: { status: "supported", writer: null },
+      });
+      expect(
+        modeled.capabilities.subagent,
+        "Replace this fixture if the catalog distinction changes",
+      ).toMatchObject({
+        native: { availability: { via: "plugin" }, vendorStatus: { state: "active" } },
+        axm: { status: "unsupported", writer: null },
+      });
+      expect(
+        modeled.capabilities["mcp-server"],
+        "Replace this fixture if the catalog distinction changes",
+      ).toMatchObject({
+        native: { availability: { via: "none" }, vendorStatus: { state: "active" } },
+        axm: { status: "unsupported", writer: null },
+      });
+      const workspace = makeSpecWorkspace({ machine: true });
+      cleanups.push(workspace.cleanup);
+      yield* handleAgentsCapabilities(modeled.id).pipe(Effect.provide(workspace.layer));
+      const report = yield* Schema.decodeUnknownEffect(AgentCapabilitiesOutputSchema)(
+        workspace.rendererState.results.at(-1)?.data,
+      );
+      expect(report.items.find((item) => item.type === "skill")).toMatchObject({
+        native: "native",
+        axm: "supported",
+      });
+      expect(report.items.find((item) => item.type === "subagent")).toMatchObject({
+        native: "plugin",
+        axm: "unsupported",
+      });
+      expect(report.items.find((item) => item.type === "mcp-server")).toMatchObject({
+        native: "none",
+        axm: "unsupported",
+      });
     }),
   );
 });

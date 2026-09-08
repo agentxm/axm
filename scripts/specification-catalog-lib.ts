@@ -509,6 +509,11 @@ const renderStatedOrUnknown = (value: readonly string[] | "unknown"): string | u
   return value.join("; ");
 };
 
+interface CatalogDirectory {
+  readonly specifications: CatalogSpecification[];
+  readonly directories: Map<string, CatalogDirectory>;
+}
+
 /** Renders the committed, product-shaped catalog document. */
 export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => {
   const lines: string[] = [
@@ -522,24 +527,43 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     "specification on `main` is accepted authority, and merging the change that",
     "adds, revises, or removes one is the acceptance decision. Requirements are",
     "organized by their role in the product contract: product behavior,",
-    "programmatic interfaces, and supporting system behavior.",
+    "programmatic interfaces, and supporting system behavior. Within each role,",
+    "directory headings follow the specification tree; CLI directories name",
+    "registered command paths. Requirements at each node precede its child commands.",
+    "",
+    "Start from a command or an operating context with these structural maps:",
+    "",
+    "- [Command and parameter inventory](support/command-behavior-allocation.json) — command routes, flags and arguments with their applicable owners or unresolved scope.",
+    "- [Context inventory](support/context-allocation.json) — extension types, sources, scopes and other declared contexts with their applicable owners or named interface authority.",
+    "",
+    "These maps support navigation and structural checks. They do not establish",
+    "semantic completeness, correct applicability, or passing behavior.",
     "",
   ];
 
-  const byRole = new Map<string, Map<string, Map<string, CatalogSpecification[]>>>();
+  const byRole = new Map<string, CatalogDirectory>();
   for (const specification of catalog.specifications) {
-    const segments = specification.metadata.requirement.split("/");
-    const area = segments[0] ?? "system";
-    const capability = segments[1] ?? "general";
-    const areas =
-      byRole.get(specification.metadata.role) ??
-      new Map<string, Map<string, CatalogSpecification[]>>();
-    const capabilities = areas.get(area) ?? new Map<string, CatalogSpecification[]>();
-    const entries = capabilities.get(capability) ?? [];
-    entries.push(specification);
-    capabilities.set(capability, entries);
-    areas.set(area, capabilities);
-    byRole.set(specification.metadata.role, areas);
+    const directories = specification.source
+      .replace(/\\/g, "/")
+      .replace(/^specifications\//, "")
+      .split("/")
+      .slice(0, -1);
+    const role = specification.metadata.role;
+    const root = byRole.get(role) ?? {
+      specifications: [],
+      directories: new Map<string, CatalogDirectory>(),
+    };
+    let directory: CatalogDirectory = root;
+    for (const segment of directories) {
+      const child = directory.directories.get(segment) ?? {
+        specifications: [],
+        directories: new Map<string, CatalogDirectory>(),
+      };
+      directory.directories.set(segment, child);
+      directory = child;
+    }
+    directory.specifications.push(specification);
+    byRole.set(role, root);
   }
 
   const bindingsByRequirement = new Map<string, CatalogExecutionBinding[]>();
@@ -551,79 +575,89 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     }
   }
 
+  const renderSpecification = (entry: CatalogSpecification, directoryDepth: number): void => {
+    const { metadata } = entry;
+    const titleLevel = directoryDepth + 3;
+    lines.push(
+      titleLevel <= 6 ? `${"#".repeat(titleLevel)} ${metadata.title}` : `**${metadata.title}**`,
+      "",
+    );
+    lines.push(`- Requirement: \`${metadata.requirement}\``);
+    lines.push(`- Statement: ${metadata.statement}`);
+    lines.push(
+      `- Class: ${metadata.class}${
+        metadata.characteristic !== undefined ? ` (${metadata.characteristic})` : ""
+      }`,
+    );
+    lines.push(`- Role: ${metadata.role}`);
+    lines.push(`- Product goals: ${metadata.goals.map((goal) => `\`${goal}\``).join(", ")}`);
+    lines.push(
+      `- Boundary: ${metadata.boundary ?? "memory"}; selection: ${metadata.selection ?? "per-change"}`,
+    );
+    if (metadata.boundaryRationale !== undefined) {
+      lines.push(`- Boundary rationale: ${metadata.boundaryRationale}`);
+    }
+    lines.push(`- Methods: ${metadata.methods.join(", ")}`);
+    if (metadata.derivedFrom.length > 0) {
+      lines.push(
+        `- Derived from: ${metadata.derivedFrom.map((entry) => `\`${entry}\``).join(", ")}`,
+      );
+    }
+    if (metadata.supersedes.length > 0) {
+      lines.push(`- Supersedes: ${metadata.supersedes.map((entry) => `\`${entry}\``).join(", ")}`);
+    }
+    const assumptions = renderStatedOrUnknown(metadata.assumptions);
+    if (assumptions !== undefined) {
+      lines.push(`- Assumptions: ${assumptions}`);
+    }
+    const openQuestions = renderStatedOrUnknown(metadata.openQuestions);
+    if (openQuestions !== undefined) {
+      lines.push(`- Open questions: ${openQuestions}`);
+    }
+    for (const limitation of metadata.limitations ?? []) {
+      lines.push(
+        `- Limitation: ${limitation.limitation} Retires when: ${limitation.retirementCondition}`,
+      );
+    }
+    for (const gateEvidence of entry.boundEvidence) {
+      lines.push(`- Bound evidence: \`${gateEvidence.gate}\` — ${gateEvidence.verifies}`);
+    }
+    const bindings = bindingsByRequirement.get(metadata.requirement) ?? [];
+    for (const binding of bindings) {
+      lines.push(
+        `- Additional evidence: ${binding.boundary} via [\`${binding.source}\`](../${binding.source}) — ${binding.rationale}`,
+      );
+    }
+    lines.push(`- Source: [\`${entry.source}\`](../${entry.source})`);
+    lines.push("");
+  };
+
+  const renderDirectory = (directory: CatalogDirectory, segments: readonly string[]): void => {
+    const name = segments.at(-1);
+    if (name !== undefined) {
+      // Markdown has six heading levels; deeper directory paths stay explicit as breadcrumbs.
+      const label = segments.length > 4 ? segments.map(groupLabel).join(" / ") : groupLabel(name);
+      lines.push(`${"#".repeat(Math.min(segments.length + 2, 6))} ${label}`, "");
+    }
+    for (const entry of [...directory.specifications].sort((a, b) =>
+      a.metadata.requirement.localeCompare(b.metadata.requirement),
+    )) {
+      renderSpecification(entry, segments.length);
+    }
+    for (const [segment, child] of [...directory.directories.entries()].sort(([a], [b]) =>
+      a.localeCompare(b),
+    )) {
+      renderDirectory(child, [...segments, segment]);
+    }
+  };
+
   for (const role of REQUIREMENT_ROLE_ORDER) {
-    const areas = byRole.get(role);
-    if (areas === undefined) {
+    const directory = byRole.get(role);
+    if (directory === undefined) {
       continue;
     }
     lines.push(`## ${REQUIREMENT_ROLE_LABELS[role]}`, "");
-    for (const area of [...areas.keys()].sort()) {
-      lines.push(`### ${groupLabel(area)}`, "");
-      const capabilities = areas.get(area);
-      if (capabilities === undefined) {
-        continue;
-      }
-      for (const capability of [...capabilities.keys()].sort()) {
-        lines.push(`#### ${groupLabel(capability)}`, "");
-        const entries = capabilities.get(capability) ?? [];
-        for (const entry of [...entries].sort((a, b) =>
-          a.metadata.requirement.localeCompare(b.metadata.requirement),
-        )) {
-          const { metadata } = entry;
-          lines.push(`##### ${metadata.title}`, "");
-          lines.push(`- Requirement: \`${metadata.requirement}\``);
-          lines.push(`- Statement: ${metadata.statement}`);
-          lines.push(
-            `- Class: ${metadata.class}${
-              metadata.characteristic !== undefined ? ` (${metadata.characteristic})` : ""
-            }`,
-          );
-          lines.push(`- Role: ${metadata.role}`);
-          lines.push(`- Product goals: ${metadata.goals.map((goal) => `\`${goal}\``).join(", ")}`);
-          lines.push(
-            `- Boundary: ${metadata.boundary ?? "memory"}; selection: ${metadata.selection ?? "per-change"}`,
-          );
-          if (metadata.boundaryRationale !== undefined) {
-            lines.push(`- Boundary rationale: ${metadata.boundaryRationale}`);
-          }
-          lines.push(`- Methods: ${metadata.methods.join(", ")}`);
-          if (metadata.derivedFrom.length > 0) {
-            lines.push(
-              `- Derived from: ${metadata.derivedFrom.map((entry) => `\`${entry}\``).join(", ")}`,
-            );
-          }
-          if (metadata.supersedes.length > 0) {
-            lines.push(
-              `- Supersedes: ${metadata.supersedes.map((entry) => `\`${entry}\``).join(", ")}`,
-            );
-          }
-          const assumptions = renderStatedOrUnknown(metadata.assumptions);
-          if (assumptions !== undefined) {
-            lines.push(`- Assumptions: ${assumptions}`);
-          }
-          const openQuestions = renderStatedOrUnknown(metadata.openQuestions);
-          if (openQuestions !== undefined) {
-            lines.push(`- Open questions: ${openQuestions}`);
-          }
-          for (const limitation of metadata.limitations ?? []) {
-            lines.push(
-              `- Limitation: ${limitation.limitation} Retires when: ${limitation.retirementCondition}`,
-            );
-          }
-          for (const gateEvidence of entry.boundEvidence) {
-            lines.push(`- Bound evidence: \`${gateEvidence.gate}\` — ${gateEvidence.verifies}`);
-          }
-          const bindings = bindingsByRequirement.get(metadata.requirement) ?? [];
-          for (const binding of bindings) {
-            lines.push(
-              `- Additional evidence: ${binding.boundary} via [\`${binding.source}\`](../${binding.source}) — ${binding.rationale}`,
-            );
-          }
-          lines.push(`- Source: [\`${entry.source}\`](../${entry.source})`);
-          lines.push("");
-        }
-      }
-    }
+    renderDirectory(directory, []);
   }
 
   lines.push("## Product goals", "");

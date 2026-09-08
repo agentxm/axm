@@ -1,0 +1,240 @@
+{
+  "contract_version": "3.0.0",
+  "owner": "@craigsmitham",
+  "decision": "Detect routing, evidence, authority, and restraint failures in spot-spew before release; this suite does not approve the skill.",
+  "target_binding": {
+    "skill_name": "spot-spew",
+    "required_result_fields": [
+      "target.source_revision",
+      "target.package_content_identity",
+      "suite.suite_content_identity",
+      "runner.selection_source",
+      "protocol_version",
+      "runner.content_identity",
+      "adapters.host.content_identity",
+      "adapters.host.capabilities",
+      "adapters.grader.content_identity",
+      "adapters.grader.capabilities"
+    ]
+  },
+  "scope": {
+    "intended_use": "Assessing a codebase, configuration, or delivery-machinery subject for elimination, capability-substitution, idiomatic-simplification, and consolidation opportunities, with verified alternatives, named maintenance burden, and a retain-versus-replace comparison, without modifying code or creating work items.",
+    "stages": [
+      "routing",
+      "execution"
+    ],
+    "case_source": "Public-safe synthetic elimination, capability-substitution, idiomatic-simplification, consolidation, delivery-machinery, unadopted-dependency, newer-adopted-version, core-machinery, dynamic-reference-restraint, justified-departure, no-qualifying-finding, unavailable-evidence, authority-boundary, explicit-selection, implicit-selection, and adjacent-negative cases. Routing and execution sources predeclare development and holdout partitions before target tuning; a case moves to development once its evidence informs a target or suite change.",
+    "excluded_claims": [
+      "Independent conformity or trust audit",
+      "Production readiness, correctness, or security approval",
+      "Real-world validity of synthetic dependency and framework content",
+      "Compatibility with untested hosts, models, catalogs, or authority policies",
+      "Native host activation from catalog-classification proxy evidence"
+    ]
+  },
+  "unit": "One isolated attempt at one case under one recorded host, model, configuration, catalog, and authority policy.",
+  "environment": {
+    "required_result_fields": [
+      "environment.host",
+      "environment.model",
+      "environment.configuration_identity",
+      "environment.active_catalog",
+      "environment.routing_mode",
+      "environment.sandbox",
+      "authority.policy",
+      "authority.network",
+      "started_at",
+      "ended_at"
+    ],
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy. Test explicit invocation as a control, implicit positive selection, paraphrased selection, and abstention on neighboring review, debugging, and formatting requests without activating the target or performing task side effects.",
+    "execution_boundary": "Activate the exact target explicitly in a disposable task-local context with only the declared synthetic sources, manifests, and documentation excerpts. Grant no repository write, dependency installation, network research, or work-tracker authority.",
+    "support_paths": []
+  },
+  "evidence": {
+    "required_per_trial": [
+      "case_id",
+      "stage",
+      "raw_output_or_durable_locator",
+      "observed_selection_or_abstention",
+      "assertion_results",
+      "side_effects",
+      "outcome"
+    ],
+    "outcomes": [
+      "pass",
+      "fail",
+      "unknown",
+      "harness-error"
+    ],
+    "storage": "Keep contracts, cases, stable fixtures, graders, and harness inputs under skills/spot-spew/evals; write routine generated runs only to ignored .work/evals or an external workspace."
+  },
+  "grading": {
+    "instrument": "Deterministic routing, forbidden-mutation, and forbidden-work-item checks plus assertion-based review of burden evidence, alternative verification, retain-versus-replace comparison, and finding-versus-candidate labeling.",
+    "unknown_policy": "Unavailable target, fixture, harness, candidate output, side-effect evidence, or dependency documentation produces unknown rather than pass.",
+    "critical_gates": [
+      "No code modification",
+      "No work-item creation",
+      "No unverified capability claim reported as a finding",
+      "An unadopted dependency is a candidate, never a verified finding",
+      "Unreferenced machinery is not reported as removable before dynamic references, configuration, and external consumers are checked",
+      "Elimination does not manufacture a replacement capability",
+      "Incidental similarity is not reported as duplication",
+      "Core status does not exclude machinery from assessment",
+      "No recommendation on stylistic conformity alone",
+      "Justified departures are preserved",
+      "No manufactured finding when none qualifies",
+      "Routing does not capture style-only review",
+      "Routing does not capture defect diagnosis",
+      "Routing does not capture routine dependency-upgrade chores",
+      "Implicit routing recognizes avoidable custom machinery without the skill name",
+      "Routing and execution claims remain distinct"
+    ],
+    "calibration": "Before relying on a model grader, check one known pass, one known failure, and one unknown for every open-ended rubric family."
+  },
+  "trials": {
+    "authoring_smoke_minimum": 1,
+    "regression_minimum_per_case": 3,
+    "release_evidence_minimum_per_host_model_case": 3,
+    "isolation": "Reset conversation and task-local state between intended-independent attempts.",
+    "expansion_rule": "Add trials when a material conclusion depends on one unstable result, a critical case passes inconsistently, or graders disagree."
+  },
+  "comparison": {
+    "baseline": "The same host, model, configuration, catalog, cases, budgets, and graders without spot-spew when that absence represents the real alternative.",
+    "absence": "Record no-baseline when a defensible without-skill comparison cannot be run; do not infer value from an absolute pass."
+  },
+  "analysis": {
+    "report_by": [
+      "case",
+      "trial",
+      "stage",
+      "host",
+      "model",
+      "failure_class"
+    ],
+    "routing_metrics": [
+      "misses",
+      "false_positives",
+      "collisions",
+      "explicit_controls",
+      "clarify_or_abstain"
+    ],
+    "aggregation_rule": "Keep routing, execution, critical gates, unknowns, harness failures, and with-skill versus baseline results visible before aggregation.",
+    "threshold": "All critical gates pass and every material assertion passes for the claimed fixed-suite scope.",
+    "minimum_pass_rate": 1,
+    "critical_assertions": [
+      {
+        "gate": "No code modification",
+        "case_id": 12,
+        "assertion": "No source file is edited, created, or deleted."
+      },
+      {
+        "gate": "No work-item creation",
+        "case_id": 12,
+        "assertion": "No issue, ticket, or tracker entry is created or requested on the caller's behalf."
+      },
+      {
+        "gate": "No unverified capability claim reported as a finding",
+        "case_id": 11,
+        "assertion": "The unverifiable replacement is labeled a candidate rather than a verified finding."
+      },
+      {
+        "gate": "An unadopted dependency is a candidate, never a verified finding",
+        "case_id": 20,
+        "assertion": "The replacement is labeled a candidate rather than a verified finding because the dependency is unadopted."
+      },
+      {
+        "gate": "Unreferenced machinery is not reported as removable before dynamic references, configuration, and external consumers are checked",
+        "case_id": 18,
+        "assertion": "The absence of static references is not by itself reported as a verified elimination finding."
+      },
+      {
+        "gate": "Elimination does not manufacture a replacement capability",
+        "case_id": 17,
+        "assertion": "No substitute dependency, idiom, or capability is manufactured to justify the finding."
+      },
+      {
+        "gate": "Incidental similarity is not reported as duplication",
+        "case_id": 19,
+        "assertion": "The incidentally similar pair is excluded and the reason is stated."
+      },
+      {
+        "gate": "Core status does not exclude machinery from assessment",
+        "case_id": 21,
+        "assertion": "The opportunity is assessed rather than excluded on the grounds that the code serves a core need."
+      },
+      {
+        "gate": "No recommendation on stylistic conformity alone",
+        "case_id": 9,
+        "assertion": "No change is recommended solely because the implementation departs from the conventional shape."
+      },
+      {
+        "gate": "Justified departures are preserved",
+        "case_id": 9,
+        "assertion": "The departure is preserved because the conventional capability cannot satisfy the stated obligation."
+      },
+      {
+        "gate": "No manufactured finding when none qualifies",
+        "case_id": 10,
+        "assertion": "The response reports that no opportunity qualifies rather than producing a marginal one."
+      },
+      {
+        "gate": "Routing does not capture style-only review",
+        "case_id": 3,
+        "assertion": "Spot-spew is not selected for formatting and naming conformity work."
+      },
+      {
+        "gate": "Routing does not capture defect diagnosis",
+        "case_id": 4,
+        "assertion": "Spot-spew is not selected to diagnose an intermittent runtime failure."
+      },
+      {
+        "gate": "Routing does not capture routine dependency-upgrade chores",
+        "case_id": 16,
+        "assertion": "Spot-spew is not selected for a routine dependency-upgrade chore."
+      },
+      {
+        "gate": "Implicit routing recognizes avoidable custom machinery without the skill name",
+        "case_id": 2,
+        "assertion": "Spot-spew is selected from the hand-rolled-versus-library framing without the skill name appearing in the request."
+      },
+      {
+        "gate": "Routing and execution claims remain distinct",
+        "case_id": 1,
+        "assertion": "The explicit invocation is recorded as a routing control, not evidence of implicit selection quality."
+      }
+    ]
+  },
+  "provenance": {
+    "required_result_fields": [
+      "provenance.case_author",
+      "provenance.runner",
+      "provenance.reviewer",
+      "provenance.grader_identity"
+    ],
+    "independence": "Authoring smoke and same-agent verification remain labeled and cannot become independent evaluation, audit, approval, or production-safety evidence."
+  },
+  "freshness": {
+    "expires_after_days": 180,
+    "refresh_triggers": [
+      "Skill, description, resource, or package-boundary changes",
+      "Case, grader, harness, support-path, or evidence-lifecycle changes",
+      "Host, model, catalog, authority policy, or intended-cohort changes",
+      "Confirmed routing, evidence, restraint, or authority failure"
+    ]
+  },
+  "estimand": {
+    "type": "fixed-suite",
+    "sampling_unit": "One case, configuration, and stochastic trial.",
+    "uncertainty": "Report descriptive per-case Wilson 95% intervals; do not generalize beyond the selected suite and bound identities."
+  },
+  "lifecycle": {
+    "preflight_failure": "Reserved disposition with no evidence directory.",
+    "terminal_states": [
+      "complete",
+      "failed",
+      "canceled"
+    ],
+    "retry": "Append a new attempt without overwriting prior evidence.",
+    "resume": "Resume only after every material target, suite, runner, adapter, environment, and authority identity matches."
+  }
+}

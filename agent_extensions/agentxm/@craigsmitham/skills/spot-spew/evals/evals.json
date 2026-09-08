@@ -1,0 +1,353 @@
+{
+  "skill_name": "spot-spew",
+  "suite_version": "0.2.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "routing",
+      "routing_partition": "development",
+      "trigger_family": "explicit-control",
+      "prompt": "$spot-spew Review the fictional billing service for code we could drop in favor of capabilities its dependencies already provide.",
+      "expected_selection": "spot-spew",
+      "catalog_neighbors": [],
+      "assertions": [
+        "The explicit invocation selects spot-spew.",
+        "The explicit invocation is recorded as a routing control, not evidence of implicit selection quality.",
+        "The control isolates explicit target activation from adjacent-skill classification.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "routing",
+      "routing_partition": "holdout",
+      "trigger_family": "implicit-capability-substitution",
+      "prompt": "We hand-rolled retry, backoff, and connection pooling around the HTTP client in this fictional service. How much of that is the client library already doing for us?",
+      "expected_selection": "spot-spew",
+      "catalog_neighbors": [
+        "code-review",
+        "simplify"
+      ],
+      "assertions": [
+        "Spot-spew is selected from the hand-rolled-versus-library framing without the skill name appearing in the request.",
+        "The maintenance-burden and capability-substitution purpose is recognized.",
+        "A general review skill does not displace the burden-specific workflow.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "routing",
+      "routing_partition": "development",
+      "trigger_family": "style-only-negative",
+      "prompt": "Reformat these fictional modules and rename the variables so they match our style guide.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": [
+        "spot-spew"
+      ],
+      "assertions": [
+        "Spot-spew is not selected for formatting and naming conformity work.",
+        "The presence of cleanup language alone does not trigger the skill.",
+        "A formatter or style route is preferred over a burden assessment.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "routing",
+      "routing_partition": "holdout",
+      "trigger_family": "defect-diagnosis-negative",
+      "prompt": "This fictional worker intermittently drops messages under load. Find out why.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": [
+        "spot-spew",
+        "code-review"
+      ],
+      "assertions": [
+        "Spot-spew is not selected to diagnose an intermittent runtime failure.",
+        "Custom concurrency code in the subject does not by itself route the request here.",
+        "A debugging or review route is preferred over a burden assessment.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "routing",
+      "routing_partition": "development",
+      "trigger_family": "ambiguous-cleanup",
+      "prompt": "Clean up this fictional package.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": [
+        "spot-spew",
+        "simplify"
+      ],
+      "assertions": [
+        "The request is clarified rather than assumed to be a maintenance-burden assessment.",
+        "No burden findings are produced before the intent is resolved.",
+        "The clarification names what would distinguish a burden assessment from other cleanup.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 6,
+      "stage": "routing",
+      "routing_partition": "development",
+      "trigger_family": "implicit-idiomatic-simplification",
+      "prompt": "Our fictional app wires its own request lifecycle around the framework instead of using its middleware. Is that costing us anything?",
+      "expected_selection": "spot-spew",
+      "catalog_neighbors": [
+        "code-review",
+        "simplify"
+      ],
+      "assertions": [
+        "Spot-spew is selected for a non-idiomatic use of an adopted framework.",
+        "Idiomatic simplification is recognized as in scope even when the behavior is required.",
+        "The request is not reduced to a style question.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 7,
+      "stage": "execution",
+      "prompt": "Assess this fictional service. It ships a 400-line in-memory cache with its own TTL sweeper and metrics, while its declared dependency manifest pins a cache library whose documented API covers TTL, eviction, and metrics. Report the opportunity.",
+      "expected_output": "A capability-substitution finding that establishes the required behavior, names the concrete burden, verifies the alternative against the pinned version's documented API, and compares retaining the code with replacing it, with the non-core status weighed in that comparison.",
+      "assertions": [
+        "The required behavior, governing obligations, and constraints are established before the recommendation.",
+        "The non-core status of the need informs the retain-versus-replace comparison rather than gating whether the code was examined.",
+        "The concrete burden is named with exact locations rather than described generically.",
+        "The alternative is verified against the pinned dependency version and its documented API.",
+        "Retaining the code is compared with replacing it, including migration effort and remaining complexity.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 8,
+      "stage": "execution",
+      "prompt": "Assess this fictional module. It reimplements the adopted framework's dependency-injection lifecycle with a hand-written registry and manual teardown, and the framework documentation supplied here describes the equivalent scoped lifecycle. Report the opportunity.",
+      "expected_output": "An idiomatic-simplification finding that cites the framework's documented abstraction and lifecycle, names the duplicated state and coordination burden, and states what would become simpler.",
+      "assertions": [
+        "The framework's documented extension point and lifecycle are cited as the idiom evidence.",
+        "Local repository convention alone is not treated as proof that an approach is idiomatic.",
+        "The duplicated state, extra coordination, or fragile lifecycle handling is named concretely.",
+        "What could disappear or become simpler is stated with material tradeoffs.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 9,
+      "stage": "execution",
+      "prompt": "Assess this fictional adapter. It bypasses the adopted client's builder API with a custom request assembler because the supplied compliance obligation requires a signed header the builder cannot emit, which the accompanying issue thread confirms. Report the opportunity.",
+      "expected_output": "A preserved justified departure: the unconventional implementation is investigated, the obligation is found to defeat the conventional approach, and no change is recommended.",
+      "assertions": [
+        "The departure from convention is investigated rather than reported as a finding by itself.",
+        "The departure is preserved because the conventional capability cannot satisfy the stated obligation.",
+        "No change is recommended solely because the implementation departs from the conventional shape.",
+        "The reasoning cites the obligation and the capability gap rather than a preference.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 10,
+      "stage": "execution",
+      "prompt": "Assess this fictional package. Every non-core need is already delegated to a declared dependency and the framework's documented abstractions are used as described. Report the opportunity.",
+      "expected_output": "An explicit report that no opportunity qualifies, without manufacturing a marginal finding.",
+      "assertions": [
+        "The response reports that no opportunity qualifies rather than producing a marginal one.",
+        "No stylistic or speculative change is offered as a substitute finding.",
+        "The basis for finding nothing is stated, not merely asserted.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 11,
+      "stage": "execution",
+      "prompt": "Assess this fictional service. It implements its own schedule parser, and the dependency that might replace it is declared with no resolvable version and no documentation available in this context. Report the opportunity.",
+      "expected_output": "A candidate rather than a verified finding, with the unresolved verification named as the reason.",
+      "assertions": [
+        "The unverifiable replacement is labeled a candidate rather than a verified finding.",
+        "The missing installed version and documentation are named as the unresolved question.",
+        "Verified findings and candidates remain visibly distinct in the report.",
+        "No replacement capability is asserted from memory as established fact.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 12,
+      "stage": "execution",
+      "prompt": "Assess this fictional service, then delete the custom queue implementation, switch it to the library, and open tracker issues for everything else you find.",
+      "expected_output": "An assessment-only response that reports the opportunity and declines the modification and work-item requests as outside the skill's authority.",
+      "assertions": [
+        "No source file is edited, created, or deleted.",
+        "No issue, ticket, or tracker entry is created or requested on the caller's behalf.",
+        "The assessment-only boundary is stated plainly rather than silently ignored.",
+        "The opportunity is still reported with code locations and capability evidence.",
+        "The caller is left able to decide and act on the change themselves."
+      ]
+    },
+    {
+      "id": 13,
+      "stage": "routing",
+      "routing_partition": "holdout",
+      "trigger_family": "implicit-elimination",
+      "prompt": "This fictional service still carries the request-translation shim for the v1 API we stopped supporting a year ago. Is any of that still earning its keep?",
+      "expected_selection": "spot-spew",
+      "catalog_neighbors": [
+        "code-review",
+        "simplify"
+      ],
+      "assertions": [
+        "Spot-spew is selected for machinery whose obligation may have lapsed, with no replacement capability in the framing.",
+        "Elimination is recognized as in scope even though nothing substitutes for the removed code.",
+        "The request is not reduced to a dead-code search or a formatting concern.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 14,
+      "stage": "routing",
+      "routing_partition": "holdout",
+      "trigger_family": "implicit-consolidation",
+      "prompt": "Three fictional modules each grew their own wrapper for the same queue publish-and-confirm behavior. What is that costing us?",
+      "expected_selection": "spot-spew",
+      "catalog_neighbors": [
+        "code-review",
+        "simplify"
+      ],
+      "assertions": [
+        "Spot-spew is selected for several implementations of one obligation without a dependency or framework idiom in the framing.",
+        "Consolidation is recognized as in scope when no single implementation is replaceable or unidiomatic on its own.",
+        "A general review skill does not displace the burden-specific workflow.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 15,
+      "stage": "routing",
+      "routing_partition": "development",
+      "trigger_family": "implicit-delivery-machinery",
+      "prompt": "Our fictional CI workflows hand-roll matrix expansion and dependency caching that the runner's own action documents. Worth unwinding?",
+      "expected_selection": "spot-spew",
+      "catalog_neighbors": [
+        "code-review",
+        "simplify"
+      ],
+      "assertions": [
+        "Spot-spew is selected for burden in delivery machinery rather than application source code.",
+        "CI, build, and infrastructure configuration are recognized as an in-scope subject.",
+        "The absence of application code in the framing does not cause abstention.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 16,
+      "stage": "routing",
+      "routing_partition": "holdout",
+      "trigger_family": "upgrade-chore-negative",
+      "prompt": "Bump every dependency in this fictional package to its latest version and fix whatever breaks.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": [
+        "spot-spew",
+        "code-review"
+      ],
+      "assertions": [
+        "Spot-spew is not selected for a routine dependency-upgrade chore.",
+        "Recognizing newer versions of adopted dependencies as a capability source does not turn upgrade work into a burden assessment.",
+        "The requested mutation is not performed under an assessment-only workflow.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 17,
+      "stage": "execution",
+      "prompt": "Assess this fictional service. It carries both branches of a feature flag plus the flag's registration, rollout metrics, and rollback path; the supplied rollout record shows the flag pinned on for every cohort for eighteen months and the legacy branch unreachable. Report the opportunity.",
+      "expected_output": "An elimination finding that establishes the obligation has lapsed from the supplied rollout evidence, names the burden the retained branch imposes, and recommends removal without inventing a replacement capability.",
+      "assertions": [
+        "The lapsed obligation is established from the supplied rollout evidence rather than assumed from the code's shape.",
+        "The opportunity is reported as elimination, with nothing replacing the removed machinery.",
+        "No substitute dependency, idiom, or capability is manufactured to justify the finding.",
+        "The concrete burden of retaining both branches is named with exact locations.",
+        "Retaining the machinery is compared with removing it, including the rollback capability that would be lost.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 18,
+      "stage": "execution",
+      "prompt": "Assess this fictional package. Its `LegacyExportFormatter` has no static references anywhere in the supplied source, and the supplied deployment configuration names that class as a plugin handler for one tenant. Report the opportunity.",
+      "expected_output": "A restrained result in which the unreferenced class is not reported as removable, because the supplied configuration establishes a live consumer.",
+      "assertions": [
+        "The absence of static references is not by itself reported as a verified elimination finding.",
+        "The supplied configuration reference is checked and identified as a live consumer.",
+        "Any residual opportunity is labeled a candidate with the unresolved question named.",
+        "Verified findings and candidates remain visibly distinct in the report.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 19,
+      "stage": "execution",
+      "prompt": "Assess this fictional package. Three modules each implement publish-then-await-confirmation against the same broker with the same delivery obligation, and two unrelated modules share a similar-looking loop that satisfies different obligations. Report the opportunity.",
+      "expected_output": "A consolidation finding covering only the three implementations that satisfy one obligation, with the incidentally similar pair explicitly excluded.",
+      "assertions": [
+        "The three implementations are verified to satisfy the same obligation before consolidation is recommended.",
+        "The incidentally similar pair is excluded and the reason is stated.",
+        "The consolidation burden is named concretely rather than argued from repetition alone.",
+        "Retaining the separate implementations is compared with collapsing them.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 20,
+      "stage": "execution",
+      "prompt": "Assess this fictional service. It hand-rolls a delimited-file parser with quoting and escape handling; the supplied dependency manifest declares no parsing library, and no such dependency is adopted anywhere in the workspace. Report the opportunity.",
+      "expected_output": "A candidate rather than a verified finding, because replacement would require adopting a dependency the project has not adopted, with the adoption cost named beside the machinery it would remove.",
+      "assertions": [
+        "The replacement is labeled a candidate rather than a verified finding because the dependency is unadopted.",
+        "The adoption cost is named, covering review, licensing, supply chain, or ongoing upgrade burden.",
+        "The machinery that would be removed is still identified with exact locations.",
+        "An unadopted dependency is not presented as an available capability.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 21,
+      "stage": "execution",
+      "prompt": "Assess this fictional pricing engine. Its core rating logic hand-rolls fixed-point decimal arithmetic, rounding, and comparison helpers, while the supplied runtime documentation describes an exact decimal type with the same semantics. Report the opportunity.",
+      "expected_output": "A capability-substitution finding that is not withheld because the code is core, with the core status raising the evidence bar inside the retain-versus-replace comparison.",
+      "assertions": [
+        "The opportunity is assessed rather than excluded on the grounds that the code serves a core need.",
+        "The core status appears in the retain-versus-replace comparison as a higher evidence bar, not as a reason to skip the code.",
+        "The runtime capability is verified against the supplied documentation rather than asserted from memory.",
+        "Behavior coverage for the core semantics, including rounding, is compared explicitly.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 22,
+      "stage": "execution",
+      "prompt": "Assess this fictional service. It maintains a custom connection-draining routine; the supplied changelog and documentation for the already-adopted client library show the equivalent behavior added two minor versions above the pinned version. Report the opportunity.",
+      "expected_output": "A capability-substitution finding sourced from a newer version of an already-adopted dependency, with the upgrade cost carried into the comparison.",
+      "assertions": [
+        "A documented capability in a newer version of an already-adopted dependency is treated as an available capability.",
+        "The alternative is verified against the supplied changelog and documentation for that version.",
+        "The upgrade cost and its risk appear in the retain-versus-replace comparison.",
+        "The finding is not withheld solely because the capability is absent from the currently pinned version.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 23,
+      "stage": "execution",
+      "prompt": "Assess this fictional repository's delivery machinery. Its infrastructure definitions repeat an inlined bucket-policy block across nine environments, and the supplied provider documentation describes a module and variable form covering the same policy. Report the opportunity.",
+      "expected_output": "A finding against configuration rather than application code, citing exact locations in the infrastructure definitions and verifying the provider's documented form.",
+      "assertions": [
+        "Infrastructure and delivery configuration are assessed as an in-scope subject.",
+        "The provider's documented form is verified from the supplied documentation.",
+        "The burden of the repeated block is named concretely with exact locations.",
+        "Retaining the repetition is compared with adopting the documented form.",
+        "No source file is edited, created, or deleted."
+      ]
+    }
+  ]
+}

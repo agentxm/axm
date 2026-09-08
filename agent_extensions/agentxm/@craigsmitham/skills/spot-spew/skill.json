@@ -1,0 +1,29 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "spot-spew",
+  "version": "0.1.0",
+  "description": "Finds avoidable maintenance burden in code, configuration, and delivery machinery, then evaluates elimination, capability substitution, idiomatic simplification, and consolidation against verified alternatives and named burden",
+  "keywords": [
+    "code review",
+    "maintenance burden",
+    "dead code",
+    "duplication",
+    "idiomatic",
+    "dependencies",
+    "custom code",
+    "configuration",
+    "technical debt"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/spot-spew"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "publish": {
+    "ignore": []
+  }
+}

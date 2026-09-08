@@ -336,7 +336,7 @@ requirements.
 
 Wait for the user to review changes and decide when to commit.
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=501cc5e162336bf0d70065bea86ad0dbda2cd7535c9d5334bd04367598919d7e -->
 
 ## Knowledge Bundles
 
@@ -373,7 +373,7 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md)           | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
 
 <!-- axm:end v=1 region=knowledge -->
-<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=13f9a5c8cebfaf12084b2a3c55940648fc5518aca247451fdda6c4639e6b3c3e -->
 <!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.1 kind=rule -->
 
 ## Use Effect v4

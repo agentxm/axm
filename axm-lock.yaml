@@ -196,6 +196,20 @@ skills:
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:f1813ab59927dfb588fc195e4337e899a0b767227e947c01e6608034a61a6429
+  spot-spew:
+    type: registry
+    sourceType: registry
+    endpoint: https://registry.agentxm.ai/
+    extensionType: skill
+    workspaceName: spot-spew
+    packageFormat: agentxm
+    owner: "@craigsmitham"
+    name: spot-spew
+    resolvedVersion: 0.1.0
+    integrity: sha512-/NYHMZri0TLaRigsk5UdQv73SY05+wiJn7fHGgIbKytrTv/wYcPl6Uc2RIa/v2v9nKGvIEY9NOTsaSClF3uysg==
+    sourceName: agentxm
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    treeIntegrity: sha256-tree-v1:4ecb200be360b8e0cf3813dbd62e8e7bf259659a75b2877adbffc07f38292881
 subagents:
   researcher:
     type: registry

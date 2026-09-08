@@ -130,28 +130,25 @@ Standalone extensions may still belong to packs and may recommend packs when
 the relationship is optional. Pack membership alone does not make a member
 non-standalone.
 
-Packs install their members together but do not create a shared pack directory
-or relative-path namespace. When required coupling uses a sibling file,
-reference the target's canonical path from the active AXM scope root:
+Packs install their members together but do not create a shared path namespace.
+An extension never references another extension's files by path, in any form:
+`..` traversal, absolute machine paths, scope-root-relative paths, agent
+projections such as `.agents/skills` or `.claude/skills`, and canonical
+`agent_extensions/<source-name>/<source-full-name>/src/<path>` locations are all
+excluded. AXM does not parse, infer, resolve, or rewrite such references, and no
+such path is guaranteed to exist where the reading agent works.
 
-```text
-agent_extensions/<source-name>/<source-full-name>/src/<path>
-```
+Name the required sibling by its extension identity and resolve it through the
+manager's or host's own discovery: the workspace instructions file, the host's
+skill list, `axm knowledge concepts` for Knowledge bundle concepts, and
+`axm list` for installed and enabled state. Name a concept by its title or slug
+within the named bundle. Hand work to a sibling skill by invoking it by name; a
+file inside another skill is reachable only by activating that skill. If the
+required sibling or its guidance cannot be resolved, stop and name the missing
+pack dependency.
 
-```markdown
-Read `agent_extensions/agentxm/@acme/knowledge/shared/src/policies/review.md`.
-```
-
-The scope root is the project root for project scope and the user's home
-directory for user scope. Cross-extension paths must use forward slashes,
-include the target owner, plural type, and name, point inside `src/`, and target
-another direct member of the shared pack.
-
-Do not use absolute machine paths, agent projections such as `.agents/skills`
-or `.claude/skills`, paths relative to the pack directory, or `..` traversal
-between extensions. AXM does not parse, infer, resolve, or rewrite references.
-The canonical path remains stable across update, sync, disable/re-enable, and
-pack unpack; removing the target extension may break the reference.
+Paths inside one extension are unaffected: `references/policy.md` or
+`scripts/validate.sh` within the same package stay correct.
 
 ## Lifecycle
 
@@ -211,7 +208,8 @@ See the individual help topics for each extension type for more details.
 ## Standalone extensions
 
 `standalone` defaults to `true`, and pack membership does not change it. Set it
-to `false` only for deliberate required sibling coupling under
+to `false` only when the extension requires a pack sibling it names by extension
+identity, as described under
 [Cross-extension dependencies and references](#cross-extension-dependencies-and-references),
 then list the shared pack in `recommendedPacks`. A standalone extension may
 still belong to or optionally recommend a pack.

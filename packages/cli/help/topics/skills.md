@@ -43,9 +43,9 @@ Read `references/policy.md`, then run `scripts/validate.sh`.
 ```
 
 Do not use absolute machine paths or agent-specific projections such as
-`.agents/skills` or `.claude/skills`. For a required file owned by another
-extension in the same pack, use the canonical cross-extension convention in
-`axm help packs`.
+`.agents/skills` or `.claude/skills`. A skill never references another
+extension's files by path in any form. Name the required sibling by its
+extension identity and let the agent resolve it through its own discovery.
 
 ## Writing the `description` for model invocation
 
@@ -129,8 +129,9 @@ When a pack lists this skill as a dependency and the skill lists that pack as re
 Always declare `recommendedPacks` for packs you publish under the same owner that bundle this skill — it costs nothing and earns the Official badge in the registry.
 
 Keep the skill self-contained. `recommendedPacks` does not install the pack or
-its members. If the skill requires another extension, follow `axm help packs`
-for the only supported direct-sibling pack composition.
+its members. If the skill requires another extension, name that sibling by its
+extension identity and let the agent resolve it through its own discovery —
+never by file path. See `axm help packs` for pack composition.
 
 ## Where to go next
 

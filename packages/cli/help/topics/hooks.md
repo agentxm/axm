@@ -205,8 +205,9 @@ recommended, the registry marks both sides of the relationship **official**.
 Either side may declare alone; the badge appears only when both agree.
 
 Keep the hook self-contained. `recommendedPacks` does not install the pack or
-its members. If the hook requires another extension, follow `axm help packs`
-for the only supported direct-sibling pack composition.
+its members. If the hook requires another extension, name that sibling by its
+extension identity and let the agent resolve it through its own discovery —
+never by file path. See `axm help packs` for pack composition.
 
 ## Where to go next
 

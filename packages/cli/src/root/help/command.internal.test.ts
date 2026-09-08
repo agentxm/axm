@@ -84,7 +84,7 @@ describe("help topic command", () => {
     }),
   );
 
-  it.effect("documents the only supported cross-extension dependency model", () =>
+  it.effect("documents pack composition without a cross-extension path convention", () =>
     Effect.gen(function* () {
       const { layer, state } = TestRenderer.make();
 
@@ -93,6 +93,10 @@ describe("help topic command", () => {
       expect(state.markdown[0]).toContain("## Cross-extension dependencies and references");
       expect(state.markdown[0]).toMatch(/direct dependencies of the\s+same pack/);
       expect(state.markdown[0]).toContain("does not install the pack or its members");
+      expect(state.markdown[0]).toContain("never references another extension's files by path");
+      expect(state.markdown[0]).toContain("Name the required sibling by its extension identity");
+      expect(state.markdown[0]).not.toContain("```text\nagent_extensions/<source-name>");
+      expect(state.markdown[0]).not.toMatch(/reference the target's canonical path/);
     }),
   );
 

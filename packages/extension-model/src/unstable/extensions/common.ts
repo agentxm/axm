@@ -1007,7 +1007,7 @@ export const NonPackManifestFields = {
     Schema.Boolean.pipe(
       Schema.annotate({
         description:
-          "False means the extension requires sibling extensions that are direct members of a pack named in recommendedPacks; it does not create dependencies.",
+          "False means the extension requires sibling extensions that are direct members of a pack named in recommendedPacks, resolved by extension identity rather than by path; it does not create dependencies.",
         default: true,
       }),
     ),

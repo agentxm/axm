@@ -77,8 +77,9 @@ drift, and AXM writes no formatter directives.
 
 ## Self-containment and Packs
 
-Keep Rule extensions self-contained. If a Rule requires another extension,
-follow `axm help packs` for supported direct-sibling Pack composition.
+Keep Rule extensions self-contained. If a Rule requires another extension, name
+that sibling by its extension identity and let the agent resolve it through its
+own discovery — never by file path. See `axm help packs` for Pack composition.
 `recommendedPacks` alone does not install the Pack or its members.
 
 ## Where to go next

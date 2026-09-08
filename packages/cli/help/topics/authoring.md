@@ -9,9 +9,10 @@ metadata is what makes an extension findable and trustworthy in search and
 listings.
 
 Keep every non-pack extension self-contained. If it requires another extension,
-follow `axm help packs` for the only supported direct-sibling pack composition.
-`recommendedPacks` is metadata only; it does not install the pack or its
-members.
+name that sibling by its extension identity and let the agent resolve it through
+its own discovery — never by file path. See `axm help packs` for pack
+composition. `recommendedPacks` is metadata only; it does not install the pack
+or its members.
 
 ## Creating from existing content
 

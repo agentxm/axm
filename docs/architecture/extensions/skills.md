@@ -59,6 +59,8 @@ defines the directory and its name, not which installer owns it.
 - A copied projection does not become authoritative when it is edited.
 - Required coupling to another extension is explicit pack composition, not a
   hidden skill dependency.
+- A coupled sibling is reached by extension identity and host discovery, never
+  by a path into another extension.
 
 ## Testing strategy
 

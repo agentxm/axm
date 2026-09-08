@@ -210,8 +210,9 @@ using the bare pack reference — no version range:
 When a pack lists this server as a dependency and the server lists that pack as
 recommended, the registry marks both sides of the relationship **official**.
 Keep the MCP server self-contained. `recommendedPacks` does not install the pack
-or its members. If the server requires another extension, follow
-`axm help packs` for the only supported direct-sibling pack composition.
+or its members. If the server requires another extension, name that sibling by
+its extension identity and let the agent resolve it through its own discovery —
+never by file path. See `axm help packs` for pack composition.
 
 ## Where to go next
 

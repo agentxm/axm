@@ -82,7 +82,10 @@ export interface SpecRegistry {
 
 const PUBLISHED_AT = "1960-01-01T00:00:00Z";
 const OWNER = "@acme";
-const ARCHIVE_MTIME = new Date("1980-01-01T00:00:00.000Z");
+// ZIP stores a local-time DOS timestamp and admits only 1980-2099. Building the
+// fixed instant from local components keeps the encoded fields identical in
+// every timezone; an instant fixed in UTC falls into 1979 west of Greenwich.
+const ARCHIVE_MTIME = new Date(1980, 0, 2, 0, 0, 0, 0);
 
 const versionParts = (version: string): ReadonlyArray<number> =>
   (version.split("-")[0] ?? version).split(".").map((part) => Number.parseInt(part, 10));

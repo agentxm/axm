@@ -139,6 +139,17 @@ Keep agent-facing instructions in `SKILL.md` (or the content file), not the
 README. The two do not overlap: the README sells the extension to a human; the
 content file instructs the model.
 
+If you keep a version history, put it in `CHANGELOG.md`: AXM republishes the
+README with every version, so a change log inside it freezes at that version.
+
+## CHANGELOG.md
+
+An optional `CHANGELOG.md` at the extension root records what changed between
+published versions — one entry per version, newest first, naming the behavior,
+requirement, or authority changes a consumer must act on. It ships in the
+archive and, sitting outside `src/`, never becomes model context. AXM assigns
+it no special behavior.
+
 ## Where to go next
 
 - `axm help skills` — writing the `SKILL.md` frontmatter `description` for model invocation

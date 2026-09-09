@@ -44,7 +44,7 @@ sources:
   - id: characterization-tests
     resource: https://understandlegacycode.com/blog/characterization-tests-or-approval-tests/
     title: Regression, Characterization, and Approval Tests
-generated: { by: claude/fable-5.1, at: 2026-09-08T14:31:02Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Designing executable specifications
@@ -91,6 +91,19 @@ speak of authority.
 What is never correct is two accepted statements of the same rule with no
 declared authority between them. A specification written to shadow an existing
 requirement is a duplicate authority, not a second opinion.
+
+For the behavior being expressed, [Use cases](../foundations/use-cases.md)
+develops actor goals and alternative paths. For the meaning of the rules,
+[Domain-driven design](../foundations/domain-driven-design.md) develops domain
+language and invariants. Both can inform examples; neither replaces acceptance
+of the obligation. The [behavior and commitment route](../reading-product-engineering.md#behavior-and-commitment)
+connects these perspectives.
+
+When individually clear rules still produce a confusing whole,
+[Brooks on conceptual integrity](../foundations/brooks-architect-role.md#conceptual-integrity-and-the-whole-product)
+examines coherence from the user's perspective. Executable examples support
+accepted rules, but their success does not establish that the overall design
+is understandable.
 
 ## Desired outcomes
 
@@ -308,6 +321,16 @@ generated change.
       specifications authoritative](keeping-specifications-authoritative.md).
 - [ ] Any test whose expectations were inferred from existing behavior is
       labeled a characterization test.
+
+## Northbank: one rule, an explicit witness
+
+The [Northbank commitment specimen](../solution/requirements/authoring/northbank-commitment-requirements.md)
+is the declared wording authority for `NB-REPLACE-01`. Its conflict scenario is
+a witness of that rule, not a second independent authority. The
+[allocation case](northbank-allocation-change.md) binds behavior below the
+readable statement and chooses a real store for the concurrency claim.
+A characterization of the old direct-ID assignment remains evidence of what
+the legacy system does until the relevant behavior is accepted as intended.
 
 [^north-introducing-bdd]: North, [Introducing BDD](https://dannorth.net/introducing-bdd/), recounts replacing "test" with "behaviour" to give analysts, testers, developers, and the business one vocabulary for intent.
 [^fowler-spec-by-example]: Fowler, [Specification by Example](https://martinfowler.com/bliki/SpecificationByExample.html), describes concrete examples as both specification and test, and warns that examples are inherently incomplete and cannot stand alone.

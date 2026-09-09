@@ -43,7 +43,7 @@ sources:
   - id: spring-mockmvc
     resource: https://docs.spring.io/spring-framework/reference/testing/mockmvc/vs-end-to-end-integration-tests.html
     title: Spring Framework — MockMvc vs End-to-End Tests
-generated: { by: claude/opus-5, at: 2026-09-08T00:00:00Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Designing cross-boundary and end-to-end tests
@@ -250,6 +250,16 @@ If the unresolved reason for the test is browser behavior, continue with
 [Choosing browser-dependent interface
 tests](choosing-browser-dependent-interface-tests.md). If no material risk
 requires a real boundary, use the narrower test architecture instead.
+
+## Northbank: preserve the relevant failure boundary
+
+In the [allocation case](northbank-allocation-change.md), a real store is
+necessary to challenge the selected concurrency mechanism. A separate test
+world can interrupt publication after commit and redeliver the occurrence to
+an idempotent consumer. A provider emulator can expose unknown authorization
+and retry behavior, but cannot establish the real provider's availability or
+transaction guarantees. State which boundary is real and why each additional
+world earns its cost.
 
 [^istqb-risk]: ISTQB, [Certified Tester Foundation Level Syllabus v4.0.1](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf), section 5.2, defines product-risk analysis as a way to focus testing according to likelihood and impact.
 [^google-larger-testing]: Graves, [Larger Testing](https://abseil.io/resources/swe-book/html/ch14.html), explains fidelity, system-under-test forms, ownership, hermeticity, data, and the costs of larger tests.

@@ -4,9 +4,7 @@ title: Value and demand model
 description: How Offering, Audience, Need, Job to Be Done, and Value Proposition form an evidence-backed graph rather than a hierarchy.
 tags: [product-management, offering, audience, needs, jobs-to-be-done, value-proposition, pe-problem]
 status: draft
-generated:
-  by: claude/opus-5
-  at: 2026-09-08T00:00:00Z
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Value and demand model
@@ -24,6 +22,11 @@ demand. They are distinct because each answers a different question:
 
 This vocabulary is intentionally independent of artifact types and delivery
 lifecycle rules.
+
+[Jobs to Be Done](../foundations/jobs-to-be-done.md) develops the research and
+interpretations behind the job concept. [Value-based strategy](../foundations/value-based-strategy.md)
+adds the economics of creating and sharing value; a value proposition alone
+establishes neither the size nor the distribution of that value.
 
 ## Common failures
 
@@ -53,6 +56,27 @@ Do not force every concept into a tree or assume an Offering contains an
 Audience. Keep relationships explicit enough that evidence can confirm,
 refine, or contradict them.
 
+## Northbank: one offering, several relationships
+
+[Northbank Equipment](../northbank-equipment.md) offers rental access to an
+agreed capability and period, supported by preparation, delivery or collection,
+and recovery. The portal is one part of that offering.
+
+| Relationship to examine | Fictional candidate, not a research finding |
+| --- | --- |
+| Offering → audience | Dependable rental service for contractors coordinating a fixed crew start |
+| Audience → need/job | A supervisor needs usable equipment at the right time; an administrator needs predictable commitments and charges |
+| Proposition → alternatives | Dependable fulfillment may be preferable to another rental, ownership, borrowing, or rescheduling |
+| Offering → another audience | Flexible pickup renters may value lower price more than reserve-backed recovery |
+| Supplier/employee relationships | Better diagnostics and predictable shifts can improve the work through which the offering is delivered |
+
+One contractor can have several needs, and one capability can help several
+participants. The engineering manager's incident-coordination inquiry in
+[JTBD](../foundations/jobs-to-be-done.md) concerns a different audience and
+progress inside the same company. Neither inquiry is a child requirement of
+the portal. The [outcome example](outcomes-and-evidence.md#northbank-follow-the-claim-through-the-evidence)
+asks what would support the proposed value relationship.
+
 ## Meaning before commitment
 
 The five concepts express product meaning, not implementation commitment. They
@@ -79,3 +103,12 @@ used to coordinate a change is owned by
 These boundaries are about authority, not isolation. One initiative may draw
 on all of them, provided links do not silently transfer authority from one
 artifact to another.
+
+## Continue exploring
+
+- [Outcomes and evidence](outcomes-and-evidence.md) turns the value hypothesis
+  toward observable results and the evidence supporting them.
+- [Requirements and neighboring artifacts](../solution/requirements/foundations/requirements-and-neighboring-artifacts.md)
+  explains what changes when product meaning becomes an accepted obligation.
+- Follow [Value and evidence](../reading-product-engineering.md#value-and-evidence)
+  for the wider reading route.

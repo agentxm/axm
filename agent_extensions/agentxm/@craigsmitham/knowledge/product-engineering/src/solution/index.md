@@ -13,6 +13,11 @@ around is a guess. Framing the problem the commitment answers belongs to
 [What to solve](../problem/); constructing and verifying the result belongs to
 [How to build it](../engineering/).
 
+For broader context, follow
+[Behavior and commitment](../reading-product-engineering.md#behavior-and-commitment).
+Follow the route from actor goals through requirements and domain models to
+executable evidence.
+
 ## What design means here
 
 [The overview](../overview.md) holds the bundle's definition of design and the
@@ -54,9 +59,20 @@ artifacts](requirements/foundations/requirements-and-neighboring-artifacts.md).
 is answered: an offering, an audience, a need, a job, and a value proposition
 carry no obligation until one is written as a requirement someone can dispute.
 
+## Shared foundations
+
+- [Shape Up: Ryan Singer's approach to shaping, betting, and building](../foundations/shape-up.md) — How Ryan Singer's Shape Up connects appetite, shaped solution concepts, bounded bets, and team ownership to finishing meaningful work, with explicit distinctions between investment, scope, completion, and outcome evidence.
+
+- [Bill Buxton's approach to design: sketching, alternatives, and experience](../foundations/buxton-design.md) — How Bill Buxton connects experience, sketching, alternative concepts, and prototype evaluation, with an interpretation for choosing and revising product commitments.
+
+- [Use cases: goals, behavior, and incremental delivery](../foundations/use-cases.md) — How Cockburn's approach to use cases connects actor goals, system boundaries, success and failure scenarios, organizational alignment, and incremental delivery through user stories and story maps.
+
+- [Fred Brooks on the architect's role: conceptual integrity and responsibility to the user](../foundations/brooks-architect-role.md) — How Fred Brooks connects conceptual integrity, the user's mental model, design authority, and implementation feedback, with an interpretation for collaborative product engineering and explicit model boundaries.
+
 ## Planned scope
 
-The design areas hold no concepts yet.
+The design areas have shared conceptual grounding in Buxton's account and
+Shape Up above; practical guidance within this section remains unwritten.
 
 | Area | Scope |
 | --- | --- |

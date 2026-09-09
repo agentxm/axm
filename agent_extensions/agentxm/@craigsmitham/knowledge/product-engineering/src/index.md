@@ -18,6 +18,16 @@ here rather than restated. The
 
 * [Product engineering overview](overview.md) - How the seven lifecycle sections express an opinionated product-development practice, how Foundations supplies shared conceptual context, where concepts belong, and what stays outside the bundle.
 
+## Read across the bundle
+
+- [Reading product engineering](reading-product-engineering.md) — Use when entering the bundle or connecting familiar concepts to the wider practice; follow question-led reading routes through value, strategy, behavior, and change, then branch into the relevant lifecycle guidance.
+
+Choose a route by question: value and evidence, strategic choices, behavior and
+commitment, or continuity and change. Each route explains the next reading and
+branches into the lifecycle guidance.
+
+- [Northbank Equipment: a product-engineering case](northbank-equipment.md) — A fictional rental business connects customer value, strategic choices, domain behavior, code, tooling, delivery, operation, and continuing care through related episodes with explicit assumptions.
+
 ## Shared concepts
 
 * [Foundations](foundations/) - Shared concepts and approaches that inform decisions across the lifecycle; start here to understand the vocabulary and context behind the practice.
@@ -38,20 +48,24 @@ The seven lifecycle sections are at very different stages. Five hold concepts an
 yet, and no section is finished. Depth follows where the material came from, not
 where it matters most: the two questions a practitioner reaches first are the
 two with the least written, since Where to play holds no concepts at all and
-What to solve holds two. Foundations holds shared explanations of Jobs to Be
-Done and domain-driven design. A section with no concepts still carries its
-question, its scope, and the boundaries that keep its neighbors honest, so it is
-worth reading to find out where something belongs, not to find out how to do it.
+What to solve holds two. [Foundations](foundations/) groups the shared
+explanations by reader question: value and strategic choice, assumptions and
+renewal, customer progress and behavior, design and architectural responsibility,
+project commitment, measures and service levels, and maintenance triggers.
+A section with no concepts still carries its question,
+its scope, and the boundaries that keep its neighbors
+honest, so it is worth reading to find out where something belongs, not to find
+out how to do it.
 
 | Section | What it holds today |
 | --- | --- |
-| [Foundations](foundations/) | Jobs to Be Done and domain-driven design; shared conceptual context for the lifecycle |
-| [Where to play](strategy/) | No concepts. Scope, non-responsibilities, and the value stick, with the strategy canon routed to its public sources rather than summarized |
-| [What to solve](problem/) | Two concepts: the value and demand model, and outcomes and evidence. The four product risks are stated in the section index; Jobs to Be Done is linked from Foundations |
-| [What to build](solution/) | Requirements craft in depth under [Requirements](solution/requirements/); the design half of the section is not yet written |
-| [How to build it](engineering/) | Verification, [codebase review](engineering/codebase-review/), and the repository execution surface; architecture and construction are not yet written |
+| [Foundations](foundations/) | Shared explanations of value, strategy, design, behavior, project commitments, measurement, and maintenance; question-led selection and comparisons in the foundation index |
+| [Where to play](strategy/) | No concepts. Scope and non-responsibilities, with routes to value-based strategy, Playing to Win, Cagan, and Wardley mapping foundations and public strategy sources |
+| [What to solve](problem/) | Two concepts: the value and demand model, and outcomes and evidence. The four product risks are stated in the section index; Jobs to Be Done and Cagan's product strategy are linked from Foundations |
+| [What to build](solution/) | Requirements craft in depth under [Requirements](solution/requirements/), with shared design grounding through [Buxton](foundations/buxton-design.md); practical design guidance remains unwritten |
+| [How to build it](engineering/) | Verification, [codebase review](engineering/codebase-review/), and the repository execution surface; worked Northbank cases connect technical decisions, while general architecture and construction guidance remains unwritten |
 | [How to ship it](delivery/) | [Work items](delivery/work-items/); delivery flow, build and release, and delivery automation are not yet written |
-| [How to run it](operations/) | Scope and boundaries only; no concepts yet |
+| [How to run it](operations/) | Scope and boundaries, with a route to service-level foundations; no local concepts yet |
 | [How to maintain it](maintenance/) | An explanation of maintenance through care, continuity, situated understanding, intervention, and responsibility |
 
 ## Deeper entry points

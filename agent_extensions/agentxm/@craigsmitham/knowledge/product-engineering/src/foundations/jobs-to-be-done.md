@@ -56,9 +56,7 @@ sources:
   - id: cohn-stories
     resource: https://www.mountaingoatsoftware.com/agile/short-answers-to-your-big-questions-about-user-stories
     title: Mike Cohn — Short Answers to Your Big Questions about User Stories
-generated:
-  by: codex/gpt-6
-  at: 2026-09-09T02:06:13Z
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Jobs to Be Done
@@ -73,6 +71,10 @@ explanation develops its central concepts, shows how different interpretations
 shape research, and connects findings to product decisions. It is intended for
 readers evaluating a customer problem or interpreting JTBD work; it does not
 prescribe one tradition as the bundle's required method.
+
+For a compact account of how jobs relate to an offering, audience, need, and
+value proposition, read the [Value and demand model](../problem/value-and-demand-model.md).
+This explanation develops the customer inquiry behind that vocabulary.
 
 ## Foundations: jobs, progress, and customer needs
 
@@ -127,7 +129,8 @@ addressed after the concepts themselves.
 
 ### Running example: coordinating a service incident
 
-Consider a fictional company where a service incident crossed three teams.
+Consider [Northbank Equipment](../northbank-equipment.md), a fictional rental
+company where a receipt-service incident crossed three responsibility groups.
 Nobody knew who was coordinating the response; two teams issued conflicting
 instructions, and the engineering manager stepped in. After similar incidents,
 the manager considers changing the arrangement.
@@ -541,6 +544,27 @@ adoption, or commercial viability. The methods help reduce uncertainty about
 particular questions; their outputs should retain the population, evidence,
 and unresolved assumptions needed to judge them.
 
+## A second inquiry: the contractor's progress
+
+The same company presents a different inquiry outside its engineering team.
+A contractor arranging equipment before a crew starts may want confidence that
+the job can proceed without another expensive interruption. The administrator
+placing the booking, the supervisor planning the crew, and the equipment
+operator can have different functional needs. “Use the reservation portal”
+would assume the solution before examining them.
+
+Owning, borrowing, another provider, rescheduling, or buying an operated
+service are candidate alternatives. These are hypotheses for inquiry, not
+findings inferred from the fictional story. Interviews about switching and
+observation of coordination work answer different questions; a better booking
+screen cannot establish either account by itself.
+
+The [value-and-demand example](../problem/value-and-demand-model.md#northbank-one-offering-several-relationships)
+connects this inquiry to an offering. For the original incident scenario,
+[Northbank's receipt records](../delivery/work-items/northbank-receipt-incident.md)
+show what responders preserve; their record obligations do not determine what
+progress the manager seeks or whether software is the appropriate response.
+
 ## From JTBD understanding to product decisions
 
 ### Opportunities and possible responses
@@ -687,6 +711,15 @@ this explainer's synthesis.
 | How do these techniques fit into ODI? | [Strategyn's ODI process](https://strategyn.com/outcome-driven-innovation-process/) places research, segmentation, and strategy within the larger approach. |
 | Why do JTBD authors disagree? | Read [Klement's two interpretations](https://medium.com/the-job-to-be-done/know-the-two-very-different-interpretations-of-jobs-to-be-done-5a18b748bd89) alongside [Kalbach's Drills and Milkshakes](https://experiencinginformation.com/2020/10/23/drills-and-milkshakes-say-yes-to-the-mess/) for contrasting positions, then compare their characterizations with the method owners' accounts. |
 | How can understanding inform software design? | [Adams on job stories](https://www.intercom.com/blog/accidentally-invented-job-stories/) explains their purpose; [Klement's design example](https://www.intercom.com/blog/using-job-stories-design-features-ui-ux/) illustrates their use. [Cohn on user stories](https://www.mountaingoatsoftware.com/agile/short-answers-to-your-big-questions-about-user-stories) helps distinguish neighboring delivery artifacts fairly. |
+
+## Continue exploring
+
+- [Value-based strategy](value-based-strategy.md) adds the economics of value
+  creation and sharing once customer progress and alternatives are understood.
+- [Use cases](use-cases.md) develops actor goals into success and failure paths
+  within a selected system boundary.
+- The [value and evidence route](../reading-product-engineering.md#value-and-evidence)
+  connects this research perspective to observable product results.
 
 [^christensen-theory]: Christensen Institute, [Jobs to Be Done Theory](https://www.christenseninstitute.org/theory/jobs-to-be-done/).
 [^strategyn-theory]: Strategyn, [What is Jobs-to-be-Done?](https://strategyn.com/jobs-to-be-done/jobs-to-be-done-playbook/what-is-jobs-to-be-done/).

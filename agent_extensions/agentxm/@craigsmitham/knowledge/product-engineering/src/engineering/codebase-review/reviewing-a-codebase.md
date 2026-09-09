@@ -26,7 +26,7 @@ sources:
   - id: nist-ai-rmf
     resource: https://airc.nist.gov/airmf-resources/airmf/5-sec-core/
     title: NIST AI Risk Management Framework — Core
-generated: { by: codex/gpt-5.6, at: 2026-09-01T17:48:27Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Reviewing a codebase
@@ -253,6 +253,17 @@ If interrupted, record the last completed pillar, the current evidence
 boundary, unfinished work, and any external state that may change before
 resumption. Resume against the same revision or explicitly create a new claim
 context.
+
+## Northbank: scope the verdict before following the files
+
+The [Northbank allocation](../northbank-allocation-change.md) and
+[engineering-system](../northbank-engineering-system.md) cases provide different
+evidence surfaces. For a review, identify the actual revision, accepted rules,
+writers, workload, deployment, and available results. The examples describe
+plans and fictional conditions; they are not evidence for a real verdict.
+Inspect structure and lifecycle integrity for their contribution to product
+claims. Task presence, deletion counts, and a green pipeline cannot substitute
+for correctness, reliability, or customer evidence.
 
 [^iso-evaluation]: ISO, [ISO/IEC 25040:2024 quality evaluation framework](https://www.iso.org/standard/83467.html).
 [^assurance-case]: ISO, [ISO/IEC/IEEE 15026-2:2022 assurance case](https://www.iso.org/standard/80625.html).

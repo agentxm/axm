@@ -39,7 +39,7 @@ sources:
   - id: test-desiderata
     resource: https://testdesiderata.com/
     title: Test Desiderata
-generated: { by: claude/fable-5.1, at: 2026-09-02T18:30:00Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Choosing the narrowest effective test
@@ -190,6 +190,16 @@ Before admitting a new or changed narrow test, confirm:
 
 If any material risk still requires a real boundary or a browser, continue with
 the companion guides and complete their admission checks.
+
+## Northbank: choose the observer for the allocation claim
+
+The [Northbank allocation case](northbank-allocation-change.md) separates a
+plain substitution-policy example from concurrent commands against the real
+store. Exact attribute comparisons need no browser. The rule excluding two
+allocations needs an observer that can expose competing commits; a sequential
+fake removes the decisive condition. The readable example can witness an
+accepted requirement at either level, but its authority does not select that
+level.
 
 [^google-unit-testing]: Winters et al., [Unit Testing](https://abseil.io/resources/swe-book/html/ch12.html), describes why small, focused tests give fast and specific feedback and how to keep them maintainable.
 [^test-desiderata]: Beck and Sutton, [Test Desiderata](https://testdesiderata.com/), presents valuable test properties as interacting aims rather than one universal test shape.

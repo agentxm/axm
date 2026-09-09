@@ -4,9 +4,7 @@ title: Product engineering overview
 description: How the seven lifecycle sections express an opinionated product-development practice, how Foundations supplies shared conceptual context, where concepts belong, and what stays outside the bundle.
 tags: [product-engineering, body-of-knowledge, information-architecture, organizing-scheme, design, explanation]
 status: draft
-generated:
-  by: codex/gpt-6
-  at: 2026-09-09T01:56:21Z
+generated: { by: codex/gpt-6, at: 2026-09-09T15:48:35Z }
 sources:
   - id: anthropic-agents
     resource: https://www.anthropic.com/engineering/building-effective-agents
@@ -64,6 +62,13 @@ Foundations is a companion collection for shared conceptual context. A reader
 can enter through a lifecycle question or through a concept they need to
 understand. Foundations is not an additional lifecycle stage or a prerequisite
 reading sequence.
+
+For optional sequences across these boundaries, use
+[Reading product engineering](reading-product-engineering.md). Its routes start
+with a reader's question and connect shared explanations to practical guidance.
+[Strategy perspectives and their relationships](foundations/strategy-perspectives.md)
+owns the comparative account of the strategy foundations; individual explainers
+retain their definitions and source interpretations.
 
 Use this placement rule:
 
@@ -221,10 +226,11 @@ opinion about where the concept belongs.
 
 An index carries claims all the same, and after the 2026-09-08 retirement some
 of them are stated nowhere else. Where a section was reduced to scope and
-boundaries, the few claims worth keeping stayed in its index: the value stick in
-[Where to play](strategy/), the four product risks in [What to solve](problem/),
+boundaries, the few claims worth keeping stayed in its index. The value stick
+has since moved into the [value-based strategy explanation](foundations/value-based-strategy.md).
+The four product risks remain in [What to solve](problem/),
 and the two owners of incident thresholds and severity in [Operational Incident
-Records](delivery/work-items/incidents/). Those claims are authoritative and
+Records](delivery/work-items/incidents/). Those remaining claims are authoritative and
 untagged, so a tag-scoped query will not return them, and a reader who reaches
 the bundle only through `axm knowledge concepts query` will not see them. That
 is the accepted cost of not writing a concept to house one paragraph, and it is

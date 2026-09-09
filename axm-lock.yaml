@@ -177,11 +177,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: spot-spew
-    resolvedVersion: 0.1.0
-    integrity: sha512-/NYHMZri0TLaRigsk5UdQv73SY05+wiJn7fHGgIbKytrTv/wYcPl6Uc2RIa/v2v9nKGvIEY9NOTsaSClF3uysg==
+    resolvedVersion: 0.2.0
+    integrity: sha512-TJ9ENVUeo4diiLD8GlhPoKIm7m4CYDZrmzc28SW4vv+35PP1VM35zYXZ5t2oZDS0y+QFpPQJSpGW/YgClr+qhw==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:4ecb200be360b8e0cf3813dbd62e8e7bf259659a75b2877adbffc07f38292881
+    treeIntegrity: sha256-tree-v1:98c1a6127ff6ee3553c190c348dcfe38acc77c91afbd077173b8a3dce2b6ab16
 subagents:
   researcher:
     type: registry
@@ -348,11 +348,11 @@ knowledge:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: product-engineering
-    resolvedVersion: 2.0.0
-    integrity: sha512-4/dbvPTYJrFn0X5fZ68pZmO89Q0ee1FRjwPWGLoMPQKr+MVUZeIQ2kMreGd2ohUK1I2EGV0l9O/cr7E3oLL90Q==
+    resolvedVersion: 2.1.0
+    integrity: sha512-8+sC0awEpMqREfh9Ryh033ABLoL3cagqsyiRhWYkXaVLEeHFRA7RjLajL1mr/BZzqlpIHhRwSVqm2S1nl3bngg==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:25e2e7b8a2f00be3fd922d882568e682447df785958919fb3597302f0b2954de
+    treeIntegrity: sha256-tree-v1:11a57badac0ee7699fa36cc0bbde80989c2ae89cc7a413453346cc9ca51ba612
 packs:
   field-notes:
     type: registry

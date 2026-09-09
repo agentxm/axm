@@ -3,7 +3,7 @@ type: Guide
 title: Mapping work items to native hosts
 description: Use when representing work-item meaning in tracker fields, labels, relationships, and body content without duplicate authority.
 tags: [work-item, tracker, fields, labels, metadata, github, jira, linear, readback, batch, pe-delivery]
-generated: { by: claude/opus-5, at: 2026-09-08T00:00:00Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Mapping work items to native hosts
@@ -50,3 +50,11 @@ After writing, retrieve the persisted item and compare identity, fields,
 relationships, and body with the intended result. In a batch, retain successful
 item-local writes, report each failure or unverified identity, and do not claim
 atomic success unless the host provides it.
+
+## Worked continuation
+
+The [Northbank record set](../northbank-receipt-incident.md) can use native issue
+types or labels plus explicit relationships. Preserve the incident, provenance-
+bearing defect report, and corrective Change as different identities. A host's
+single completion status must not erase restoration, delivery, verification,
+residual work, or the authority for closure.

@@ -17,6 +17,32 @@ are chosen forms, not emergent properties, and this section owns those choices.
 The [overview](../overview.md) holds the bundle's definition of design and the
 table of altitudes; this section applies both rather than restating them.
 
+For broader context, follow
+[Continuity and change](../reading-product-engineering.md#continuity-and-change).
+Explore how production experience informs maintenance and changes to product
+obligations; this route does not supply the unwritten response guides.
+
+## Shared foundations
+
+- [SLIs, SLOs, and SLAs: service measures, objectives, and agreements](../foundations/service-level-indicators-objectives-and-agreements.md) — How service-level indicators, objectives, and agreements connect user experience to measured reliability, how measurement boundaries and error budgets shape decisions, and how service levels relate to product outcomes.
+
+This explanation supplies the vocabulary for service commitments and reliability
+tradeoffs. The operating practices that apply it belong in this section.
+
+- [Maintenance strategies and their relationships](../foundations/maintenance-strategies.md) — How failure consequences, deterioration mechanisms, evidence, lead time, and intervention cost shape a mix of run-to-failure, scheduled preventive, condition-based, and predictive maintenance for evolving software products.
+
+The maintenance comparison explains intervention triggers; production response
+and maintenance procedures still need their local operating guidance.
+
+## Follow a worked operating consequence
+
+[Northbank's receipt episode](../delivery/work-items/northbank-receipt-incident.md)
+shows how impact, response, restoration, diagnosis, and corrective work remain
+separate. The [engineering-system case](../engineering/northbank-engineering-system.md)
+connects deployment, queues, runtime lifecycle, telemetry, and recovery to their
+obligations. These examples use declared fictional conditions; they do not
+supply the general operational procedures listed below.
+
 ## Planned scope
 
 This section holds no concepts yet. The table states what it would own, so that

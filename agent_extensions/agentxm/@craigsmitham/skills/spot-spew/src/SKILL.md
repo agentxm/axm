@@ -1,83 +1,61 @@
 ---
 name: spot-spew
 description: >
-  Find avoidable maintenance burden in code, configuration, and delivery
-  machinery: implementations of needs that have lapsed, that an available
-  capability already covers, that duplicate each other, or that work against
-  the grain of adopted software, infrastructure, and tools. Assess each against
-  a verified alternative and a named burden. Not for style-only review, defect
-  diagnosis, or unscoped cleanup.
+  Find worthwhile reductions in maintenance burden across code, configuration,
+  infrastructure, and delivery machinery through elimination, capability
+  substitution, idiomatic simplification, or consolidation. Use when assessing
+  unnecessary or overbuilt machinery. Not for style-only review, defect
+  diagnosis, or implementing changes.
 ---
 
 # Spot Spew
 
-Inspect the requested subject for worthwhile opportunities to remove
-unnecessary machinery or simplify necessary machinery. The subject may include
-application code, CI and release workflows, build and packaging configuration,
-infrastructure definitions, committed generated artifacts, and files kept in
-sync by hand that a schema or generator could produce.
+Find opportunities to release engineering capacity by reducing the total
+burden of maintaining the requested subject while preserving its live
+obligations and useful capabilities.
 
-An opportunity qualifies only when a concrete maintenance burden is measured
-against a verifiable alternative. Tidying, restructuring for taste, and
-stylistic conformity are not opportunities.
+Opportunities include removing machinery whose obligation has lapsed,
+substituting an available capability, using adopted tools more directly,
+and consolidating implementations of the same obligation.
 
-## Kinds of opportunity
+Choose investigation methods to suit the subject. A finding must establish:
 
-- **Elimination:** the obligation has lapsed, so the machinery can go with
-  nothing replacing it. Vestigial features, unreachable branches, scaffolding
-  for a fully rolled-out flag, shims for a dropped runtime, version, or
-  consumer, and an abstraction with one implementation and no second one
-  coming.
-- **Capability substitution:** an available capability already covers the need.
-- **Idiomatic simplification:** implement required behavior using the adopted
-  tool's established abstractions, extension points, and lifecycle. A unique
-  domain obligation does not require unconventional framework machinery.
-- **Consolidation:** several implementations satisfy one obligation and can
-  collapse into one, even when no single one is replaceable by a
-  capability or unidiomatic on its own.
+- The obligation being preserved, or evidence that it has lapsed.
+- A concrete maintenance burden and an alternative that reduces it.
+- A net benefit over retaining the current arrangement, accounting for
+  transition effort, operating costs, coupling, and burden shifted elsewhere.
 
-## What counts as an available capability
+## Judgment
 
-For substitution, treat as available: an adopted dependency, service, platform,
-language runtime, or standard library; a configuration surface already in use;
-and a documented capability in a newer version of an already-adopted
-dependency, whose upgrade cost then belongs in the comparison.
+Preserve domain meaning and justified independence. Similar code can express
+different rules; consolidation is useful only when shared behavior and the
+resulting coupling are appropriate.
 
-A dependency the project has not adopted is a candidate, never a verified
-finding. Name its adoption cost — review, licensing, supply chain, and ongoing
-upgrade burden — beside the machinery it would remove.
+Keep strategic importance, operational criticality, and evolutionary maturity
+distinct. Core capabilities can contain replaceable machinery; generic
+capabilities can be operationally essential. Preserve useful experimentation
+where needs remain uncertain.
 
-## For each opportunity
+Custom implementation, repetition, and departures from convention are signals
+to investigate, not proof of waste. Judge against present needs and available
+capabilities. Preserve departures that satisfy obligations the alternative
+cannot.
 
-- Establish the required behavior, governing obligations, and constraints. For
-  elimination, establish instead that the obligation has lapsed: unreferenced
-  machinery is a candidate until dynamic references, configuration, external
-  consumers, and published contracts have been checked.
-- Identify the custom, redundant, or unconventional implementation and its
-  concrete burden, such as duplicated state, extra coordination, fragile
-  lifecycle handling, or harder testing and upgrades.
-- Verify alternatives against installed versions, official documentation, and
-  relevant first-party examples. Local repository conventions alone do not
-  establish that an approach is idiomatic. For consolidation, verify that the
-  implementations satisfy the same obligation; incidental similarity is not
-  duplication.
-- Compare retaining the machinery with the alternative: behavior coverage,
-  migration effort, remaining complexity, costs, and constraints. Whether the
-  need is core to the product belongs in this comparison, not in deciding what
-  to examine. Core behavior warrants stronger evidence before replacement, and
-  hand-rolled core machinery remains in scope.
+Support capability and idiom claims with authoritative evidence for relevant
+versions. Documented capabilities in newer versions of adopted dependencies
+are available alternatives; include upgrade costs. An unadopted dependency
+remains a candidate; include adoption and ongoing ownership costs.
 
-Report the strongest opportunities first. For each, cite exact locations and
-the capability, idiom, duplication, or lapsed-obligation evidence; explain what
-could disappear or become simpler, material tradeoffs, and unresolved
-questions.
+Absence of static references does not establish that an obligation has lapsed.
+Account for dynamic use, external consumers, and published commitments.
 
-Non-core, redundant, or unconventional machinery is not inherently waste. Treat
-a departure from convention as a signal to investigate, not a finding by
-itself. Preserve justified departures when the conventional approach cannot
-satisfy the actual obligation or would add burden. Recommend change only when
-evidence supports a net reduction in burden; do not recommend changes solely
-for stylistic conformity. Distinguish verified findings from candidates; report
-when none qualify.
+## Result
+
+Present the strongest opportunities first: exact locations, supporting
+evidence, what becomes unnecessary or simpler, expected benefit, affected
+owners, and material tradeoffs or uncertainty.
+
+Distinguish supported findings from candidates. Report when none qualify.
+Keep detail proportional to the decision.
 
 Assessment only: do not modify code or create work items.

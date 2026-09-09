@@ -4,9 +4,7 @@ title: Maintenance and the life of software products
 description: How maintenance connects care, continuity, situated understanding, intervention, and responsibility for the software products people depend on.
 tags: [product-engineering, pe-maintenance, maintenance, software-maintenance, care, craft, software-aging, program-comprehension, legacy-systems, deprecation]
 status: draft
-generated:
-  by: codex/gpt-6
-  at: 2026-09-09T02:19:37Z
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 sources:
   - id: care-introduction
     resource: https://crdia.org/les-cahiers-du-crdia/cahier-25-document-3/
@@ -105,8 +103,9 @@ that a purely functional definition misses: whose activity disappears from
 view when we describe a thing as simply working?
 
 In software, a familiar interface can conceal changes to dependencies,
-infrastructure, support practices, and organizational knowledge. Consider an
-illustrative invoice service used for many years. Customers still receive the
+infrastructure, support practices, and organizational knowledge. Consider the
+long-lived invoice service at [Northbank Equipment](../northbank-equipment.md),
+the fictional rental company used across this bundle. Customers still receive the
 same recognizable documents while engineers update its runtime and support
 staff interpret unusual invoices. Its apparent sameness does not tell us how
 much work sustains it.
@@ -127,11 +126,18 @@ visible. Keeping a program unchanged may preserve its outputs while its fit
 with users' circumstances deteriorates. Replacing a component may change the
 implementation while sustaining a familiar service.
 
-The analogy with physical things has a limit. Software does not wear out like
-a bearing. Parnas distinguishes aging through failure to adapt to changing
-needs from degradation caused by modifications made without understanding the
-design. Both affect a product's viability. Elapsed time alone is an inadequate
-explanation of its condition.[^parnas]
+Software wears under use and change, and its malleability makes intervention
+both a means of renewal and a source of deterioration. Parnas distinguishes
+aging through failure to adapt to changing needs from degradation caused by
+modifications made without understanding the design. Both affect a product's
+viability. Elapsed time alone is an inadequate explanation of its
+condition.[^parnas]
+
+The [maintenance strategy comparison](../foundations/maintenance-strategies.md)
+distinguishes these forms from runtime resource accumulation and connects the
+forces acting on software to failure, schedules, condition evidence, and
+forecasts as intervention triggers. These mechanisms call for different forms
+of attention and repair.
 
 The invoice service makes the distinction concrete. Its export file may remain
 byte-for-byte identical while customers move to accounting systems that cannot
@@ -255,6 +261,11 @@ concern who receives continuity, who bears its costs, and who can challenge the
 arrangements. Those questions qualify the claim that a product is healthy
 merely because it remains available.
 
+For how changing provision can alter an intervention's options, read
+[Wardley mapping](../foundations/wardley-mapping/wardley-mapping.md#co-evolution-inertia-and-the-rental-landscape).
+Its landscape view complements the situated understanding of a particular
+product developed here.
+
 ## What deserves to continue?
 
 Maintenance gives existing arrangements a future. That includes their benefits
@@ -290,6 +301,17 @@ ending. The art of maintenance lies partly in recognizing which continuity
 matters and developing a defensible understanding of what sustaining it asks
 of people, technology, and their surroundings.
 
+[Drucker's four disciplines of organizational renewal](../foundations/drucker-organizational-renewal.md)
+distinguishes stopping, improving, extending success, and creating. It adds an
+institutional investment perspective to the question of what deserves to
+continue; the responsibilities to people and existing arrangements remain.
+
+When a proposed intervention changes an obligation,
+[Analyzing and specifying requirement change](../solution/requirements/lifecycle/analyzing-requirement-impact.md)
+traces the affected dependents and evidence. The
+[continuity and change route](../reading-product-engineering.md#continuity-and-change)
+connects that work to renewal, assessment, and coordination.
+
 ## Reading further and connections within product engineering
 
 The sources offer several routes into this landscape:
@@ -318,6 +340,26 @@ connects it to other ways of understanding products and their domains.
 [operations](../operations/) addresses the running service, including its
 shutdown. These are complementary responsibilities rather than a sequence
 ending in a maintenance handoff.
+
+## Northbank: preserve useful continuity through change
+
+Northbank's old invoice export may be obscure to developers while customers'
+accounting routines and support staff's knowledge depend on it. Before retiring
+it, examine consumers, unusual agreements, replacement fit, and the transition
+work people must perform. Record why the old format can end and how remaining
+users retain access to what they need. Byte preservation and continuity of use
+can require different choices.
+
+The [engineering-system episode](../engineering/northbank-engineering-system.md)
+examines a related intervention: remove custom checks and plumbing only after
+their obligations have moved. The [receipt incident](../delivery/work-items/northbank-receipt-incident.md)
+separates a restored worker from a corrected defect. Neither a deletion count
+nor a successful restart measures the whole responsibility of care.
+
+In the [renewal episode](../foundations/drucker-organizational-renewal.md),
+extending a depot practice and investigating an operated service proceed
+alongside this sustaining work. New possibilities do not make existing users'
+dependencies disappear.
 
 [^care-introduction]: Denis and Pontille, [authorized introductory excerpts](https://crdia.org/les-cahiers-du-crdia/cahier-25-document-3/), French edition; endnotes omitted by the excerpt publisher.
 [^care-attention]: Denis and Pontille, [authorized excerpts on care and attention](https://crdia.org/wp-content/uploads/2023/09/C26D3.pdf), French edition; endnotes omitted by the excerpt publisher.

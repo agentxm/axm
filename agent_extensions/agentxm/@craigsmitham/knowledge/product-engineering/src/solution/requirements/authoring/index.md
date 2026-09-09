@@ -14,10 +14,8 @@ to different requirement risks and structures.
   interaction complexity, and assurance need. Use when prose is leaving an
   obligation ambiguous, or when choosing among structured syntax, examples,
   models, and formal notation.
-- [Authoring requirements](authoring-requirements.md) - Provides general
-  guidance for writing singular, bounded, necessary, feasible, and assessable
-  requirements. Use when drafting or rewriting a requirement that has no
-  special quantitative, constraint, or stateful character.
+- [Authoring requirements](authoring-requirements.md) — Provides general guidance for writing singular, bounded, necessary, feasible, and assessable requirements at an appropriate subject and level. Use when drafting or rewriting a requirement that has no special quantitative, constraint, or stateful character, or when its obligated subject or abstraction level is unclear.
+
 - [Authoring quantitative and quality requirements](authoring-quantitative-and-quality-requirements.md) -
   Specifies measurable quality obligations without inventing targets or
   omitting assessment context. Use when a requirement asserts a quality such as
@@ -35,3 +33,7 @@ to different requirement risks and structures.
 - [Requirement template](requirement-template.md) - Provides a compact Markdown
   fallback for requirements when native host fields cannot preserve the content
   contract.
+
+## Follow a worked commitment
+
+- [Northbank commitments: requirements, witnesses, and change](northbank-commitment-requirements.md) — A fictional allocation change shows how disputed needs become bounded obligations, how examples and artifacts witness them, and how scope and evidence survive a later revision.

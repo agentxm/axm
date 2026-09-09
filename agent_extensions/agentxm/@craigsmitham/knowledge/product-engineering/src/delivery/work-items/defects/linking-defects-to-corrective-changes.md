@@ -3,7 +3,7 @@ type: Guide
 title: Linking Defects to corrective Changes
 description: Use when established Defects and an authorized remedial purpose must remain traceable to a separate Change classified as Bugfix.
 tags: [defect, defect-report, change, bugfix, remediation, correction, regression, pe-delivery]
-generated: { by: claude/opus-5, at: 2026-09-08T00:00:00Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Linking Defects to corrective Changes
@@ -37,3 +37,11 @@ The Change records delivery and verification for the correction. Each source
 Defect Report follows its own local disposition and closure policy. A delivered
 Bugfix does not automatically verify or close every report, and a closed report
 does not prove that the Change was delivered.
+
+## Worked continuation
+
+In [Northbank's receipt episode](../northbank-receipt-incident.md),
+`NB-DEF-07` preserves diagnostic evidence and `NB-CHG-19` corrects the established
+resource-retention defect. `NB-CHG-20` is a separate proposal to replace lifecycle
+plumbing; the incident does not automatically authorize it. Keep the records'
+independent completion conditions and their relationship visible.

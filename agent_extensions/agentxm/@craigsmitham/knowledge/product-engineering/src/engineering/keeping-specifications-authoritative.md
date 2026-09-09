@@ -17,7 +17,7 @@ sources:
   - id: characterization-tests
     resource: https://understandlegacycode.com/blog/characterization-tests-or-approval-tests/
     title: Regression, Characterization, and Approval Tests
-generated: { by: claude/fable-5.1, at: 2026-09-08T14:31:02Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Keeping specifications authoritative
@@ -94,6 +94,15 @@ separate from generated coverage.
       text owner.
 - [ ] Specifications proposed with generated changes are treated as
       unreviewed until someone with standing has read them.
+
+## Northbank: a new provider does not inherit old evidence
+
+Northbank's [commitment specimen](../solution/requirements/authoring/northbank-commitment-requirements.md)
+limits the accepted replacement to a controlled local allocation scope. Adding
+partner capacity reopens hold expiry and unknown-outcome behavior. Preserve the
+old rule and its results while the new proposal is considered; do not edit a
+failing witness merely to admit the new code. A local-store result does not
+become provider-integration evidence because the scenario text looks similar.
 
 [^adzic-spec-by-example]: Adzic, [Specification by Example](https://www.manning.com/books/specification-by-example), presents validating frequently and evolving a living documentation system as process patterns distinct from deriving the specification itself.
 [^martraire-living-docs]: [Principles of Living Documentation](https://hilton.org.uk/blog/living-documentation-principles) summarizes Martraire's collaborative, insightful, reliable, and low-effort documentation, made reliable by automated checks.

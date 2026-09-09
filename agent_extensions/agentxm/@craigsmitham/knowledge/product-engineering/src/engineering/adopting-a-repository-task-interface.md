@@ -16,7 +16,7 @@ tags:
     pe-engineering,
   ]
 status: draft
-generated: { by: claude/opus-5, at: 2026-09-08T00:00:00Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Adopting a repository task interface
@@ -131,3 +131,13 @@ inventory rather than four competing definitions. The valuable result is that
 a developer or agent can discover the validation intent, invoke it through a
 supported entrypoint, distinguish execution from replay, trust what success
 means, and add a future check in one authoritative place.
+
+## Apply the example to a product change
+
+In [Northbank's engineering-system episode](northbank-engineering-system.md),
+one copied CI inventory omits a new allocation-concurrency check. The worked
+change resolves membership, shows an intentional failure propagating through
+the supported workflow, and distinguishes source validation, artifact build,
+migration rehearsal, and current deployed assessment. Use that case to follow
+the contract into CI/CD and infrastructure while keeping orchestration separate
+from each task's meaning.

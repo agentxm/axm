@@ -3,7 +3,7 @@ type: Explanation
 title: Verification and validation
 description: Distinguishes specification-quality and realization checks from validation of stakeholder need and intended use.
 tags: [verification, validation, evidence, stakeholder, intended-use, pe-solution]
-generated: { by: codex/gpt-5.6, at: 2026-08-29T20:06:39Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T15:53:30Z }
 ---
 
 # Verification and validation
@@ -34,3 +34,9 @@ applies this distinction to that record: stating observable completion
 conditions, choosing an evidence strategy, and keeping a bounded result
 separate from closure. It specializes this concept rather than restating it,
 and neither treats a recorded result as authority over the requirement itself.
+
+For the connection between delivered behavior and customer or business results,
+read [Outcomes and evidence](../../../problem/outcomes-and-evidence.md). It
+examines the causal assumptions and observations behind outcome claims. The
+[behavior and commitment route](../../../reading-product-engineering.md#behavior-and-commitment)
+places those claims alongside actor goals, requirements, and executable evidence.

@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Assessing a codebase, configuration, or delivery-machinery subject for elimination, capability-substitution, idiomatic-simplification, and consolidation opportunities, with verified alternatives, named maintenance burden, and a retain-versus-replace comparison, without modifying code or creating work items.",
+    "intended_use": "Assessing code, configuration, infrastructure, or delivery machinery for elimination, capability-substitution, idiomatic-simplification, and consolidation opportunities that reduce total maintenance burden while preserving live obligations, domain meaning, and justified independence, without modifying code or creating work items.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Public-safe synthetic elimination, capability-substitution, idiomatic-simplification, consolidation, delivery-machinery, unadopted-dependency, newer-adopted-version, core-machinery, dynamic-reference-restraint, justified-departure, no-qualifying-finding, unavailable-evidence, authority-boundary, explicit-selection, implicit-selection, and adjacent-negative cases. Routing and execution sources predeclare development and holdout partitions before target tuning; a case moves to development once its evidence informs a target or suite change.",
+    "case_source": "Public-safe synthetic elimination, capability-substitution, idiomatic-simplification, consolidation, delivery-machinery, unadopted-dependency, newer-adopted-version, core-machinery, distinct-domain-semantics, consolidation-cost, dynamic-reference-restraint, justified-departure, no-qualifying-finding, unavailable-evidence, authority-boundary, explicit-selection, implicit-selection, and adjacent-negative cases. Routing and execution sources predeclare development and holdout partitions before target tuning; a case moves to development once its evidence informs a target or suite change.",
     "excluded_claims": [
       "Independent conformity or trust audit",
       "Production readiness, correctness, or security approval",
@@ -69,7 +69,7 @@
     "storage": "Keep contracts, cases, stable fixtures, graders, and harness inputs under skills/spot-spew/evals; write routine generated runs only to ignored .work/evals or an external workspace."
   },
   "grading": {
-    "instrument": "Deterministic routing, forbidden-mutation, and forbidden-work-item checks plus assertion-based review of burden evidence, alternative verification, retain-versus-replace comparison, and finding-versus-candidate labeling.",
+    "instrument": "Deterministic routing, forbidden-mutation, and forbidden-work-item checks plus assertion-based review of burden evidence, alternative verification, domain meaning, independence, total-burden retain-versus-replace comparison, and finding-versus-candidate labeling.",
     "unknown_policy": "Unavailable target, fixture, harness, candidate output, side-effect evidence, or dependency documentation produces unknown rather than pass.",
     "critical_gates": [
       "No code modification",
@@ -87,7 +87,9 @@
       "Routing does not capture defect diagnosis",
       "Routing does not capture routine dependency-upgrade chores",
       "Implicit routing recognizes avoidable custom machinery without the skill name",
-      "Routing and execution claims remain distinct"
+      "Routing and execution claims remain distinct",
+      "Domain meaning is preserved across similar implementations",
+      "Consolidation must reduce total burden"
     ],
     "calibration": "Before relying on a model grader, check one known pass, one known failure, and one unknown for every open-ended rubric family."
   },
@@ -201,6 +203,16 @@
         "gate": "Routing and execution claims remain distinct",
         "case_id": 1,
         "assertion": "The explicit invocation is recorded as a routing control, not evidence of implicit selection quality."
+      },
+      {
+        "gate": "Domain meaning is preserved across similar implementations",
+        "case_id": 24,
+        "assertion": "The different billing and fulfillment obligations are preserved despite the common cancellation terminology and control-flow shape."
+      },
+      {
+        "gate": "Consolidation must reduce total burden",
+        "case_id": 25,
+        "assertion": "The proposed consolidation is rejected because its total operating, coordination, and transition burden exceeds the stated maintenance savings."
       }
     ]
   },

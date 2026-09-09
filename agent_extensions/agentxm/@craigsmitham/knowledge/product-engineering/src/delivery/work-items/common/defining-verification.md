@@ -3,7 +3,7 @@ type: Guide
 title: Defining work-item verification
 description: Use when a work item needs observable completion conditions, an evidence strategy, or a bounded verification result.
 tags: [work-item, verification, acceptance-criteria, evidence, result, environment, revision, pe-delivery]
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:30:08Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Defining work-item verification
@@ -46,3 +46,18 @@ Local policy decides which results are sufficient for closure and who can make
 that decision. Keep residual risk, unassessed conditions, skipped evidence, and
 follow-up visible. Use **unknown** when evidence cannot decide; do not turn
 missing evidence into a pass.
+
+When a collection of completed items is being used to claim project progress,
+[Alleman's performance-based project management](../../../foundations/alleman-performance-based-project-management.md#measure-demonstrated-progress)
+examines demonstrated capability and the forecast it supports. A closed item
+establishes its bounded completion claim; project accomplishment needs evidence
+at the capability level as well.
+
+## Worked continuation
+
+The [Northbank receipt records](../northbank-receipt-incident.md#define-correction-evidence-before-closing-it)
+separate a corrected revision's resource/replay evidence from restoration and
+closure. The [engineering-system case](../../../engineering/northbank-engineering-system.md)
+adds a different completion claim: an intentionally failing required check must
+fail the supported workflow. Neither result establishes the entire product's
+quality or Northbank's intended customer outcome.

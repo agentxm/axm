@@ -10,6 +10,11 @@ The framework is a source-reviewed candidate. It supports bounded assessment
 and reporting; it does not certify product quality, release readiness,
 security, safety, compliance, or fitness.
 
+For broader context, follow
+[Continuity and change](../../reading-product-engineering.md#continuity-and-change).
+Place a codebase assessment within the wider work of understanding and caring
+for an existing product.
+
 ## Run a review
 
 - [Reviewing a codebase](reviewing-a-codebase.md) - Use when a repository needs a bounded quality review; frame product claims, assess the applicable quality pillars, apply relevant cross-cutting concerns, choose evidence methods, and preserve uncertainty without treating completion as assurance.

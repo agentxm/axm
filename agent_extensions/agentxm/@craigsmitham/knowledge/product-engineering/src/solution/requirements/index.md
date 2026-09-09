@@ -12,6 +12,15 @@ requirement's obligation stops and a neighboring artifact's job begins is
 covered by [Requirements and neighboring
 artifacts](foundations/requirements-and-neighboring-artifacts.md).
 
+For broader context, follow
+[Behavior and commitment](../../reading-product-engineering.md#behavior-and-commitment).
+Connect requirement authority to use cases, domain models, and executable
+evidence before choosing a practical branch below.
+
+For a concrete application, [Northbank commitments](authoring/northbank-commitment-requirements.md)
+connects disputed sources to accepted rules, executable witnesses, and a later
+scope change. It supplies a small specimen set, not a complete rental baseline.
+
 ## Model and development
 
 - [Foundations](foundations/) - Authority and maturity, artifact boundaries,

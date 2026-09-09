@@ -11,9 +11,7 @@ sources:
   - id: product-value-demand
     resource: value-and-demand-model.md
     title: What to solve — Value and demand model
-generated:
-  by: claude/opus-5
-  at: 2026-09-08T00:00:00Z
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Outcomes and evidence
@@ -51,6 +49,39 @@ behavior, and result explicit.
 An outcome focus does not mean teams ignore delivery. Reliable output is
 necessary to create value; it is simply insufficient evidence that value was
 created.
+
+## Northbank: follow the claim through the evidence
+
+[Northbank Equipment](../northbank-equipment.md) hypothesizes that dependable
+fulfillment will reduce disruption and encourage repeat rental. Its later
+allocation and engineering-system changes produce different evidence:
+
+| Observation | Claim it can inform | Question still open |
+| --- | --- | --- |
+| Policy/concurrency assessment passes in a declared environment | The implementation honors the selected allocation rules there | Whether the rules and operating scope fit customer needs |
+| The identified artifact is deployed and its smoke assessment passes | The bounded deployed path works at that observation | Long-term service quality and fulfillment |
+| Confirmation KPI changes from 82% to 89% under a stable definition | A later two-depot confirmation measure improved | Cohort effects, withdrawals, actual fulfillment, and causality |
+| Contractors report fewer disrupted starts alongside fulfillment records | The service may have improved their situation | Representativeness and the intervention's contribution |
+| Repeat use and margin change | Business outcomes may have changed | Competing explanations and whether the economics endure |
+
+The table is an evidence structure, not a record of real results. A faster CI
+pipeline or fewer custom scripts is an engineering-system observation; its
+connection to customer benefit needs an explicit mechanism and further evidence.
+[KPIs](../foundations/key-performance-indicators.md) preserves the measure's
+definition, while [verification and validation](../solution/requirements/foundations/verification-and-validation.md)
+separates conformance from fitness for purpose.
+
+## Continue exploring
+
+- [Key performance indicators](../foundations/key-performance-indicators.md)
+  explains how measures, targets, and decision roles turn outcome questions into
+  interpretable performance evidence.
+- [Marty Cagan's product strategy](../foundations/cagan-product-strategy.md#management-sustain-progress-and-revise-understanding)
+  connects observed results back to team focus and strategic revision.
+- [Verification and validation](../solution/requirements/foundations/verification-and-validation.md)
+  distinguishes evidence of conformance from evidence that a solution serves its purpose.
+- Follow [Value and evidence](../reading-product-engineering.md#value-and-evidence)
+  to revisit the customer and economic claims behind an expected result.
 
 [^svpg-product-model-concepts]: SVPG — Product Model Concepts, which treats
     working to outcomes rather than output as a defining concept of the product

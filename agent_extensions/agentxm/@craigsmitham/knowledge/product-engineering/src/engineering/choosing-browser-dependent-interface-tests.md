@@ -30,7 +30,7 @@ sources:
   - id: jsdom
     resource: https://github.com/jsdom/jsdom/blob/main/README.md
     title: jsdom README
-generated: { by: claude/opus-5, at: 2026-09-08T00:00:00Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Choosing browser-dependent interface tests
@@ -193,6 +193,15 @@ Before admitting a new or materially widened browser test, confirm:
 If the browser is only the driver for a wider system claim, also complete the
 admission check in [Designing cross-boundary and end-to-end
 tests](designing-cross-boundary-and-end-to-end-tests.md).
+
+## Northbank: a browser claim with a reason
+
+Northbank's staff-confirmation flow needs users to distinguish pending,
+confirmed, at-risk, and withdrawn states. A real-browser test can expose focus,
+keyboard interaction, or rendering that hides the current status; a user
+scenario can examine whether the wording is understood. Neither proves
+allocation concurrency. The [worked allocation case](northbank-allocation-change.md)
+keeps those claims separate and connects each to its appropriate evidence.
 
 [^jsdom]: jsdom, [README](https://github.com/jsdom/jsdom/blob/main/README.md), explicitly identifies navigation and layout as outside its implemented scope.
 [^storybook-testing]: Storybook, [How to test UIs with Storybook](https://storybook.js.org/docs/writing-tests), describes browser-rendered component tests with controlled context and mocked dependencies.

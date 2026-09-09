@@ -18,11 +18,14 @@ section owns the response regime that record serves, including detection
 thresholds, severity reasoning, escalation, command, closure, and post-incident
 review.
 
+For broader context, follow
+[Continuity and change](../../reading-product-engineering.md#continuity-and-change).
+Place the record in the wider reasoning about what should change and how its
+effects will be assessed.
+
 ## Foundations
 
-- [Software work-item taxonomy](software-work-item-taxonomy.md) - Defines the
-  portable work-item roles, classifications, neighboring activities, and
-  distinctions that every guide and template here applies.
+- [Software work-item taxonomy](software-work-item-taxonomy.md) — Defines the portable work-item roles, classifications, neighboring activities, and distinctions that every work-item guide and template applies.
 - [Common work-item guidance](common/) - Contracts and guides that apply to
   every role: content slots, evidence and provenance, technical context,
   identity and relationships, lifecycle, verification, host mapping,
@@ -37,3 +40,7 @@ review.
   bounded proposed or authorized software modifications.
 - [Operational Incident Records](incidents/) - Live-record guidance and a
   portable template for coordinating current or imminent operational impact.
+
+## Follow related records
+
+- [Northbank receipts: incident, defect, and corrective change](northbank-receipt-incident.md) — A fictional receipt-worker failure shows how operational impact, uncertain diagnosis, corrective work, verification, and closure remain connected without collapsing into one record or status.

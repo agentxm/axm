@@ -16,6 +16,15 @@ Deciding which of them is worth solving is a loop rather than a sequence.
 Evidence from real use returns to this section and can reopen a problem the
 shipped solution was meant to close.
 
+For broader context, follow
+[Value and evidence](../reading-product-engineering.md#value-and-evidence).
+Follow the route from product meaning through customer progress and economic
+value to observed results.
+
+## Strategic direction
+
+- [Marty Cagan's product strategy](../foundations/cagan-product-strategy.md) — How Marty Cagan connects product vision and business objectives to team problems through focus, insights, actions, and active management, with discovery and delivery feeding learning back into strategy.
+
 ## Value and demand
 
 A product decision needs a shared account of what is offered, for whom, what
@@ -25,10 +34,7 @@ method, or stage model, and the rest of this section uses them rather than
 redefining them. Jobs to Be Done has its canonical explanation in
 [Foundations](../foundations/).
 
-- [Value and demand model](value-and-demand-model.md) — How Offering, Audience,
-  Need, Job to Be Done, and Value Proposition form an evidence-backed graph
-  rather than a hierarchy, and the failure that most often spoils each of the
-  five.
+- [Value and demand model](value-and-demand-model.md) — How Offering, Audience, Need, Job to Be Done, and Value Proposition form an evidence-backed graph rather than a hierarchy.
 - [Jobs to Be Done](../foundations/jobs-to-be-done.md) — How Jobs to Be Done connects customer progress, functional objectives, switching, and unmet needs; how to frame jobs, distinguish interpretations, and connect research evidence to product decisions.
 
 ## Outcomes and risk
@@ -37,14 +43,16 @@ redefining them. Jobs to Be Done has its canonical explanation in
   connect shipped output to changes in customer behavior and business results,
   and what evidence supports that connection.
 
+- [Key performance indicators: measures, targets, and decisions](../foundations/key-performance-indicators.md) — How KPIs connect selected measures to objectives and decisions, how definitions and context shape their meaning, and how they relate to outcome evidence, Alleman's measures, and service levels.
+
 Four questions organize the risk that a candidate solution will fail:
 
-- **Value:** Will customers choose it, use it, or pay for it enough to matter?
-- **Usability:** Can the intended users understand and use it?
-- **Feasibility:** Can the team build and operate it with the available
-  technology, skills, time, and constraints?
-- **Viability:** Can the organization support it across its business, legal,
-  ethical, security, operational, and go-to-market obligations?
+| Risk | Question |
+| --- | --- |
+| Value | Will customers choose it, use it, or pay for it enough to matter? |
+| Usability | Can the intended users understand and use it? |
+| Feasibility | Can the team build and operate it with the available technology, skills, time, and constraints? |
+| Viability | Can the organization support it across its business, legal, ethical, security, operational, and go-to-market obligations? |
 
 These are evidence questions, not four sequential approval gates. Investigate
 the risks that are material or disputed; demanding equal proof for every risk

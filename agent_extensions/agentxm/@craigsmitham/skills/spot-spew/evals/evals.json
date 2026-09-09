@@ -1,6 +1,6 @@
 {
   "skill_name": "spot-spew",
-  "suite_version": "0.2.0",
+  "suite_version": "0.3.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -314,10 +314,10 @@
       "id": 21,
       "stage": "execution",
       "prompt": "Assess this fictional pricing engine. Its core rating logic hand-rolls fixed-point decimal arithmetic, rounding, and comparison helpers, while the supplied runtime documentation describes an exact decimal type with the same semantics. Report the opportunity.",
-      "expected_output": "A capability-substitution finding that is not withheld because the code is core, with the core status raising the evidence bar inside the retain-versus-replace comparison.",
+      "expected_output": "A capability-substitution finding that preserves differentiated pricing semantics while replacing arithmetic machinery; strategic importance does not by itself establish operational risk or evolutionary maturity.",
       "assertions": [
         "The opportunity is assessed rather than excluded on the grounds that the code serves a core need.",
-        "The core status appears in the retain-versus-replace comparison as a higher evidence bar, not as a reason to skip the code.",
+        "The comparison distinguishes differentiated pricing semantics from replaceable arithmetic machinery and ties replacement risk to concrete obligations rather than the core label alone.",
         "The runtime capability is verified against the supplied documentation rather than asserted from memory.",
         "Behavior coverage for the core semantics, including rounding, is compared explicitly.",
         "No source file is edited, created, or deleted."
@@ -346,6 +346,33 @@
         "The provider's documented form is verified from the supplied documentation.",
         "The burden of the repeated block is named concretely with exact locations.",
         "Retaining the repetition is compared with adopting the documented form.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 24,
+      "stage": "execution",
+      "execution_partition": "development",
+      "prompt": "Assess this fictional repository for consolidation opportunities. In billing/cancel.ts:12, cancel reverses an unsettled invoice and must preserve tax-audit history; after settlement it must issue a credit instead. In fulfillment/cancel.ts:18, cancel releases reserved stock before dispatch and must reject cancellation after dispatch. Both implementations validate status, update a record, and emit an event. The teams change these rules independently. A proposed common cancel module would share the similar control flow with flags for the billing and fulfillment rules. There is no evidence of repeated fixes to a shared rule. Is this worthwhile spew reduction?",
+      "expected_output": "No supported consolidation finding: the common word and control-flow shape hide different domain obligations, and the proposed abstraction couples independently changing rules without an established net benefit.",
+      "assertions": [
+        "The different billing and fulfillment obligations are preserved despite the common cancellation terminology and control-flow shape.",
+        "Consolidation is not recommended from surface similarity alone.",
+        "The comparison accounts for independent rule changes and coupling introduced by the proposed common module.",
+        "No source file is edited, created, or deleted."
+      ]
+    },
+    {
+      "id": 25,
+      "stage": "execution",
+      "execution_partition": "development",
+      "prompt": "Assess this fictional repository for spew. exports/csv.ts:8 and support/csv.ts:11 implement the same stable CSV quoting rule; supplied contract tests establish identical behavior. Separate copies cost about two engineer-hours per year to maintain. The proposed consolidation moves quoting into a shared service with mandatory synchronized deployments. The platform team estimates eight hours per month for on-call ownership, coordination, and version compatibility, plus two weeks of migration. Independent releases are a live requirement for both teams. No shared-library alternative has been verified. Recommend whether the proposed consolidation is worthwhile.",
+      "expected_output": "Retain the current arrangement over the proposed service: even identical semantics do not justify added operational and coordination burden or loss of independent releases. Any cheaper alternative remains a candidate pending verification.",
+      "assertions": [
+        "The proposed consolidation is rejected because its total operating, coordination, and transition burden exceeds the stated maintenance savings.",
+        "The identical CSV semantics are acknowledged without treating them as sufficient justification for consolidation.",
+        "Independent release obligations and burden transferred to the platform team are included in the comparison.",
+        "An unverified alternative is not reported as an established finding.",
         "No source file is edited, created, or deleted."
       ]
     }

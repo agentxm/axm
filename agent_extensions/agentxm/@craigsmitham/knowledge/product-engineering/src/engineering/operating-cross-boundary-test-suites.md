@@ -37,7 +37,7 @@ sources:
   - id: flaky-tests-google
     resource: https://testing.googleblog.com/2016/05/flaky-tests-at-google-and-how-we.html
     title: Flaky Tests at Google and How We Mitigate Them
-generated: { by: claude/opus-5, at: 2026-09-08T00:00:00Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Operating cross-boundary test suites
@@ -145,6 +145,16 @@ On failure, retain the smallest safe evidence set that reconstructs the path:
 Do not collect secrets, unbounded production data, or opaque bodies merely
 because they might help. Prefer structured, redacted, attributable diagnostics
 designed with the system.
+
+## Northbank: own the allocation test world
+
+For the [allocation case](northbank-allocation-change.md), the owning team
+supplies a real-store world with isolated reservation histories, declared
+schema/setup dependencies, readiness checks, and cleanup that survives a
+failed test. The concurrency claim must observe committed application results.
+The [task contract](northbank-engineering-system.md#give-tasks-one-observable-meaning)
+identifies how local and CI callers start that world and what result freshness
+means. A test that never ran because CI omitted it is an evidence gap, not a pass.
 
 [^google-larger-testing]: Graves, [Larger Testing](https://abseil.io/resources/swe-book/html/ch14.html), explains fidelity, system-under-test forms, ownership, hermeticity, data, and the costs of larger tests.
 [^rails-testing]: Rails, [Testing Rails Applications](https://guides.rubyonrails.org/testing.html), distinguishes framework integration tests from browser-driven system tests and their cost and fidelity tradeoffs.

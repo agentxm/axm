@@ -9,6 +9,11 @@ the system behaves once change has arrived belongs to
 [How to run it](../operations/). Constructing and verifying the change itself
 belongs to [How to build it](../engineering/).
 
+For broader context, follow
+[Check project commitments](../reading-product-engineering.md#check-project-commitments).
+Connect the work being coordinated to capability, resource, and forecast
+judgments, then distinguish completion evidence from product results.
+
 ## What this section holds today
 
 | Area | Status |
@@ -29,10 +34,18 @@ belongs to [How to build it](../engineering/).
 Nothing here prescribes a tracker. Host mapping is treated as an adaptation of a
 portable contract onto whatever system a team already runs.
 
+## Shared foundations
+
+- [Glen Alleman's performance-based project management: capabilities, credible plans, and evidence of progress](../foundations/alleman-performance-based-project-management.md) — How Glen Alleman's five project-management principles connect needed capabilities, plans, resources, risk, and demonstrated progress, with an interpretation for forecasting and revising product commitments.
+
+- [Shape Up: Ryan Singer's approach to shaping, betting, and building](../foundations/shape-up.md) — How Ryan Singer's Shape Up connects appetite, shaped solution concepts, bounded bets, and team ownership to finishing meaningful work, with explicit distinctions between investment, scope, completion, and outcome evidence.
+
 ## What is not yet written
 
 Work items are the only populated subtree. The other three areas have no
-concepts anywhere in this bundle, and nothing here covers them by implication.
+local concepts. Shape Up supplies context for bounded commitments and cadence;
+Alleman supplies context for project plans, forecasts, and evidence of progress.
+The applied guidance below remains unwritten.
 
 Flow would own batch size, branching and integration strategy, review gates as a
 queueing decision rather than as a pipeline step, work in progress, and release

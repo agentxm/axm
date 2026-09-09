@@ -3,7 +3,7 @@ type: Guide
 title: Authoring constraints and external conformance requirements
 description: States genuine restrictions and applicable external obligations with explicit scope, version, and evidence. Use when a requirement restricts the solution space or invokes a law, standard, contract, or interface obligation.
 tags: [constraint, conformance, standard, regulation, contract, interface, pe-solution]
-generated: { by: claude/opus-5, at: 2026-09-08T00:00:00Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Authoring constraints and external conformance requirements
@@ -26,3 +26,11 @@ is unknown. Preserve the uncertainty and seek the appropriate authority.
 
 External text may have licensing or quotation restrictions. Link and summarize
 within permitted bounds rather than copying it unnecessarily.
+
+## Worked continuation
+
+The [Northbank specimen](northbank-commitment-requirements.md) uses a fictional
+versioned fleet-interface clause to illustrate external conformance and a
+controlled local allocation scope to illustrate a chosen boundary. The case
+claims no actual provider or legal compliance. An adopted design choice becomes
+a constraint only when an authorized decision restricts subsequent choices.

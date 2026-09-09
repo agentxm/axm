@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "spot-spew",
-  "version": "0.1.0",
-  "description": "Finds avoidable maintenance burden in code, configuration, and delivery machinery, then evaluates elimination, capability substitution, idiomatic simplification, and consolidation against verified alternatives and named burden",
+  "version": "0.2.0",
+  "description": "Finds opportunities to release engineering capacity through elimination, capability substitution, idiomatic simplification, and consolidation that reduce total maintenance burden while preserving live obligations and domain meaning",
   "keywords": [
     "code review",
     "maintenance burden",

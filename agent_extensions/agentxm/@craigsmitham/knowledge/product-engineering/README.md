@@ -5,9 +5,13 @@ sections express an opinionated development practice, from strategy through
 operations and maintenance. Foundations supplies the shared concepts that inform
 that practice.
 
-Start at the [discovery map](src/index.md). Open
-[Foundations](src/foundations/) for shared explanations of Jobs to Be Done and
-domain-driven design, or enter through a lifecycle question below.
+Start at the [discovery map](src/index.md). For a path across subjects, use
+[Reading product engineering](src/reading-product-engineering.md): four optional
+routes connect value, strategy, behavior, and change to practical guidance.
+Open [Foundations](src/foundations/) to choose among explanations of value,
+strategy, design, behavior, project commitments, measures, and maintenance.
+Its question-led catalog includes both the individual approaches and their
+comparisons. You can also enter through a lifecycle question below.
 
 | Section | Question |
 | --- | --- |
@@ -32,6 +36,43 @@ folder. The tags are `pe-foundations`, `pe-strategy`, `pe-problem`, `pe-solution
 `pe-engineering`, `pe-delivery`, `pe-operations`, and `pe-maintenance`. Reserved
 `index.md` and `log.md` files carry none, and neither do concepts at the bundle root, such as
 the [overview](src/overview.md), which belong to no section.
+
+The [Northbank Equipment case](src/northbank-equipment.md) connects business
+context to domain behavior, code, tooling, CI/CD, infrastructure, and care.
+Its related worked examples cover commitment requirements, allocation change,
+engineering-system change, and receipt incident records. Their scopes and
+numerical exhibits remain explicit; they do not prescribe one combined method.
+
+## Maintaining discovery
+
+Keep each concept in one canonical location. The root and section indexes
+route readers; the [reading guide](src/reading-product-engineering.md) owns
+optional learning sequences; individual concepts own their explanations and
+practical guidance. The [strategy comparison](src/foundations/strategy-perspectives.md)
+and [maintenance comparison](src/foundations/maintenance-strategies.md) own the
+substantive relationships within their respective groups. Preserve their
+attributed differences when updating either side of a comparison.
+
+For a new or changed concept:
+
+- Give its index entry the canonical title and description. Place the entry
+  under the reader question it helps answer, and make the search preview useful
+  without directory context.
+- Add a contextual link where another concept supplies background, resolves a
+  likely confusion, explains application, or opens a useful further question.
+  State what following the link adds; shared vocabulary alone is insufficient.
+- Offer a few deliberate continuations when the reader has a meaningful choice
+  after finishing. Add reverse links where the reverse journey is useful,
+  without making reciprocity or a fixed number of links mandatory.
+- Update an affected reading route when its sequence or promises change. Keep
+  substantive comparisons in their concept document, and link from indexes
+  with short selection cues. Source citations establish provenance; use reader
+  links as well when the destination is needed for understanding.
+- Walk from the root to the concept and from the concept to a useful next
+  reading. Check local links and fragments, exact previews, and bundle
+  validation. A route to a scope-only section must say that practical guidance
+  is unwritten. Evaluate comprehension by the questions a route resolves, not
+  by the number of links added.
 
 ## Boundaries
 
@@ -60,8 +101,8 @@ went.
 
 | Section | Source | State |
 | --- | --- | --- |
-| Foundations | `product-management`; primary DDD sources | Jobs to Be Done, moved from What to solve; a new domain-driven design explanation |
-| Where to play | `strategy`, `product-management` | Both bundles retired, and the migrated concepts have since been retired too, leaving scope, boundaries, and the value stick |
+| Foundations | `product-management`; Oberholzer-Gee's interviews and HBS value-strategy explanations; Lafley and Martin's strategy articles; Cagan's SVPG strategy articles; Singer's Shape Up; Cockburn's use-case and incremental-development books; primary DDD sources; Brooks's essays and design interview; Simon Wardley's book; Drucker's writings and Drucker Institute material; NASA and DOE maintenance guidance; Parnas and software-aging research | Shared conceptual explanations and comparisons; the [foundation catalog](src/foundations/) groups the current material by reader question |
+| Where to play | `strategy`, `product-management` | Both bundles retired, and the migrated concepts have since been retired too; scope, boundaries, and routes to shared foundations remain |
 | What to solve | `product-management` | Migrated; that bundle retired. Two concepts; Jobs to Be Done now lives in Foundations |
 | What to build | `requirements-engineering`, `product-management` | Requirements migrated and that bundle retired; the design half is unwritten |
 | How to build it | `software-engineering` | Migrated and that bundle retired; two of five areas are unwritten |
@@ -96,9 +137,12 @@ attempted.
 
 Two more gaps of the same kind sit outside that table. The design half of
 "What to build" — solution concept, resolution and fidelity, interaction
-design, and constraint as design input — has no existing bundle behind it and
-will be written from scratch. "Where to play" holds the value stick, its
-non-responsibilities, and links to the public canon, and nothing more.
+design, and constraint as design input — has shared conceptual grounding in
+Foundations, including Buxton and Shape Up; practical guidance remains
+unwritten. "Where to play" holds its scope,
+non-responsibilities, and routes to value-based strategy, Playing to Win, Cagan,
+and Wardley mapping foundations and public strategy sources; decision guides
+remain unwritten.
 
 A section with no concepts still states its question, its scope, and its
 boundaries. That is enough to place a concept and to keep neighboring sections

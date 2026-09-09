@@ -12,16 +12,23 @@ What arrives here is a commitment, not a specification. Technical design
 regularly shows that a solution concept is wrong or too expensive, and saying so
 is part of the work rather than a failure of the previous section.
 
+For broader context, follow
+[Behavior and commitment](../reading-product-engineering.md#behavior-and-commitment).
+Connect the behavior under construction to actor goals, accepted obligations,
+and domain meaning.
+
 ## What this section holds today
 
-Three of the five areas below are populated. The concepts here cover judging a
+Three areas below have general guidance; two worked cases also connect technical
+design to requirements, migration, and the engineering system. The concepts
+cover judging a
 codebase against product-quality outcomes on available evidence, choosing and
 building the tests that prove a claim, giving behavior an authoritative
 statement, and shaping the repository surface those tasks run through.
 
 | Area | Status |
 | --- | --- |
-| Architecture and technical design | Not yet written |
+| Architecture and technical design | Worked Northbank cases; general design guidance remains unwritten |
 | Construction | Not yet written |
 | Verification | Populated: test levels, test worlds, and specification authority |
 | Review and assessment | Populated: ten quality pillars, eight cross-cutting records, and test-suite quality |
@@ -30,14 +37,29 @@ statement, and shaping the repository surface those tasks run through.
 Architecture and technical design would own boundaries, seams, scale, and
 evolvability as design choices rather than as review judgments. Construction
 would own portable construction craft, with technology bindings kept in their
-own bundles. Neither exists yet. Nothing here should be read as covering them:
-the quality pillars judge an existing structure, they do not tell you how to
-choose one.
+own bundles. General guidance for those areas remains unwritten. The Northbank
+cases explain
+selected design choices without filling that gap. The quality pillars judge an
+existing structure; they do not tell you how to choose one.
 
 For conceptual grounding in domain modeling, read
 [Domain-driven design](../foundations/domain-driven-design.md) in Foundations.
 It explains subdomains, bounded contexts, aggregates, and their relationships;
-the architecture and construction guidance described above remains unwritten.
+general architecture and construction guidance remains unwritten.
+
+For responsibility for the product as users understand it, read
+[Fred Brooks on the architect's role: conceptual integrity and responsibility to the user](../foundations/brooks-architect-role.md). It connects design authority to
+implementation feedback and explains how his use of architecture crosses the
+solution and engineering questions. Detailed architecture guidance remains unwritten.
+
+For the relationship between component evolution, sourcing, and appropriate
+methods, read [Wardley mapping](../foundations/wardley-mapping/wardley-mapping.md). Its landscape
+perspective helps distinguish uncertain exploration from standardized provision.
+
+## Follow a worked change
+
+- [Northbank allocation: from service promise to code change](northbank-allocation-change.md) — A fictional replacement operation connects strategic purpose, domain boundaries, concrete code responsibilities, concurrency, verification, and migration of existing commitments.
+- [Northbank engineering: tooling, delivery, and infrastructure](northbank-engineering-system.md) — A fictional engineering-system change connects package boundaries, task contracts, CI/CD, runtime dependencies, artifact identity, migration, and retirement to the product obligations they support.
 
 ## Review and assess a codebase
 
@@ -51,7 +73,7 @@ behaviors earn an authoritative, human-readable statement of intent.
 
 - [Choosing the narrowest effective test](choosing-the-narrowest-effective-test.md) - Use when a change needs executable evidence and no material risk yet requires a real cross-boundary or browser world; admit the test deliberately, choose the narrowest level that observes the claim, substitute collaborators through explicit seams, and keep repository conventions out of tests.
 - [Designing cross-boundary and end-to-end tests](designing-cross-boundary-and-end-to-end-tests.md) - Use when a material risk spans components, processes, services, storage, artifacts, or deployment configuration; separate claim scope from boundary reality and execution distance, then select the smallest representative test world and observation surface that still discriminates the claim.
-- [Choosing browser-dependent interface tests](choosing-browser-dependent-interface-tests.md) - Use when an interface claim may depend on real browser rendering, interaction, accessibility, or platform behavior; state the observable claim, name the browser capability that alone reveals it, and admit the narrowest scope, from DOM-emulated component to deployed journey, that keeps the risk visible.
+- [Choosing browser-dependent interface tests](choosing-browser-dependent-interface-tests.md) — Use when an interface claim may depend on real browser rendering, interaction, accessibility, or platform behavior; state the observable claim, name the browser capability that alone reveals it, and admit the narrowest scope — from DOM-emulated component to deployed journey — that keeps the risk visible.
 
 ## Build and operate the admitted tests
 
@@ -72,7 +94,7 @@ Read the entry guide first for the vocabulary and boundaries; the two principle
 concepts and the adoption guide assume it.
 
 - [Designing a coherent repository task interface](repository-task-interface.md) - Use when repository tasks, scripts, launchers, wrappers, or CI paths compete, or when placing new repeatable work; name the competing-semantics problem, the outcomes one task interface must deliver, and the portable vocabulary that the contract, invocation, and adoption guides build on.
-- [Resolved task contract principles](resolved-task-contract-principles.md) - Use when deciding what a single repository task means, who owns it, what it guarantees from a clean shell, which dependencies it declares, and when a cache replay still answers the caller's question; the five principles that define a canonical resolved contract.
+- [Resolved task contract principles](resolved-task-contract-principles.md) — Use when deciding what a single repository task means — who owns it, what it guarantees from a clean shell, which dependencies it declares, and when a cache replay still answers the caller's question; the five principles that define a canonical resolved contract.
 - [Task invocation and conformance principles](task-invocation-and-conformance-principles.md) - Use when wrappers, aliases, hooks, agents, or CI steps have accumulated around a repository's tasks; the five principles that bound each entrypoint's role, keep one membership authority per workflow, hold actors to canonical semantics, and check resolved rather than declared behavior.
 - [Adopting a repository task interface](adopting-a-repository-task-interface.md) - Use when converting the task-interface principles into an actual repository change; a twelve-step design or repair sequence, the local binding that records runner-specific decisions, the signals that show whether the interface helped, and a worked example of collapsing four validation inventories into one.
 

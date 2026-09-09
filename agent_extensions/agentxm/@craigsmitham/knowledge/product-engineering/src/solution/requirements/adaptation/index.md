@@ -14,8 +14,4 @@ requirement.
   authority, identity, relationships, and read-back accuracy. Use when writing
   or reading requirements in a tracker, specification repository, or
   requirements-management platform.
-- [Composing with work management](composing-with-work-management.md) - Defines
-  the boundary between authoritative requirements and the Operational Incident
-  Records, Defect Reports, and Changes used to investigate or change them. Use
-  when a work item and a requirement describe the same obligation and it is
-  unclear which one is authoritative.
+- [Composing with work management](composing-with-work-management.md) — Defines the boundary between authoritative requirements and the work items used to investigate or change them.

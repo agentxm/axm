@@ -10,7 +10,7 @@ sources:
   - id: work-item-taxonomy
     resource: ../../../delivery/work-items/software-work-item-taxonomy.md
     title: Software work-item taxonomy
-generated: { by: codex/gpt-5.6, at: 2026-08-29T20:06:39Z }
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Composing with work management
@@ -40,6 +40,15 @@ infer that reported behavior is a defect, that a proposed change is approved,
 or that delivery changes normative requirement text. A project that coordinates
 work through its own native records rather than these portable roles applies
 the same semantic boundary to whatever records it has.
+
+## Worked continuation
+
+The [Northbank obligation specimens](../authoring/northbank-commitment-requirements.md)
+and [receipt records](../../../delivery/work-items/northbank-receipt-incident.md)
+show the boundary: `NB-RECEIPT-01` owns financial replay meaning, while the
+corrective Change owns its bounded work and verification. An incident can be
+restored while the defect and Change remain active. Moving those records into
+a tracker does not transfer requirement authority to its status field.
 
 [^requirements-boundary]: The cited boundary distinguishes an authoritative
     requirement from the records that coordinate work around it, and lists

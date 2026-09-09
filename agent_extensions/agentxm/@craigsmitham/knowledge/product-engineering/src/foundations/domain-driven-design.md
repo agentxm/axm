@@ -53,9 +53,7 @@ sources:
   - id: whirlpool
     resource: https://www.domainlanguage.com/ddd/whirlpool/
     title: Eric Evans — Whirlpool Process of Model Exploration
-generated:
-  by: codex/gpt-6
-  at: 2026-09-09T01:50:20Z
+generated: { by: codex/gpt-6, at: 2026-09-09T17:14:14Z }
 ---
 
 # Domain-driven design
@@ -73,6 +71,10 @@ want to understand DDD's concepts and how they fit together. It covers strategic
 design, tactical design, discovery, and evolution. The examples are invented
 to illustrate modeling choices; they are not evidence that a particular design
 works for every rental business.
+
+For behavior that can expose domain questions, read [Use cases](use-cases.md).
+A reservation's success and failure paths can reveal distinctions the model
+needs to express; they do not determine its boundaries.
 
 ## Foundations: domain, model, and language
 
@@ -120,8 +122,9 @@ problem inside an aggregate can reveal that the larger model needs to change.
 
 ### Running example: equipment rental
 
-Assume a rental company competes on fulfilling bookings when equipment breaks
-or demand changes. Its distinctive capability is finding acceptable substitutes
+[Northbank Equipment](../northbank-equipment.md), the fictional business in
+this bundle, competes on fulfilling bookings when equipment breaks or demand
+changes. Its distinctive capability is finding acceptable substitutes
 and allocating them without breaking customer commitments. It also needs staff
 handover procedures, equipment maintenance, invoicing, and authentication.
 
@@ -484,6 +487,27 @@ They help people understand parts of a model independently. Their boundaries
 can evolve as concepts become clearer. A module is not automatically a bounded
 context or a separately deployed service.[^evans-reference]
 
+### Follow the model into an existing codebase
+
+In Northbank's later allocation episode, `auth/staff-actions.ts` contains
+substitution decisions and `booking-service.ts` writes machine IDs directly.
+The problem is owned meaning: identity facts cannot decide whether a candidate
+preserves the customer's terms, and assigning an ID cannot secure capacity.
+
+The [worked allocation change](../engineering/northbank-allocation-change.md)
+extracts `SubstitutionPolicy`, separates reservation and schedule responsibilities,
+and explains one local transaction across the affected state. It includes a
+small code fragment, failure cases, writer ownership, and migration of existing
+agreements. Its [requirement specimens](../solution/requirements/authoring/northbank-commitment-requirements.md)
+keep accepted rules distinct from implementation choices and executable witnesses.
+
+Core, supporting, and generic describe strategic roles; package imports need
+a separately justified policy. Northbank can buy routine fleet recordkeeping
+while investing in specialized substitution knowledge. Its runtime composition,
+compiler, and CI are technical capabilities, not business subdomains merely
+because they support the product. The [engineering-system episode](../engineering/northbank-engineering-system.md)
+examines those responsibilities without deriving tiers from DDD labels.
+
 ## DDD and software architecture
 
 ### Isolating domain responsibilities
@@ -532,6 +556,12 @@ storage with the command model.[^cqrs][^event-sourcing]
 The rental example could persist current reservation state, publish selected
 events, and use a separate availability view without adopting event sourcing.
 The architecture should follow the required behavior and operational tradeoffs.
+
+For coherence across the product that these models serve, read
+[Brooks on the architect's role](brooks-architect-role.md#an-interpretation-for-collaborative-product-engineering).
+Its comparison with DDD distinguishes responsibility for shared product promises
+from agreement within a bounded context; coherent behavior need not imply one
+universal domain model.
 
 ## Model refinement and evolution
 
@@ -652,6 +682,15 @@ Evans's reference is licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). This explanation
 paraphrases and reorganizes its concepts and adds original examples and
 comparisons. Those adaptations are not statements of endorsement by Evans.
+
+## Continue exploring
+
+- [Wardley mapping](wardley-mapping/wardley-mapping.md#relationships-to-product-engineering)
+  distinguishes component evolution from subdomain importance and model boundaries.
+- [Designing executable specifications](../engineering/designing-executable-specifications.md)
+  connects selected domain rules to readable statements and executable evidence.
+- The [behavior and commitment route](../reading-product-engineering.md#behavior-and-commitment)
+  places modeling alongside actor goals, requirements, and validation.
 
 [^evans-reference]: Eric Evans, [Domain-Driven Design Reference](https://www.domainlanguage.com/wp-content/uploads/2016/05/DDD_Reference_2015-03.pdf), definitions and parts I–V.
 [^khononov-classification]: Vlad Khononov, [Revisiting the Basics of Domain-Driven Design](https://vladikk.com/2018/01/26/revisiting-the-basics-of-ddd/), an explicitly personal classification heuristic.

@@ -78,13 +78,13 @@ describe("repository task interface", () => {
 
   it("uses the current portable guide as the sole semantic authority", () => {
     const manifest = readObject(
-      "agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/knowledge.json",
+      "agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/knowledge.json",
     );
-    expect(manifest["version"]).toBe("2.3.0");
+    expect(manifest["version"]).toBe("2.1.0");
 
     const binding = read("docs/guides/repository-task-interface.md");
     expect(binding).toContain(
-      "agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/repository-task-interface.md",
+      "agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md",
     );
     expect(read("AGENTS.md")).toContain("docs/guides/repository-task-interface.md");
 

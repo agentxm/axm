@@ -1,7 +1,7 @@
 {
   "$schema": "https://axm.sh/schemas/pack.schema.json",
   "owner": "@craigsmitham",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "Consistent, evidence-aware Operational Incident Records, Defect Reports, and Changes across repositories and trackers",
   "keywords": [
     "work-management",
@@ -25,7 +25,7 @@
   "type": "pack",
   "name": "work-management",
   "dependencies": {
-    "@craigsmitham/knowledge/work-management": ">=0.1.0",
-    "@craigsmitham/skills/manage-work-items": ">=0.1.1"
+    "@craigsmitham/knowledge/product-engineering": ">=2.0.0",
+    "@craigsmitham/skills/manage-work-items": ">=0.2.0"
   }
 }

@@ -15,8 +15,7 @@
   },
   "knowledge": {
     "agentxm": "agentxm:@agentxm/knowledge/agentxm",
-    "workflow-automation": "agentxm:@craigsmitham/knowledge/workflow-automation",
-    "software-engineering": "agentxm:@craigsmitham/knowledge/software-engineering"
+    "product-engineering": "agentxm:@craigsmitham/knowledge/product-engineering"
   },
   "packs": {
     "field-notes": "agentxm:@craigsmitham/packs/field-notes",
@@ -24,7 +23,6 @@
     "agent-engineering": "agentxm:@agentxm/packs/agent-engineering",
     "docs": "agentxm:@craigsmitham/packs/docs",
     "research": "agentxm:@craigsmitham/packs/research",
-    "requirements-engineering": "agentxm:@craigsmitham/packs/requirements-engineering",
     "work-management": "agentxm:@craigsmitham/packs/work-management"
   }
 }

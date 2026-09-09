@@ -5,9 +5,9 @@ Every `*.spec.ts` states one requirement in the shared contract from
 layout; requirement identity, statement, class, role, goals, and lineage
 carry the meaning.
 
-Use the installed `engineer-requirements` skill for elicitation, review,
-impact analysis, and requirement changes. Its acceptance policy for this
-repository is the one below: the maintainer is the acceptance authority, and
+Use the [requirements-engineering guidance](../agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
+for elicitation, review, impact analysis, and requirement changes. The acceptance
+policy for this repository is the one below: the maintainer is the acceptance authority, and
 a decision the maintainer records in the session or on the pull request is
 the acceptance.
 

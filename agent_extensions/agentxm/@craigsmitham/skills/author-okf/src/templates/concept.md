@@ -34,4 +34,7 @@ usage_window: { from: 2026-01-01, to: 2026-01-31 }
 
 Related: [{{other concept}}](/{{path/to/concept}}.md).
 
-[^{{stable-key}}]: {{Attribution text}}
+[^{{stable-key}}]: {{Short source title; author if needed}}
+
+<!-- Use a compact linked title when rendered-Markdown readers need source access.
+     Retain useful locators and qualifications; omit synopses that repeat the body. -->

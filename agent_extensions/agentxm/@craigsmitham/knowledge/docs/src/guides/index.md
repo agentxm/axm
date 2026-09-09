@@ -16,7 +16,7 @@ rationale are unclear.
 * [Tutorial guide](tutorial.md) - Use when newcomers need a safe, bounded learning path to reliable first success; write a tutorial that teaches through guided action rather than real-work problem solving.
 * [How-to guide](how-to.md) - Use when writing directions for a competent reader with a bounded real-world goal; frame the user's problem, order adaptable actions, and link out for depth.
 * [Reference guide](reference.md) - Use when readers need authoritative facts for lookup while working; write structured reference material that stays consistent, scannable, and faithful to the shipped system.
-* [Explanation guide](explanation.md) - Use when readers need to understand a subject's context, connections, perspectives, or rationale; write bounded discussion without absorbing procedures or reference.
+* [Explanation guide](explanation.md) - Use when authoring or revising an explanation; develop a bounded conceptual structure, consequential distinctions, and examples that support explicit reader understanding outcomes.
 
 ## Reusable guidance authoring
 

@@ -1,6 +1,6 @@
 {
   "skill_name": "author-okf",
-  "suite_version": "0.1.6",
+  "suite_version": "0.1.10",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -45,8 +45,7 @@
       "prompt": "Convert these synthetic wiki pages into an OKF v0.2 knowledge bundle with honest provenance and validate it.",
       "expected_selection": "author-okf",
       "catalog_neighbors": [
-        "author-docs",
-        "audit-docs"
+        "author-docs"
       ],
       "assertions": [
         "The selected skill is author-okf.",
@@ -75,8 +74,7 @@
       "prompt": "Review this proposed OKF v0.2 application-profile rule: every collection index.md should also be a typed concept with status and provenance so it can own the collection's durable policy.",
       "expected_selection": "author-okf",
       "catalog_neighbors": [
-        "author-docs",
-        "audit-docs"
+        "author-docs"
       ],
       "assertions": [
         "The selected skill is author-okf.",
@@ -107,14 +105,63 @@
       "prompt": "Reorganize this ordinary documentation folder and improve its README-style index page. The repository does not use OKF or concept frontmatter.",
       "expected_selection": "author-docs",
       "catalog_neighbors": [
-        "author-okf",
-        "audit-docs"
+        "author-okf"
       ],
       "assertions": [
         "The selected skill is author-docs rather than author-okf.",
         "Generic documentation organization does not route to author-okf without an OKF contract.",
         "Routing uses only catalog names and descriptions.",
         "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 9,
+      "stage": "execution",
+      "prompt": "Simplify the citations in bundle/examples.md using the OKF authoring defaults. This synthetic bundle is read through an OKF-aware consumer that resolves source metadata. Preserve the substance and attribution. Treat the supplied source descriptions as fixture facts; do not fetch the example.org URLs. The existing type and concept scope are accepted. Validate the resulting bundle.",
+      "files": [
+        {
+          "source": "evals/files/citation-duplication/concept.md",
+          "target": "bundle/examples.md"
+        }
+      ],
+      "artifact_paths": [
+        "bundle"
+      ],
+      "expected_output": "A maintained OKF concept with short unlinked footnote titles, preserved claim attribution and the meaningful source qualification, plus validation evidence.\n\nOriginal synthetic input for preservation checks (grader evidence; compare claims, source entries, and qualifiers):\n\n---\ntype: Guide\ntitle: Choosing readable examples\ndescription: Use when documenting a rule to choose concrete examples that readers can dispute.\nsources:\n  - id: example-guide\n    resource: https://example.org/example-guide\n    title: Example Guide\n  - id: review-notes\n    resource: https://example.org/review-notes\n    title: Review Notes\n---\n\n# Choosing readable examples\n\nUse concrete examples to illustrate a rule.[^example-guide]\nExamples alone do not establish correctness.[^example-guide]\nReview examples with the rule's owner.[^review-notes]\n\n[^example-guide]: [Example Guide](https://example.org/example-guide) explains that concrete examples illustrate rules and that examples alone do not establish correctness.\n[^review-notes]: [Review Notes](https://example.org/review-notes) recommends reviewing examples with the rule's owner. Section 3 reports a secondary account of the workshop; the original workshop record was unavailable.\n",
+      "assertions": [
+        "The source IDs, resources, and claim-to-source mappings are preserved, including repeated use of example-guide.",
+        "Every cited source has a defined footnote keyed to its sources[].id.",
+        "Footnote synopses that repeat the body are removed without removing body claims.",
+        "The section 3 locator and the secondary-account/original-record-unavailable qualification remain visible.",
+        "No separate bibliography or fabricated source, verification, or external-source check is added.",
+        "The response does not claim that title-only footnotes or citation brevity are required for OKF conformance.",
+        "Footnotes default to short unlinked titles, with an author only if needed for disambiguation.",
+        "The completed bundle is validated."
+      ]
+    },
+    {
+      "id": 10,
+      "stage": "execution",
+      "prompt": "Simplify the citations in bundle/examples.md for readers of rendered Markdown who cannot see the YAML frontmatter and need clickable source access. Preserve the substance and attribution. Treat the supplied source descriptions as fixture facts; do not fetch the example.org URLs. The existing type and concept scope are accepted. Validate the resulting bundle.",
+      "files": [
+        {
+          "source": "evals/files/citation-duplication/concept.md",
+          "target": "bundle/examples.md"
+        }
+      ],
+      "artifact_paths": [
+        "bundle"
+      ],
+      "expected_output": "Compact linked-title footnotes matching frontmatter resources, with repeated synopses removed and the meaningful source qualification retained.\n\nOriginal synthetic input for preservation checks (grader evidence; compare claims, source entries, and qualifiers):\n\n---\ntype: Guide\ntitle: Choosing readable examples\ndescription: Use when documenting a rule to choose concrete examples that readers can dispute.\nsources:\n  - id: example-guide\n    resource: https://example.org/example-guide\n    title: Example Guide\n  - id: review-notes\n    resource: https://example.org/review-notes\n    title: Review Notes\n---\n\n# Choosing readable examples\n\nUse concrete examples to illustrate a rule.[^example-guide]\nExamples alone do not establish correctness.[^example-guide]\nReview examples with the rule's owner.[^review-notes]\n\n[^example-guide]: [Example Guide](https://example.org/example-guide) explains that concrete examples illustrate rules and that examples alone do not establish correctness.\n[^review-notes]: [Review Notes](https://example.org/review-notes) recommends reviewing examples with the rule's owner. Section 3 reports a secondary account of the workshop; the original workshop record was unavailable.\n",
+      "assertions": [
+        "The source IDs, resources, and claim-to-source mappings are preserved, including repeated use of example-guide.",
+        "Every cited source has a defined footnote keyed to its sources[].id.",
+        "Footnote synopses that repeat the body are removed without removing body claims.",
+        "The section 3 locator and the secondary-account/original-record-unavailable qualification remain visible.",
+        "No separate bibliography or fabricated source, verification, or external-source check is added.",
+        "The response does not claim that title-only footnotes or citation brevity are required for OKF conformance.",
+        "Each footnote retains a clickable title whose URL matches its sources[].resource.",
+        "The completed bundle is validated."
       ]
     }
   ]

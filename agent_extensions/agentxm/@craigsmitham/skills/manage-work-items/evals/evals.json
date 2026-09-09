@@ -106,7 +106,7 @@
       "stage": "routing",
       "prompt": "Turn these observations into a tracker-ready bug report and preserve the reproduction uncertainty.",
       "expected_selection": "manage-work-items",
-      "catalog_neighbors": ["engineer-requirements", "research", "author-docs"],
+      "catalog_neighbors": ["research", "author-docs"],
       "assertions": [
         "The selected skill is manage-work-items.",
         "The request is recognized as Defect Report authoring rather than diagnosis, implementation, or general documentation.",
@@ -119,7 +119,7 @@
       "stage": "routing",
       "prompt": "Implement the fix for the cache race, run the tests, and open a pull request.",
       "expected_selection": "clarify-or-abstain",
-      "catalog_neighbors": ["manage-work-items", "engineer-requirements"],
+      "catalog_neighbors": ["manage-work-items", "spot-spew"],
       "assertions": [
         "Manage-work-items is not selected for implementation work.",
         "The request is not reframed as work-item authoring.",
@@ -145,7 +145,7 @@
       "stage": "routing",
       "prompt": "Rewrite issue 44's title and two-sentence summary without changing its body or fields.",
       "expected_selection": "manage-work-items",
-      "catalog_neighbors": ["author-docs", "engineer-requirements"],
+      "catalog_neighbors": ["author-docs", "checklist-design"],
       "assertions": [
         "The selected skill is manage-work-items.",
         "The title-and-summary-only operation is recognized.",

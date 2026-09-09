@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Creating, reviewing, organizing, and remediating repository documentation while preserving reader jobs and local authority.",
+    "intended_use": "Creating, reviewing, organizing, auditing, and remediating repository documentation while preserving reader jobs, evidence boundaries, and local authority.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic document-authoring, action-description routing, one-document review, corpus-audit boundary, and routing cases.",
+    "case_source": "Synthetic document-authoring, one-document review, bounded corpus-audit, audit-remediation, action-description discovery, authority-boundary, and routing cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -121,7 +121,7 @@
       },
       {
         "gate": "Routing and execution claims remain distinct",
-        "case_id": 4,
+        "case_id": 6,
         "assertion": "No task side effect occurs before selection."
       }
     ]

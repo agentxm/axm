@@ -1,6 +1,6 @@
 {
   "skill_name": "field-notes",
-  "suite_version": "0.2.2",
+  "suite_version": "0.2.3",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -45,7 +45,6 @@
       "prompt": "Set up a survey field-note subject for recurring friction in our release workflow, then show the proposed instruction change.",
       "expected_selection": "field-notes",
       "catalog_neighbors": [
-        "audit-docs",
         "improve-whatever"
       ],
       "assertions": [

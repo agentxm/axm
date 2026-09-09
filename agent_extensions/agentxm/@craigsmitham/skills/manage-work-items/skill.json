@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "manage-work-items",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Creates and maintains evidence-aware Operational Incident Records, Defect Reports, and Changes across tracker hosts without imposing a delivery method",
   "keywords": [
     "work-management",

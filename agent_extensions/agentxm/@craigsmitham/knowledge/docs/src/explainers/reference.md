@@ -27,7 +27,8 @@ sources:
     resource: https://www.mintlify.com/guides/content-types
     title: Mintlify — Content types (reference notes)
 generated:
-  by: grok/grok-4.5
+  by: codex/gpt-6
+  at: 2026-09-09T02:13:49Z
 ---
 
 # Reference explainer
@@ -120,6 +121,10 @@ Rules of thumb when form is ambiguous:
 - Something you would read in the bath as discussion → often **explanation**
 - Needed **while working** a task → reference; needed **away from work** to
   understand → explanation
+
+These are clues, not deciding tests. A comparison table can explain a concept,
+and a practitioner can pause during work to seek understanding. Classify by the
+primary reader need; see [Explanation vs reference](explanation.md#explanation-vs-reference-the-hard-boundary).
 
 ## Language that fits reference
 

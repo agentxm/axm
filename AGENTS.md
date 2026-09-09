@@ -17,7 +17,7 @@ and package inventory.
 Nx targets are the units of work; `pnpm` scripts name workflows. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm install` is the explicit dependency-preparation step; commands fail instead of installing implicitly. `pnpm axm` runs the Bun entrypoint and its internal workspace packages from source through the `axm-source` export condition; it does not build first.
 
 The portable
-[Repository task interface](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/repository-task-interface.md)
+[Repository task interface](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md)
 is authoritative for execution-surface semantics and conformance. AXM binds it
 locally in [Repository task interface](docs/guides/repository-task-interface.md) —
 read that binding before adding a script, target, wrapper, cache, or automation
@@ -138,11 +138,11 @@ rendered by `pnpm exec nx run axm:specification-verdict`: added, removed, or
 revised requirement identities, or its "no requirement contract changes" line.
 
 For requirement elicitation, review, impact analysis, or revision, use the
-installed `engineer-requirements` skill with the repository policy in
+requirements-engineering guidance linked below with the repository policy in
 [specifications/AGENTS.md](specifications/AGENTS.md). Design specifications
 from intended observable obligations, not the current implementation; follow
 the
-[requirements-engineering guidance](agent_extensions/agentxm/@craigsmitham/knowledge/requirements-engineering/src/index.md)
+[requirements-engineering guidance](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
 and [testing strategy](docs/architecture/system-wide/testing-strategy.md).
 
 ## Architecture
@@ -336,7 +336,7 @@ requirements.
 
 Wait for the user to review changes and decide when to commit.
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=501cc5e162336bf0d70065bea86ad0dbda2cd7535c9d5334bd04367598919d7e -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=2b1446d853c15bd22e0ca3bdf68ea71d93caf1a4affa31aa78a00d9aa1d32695 -->
 
 ## Knowledge Bundles
 
@@ -357,20 +357,14 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/docs kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/effect-v4 kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/field-notes kind=knowledge -->
-<!-- axm:point v=1 ext=@craigsmitham/knowledge/requirements-engineering kind=knowledge -->
-<!-- axm:point v=1 ext=@craigsmitham/knowledge/software-engineering kind=knowledge -->
-<!-- axm:point v=1 ext=@craigsmitham/knowledge/work-management kind=knowledge -->
-<!-- axm:point v=1 ext=@craigsmitham/knowledge/workflow-automation kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/product-engineering kind=knowledge -->
 
-| Bundle                                                                                                             | Description                                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                                         | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns     |
-| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                               | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                     |
-| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                           | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                |
-| [requirements-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/requirements-engineering/src/index.md) | Portable requirements engineering for elicitation, analysis, specification, review, traceability, lifecycle, and evidence across project methods and tools             |
-| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md)         | Portable engineering craft for evidence-backed codebase review and coherent repository execution surfaces                                                              |
-| [work-management](agent_extensions/agentxm/@craigsmitham/knowledge/work-management/src/index.md)                   | Portable software work-item taxonomy, content contracts, templates, lifecycle, evidence, and tracker-neutral guidance                                                  |
-| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md)           | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
+| Bundle                                                                                                   | Description                                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
+| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                 |
+| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action            |
+| [product-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=13f9a5c8cebfaf12084b2a3c55940648fc5518aca247451fdda6c4639e6b3c3e -->

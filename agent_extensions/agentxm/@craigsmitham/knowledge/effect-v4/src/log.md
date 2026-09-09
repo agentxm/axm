@@ -1,5 +1,15 @@
 # Directory Update Log
 
+## 2026-09-08
+
+* **Discovery**: Replaced the abbreviated root index entry summaries with each
+  concept's exact frontmatter `description`, so a reader browsing the index and
+  a reader arriving from search see the same selection text for every topic.
+* **Correction**: Corrected the root index introduction, which claimed each
+  topic contains eight checks while [Observability](observability.md) carries
+  nine. The introduction now states the five-to-ten-item form already declared
+  in the maintenance section.
+
 ## 2026-08-29
 
 * **Discovery**: Replaced the taxonomy-heavy publisher description with a

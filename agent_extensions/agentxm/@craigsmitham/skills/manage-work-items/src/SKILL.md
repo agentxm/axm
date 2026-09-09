@@ -9,16 +9,18 @@ Create and maintain truthful, recoverable software work items while adapting
 their physical representation to the repository and tracker that owns them.
 
 This skill is a non-standalone member of the Work Management pack. Resolve
-knowledge through the active AXM scope. In a source workspace, the paths below
-are exact paths beneath that scope root; do not rebase them beneath this skill
-package or scan for alternate copies. If the exact workspace paths are absent,
-resolve the installed `@craigsmitham/knowledge/work-management` pack sibling
-through active AXM state.
+knowledge through the active AXM scope. Every path below is relative to the
+work-item subtree, which in a source workspace is exactly
+`knowledge/product-engineering/src/delivery/work-items/` beneath that scope
+root; do not rebase it beneath this skill package or scan for alternate copies.
+If that exact workspace path is absent, resolve the installed
+`@craigsmitham/knowledge/product-engineering` pack sibling through active AXM
+state and use the same subtree inside it.
 
 Always read:
 
-- `knowledge/work-management/src/software-work-item-taxonomy.md`; and
-- `knowledge/work-management/src/common/work-item-content-contract.md`.
+- `software-work-item-taxonomy.md`; and
+- `common/work-item-content-contract.md`.
 
 Then read only the narrowest applicable route below.
 
@@ -26,9 +28,9 @@ Then read only the narrowest applicable route below.
 
 ### Defect Report
 
-Read `knowledge/work-management/src/defects/recording-defect-reports.md` when an
-observation, concern, failure, or static finding may indicate a Defect and the
-requested outcome is a report. Add:
+Read `defects/recording-defect-reports.md` when an observation, concern,
+failure, or static finding may indicate a Defect and the requested outcome is
+a report. Add:
 
 - `defects/triaging-defect-reports.md` for classification, duplicates, batch
   triage, disposition, or next-route decisions;
@@ -43,9 +45,9 @@ report itself into the corrective Change.
 
 ### Change
 
-Read `knowledge/work-management/src/changes/authoring-changes.md` when the
-requested outcome is one bounded proposed or authorized software modification.
-Add `changes/classifying-changes.md` when purpose classification is in scope and
+Read `changes/authoring-changes.md` when the requested outcome is one bounded
+proposed or authorized software modification. Add
+`changes/classifying-changes.md` when purpose classification is in scope and
 `changes/change-template.md` only for a body fallback or explicit template
 request.
 
@@ -63,10 +65,10 @@ make the item appear complete.
 
 ### Operational Incident Record
 
-Read `knowledge/work-management/src/incidents/recording-operational-incidents.md`
-when current or imminent operational impact meets the local coordinated-
-response threshold. Add `incidents/operational-incident-template.md` only for a
-body fallback or explicit template request.
+Read `incidents/recording-operational-incidents.md` when current or imminent
+operational impact meets the local coordinated-response threshold. Add
+`incidents/operational-incident-template.md` only for a body fallback or
+explicit template request.
 
 Follow local emergency and communication policy. Recording an incident does
 not authorize mitigation, production mutation, or public communication.

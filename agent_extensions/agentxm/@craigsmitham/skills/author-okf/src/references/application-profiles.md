@@ -83,6 +83,43 @@ Report two independent results:
 A bundle may conform to OKF while failing its application profile. If no executable profile
 validator exists, label the profile review as manual and name the rules examined.
 
+## Review a proposed profile or bundle representation
+
+1. Classify each proposed Markdown artifact as a concept document, reserved `index.md`, reserved
+   `log.md`, or external peer authority before evaluating its semantic usefulness.
+2. Apply the base OKF file contract before producer-profile rules. A profile may narrow choices OKF
+   leaves open; it cannot waive a base reserved-file rule and still claim OKF v0.2 conformance.
+3. When a proposal gives durable semantic ownership to an index or log, reject that representation
+   without discarding the useful meaning. State that the meaning can be represented by a distinct
+   non-reserved concept document and that the reserved file can link to it. Unless the applicable
+   authority has already accepted them, keep any illustrative type or filename explicitly
+   non-normative rather than drafting them as the chosen result.
+4. Report the base-format conclusion, profile decision, and any unresolved domain-authority choice
+   separately. Do not choose a domain concept type, path, or cardinality that the applicable profile
+   authority has not accepted.
+5. Preserve peer authorities named by the proposal. Moving one durable concept into OKF does not
+   move definitions, executions, results, approvals, requirements, or other operative artifacts
+   into that concept's ownership. Describe representational compatibility without approving a
+   profile-policy reversal or widening the concept boundary.
+
+For an assessment request, stop at that authority boundary. Do not provide a ready-to-adopt index
+or concept draft when its domain type, canonical path, inclusion policy, or ownership is still
+proposed. Instead:
+
+- say that OKF permits an uncontrolled non-empty `type` on a non-reserved concept, while the
+  applicable profile or domain authority decides whether the proposed type is accepted;
+- refer to a distinct non-reserved concept document without selecting its canonical filename;
+- treat a requested corpus- or profile-policy reversal as a proposal, not as accepted policy; and
+- restate any supplied `owns` and `does not own` boundaries so the representational correction
+  cannot absorb peer definitions, executions, results, assurance decisions, or requirements.
+
+Concrete type and path examples are allowed only when clearly labeled non-normative placeholders;
+do not place them in a draft artifact whose form implies that they were selected.
+When a requested type has not already been accepted, do not call the separated artifact “a
+document of type `<requested>`.” Call it a distinct non-reserved concept document, then state
+separately that `<requested>` is base-format-compatible but remains a proposed type pending the
+applicable profile or domain decision.
+
 ## Status and sources
 
 This guidance is provisional. The OKF community has discussed opt-in profiles, but OKF v0.2 does

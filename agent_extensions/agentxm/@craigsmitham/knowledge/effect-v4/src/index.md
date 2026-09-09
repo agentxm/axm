@@ -5,8 +5,8 @@ okf_version: "0.2"
 # Effect v4 checklists
 
 Concise evaluation checklists for designing, implementing, maintaining, and
-reviewing Effect v4 TypeScript. Each topic contains eight concrete checks plus
-links to the primary sources used to author it.
+reviewing Effect v4 TypeScript. Each topic contains five to ten independently
+judgeable checks plus links to the primary sources used to author it.
 
 This bundle was last authored against **Effect 4.0.0-rc.112**. Within Effect
 major version 4, use the checklists as the stable design baseline and consult
@@ -26,61 +26,83 @@ resumed at the first open box after interruption.
 
 ## Model data
 
-- [Schema boundaries](schema-boundaries.md) — unknown, encoded, and trusted
-  domain values.
-- [Branded types](branded-types.md) — scalar identity and runtime refinement.
-- [Option](option.md) — meaningful absence and nullable boundaries.
-- [Collections](collections.md) — representation, identity, ordering, and safe
-  operations.
-- [Date and time](date-and-time.md) — instants, calendar values, durations,
-  zones, and current time.
-- [Optics](optics.md) — reusable immutable focus and update operations.
+- [Schema boundaries](schema-boundaries.md) — Evaluate whether external
+  representations cross one explicit, validated boundary into trusted domain
+  values.
+- [Branded types](branded-types.md) — Evaluate whether meaningful scalar
+  identities and refinements prevent invalid substitution without weakening
+  boundary validation.
+- [Option](option.md) — Evaluate whether meaningful absence is modeled
+  explicitly and translated cleanly at nullable boundaries.
+- [Collections](collections.md) — Evaluate whether collection representation
+  and operations preserve identity, cardinality, ordering, and safety.
+- [Date and time](date-and-time.md) — Evaluate whether instants, calendar
+  values, durations, time zones, and current time have explicit owners.
+- [Optics](optics.md) — Evaluate whether reusable immutable focus operations
+  are lawful, appropriately strong, and clearer than direct updates.
 
 ## Model failure
 
-- [Error modeling](error-modeling.md) — expected failure, defects,
-  interruption, recovery, and retry.
-- [Wrapping foreign APIs](wrapping.md) — synchronous, Promise, callback, and
-  SDK boundaries.
+- [Error modeling](error-modeling.md) — Evaluate whether expected failures,
+  defects, interruption, recovery, and retry remain distinct and truthful.
+- [Wrapping foreign APIs](wrapping.md) — Evaluate whether synchronous, Promise,
+  and callback APIs become truthful, cancellable, resource-safe Effect
+  boundaries.
 
 ## Structure the application
 
-- [Services and layers](services-and-layers.md) — capabilities,
-  implementations, dependency graphs, and runtimes.
-- [Config](config.md) — typed, validated, secret-safe configuration.
+- [Services and layers](services-and-layers.md) — Evaluate whether
+  capabilities, implementations, dependency graphs, lifetimes, and runtime
+  boundaries remain explicit and replaceable.
+- [Config](config.md) — Evaluate whether configuration is typed, validated,
+  secret-safe, centralized, and replaceable in tests.
 
 ## Own lifetimes and concurrency
 
-- [Resource safety](resource-safety.md) — acquisition, ownership, and cleanup.
-- [Structured concurrency](structured-concurrency.md) — child ownership,
-  failure policy, bounds, and shutdown.
-- [Iteration](iteration.md) — traversal, repetition, polling, and retry.
-- [Async coordination](async-coordination.md) — signaling, state, queues,
-  admission, and transactions.
-- [Streams](streams.md) — zero-to-many production, backpressure, and
-  consumption.
-- [Request batching and cache](request-batching-and-cache.md) — coalescing,
-  value reuse, identity, TTL, and invalidation.
-- [Keyed resource sharing](keyed-resource-sharing.md) — reference-counted,
-  keyed, and pooled live resources.
+- [Resource safety](resource-safety.md) — Evaluate whether every acquired
+  resource has one explicit owner and reliable cleanup under success, failure,
+  and interruption.
+- [Structured concurrency](structured-concurrency.md) — Evaluate whether every
+  child fiber has an owner, bounded policy, observable failure, and
+  deterministic shutdown.
+- [Iteration](iteration.md) — Evaluate whether traversal, repetition, polling,
+  retry, result shape, and concurrency match the operation's semantics.
+- [Async coordination](async-coordination.md) — Evaluate whether the
+  coordination primitive matches the state, signaling, backpressure,
+  exclusivity, and atomicity required.
+- [Streams](streams.md) — Evaluate whether a zero-to-many workflow has truthful
+  production, backpressure, concurrency, lifetime, and consumption semantics.
+- [Request batching and cache](request-batching-and-cache.md) — Evaluate
+  whether request coalescing and value reuse have complete identity, bounded
+  lifetime, failure, and invalidation policies.
+- [Keyed resource sharing](keyed-resource-sharing.md) — Evaluate whether live
+  resources shared by key have complete identity, scoped borrowing, bounded
+  retention, and safe release.
 
 ## Integrate with platforms
 
-- [Filesystem](filesystem.md) — portable file and path operations.
-- [HTTP API](http-api.md) — schema-first server contracts, middleware,
-  documentation, and clients.
-- [HTTP client](http-client.md) — outbound request policy, decoding, failure,
-  and substitution.
-- [Cloudflare Workers](cloudflare-workers.md) — bindings, request scopes,
-  isolate reuse, and post-response work.
-- [SQL](sql.md) — clients, statements, schemas, transactions, and retry.
+- [Filesystem](filesystem.md) — Evaluate whether file and path operations are
+  portable, typed, containment-safe, resource-safe, and replaceable in tests.
+- [HTTP API](http-api.md) — Evaluate whether one schema-first HTTP contract
+  governs endpoints, validation, errors, middleware, documentation, and
+  clients.
+- [HTTP client](http-client.md) — Evaluate whether outbound HTTP has an
+  injectable client, complete policy, typed failure distinctions, schema
+  decoding, and safe retry.
+- [Cloudflare Workers](cloudflare-workers.md) — Evaluate whether Effect
+  services, scopes, background work, bindings, and state align with the Workers
+  request and isolate model.
+- [SQL](sql.md) — Evaluate whether database access has explicit client, schema,
+  statement, transaction, retry, telemetry, and testing boundaries.
 
 ## Operate and verify
 
-- [Observability](observability.md) — coherent logs, traces, metrics, and
-  exporter lifetimes.
-- [Testing](testing.md) — deterministic services, time, resources, and
-  concurrency.
+- [Observability](observability.md) — Evaluate whether logs, traces, and
+  metrics answer operational questions with coherent context, bounded
+  cardinality, and safe lifecycle.
+- [Testing](testing.md) — Evaluate whether Effect programs are tested
+  deterministically through public services, controlled runtime inputs, and
+  complete lifetime behavior.
 
 ## Maintaining this bundle
 

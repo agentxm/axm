@@ -1,8 +1,8 @@
 ---
 type: Guide
 title: Explanation guide
-description: Use when readers need to understand a subject's context, connections, perspectives, or rationale; write bounded discussion without absorbing procedures or reference.
-tags: [docs, explanation, authoring, how-to, diataxis]
+description: Use when authoring or revising an explanation; develop a bounded conceptual structure, consequential distinctions, and examples that support explicit reader understanding outcomes.
+tags: [docs, explanation, authoring, conceptual-structure, distinctions, examples, evidence, review, how-to, diataxis]
 status: stable
 sources:
   - id: diataxis-explanation
@@ -26,75 +26,117 @@ sources:
   - id: mintlify-content-types
     resource: https://www.mintlify.com/guides/content-types
     title: Mintlify — Content types (explanation notes)
+  - id: explanation-principles
+    resource: ../explainers/explanation.md
+    title: Explanation explainer — How explanation builds understanding
 generated:
-  by: claude/fable-5
-  at: 2026-08-26T14:02:36Z
+  by: codex/gpt-6
+  at: 2026-09-09T02:13:49Z
 ---
 
 # Explanation guide
 
-Use this guide when readers need to **understand** a topic better through
-reflection, context, and connection, not a runbook or catalog. For what
-explanation is and is not, read
-[Explanation explainer](../explainers/explanation.md).
-
-Canonical principles below follow Diátaxis explanation guidance (connections,
-context, *about* the subject, opinion and perspective, tightly bounded scope).
+Use this guide when authoring or revising documentation whose primary job is to
+help readers understand a subject. It applies the principles in
+[Explanation explainer](../explainers/explanation.md#how-explanation-builds-understanding),
+which supplies the rationale and limits.[^explanation-principles]
 
 ## Goal
 
-After reading, the audience has a clearer mental model, knows main tradeoffs
-and alternatives, and can approach related how-tos and reference with less
-anxiety — not a longer checklist of steps or fields.
+Produce an explanation in which readers can find the support needed to explain
+important relationships, distinguish neighboring concepts, and reason about
+relevant tradeoffs. Keep that purpose recognizable while linking to procedures
+and reference for other reader needs.
+
+## Preconditions
+
+- An identified audience and understanding question, or enough context to draft
+  and refine them.
+- Access to the authoritative material needed to support the subject's claims;
+  gaps remain explicit until researched.
+- Clarity about the document's authority: explanation of a field, an argued
+  perspective, or an explanation of decisions already made by its owner.
 
 ## Steps
 
-1. **Name one understanding goal** — a real or imagined *why?* / *Can you
-   tell me about …?* that bounds the page. Without a spine, explanation
-   sprawls. Draw deliberate lines around a **topic** (an area of knowledge),
-   not a task and not the whole product surface.
+1. **Define the understanding outcomes.** Name the audience, what they likely
+   know, and the question that brings them to the page. State a few things they
+   should be able to explain, distinguish, or reason about afterward. For
+   example, “explain why a model boundary and a business boundary need not
+   align” gives an author more direction than “understand architecture.” Bound
+   the subject around those outcomes; identify adjacent topics to link out to.
 
-2. **Title as *about* the subject** — explicit or implicit *About …* (*About
-   user authentication*, *About database connection policies*). The piece
-   sits *around* the topic, not as a procedure to execute or a machine to
-   inventory.
+2. **Map the concepts before outlining.** Identify essential concepts, their
+   dependencies, relationships, and likely confusions. Notice where readers
+   must classify something, choose a scope, or compare perspectives. Use this
+   working map to find gaps; it need not become a published diagram. Cover what
+   the reader needs to reason about the subject without expanding into an
+   exhaustive vocabulary catalog.
 
-3. **Orient for study, not work** — write so the piece can be read **away
-   from the product** (reflection after practice). Do not require hands on
-   the console to make sense of the discussion.
+3. **Establish the source basis.** Consult primary definitions and method owners
+   where appropriate, and seek relevant alternatives when the subject is
+   contested. Record which source supports which claim. Separate an author's
+   account of their method from evidence of its effectiveness. Use the actual
+   text supporting a claim; a search result, synopsis, or unread recording does
+   not warrant a claim about the full source. Identify your synthesis and any
+   unresolved disagreement instead of silently merging terminology.
 
-4. **Provide context** — background that illuminates: design decisions,
-   historical reasons, technical constraints, implications, and selective
-   examples. Unfold what is implicit in how the system behaves when that
-   aids grasp — not every fact the reference already owns.
+4. **Build an outline that reveals the subject.** Group related concepts and
+   introduce prerequisites before relying on them. Use recognizable subject
+   terms in headings where they help orientation. Include distinctions where
+   the reader needs them. A conceptual explanation may progress from
+   foundations through relationships to implications; a historical explanation
+   may need another order. Choose the structure from the reader outcomes rather
+   than copying a previous document's sections. Use a subject title with an
+   implicit or explicit “About.”
 
-5. **Make connections** — weave related ideas, other product areas, and
-   (when useful) external analogies or industry practice. Understanding is
-   a web; isolated fact dumps do not seal craft knowledge.
+5. **Develop the consequential distinctions and judgments.** Explain what each
+   central concept means, why it matters, how it relates to others, and where
+   its interpretation changes. For classifications or framing choices, supply
+   defining criteria, evidence to examine, implications, and limits. Distinguish
+   heuristics from rules and tentative judgments from established facts. Show
+   what confusion would lead a reader to infer incorrectly. These are coverage
+   questions for the author, not mandatory subheadings for every concept.
 
-6. **Admit opinion and perspective** — weigh alternatives, counter-examples,
-   and different approaches. Mark judgment clearly (*W is better here
-   because…*, *Some prefer X; that can work, but…*). Separate opinion from
-   hard system facts so the reader can trust both.
+6. **Choose examples that expose the reasoning.** Select a running example when
+   several concepts benefit from shared context; use contrasting examples when
+   variation or limits are the point. At each use, identify the new relationship
+   or inference the example makes visible. Include a changed circumstance that
+   changes the conclusion where helpful. Label fictional scenarios, preserve
+   relevant assumptions, and avoid implying that one implementation is
+   inevitable. Add a table or diagram when comparison, boundaries, or causality
+   become clearer through it.
 
-7. **Build the model with room to digress usefully** — definition,
-   relationships, implications, diagrams, and “what if” only when they
-   serve insight. Discursive form is allowed; a single brittle outline is
-   not required — but every section still serves the central question.
+7. **Connect the concepts to consequences and limits.** Explain what follows
+   from a concept, what remains undecided, and which other considerations matter.
+   Discuss applicability, costs, alternatives, and complementary approaches
+   when they affect understanding. Attribute perspectives and make your own
+   judgment visible. Keep the discussion readable away from an active task,
+   while allowing criteria and practical implications that illuminate why.
+   Link to the owner of an operational procedure or authoritative inventory.
 
-8. **Keep explanation closely bounded** — do **not** absorb instruction or
-   exhaustive technical description “while covering the topic.” Those jobs
-   have homes: how-to and reference. Creeping procedures and field tables
-   dilute reflection and hide the real owners of action and facts.
+8. **Provide useful reading routes.** Connect readers to material for deeper
+   understanding, doing, and lookup. For selected sources, explain what question
+   each helps answer or which perspective it develops. Prefer a small relevant
+   selection over an undifferentiated bibliography. Keep attribution near the
+   claims it supports and represent the reviewed source's scope honestly.
 
-9. **Close with orientation** — where to go next for *doing* (how-tos) or
-   *looking up* (reference). Optional further reading for deeper study.
-   Do not turn the ending into a second runbook.
+9. **Review against the understanding outcomes.** For each outcome, locate the
+   passage or example that supports it. Check that the reader has the
+   prerequisites to follow the reasoning. Try a contrasting case: does the
+   explanation support a defensible interpretation when a relevant condition
+   changes? Recheck source claims, terminology, example assumptions, links, and
+   any host metadata. If the document makes an effectiveness claim about reader
+   understanding, obtain reader evidence; author review alone cannot prove it.
 
-10. **Review for job drift** — if most of the page is numbered steps or
-    parameter tables, retype or split. Test: would someone turn to this
-    while *working* a task, or while *studying* away from the console?
-    Work → reference or how-to; study of concepts → explanation.
+10. **Review purpose and proportion.** Read the headings as a conceptual map,
+    then read the body as a connected discussion. Expand an unsupported
+    distinction; trim repeated definitions, decorative examples, and digressions
+    that do not serve the outcomes. Judge tables and lists by what they do, not
+    how many appear. If the primary job has become executing a procedure or
+    looking up facts, move that material to the appropriate document and keep
+    the explanatory connection. Refresh indexes and previews when the canonical
+    title or description changes, then run the applicable documentation checks.
 
 ## Language that fits
 
@@ -104,29 +146,21 @@ use them as drafting checks rather than restating them here. One
 production-specific cue: title the piece as *About …* (explicit or implicit)
 to signal discussion of a topic, not a task.
 
-## Preconditions
-
-- Enough real context (design decisions, domain knowledge, history) to
-  discuss honestly — invent no rationale
-- Willingness to state tradeoffs and deferred choices without turning the
-  page into a defense brief
-- Clarity that the primary job is understanding, not shipping a task or
-  completing an interface inventory
-
 ## Pitfalls
 
-The diagnostic taxonomy of failure modes (scattered explanation, tutorial
-overload, absorbed runbook or reference, unscoped essay, neutral-only false
-discipline) is owned by the
-[Explanation explainer](../explainers/explanation.md#failure-modes-common);
-review drafts against it. Two production-time pitfalls to catch while
-writing:
+Use the [explainer's failure modes](../explainers/explanation.md#failure-modes-common)
+to diagnose weaknesses. When revising, match the response to the problem:
 
-- **Work-mode framing** — written as if the reader is mid-task and needs
-  commands now, rather than as study material for later grasp.
-- **Starving both jobs** — pasting field catalogs or option lists into the
-  discussion leaves reference interrupted by digression and explanation
-  without room to develop.
+- If the outline hides the subject, revisit the concept map before polishing
+  individual sentences.
+- If definitions are present but the reader cannot distinguish the concepts,
+  add the relationship, boundary, or contrasting case that is missing.
+- If examples feel repetitive, identify their explanatory contribution and
+  combine or remove those that add none.
+- If source accounts conflict, preserve the disagreement and explain its
+  consequence before offering a synthesis.
+- If the page looks structured, inspect its purpose before reclassifying it.
+  A comparison table or classification criterion can carry essential reasoning.
 
 ## Related
 
@@ -135,3 +169,5 @@ writing:
 - [How-to guide](how-to.md)
 - [Reference guide](reference.md)
 - [Tutorial guide](tutorial.md)
+
+[^explanation-principles]: [Explanation explainer](../explainers/explanation.md#how-explanation-builds-understanding), this bundle's practical elaboration of explanation craft.

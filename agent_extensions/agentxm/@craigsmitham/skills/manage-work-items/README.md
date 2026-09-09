@@ -9,7 +9,8 @@ Install the supported pack rather than this non-standalone skill:
 axm packs install @craigsmitham/packs/work-management
 ```
 
-The skill reads the pack's Work Management knowledge sibling, applicable
+The skill reads the work-item subtree of the pack's `product-engineering`
+knowledge sibling, at `src/delivery/work-items/`, plus applicable
 repository instructions, and the selected tracker's native schema. It can
 classify, draft, revise, triage, relate, merge, split, reopen, close, title,
 summarize, and map software work items. It does not implement fixes, diagnose

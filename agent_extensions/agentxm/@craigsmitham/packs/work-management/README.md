@@ -10,11 +10,13 @@ architecture framework.
 
 | Extension | Responsibility |
 | --- | --- |
-| `@craigsmitham/knowledge/work-management` | Taxonomy, common content contract, role guidance, and portable templates |
+| `@craigsmitham/knowledge/product-engineering` | Taxonomy, common content contract, role guidance, and portable templates, held in the How to ship it section under `src/delivery/work-items/` |
 | `@craigsmitham/skills/manage-work-items` | Classification, authoring, triage, relationship, lifecycle, host mapping, and verified persistence workflow |
 
-Members are non-standalone because the skill resolves its knowledge sibling
-through the active AXM scope. Install the pack:
+The `work-management` bundle was retired into `product-engineering`, so this
+pack now installs that body of knowledge and the skill reads the work-item
+subtree inside it. The skill is non-standalone because it resolves its
+knowledge sibling through the active AXM scope. Install the pack:
 
 ```sh
 axm packs install @craigsmitham/packs/work-management
@@ -62,13 +64,17 @@ mandatory forms.
 
 ## Boundaries
 
-The pack does not provide:
+The work-item capability does not provide:
 
 - a complete SDLC or delivery process;
 - backlog prioritization, capacity planning, roadmaps, or portfolio management;
 - a requirements, architecture, design, test, or operational-response system;
 - implementation, debugging, release, or production-mutation authority; or
 - an end-to-end stage model, governed corpus, or focused-artifact lifecycle.
+
+The installed bundle covers several of those subjects in other sections, and
+holding both capabilities in one body of knowledge does not merge them. The
+skill routes to the work-item subtree only.
 
 ## Attribution and license
 

@@ -15,8 +15,8 @@ sources:
     resource: https://www.apa.org/pubs/databases/psycinfo/cit-article.pdf
     title: J.C. Flanagan — The Critical Incident Technique (Psychological Bulletin, 1954)
 generated:
-  by: claude/claude-opus-5
-  at: 2026-08-08T14:42:20Z
+  by: claude/opus-5
+  at: 2026-09-08T00:00:00Z
 ---
 
 # Subjects
@@ -40,7 +40,7 @@ done. It is not a label; it changes behavior.
 | You know | The area is costly | The specific outcome you want |
 | Trigger | Broad — any work touching the area | Narrow — tied to the target condition |
 | Evidence bar | Low; capture anything anomalous | High; specific incidents only |
-| Promotion | None; accumulate first | Recurrence threshold |
+| Promotion | Recurrence threshold; the characteristic output is a target condition | Recurrence threshold; `blocked` notes carry the most weight |
 | Exit | A target condition can be stated | Target condition met and holding |
 
 The distinction resolves a real tension. Structured improvement practice normally
@@ -71,9 +71,12 @@ not.
 
 ## Graduation
 
-**The output of a survey subject is a target condition, not a fix.** This
-is the most valuable moment in the practice: diffuse annoyance becomes a
-falsifiable statement.
+**The characteristic output of a survey subject is a target condition, not a
+fix.** This is the most valuable moment in the practice: diffuse annoyance
+becomes a falsifiable statement. Graduation is what a survey subject adds, not
+a replacement for triage: notes recorded under a survey subject promote on the
+same recurrence threshold as any others, described in
+[Closure](closure-explainer.md).
 
 A survey subject is ready to graduate when its accumulated notes cluster
 into a recognizable pattern and the cluster can be restated as a condition the

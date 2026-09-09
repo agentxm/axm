@@ -1,5 +1,13 @@
 # Field notes bundle update log
 
+## 2026-09-08
+
+* **Coherence**: Corrected [Subjects](subject-explainer.md) so survey mode no
+  longer claims that notes under it are exempt from promotion. Survey and
+  target subjects share the recurrence threshold described in
+  [Closure](closure-explainer.md); what distinguishes a survey subject is that
+  its characteristic output is a target condition.
+
 ## 2026-08-24
 
 * **Evidence**: Added a safe diagnostic-envelope boundary so structured error,

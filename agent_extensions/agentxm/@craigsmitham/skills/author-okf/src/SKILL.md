@@ -93,7 +93,8 @@ conformance and bundle coherence, not the host repository's documentation taxono
    user. Directories are a domain choice, not a spec choice (`tables/`, `metrics/`, `playbooks/`).
 2. Draft the one-sentence publisher description when the bundle has one, then sketch the root and
    any nested indexes from `templates/index.md`. This is the discovery map, not final content.
-3. Create concepts from `templates/concept.md`, one file per concept. Concept ID is the bundle-
+3. Create concepts from `templates/concept.md`, following [Sources and claim attribution](#sources-and-claim-attribution).
+   Use one file per concept. Concept ID is the bundle-
    relative path minus `.md`; reconcile each finished body with its drafted title and description.
 4. Finish the root `index.md` with `okf_version: "0.2"` and the exact concept titles and
    descriptions. This is the only `index.md` permitted to have frontmatter.
@@ -112,14 +113,7 @@ conformance and bundle coherence, not the host repository's documentation taxono
    is the material it came from — an absolute URL, a bundle-relative path, or a scope descriptor
    like `all queries in BigQuery project X` when there is no single artifact. Give each source an
    `id` when the body cites it.
-5. **Attribute per claim** with footnotes keyed to `sources[].id`, not a citations list:
-
-   ```markdown
-   The `events_` table is sharded daily as `events_YYYYMMDD`.[^ga4-schema]
-
-   [^ga4-schema]: GA4 BigQuery Export schema
-   ```
-
+5. **Attribute per claim** using [Sources and claim attribution](#sources-and-claim-attribution).
 6. **Set `generated`** to the actor that actually did the conversion, e.g.
    `generated: { by: claude/opus-5, at: <now, ISO 8601> }`. Do not set `verified` — conversion is
    generation, not verification. A human reviewer adds `verified` afterwards.
@@ -142,6 +136,7 @@ python3 scripts/validate_okf.py <bundle> --summary
 
 Then:
 
+- Apply [Sources and claim attribution](#sources-and-claim-attribution) when adding or revising citations.
 - Update `generated.at` when content changes meaningfully. Leave `verified` alone — content can
   change without re-confirmation, and stale `verified` entries are informative, not errors.
 - Add a `verified` entry only on an actual verification event. Append to the list; do not overwrite.
@@ -172,78 +167,46 @@ defining, applying, or validating a profile.
 
 ### Review a proposed profile or bundle representation
 
-1. Classify each proposed Markdown artifact as a concept document, reserved `index.md`, reserved
-   `log.md`, or external peer authority before evaluating its semantic usefulness.
-2. Apply the base OKF file contract before producer-profile rules. A profile may narrow choices OKF
-   leaves open; it cannot waive a base reserved-file rule and still claim OKF v0.2 conformance.
-3. When a proposal gives durable semantic ownership to an index or log, reject that representation
-   without discarding the useful meaning. State that the meaning can be represented by a distinct
-   non-reserved concept document and that the reserved file can link to it. Unless the applicable
-   authority has already accepted them, keep any illustrative type or filename explicitly
-   non-normative rather than drafting them as the chosen result.
-4. Report the base-format conclusion, profile decision, and any unresolved domain-authority choice
-   separately. Do not choose a domain concept type, path, or cardinality that the applicable profile
-   authority has not accepted.
-5. Preserve peer authorities named by the proposal. Moving one durable concept into OKF does not
-   move definitions, executions, results, approvals, requirements, or other operative artifacts
-   into that concept's ownership. Describe representational compatibility without approving a
-   profile-policy reversal or widening the concept boundary.
+Read and follow [Representation review](references/application-profiles.md#review-a-proposed-profile-or-bundle-representation)
+before assessing a proposal. Apply base reserved-file rules first, preserve peer
+ownership, and leave proposed domain types, paths, and profile-policy choices to
+the applicable authority; representation compatibility does not accept them.
 
-For an assessment request, stop at that authority boundary. Do not provide a ready-to-adopt index
-or concept draft when its domain type, canonical path, inclusion policy, or ownership is still
-proposed. Instead:
+## Sources and claim attribution
 
-- say that OKF permits an uncontrolled non-empty `type` on a non-reserved concept, while the
-  applicable profile or domain authority decides whether the proposed type is accepted;
-- refer to a distinct non-reserved concept document without selecting its canonical filename;
-- treat a requested corpus- or profile-policy reversal as a proposal, not as accepted policy; and
-- restate any supplied `owns` and `does not own` boundaries so the representational correction
-  cannot absorb peer definitions, executions, results, assurance decisions, or requirements.
+Record provenance in `sources`. Attribute individual claims with footnotes whose
+labels match `sources[].id`, following OKF §5.1. Consumers resolve attribution
+through that ID, not the footnote prose. Keep footnote definitions for Markdown
+readability. Apply this convention during creation, conversion, and maintenance.
 
-Concrete type and path examples are allowed only when clearly labeled non-normative placeholders;
-do not place them in a draft artifact whose form implies that they were selected.
-When a requested type has not already been accepted, do not call the separated artifact “a
-document of type `<requested>`.” Call it a distinct non-reserved concept document, then state
-separately that `<requested>` is base-format-compatible but remains a proposed type pending the
-applicable profile or domain decision.
+These are authoring defaults, not additional OKF conformance rules; follow an
+explicit audience need or applicable profile when it calls for another form:
+
+- Keep source identity and URLs in frontmatter.
+- Default definitions to a short source title; add an author when needed to
+  distinguish sources.
+- Use a compact linked title when readers need direct source access from rendered
+  Markdown. Keep its URL consistent with `sources[].resource`.
+- Add a section locator, qualification, or indirect-attribution explanation only
+  when it helps readers assess the cited claim.
+- Omit source synopses that repeat the body. Preserve qualifications that affect
+  interpretation; shortening a citation must not strengthen its evidence claim.
+- Reuse the same source ID for further claims supported by that source. Do not
+  create a separate bibliography alongside `sources`.
+
+For a source declared with `id: sbe` and `title: Specification by Example`:
+
+```markdown
+Examples illustrate rules but cannot alone establish correctness.[^sbe]
+
+[^sbe]: Fowler, Specification by Example.
+```
 
 ## Frontmatter reference
 
-`type` is the only always-required key. A concept carrying just `type` is fully conformant.
-
-| Field | Req | Form | Notes |
-|---|---|---|---|
-| `type` | **yes** | string | Kind of concept. Uncontrolled vocabulary — see [Type discipline](#type-discipline). |
-| `title` | rec | string | Canonical display name. Use exact wording in index links. Consumers may fall back to the filename. |
-| `description` | rec | string | One sentence distinguishing this concept from its neighbors. For action concepts, include the selection condition and supported outcome; for Processes, include the trigger and closing outcome. Reuse it exactly in index entries and search snippets. |
-| `resource` | rec | URI/path | Canonical URI of the underlying asset. Omit for abstract concepts. |
-| `tags` | rec | list | Stable domain terms, aliases, and query vocabulary; do not merely repeat the title. |
-| `sources` | opt | list | Provenance. Each entry needs `resource`; `id`, `title`, `author`, `usage_count`, `last_modified` optional. |
-| `usage_window` | opt | `{from, to}` | Sibling of `sources`; frames every `usage_count`. Dates are `YYYY-MM-DD`. |
-| `generated` | opt | `{by, at}` | `by` required within it; an actor. `at` = last meaningful content change, ISO 8601 datetime. |
-| `verified` | opt | list of `{by, at}` | Verification events. A bare mapping is a one-element list. |
-| `status` | opt | enum | `draft` \| `stable` \| `deprecated`. Absent means `stable`. |
-| `stale_after` | opt | `YYYY-MM-DD` | Absolute date, not a TTL. Stale when `today >= stale_after`. |
-
-Producers may add any other keys; consumers must preserve them. Use that freedom sparingly — a
-custom key no consumer reads is dead weight.
-
-**Trust tiers** are derived, never stored: no `verified` key → unverified; `verified` by non-`human:`
-actors only → machine-confirmed; at least one `human:<id>` → human-reviewed.
-
-### Actor convention
-
-Identity fields (`generated.by`, `verified[].by`) use exactly one of:
-
-- `<producer>/<version>` — agents and tools, e.g. `reference_agent/gemini-2.5-pro`
-- `human:<id>` — people, e.g. `human:ahormati`
-- `process:<id>` — automated processes, e.g. `process:finance-nightly`
-
-The `human:` prefix is load-bearing: it is what raises a concept to the human-reviewed tier. Use it
-for hand-authored and human-confirmed content, and never for agent output.
-
-`sources[].author` nominally uses the same convention, but the spec's own examples use a team form
-(`team:finance-fpa`). Both are accepted; the validator only flags freeform values here.
+Read [Frontmatter reference](references/frontmatter.md) when choosing field forms,
+recording provenance or lifecycle metadata, or interpreting actors and trust tiers.
+`type` remains the only always-required key; optional metadata must be truthful.
 
 ## Type discipline
 
@@ -327,12 +290,7 @@ uses it; revenue and profit verify, go stale, and attest independently.
 
 ## Validate
 
-Always finish by running the validator over the bundle root:
-
-```bash
-python3 scripts/validate_okf.py <bundle-root>
-```
-
-It needs PyYAML (`pip install pyyaml`) and exits non-zero when errors are present. `error` findings
-are spec violations — fix them. `warn` and `info` findings are producer SHOULDs and authoring
-hazards; judge each one rather than silencing it reflexively.
+Finish with `python3 scripts/validate_okf.py <bundle-root>` (requires PyYAML).
+It exits non-zero on errors. Fix spec violations; weigh advisory findings on
+their merits. See [Validate or audit a bundle](#validate-or-audit-a-bundle) for
+reporting and profile checks.

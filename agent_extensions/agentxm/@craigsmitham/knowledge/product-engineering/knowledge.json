@@ -1,0 +1,41 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@craigsmitham",
+  "name": "product-engineering",
+  "version": "2.0.0",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations",
+  "license": "CC-BY-SA-4.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "knowledge/product-engineering"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "standalone": true,
+  "keywords": [
+    "product-engineering",
+    "body-of-knowledge",
+    "software-development",
+    "strategy",
+    "product-management",
+    "design",
+    "requirements-engineering",
+    "software-engineering",
+    "codebase-review",
+    "test-architecture",
+    "executable-specifications",
+    "delivery",
+    "work-items",
+    "defect-report",
+    "change",
+    "operations",
+    "software-maintenance",
+    "portable-practice"
+  ]
+}

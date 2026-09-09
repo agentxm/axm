@@ -2,7 +2,7 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "field-notes",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "knowledge",
   "format": {
     "name": "okf",

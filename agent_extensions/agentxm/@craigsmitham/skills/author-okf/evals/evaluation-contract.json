@@ -23,7 +23,7 @@
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic bundle-authoring, proposal-review, reserved-file conflict, action-concept description, profile-validation, attested-computation authority, positive routing, and adjacent generic-documentation routing cases.",
+    "case_source": "Synthetic bundle-authoring, proposal-review, reserved-file conflict, action-concept description, profile-validation, attested-computation authority, positive routing, and adjacent generic-documentation routing cases. Citation-maintenance cases use a synthetic reduction of the duplicated source metadata and footnote synopses observed in designing-executable-specifications.md on 2026-09-08, plus a rendered-Markdown variation; source facts in these fixtures are invented for testing.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",

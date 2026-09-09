@@ -3,13 +3,13 @@ type: Guide
 status: stable
 description: Local binding of the portable repository task-interface contract to AXM's Nx, pnpm, cache, release, and host execution surfaces.
 depends-on:
-  - ../../agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/repository-task-interface.md
+  - ../../agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md
 ---
 
 # Repository task interface
 
 The
-[portable repository task-interface guide](../../agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/repository-task-interface.md)
+[portable repository task-interface guide](../../agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md)
 is authoritative for task-interface semantics and conformance criteria. This
 document binds that guidance to AXM. It records repository-specific choices,
 host boundaries, and temporary gaps; it does not redefine the portable model.

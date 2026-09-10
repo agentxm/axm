@@ -34,7 +34,7 @@ export const specification = defineSpecification({
 });
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/repository-task-interface.tooling.test.ts)",
+    gate: "test: axm:test (scripts/repository-task-interface.test.ts)",
     verifies:
       "Inspects the resolved promotion target and requires its workspace build prerequisites to follow the project graph, so a fresh candidate checkout does not depend on artifacts left by another job.",
   },
@@ -44,7 +44,7 @@ export const boundEvidence = defineBoundEvidence([
       "Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.",
   },
   {
-    gate: "test: axm:test (scripts/verify-installed-package.tooling.test.ts)",
+    gate: "test: axm:test (scripts/verify-installed-package.test.ts)",
     verifies:
       "Runs the published-package verifier through a package-manager launcher with sibling entrypoints from an unrelated directory, including paths with spaces, and rejects wrong installed versions and unexpected stderr; Windows CI executes the batch-launcher cases.",
   },

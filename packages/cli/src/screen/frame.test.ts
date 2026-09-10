@@ -8,7 +8,7 @@ import * as Stream from "effect/Stream";
 
 import { Frame, FrameLive } from "./frame.js";
 import { initialProgress, reduceProgress, type ProgressState } from "./progress.js";
-import { recordedInstallLog } from "./progress.internal.test.js";
+import { recordedInstallLog } from "./progress.test.js";
 import { makeTestOutputStreams } from "./streams.js";
 
 const stateAt = (count: number): ProgressState =>

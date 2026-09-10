@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "packages/cli/src/root/knowledge/concepts/status.ts",
     "packages/cli/src/root/knowledge/concepts/schemas.ts",
-    "packages/cli/src/root/knowledge/json-output.internal.test.ts",
+    "packages/cli/src/root/knowledge/json-output.test.ts",
   ],
   supersedes: [],
   assumptions: [],

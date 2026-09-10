@@ -12,6 +12,7 @@ import {
   findTestTaxonomyViolations,
   countUnboundedConcurrencySites,
   formatAxmEnvironmentContractViolation,
+  formatTestTaxonomyViolation,
   formatViolation,
 } from "./verify-source-hygiene-lib.js";
 
@@ -164,23 +165,32 @@ describe("countUnboundedConcurrencySites", () => {
 });
 
 describe("findTestTaxonomyViolations", () => {
-  it("flags stray spec files, generic tests, and misplaced benchmarks", () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axm-taxonomy-"));
-    try {
-      fs.mkdirSync(path.join(repoRoot, "packages", "demo", "src"), { recursive: true });
-      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "a.spec.ts"), "");
-      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "b.test.ts"), "");
-      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "c.bench.ts"), "");
-      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "d.internal.test.ts"), "");
-      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "e.e2e.test.ts"), "");
-      const violations = findTestTaxonomyViolations(repoRoot);
-      expect(violations.map((violation) => path.basename(violation.filePath))).toEqual([
-        "a.spec.ts",
-        "b.test.ts",
-        "c.bench.ts",
-      ]);
-    } finally {
-      fs.rmSync(repoRoot, { recursive: true, force: true });
-    }
+  it("flags e2e tests outside e2e projects and misplaced benchmarks", () => {
+    const repoRoot = createRepoFixture({
+      "project.json": JSON.stringify({ name: "axm", tags: ["type:tooling"] }),
+      "packages/demo/project.json": JSON.stringify({ name: "demo", tags: ["type:lib"] }),
+      "packages/demo/src/a.spec.ts": "",
+      "packages/demo/src/b.test.ts": "",
+      "packages/demo/src/c.bench.ts": "",
+      "packages/demo/src/d.windows.test.ts": "",
+      "packages/demo/src/e.e2e.test.ts": "",
+      "packages/demo-e2e/project.json": JSON.stringify({ name: "demo-e2e", tags: ["type:e2e"] }),
+      "packages/demo-e2e/src/f.e2e.test.ts": "",
+      "packages/demo-e2e/src/g.windows.e2e.test.ts": "",
+      "scripts/h.test.ts": "",
+      "scripts/i.e2e.test.ts": "",
+    });
+
+    expect(findTestTaxonomyViolations(repoRoot).map(formatTestTaxonomyViolation)).toEqual([
+      "packages/demo/src/c.bench.ts: diagnostic benchmarks live under benchmarks/",
+      "packages/demo/src/e.e2e.test.ts: *.e2e.test.ts lives only inside projects tagged type:e2e",
+      "scripts/i.e2e.test.ts: *.e2e.test.ts lives only inside projects tagged type:e2e",
+    ]);
+  });
+
+  it("finds no taxonomy violations in this repository", () => {
+    const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
+    const repoRoot = path.resolve(scriptsRoot, "..");
+    expect(findTestTaxonomyViolations(repoRoot).map(formatTestTaxonomyViolation)).toEqual([]);
   });
 });

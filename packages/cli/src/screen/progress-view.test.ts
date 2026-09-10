@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { stripTerminalFormatting } from "./output-policy.js";
 import { paintText } from "./paint-text.js";
 import { initialProgress, reduceProgress, type ProgressState } from "./progress.js";
-import { recordedInstallLog } from "./progress.internal.test.js";
+import { recordedInstallLog } from "./progress.test.js";
 import { liveProgressLines, progressTransitionDoc } from "./progress-view.js";
 import { displayWidth } from "./width.js";
 

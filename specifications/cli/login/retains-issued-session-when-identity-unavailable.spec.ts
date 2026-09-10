@@ -32,7 +32,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["packages/registry-auth/src/device-login.internal.test.ts"],
+  derivedFrom: ["packages/registry-auth/src/device-login.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

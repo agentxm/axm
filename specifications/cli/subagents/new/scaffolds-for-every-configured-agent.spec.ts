@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "cli/sync/realizes-desired-state",
     "cli/install/preview-is-pure",
-    "packages/cli/src/root/subagents/new/handler.internal.test.ts",
+    "packages/cli/src/root/subagents/new/handler.test.ts",
   ],
   supersedes: [],
   assumptions: [

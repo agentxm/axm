@@ -256,14 +256,8 @@ export type TestTaxonomyViolation = {
   readonly reason: string;
 };
 
-const PACKAGE_TEST_SUFFIXES = [
-  ".internal.test.ts",
-  ".e2e.test.ts",
-  ".windows.test.ts",
-  ".windows.e2e.test.ts",
-  ".tooling.test.ts",
-  ".artifact.test.ts",
-] as const;
+const E2E_TEST_SUFFIX = ".e2e.test.ts";
+const E2E_PROJECT_TAG = "type:e2e";
 
 const walkFiles = (dir: string, results: string[]): void => {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -279,55 +273,96 @@ const walkFiles = (dir: string, results: string[]): void => {
   }
 };
 
+const readProjectTags = (projectJsonPath: string): ReadonlyArray<string> => {
+  const parsed: unknown = JSON.parse(fs.readFileSync(projectJsonPath, "utf8"));
+  if (typeof parsed !== "object" || parsed === null || !("tags" in parsed)) {
+    return [];
+  }
+  const { tags } = parsed;
+  return Array.isArray(tags)
+    ? tags.filter((tag: unknown): tag is string => typeof tag === "string")
+    : [];
+};
+
 /**
- * Enforce the test-purpose filename taxonomy: authoritative `*.spec.ts` lives
- * only under `specifications/`, every test in a package names its purpose
- * (`internal`, `e2e`, `windows`, `tooling`, `artifact`), no generic
- * `*.test.ts` remains, and diagnostic benchmarks live under `benchmarks/`.
+ * Nx project roots (repo-relative, `""` for the root project) mapped to their
+ * authored tags, discovered from every `project.json` among `files`.
+ */
+const collectProjectTags = (
+  repoRoot: string,
+  files: ReadonlyArray<string>,
+): ReadonlyMap<string, ReadonlyArray<string>> => {
+  const projects = new Map<string, ReadonlyArray<string>>();
+  const rootProjectPath = path.join(repoRoot, "project.json");
+  if (fs.existsSync(rootProjectPath)) {
+    projects.set("", readProjectTags(rootProjectPath));
+  }
+  for (const filePath of files) {
+    if (path.basename(filePath) !== "project.json") {
+      continue;
+    }
+    const projectRoot = path.relative(repoRoot, path.dirname(filePath)).split(path.sep).join("/");
+    projects.set(projectRoot, readProjectTags(filePath));
+  }
+  return projects;
+};
+
+/** Tags of the innermost project whose root contains `relativePath`, if any. */
+const owningProjectTags = (
+  projects: ReadonlyMap<string, ReadonlyArray<string>>,
+  relativePath: string,
+): ReadonlyArray<string> | undefined => {
+  let owner: string | undefined;
+  for (const projectRoot of projects.keys()) {
+    const prefix = projectRoot === "" ? "" : `${projectRoot}/`;
+    if (
+      relativePath.startsWith(prefix) &&
+      (owner === undefined || projectRoot.length > owner.length)
+    ) {
+      owner = projectRoot;
+    }
+  }
+  return owner === undefined ? undefined : projects.get(owner);
+};
+
+/**
+ * Enforce the test-purpose filename taxonomy: `*.e2e.test.ts` lives only inside
+ * projects tagged `type:e2e`, and diagnostic benchmarks live under
+ * `benchmarks/`. Every other `*.test.ts` is an ordinary test colocated with its
+ * source, and `*.spec.ts` may live in any authored project.
  */
 export const findTestTaxonomyViolations = (
   repoRoot: string,
 ): ReadonlyArray<TestTaxonomyViolation> => {
   const violations: TestTaxonomyViolation[] = [];
-  const roots = ["packages", "scripts"];
-  for (const root of roots) {
+  const files: string[] = [];
+  for (const root of ["apps", "packages", "scripts", "tools"]) {
     const rootPath = path.join(repoRoot, root);
-    if (!fs.existsSync(rootPath)) {
+    if (fs.existsSync(rootPath)) {
+      walkFiles(rootPath, files);
+    }
+  }
+  const projects = collectProjectTags(repoRoot, files);
+  for (const filePath of files) {
+    const relativePath = path.relative(repoRoot, filePath).split(path.sep).join("/");
+    const name = path.basename(filePath);
+    if (name.endsWith(".bench.ts")) {
+      violations.push({
+        _tag: "TestTaxonomyViolation",
+        filePath: relativePath,
+        reason: "diagnostic benchmarks live under benchmarks/",
+      });
       continue;
     }
-    const files: string[] = [];
-    walkFiles(rootPath, files);
-    for (const filePath of files) {
-      const relativePath = path.relative(repoRoot, filePath).split(path.sep).join("/");
-      const name = path.basename(filePath);
-      if (name.endsWith(".spec.ts")) {
-        violations.push({
-          _tag: "TestTaxonomyViolation",
-          filePath: relativePath,
-          reason:
-            "authoritative *.spec.ts files live only under specifications/; classify this file's purpose",
-        });
-        continue;
-      }
-      if (name.endsWith(".bench.ts")) {
-        violations.push({
-          _tag: "TestTaxonomyViolation",
-          filePath: relativePath,
-          reason: "diagnostic benchmarks live under benchmarks/",
-        });
-        continue;
-      }
-      if (
-        name.endsWith(".test.ts") &&
-        !PACKAGE_TEST_SUFFIXES.some((suffix) => name.endsWith(suffix))
-      ) {
-        violations.push({
-          _tag: "TestTaxonomyViolation",
-          filePath: relativePath,
-          reason:
-            "generic *.test.ts is retired; name the purpose (.internal|.e2e|.windows|.tooling|.artifact).test.ts",
-        });
-      }
+    if (
+      name.endsWith(E2E_TEST_SUFFIX) &&
+      !(owningProjectTags(projects, relativePath)?.includes(E2E_PROJECT_TAG) ?? false)
+    ) {
+      violations.push({
+        _tag: "TestTaxonomyViolation",
+        filePath: relativePath,
+        reason: `*${E2E_TEST_SUFFIX} lives only inside projects tagged ${E2E_PROJECT_TAG}`,
+      });
     }
   }
   return violations.sort((left, right) => left.filePath.localeCompare(right.filePath));

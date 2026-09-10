@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["packages/cli/src/root/auth/token.internal.test.ts"],
+  derivedFrom: ["packages/cli/src/root/auth/token.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [

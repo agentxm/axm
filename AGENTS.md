@@ -29,8 +29,8 @@ Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists
 
 For focused verification, keep the repo-backed target and pass filters through it. Test file filters are relative to the selected Nx project's root:
 
-- focused CLI test: `pnpm exec nx run cli:test --args="src/help-command-references.internal.test.ts"`
-- focused test by name: `pnpm exec nx run cli:test --args='src/help-command-references.internal.test.ts -t "names only help topics that exist"'`
+- focused CLI test: `pnpm exec nx run cli:test --args="src/help-command-references.test.ts"`
+- focused test by name: `pnpm exec nx run cli:test --args='src/help-command-references.test.ts -t "names only help topics that exist"'`
 - focused typecheck: `pnpm exec nx run <project>:typecheck`
 
 Only call a direct tool when no equivalent `pnpm` script or `pnpm nx` target exists, and say why.
@@ -50,10 +50,9 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 | `pnpm exec nx run cli:watch`                 | Rebuild `cli` on changes                                                                                                       |
 | `pnpm build`                                 | Build all packages                                                                                                             |
 | `pnpm build:affected`                        | Build only packages changed since `main`                                                                                       |
-| `pnpm test`                                  | Run the fast required suite (specifications, internal, tooling)                                                                |
+| `pnpm test`                                  | Run every project's `test` target (executable specifications and ordinary tests)                                               |
 | `pnpm test:affected`                         | Run tests only for packages changed since `main`                                                                               |
 | `pnpm test:spec`                             | Run executable specifications; `--requirement <id>`, `--class <lens>`, or `--characteristic <c>`                               |
-| `pnpm test:internal`                         | Run internal verification suites only                                                                                          |
 | `pnpm exec nx run axm:test`                  | Run repository tooling verification                                                                                            |
 | `pnpm exec nx run axm:lint-bundled-skill`    | Lint the bundled AXM skill (reproduces the CI `extension-lint` job)                                                            |
 | `pnpm exec nx run axm:specification-verdict` | Render the per-change specification verdict against the merge base with `main` (reproduces the CI `specification-verdict` job) |
@@ -290,11 +289,11 @@ See [Effect Guide](contributing/guides/effect.md),
 
 ## Testing
 
-- Test filenames carry their purpose: `*.spec.ts` only under
-  `specifications/`, `*.internal.test.ts` colocated with source,
-  `*.tooling.test.ts` for repository automation, `*.e2e.test.ts` at the
-  process boundary (source hygiene enforces this)
-- Internal tests protect non-normative realization detail and may change or
+- Test filenames carry their purpose: `*.spec.ts` for executable
+  specifications, `*.test.ts` for ordinary tests colocated with source
+  (including repository automation under `scripts/`), and `*.e2e.test.ts` only
+  inside e2e projects (source hygiene enforces this)
+- Ordinary tests protect non-normative realization detail and may change or
   disappear in a behavior-preserving refactor; they never count toward
   functional completeness
 - Use `@effect/vitest` for Effect tests; consult the installed Effect v4

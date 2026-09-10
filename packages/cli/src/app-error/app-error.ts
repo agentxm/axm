@@ -23,7 +23,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
  * The descriptions here are the canonical wording. Other surfaces — the
  * help topic at `packages/cli/help/topics/exit-codes.md`, docs, error
  * envelopes — should match. A consistency test pins the help topic to
- * these strings; see `app-error.internal.test.ts`.
+ * these strings; see `app-error.test.ts`.
  */
 export const ExitCode = {
   /** Success. Also used for help output and cancelled prompts. */

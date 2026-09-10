@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "cli/skills/uninstall/preview-is-pure",
-    "packages/cli/src/root/subagents/uninstall/handler.internal.test.ts",
+    "packages/cli/src/root/subagents/uninstall/handler.test.ts",
   ],
   supersedes: [],
   assumptions: [],

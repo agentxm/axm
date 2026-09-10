@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     ...testExecution,
     ...makeTestReporting({ layer: "tooling", suite: "scripts" }),
-    include: ["**/*.tooling.test.ts"],
+    include: ["**/*.test.ts"],
     testTimeout: 20000,
   },
 });

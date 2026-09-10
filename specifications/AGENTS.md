@@ -88,7 +88,7 @@ to a person or agent completing an AXM task; `interface` for a public
 machine-consumable contract; `supporting` for a subordinate system or
 engineering obligation. Split independently promised experience and interface
 behavior into separate requirements. Keep non-normative implementation detail
-in internal tests.
+in ordinary `*.test.ts` tests beside the source.
 
 ## Recurring invariant families
 

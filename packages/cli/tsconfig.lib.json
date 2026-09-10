@@ -8,7 +8,7 @@
     "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.e2e.test.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts", "src/**/*.e2e.test.ts"],
   "references": [
     {
       "path": "../workspace-sync/tsconfig.lib.json"

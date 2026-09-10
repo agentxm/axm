@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "cli/mcps/inline-lifecycle-is-idempotent",
     "cli/sync/realizes-desired-state",
-    "packages/cli/src/root/mcps/import.internal.test.ts",
+    "packages/cli/src/root/mcps/import.test.ts",
   ],
   supersedes: [],
   assumptions: [

@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation"],
   methods: ["example"],
-  derivedFrom: ["cli/machine-mode-never-prompts", "packages/cli/src/root/setup.internal.test.ts"],
+  derivedFrom: ["cli/machine-mode-never-prompts", "packages/cli/src/root/setup.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

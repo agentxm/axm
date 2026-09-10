@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example"],
-  derivedFrom: ["packages/cli/src/root/mcps/new.internal.test.ts"],
+  derivedFrom: ["packages/cli/src/root/mcps/new.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

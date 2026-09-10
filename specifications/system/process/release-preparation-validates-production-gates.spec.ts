@@ -43,7 +43,7 @@ export const specification = defineSpecification({
  */
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-prepare.tooling.test.ts)",
+    gate: "test: axm:test (scripts/release-prepare.test.ts)",
     verifies:
       "Drives release preparation against a fake host and checks that the production Registry preflight runs before any candidate state is allocated and stops preparation when it fails, that the exact generated candidate is previewed against the Registry only after versioning, changelog, and bundled-skill generation, and that the production preview publication targets the production Registry in verify-on-existing preview mode with no apply path.",
   },

@@ -25,10 +25,7 @@ export const specification = defineSpecification({
   role: "interface",
   goals: ["trustworthy-distribution"],
   methods: ["example", "contract"],
-  derivedFrom: [
-    "AgentXM Registry API 0.1.0",
-    "packages/cli/src/root/publish/command.internal.test.ts",
-  ],
+  derivedFrom: ["AgentXM Registry API 0.1.0", "packages/cli/src/root/publish/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [

@@ -10,6 +10,6 @@ export default defineConfig({
   test: {
     ...testExecution,
     ...makeTestReporting({ layer: "internal", suite: "registry-protocol" }),
-    include: ["src/**/*.internal.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
   },
 });

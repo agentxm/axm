@@ -711,7 +711,7 @@ describe("workspace-state conversions", () => {
     expect(error.detail).toBe(
       "Transition failed: Error: injected transition defect. Workspace restoration did not complete; the affected paths keep the state the failure left.",
     );
-    expect(error.detail).not.toContain("transaction.internal.test.ts");
+    expect(error.detail).not.toContain("transaction.test.ts");
   });
 
   it("renders the deciding typed failure inside a restoration-incomplete transition", () => {

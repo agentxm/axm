@@ -6,6 +6,6 @@ export default defineConfig({
   test: {
     ...testExecution,
     ...makeTestReporting({ layer: "tooling", suite: "test-support" }),
-    include: ["src/**/*.internal.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
   },
 });

@@ -21,8 +21,8 @@ export const specification = defineSpecification({
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/src/root/skills/list.internal.test.ts",
-    "packages/cli/src/root/subagents/list/handler.internal.test.ts",
+    "packages/cli/src/root/skills/list.test.ts",
+    "packages/cli/src/root/subagents/list/handler.test.ts",
   ],
   supersedes: [],
   assumptions: [],

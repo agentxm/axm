@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["packages/cli/src/root/agents/capabilities.internal.test.ts"],
+  derivedFrom: ["packages/cli/src/root/agents/capabilities.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

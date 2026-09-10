@@ -10,7 +10,6 @@ export default defineConfig({
   test: {
     ...testExecution,
     ...makeTestReporting({ layer: "internal", suite: "cli" }),
-    include: ["src/**/*.internal.test.ts", "scripts/**/*.tooling.test.ts"],
-    exclude: ["src/**/*.e2e.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.spec.ts", "scripts/**/*.test.ts"],
   },
 });

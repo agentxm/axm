@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "cli/sync/preview-is-pure",
-    "packages/cli/src/root/sync/handler.internal.test.ts",
+    "packages/cli/src/root/sync/handler.test.ts",
     "packages/cli/help/topics/workspace-state.md",
   ],
   supersedes: [],

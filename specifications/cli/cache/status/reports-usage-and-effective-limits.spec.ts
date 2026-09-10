@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   methods: ["example", "contract"],
   derivedFrom: [
     "packages/cli/src/root/cache/command.ts",
-    "packages/cli/src/root/cache/command.internal.test.ts",
+    "packages/cli/src/root/cache/command.test.ts",
   ],
   supersedes: [],
   assumptions: [],

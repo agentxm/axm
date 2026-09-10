@@ -19,8 +19,8 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "packages/cli/help/topics/getting-started.md",
-    "packages/cli/src/root/discover/handler.internal.test.ts",
-    "packages/extension-discovery/src/discover.internal.test.ts",
+    "packages/cli/src/root/discover/handler.test.ts",
+    "packages/extension-discovery/src/discover.test.ts",
   ],
   supersedes: [],
   assumptions: [],

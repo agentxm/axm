@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/extension-authoring/src/fork-package.internal.test.ts",
+    "packages/extension-authoring/src/fork-package.test.ts",
     "packages/cli/src/root/fork/command.ts",
   ],
   supersedes: [],

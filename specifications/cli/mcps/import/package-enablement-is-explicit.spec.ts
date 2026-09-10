@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   methods: ["example", "decision-table"],
   derivedFrom: [
     "packages/cli/src/root/mcps/import.ts",
-    "packages/cli/src/root/mcps/import.internal.test.ts",
+    "packages/cli/src/root/mcps/import.test.ts",
     "packages/cli-e2e/src/fork-import.e2e.test.ts",
     "cli/mcps/projects-to-every-configured-agent",
   ],

@@ -38,7 +38,7 @@ export const specification = defineSpecification({
  */
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-prepare.tooling.test.ts)",
+    gate: "test: axm:test (scripts/release-prepare.test.ts)",
     verifies:
       "Drives release preparation against a fake host and checks that candidate state is allocated and initialized from the preflighted source commit, that a dry run prepares the candidate and never commits, pushes, or opens a pull request, that a real run commits and confirms the invoking checkout is unchanged before pushing, that every allocated candidate is cleaned up when any later step fails, that a cleanup failure never hides the primary failure, and that the entry point allocates a temporary detached worktree installed with a frozen lockfile.",
   },

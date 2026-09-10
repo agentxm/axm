@@ -72,7 +72,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/screen/output-policy.internal.test.ts`, `packages/cli/src/screen/paint-text.internal.test.ts`
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/screen/output-policy.test.ts`, `packages/cli/src/screen/paint-text.test.ts`
 - Open questions: Which locale input controls glyph selection when LC_ALL, LC_CTYPE, and LANG disagree? Earlier environment prose described a non-UTF-8 input selecting ASCII, while the resolver and an internal example select Unicode if any input names UTF-8; this requirement does not decide mixed-locale precedence.; Does ASCII output cover animated progress-frame and prompt symbols beyond painted documents? This requirement covers symbols in rendered human documents.
 - Limitation: Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover nonempty status, change, tree, separator, and content examples, not an actual terminal font, locale installation, animated frame, prompt, or every authored document. Retires when: Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.
 - Source: [`specifications/cli/ascii-human-output-preserves-content.spec.ts`](../specifications/cli/ascii-human-output-preserves-content.spec.ts)
@@ -87,7 +87,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: The built CLI must reject a scope option before executing an authoring command and establish authored content under the selected project directory.
 - Methods: contract, example
-- Derived from: `packages/cli/src/root/scope-contract.ts`, `packages/cli/src/app.internal.test.ts`
+- Derived from: `packages/cli/src/root/scope-contract.ts`, `packages/cli/src/app.test.ts`
 - Source: [`specifications/cli/authoring-uses-project-workspace.spec.ts`](../specifications/cli/authoring-uses-project-workspace.spec.ts)
 
 #### Concurrent changes to one workspace never interleave
@@ -178,7 +178,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/extension-authoring/src/create-preflight.internal.test.ts`, `packages/cli/src/root/hooks/new.internal.test.ts`, `packages/cli/src/root/mcps/new.internal.test.ts`
+- Derived from: `packages/extension-authoring/src/create-preflight.test.ts`, `packages/cli/src/root/hooks/new.test.ts`, `packages/cli/src/root/mcps/new.test.ts`
 - Source: [`specifications/cli/creation-refuses-existing-content.spec.ts`](../specifications/cli/creation-refuses-existing-content.spec.ts)
 
 #### Creation uses the configured workspace owner
@@ -190,7 +190,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`, `packages/cli/src/root/shared/resolve-owner.ts`
+- Derived from: `packages/cli/src/root/hooks/new.test.ts`, `packages/cli/src/root/shared/resolve-owner.ts`
 - Source: [`specifications/cli/creation-uses-configured-workspace-ownership.spec.ts`](../specifications/cli/creation-uses-configured-workspace-ownership.spec.ts)
 
 #### Explicit token sources take precedence over saved sessions
@@ -202,7 +202,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/registry-auth/src/token-resolution.internal.test.ts`
+- Derived from: `packages/registry-auth/src/token-resolution.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/auth.e2e.test.ts`](../packages/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/credentials-follow-explicit-source-precedence.spec.ts`](../specifications/cli/credentials-follow-explicit-source-precedence.spec.ts)
 
@@ -215,7 +215,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/registry-auth/src/token-resolution.internal.test.ts`
+- Derived from: `packages/registry-auth/src/token-resolution.test.ts`
 - Source: [`specifications/cli/credentials-stay-with-their-registry.spec.ts`](../specifications/cli/credentials-stay-with-their-registry.spec.ts)
 
 #### A delegating operation narrates the external work it hands off
@@ -242,7 +242,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: The built CLI parses the actual global flags, reads the controlled process environment, produces a settings parse failure, and renders its available cause and stack through the production error screen.
 - Methods: decision-table, example
-- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/cli-flags/index.ts`, `packages/cli/src/runtime.ts`, `packages/cli/src/cli-runtime/runtime-envelope.ts`, `packages/cli/src/app-error/render.internal.test.ts`
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/cli-flags/index.ts`, `packages/cli/src/runtime.ts`, `packages/cli/src/cli-runtime/runtime-envelope.ts`, `packages/cli/src/app-error/render.test.ts`
 - Open questions: The earlier public quiet description covered narration, tables, progress, and required actions as well as error detail; complete human-output suppression across commands needs separate allocation and evidence.; What diagnostic selection is promised for failures before parsed command runtime initialization, including raw arguments after -- and parser failures?
 - Limitation: These process examples distinguish detail levels using one production settings-error path. They do not prescribe exact cause text, stack frames, log messages, logger severity names, or every flag and environment combination. Retires when: Add distinct producer or combination evidence when a reviewed source reveals behavior not distinguished by these examples.
 - Source: [`specifications/cli/diagnostic-controls-select-the-requested-detail.spec.ts`](../specifications/cli/diagnostic-controls-select-the-requested-detail.spec.ts)
@@ -256,7 +256,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/registry-auth/src/credential-store.internal.test.ts`
+- Derived from: `packages/registry-auth/src/credential-store.test.ts`
 - Source: [`specifications/cli/disabled-credential-persistence-requires-explicit-token.spec.ts`](../specifications/cli/disabled-credential-persistence-requires-explicit-token.spec.ts)
 
 #### Error reports keep credentials out of diagnostic details
@@ -268,7 +268,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `actionable-diagnostics`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `packages/cli/help/topics/machine-output.md`, `packages/cli/src/cli-runtime/handle-error.internal.test.ts`, `packages/cli/src/cli-runtime/json-envelope.internal.test.ts`
+- Derived from: `packages/cli/help/topics/machine-output.md`, `packages/cli/src/cli-runtime/handle-error.test.ts`, `packages/cli/src/cli-runtime/json-envelope.test.ts`
 - Limitation: These examples exercise production error construction and channel rendering with supplied verbosity settings; they do not establish every command-specific diagnostic producer or global flag combination. Retires when: Bind process evidence for global verbosity selection and review diagnostic producers for values that bypass the shared error boundary.
 - Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
 - Additional evidence: process via [`packages/cli-e2e/src/smoke.e2e.test.ts`](../packages/cli-e2e/src/smoke.e2e.test.ts) — Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.
@@ -349,7 +349,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/skills/list.internal.test.ts`, `packages/cli/src/root/list/command.ts`, `packages/cli/src/root/knowledge/list.ts`
+- Derived from: `packages/cli/src/root/skills/list.test.ts`, `packages/cli/src/root/list/command.ts`, `packages/cli/src/root/knowledge/list.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Source: [`specifications/cli/inventories-can-run-before-setup.spec.ts`](../specifications/cli/inventories-can-run-before-setup.spec.ts)
 
@@ -409,7 +409,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/extension-authoring/src/import-native-package.internal.test.ts`, `packages/cli/src/root/import/command.ts`
+- Derived from: `packages/extension-authoring/src/import-native-package.test.ts`, `packages/cli/src/root/import/command.ts`
 - Source: [`specifications/cli/native-imports-preserve-content-and-source.spec.ts`](../specifications/cli/native-imports-preserve-content-and-source.spec.ts)
 
 #### Structured native configuration changes follow values rather than formatting
@@ -488,7 +488,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `cli/update/preview-is-pure`, `cli/install/preview-is-pure`, `cli/skills/update/preview-is-pure`, `packages/cli/src/root/skills/update/handler.internal.test.ts`
+- Derived from: `cli/update/preview-is-pure`, `cli/install/preview-is-pure`, `cli/skills/update/preview-is-pure`, `packages/cli/src/root/skills/update/handler.test.ts`
 - Source: [`specifications/cli/publisher-changes-require-interactive-approval.spec.ts`](../specifications/cli/publisher-changes-require-interactive-approval.spec.ts)
 
 #### Registry management preserves authentication failures without reporting success
@@ -500,7 +500,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `privacy-and-consent`
 - Boundary: memory; selection: per-change
 - Methods: decision-table
-- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/lifecycle/command.test.ts`
 - Source: [`specifications/cli/registry-management-preserves-authentication-failures.spec.ts`](../specifications/cli/registry-management-preserves-authentication-failures.spec.ts)
 
 #### Challenged Registry writes complete the required verification before retrying
@@ -512,7 +512,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `privacy-and-consent`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/step-up.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/step-up.ts`, `packages/cli/src/root/lifecycle/command.test.ts`
 - Source: [`specifications/cli/registry-writes-complete-required-verification.spec.ts`](../specifications/cli/registry-writes-complete-required-verification.spec.ts)
 
 #### Relative paths start in the selected directory
@@ -537,7 +537,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/skills/list.internal.test.ts`, `packages/cli/src/root/subagents/list/handler.internal.test.ts`
+- Derived from: `packages/cli/src/root/skills/list.test.ts`, `packages/cli/src/root/subagents/list/handler.test.ts`
 - Source: [`specifications/cli/type-list-agent-filters-match-any-selected-agent.spec.ts`](../specifications/cli/type-list-agent-filters-match-any-selected-agent.spec.ts)
 
 #### Type inspection identifies missing entries
@@ -549,7 +549,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/shared/extension-show.internal.test.ts`, `packages/cli/src/root/shared/extension-show.ts`
+- Derived from: `packages/cli/src/root/shared/extension-show.test.ts`, `packages/cli/src/root/shared/extension-show.ts`
 - Source: [`specifications/cli/type-shows-report-missing-entries.spec.ts`](../specifications/cli/type-shows-report-missing-entries.spec.ts)
 
 #### Unattended verification returns the same resumable request
@@ -612,7 +612,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/adopt/command.internal.test.ts`, `packages/cli/src/root/adopt/command.ts`
+- Derived from: `packages/cli/src/root/adopt/command.test.ts`, `packages/cli/src/root/adopt/command.ts`
 - Source: [`specifications/cli/adopt/moves-package-into-workspace-authorship.spec.ts`](../specifications/cli/adopt/moves-package-into-workspace-authorship.spec.ts)
 
 ##### Adopt preview describes the authorship transition without changing any state
@@ -680,7 +680,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `agent-interoperability`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/agents/capabilities.internal.test.ts`, `packages/cli/src/root/agents/capabilities.ts`
+- Derived from: `packages/cli/src/root/agents/capabilities.test.ts`, `packages/cli/src/root/agents/capabilities.ts`
 - Limitation: These cases inspect AXM's catalog report; they do not establish that the named vendors or plugins currently realize the modeled behavior. Retires when: Verify vendor interoperability through separately identified vendor/runtime evidence when making that claim.
 - Limitation: The current catalog provides no planned or unknown AXM-support row for this handler to report; those distinctions retain producer-only fixture evidence. Retires when: Exercise a real catalog row or an explicitly controlled production catalog input for each missing report distinction.
 - Source: [`specifications/cli/agents/capabilities/describes-native-support-and-axm-integration.spec.ts`](../specifications/cli/agents/capabilities/describes-native-support-and-axm-integration.spec.ts)
@@ -694,7 +694,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/agents/capabilities.internal.test.ts`
+- Derived from: `packages/cli/src/root/agents/capabilities.test.ts`
 - Source: [`specifications/cli/agents/capabilities/rejects-unknown-agent.spec.ts`](../specifications/cli/agents/capabilities/rejects-unknown-agent.spec.ts)
 
 ##### List
@@ -708,7 +708,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/agents/list.internal.test.ts`, `packages/cli/src/root/agents/list.ts`
+- Derived from: `packages/cli/src/root/agents/list.test.ts`, `packages/cli/src/root/agents/list.ts`
 - Open questions: The combination of --detected and --available has no separately established user-facing meaning; precedence is not specified here.
 - Source: [`specifications/cli/agents/list/reports-configured-detected-and-available-agents.spec.ts`](../specifications/cli/agents/list/reports-configured-detected-and-available-agents.spec.ts)
 
@@ -807,7 +807,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/demote/command.internal.test.ts`, `packages/cli/src/root/demote/command.ts`
+- Derived from: `packages/cli/src/root/demote/command.test.ts`, `packages/cli/src/root/demote/command.ts`
 - Assumptions: Pack and MCP transitions use registry sources and the other types use local sources; additional registry and Git acquisition behavior is verified by its owning source requirements.
 - Source: [`specifications/cli/demote/replaces-workspace-source-with-selected-source.spec.ts`](../specifications/cli/demote/replaces-workspace-source-with-selected-source.spec.ts)
 
@@ -822,7 +822,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.test.ts`
 - Source: [`specifications/cli/deprecate/rejects-conflicting-or-empty-guidance.spec.ts`](../specifications/cli/deprecate/rejects-conflicting-or-empty-guidance.spec.ts)
 
 ##### Deprecation edits preserve omitted guidance at the observed revision
@@ -834,7 +834,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.test.ts`
 - Source: [`specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts`](../specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts)
 
 #### Discover
@@ -848,7 +848,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/discover/handler.internal.test.ts`, `packages/extension-discovery/src/discover.ts`
+- Derived from: `packages/cli/src/root/discover/handler.test.ts`, `packages/extension-discovery/src/discover.ts`
 - Open questions: How should local-only recommendations represent unresolved Registry identity and install version? The current fallback supplies resolved true and a synthetic 0.0.0 version; this requirement does not accept those values as verified Registry facts.
 - Source: [`specifications/cli/discover/identifies-local-only-recommendations.spec.ts`](../specifications/cli/discover/identifies-local-only-recommendations.spec.ts)
 
@@ -861,7 +861,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/help/topics/getting-started.md`, `packages/cli/src/root/discover/handler.internal.test.ts`, `packages/extension-discovery/src/discover.internal.test.ts`
+- Derived from: `packages/cli/help/topics/getting-started.md`, `packages/cli/src/root/discover/handler.test.ts`, `packages/extension-discovery/src/discover.test.ts`
 - Source: [`specifications/cli/discover/reports-companions-for-detected-dependencies.spec.ts`](../specifications/cli/discover/reports-companions-for-detected-dependencies.spec.ts)
 
 #### Fork
@@ -875,7 +875,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/extension-authoring/src/fork-package.internal.test.ts`, `packages/cli/src/root/fork/command.ts`
+- Derived from: `packages/extension-authoring/src/fork-package.test.ts`, `packages/cli/src/root/fork/command.ts`
 - Source: [`specifications/cli/fork/creates-distinct-workspace-package.spec.ts`](../specifications/cli/fork/creates-distinct-workspace-package.spec.ts)
 
 ##### Fork preview describes the new authored package without changing any state
@@ -898,7 +898,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/extension-authoring/src/fork-package.internal.test.ts`, `packages/cli/src/root/fork/command.ts`
+- Derived from: `packages/extension-authoring/src/fork-package.test.ts`, `packages/cli/src/root/fork/command.ts`
 - Source: [`specifications/cli/fork/refuses-ambiguous-or-conflicting-packages.spec.ts`](../specifications/cli/fork/refuses-ambiguous-or-conflicting-packages.spec.ts)
 
 #### Help
@@ -913,7 +913,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: The built CLI emits its topic index; an independent inventory of published Markdown and schema sources detects missing, duplicate, and extra entries.
 - Methods: contract, example
-- Derived from: `packages/cli/help/README.md`, `packages/cli/src/root/help/command.internal.test.ts`
+- Derived from: `packages/cli/help/README.md`, `packages/cli/src/root/help/command.test.ts`
 - Source: [`specifications/cli/help/lists-available-topics.spec.ts`](../specifications/cli/help/lists-available-topics.spec.ts)
 
 ##### Help returns the requested topic or command guidance
@@ -926,7 +926,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: Built CLI calls verify target parsing, published source content, equivalent nested command help, and execution of the recovery invocation.
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/help/command.ts`, `packages/cli/src/root/help/command.internal.test.ts`
+- Derived from: `packages/cli/src/root/help/command.ts`, `packages/cli/src/root/help/command.test.ts`
 - Open questions: Which target takes precedence when a single word names both a topic and a command? These examples do not establish that collision policy.
 - Source: [`specifications/cli/help/returns-requested-topic-or-command.spec.ts`](../specifications/cli/help/returns-requested-topic-or-command.spec.ts)
 
@@ -985,7 +985,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`
+- Derived from: `packages/cli/src/root/hooks/new.test.ts`
 - Source: [`specifications/cli/hooks/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/hooks/new/creates-enabled-workspace-content.spec.ts)
 
 ###### New hook preview describes the scaffold without changing any state
@@ -997,7 +997,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`, `authoring-and-creation`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/hooks/new.internal.test.ts`
+- Derived from: `packages/cli/src/root/hooks/new.test.ts`
 - Source: [`specifications/cli/hooks/new/preview-is-pure.spec.ts`](../specifications/cli/hooks/new/preview-is-pure.spec.ts)
 
 ##### Publish
@@ -1242,7 +1242,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/instructions.internal.test.ts`
+- Derived from: `packages/cli/src/root/instructions.test.ts`
 - Source: [`specifications/cli/instructions/enable/enable-is-idempotent.spec.ts`](../specifications/cli/instructions/enable/enable-is-idempotent.spec.ts)
 
 ###### Instruction management enable preview describes the aliases without changing any state
@@ -1283,7 +1283,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.test.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/concepts/cursors-bind-query-and-corpus.spec.ts`](../specifications/cli/knowledge/concepts/cursors-bind-query-and-corpus.spec.ts)
 
@@ -1310,7 +1310,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/knowledge-query/src/knowledge-capture.internal.test.ts`, `packages/knowledge-query/src/knowledge-revision.internal.test.ts`, `packages/cli/src/root/knowledge/concepts/failures.ts`
+- Derived from: `packages/knowledge-query/src/knowledge-capture.test.ts`, `packages/knowledge-query/src/knowledge-revision.test.ts`, `packages/cli/src/root/knowledge/concepts/failures.ts`
 - Source: [`specifications/cli/knowledge/concepts/refuses-changing-corpus.spec.ts`](../specifications/cli/knowledge/concepts/refuses-changing-corpus.spec.ts)
 
 ###### Human discovery output preserves text without terminal control
@@ -1322,7 +1322,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/knowledge/concepts/terminal-text.ts`, `packages/cli/src/root/knowledge/concepts/terminal-text.internal.test.ts`
+- Derived from: `packages/cli/src/root/knowledge/concepts/terminal-text.ts`, `packages/cli/src/root/knowledge/concepts/terminal-text.test.ts`
 - Source: [`specifications/cli/knowledge/concepts/renders-authored-text-safely.spec.ts`](../specifications/cli/knowledge/concepts/renders-authored-text-safely.spec.ts)
 
 ###### Exact retrieval does not substitute another concept
@@ -1363,7 +1363,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.test.ts`
 - Open questions: What explanatory information should query --explain promise about why concepts matched and their ordering? The current strategy and numeric ranking weights are implementation evidence, not accepted output obligations.
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/concepts/query/bounds-concept-evidence.spec.ts`](../specifications/cli/knowledge/concepts/query/bounds-concept-evidence.spec.ts)
@@ -1377,7 +1377,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`, `packages/cli/src/root/knowledge/concepts/query.ts`
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.test.ts`, `packages/cli/src/root/knowledge/concepts/query.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/concepts/query/combines-typed-filters.spec.ts`](../specifications/cli/knowledge/concepts/query/combines-typed-filters.spec.ts)
 
@@ -1390,7 +1390,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-index.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/concepts/query/enumerates-selected-document-kinds.spec.ts`](../specifications/cli/knowledge/concepts/query/enumerates-selected-document-kinds.spec.ts)
 
@@ -1417,7 +1417,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.internal.test.ts`
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts`](../specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts)
 
@@ -1432,7 +1432,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.internal.test.ts`
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts`](../specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts)
 
@@ -1445,7 +1445,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.internal.test.ts`
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/knowledge-query/src/knowledge-graph.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts`](../specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts)
 
@@ -1488,7 +1488,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/knowledge/concepts/status.ts`, `packages/cli/src/root/knowledge/concepts/schemas.ts`, `packages/cli/src/root/knowledge/json-output.internal.test.ts`
+- Derived from: `packages/cli/src/root/knowledge/concepts/status.ts`, `packages/cli/src/root/knowledge/concepts/schemas.ts`, `packages/cli/src/root/knowledge/json-output.test.ts`
 - Open questions: When source capture succeeds but OKF inspection contains error findings, should discovery report a ready but unhealthy corpus or refuse that corpus as unavailable?
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/concepts/status/reports-current-corpus-health.spec.ts`](../specifications/cli/knowledge/concepts/status/reports-current-corpus-health.spec.ts)
@@ -1546,7 +1546,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/knowledge/json-output.internal.test.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`, `cli/lint/catalog-is-complete`
+- Derived from: `packages/cli/src/root/knowledge/json-output.test.ts`, `packages/cli-e2e/src/knowledge.e2e.test.ts`, `cli/lint/catalog-is-complete`
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/lint/reports-validation-without-mutation.spec.ts`](../specifications/cli/knowledge/lint/reports-validation-without-mutation.spec.ts)
 
@@ -1561,7 +1561,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/knowledge/list.ts`, `packages/cli/help/topics/knowledge.md`, `packages/extension-workspace/src/knowledge/instruction-entry.internal.test.ts`
+- Derived from: `packages/cli/src/root/knowledge/list.ts`, `packages/cli/help/topics/knowledge.md`, `packages/extension-workspace/src/knowledge/instruction-entry.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/list/explains-instruction-entry-inclusion.spec.ts`](../specifications/cli/knowledge/list/explains-instruction-entry-inclusion.spec.ts)
 
@@ -1682,7 +1682,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: Real Git repositories supply unresolved index stages, and the built CLI exposes the refusal and selected-view explanation while real index and file observations establish preservation.
 - Methods: example
-- Derived from: `cli/lint/observes-selected-filesystem-view`, `packages/workspace-lint/src/run/staged-workspace.internal.test.ts`, `packages/cli/help/topics/git-hooks.md`
+- Derived from: `cli/lint/observes-selected-filesystem-view`, `packages/workspace-lint/src/run/staged-workspace.test.ts`, `packages/cli/help/topics/git-hooks.md`
 - Source: [`specifications/cli/lint/git-index-requires-a-resolved-index.spec.ts`](../specifications/cli/lint/git-index-requires-a-resolved-index.spec.ts)
 
 ##### Local lint honors configured rule severities
@@ -1761,7 +1761,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/list/command.internal.test.ts`, `packages/cli/src/root/list/command.ts`
+- Derived from: `packages/cli/src/root/list/command.test.ts`, `packages/cli/src/root/list/command.ts`
 - Open questions: Should Git update assessment treat a changed commit with an unchanged extension tree as an available update? Current code compares both identities; Registry version eligibility is the accepted scope of this requirement.
 - Source: [`specifications/cli/list/assesses-updates-through-recorded-registry.spec.ts`](../specifications/cli/list/assesses-updates-through-recorded-registry.spec.ts)
 
@@ -1774,7 +1774,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/list/command.internal.test.ts`, `packages/workspace-inspection/src/extension-list.ts`
+- Derived from: `packages/cli/src/root/list/command.test.ts`, `packages/workspace-inspection/src/extension-list.ts`
 - Source: [`specifications/cli/list/fails-when-registry-assessment-fails.spec.ts`](../specifications/cli/list/fails-when-registry-assessment-fails.spec.ts)
 
 ##### Ordinary listings identify deprecated installations
@@ -1786,7 +1786,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/list/command.internal.test.ts`, `packages/cli/src/root/list/command.ts`
+- Derived from: `packages/cli/src/root/list/command.test.ts`, `packages/cli/src/root/list/command.ts`
 - Source: [`specifications/cli/list/ordinary-inventory-identifies-deprecation.spec.ts`](../specifications/cli/list/ordinary-inventory-identifies-deprecation.spec.ts)
 
 ##### List rejects incompatible remote filters
@@ -1798,7 +1798,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/list/command.internal.test.ts`, `packages/cli/src/root/list/command.ts`
+- Derived from: `packages/cli/src/root/list/command.test.ts`, `packages/cli/src/root/list/command.ts`
 - Source: [`specifications/cli/list/rejects-incompatible-filters.spec.ts`](../specifications/cli/list/rejects-incompatible-filters.spec.ts)
 
 ##### Deprecation listings report available replacement guidance
@@ -1810,7 +1810,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/list/command.internal.test.ts`, `packages/workspace-inspection/src/extension-list.ts`
+- Derived from: `packages/cli/src/root/list/command.test.ts`, `packages/workspace-inspection/src/extension-list.ts`
 - Source: [`specifications/cli/list/reports-deprecation-guidance.spec.ts`](../specifications/cli/list/reports-deprecation-guidance.spec.ts)
 
 ##### List reports incomplete Registry assessment
@@ -1822,7 +1822,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/list/command.internal.test.ts`, `packages/workspace-inspection/src/extension-list.ts`
+- Derived from: `packages/cli/src/root/list/command.test.ts`, `packages/workspace-inspection/src/extension-list.ts`
 - Source: [`specifications/cli/list/reports-incomplete-assessment.spec.ts`](../specifications/cli/list/reports-incomplete-assessment.spec.ts)
 
 ##### List reports the current inventory across extension types
@@ -1834,7 +1834,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/list/command.internal.test.ts`, `packages/cli/src/root/list/command.ts`
+- Derived from: `packages/cli/src/root/list/command.test.ts`, `packages/cli/src/root/list/command.ts`
 - Source: [`specifications/cli/list/reports-the-cross-type-inventory.spec.ts`](../specifications/cli/list/reports-the-cross-type-inventory.spec.ts)
 
 #### Login
@@ -1875,7 +1875,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/login.test.ts`
 - Source: [`specifications/cli/login/preapproval-requests-new-sign-in.spec.ts`](../specifications/cli/login/preapproval-requests-new-sign-in.spec.ts)
 
 ##### Sign-in rejects inconsistent flow options
@@ -1887,7 +1887,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/login.test.ts`
 - Source: [`specifications/cli/login/rejects-inconsistent-flow-options.spec.ts`](../specifications/cli/login/rejects-inconsistent-flow-options.spec.ts)
 
 ##### Sign-in resumes only its Registry authorization
@@ -1899,7 +1899,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/login.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`specifications/cli/login/resume-requires-matching-pending-authorization.spec.ts`](../specifications/cli/login/resume-requires-matching-pending-authorization.spec.ts)
 
@@ -1912,7 +1912,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/login.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`specifications/cli/login/resumes-approved-authorization.spec.ts`](../specifications/cli/login/resumes-approved-authorization.spec.ts)
 
@@ -1925,7 +1925,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/registry-auth/src/device-login.internal.test.ts`
+- Derived from: `packages/registry-auth/src/device-login.test.ts`
 - Source: [`specifications/cli/login/retains-issued-session-when-identity-unavailable.spec.ts`](../specifications/cli/login/retains-issued-session-when-identity-unavailable.spec.ts)
 
 ##### Repeated sign-in preserves pending authorization
@@ -1937,7 +1937,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/login.test.ts`
 - Source: [`specifications/cli/login/reuses-pending-authorization.spec.ts`](../specifications/cli/login/reuses-pending-authorization.spec.ts)
 
 ##### Unattended device sign-in returns the human action
@@ -1949,7 +1949,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/login.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`specifications/cli/login/starts-resumable-device-sign-in.spec.ts`](../specifications/cli/login/starts-resumable-device-sign-in.spec.ts)
 
@@ -1962,7 +1962,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/login.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`specifications/cli/login/terminal-authorization-failures-preserve-credentials.spec.ts`](../specifications/cli/login/terminal-authorization-failures-preserve-credentials.spec.ts)
 
@@ -1988,7 +1988,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/login.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/login.test.ts`
 - Source: [`specifications/cli/login/wait-timeout-preserves-authorization.spec.ts`](../specifications/cli/login/wait-timeout-preserves-authorization.spec.ts)
 
 #### Logout
@@ -2002,7 +2002,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/logout.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/logout.test.ts`
 - Source: [`specifications/cli/logout/erases-selected-registry-credentials.spec.ts`](../specifications/cli/logout/erases-selected-registry-credentials.spec.ts)
 
 #### Mcps
@@ -2041,7 +2041,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/inline-authority-is-operation-coherent`, `cli/activation-follows-desired-state`, `packages/extension-workspace/src/mcps/shared-target-catalog.internal.test.ts`
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/inline-authority-is-operation-coherent`, `cli/activation-follows-desired-state`, `packages/extension-workspace/src/mcps/shared-target-catalog.test.ts`
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.
 - Source: [`specifications/cli/mcps/projects-to-every-configured-agent.spec.ts`](../specifications/cli/mcps/projects-to-every-configured-agent.spec.ts)
 
@@ -2111,7 +2111,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/sync/realizes-desired-state`, `packages/cli/src/root/mcps/import.internal.test.ts`
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/sync/realizes-desired-state`, `packages/cli/src/root/mcps/import.test.ts`
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so a server present in one file and absent from the other observes adoption reaching a second agent.
 - Source: [`specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts`](../specifications/cli/mcps/import/adoption-reaches-every-configured-agent.spec.ts)
 
@@ -2140,7 +2140,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: Actual CLI invocations distinguish the registered option combinations and observe persisted activation state plus the resulting native configurations.
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/mcps/import.ts`, `packages/cli/src/root/mcps/import.internal.test.ts`, `packages/cli-e2e/src/fork-import.e2e.test.ts`, `cli/mcps/projects-to-every-configured-agent`
+- Derived from: `packages/cli/src/root/mcps/import.ts`, `packages/cli/src/root/mcps/import.test.ts`, `packages/cli-e2e/src/fork-import.e2e.test.ts`, `cli/mcps/projects-to-every-configured-agent`
 - Source: [`specifications/cli/mcps/import/package-enablement-is-explicit.spec.ts`](../specifications/cli/mcps/import/package-enablement-is-explicit.spec.ts)
 
 ###### MCP import preview describes the change without changing workspace state
@@ -2205,7 +2205,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/mcps/new.internal.test.ts`
+- Derived from: `packages/cli/src/root/mcps/new.test.ts`
 - Source: [`specifications/cli/mcps/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/mcps/new/creates-enabled-workspace-content.spec.ts)
 
 ###### New MCP server preview describes the scaffold without changing any state
@@ -2217,7 +2217,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`, `authoring-and-creation`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/mcps/new.internal.test.ts`
+- Derived from: `packages/cli/src/root/mcps/new.test.ts`
 - Source: [`specifications/cli/mcps/new/preview-is-pure.spec.ts`](../specifications/cli/mcps/new/preview-is-pure.spec.ts)
 
 ##### Publish
@@ -2446,7 +2446,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/extension-authoring/src/packs/remove-from-pack.internal.test.ts`, `packages/cli/src/root/packs/remove.ts`
+- Derived from: `packages/extension-authoring/src/packs/remove-from-pack.test.ts`, `packages/cli/src/root/packs/remove.ts`
 - Source: [`specifications/cli/packs/remove/removes-only-selected-dependencies.spec.ts`](../specifications/cli/packs/remove/removes-only-selected-dependencies.spec.ts)
 
 ##### Show
@@ -2513,7 +2513,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/packs/unpack/handler.internal.test.ts`, `packages/cli/src/root/packs/unpack/handler.ts`
+- Derived from: `packages/cli/src/root/packs/unpack/handler.test.ts`, `packages/cli/src/root/packs/unpack/handler.ts`
 - Source: [`specifications/cli/packs/unpack/promotes-members-without-overwriting-direct-intent.spec.ts`](../specifications/cli/packs/unpack/promotes-members-without-overwriting-direct-intent.spec.ts)
 
 ###### Unpack refuses missing packs and members without usable resolutions
@@ -2525,7 +2525,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/packs/unpack/handler.internal.test.ts`, `packages/cli/src/root/packs/unpack/handler.ts`
+- Derived from: `packages/cli/src/root/packs/unpack/handler.test.ts`, `packages/cli/src/root/packs/unpack/handler.ts`
 - Source: [`specifications/cli/packs/unpack/refuses-incomplete-membership.spec.ts`](../specifications/cli/packs/unpack/refuses-incomplete-membership.spec.ts)
 
 ##### Update
@@ -2553,7 +2553,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/cli/src/root/publish/command.ts`
+- Derived from: `packages/cli/src/root/publish/command.test.ts`, `packages/cli/src/root/publish/command.ts`
 - Source: [`specifications/cli/publish/archives-satisfy-distribution-contract.spec.ts`](../specifications/cli/publish/archives-satisfy-distribution-contract.spec.ts)
 
 ##### Publish authorization resumes the exact reviewed publication
@@ -2589,7 +2589,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.test.ts`
 - Source: [`specifications/cli/publish/existing-versions-require-explicit-policy.spec.ts`](../specifications/cli/publish/existing-versions-require-explicit-policy.spec.ts)
 
 ##### Publication exclusions use explicit case-sensitive package paths
@@ -2613,7 +2613,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/publish/command.ts`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Derived from: `packages/cli/src/root/publish/command.ts`, `packages/cli/src/root/publish/command.test.ts`
 - Source: [`specifications/cli/publish/older-unpublished-versions-require-backfill.spec.ts`](../specifications/cli/publish/older-unpublished-versions-require-backfill.spec.ts)
 
 ##### Publication results distinguish confirmed, failed, blocked, pending and unresolved work
@@ -2625,7 +2625,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`, `machine-automation`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/extension-publish/src/settlement.internal.test.ts`
+- Derived from: `packages/cli/src/root/publish/command.test.ts`, `packages/extension-publish/src/settlement.test.ts`
 - Source: [`specifications/cli/publish/outcomes-distinguish-unresolved-uploads.spec.ts`](../specifications/cli/publish/outcomes-distinguish-unresolved-uploads.spec.ts)
 
 ##### One failed publish preflight blocks the whole selection
@@ -2650,7 +2650,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/cli/src/root/publish/command.ts`
+- Derived from: `packages/cli/src/root/publish/command.test.ts`, `packages/cli/src/root/publish/command.ts`
 - Source: [`specifications/cli/publish/preserves-established-visibility.spec.ts`](../specifications/cli/publish/preserves-established-visibility.spec.ts)
 
 ##### Publish preview reports the admitted publication set without distributing anything
@@ -2689,7 +2689,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/cli/src/root/publish/command.ts`
+- Derived from: `packages/cli/src/root/publish/command.test.ts`, `packages/cli/src/root/publish/command.ts`
 - Source: [`specifications/cli/publish/reports-pack-resolution-differences.spec.ts`](../specifications/cli/publish/reports-pack-resolution-differences.spec.ts)
 
 ##### Publish refuses extensions the workspace does not author
@@ -2712,7 +2712,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/cli/src/root/publish/command.ts`
+- Derived from: `packages/cli/src/root/publish/command.test.ts`, `packages/cli/src/root/publish/command.ts`
 - Source: [`specifications/cli/publish/requires-existing-publish-owners.spec.ts`](../specifications/cli/publish/requires-existing-publish-owners.spec.ts)
 
 ##### Publish requires explicit acceptance when archive content differs from Git HEAD
@@ -2737,7 +2737,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/publish/command.internal.test.ts`, `packages/cli/src/root/publish/command.ts`
+- Derived from: `packages/cli/src/root/publish/command.test.ts`, `packages/cli/src/root/publish/command.ts`
 - Source: [`specifications/cli/publish/respects-local-pack-constraints.spec.ts`](../specifications/cli/publish/respects-local-pack-constraints.spec.ts)
 
 #### Rules
@@ -2874,7 +2874,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/setup.internal.test.ts`
+- Derived from: `packages/cli/src/root/setup.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/init.e2e.test.ts`](../packages/cli-e2e/src/init.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/setup/command.e2e.ts scenarios through real CLI processes. They observe selected-directory argv, bundled files, unattended setup prerequisites, and repeat setup preserving declared configuration. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/setup/initializes-selected-workspace.spec.ts`](../specifications/cli/setup/initializes-selected-workspace.spec.ts)
 
@@ -2909,7 +2909,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/setup.internal.test.ts`
+- Derived from: `packages/cli/src/root/setup.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/init.e2e.test.ts`](../packages/cli-e2e/src/init.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/setup/command.e2e.ts scenarios through real CLI processes. They observe selected-directory argv, bundled files, unattended setup prerequisites, and repeat setup preserving declared configuration. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/setup/rerun-preserves-existing-configuration.spec.ts`](../specifications/cli/setup/rerun-preserves-existing-configuration.spec.ts)
 
@@ -2922,7 +2922,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/machine-mode-never-prompts`, `packages/cli/src/root/setup.internal.test.ts`
+- Derived from: `cli/machine-mode-never-prompts`, `packages/cli/src/root/setup.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/init.e2e.test.ts`](../packages/cli-e2e/src/init.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/setup/command.e2e.ts scenarios through real CLI processes. They observe selected-directory argv, bundled files, unattended setup prerequisites, and repeat setup preserving declared configuration. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts`](../specifications/cli/setup/unattended-apply-requires-explicit-intent.spec.ts)
 
@@ -3020,7 +3020,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: Built CLI invocations parse single and repeated exact-name flags and explicit all against a real local native skill tree, then expose persisted canonical and projected bytes. An additional production-handler case sets interactive mode explicitly and rejects any attempted Screen prompt, so implicit unattended selection cannot supply the no-selection-prompt evidence for --all.
 - Methods: decision-table, example
-- Derived from: `packages/cli/src/root/skills/install/command.ts`, `packages/cli/src/root/skills/install/select-skills.internal.test.ts`
+- Derived from: `packages/cli/src/root/skills/install/command.ts`, `packages/cli/src/root/skills/install/select-skills.test.ts`
 - Open questions: Does --skill promise glob matching, and what matching grammar applies?; Must a request containing both matched and unmatched names fail as a whole or install its matches, and how should a wholly unmatched request be reported?; Does unattended operation without --skill or --all select every discovered skill?; How should --all and --skill be combined or refused when both are supplied?
 - Limitation: The source population is a local native .agents/skills tree with three valid uniquely named skills. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
 - Source: [`specifications/cli/skills/install/selects-requested-source-skills.spec.ts`](../specifications/cli/skills/install/selects-requested-source-skills.spec.ts)
@@ -3048,7 +3048,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/sync/realizes-desired-state`, `cli/install/preview-is-pure`, `packages/cli/src/root/skills/new.internal.test.ts`, `packages/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
+- Derived from: `cli/sync/realizes-desired-state`, `cli/install/preview-is-pure`, `packages/cli/src/root/skills/new.test.ts`, `packages/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
 - Source: [`specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts)
 
@@ -3077,7 +3077,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/install/preview-is-pure`, `packages/cli/src/root/skills/uninstall/handler.internal.test.ts`
+- Derived from: `cli/install/preview-is-pure`, `packages/cli/src/root/skills/uninstall/handler.test.ts`
 - Source: [`specifications/cli/skills/uninstall/preview-is-pure.spec.ts`](../specifications/cli/skills/uninstall/preview-is-pure.spec.ts)
 
 ##### Update
@@ -3091,7 +3091,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/update/advances-resolution-within-intent`, `packages/cli/src/root/skills/update/handler.internal.test.ts`
+- Derived from: `cli/update/advances-resolution-within-intent`, `packages/cli/src/root/skills/update/handler.test.ts`
 - Source: [`specifications/cli/skills/update/preview-is-pure.spec.ts`](../specifications/cli/skills/update/preview-is-pure.spec.ts)
 
 #### Subagents
@@ -3175,7 +3175,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/sync/realizes-desired-state`, `cli/install/preview-is-pure`, `packages/cli/src/root/subagents/new/handler.internal.test.ts`
+- Derived from: `cli/sync/realizes-desired-state`, `cli/install/preview-is-pure`, `packages/cli/src/root/subagents/new/handler.test.ts`
 - Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.
 - Open questions: Whether the creation result should list each agent's rendered file as a target, as skill creation lists agent locations, is unresolved; this specification requires only that preview and apply agree and that every configured agent receives its rendering.
 - Source: [`specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts)
@@ -3205,7 +3205,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/skills/uninstall/preview-is-pure`, `packages/cli/src/root/subagents/uninstall/handler.internal.test.ts`
+- Derived from: `cli/skills/uninstall/preview-is-pure`, `packages/cli/src/root/subagents/uninstall/handler.test.ts`
 - Source: [`specifications/cli/subagents/uninstall/preview-is-pure.spec.ts`](../specifications/cli/subagents/uninstall/preview-is-pure.spec.ts)
 
 ##### Update
@@ -3219,7 +3219,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/skills/update/preview-is-pure`, `packages/cli/src/root/subagents/update/handler.internal.test.ts`
+- Derived from: `cli/skills/update/preview-is-pure`, `packages/cli/src/root/subagents/update/handler.test.ts`
 - Source: [`specifications/cli/subagents/update/preview-is-pure.spec.ts`](../specifications/cli/subagents/update/preview-is-pure.spec.ts)
 
 #### Sync
@@ -3234,7 +3234,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: The built CLI establishes the actual parser combination, usage error, process exit status, and persisted state after refusal.
 - Methods: example
-- Derived from: `packages/cli/src/root/sync/handler.internal.test.ts`
+- Derived from: `packages/cli/src/root/sync/handler.test.ts`
 - Source: [`specifications/cli/sync/check-requires-preview.spec.ts`](../specifications/cli/sync/check-requires-preview.spec.ts)
 
 ##### Sync never changes configuration and never advances a satisfying resolution
@@ -3294,7 +3294,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/token.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/auth.e2e.test.ts`](../packages/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/token/completes-required-human-verification.spec.ts`](../specifications/cli/token/completes-required-human-verification.spec.ts)
 
@@ -3309,7 +3309,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/token.test.ts`
 - Open questions: Which token-lifetime input forms, omitted-input default, and valid range should the CLI guarantee? Command help and parser tests are witnesses for the current forms and default; this requirement allocates submission of the selected lifetime, not an undecided lifetime-input policy.
 - Source: [`specifications/cli/token/create/submits-requested-authority.spec.ts`](../specifications/cli/token/create/submits-requested-authority.spec.ts)
 
@@ -3324,7 +3324,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/token.test.ts`
 - Source: [`specifications/cli/token/list/reports-token-inventory.spec.ts`](../specifications/cli/token/list/reports-token-inventory.spec.ts)
 
 ##### Revoke
@@ -3338,7 +3338,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/token.test.ts`
 - Source: [`specifications/cli/token/revoke/revokes-only-selected-token.spec.ts`](../specifications/cli/token/revoke/revokes-only-selected-token.spec.ts)
 
 #### Undeprecate
@@ -3352,7 +3352,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.test.ts`
 - Source: [`specifications/cli/undeprecate/removes-guidance-at-the-observed-revision.spec.ts`](../specifications/cli/undeprecate/removes-guidance-at-the-observed-revision.spec.ts)
 
 #### Uninstall
@@ -3435,7 +3435,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.test.ts`
 - Source: [`specifications/cli/unyank/requires-an-exact-version.spec.ts`](../specifications/cli/unyank/requires-an-exact-version.spec.ts)
 
 #### Update
@@ -3568,7 +3568,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/upgrade/upgrade.ts`, `packages/cli/src/root/upgrade/handler.internal.test.ts`
+- Derived from: `packages/cli/src/root/upgrade/upgrade.ts`, `packages/cli/src/root/upgrade/handler.test.ts`
 - Source: [`specifications/cli/upgrade/preserves-current-or-newer-installations.spec.ts`](../specifications/cli/upgrade/preserves-current-or-newer-installations.spec.ts)
 
 ##### Upgrade preview resolves the installation change without performing it
@@ -3592,7 +3592,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/upgrade/handler.internal.test.ts`
+- Derived from: `packages/cli/src/root/upgrade/handler.test.ts`
 - Source: [`specifications/cli/upgrade/requires-a-supported-upgrade-route.spec.ts`](../specifications/cli/upgrade/requires-a-supported-upgrade-route.spec.ts)
 
 ##### Script upgrade restores the original after replacement fails verification
@@ -3604,7 +3604,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/upgrade/handler.internal.test.ts`
+- Derived from: `packages/cli/src/root/upgrade/handler.test.ts`
 - Assumptions: Filesystem restoration remains available; operating-system or storage failures that also prevent rollback require separate recovery evidence.
 - Source: [`specifications/cli/upgrade/restores-original-after-failed-replacement.spec.ts`](../specifications/cli/upgrade/restores-original-after-failed-replacement.spec.ts)
 
@@ -3617,7 +3617,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/upgrade/handler.internal.test.ts`
+- Derived from: `packages/cli/src/root/upgrade/handler.test.ts`
 - Assumptions: The controlled process port reports executable versions; native binary viability is established by installed-boundary evidence.
 - Source: [`specifications/cli/upgrade/verifies-download-before-replacement.spec.ts`](../specifications/cli/upgrade/verifies-download-before-replacement.spec.ts)
 
@@ -3630,7 +3630,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/upgrade/handler.internal.test.ts`
+- Derived from: `packages/cli/src/root/upgrade/handler.test.ts`
 - Open questions: The automatic Homebrew reinstall used after a successful but unchanged upgrade remains subordinate recovery logic; its exact retry policy is not an independently accepted experience obligation.
 - Source: [`specifications/cli/upgrade/verifies-package-manager-upgrades.spec.ts`](../specifications/cli/upgrade/verifies-package-manager-upgrades.spec.ts)
 
@@ -3658,7 +3658,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`, `packages/cli/src/root/shared/extension-version.ts`
+- Derived from: `packages/cli/src/root/shared/version-command.test.ts`, `packages/cli/src/root/shared/extension-version.ts`
 - Source: [`specifications/cli/version/changes-only-the-authored-manifest-version.spec.ts`](../specifications/cli/version/changes-only-the-authored-manifest-version.spec.ts)
 
 ##### Version preview describes the manifest bump without changing any state
@@ -3681,7 +3681,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`, `packages/cli/src/root/shared/extension-version.ts`
+- Derived from: `packages/cli/src/root/shared/version-command.test.ts`, `packages/cli/src/root/shared/extension-version.ts`
 - Source: [`specifications/cli/version/refuses-invalid-or-unowned-targets.spec.ts`](../specifications/cli/version/refuses-invalid-or-unowned-targets.spec.ts)
 
 #### View
@@ -3708,7 +3708,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/view/handler.internal.test.ts`, `packages/cli/src/root/shared/per-type-install.ts`
+- Derived from: `packages/cli/src/root/view/handler.test.ts`, `packages/cli/src/root/shared/per-type-install.ts`
 - Source: [`specifications/cli/view/offers-the-type-install-command.spec.ts`](../specifications/cli/view/offers-the-type-install-command.spec.ts)
 
 ##### Public metadata can be viewed without management access
@@ -3720,7 +3720,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/view/handler.internal.test.ts`, `packages/cli/src/root/view/handler.ts`
+- Derived from: `packages/cli/src/root/view/handler.test.ts`, `packages/cli/src/root/view/handler.ts`
 - Source: [`specifications/cli/view/public-metadata-requires-no-management-access.spec.ts`](../specifications/cli/view/public-metadata-requires-no-management-access.spec.ts)
 
 ##### View retrieves metadata from the selected Registry
@@ -3732,7 +3732,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/view/handler.internal.test.ts`, `packages/cli/src/root/view/handler.ts`
+- Derived from: `packages/cli/src/root/view/handler.test.ts`, `packages/cli/src/root/view/handler.ts`
 - Source: [`specifications/cli/view/reads-the-selected-registry.spec.ts`](../specifications/cli/view/reads-the-selected-registry.spec.ts)
 
 ##### View reports deprecation and replacement availability
@@ -3744,7 +3744,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/view/handler.internal.test.ts`, `packages/cli/src/root/view/handler.ts`
+- Derived from: `packages/cli/src/root/view/handler.test.ts`, `packages/cli/src/root/view/handler.ts`
 - Source: [`specifications/cli/view/reports-deprecation-and-replacement-availability.spec.ts`](../specifications/cli/view/reports-deprecation-and-replacement-availability.spec.ts)
 
 ##### View reports missing metadata without a success result
@@ -3756,7 +3756,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/view/handler.internal.test.ts`, `packages/cli/src/root/view/handler.ts`
+- Derived from: `packages/cli/src/root/view/handler.test.ts`, `packages/cli/src/root/view/handler.ts`
 - Source: [`specifications/cli/view/reports-missing-targets-and-fields.spec.ts`](../specifications/cli/view/reports-missing-targets-and-fields.spec.ts)
 
 #### Visibility
@@ -3824,7 +3824,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.internal.test.ts`
+- Derived from: `packages/cli/src/root/lifecycle/command.ts`, `packages/cli/src/root/lifecycle/command.test.ts`
 - Source: [`specifications/cli/yank/submits-the-requested-version-selection.spec.ts`](../specifications/cli/yank/submits-the-requested-version-selection.spec.ts)
 
 ### Source resolution
@@ -3930,7 +3930,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/help/topics/upgrade.md`, `packages/cli/src/update-check-startup.internal.test.ts`, `packages/cli/src/update-check/update-check.internal.test.ts`
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/help/topics/upgrade.md`, `packages/cli/src/update-check-startup.test.ts`, `packages/cli/src/update-check/update-check.test.ts`
 - Open questions: Must agent sessions always skip startup checks when AXM_NO_UPDATE_CHECK is not 1? Earlier environment help said they skip, but the current runtime and its internal test permit agent checks even without a TTY.; Does suppression also prohibit reading an existing update cache, beyond the absence of requests and notifications promised here?
 - Limitation: The primary decision table uses a populated fresh cache and a controlled HTTP port; it establishes notification suppression and command-network independence, but does not by itself establish the absence of a background refresh when a cache is missing or stale. Retires when: Add a scheduler-coordinated missing/stale-cache control that observes the live startup wrapper's detached request and completion without wall-clock sleeps or leaked fibers.
 - Source: [`specifications/cli/environment-disables-startup-update-check.spec.ts`](../specifications/cli/environment-disables-startup-update-check.spec.ts)
@@ -3945,7 +3945,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: Fresh CLI setup invocations establish relocated workspace placement; real credential, pending-login, and install-metadata services read and write disposable homes; the installer control establishes executable placement.
 - Methods: example, decision-table
-- Derived from: `packages/cli/help/topics/environment.md`, `packages/workspace-state/src/workspace/paths.internal.test.ts`, `packages/registry-auth/src/credential-store.internal.test.ts`, `packages/registry-auth/src/pending-device-login-store.internal.test.ts`, `packages/cli/src/install-meta/install-meta.internal.test.ts`
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/workspace-state/src/workspace/paths.test.ts`, `packages/registry-auth/src/credential-store.test.ts`, `packages/registry-auth/src/pending-device-login-store.test.ts`, `packages/cli/src/install-meta/install-meta.test.ts`
 - Open questions: What is the canonical restricted-file credential subdirectory? Earlier environment help named the .axm application home, while current storage uses .config/axm.; Should an empty AXM_USER_HOME use the platform home consistently for credentials and pending login as earlier environment help promised? Their current environment reader preserves an empty string.; Does AXM_USER_HOME also relocate platform-style caches? The cache resolver and its internal witness do so, while earlier environment help said platform caches keep platform locations.
 - Limitation: The default executable example runs the actual shell installer only on macOS/Linux and uses a version-answering executable fixture. These examples supply no Windows process evidence for user-workspace, PowerShell/cmd default executable, or install-metadata relocation; direct live-adapter cases do not establish that process population. Retires when: Add equivalent populated platform-versus-application-home process controls for the supported Windows installer shells and built CLI, while retaining actual installed-binary evidence for product startup.
 - Limitation: This owner concerns application resources, not the OS keychain. It does not claim that AXM_USER_HOME changes the logged-in operating-system account or keychain namespace. Retires when: Retain that ownership distinction while changes to the application-home implementation are reviewed.
@@ -3961,7 +3961,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: Fresh built CLI invocations resolve and acquire distinct package bytes from real file Registries and a controlled HTTP origin, so an environment value merely parsed but ignored cannot satisfy the cases.
 - Methods: decision-table, example
-- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/runtime.internal.test.ts`
+- Derived from: `packages/cli/help/topics/environment.md`, `packages/cli/src/runtime.test.ts`
 - Source: [`specifications/cli/environment-selects-built-in-extension-source.spec.ts`](../specifications/cli/environment-selects-built-in-extension-source.spec.ts)
 
 #### Registry services use the selected environment origin
@@ -4088,7 +4088,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: Built CLI invocations establish both quiet flag spellings and actual result/error streams; application examples exercise non-progress diagnostics on the production machine screen.
 - Methods: decision-table, example
-- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/cli/help/topics/machine-output.md`, `packages/cli/src/screen/screen-machine.internal.test.ts`
+- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/cli/help/topics/machine-output.md`, `packages/cli/src/screen/screen-machine.test.ts`
 - Source: [`specifications/cli/quiet-preserves-machine-diagnostics.spec.ts`](../specifications/cli/quiet-preserves-machine-diagnostics.spec.ts)
 
 #### Type inventories report local extension state
@@ -4100,7 +4100,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/skills/list.internal.test.ts`, `packages/cli/src/root/subagents/list/handler.internal.test.ts`, `packages/cli/src/root/packs/list.internal.test.ts`, `packages/cli/src/root/hooks/list.ts`, `packages/cli/src/root/rules/list.ts`
+- Derived from: `packages/cli/src/root/skills/list.test.ts`, `packages/cli/src/root/subagents/list/handler.test.ts`, `packages/cli/src/root/packs/list.test.ts`, `packages/cli/src/root/hooks/list.ts`, `packages/cli/src/root/rules/list.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/skills.e2e.test.ts`](../packages/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Source: [`specifications/cli/type-lists-report-local-state.spec.ts`](../specifications/cli/type-lists-report-local-state.spec.ts)
 
@@ -4113,7 +4113,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/shared/extension-show.internal.test.ts`, `packages/cli/src/root/shared/extension-show.ts`
+- Derived from: `packages/cli/src/root/shared/extension-show.test.ts`, `packages/cli/src/root/shared/extension-show.ts`
 - Source: [`specifications/cli/type-shows-report-source-and-version.spec.ts`](../specifications/cli/type-shows-report-source-and-version.spec.ts)
 
 #### Version output identifies the running release
@@ -4143,7 +4143,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `packages/cli/src/root/cache/command.ts`, `packages/cli/src/root/cache/command.internal.test.ts`
+- Derived from: `packages/cli/src/root/cache/command.ts`, `packages/cli/src/root/cache/command.test.ts`
 - Open questions: Is the current 90-day age limit a product commitment or an implementation default that may change?
 - Source: [`specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts`](../specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts)
 
@@ -4159,7 +4159,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: Actual CLI output is decoded and compared with the published schema artifacts, detecting Markdown wrapping or unrelated schema content.
 - Methods: contract, decision-table
-- Derived from: `packages/cli/help/README.md`, `packages/cli/src/root/help/command.internal.test.ts`
+- Derived from: `packages/cli/help/README.md`, `packages/cli/src/root/help/command.test.ts`
 - Source: [`specifications/cli/help/schema-topics-return-json.spec.ts`](../specifications/cli/help/schema-topics-return-json.spec.ts)
 
 #### Install
@@ -4204,7 +4204,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`, `packages/knowledge-query/src/knowledge-index.internal.test.ts`
+- Derived from: `packages/cli/help/topics/knowledge.md`, `packages/cli-e2e/src/knowledge.e2e.test.ts`, `packages/knowledge-query/src/knowledge-index.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/knowledge.e2e.test.ts`](../packages/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/concepts/get/returns-source-backed-document.spec.ts`](../specifications/cli/knowledge/concepts/get/returns-source-backed-document.spec.ts)
 
@@ -4368,7 +4368,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Derived from: `packages/cli/help/topics/publish.md`, `packages/cli/src/root/publish/command.test.ts`
 - Source: [`specifications/cli/publish/archive-inventory-matches-published-bytes.spec.ts`](../specifications/cli/publish/archive-inventory-matches-published-bytes.spec.ts)
 
 ##### Machine publish outcomes report source state against Git HEAD
@@ -4394,7 +4394,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/publish/command.internal.test.ts`
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/cli/src/root/publish/command.test.ts`
 - Open questions: If local source changes after publication review, must AXM abort and revoke unused grants, or may it upload the frozen reviewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the reviewed set without choosing an enforcement strategy.
 - Source: [`specifications/cli/publish/uploads-the-reviewed-publication-set.spec.ts`](../specifications/cli/publish/uploads-the-reviewed-publication-set.spec.ts)
 
@@ -4410,7 +4410,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: process; selection: per-change
 - Boundary rationale: Separate invocations of the built CLI expose the exit status and machine result consumed by automation, including the distinction between an ordinary preview and a convergence check against the same persisted workspace.
 - Methods: example
-- Derived from: `cli/sync/preview-is-pure`, `packages/cli/src/root/sync/handler.internal.test.ts`, `packages/cli/help/topics/workspace-state.md`
+- Derived from: `cli/sync/preview-is-pure`, `packages/cli/src/root/sync/handler.test.ts`, `packages/cli/help/topics/workspace-state.md`
 - Source: [`specifications/cli/sync/check-reports-convergence.spec.ts`](../specifications/cli/sync/check-reports-convergence.spec.ts)
 
 ##### Sync identifies the shared output that needs updating
@@ -4435,7 +4435,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/auth/token.internal.test.ts`
+- Derived from: `packages/cli/src/root/auth/token.test.ts`
 - Additional evidence: process via [`packages/cli-e2e/src/auth.e2e.test.ts`](../packages/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`specifications/cli/token/returns-effective-token.spec.ts`](../specifications/cli/token/returns-effective-token.spec.ts)
 
@@ -4477,7 +4477,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `packages/cli/src/root/shared/version-command.internal.test.ts`
+- Derived from: `packages/cli/src/root/shared/version-command.test.ts`
 - Source: [`specifications/cli/version/machine-result-identifies-manifest-change.spec.ts`](../specifications/cli/version/machine-result-identifies-manifest-change.spec.ts)
 
 #### View
@@ -4491,7 +4491,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/cli/src/root/view/handler.internal.test.ts`, `packages/cli/src/root/view/handler.ts`
+- Derived from: `packages/cli/src/root/view/handler.test.ts`, `packages/cli/src/root/view/handler.ts`
 - Source: [`specifications/cli/view/returns-the-selected-field.spec.ts`](../specifications/cli/view/returns-the-selected-field.spec.ts)
 
 #### Visibility
@@ -4629,7 +4629,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `settings-contract/published-schemas-agree-with-accepted-input`, `cli/settings-validity-gates-operations`, `packages/workspace-state/src/settings/schema.internal.test.ts`
+- Derived from: `settings-contract/published-schemas-agree-with-accepted-input`, `cli/settings-validity-gates-operations`, `packages/workspace-state/src/settings/schema.test.ts`
 - Assumptions: The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.; The product reads settings with excess keys treated as errors, so decoding here with the same option observes the product's acceptance boundary.
 - Source: [`specifications/settings-contract/agent-membership-is-the-only-agent-selection.spec.ts`](../specifications/settings-contract/agent-membership-is-the-only-agent-selection.spec.ts)
 
@@ -5062,7 +5062,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary rationale: Only the committed task interface and the contributor-facing release guide show what the release-preparation entry point promises about candidate isolation, delivery, and cleanup; the orchestration itself is driven against a fake host by the bound tooling gate.
 - Methods: contract
 - Assumptions: The tooling test gate declared as bound evidence runs on every change through the required aggregate check.
-- Bound evidence: `test: axm:test (scripts/release-prepare.tooling.test.ts)` — Drives release preparation against a fake host and checks that candidate state is allocated and initialized from the preflighted source commit, that a dry run prepares the candidate and never commits, pushes, or opens a pull request, that a real run commits and confirms the invoking checkout is unchanged before pushing, that every allocated candidate is cleaned up when any later step fails, that a cleanup failure never hides the primary failure, and that the entry point allocates a temporary detached worktree installed with a frozen lockfile.
+- Bound evidence: `test: axm:test (scripts/release-prepare.test.ts)` — Drives release preparation against a fake host and checks that candidate state is allocated and initialized from the preflighted source commit, that a dry run prepares the candidate and never commits, pushes, or opens a pull request, that a real run commits and confirms the invoking checkout is unchanged before pushing, that every allocated candidate is cleaned up when any later step fails, that a cleanup failure never hides the primary failure, and that the entry point allocates a temporary detached worktree installed with a frozen lockfile.
 - Source: [`specifications/system/process/release-preparation-isolates-candidate-state.spec.ts`](../specifications/system/process/release-preparation-isolates-candidate-state.spec.ts)
 
 ##### Release preparation validates production Registry gates without distribution
@@ -5076,7 +5076,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary rationale: Only the committed task interface and the contributor-facing release guide show what the release-preparation entry point promises about the production Registry preflight and preview; the orchestration order and the preview publication contract are driven against a fake host by the bound tooling gate.
 - Methods: contract
 - Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.; The tooling test gate declared as bound evidence runs on every change through the required aggregate check.
-- Bound evidence: `test: axm:test (scripts/release-prepare.tooling.test.ts)` — Drives release preparation against a fake host and checks that the production Registry preflight runs before any candidate state is allocated and stops preparation when it fails, that the exact generated candidate is previewed against the Registry only after versioning, changelog, and bundled-skill generation, and that the production preview publication targets the production Registry in verify-on-existing preview mode with no apply path.
+- Bound evidence: `test: axm:test (scripts/release-prepare.test.ts)` — Drives release preparation against a fake host and checks that the production Registry preflight runs before any candidate state is allocated and stops preparation when it fails, that the exact generated candidate is previewed against the Registry only after versioning, changelog, and bundled-skill generation, and that the production preview publication targets the production Registry in verify-on-existing preview mode with no apply path.
 - Source: [`specifications/system/process/release-preparation-validates-production-gates.spec.ts`](../specifications/system/process/release-preparation-validates-production-gates.spec.ts)
 
 ##### Release promotion checks public validators before conditional updates
@@ -5091,7 +5091,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Methods: contract
 - Derived from: `system/process/release-promotion-precedes-independent-distribution`
 - Assumptions: A concurrent channel change may invalidate the preflight and requires a new invocation.
-- Bound evidence: `test: axm:test (scripts/release-channel-promotion.tooling.test.ts)` — Exercises identity, gzip, Brotli, and Zstandard public reads before the Control PUT, rejects weak or absent validators, transformation, inconsistent validators or documents, and failed reads without mutation, and preserves conditional creation and newer-channel retention.
+- Bound evidence: `test: axm:test (scripts/release-channel-promotion.test.ts)` — Exercises identity, gzip, Brotli, and Zstandard public reads before the Control PUT, rejects weak or absent validators, transformation, inconsistent validators or documents, and failed reads without mutation, and preserves conditional creation and newer-channel retention.
 - Source: [`specifications/system/process/release-promotion-validates-public-validators.spec.ts`](../specifications/system/process/release-promotion-validates-public-validators.spec.ts)
 
 ##### Release publication preserves newer distribution versions
@@ -5104,7 +5104,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises older candidates before publication and at owner write boundaries, equal-version formula conflicts and newer-channel retention.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises older candidates before publication and at owner write boundaries, equal-version formula conflicts and newer-channel retention.
 - Source: [`specifications/system/process/release-publication-preserves-newer-versions.spec.ts`](../specifications/system/process/release-publication-preserves-newer-versions.spec.ts)
 
 ##### Release reruns reuse only identical published content
@@ -5117,7 +5117,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, partial publication reruns, and identical-coordinate promotion without credentials.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, partial publication reruns, and identical-coordinate promotion without credentials.
 - Source: [`specifications/system/process/release-publication-reuses-identical-content.spec.ts`](../specifications/system/process/release-publication-reuses-identical-content.spec.ts)
 
 ##### Release results distinguish distribution and promotion state
@@ -5130,7 +5130,7 @@ semantic completeness, correct applicability, or passing behavior.
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.tooling.test.ts, scripts/release-channel-promotion.tooling.test.ts, scripts/update-homebrew-formula.tooling.test.ts)` — Exercises publication boundary outcomes, one readback after a lost promotion response, uncertain readback failures, and no repeated conditional mutation.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises publication boundary outcomes, one readback after a lost promotion response, uncertain readback failures, and no repeated conditional mutation.
 - Source: [`specifications/system/process/release-workflow-reports-publication-state.spec.ts`](../specifications/system/process/release-workflow-reports-publication-state.spec.ts)
 
 ##### One automated workflow publishes releases
@@ -5173,9 +5173,9 @@ semantic completeness, correct applicability, or passing behavior.
 - Supersedes: `system/process/release-promotion-precedes-independent-distribution`
 - Assumptions: The release coordinate is immutable and each required verifier reports truthful evidence about its named candidate.
 - Limitation: Repository evidence checks the workflow graph; it does not execute the published installer platform matrix. Retires when: An authorized release supplies successful exact-candidate matrix results and promotion readback.
-- Bound evidence: `test: axm:test (scripts/repository-task-interface.tooling.test.ts)` — Inspects the resolved promotion target and requires its workspace build prerequisites to follow the project graph, so a fresh candidate checkout does not depend on artifacts left by another job.
+- Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Inspects the resolved promotion target and requires its workspace build prerequisites to follow the project graph, so a fresh candidate checkout does not depend on artifacts left by another job.
 - Bound evidence: `test: specifications:test` — Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.
-- Bound evidence: `test: axm:test (scripts/verify-installed-package.tooling.test.ts)` — Runs the published-package verifier through a package-manager launcher with sibling entrypoints from an unrelated directory, including paths with spaces, and rejects wrong installed versions and unexpected stderr; Windows CI executes the batch-launcher cases.
+- Bound evidence: `test: axm:test (scripts/verify-installed-package.test.ts)` — Runs the published-package verifier through a package-manager launcher with sibling entrypoints from an unrelated directory, including paths with spaces, and rejects wrong installed versions and unexpected stderr; Windows CI executes the batch-launcher cases.
 - Source: [`specifications/system/process/stable-promotion-follows-verified-distribution.spec.ts`](../specifications/system/process/stable-promotion-follows-verified-distribution.spec.ts)
 
 ## Product goals

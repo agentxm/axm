@@ -585,7 +585,7 @@ jobs:
         run: pnpm nx run cli-e2e:e2e-windows --outputStyle=static
 
       - name: Verify published-package launcher isolation
-        run: pnpm exec nx run axm:test --args="verify-installed-package.tooling.test.ts" --outputStyle=static
+        run: pnpm exec nx run axm:test --args="verify-installed-package.test.ts" --outputStyle=static
 
       - name: Generate Windows Allure report
         if: always()

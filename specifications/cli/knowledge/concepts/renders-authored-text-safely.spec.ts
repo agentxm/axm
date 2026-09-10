@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "packages/cli/src/root/knowledge/concepts/terminal-text.ts",
-    "packages/cli/src/root/knowledge/concepts/terminal-text.internal.test.ts",
+    "packages/cli/src/root/knowledge/concepts/terminal-text.test.ts",
   ],
   supersedes: [],
   assumptions: [],

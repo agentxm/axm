@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     ...testExecution,
     ...makeTestReporting({ layer: "internal", suite: "workspace-configuration" }),
-    include: ["src/**/*.internal.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
     exclude: [...configDefaults.exclude, "src/**/*.type-test.ts"],
   },
 });

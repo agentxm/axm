@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "packages/cli/src/root/skills/install/command.ts",
-    "packages/cli/src/root/skills/install/select-skills.internal.test.ts",
+    "packages/cli/src/root/skills/install/select-skills.test.ts",
   ],
   supersedes: [],
   assumptions: [],

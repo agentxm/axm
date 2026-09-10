@@ -21,7 +21,7 @@ export const specification = defineSpecification({
     "packages/cli/src/cli-flags/index.ts",
     "packages/cli/src/runtime.ts",
     "packages/cli/src/cli-runtime/runtime-envelope.ts",
-    "packages/cli/src/app-error/render.internal.test.ts",
+    "packages/cli/src/app-error/render.test.ts",
   ],
   supersedes: [],
   assumptions: [],

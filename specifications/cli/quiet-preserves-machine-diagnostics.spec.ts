@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "cli/machine-progress-events-follow-the-lifecycle-schema",
     "packages/cli/help/topics/machine-output.md",
-    "packages/cli/src/screen/screen-machine.internal.test.ts",
+    "packages/cli/src/screen/screen-machine.test.ts",
   ],
   supersedes: [],
   assumptions: [],

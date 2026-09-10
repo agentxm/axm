@@ -23,7 +23,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "packages/cli/help/topics/knowledge.md",
     "packages/cli-e2e/src/knowledge.e2e.test.ts",
-    "packages/knowledge-query/src/knowledge-index.internal.test.ts",
+    "packages/knowledge-query/src/knowledge-index.test.ts",
   ],
   supersedes: [],
   assumptions: [],

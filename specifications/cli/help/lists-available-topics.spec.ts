@@ -16,10 +16,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The built CLI emits its topic index; an independent inventory of published Markdown and schema sources detects missing, duplicate, and extra entries.",
   methods: ["contract", "example"],
-  derivedFrom: [
-    "packages/cli/help/README.md",
-    "packages/cli/src/root/help/command.internal.test.ts",
-  ],
+  derivedFrom: ["packages/cli/help/README.md", "packages/cli/src/root/help/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

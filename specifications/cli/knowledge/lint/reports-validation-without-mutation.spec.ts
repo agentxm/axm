@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/src/root/knowledge/json-output.internal.test.ts",
+    "packages/cli/src/root/knowledge/json-output.test.ts",
     "packages/cli-e2e/src/knowledge.e2e.test.ts",
     "cli/lint/catalog-is-complete",
   ],

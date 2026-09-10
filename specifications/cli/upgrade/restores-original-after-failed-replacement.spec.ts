@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["trustworthy-distribution", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["packages/cli/src/root/upgrade/handler.internal.test.ts"],
+  derivedFrom: ["packages/cli/src/root/upgrade/handler.test.ts"],
   supersedes: [],
   assumptions: [
     "Filesystem restoration remains available; operating-system or storage failures that also prevent rollback require separate recovery evidence.",

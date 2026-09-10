@@ -8,13 +8,13 @@
     "rootDir": "."
   },
   "include": [
-    "src/**/*.internal.test.ts",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
     "src/**/__tests__/**/*.ts",
     "src/**/*.type-test.ts",
     "src/**/test-helpers.ts",
     "scripts/**/*.ts",
     "vitest.config.ts",
-    "src/**/*.windows.test.ts",
     "vitest.windows.config.ts"
   ],
   "references": [

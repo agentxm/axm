@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   goals: ["trustworthy-distribution"],
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/cli/src/root/publish/command.internal.test.ts",
+    "packages/cli/src/root/publish/command.test.ts",
     "packages/cli/src/root/publish/command.ts",
   ],
   supersedes: [],

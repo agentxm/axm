@@ -18,7 +18,7 @@ and nothing else claims local requirements authority.
 Executable specifications are therefore the sole local normative authority for
 accepted requirements. Fast in-memory execution provides exhaustive evidence
 for functional behavior, while other specification runners, boundary
-executions, internal and tooling tests, artifact and static verification, and
+executions, ordinary tests, artifact and static verification, and
 diagnostic benchmarks provide evidence with different purposes, conditions,
 cadences, and blind spots.
 
@@ -156,7 +156,7 @@ not automatically a different kind of requirement.
 End-to-end is a boundary, not a competing authority. An in-memory scenario and
 an end-to-end scenario may execute the same specification through different
 drivers. A utility test is a specification when it protects a supported public
-contract and an internal or tooling test otherwise. Release verification is a
+contract and an ordinary test otherwise. Release verification is a
 gate that selects evidence for an exact candidate, not a test purpose or source
 tree.
 
@@ -366,17 +366,17 @@ verification/
 benchmarks/
 
 packages/
-  extension-model/src/**/*.internal.test.ts
-  registry-protocol/src/**/*.internal.test.ts
-  cli/src/**/*.internal.test.ts
+  extension-model/src/**/*.test.ts
+  registry-protocol/src/**/*.test.ts
+  cli/src/**/*.test.ts
 
-scripts/**/*.tooling.test.ts
+scripts/**/*.test.ts
 ```
 
 The final Nx project and package boundaries may refine these physical roots,
 but they must preserve the semantic browsing hierarchy. End-to-end source
 mirrors the specification hierarchy where it realizes the same behavior.
-Internal tests remain colocated with source.
+Ordinary tests remain colocated with source.
 
 ## Naming and readability
 
@@ -387,10 +387,8 @@ File names expose purpose:
 | `*.spec.ts`             | Authoritative requirement specification             |
 | `*.contract.spec.ts`    | Contract or external-conformance specification      |
 | `*.performance.spec.ts` | Normative performance specification                 |
-| `*.internal.test.ts`    | Non-normative internal verification                 |
-| `*.e2e.test.ts`         | End-to-end boundary execution                       |
-| `*.artifact.test.ts`    | Non-normative artifact or supply-chain verification |
-| `*.tooling.test.ts`     | Repository tooling verification                     |
+| `*.test.ts`             | Non-normative ordinary test colocated with source   |
+| `*.e2e.test.ts`         | End-to-end boundary execution, only in e2e projects |
 | `*.type-test.ts`        | Compile-time assertions                             |
 | `*.bench.ts`            | Non-normative diagnostic benchmark                  |
 
@@ -518,9 +516,8 @@ specification means.
 Repository commands expose intent rather than only package topology:
 
 ```text
+pnpm test
 pnpm test:spec
-pnpm test:internal
-pnpm test:tooling
 pnpm test:e2e
 pnpm test:compatibility
 pnpm test:performance

@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   methods: ["example", "decision-table"],
   derivedFrom: [
     "packages/cli/src/root/help/command.ts",
-    "packages/cli/src/root/help/command.internal.test.ts",
+    "packages/cli/src/root/help/command.test.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -30,7 +30,7 @@ export const specification = defineSpecification({
 
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-channel-promotion.tooling.test.ts)",
+    gate: "test: axm:test (scripts/release-channel-promotion.test.ts)",
     verifies:
       "Exercises identity, gzip, Brotli, and Zstandard public reads before the Control PUT, rejects weak or absent validators, transformation, inconsistent validators or documents, and failed reads without mutation, and preserves conditional creation and newer-channel retention.",
   },

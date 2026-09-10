@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "packages/cli/help/topics/knowledge.md",
-    "packages/knowledge-query/src/knowledge-index.internal.test.ts",
+    "packages/knowledge-query/src/knowledge-index.test.ts",
   ],
   supersedes: [],
   assumptions: [],

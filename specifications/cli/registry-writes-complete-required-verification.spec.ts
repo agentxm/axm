@@ -39,7 +39,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "AgentXM Registry API 0.1.0",
     "packages/cli/src/root/step-up.ts",
-    "packages/cli/src/root/lifecycle/command.internal.test.ts",
+    "packages/cli/src/root/lifecycle/command.test.ts",
   ],
   supersedes: [],
   assumptions: [],

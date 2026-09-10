@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "cli/update/advances-resolution-within-intent",
-    "packages/cli/src/root/skills/update/handler.internal.test.ts",
+    "packages/cli/src/root/skills/update/handler.test.ts",
   ],
   supersedes: [],
   assumptions: [],

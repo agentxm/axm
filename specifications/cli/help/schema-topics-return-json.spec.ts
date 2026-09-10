@@ -17,10 +17,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Actual CLI output is decoded and compared with the published schema artifacts, detecting Markdown wrapping or unrelated schema content.",
   methods: ["contract", "decision-table"],
-  derivedFrom: [
-    "packages/cli/help/README.md",
-    "packages/cli/src/root/help/command.internal.test.ts",
-  ],
+  derivedFrom: ["packages/cli/help/README.md", "packages/cli/src/root/help/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

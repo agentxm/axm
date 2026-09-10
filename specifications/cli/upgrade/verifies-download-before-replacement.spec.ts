@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["trustworthy-distribution"],
   methods: ["example"],
-  derivedFrom: ["packages/cli/src/root/upgrade/handler.internal.test.ts"],
+  derivedFrom: ["packages/cli/src/root/upgrade/handler.test.ts"],
   supersedes: [],
   assumptions: [
     "The controlled process port reports executable versions; native binary viability is established by installed-boundary evidence.",

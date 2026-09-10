@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/cli/src/root/shared/version-command.internal.test.ts",
+    "packages/cli/src/root/shared/version-command.test.ts",
     "packages/cli/src/root/shared/extension-version.ts",
   ],
   supersedes: [],

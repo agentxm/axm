@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   role: "interface",
   goals: ["machine-automation"],
   methods: ["example", "decision-table"],
-  derivedFrom: ["packages/cli/src/root/shared/version-command.internal.test.ts"],
+  derivedFrom: ["packages/cli/src/root/shared/version-command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "packages/cli/src/root/upgrade/upgrade.ts",
-    "packages/cli/src/root/upgrade/handler.internal.test.ts",
+    "packages/cli/src/root/upgrade/handler.test.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -34,8 +34,8 @@ export const specification = defineSpecification({
   derivedFrom: [
     "packages/cli/help/topics/environment.md",
     "packages/cli/help/topics/upgrade.md",
-    "packages/cli/src/update-check-startup.internal.test.ts",
-    "packages/cli/src/update-check/update-check.internal.test.ts",
+    "packages/cli/src/update-check-startup.test.ts",
+    "packages/cli/src/update-check/update-check.test.ts",
   ],
   supersedes: [],
   assumptions: [],

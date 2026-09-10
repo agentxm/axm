@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/cli/src/root/hooks/new.internal.test.ts",
+    "packages/cli/src/root/hooks/new.test.ts",
     "packages/cli/src/root/shared/resolve-owner.ts",
   ],
   supersedes: [],

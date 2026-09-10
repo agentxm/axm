@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "cli/sync/realizes-desired-state",
     "cli/install/preview-is-pure",
-    "packages/cli/src/root/skills/new.internal.test.ts",
+    "packages/cli/src/root/skills/new.test.ts",
     "packages/cli-e2e/src/cli-commands/skills/new/command.e2e.ts",
   ],
   supersedes: [],

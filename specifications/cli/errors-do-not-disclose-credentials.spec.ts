@@ -14,8 +14,8 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "packages/cli/help/topics/machine-output.md",
-    "packages/cli/src/cli-runtime/handle-error.internal.test.ts",
-    "packages/cli/src/cli-runtime/json-envelope.internal.test.ts",
+    "packages/cli/src/cli-runtime/handle-error.test.ts",
+    "packages/cli/src/cli-runtime/json-envelope.test.ts",
   ],
   supersedes: [],
   assumptions: [],

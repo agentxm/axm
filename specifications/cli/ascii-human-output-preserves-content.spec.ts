@@ -15,8 +15,8 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "packages/cli/help/topics/environment.md",
-    "packages/cli/src/screen/output-policy.internal.test.ts",
-    "packages/cli/src/screen/paint-text.internal.test.ts",
+    "packages/cli/src/screen/output-policy.test.ts",
+    "packages/cli/src/screen/paint-text.test.ts",
   ],
   supersedes: [],
   assumptions: [],

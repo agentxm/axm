@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   goals: ["agent-interoperability", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/src/root/agents/capabilities.internal.test.ts",
+    "packages/cli/src/root/agents/capabilities.test.ts",
     "packages/cli/src/root/agents/capabilities.ts",
   ],
   supersedes: [],

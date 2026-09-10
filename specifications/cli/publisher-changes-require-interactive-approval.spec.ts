@@ -43,7 +43,7 @@ export const specification = defineSpecification({
     "cli/update/preview-is-pure",
     "cli/install/preview-is-pure",
     "cli/skills/update/preview-is-pure",
-    "packages/cli/src/root/skills/update/handler.internal.test.ts",
+    "packages/cli/src/root/skills/update/handler.test.ts",
   ],
   supersedes: [],
   assumptions: [],

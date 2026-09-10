@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     ...testExecution,
     ...makeTestReporting({ layer: "internal", suite: "agent-integration" }),
-    include: ["src/**/*.internal.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
     // `*.type-test.ts` files contain only compile-time assertions (no runtime
     // `it`/`expect` wrappers). They are typechecked via `tsconfig.spec.json`
     // but excluded from the runtime suite so vitest does not try to load a

@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "settings-contract/published-schemas-agree-with-accepted-input",
     "cli/settings-validity-gates-operations",
-    "packages/workspace-state/src/settings/schema.internal.test.ts",
+    "packages/workspace-state/src/settings/schema.test.ts",
   ],
   supersedes: [],
   assumptions: [

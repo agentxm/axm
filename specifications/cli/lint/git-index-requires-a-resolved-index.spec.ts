@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "cli/lint/observes-selected-filesystem-view",
-    "packages/workspace-lint/src/run/staged-workspace.internal.test.ts",
+    "packages/workspace-lint/src/run/staged-workspace.test.ts",
     "packages/cli/help/topics/git-hooks.md",
   ],
   supersedes: [],

@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "packages/cli/src/root/publish/command.ts",
-    "packages/cli/src/root/publish/command.internal.test.ts",
+    "packages/cli/src/root/publish/command.test.ts",
   ],
   supersedes: [],
   assumptions: [],

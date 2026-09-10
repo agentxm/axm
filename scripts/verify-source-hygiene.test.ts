@@ -18,6 +18,9 @@ import {
 
 const tempRoots: string[] = [];
 
+const project = (name: string, ...tags: ReadonlyArray<string>): string =>
+  JSON.stringify({ name, tags });
+
 const createRepoFixture = (files: Readonly<Record<string, Buffer | string>>): string => {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axm-source-hygiene-"));
   tempRoots.push(repoRoot);
@@ -56,25 +59,33 @@ describe("findControlBytes", () => {
 });
 
 describe("findSourceHygieneViolations", () => {
-  it("scans only TypeScript sources under packages/*/src", () => {
+  it("scans only TypeScript sources under every discovered project's src", () => {
     const repoRoot = createRepoFixture({
-      "packages/workspace-state/src/clean.ts": "export const ok = 1;\n",
-      "packages/workspace-state/src/nested/dirty.ts": Buffer.concat([
+      "packages/core/workspace-state/project.json": project("workspace-state", "role:capability"),
+      "packages/core/workspace-state/src/clean.ts": "export const ok = 1;\n",
+      "packages/core/workspace-state/src/nested/dirty.ts": Buffer.concat([
         Buffer.from("const key = `a", "utf8"),
         Buffer.from([0x00]),
         Buffer.from("b`;\n", "utf8"),
       ]),
-      "packages/workspace-state/test/ignored.ts": Buffer.from([0x00]),
-      "packages/workspace-state/src/ignored.md": Buffer.from([0x00]),
+      "packages/core/workspace-state/test/ignored.ts": Buffer.from([0x00]),
+      "packages/core/workspace-state/src/ignored.md": Buffer.from([0x00]),
+      "tools/test-support/project.json": project("test-support", "role:tooling"),
+      "tools/test-support/src/dirty.ts": Buffer.from([0x00]),
+      "apps/cli/project.json": project("cli", "role:application"),
+      "apps/cli/src/dirty.ts": Buffer.from([0x00]),
+      "packages/core/orphan/src/not-a-project.ts": Buffer.from([0x00]),
     });
 
     const violations = findSourceHygieneViolations(repoRoot);
     expect(violations).toEqual([
+      { filePath: path.join("apps", "cli", "src", "dirty.ts"), line: 1, byte: 0 },
       {
-        filePath: path.join("packages", "workspace-state", "src", "nested", "dirty.ts"),
+        filePath: path.join("packages", "core", "workspace-state", "src", "nested", "dirty.ts"),
         line: 1,
         byte: 0,
       },
+      { filePath: path.join("tools", "test-support", "src", "dirty.ts"), line: 1, byte: 0 },
     ]);
   });
 
@@ -88,8 +99,9 @@ describe("findSourceHygieneViolations", () => {
 describe("findAxmEnvironmentContractViolations", () => {
   it("reports an unclassified production AXM environment literal", () => {
     const repoRoot = createRepoFixture({
-      "packages/cli/src/runtime.ts": 'const name = "AXM_NEW_CONTROL";\n',
-      "packages/cli/help/topics/environment.md": [
+      "apps/cli/project.json": project("cli", "type:app", "role:application"),
+      "apps/cli/src/runtime.ts": 'const name = "AXM_NEW_CONTROL";\n',
+      "apps/cli/help/topics/environment.md": [
         "| Variable | Classification | Details |",
         "| --- | --- | --- |",
         "",
@@ -99,15 +111,19 @@ describe("findAxmEnvironmentContractViolations", () => {
     expect(
       findAxmEnvironmentContractViolations(repoRoot).map(formatAxmEnvironmentContractViolation),
     ).toEqual([
-      `${path.join("packages", "cli", "src", "runtime.ts")}:1 AXM_NEW_CONTROL: production AXM environment literal lacks a classified reference row`,
+      `${path.join("apps", "cli", "src", "runtime.ts")}:1 AXM_NEW_CONTROL: production AXM environment literal lacks a classified reference row`,
     ]);
   });
 
   it("accepts stable and internal classifications and rejects stale rows", () => {
     const repoRoot = createRepoFixture({
-      "packages/cli/src/runtime.ts": 'const stable = "AXM_STABLE";\n',
-      "packages/workspace-state/src/internal.ts": 'const internal = "AXM_INTERNAL";\n',
-      "packages/cli/help/topics/environment.md": [
+      "apps/cli/project.json": project("cli", "type:app", "role:application"),
+      "apps/cli/src/runtime.ts": 'const stable = "AXM_STABLE";\n',
+      "packages/core/workspace-state/project.json": project("workspace-state", "role:capability"),
+      "packages/core/workspace-state/src/internal.ts": 'const internal = "AXM_INTERNAL";\n',
+      "tools/test-support/project.json": project("test-support", "role:tooling"),
+      "tools/test-support/src/fixture.ts": 'const tooling = "AXM_TOOLING_ONLY";\n',
+      "apps/cli/help/topics/environment.md": [
         "| Variable | Classification | Details |",
         "| --- | --- | --- |",
         "| `AXM_STABLE` | stable automation | Supported. |",
@@ -120,7 +136,7 @@ describe("findAxmEnvironmentContractViolations", () => {
     expect(findAxmEnvironmentContractViolations(repoRoot)).toEqual([
       {
         variable: "AXM_STALE",
-        filePath: path.join("packages", "cli", "help", "topics", "environment.md"),
+        filePath: path.join("apps", "cli", "help", "topics", "environment.md"),
         line: 5,
         reason: "classified reference row has no production CLI/core string literal",
       },
@@ -129,8 +145,9 @@ describe("findAxmEnvironmentContractViolations", () => {
 
   it("treats installer environment controls as production literals", () => {
     const repoRoot = createRepoFixture({
-      "packages/cli/site-content/install.sh": 'repo="${AXM_INSTALL_GITHUB_REPO:-agentxm/axm}"\n',
-      "packages/cli/help/topics/environment.md": [
+      "apps/cli/project.json": project("cli", "type:app", "role:application"),
+      "apps/cli/site-content/install.sh": 'repo="${AXM_INSTALL_GITHUB_REPO:-agentxm/axm}"\n',
+      "apps/cli/help/topics/environment.md": [
         "| Variable | Classification | Details |",
         "| --- | --- | --- |",
         "| `AXM_INSTALL_GITHUB_REPO` | internal | Installer override. |",
@@ -153,10 +170,13 @@ describe("findAxmEnvironmentContractViolations", () => {
 describe("countUnboundedConcurrencySites", () => {
   it("counts production literals while excluding tests and generated clients", () => {
     const repoRoot = createRepoFixture({
-      "packages/workspace-state/src/one.ts": 'const options = { concurrency: "unbounded" };\n',
-      "packages/cli/src/two.ts": 'const options = { concurrency: "unbounded" };\n',
-      "packages/workspace-state/src/one.test.ts": 'const options = { concurrency: "unbounded" };\n',
-      "packages/workspace-state/src/__generated__/client.ts":
+      "packages/core/workspace-state/project.json": project("workspace-state", "role:capability"),
+      "packages/core/workspace-state/src/one.ts": 'const options = { concurrency: "unbounded" };\n',
+      "apps/cli/project.json": project("cli", "role:application"),
+      "apps/cli/src/two.ts": 'const options = { concurrency: "unbounded" };\n',
+      "packages/core/workspace-state/src/one.test.ts":
+        'const options = { concurrency: "unbounded" };\n',
+      "packages/core/workspace-state/src/__generated__/client.ts":
         'const options = { concurrency: "unbounded" };\n',
     });
 

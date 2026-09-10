@@ -127,6 +127,136 @@ const axmPolicyPlugin = {
   },
 };
 
+/**
+ * Module boundaries.
+ *
+ * Tags come from the project graph: `type:*`, `role:*`, `scope:*`, and
+ * `release:cli` are authored in each project.json; `domain:*` is inferred from
+ * placement by scripts/placement-tags-plugin.ts. Every matching constraint is
+ * enforced independently, so the strategic (domain) and technical (role)
+ * matrices intersect and a later permissive row never overrides an earlier one.
+ */
+const moduleBoundaryOptions = {
+  banTransitiveDependencies: true,
+  allow: [
+    "^.*/eslint(\\.base)?\\.config\\.[cm]?js$",
+    "^.*/vitest\\.execution\\.js$",
+    "^.*/vitest\\.reporting\\.js$",
+    // Specifications exercise the CLI application boundary in-process
+    // through its published harness entry points.
+    "^axm\\.sh/(app|runtime|specification-harness)$",
+    // Subprocess e2e fixtures (apps/cli-e2e/src/fixtures/*.mjs) observe the
+    // CLI package's built shipped surface by path, and drive it through the
+    // built lifecycle contract it observes.
+    "^\\.\\./\\.\\./\\.\\./cli/dist/",
+    "^\\.\\./\\.\\./\\.\\./\\.\\./packages/core/workspace-operations/dist/",
+  ],
+};
+
+// Product packages that the end-to-end and test-support projects observe only
+// as shipped artifacts, never as imported code.
+const productScopeBans = [
+  "scope:agent-integration",
+  "scope:extension-model",
+  "scope:extension-lifecycle",
+  "scope:extension-sources",
+  "scope:extension-workspace",
+  "scope:registry-client",
+  "scope:registry-protocol",
+  "scope:workspace-lint",
+  "scope:workspace-operations",
+  "scope:workspace-state",
+  "scope:workspace-sync",
+];
+
+// Technical roles: dependencies point inward and never back toward the
+// application. Features are peers; capabilities may use lower integrations.
+const runtimeRoleDependencies = {
+  "role:application": ["role:feature", "role:capability", "role:integration", "role:contract"],
+  "role:feature": ["role:capability", "role:integration", "role:contract"],
+  "role:capability": ["role:capability", "role:integration", "role:contract"],
+  "role:integration": ["role:integration", "role:contract"],
+  "role:contract": ["role:contract"],
+};
+
+// Strategic direction: core may use supporting and generic; supporting may use
+// generic plus the two exact contract seams; generic depends on nothing of AXM.
+const domainDependencies = {
+  "domain:core": ["domain:core", "domain:supporting", "domain:generic"],
+  "domain:supporting": [
+    "domain:supporting",
+    "domain:generic",
+    "scope:extension-model",
+    "scope:registry-protocol",
+  ],
+  "domain:generic": ["domain:generic"],
+};
+
+/**
+ * `production: true` keeps every runtime role away from role:tooling so the
+ * engineering libraries under tools/ never enter runtime; `production: false`
+ * lets test-purpose files inside runtime packages compose them.
+ */
+const moduleBoundaryConstraints = ({ production }) => [
+  { sourceTag: "type:app", onlyDependOnLibsWithTags: ["type:lib"] },
+  { sourceTag: "type:lib", onlyDependOnLibsWithTags: ["type:lib"] },
+  { sourceTag: "type:tooling", onlyDependOnLibsWithTags: ["type:lib"] },
+  {
+    sourceTag: "type:e2e",
+    onlyDependOnLibsWithTags: ["type:lib"],
+    notDependOnLibsWithTags: productScopeBans,
+  },
+  { sourceTag: "type:specification", onlyDependOnLibsWithTags: ["type:lib", "type:app"] },
+  {
+    sourceTag: "scope:test",
+    onlyDependOnLibsWithTags: ["type:lib"],
+    notDependOnLibsWithTags: productScopeBans,
+  },
+  ...Object.entries(domainDependencies).map(([sourceTag, targets]) => ({
+    sourceTag,
+    onlyDependOnLibsWithTags: production ? targets : [...targets, "role:tooling"],
+  })),
+  ...Object.entries(runtimeRoleDependencies).map(([sourceTag, targets]) =>
+    production
+      ? { sourceTag, onlyDependOnLibsWithTags: targets, notDependOnLibsWithTags: ["role:tooling"] }
+      : { sourceTag, onlyDependOnLibsWithTags: [...targets, "role:tooling"] },
+  ),
+  { sourceTag: "role:e2e", onlyDependOnLibsWithTags: ["role:tooling", "role:contract"] },
+  { sourceTag: "role:tooling", onlyDependOnLibsWithTags: ["type:lib"] },
+  // Stable asymmetric contract boundary the role matrix cannot express: the
+  // shared model depends on nothing, the Registry protocol only on the model.
+  {
+    sourceTag: "scope:extension-model",
+    onlyDependOnLibsWithTags: ["scope:extension-model"],
+    allowedExternalImports: [
+      "effect",
+      "effect/**",
+      "packageurl-js",
+      "semver",
+      "spdx-expression-parse",
+      // Test-runner imports inside the package's own test files.
+      "vitest",
+      "vitest/**",
+      "@effect/vitest",
+    ],
+  },
+  {
+    sourceTag: "scope:registry-protocol",
+    onlyDependOnLibsWithTags: ["scope:registry-protocol", "scope:extension-model"],
+  },
+];
+
+const testPurposeFiles = [
+  "**/*.test.ts",
+  "**/*.test.tsx",
+  "**/*.test.cts",
+  "**/*.test.mts",
+  "**/*.spec.ts",
+  "**/*.spec.tsx",
+  "**/*.spec.cts",
+  "**/*.spec.mts",
+];
+
 export default [
   ...nxPlugin.configs["flat/base"],
   ...nxPlugin.configs["flat/typescript"],
@@ -160,122 +290,26 @@ export default [
       "@nx/enforce-module-boundaries": [
         "error",
         {
+          ...moduleBoundaryOptions,
           enforceBuildableLibDependency: true,
-          banTransitiveDependencies: true,
-          allow: [
-            "^.*/eslint(\\.base)?\\.config\\.[cm]?js$",
-            "^.*/vitest\\.execution\\.js$",
-            "^.*/vitest\\.reporting\\.js$",
-            // Specifications exercise the CLI application boundary in-process
-            // through its published harness entry points.
-            "^axm\\.sh/(app|runtime|specification-harness)$",
-            // Subprocess e2e fixtures observe the CLI package's built shipped
-            // surface by path, and drive it through the built lifecycle
-            // contract it observes.
-            "^\\.\\./\\.\\./\\.\\./cli/dist/",
-            "^\\.\\./\\.\\./\\.\\./workspace-operations/dist/",
-          ],
-          depConstraints: [
-            {
-              sourceTag: "type:app",
-              onlyDependOnLibsWithTags: ["type:lib"],
-            },
-            {
-              sourceTag: "type:lib",
-              onlyDependOnLibsWithTags: ["type:lib"],
-            },
-            {
-              sourceTag: "type:tooling",
-              onlyDependOnLibsWithTags: ["type:lib"],
-            },
-            {
-              sourceTag: "type:e2e",
-              onlyDependOnLibsWithTags: ["type:lib"],
-              notDependOnLibsWithTags: [
-                "scope:agent-integration",
-                "scope:extension-model",
-                "scope:extension-lifecycle",
-                "scope:extension-sources",
-                "scope:extension-workspace",
-                "scope:registry-client",
-                "scope:registry-protocol",
-                "scope:workspace-lint",
-                "scope:workspace-operations",
-                "scope:workspace-state",
-                "scope:workspace-sync",
-              ],
-            },
-            {
-              sourceTag: "type:specification",
-              onlyDependOnLibsWithTags: ["type:lib", "type:app"],
-            },
-            {
-              sourceTag: "scope:test",
-              onlyDependOnLibsWithTags: ["type:lib"],
-              notDependOnLibsWithTags: [
-                "scope:agent-integration",
-                "scope:extension-model",
-                "scope:extension-lifecycle",
-                "scope:extension-sources",
-                "scope:extension-workspace",
-                "scope:registry-client",
-                "scope:registry-protocol",
-                "scope:workspace-lint",
-                "scope:workspace-operations",
-                "scope:workspace-state",
-                "scope:workspace-sync",
-              ],
-            },
-            // Layer direction: dependencies point inward and never back
-            // toward the application. Feature packages are peers.
-            {
-              sourceTag: "layer:app",
-              onlyDependOnLibsWithTags: [
-                "layer:feature",
-                "layer:kernel",
-                "layer:integration",
-                "layer:contract",
-              ],
-            },
-            {
-              sourceTag: "layer:feature",
-              onlyDependOnLibsWithTags: ["layer:kernel", "layer:integration", "layer:contract"],
-            },
-            {
-              sourceTag: "layer:kernel",
-              onlyDependOnLibsWithTags: ["layer:kernel", "layer:contract"],
-            },
-            {
-              sourceTag: "layer:integration",
-              onlyDependOnLibsWithTags: ["layer:integration", "layer:contract"],
-            },
-            {
-              sourceTag: "layer:contract",
-              onlyDependOnLibsWithTags: ["layer:contract"],
-            },
-            // Stable asymmetric contract boundary the layer matrix cannot
-            // express: the shared model depends on nothing, the Registry
-            // protocol only on the model.
-            {
-              sourceTag: "scope:extension-model",
-              onlyDependOnLibsWithTags: ["scope:extension-model"],
-              allowedExternalImports: [
-                "effect",
-                "effect/**",
-                "packageurl-js",
-                "semver",
-                "spdx-expression-parse",
-                // Test-runner imports inside the package's own test files.
-                "vitest",
-                "vitest/**",
-                "@effect/vitest",
-              ],
-            },
-            {
-              sourceTag: "scope:registry-protocol",
-              onlyDependOnLibsWithTags: ["scope:registry-protocol", "scope:extension-model"],
-            },
-          ],
+          depConstraints: moduleBoundaryConstraints({ production: true }),
+        },
+      ],
+    },
+  },
+  {
+    // Tests and specifications inside buildable libraries may compose the
+    // non-buildable engineering libraries under tools/ (role:tooling). Runtime
+    // code keeps the strict block above; this block relaxes only buildability
+    // and the tooling ban, for test-purpose files.
+    files: testPurposeFiles,
+    rules: {
+      "@nx/enforce-module-boundaries": [
+        "error",
+        {
+          ...moduleBoundaryOptions,
+          enforceBuildableLibDependency: false,
+          depConstraints: moduleBoundaryConstraints({ production: false }),
         },
       ],
     },
@@ -304,7 +338,7 @@ export default [
     },
   },
   {
-    files: ["packages/**/src/**/*.ts", "packages/**/src/**/*.tsx"],
+    files: ["{apps,packages,tools}/**/src/**/*.ts", "{apps,packages,tools}/**/src/**/*.tsx"],
     ignores: [
       "**/*.test.ts",
       "**/*.test.tsx",
@@ -352,18 +386,18 @@ export default [
     // previous `no-restricted-syntax` form of these restrictions was inert for
     // exactly that reason. Distinct keys compose with the blocks below.
     //
-    // Scope is the production source selection: package sources only, excluding
+    // Scope is the production source selection: project sources only, excluding
     // tests, generated clients, and the e2e/test-support packages that observe
     // published artifacts rather than owning production literals.
-    files: ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
+    files: ["{apps,packages,tools}/**/src/**/*.ts", "{apps,packages,tools}/**/src/**/*.tsx"],
     ignores: [
       "**/*.test.ts",
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
       "**/__generated__/**",
-      "packages/cli-e2e/**",
-      "packages/e2e-utils/**",
+      "apps/cli-e2e/**",
+      "tools/e2e-utils/**",
     ],
     plugins: {
       "axm-policy": axmPolicyPlugin,
@@ -378,7 +412,7 @@ export default [
     // `Screen` is the sole writer after runtime startup
     // (docs/architecture/commands/output.md); streams.ts is its process
     // adapter and owns the process stream handles.
-    files: ["packages/cli/src/screen/streams.ts"],
+    files: ["apps/cli/src/screen/streams.ts"],
     rules: {
       "axm-policy/no-direct-process-output": "off",
     },
@@ -386,7 +420,7 @@ export default [
   {
     // The guarded prompt boundary: requireInteractive lives here, so this is
     // the one production module that may reach Prompt.run.
-    files: ["packages/cli/src/prompt/helpers.ts"],
+    files: ["apps/cli/src/prompt/helpers.ts"],
     rules: {
       "axm-policy/no-unguarded-prompt-run": "off",
     },
@@ -395,34 +429,15 @@ export default [
     // Timestamp backstop: production code reads the clock through
     // DateTime.now / Clock and holds DateTime.Utc; ambient Date construction
     // belongs only at sanctioned edges (listed in ignores) and tests.
-    files: [
-      "packages/agent-integration/src/**/*.ts",
-      "packages/extension-authoring/src/**/*.ts",
-      "packages/extension-discovery/src/**/*.ts",
-      "packages/extension-lifecycle/src/**/*.ts",
-      "packages/extension-model/src/**/*.ts",
-      "packages/extension-publish/src/**/*.ts",
-      "packages/extension-sources/src/**/*.ts",
-      "packages/extension-workspace/src/**/*.ts",
-      "packages/knowledge-query/src/**/*.ts",
-      "packages/registry-auth/src/**/*.ts",
-      "packages/registry-client/src/**/*.ts",
-      "packages/registry-protocol/src/**/*.ts",
-      "packages/workspace-configuration/src/**/*.ts",
-      "packages/workspace-inspection/src/**/*.ts",
-      "packages/workspace-lint/src/**/*.ts",
-      "packages/workspace-operations/src/**/*.ts",
-      "packages/workspace-state/src/**/*.ts",
-      "packages/workspace-sync/src/**/*.ts",
-      "packages/cli/src/**/*.ts",
-    ],
+    files: ["{apps,packages}/**/src/**/*.ts"],
     ignores: [
       "**/*.test.ts",
       "**/*.spec.ts",
-      "packages/cli/src/test-helpers.ts",
-      "packages/cli/src/test-stubs.ts",
+      "apps/cli-e2e/**",
+      "apps/cli/src/test-helpers.ts",
+      "apps/cli/src/test-stubs.ts",
       // deterministic archive mtime constant, not a clock read
-      "packages/extension-publish/src/archive.ts",
+      "packages/core/extension-publish/src/archive.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -481,11 +496,11 @@ export default [
   {
     // Effect production invariants are global. A justified defect conversion
     // or module-lifetime singleton must carry its rationale at the exact site.
-    files: ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
+    files: ["{apps,packages,tools}/**/src/**/*.ts", "{apps,packages,tools}/**/src/**/*.tsx"],
     ignores: [
       "**/*.test.ts",
       "**/*.spec.ts",
-      "packages/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
+      "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -543,15 +558,15 @@ export default [
     },
   },
   {
-    files: ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
+    files: ["{apps,packages,tools}/**/src/**/*.ts", "{apps,packages,tools}/**/src/**/*.tsx"],
     // The composition root plus explicitly named test-support modules are the
     // bounded non-test exceptions.
     ignores: [
-      "packages/cli/src/runtime.ts",
-      "packages/cli/src/test-helpers.ts",
+      "apps/cli/src/runtime.ts",
+      "apps/cli/src/test-helpers.ts",
       // Published specification adapter exposes real services to boundary tests.
-      "packages/cli/src/specification-harness.ts",
-      "packages/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
+      "apps/cli/src/specification-harness.ts",
+      "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
       "**/*.test.ts",
       "**/*.spec.ts",
     ],
@@ -563,14 +578,14 @@ export default [
             {
               name: "effect/unstable/http/FetchHttpClient",
               message:
-                "Provide the Fetch HTTP client once in packages/cli/src/runtime.ts so transport policy is applied uniformly.",
+                "Provide the Fetch HTTP client once in apps/cli/src/runtime.ts so transport policy is applied uniformly.",
             },
           ],
           patterns: [
             {
               group: ["@agentxm/*/live"],
               message:
-                "Concrete environment-backed Layers compose only in the application composition root (packages/cli/src/runtime.ts); feature logic keeps service requirements in its Effect environment.",
+                "Concrete environment-backed Layers compose only in the application composition root (apps/cli/src/runtime.ts); feature logic keeps service requirements in its Effect environment.",
             },
             {
               group: ["@agentxm/*/testing"],
@@ -581,6 +596,68 @@ export default [
               group: ["@agentxm/*/src/*", "@agentxm/*/dist/*", "axm.sh/src/*", "axm.sh/dist/*"],
               message:
                 "Deep imports bypass the provider's declared public API; export the symbol intentionally or move the responsibility to the right package.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // CLI handler boundary: handlers parse, call feature and capability
+    // application APIs, and render. They do not construct plans, touch
+    // workspace writers, or reach integrations directly; only the composition
+    // root (apps/cli/src/runtime.ts) and the runtime envelope
+    // (apps/cli/src/cli-runtime/**) sit outside this rule, and neither lives
+    // under src/root. Contract *types* stay importable for rendering.
+    //
+    // Registered as "warn" while handlers still import these modules; it flips
+    // to "error" when the handler migration completes.
+    files: ["apps/cli/src/root/**/*.ts"],
+    ignores: testPurposeFiles,
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "warn",
+        {
+          paths: [
+            {
+              name: "@agentxm/workspace-state",
+              importNames: [
+                "WorkspaceMutations",
+                "makeWorkspaceMutations",
+                "SettingsWriter",
+                "AcceptedResolutionWriter",
+                "DesiredStateWriter",
+              ],
+              allowTypeImports: true,
+              message:
+                "Handlers do not write workspace state; call the owning feature or capability application API.",
+            },
+            {
+              name: "@agentxm/workspace-operations",
+              importNames: [
+                "Plan",
+                "PlannedJobStep",
+                "previewOrApplyPlan",
+                "prepareExecutionCandidate",
+              ],
+              allowTypeImports: true,
+              message:
+                "Handlers do not construct or execute plans; call Feature.prepare and Feature.previewOrApply.",
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                "@agentxm/workspace-transactions",
+                "@agentxm/workspace-transactions/*",
+                "@agentxm/extension-sources",
+                "@agentxm/extension-sources/*",
+                "@agentxm/registry-client",
+                "@agentxm/registry-client/*",
+              ],
+              allowTypeImports: true,
+              message:
+                "Handlers reach transactions, sources, and the Registry only through feature and capability application APIs.",
             },
           ],
         },
@@ -617,9 +694,9 @@ export default [
     // These variable-cardinality I/O surfaces were remediated in the 2026-08
     // concurrency census. Keep literal unbounded traversal from returning.
     files: [
-      "packages/registry-client/src/remote-client.ts",
-      "packages/extension-sources/src/providers/convention-discovery.ts",
-      "packages/workspace-inspection/src/version-currency/collectors.ts",
+      "packages/supporting/registry-client/src/remote-client.ts",
+      "packages/supporting/extension-sources/src/providers/convention-discovery.ts",
+      "packages/core/workspace-inspection/src/version-currency/collectors.ts",
     ],
     plugins: {
       "axm-policy": axmPolicyPlugin,

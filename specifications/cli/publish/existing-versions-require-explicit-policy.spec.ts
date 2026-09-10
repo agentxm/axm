@@ -16,10 +16,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["trustworthy-distribution", "safe-repetition"],
   methods: ["decision-table", "example"],
-  derivedFrom: [
-    "packages/cli/help/topics/publish.md",
-    "packages/cli/src/root/publish/command.test.ts",
-  ],
+  derivedFrom: ["apps/cli/help/topics/publish.md", "apps/cli/src/root/publish/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

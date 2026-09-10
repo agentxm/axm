@@ -40,7 +40,7 @@ describe("Contract changes and evidence impact", () => {
       ),
     ).toContain("No requirement contract changes. 1 requirement(s) unchanged.");
   });
-  it.each(["packages/cli/src/install.ts", "specifications/support/install-harness.ts"])(
+  it.each(["apps/cli/src/install.ts", "specifications/support/install-harness.ts"])(
     "reports evidence impact when only %s changes",
     (changed) => {
       const verdict = evaluateVerdict(

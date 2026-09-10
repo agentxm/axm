@@ -35,7 +35,7 @@ describe("classifyCiChanges", () => {
   });
 
   it("uses changed code paths as the verification signal", () => {
-    expect(classifyCiChanges(["packages/cli/src/main.ts"])).toMatchObject({
+    expect(classifyCiChanges(["apps/cli/src/main.ts"])).toMatchObject({
       code: true,
     });
   });
@@ -53,8 +53,8 @@ describe("classifyCiChanges", () => {
         "README.md",
         ".github/workflows/ci.yml",
         "containers/ci/Containerfile",
-        "packages/cli/src/main.ts",
+        "apps/cli/src/main.ts",
       ]),
-    ).toEqual(["packages/cli/src/main.ts"]);
+    ).toEqual(["apps/cli/src/main.ts"]);
   });
 });

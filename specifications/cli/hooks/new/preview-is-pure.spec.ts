@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["safe-repetition", "authoring-and-creation"],
   methods: ["example"],
-  derivedFrom: ["packages/cli/src/root/hooks/new.test.ts"],
+  derivedFrom: ["apps/cli/src/root/hooks/new.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

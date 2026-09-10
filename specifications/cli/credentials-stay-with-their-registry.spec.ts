@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation"],
   methods: ["example"],
-  derivedFrom: ["packages/registry-auth/src/token-resolution.test.ts"],
+  derivedFrom: ["packages/supporting/registry-auth/src/token-resolution.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

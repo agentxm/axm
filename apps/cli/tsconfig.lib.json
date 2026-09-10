@@ -1,0 +1,68 @@
+{
+  "extends": "../../tsconfig.lib-base.json",
+  "compilerOptions": {
+    "incremental": true,
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts", "src/**/*.e2e.test.ts"],
+  "references": [
+    {
+      "path": "../../packages/core/workspace-sync/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/workspace-configuration/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/workspace-inspection/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/workspace-state/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/workspace-operations/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/workspace-lint/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/registry-protocol/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/supporting/registry-client/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/supporting/registry-auth/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/knowledge-query/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/extension-workspace/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/supporting/extension-sources/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/extension-publish/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/extension-model/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/extension-lifecycle/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/extension-discovery/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/extension-authoring/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/supporting/agent-integration/tsconfig.lib.json"
+    }
+  ]
+}

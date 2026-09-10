@@ -392,7 +392,7 @@ export interface CollectCatalogOptions {
 }
 
 export const collectCatalog = (options: CollectCatalogOptions): SpecificationCatalog => {
-  const { repoRoot, executionBindingRoots = ["packages/cli-e2e/src"] } = options;
+  const { repoRoot, executionBindingRoots = ["apps/cli-e2e/src"] } = options;
   const issues: CatalogIssue[] = [];
   const specifications: CatalogSpecification[] = [];
 

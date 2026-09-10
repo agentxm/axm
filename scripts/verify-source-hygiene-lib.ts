@@ -62,19 +62,94 @@ const isProductionTypeScriptSource = (filePath: string): boolean =>
   !filePath.endsWith(".spec.ts") &&
   !filePath.includes(`${path.sep}__generated__${path.sep}`);
 
+export type DiscoveredProject = {
+  /** Repository-relative project root with forward slashes; `""` for the root project. */
+  readonly root: string;
+  readonly name: string | undefined;
+  readonly tags: ReadonlyArray<string>;
+};
+
+/** Directory families that may hold authored projects. */
+const PROJECT_FAMILIES = ["apps", "packages", "tools", "specifications"] as const;
+
+const RUNTIME_ROLE_TAGS: ReadonlySet<string> = new Set([
+  "role:contract",
+  "role:capability",
+  "role:feature",
+  "role:integration",
+  "role:application",
+]);
+
+const walkFiles = (dir: string, results: string[]): void => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "out-tsc") {
+      continue;
+    }
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkFiles(entryPath, results);
+    } else {
+      results.push(entryPath);
+    }
+  }
+};
+
+const readProject = (repoRoot: string, projectJsonPath: string): DiscoveredProject => {
+  const parsed: unknown = JSON.parse(fs.readFileSync(projectJsonPath, "utf8"));
+  const record = typeof parsed === "object" && parsed !== null ? parsed : {};
+  const name = "name" in record ? record.name : undefined;
+  const tags = "tags" in record && Array.isArray(record.tags) ? record.tags : [];
+  return {
+    root: path.relative(repoRoot, path.dirname(projectJsonPath)).split(path.sep).join("/"),
+    name: typeof name === "string" ? name : undefined,
+    tags: tags.filter((tag: unknown): tag is string => typeof tag === "string"),
+  };
+};
+
 /**
- * Scan every `packages/<package>/src/**` TypeScript source under `repoRoot`
+ * Every Nx project the repository authors, discovered from its `project.json`
+ * under `apps/`, `packages/`, `tools/`, and `specifications` plus the root
+ * project. Discovery never assumes a directory depth, so a package moved
+ * between tiers can neither escape a scan nor be scanned twice.
+ */
+export const discoverProjects = (repoRoot: string): ReadonlyArray<DiscoveredProject> => {
+  const projects: DiscoveredProject[] = [];
+  const rootProjectPath = path.join(repoRoot, "project.json");
+  if (fs.existsSync(rootProjectPath)) {
+    projects.push(readProject(repoRoot, rootProjectPath));
+  }
+  for (const family of PROJECT_FAMILIES) {
+    const familyPath = path.join(repoRoot, family);
+    if (!fs.existsSync(familyPath)) continue;
+    const files: string[] = [];
+    walkFiles(familyPath, files);
+    for (const filePath of files) {
+      if (path.basename(filePath) === "project.json") {
+        projects.push(readProject(repoRoot, filePath));
+      }
+    }
+  }
+  return projects.sort((left, right) => left.root.localeCompare(right.root));
+};
+
+const projectSourceRoots = (
+  repoRoot: string,
+  projects: ReadonlyArray<DiscoveredProject>,
+): ReadonlyArray<string> =>
+  projects
+    .filter((project) => project.root !== "")
+    .map((project) => path.join(repoRoot, project.root, "src"))
+    .filter((srcRoot) => fs.existsSync(srcRoot));
+
+/**
+ * Scan every authored project's `src/**` TypeScript source under `repoRoot`
  * for forbidden C0 control bytes.
  */
 export const findSourceHygieneViolations = (
   repoRoot: string,
 ): ReadonlyArray<ControlByteViolation> => {
-  const packagesRoot = path.join(repoRoot, "packages");
   const sourceFiles: string[] = [];
-  for (const entry of fs.readdirSync(packagesRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const srcRoot = path.join(packagesRoot, entry.name, "src");
-    if (!fs.existsSync(srcRoot)) continue;
+  for (const srcRoot of projectSourceRoots(repoRoot, discoverProjects(repoRoot))) {
     walkTypeScriptSources(srcRoot, sourceFiles);
   }
 
@@ -92,21 +167,19 @@ const lineAtOffset = (source: string, offset: number): number =>
   source.slice(0, offset).split("\n").length;
 
 /**
- * Production package source roots, derived from the workspace tree so package
- * extractions never leave a scanner behind. E2e and test-support packages are
- * excluded: they observe published artifacts and own no production literals.
+ * Production package source roots, derived from the discovered projects so a
+ * package extraction never leaves a scanner behind. A project is production
+ * when it declares a runtime `role:*`; e2e and tooling projects observe
+ * published artifacts and own no production literals.
  */
-const productionPackageSourceRoots = (repoRoot: string): ReadonlyArray<string> => {
-  const packagesDir = path.join(repoRoot, "packages");
-  if (!fs.existsSync(packagesDir)) return [];
-  const excluded = new Set(["cli-e2e", "e2e-utils"]);
-  return fs
-    .readdirSync(packagesDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !excluded.has(entry.name))
-    .map((entry) => path.join(packagesDir, entry.name, "src"))
-    .filter((root) => fs.existsSync(root))
-    .sort();
-};
+const productionPackageSourceRoots = (
+  repoRoot: string,
+  projects: ReadonlyArray<DiscoveredProject>,
+): ReadonlyArray<string> =>
+  projectSourceRoots(
+    repoRoot,
+    projects.filter((project) => project.tags.some((tag) => RUNTIME_ROLE_TAGS.has(tag))),
+  );
 
 const UNBOUNDED_CONCURRENCY_LITERAL = /concurrency\s*:\s*["']unbounded["']/g;
 
@@ -116,12 +189,9 @@ const UNBOUNDED_CONCURRENCY_LITERAL = /concurrency\s*:\s*["']unbounded["']/g;
  * additions must classify the workload instead of spending that headroom.
  */
 export const countUnboundedConcurrencySites = (repoRoot: string): number => {
-  const packagesRoot = path.join(repoRoot, "packages");
   const sourceFiles: string[] = [];
-  for (const entry of fs.readdirSync(packagesRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const srcRoot = path.join(packagesRoot, entry.name, "src");
-    if (fs.existsSync(srcRoot)) walkTypeScriptSources(srcRoot, sourceFiles);
+  for (const srcRoot of projectSourceRoots(repoRoot, discoverProjects(repoRoot))) {
+    walkTypeScriptSources(srcRoot, sourceFiles);
   }
 
   return sourceFiles
@@ -149,13 +219,15 @@ const AXM_ENVIRONMENT_CONTRACT_ROW =
 export const findAxmEnvironmentContractViolations = (
   repoRoot: string,
 ): ReadonlyArray<AxmEnvironmentContractViolation> => {
+  const projects = discoverProjects(repoRoot);
+  const cliRoot = projects.find((project) => project.name === "cli")?.root ?? "apps/cli";
   const sourceFiles: string[] = [];
-  for (const root of productionPackageSourceRoots(repoRoot)) {
-    if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
+  for (const root of productionPackageSourceRoots(repoRoot, projects)) {
+    walkTypeScriptSources(root, sourceFiles);
   }
   for (const installer of [
-    path.join(repoRoot, "packages", "cli", "site-content", "install.sh"),
-    path.join(repoRoot, "packages", "cli", "site-content", "install.ps1"),
+    path.join(repoRoot, cliRoot, "site-content", "install.sh"),
+    path.join(repoRoot, cliRoot, "site-content", "install.ps1"),
   ]) {
     if (fs.existsSync(installer)) sourceFiles.push(installer);
   }
@@ -180,7 +252,7 @@ export const findAxmEnvironmentContractViolations = (
     }
   }
 
-  const contractPath = path.join(repoRoot, "packages", "cli", "help", "topics", "environment.md");
+  const contractPath = path.join(repoRoot, cliRoot, "help", "topics", "environment.md");
   if (!fs.existsSync(contractPath)) {
     return [
       {
@@ -259,54 +331,6 @@ export type TestTaxonomyViolation = {
 const E2E_TEST_SUFFIX = ".e2e.test.ts";
 const E2E_PROJECT_TAG = "type:e2e";
 
-const walkFiles = (dir: string, results: string[]): void => {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "out-tsc") {
-      continue;
-    }
-    const entryPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      walkFiles(entryPath, results);
-    } else {
-      results.push(entryPath);
-    }
-  }
-};
-
-const readProjectTags = (projectJsonPath: string): ReadonlyArray<string> => {
-  const parsed: unknown = JSON.parse(fs.readFileSync(projectJsonPath, "utf8"));
-  if (typeof parsed !== "object" || parsed === null || !("tags" in parsed)) {
-    return [];
-  }
-  const { tags } = parsed;
-  return Array.isArray(tags)
-    ? tags.filter((tag: unknown): tag is string => typeof tag === "string")
-    : [];
-};
-
-/**
- * Nx project roots (repo-relative, `""` for the root project) mapped to their
- * authored tags, discovered from every `project.json` among `files`.
- */
-const collectProjectTags = (
-  repoRoot: string,
-  files: ReadonlyArray<string>,
-): ReadonlyMap<string, ReadonlyArray<string>> => {
-  const projects = new Map<string, ReadonlyArray<string>>();
-  const rootProjectPath = path.join(repoRoot, "project.json");
-  if (fs.existsSync(rootProjectPath)) {
-    projects.set("", readProjectTags(rootProjectPath));
-  }
-  for (const filePath of files) {
-    if (path.basename(filePath) !== "project.json") {
-      continue;
-    }
-    const projectRoot = path.relative(repoRoot, path.dirname(filePath)).split(path.sep).join("/");
-    projects.set(projectRoot, readProjectTags(filePath));
-  }
-  return projects;
-};
-
 /** Tags of the innermost project whose root contains `relativePath`, if any. */
 const owningProjectTags = (
   projects: ReadonlyMap<string, ReadonlyArray<string>>,
@@ -342,7 +366,9 @@ export const findTestTaxonomyViolations = (
       walkFiles(rootPath, files);
     }
   }
-  const projects = collectProjectTags(repoRoot, files);
+  const projects = new Map(
+    discoverProjects(repoRoot).map((project) => [project.root, project.tags] as const),
+  );
   for (const filePath of files) {
     const relativePath = path.relative(repoRoot, filePath).split(path.sep).join("/");
     const name = path.basename(filePath);

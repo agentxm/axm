@@ -18,8 +18,8 @@ export const specification = defineSpecification({
     "The primary example executes the actual shell installer against a local download fixture and observes the installed bytes; the existing installed-product suite binds real AXM execution for every supported installer shell.",
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/help/topics/environment.md",
-    "packages/cli-e2e/src/install-verification.e2e.test.ts",
+    "apps/cli/help/topics/environment.md",
+    "apps/cli-e2e/src/install-verification.e2e.test.ts",
   ],
   supersedes: [],
   assumptions: [],

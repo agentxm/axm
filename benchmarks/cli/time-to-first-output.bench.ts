@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { bench, describe } from "vitest";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
-const cliPath = path.join(repoRoot, "packages", "cli", "dist", "src", "main.js");
+const cliPath = path.join(repoRoot, "apps", "cli", "dist", "src", "main.js");
 
 if (!fs.existsSync(cliPath)) {
   throw new Error(`Built CLI not found at ${cliPath}. Run \`pnpm exec nx run cli:build\` first.`);

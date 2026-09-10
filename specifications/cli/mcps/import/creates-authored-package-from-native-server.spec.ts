@@ -23,8 +23,8 @@ export const specification = defineSpecification({
     "The built CLI reads native configuration, runs the package creation and managed validation path, and persists a schema-valid authored manifest and workspace declaration under the supplied identity.",
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/cli/src/root/mcps/import.ts",
-    "packages/cli-e2e/src/fork-import.e2e.test.ts",
+    "apps/cli/src/root/mcps/import.ts",
+    "apps/cli-e2e/src/fork-import.e2e.test.ts",
     "cli/creation-uses-configured-workspace-ownership",
     "cli/authoring-uses-project-workspace",
   ],

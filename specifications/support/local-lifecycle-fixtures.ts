@@ -20,8 +20,8 @@ type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
  * authority) and packs (Registry or workspace authorship, no local package
  * source) cannot be driven through this route; their shared-lifecycle evidence
  * is bound at the process boundary by the `executionBinding` exports on
- * `packages/cli-e2e/src/root-install.e2e.test.ts` (registry install, pack graph
- * lifecycle) and `packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`
+ * `apps/cli-e2e/src/root-install.e2e.test.ts` (registry install, pack graph
+ * lifecycle) and `apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`
  * (authored lifecycle for every catalog type). That the locator route and the
  * registry-only types together account for every catalog type is an
  * implementation inventory, checked by the root install handler's internal

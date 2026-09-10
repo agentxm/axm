@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "cli/lint/official-skill-findings-follow-declared-intent",
-    "packages/cli/help/topics/upgrade.md",
+    "apps/cli/help/topics/upgrade.md",
   ],
   supersedes: ["cli/lint/official-skill-findings-follow-declared-intent"],
   assumptions: [],

@@ -42,8 +42,8 @@ describe("release cohort derivation", () => {
     const cohort = resolveReleaseCohort(
       snapshotOf({
         // Declared consumer-first so the order cannot come from input order.
-        "packages/cli/project.json": project("cli", ["release:cli"]),
-        "packages/cli/package.json": manifest("axm.sh", {
+        "apps/cli/project.json": project("cli", ["release:cli"]),
+        "apps/cli/package.json": manifest("axm.sh", {
           "@scope/client": "workspace:*",
           "external-dep": "^1.0.0",
         }),
@@ -62,8 +62,8 @@ describe("release cohort derivation", () => {
   it("flattens scoped names and preserves unscoped names in tarball prefixes", () => {
     const cohort = resolveReleaseCohort(
       snapshotOf({
-        "packages/cli/project.json": project("cli", ["release:cli"]),
-        "packages/cli/package.json": manifest("axm.sh"),
+        "apps/cli/project.json": project("cli", ["release:cli"]),
+        "apps/cli/package.json": manifest("axm.sh"),
         "packages/model/project.json": project("model", ["release:cli"]),
         "packages/model/package.json": manifest("@agentxm/extension-model"),
       }),

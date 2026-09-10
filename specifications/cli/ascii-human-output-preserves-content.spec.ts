@@ -14,9 +14,9 @@ export const specification = defineSpecification({
   goals: ["actionable-diagnostics"],
   methods: ["decision-table", "example"],
   derivedFrom: [
-    "packages/cli/help/topics/environment.md",
-    "packages/cli/src/screen/output-policy.test.ts",
-    "packages/cli/src/screen/paint-text.test.ts",
+    "apps/cli/help/topics/environment.md",
+    "apps/cli/src/screen/output-policy.test.ts",
+    "apps/cli/src/screen/paint-text.test.ts",
   ],
   supersedes: [],
   assumptions: [],

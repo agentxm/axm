@@ -25,9 +25,9 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "cli/publish/selectors-and-filters-narrow-authored-candidates",
-    "packages/cli/help/topics/publish.md",
-    "packages/cli/src/root/publish/command.ts",
-    "packages/cli/src/root/publish/per-type-command.ts",
+    "apps/cli/help/topics/publish.md",
+    "apps/cli/src/root/publish/command.ts",
+    "apps/cli/src/root/publish/per-type-command.ts",
   ],
   supersedes: ["cli/publish/selectors-and-filters-narrow-authored-candidates"],
   assumptions: [],

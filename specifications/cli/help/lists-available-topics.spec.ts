@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The built CLI emits its topic index; an independent inventory of published Markdown and schema sources detects missing, duplicate, and extra entries.",
   methods: ["contract", "example"],
-  derivedFrom: ["packages/cli/help/README.md", "packages/cli/src/root/help/command.test.ts"],
+  derivedFrom: ["apps/cli/help/README.md", "apps/cli/src/root/help/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -29,7 +29,7 @@ const indexDocument = Schema.Struct({
     topics: Schema.Array(Schema.Struct({ name: Schema.String, description: Schema.String })),
   }),
 });
-const cliRoot = new URL("../../../packages/cli/", import.meta.url);
+const cliRoot = new URL("../../../apps/cli/", import.meta.url);
 
 describe("Help topic index", () => {
   it("lists the published topic inventory and supplies a working invocation", async () => {

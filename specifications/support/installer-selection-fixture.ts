@@ -5,9 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const installer = fileURLToPath(
-  new URL("../../packages/cli/site-content/install.sh", import.meta.url),
-);
+const installer = fileURLToPath(new URL("../../apps/cli/site-content/install.sh", import.meta.url));
 const executable = (version: string) =>
   Buffer.from(`#!/bin/sh\n[ "$1" = "--version" ] || exit 64\nprintf '%s\\n' '${version}'\n`);
 export const makeInstallerSelectionFixture = () => {

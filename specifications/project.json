@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "specifications",
   "sourceRoot": "specifications",
-  "tags": ["type:specification", "scope:specifications"],
+  "tags": ["type:specification", "role:tooling", "scope:specifications"],
   "targets": {
     "test": {
       "dependsOn": ["^build"]
@@ -18,8 +18,12 @@
         "^default",
         "{workspaceRoot}/vitest.reporting.ts",
         "{workspaceRoot}/scripts/specification-evidence-reporter.ts",
-        { "externalDependencies": ["vitest"] },
-        { "env": "CI" }
+        {
+          "externalDependencies": ["vitest"]
+        },
+        {
+          "env": "CI"
+        }
       ],
       "outputs": ["{workspaceRoot}/test-results/specifications-memory"],
       "options": {
@@ -34,8 +38,8 @@
         "{projectRoot}/**/*.ts",
         "{workspaceRoot}/scripts/specification-catalog.ts",
         "{workspaceRoot}/scripts/specification-catalog-lib.ts",
-        "{workspaceRoot}/packages/cli-e2e/src/**/*.ts",
-        "{workspaceRoot}/packages/extension-model/src/unstable/specifications/**/*.ts"
+        "{workspaceRoot}/apps/cli-e2e/src/**/*.ts",
+        "{workspaceRoot}/packages/core/extension-model/src/unstable/specifications/**/*.ts"
       ],
       "outputs": ["{projectRoot}/catalog.md"],
       "options": {

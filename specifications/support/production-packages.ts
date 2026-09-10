@@ -4,20 +4,23 @@
  * Reads what the repository declares on disk about its production packages:
  * each package's published name, the dependency level its project declares,
  * and the production packages its manifest declares a dependency on. A
- * production package is a workspace package whose project declares a
- * `layer:*` tag; end-to-end and test-support projects carry none and are not
- * part of the production dependency structure.
+ * production package is a workspace package whose project declares a runtime
+ * `role:*` tag; end-to-end and engineering-support projects carry
+ * `role:e2e` or `role:tooling` and are not part of the production dependency
+ * structure.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+
+import { readWorkspacePackageDirectories } from "./workspace-packages.js";
 
 export interface ProductionPackage {
   /** Published package name, for example `@agentxm/workspace-state`. */
   readonly name: string;
   /** Repository-relative package directory. */
   readonly directory: string;
-  /** Dependency levels the project declares through its `layer:*` tags. */
+  /** Dependency levels the project declares through its `role:*` tags. */
   readonly levels: ReadonlyArray<string>;
   /** Names of the production packages this package's manifest depends on. */
   readonly dependencies: ReadonlyArray<string>;
@@ -29,7 +32,8 @@ const PRODUCTION_DEPENDENCY_FIELDS = [
   "optionalDependencies",
 ] as const;
 
-const LEVEL_TAG_PREFIX = "layer:";
+const LEVEL_TAG_PREFIX = "role:";
+const NON_PRODUCTION_LEVELS: ReadonlySet<string> = new Set(["e2e", "tooling"]);
 
 const readJsonObject = (filePath: string): Partial<Record<string, unknown>> => {
   const parsed: unknown = JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -57,22 +61,17 @@ const declaredDependencyNames = (
  * production packages, in directory order.
  */
 export const readProductionPackages = (repoRoot: string): ReadonlyArray<ProductionPackage> => {
-  const packagesRoot = path.join(repoRoot, "packages");
-  const declared = fs
-    .readdirSync(packagesRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort()
-    .flatMap((directoryName): ProductionPackage[] => {
-      const directory = path.join(packagesRoot, directoryName);
-      const projectPath = path.join(directory, "project.json");
-      const manifestPath = path.join(directory, "package.json");
-      if (!fs.existsSync(projectPath) || !fs.existsSync(manifestPath)) {
+  const declared = readWorkspacePackageDirectories(repoRoot).flatMap(
+    (directory): ProductionPackage[] => {
+      const projectPath = path.join(repoRoot, directory, "project.json");
+      const manifestPath = path.join(repoRoot, directory, "package.json");
+      if (!fs.existsSync(projectPath)) {
         return [];
       }
       const levels = stringEntries(readJsonObject(projectPath)["tags"])
         .filter((tag) => tag.startsWith(LEVEL_TAG_PREFIX))
-        .map((tag) => tag.slice(LEVEL_TAG_PREFIX.length));
+        .map((tag) => tag.slice(LEVEL_TAG_PREFIX.length))
+        .filter((level) => !NON_PRODUCTION_LEVELS.has(level));
       if (levels.length === 0) {
         return [];
       }
@@ -81,15 +80,9 @@ export const readProductionPackages = (repoRoot: string): ReadonlyArray<Producti
       if (typeof name !== "string") {
         throw new Error(`${manifestPath} must declare a package name`);
       }
-      return [
-        {
-          name,
-          directory: `packages/${directoryName}`,
-          levels,
-          dependencies: declaredDependencyNames(manifest),
-        },
-      ];
-    });
+      return [{ name, directory, levels, dependencies: declaredDependencyNames(manifest) }];
+    },
+  );
   const productionNames = new Set(declared.map((entry) => entry.name));
   return declared.map((entry) => ({
     ...entry,

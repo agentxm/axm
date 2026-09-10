@@ -28,8 +28,8 @@ export const specification = defineSpecification({
   goals: ["workspace-intent-fidelity", "safe-repetition"],
   methods: ["example"],
   derivedFrom: [
-    "packages/extension-lifecycle/src/knowledge/manager.ts",
-    "packages/extension-workspace/src/projection/planning.ts",
+    "packages/core/extension-lifecycle/src/knowledge/manager.ts",
+    "packages/core/extension-workspace/src/projection/planning.ts",
   ],
   supersedes: [],
   assumptions: [],

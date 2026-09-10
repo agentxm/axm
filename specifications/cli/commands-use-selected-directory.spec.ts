@@ -17,10 +17,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The built CLI parses global arguments and selects its execution directory before composing workspace services; a real process establishes the selected filesystem boundary.",
   methods: ["example", "decision-table"],
-  derivedFrom: [
-    "packages/cli-e2e/src/directory.e2e.test.ts",
-    "packages/cli/help/topics/basic-usage.md",
-  ],
+  derivedFrom: ["apps/cli-e2e/src/directory.e2e.test.ts", "apps/cli/help/topics/basic-usage.md"],
   supersedes: [],
   assumptions: [],
   openQuestions: [

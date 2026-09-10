@@ -57,14 +57,14 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."
 
 /**
  * Dependency levels by distance from the application: the application is the
- * outermost level, contracts are the innermost, and kernels and integrations
- * are peers. A dependency points inward when its target is at least as far
- * from the application as its source.
+ * outermost level, contracts are the innermost, and capabilities and
+ * integrations are peers. A dependency points inward when its target is at
+ * least as far from the application as its source.
  */
 const LEVEL_DEPTH = {
-  app: 0,
+  application: 0,
   feature: 1,
-  kernel: 2,
+  capability: 2,
   integration: 2,
   contract: 3,
 } as const;

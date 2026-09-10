@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageDirectory = fileURLToPath(
-  new URL("../../packages/workspace-operations/", import.meta.url),
+  new URL("../../packages/core/workspace-operations/", import.meta.url),
 );
 
 // JavaScript evaluated by Node imports only published package exports. It is

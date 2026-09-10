@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "cli/skills/update/preview-is-pure",
-    "packages/cli/src/root/subagents/update/handler.test.ts",
+    "apps/cli/src/root/subagents/update/handler.test.ts",
   ],
   supersedes: [],
   assumptions: [],

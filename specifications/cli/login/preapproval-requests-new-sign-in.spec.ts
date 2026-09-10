@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["machine-automation", "safe-repetition"],
   methods: ["example"],
-  derivedFrom: ["packages/cli/src/root/auth/login.test.ts"],
+  derivedFrom: ["apps/cli/src/root/auth/login.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

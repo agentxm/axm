@@ -33,7 +33,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Fresh built CLI invocations resolve and acquire distinct package bytes from real file Registries and a controlled HTTP origin, so an environment value merely parsed but ignored cannot satisfy the cases.",
   methods: ["decision-table", "example"],
-  derivedFrom: ["packages/cli/help/topics/environment.md", "packages/cli/src/runtime.test.ts"],
+  derivedFrom: ["apps/cli/help/topics/environment.md", "apps/cli/src/runtime.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

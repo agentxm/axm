@@ -17,10 +17,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Built CLI calls verify target parsing, published source content, equivalent nested command help, and execution of the recovery invocation.",
   methods: ["example", "decision-table"],
-  derivedFrom: [
-    "packages/cli/src/root/help/command.ts",
-    "packages/cli/src/root/help/command.test.ts",
-  ],
+  derivedFrom: ["apps/cli/src/root/help/command.ts", "apps/cli/src/root/help/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [
@@ -45,7 +42,7 @@ describe("Help target selection", () => {
         // This marker-free source includes paragraphs, fenced examples, and a table.
         // Exact text preserves their whitespace without reproducing topic generation.
         const expected = fs.readFileSync(
-          new URL("../../../packages/cli/help/topics/package-extensions.md", import.meta.url),
+          new URL("../../../apps/cli/help/topics/package-extensions.md", import.meta.url),
           "utf8",
         );
         if (machine) {

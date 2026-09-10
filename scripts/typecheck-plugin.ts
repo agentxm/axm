@@ -16,7 +16,8 @@ const projectHasBuildTarget = (configFile: string): boolean => {
   return isRecord(targets) && Object.hasOwn(targets, "build");
 };
 
-export const typecheckTargetGlob = "{packages/*,specifications}/tsconfig.spec.json";
+export const typecheckTargetGlob =
+  "{apps/*,packages/*/*,tools/*,specifications}/tsconfig.spec.json";
 
 export const typecheckDependencies = (hasBuildTarget: boolean): string[] => [
   "axm:build-test-reporting",

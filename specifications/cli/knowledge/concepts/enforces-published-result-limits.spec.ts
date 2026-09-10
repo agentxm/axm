@@ -32,9 +32,9 @@ export const specification = defineSpecification({
     "The built command parser establishes whole-number input rejection; production handlers over an inspected corpus establish advertised range validation and page size.",
   methods: ["decision-table", "example"],
   derivedFrom: [
-    "packages/cli/help/topics/knowledge.md",
-    "packages/cli/src/root/knowledge/concepts/query.ts",
-    "packages/cli/src/root/knowledge/concepts/search.ts",
+    "apps/cli/help/topics/knowledge.md",
+    "apps/cli/src/root/knowledge/concepts/query.ts",
+    "apps/cli/src/root/knowledge/concepts/search.ts",
   ],
   supersedes: [],
   assumptions: [],

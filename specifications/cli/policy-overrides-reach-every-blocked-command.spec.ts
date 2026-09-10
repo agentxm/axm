@@ -62,7 +62,7 @@ const FQN = `@acme/skills/${SKILL}`;
  * of the flag the operator can see.
  */
 const postureCallSites = (): ReadonlyArray<readonly [string, string]> => {
-  const commandRoot = path.resolve(import.meta.dirname, "../../packages/cli/src");
+  const commandRoot = path.resolve(import.meta.dirname, "../../apps/cli/src");
   const sites: Array<readonly [string, string]> = [];
   const walk = (directory: string): void => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {

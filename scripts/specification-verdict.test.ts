@@ -96,7 +96,7 @@ describe("verdict presentation", () => {
         computeVerdict(
           [base],
           [base],
-          fixtureContext({ implementationChanges: ["packages/cli/src/install.ts"] }),
+          fixtureContext({ implementationChanges: ["apps/cli/src/install.ts"] }),
         ),
       ),
     ).toContain("Evidence impact conservatively includes all current requirements");

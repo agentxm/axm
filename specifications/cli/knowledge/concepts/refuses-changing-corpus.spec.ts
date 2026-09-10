@@ -26,9 +26,9 @@ export const specification = defineSpecification({
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/knowledge-query/src/knowledge-capture.test.ts",
-    "packages/knowledge-query/src/knowledge-revision.test.ts",
-    "packages/cli/src/root/knowledge/concepts/failures.ts",
+    "packages/core/knowledge-query/src/knowledge-capture.test.ts",
+    "packages/core/knowledge-query/src/knowledge-revision.test.ts",
+    "apps/cli/src/root/knowledge/concepts/failures.ts",
   ],
   supersedes: [],
   assumptions: [],

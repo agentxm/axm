@@ -18,9 +18,9 @@ export const specification = defineSpecification({
     "The built CLI process must report its package release identity through the actual global formatter in both human and machine modes.",
   methods: ["contract", "example"],
   derivedFrom: [
-    "packages/cli/help/topics/machine-output.md",
-    "packages/cli-e2e/src/smoke.e2e.test.ts",
-    "packages/cli-e2e/src/binary-smoke.e2e.test.ts",
+    "apps/cli/help/topics/machine-output.md",
+    "apps/cli-e2e/src/smoke.e2e.test.ts",
+    "apps/cli-e2e/src/binary-smoke.e2e.test.ts",
   ],
   supersedes: [],
   assumptions: [],
@@ -36,7 +36,7 @@ export const specification = defineSpecification({
 });
 
 const manifest: unknown = JSON.parse(
-  fs.readFileSync(new URL("../../packages/cli/package.json", import.meta.url), "utf8"),
+  fs.readFileSync(new URL("../../apps/cli/package.json", import.meta.url), "utf8"),
 );
 if (
   typeof manifest !== "object" ||

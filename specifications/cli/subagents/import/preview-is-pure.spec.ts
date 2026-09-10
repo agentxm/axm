@@ -24,10 +24,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["safe-repetition", "authoring-and-creation"],
   methods: ["example"],
-  derivedFrom: [
-    "cli/skills/import/preview-is-pure",
-    "packages/cli-e2e/src/fork-import.e2e.test.ts",
-  ],
+  derivedFrom: ["cli/skills/import/preview-is-pure", "apps/cli-e2e/src/fork-import.e2e.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

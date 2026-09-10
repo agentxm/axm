@@ -27,8 +27,8 @@ export const specification = defineSpecification({
     "Built CLI invocations parse single and repeated exact-name flags and explicit all against a real local native skill tree, then expose persisted canonical and projected bytes. An additional production-handler case sets interactive mode explicitly and rejects any attempted Screen prompt, so implicit unattended selection cannot supply the no-selection-prompt evidence for --all.",
   methods: ["decision-table", "example"],
   derivedFrom: [
-    "packages/cli/src/root/skills/install/command.ts",
-    "packages/cli/src/root/skills/install/select-skills.test.ts",
+    "apps/cli/src/root/skills/install/command.ts",
+    "apps/cli/src/root/skills/install/select-skills.test.ts",
   ],
   supersedes: [],
   assumptions: [],

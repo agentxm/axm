@@ -60,8 +60,8 @@ const snapshotTree = (root: string): ReadonlyArray<string> => {
 };
 
 export const runCliStartupBenchmark = (repoRoot: string, outputPath: string): void => {
-  const built = resolve(repoRoot, "packages/cli/dist/src/main.js");
-  const compiled = resolve(repoRoot, "packages/cli/dist/host-bin", hostBinaryName());
+  const built = resolve(repoRoot, "apps/cli/dist/src/main.js");
+  const compiled = resolve(repoRoot, "apps/cli/dist/host-bin", hostBinaryName());
   for (const path of [built, compiled]) {
     if (!statSync(path).isFile()) throw new Error(`Missing CLI benchmark subject: ${path}.`);
   }

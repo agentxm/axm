@@ -16,8 +16,8 @@ export const specification = defineSpecification({
   goals: ["safe-repetition", "trustworthy-distribution"],
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/src/root/upgrade/upgrade.ts",
-    "packages/cli/src/root/upgrade/handler.test.ts",
+    "apps/cli/src/root/upgrade/upgrade.ts",
+    "apps/cli/src/root/upgrade/handler.test.ts",
   ],
   supersedes: [],
   assumptions: [],

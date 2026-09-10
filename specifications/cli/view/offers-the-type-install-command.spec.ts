@@ -16,8 +16,8 @@ export const specification = defineSpecification({
   goals: ["extension-adoption", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/src/root/view/handler.test.ts",
-    "packages/cli/src/root/shared/per-type-install.ts",
+    "apps/cli/src/root/view/handler.test.ts",
+    "apps/cli/src/root/shared/per-type-install.ts",
   ],
   supersedes: [],
   assumptions: [],

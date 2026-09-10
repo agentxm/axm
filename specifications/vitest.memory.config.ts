@@ -20,7 +20,7 @@ export default defineConfig({
         const importerPath = importer?.split("?", 1)[0];
         if (
           importerPath === undefined ||
-          !importerPath.includes("/packages/") ||
+          !/\/(?:apps|packages|tools)\//u.test(importerPath) ||
           !source.startsWith(".") ||
           !source.endsWith(".js")
         ) {

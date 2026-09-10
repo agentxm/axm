@@ -21,8 +21,8 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "cli/machine-progress-events-follow-the-lifecycle-schema",
-    "packages/cli/help/topics/machine-output.md",
-    "packages/cli/src/screen/screen-machine.test.ts",
+    "apps/cli/help/topics/machine-output.md",
+    "apps/cli/src/screen/screen-machine.test.ts",
   ],
   supersedes: [],
   assumptions: [],

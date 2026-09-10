@@ -32,7 +32,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The built CLI must reject a scope option before executing an authoring command and establish authored content under the selected project directory.",
   methods: ["contract", "example"],
-  derivedFrom: ["packages/cli/src/root/scope-contract.ts", "packages/cli/src/app.test.ts"],
+  derivedFrom: ["apps/cli/src/root/scope-contract.ts", "apps/cli/src/app.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

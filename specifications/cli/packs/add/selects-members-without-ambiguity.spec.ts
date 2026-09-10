@@ -22,8 +22,8 @@ export const specification = defineSpecification({
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/cli/src/root/packs/add.ts",
-    "packages/cli/src/root/packs/configured-pack-selector.ts",
+    "apps/cli/src/root/packs/add.ts",
+    "apps/cli/src/root/packs/configured-pack-selector.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -18,9 +18,9 @@ export const specification = defineSpecification({
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/extension-authoring/src/create-preflight.test.ts",
-    "packages/cli/src/root/hooks/new.test.ts",
-    "packages/cli/src/root/mcps/new.test.ts",
+    "packages/core/extension-authoring/src/create-preflight.test.ts",
+    "apps/cli/src/root/hooks/new.test.ts",
+    "apps/cli/src/root/mcps/new.test.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -1,0 +1,203 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "cli",
+  "projectType": "application",
+  "root": "apps/cli",
+  "sourceRoot": "apps/cli/src",
+  "tags": ["type:app", "role:application", "scope:cli", "release:cli"],
+  "targets": {
+    "build": {
+      "dependsOn": ["...", "generate"],
+      "executor": "@nx/js:tsc",
+      "inputs": [
+        "...",
+        "{projectRoot}/help/topics/*.md",
+        "{workspaceRoot}/skills/axm/skill.json",
+        "{workspaceRoot}/skills/axm/src/**/*"
+      ],
+      "outputs": ["{projectRoot}/dist/src"],
+      "options": {
+        "main": "apps/cli/src/main.ts",
+        "outputPath": "apps/cli/dist/src",
+        "rootDir": "apps/cli/src",
+        "tsConfig": "apps/cli/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "watch": {
+      "cache": false,
+      "executor": "@nx/js:tsc",
+      "outputs": ["{projectRoot}/dist/src"],
+      "options": {
+        "main": "apps/cli/src/main.ts",
+        "outputPath": "apps/cli/dist/src",
+        "rootDir": "apps/cli/src",
+        "tsConfig": "apps/cli/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false,
+        "watch": true
+      }
+    },
+    "lint": {
+      "dependsOn": ["generate"]
+    },
+    "generate": {
+      "executor": "nx:noop",
+      "dependsOn": [
+        "generate:type-enumerations",
+        "generate:help-topics",
+        "generate:bundled-axm-skill",
+        "generate:schemas",
+        "generate:telemetry-client"
+      ]
+    },
+    "generate:telemetry-client": {
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/scripts/generate-telemetry-client.ts",
+        "{projectRoot}/specs/telemetry-openapi.json",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/src/telemetry/__generated__/telemetry-client.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-telemetry-client.ts"],
+        "cwd": "apps/cli"
+      }
+    },
+    "sync:telemetry-spec": {
+      "cache": false,
+      "inputs": ["{projectRoot}/scripts/sync-telemetry-spec.ts"],
+      "outputs": ["{projectRoot}/specs/telemetry-openapi.json"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/sync-telemetry-spec.ts"],
+        "cwd": "apps/cli"
+      }
+    },
+    "generate:type-enumerations": {
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/scripts/generate-type-enumerations.ts",
+        "{projectRoot}/scripts/type-enumerations.ts",
+        "{workspaceRoot}/packages/core/extension-model/src/unstable/extensions/common.ts",
+        "{workspaceRoot}/packages/core/extension-workspace/src/extension-types/catalog.ts",
+        "{workspaceRoot}/packages/core/extension-model/src/unstable/extension-types/schema.ts",
+        "{workspaceRoot}/packages/core/extension-model/src/unstable/extension-types/standards.ts",
+        "{workspaceRoot}/.prettierrc.json",
+        "{workspaceRoot}/README.md",
+        "{projectRoot}/README.md",
+        "{projectRoot}/help/topics/getting-started.md",
+        "{projectRoot}/help/topics/basic-usage.md"
+      ],
+      "outputs": [
+        "{workspaceRoot}/README.md",
+        "{projectRoot}/README.md",
+        "{projectRoot}/help/topics/getting-started.md",
+        "{projectRoot}/help/topics/basic-usage.md"
+      ],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "--conditions=axm-source", "scripts/generate-type-enumerations.ts"],
+        "cwd": "apps/cli"
+      },
+      "dependsOn": ["^build"]
+    },
+    "generate:help-topics": {
+      "cache": true,
+      "dependsOn": ["generate:type-enumerations", "generate:schemas", "^build"],
+      "inputs": [
+        "{projectRoot}/help/topics/*.md",
+        "{projectRoot}/scripts/generate-help-topics.ts",
+        "{projectRoot}/scripts/type-enumerations.ts",
+        "{projectRoot}/site-content/__generated__/schemas/*.schema.json",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/src/__generated__/help-topics.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-help-topics.ts"],
+        "cwd": "apps/cli"
+      }
+    },
+    "generate:bundled-axm-skill": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": [
+        "{projectRoot}/scripts/bundled-axm-skill-contract.ts",
+        "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
+        "{workspaceRoot}/packages/core/extension-workspace/src/skills/axm-skill-compatibility.ts",
+        "{workspaceRoot}/packages/core/registry-protocol/src/unstable/content/skill-content.ts",
+        "{workspaceRoot}/skills/axm/skill.json",
+        "{workspaceRoot}/skills/axm/src/**/*"
+      ],
+      "outputs": ["{projectRoot}/src/__generated__/bundled-axm-skill.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-bundled-axm-skill.ts"],
+        "cwd": "apps/cli"
+      }
+    },
+    "generate:schemas": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/generate-schemas.ts",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/site-content/__generated__/schemas"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "--conditions=axm-source", "scripts/generate-schemas.ts"],
+        "cwd": "apps/cli"
+      }
+    },
+    "compile": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts"],
+      "outputs": ["{projectRoot}/dist/bin"],
+      "options": {
+        "command": ["bun", "scripts/compile.ts"],
+        "cwd": "apps/cli"
+      }
+    },
+    "compile-host": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts", "hostPlatform"],
+      "outputs": ["{projectRoot}/dist/host-bin"],
+      "options": {
+        "command": ["bun", "scripts/compile.ts", "--host-only"],
+        "cwd": "apps/cli"
+      }
+    },
+    "compile-host-dev": {
+      "cache": false,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist/dev-bin"],
+      "options": {
+        "command": ["bun", "scripts/compile.ts", "--host-only", "--dev-build"],
+        "cwd": "apps/cli"
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    },
+    "gallery": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun --conditions=axm-source scripts/paint-gallery.ts",
+        "cwd": "apps/cli",
+        "forwardAllArgs": true
+      }
+    }
+  }
+}

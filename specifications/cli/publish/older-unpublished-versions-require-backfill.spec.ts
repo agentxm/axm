@@ -15,8 +15,8 @@ export const specification = defineSpecification({
   goals: ["trustworthy-distribution", "safe-repetition"],
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/src/root/publish/command.ts",
-    "packages/cli/src/root/publish/command.test.ts",
+    "apps/cli/src/root/publish/command.ts",
+    "apps/cli/src/root/publish/command.test.ts",
   ],
   supersedes: [],
   assumptions: [],

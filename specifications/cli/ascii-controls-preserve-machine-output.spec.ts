@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The built CLI receives the actual environment inputs while producing a successful help-topic result and a Unicode-bearing help refusal on its real machine channels.",
   methods: ["decision-table", "example"],
-  derivedFrom: ["packages/cli/help/topics/environment.md"],
+  derivedFrom: ["apps/cli/help/topics/environment.md"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

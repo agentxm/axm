@@ -159,4 +159,4 @@ obligations — realizing desired state, preserving configuration and satisfying
 resolutions, non-interleaving, and closure-atomic mutation; the
 [specification catalog](../../../specifications/catalog.md) indexes them.
 Exhaustive blocker restoration is internal verification owned by the
-recovery-conformance registry in `packages/cli/src/root/sync/`.
+recovery-conformance registry in `apps/cli/src/root/sync/`.

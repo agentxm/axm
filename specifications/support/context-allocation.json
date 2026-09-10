@@ -3,160 +3,160 @@
   "commandInventory": "command-behavior-allocation.json",
   "populations": {
     "extension-types": {
-      "path": "packages/extension-model/src/unstable/extensions/common.ts",
+      "path": "packages/core/extension-model/src/unstable/extensions/common.ts",
       "symbol": "extensionTypes"
     },
     "extension-placement": {
-      "path": "packages/extension-model/src/unstable/extensions/common.ts",
+      "path": "packages/core/extension-model/src/unstable/extensions/common.ts",
       "symbol": "EXTENSION_TYPE_TABLE",
       "projection": "distinct row.placement; associated extension type keys"
     },
     "extension-inputs": {
-      "path": "packages/extension-model/src/unstable/extensions/common.ts",
+      "path": "packages/core/extension-model/src/unstable/extensions/common.ts",
       "symbol": "EXTENSION_TYPE_TABLE",
       "projection": "row.installInputs keyed by extension type"
     },
     "catalog-types": {
-      "path": "packages/extension-model/src/unstable/extension-types/schema.ts",
+      "path": "packages/core/extension-model/src/unstable/extension-types/schema.ts",
       "symbol": "CATALOG_EXTENSION_TYPES"
     },
     "source-kinds": {
-      "path": "packages/extension-model/src/unstable/sources/types.ts",
+      "path": "packages/core/extension-model/src/unstable/sources/types.ts",
       "symbol": "SourceTypeSchema"
     },
     "reference-kinds": {
-      "path": "packages/extension-model/src/unstable/sources/types.ts",
+      "path": "packages/core/extension-model/src/unstable/sources/types.ts",
       "symbol": "RefTypeSchema"
     },
     "workspace-scopes": {
-      "path": "packages/extension-model/src/unstable/workspace-scope.ts",
+      "path": "packages/core/extension-model/src/unstable/workspace-scope.ts",
       "symbol": "WORKSPACE_SCOPES"
     },
     "agents": {
-      "path": "packages/extension-model/src/unstable/agent-capabilities/catalog.ts",
+      "path": "packages/core/extension-model/src/unstable/agent-capabilities/catalog.ts",
       "symbol": "AGENTS / CONFIGURABLE_AGENT_IDS / HOSTED_AGENTS_BY_ID",
       "projection": "configurable vs hosted membership; dynamic IDs remain catalog-owned"
     },
     "native-availability": {
-      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "path": "packages/core/extension-model/src/unstable/agent-capabilities/schema.ts",
       "symbol": "AvailabilitySchema",
       "projection": "union member.via"
     },
     "vendor-surface-state": {
-      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "path": "packages/core/extension-model/src/unstable/agent-capabilities/schema.ts",
       "symbol": "VendorStatusSchema",
       "projection": "union member.state"
     },
     "axm-support": {
-      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "path": "packages/core/extension-model/src/unstable/agent-capabilities/schema.ts",
       "symbol": "AxmSupportSchema"
     },
     "agent-lifecycle": {
-      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "path": "packages/core/extension-model/src/unstable/agent-capabilities/schema.ts",
       "symbol": "AgentLifecycleStateSchema"
     },
     "agent-interface": {
-      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "path": "packages/core/extension-model/src/unstable/agent-capabilities/schema.ts",
       "symbol": "AgentInterfaceSchema"
     },
     "agent-mcp-transport": {
-      "path": "packages/extension-model/src/unstable/agent-capabilities/schema.ts",
+      "path": "packages/core/extension-model/src/unstable/agent-capabilities/schema.ts",
       "symbol": "McpTransportSchema"
     },
     "inventory-lifecycle": {
-      "path": "packages/workspace-state/src/workspace/read-model/extensions/inventory.ts",
+      "path": "packages/core/workspace-state/src/workspace/read-model/extensions/inventory.ts",
       "symbol": "ExtensionInventoryLifecycleSchema"
     },
     "inventory-activation": {
-      "path": "packages/workspace-state/src/workspace/read-model/extensions/inventory.ts",
+      "path": "packages/core/workspace-state/src/workspace/read-model/extensions/inventory.ts",
       "symbol": "ExtensionInventoryRowSchema",
       "projection": "enabled: boolean | null"
     },
     "inventory-materialization": {
-      "path": "packages/workspace-state/src/workspace/read-model/extensions/inventory.ts",
+      "path": "packages/core/workspace-state/src/workspace/read-model/extensions/inventory.ts",
       "symbol": "ExtensionInventoryRowSchema",
       "projection": "installed: boolean"
     },
     "configured-agent-outcome": {
-      "path": "packages/workspace-state/src/workspace/configured-agent-outcome.ts",
+      "path": "packages/core/workspace-state/src/workspace/configured-agent-outcome.ts",
       "symbol": "ConfiguredAgentOutcomeSchema",
       "projection": "outcome"
     },
     "unit-state": {
-      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
       "symbol": "UnitStateSchema"
     },
     "operation-outcome": {
-      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
       "symbol": "OperationOutcomeSchema"
     },
     "unit-disposition": {
-      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
       "symbol": "UnitDispositionSchema"
     },
     "operation-phase": {
-      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
       "symbol": "OperationPhaseSchema"
     },
     "atomicity-class": {
-      "path": "packages/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
       "symbol": "AtomicityClassSchema"
     },
     "blocking-class": {
-      "path": "packages/workspace-operations/src/plan/plan.ts",
+      "path": "packages/core/workspace-operations/src/plan/plan.ts",
       "symbol": "BlockingClassSchema"
     },
     "operation-error": {
-      "path": "packages/cli/src/app-error/app-error.ts",
+      "path": "apps/cli/src/app-error/app-error.ts",
       "symbol": "AppErrorCodeSchema",
       "projection": "CLI machine error-category vocabulary; operation-to-exit-code agreement retains its separate published-reference owner"
     },
     "machine-document": {
-      "path": "packages/cli/src/cli-runtime/machine-output-document.ts",
+      "path": "apps/cli/src/cli-runtime/machine-output-document.ts",
       "symbol": "MachineOutputDocumentKindSchema"
     },
     "publish-status": {
-      "path": "packages/cli/src/root/publish/result.ts",
+      "path": "apps/cli/src/root/publish/result.ts",
       "symbol": "PublishStatusSchema",
       "projection": "private schema embedded by exported Publish result; no new export needed"
     },
     "publish-action": {
-      "path": "packages/cli/src/root/publish/result.ts",
+      "path": "apps/cli/src/root/publish/result.ts",
       "symbol": "PublishActionSchema",
       "projection": "private schema embedded by exported Publish result"
     },
     "publish-reason": {
-      "path": "packages/cli/src/root/publish/result.ts",
+      "path": "apps/cli/src/root/publish/result.ts",
       "symbol": "PublishReasonSchema",
       "projection": "private schema embedded by exported Publish result"
     },
     "upgrade-outcome": {
-      "path": "packages/cli/src/root/upgrade/handler.ts",
+      "path": "apps/cli/src/root/upgrade/handler.ts",
       "symbol": "UpgradeAssessmentResultSchema",
       "projection": "outcome"
     },
     "upgrade-disposition": {
-      "path": "packages/cli/src/root/upgrade/handler.ts",
+      "path": "apps/cli/src/root/upgrade/handler.ts",
       "symbol": "UpgradeAssessmentResultSchema",
       "projection": "disposition"
     },
     "upgrade-availability": {
-      "path": "packages/cli/src/root/upgrade/handler.ts",
+      "path": "apps/cli/src/root/upgrade/handler.ts",
       "symbol": "UpgradeAssessmentResultSchema",
       "projection": "installerAvailability.state"
     },
     "knowledge-readiness": {
-      "path": "packages/cli/src/root/knowledge/concepts/schemas.ts",
+      "path": "apps/cli/src/root/knowledge/concepts/schemas.ts",
       "symbol": "KnowledgeConceptStatusOutputSchema",
       "projection": "readiness"
     },
     "knowledge-health": {
-      "path": "packages/cli/src/root/knowledge/concepts/schemas.ts",
+      "path": "apps/cli/src/root/knowledge/concepts/schemas.ts",
       "symbol": "KnowledgeConceptStatusOutputSchema",
       "projection": "health.status"
     },
     "knowledge-collisions": {
-      "path": "packages/cli/src/root/knowledge/concepts/schemas.ts",
+      "path": "apps/cli/src/root/knowledge/concepts/schemas.ts",
       "symbol": "KnowledgeConceptStatusOutputSchema",
       "projection": "scopeCollisions.state"
     }

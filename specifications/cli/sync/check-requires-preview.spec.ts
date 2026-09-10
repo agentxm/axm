@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The built CLI establishes the actual parser combination, usage error, process exit status, and persisted state after refusal.",
   methods: ["example"],
-  derivedFrom: ["packages/cli/src/root/sync/handler.test.ts"],
+  derivedFrom: ["apps/cli/src/root/sync/handler.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

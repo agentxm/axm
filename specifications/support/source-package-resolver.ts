@@ -1,21 +1,21 @@
 /** Resolve workspace package exports to their declared source entrypoints. */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { readWorkspacePackageDirectories } from "./workspace-packages.js";
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const packageDirectories = fileURLToPath(new URL("../../packages/", import.meta.url));
+const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 
 const sourceExports = new Map<string, string>();
 
-for (const directoryName of readdirSync(packageDirectories)) {
-  const directory = join(packageDirectories, directoryName);
-  const manifestPath = join(directory, "package.json");
-  if (!existsSync(manifestPath)) continue;
-  const document: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
+for (const directoryName of readWorkspacePackageDirectories(repoRoot)) {
+  const directory = join(repoRoot, directoryName);
+  const document: unknown = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
   if (!isRecord(document) || typeof document["name"] !== "string") continue;
   const exports = document["exports"];
   if (!isRecord(exports)) continue;

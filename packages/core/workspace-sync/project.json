@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-sync",
+  "projectType": "library",
+  "root": "packages/core/workspace-sync",
+  "sourceRoot": "packages/core/workspace-sync/src",
+  "tags": ["type:lib", "role:feature", "scope:workspace-sync", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/workspace-sync/src/index.ts",
+        "outputPath": "packages/core/workspace-sync/dist",
+        "tsConfig": "packages/core/workspace-sync/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   goals: ["actionable-diagnostics"],
   boundary: "memory",
   methods: ["example"],
-  derivedFrom: ["packages/registry-auth/src/auth-client.ts"],
+  derivedFrom: ["packages/supporting/registry-auth/src/auth-client.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

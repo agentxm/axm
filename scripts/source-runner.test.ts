@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { tmpdir } from "node:os";
 
+import { createProjectGraphAsync } from "nx/src/devkit-exports";
 import { describe, expect, it } from "vitest";
 
 type ProcessResult = {
@@ -58,14 +59,13 @@ const runProcess = (command: string, args: ReadonlyArray<string>, cwd: string) =
   });
 
 describe("source runner", () => {
-  it("maps every publishable runtime package export to workspace source", () => {
+  it("maps every publishable runtime package export to workspace source", async () => {
     let checkedExports = 0;
     let checkedPackages = 0;
+    const graph = await createProjectGraphAsync({ exitOnError: false });
 
-    for (const entry of readdirSync("packages", { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-
-      const packageRoot = path.join("packages", entry.name);
+    for (const project of Object.values(graph.nodes)) {
+      const packageRoot = project.data.root;
       const manifestPath = path.join(packageRoot, "package.json");
       if (!existsSync(manifestPath)) continue;
 
@@ -119,7 +119,7 @@ describe("source runner", () => {
     const manifest = readObject("package.json");
     const scripts = manifest["scripts"];
     if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
-    expect(scripts["axm"]).toBe("bun --conditions=axm-source packages/cli/src/main.ts");
+    expect(scripts["axm"]).toBe("bun --conditions=axm-source apps/cli/src/main.ts");
     expect(scripts["verify:clean"]).toMatch(/^pnpm exec nx run axm:source-cli-smoke &&/u);
 
     const project = readObject("project.json");

@@ -18,9 +18,9 @@ export const specification = defineSpecification({
   goals: ["extension-adoption", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/help/topics/getting-started.md",
-    "packages/cli/src/root/discover/handler.test.ts",
-    "packages/extension-discovery/src/discover.test.ts",
+    "apps/cli/help/topics/getting-started.md",
+    "apps/cli/src/root/discover/handler.test.ts",
+    "packages/core/extension-discovery/src/discover.test.ts",
   ],
   supersedes: [],
   assumptions: [],

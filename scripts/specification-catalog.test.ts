@@ -169,7 +169,7 @@ describe("parseExecutionBindingFile", () => {
   it("returns no binding and no issues when the export is absent", () => {
     const parsed = parseExecutionBindingFile(
       `describe("plain e2e file", () => {});`,
-      "packages/cli-e2e/src/example.e2e.test.ts",
+      "apps/cli-e2e/src/example.e2e.test.ts",
     );
     expect(parsed.binding).toBeUndefined();
     expect(parsed.issues).toEqual([]);
@@ -182,7 +182,7 @@ describe("parseExecutionBindingFile", () => {
         boundary: "process",
         rationale: "Exercises the real CLI process, filesystem, and exit codes.",
       });`,
-      "packages/cli-e2e/src/root-install.e2e.test.ts",
+      "apps/cli-e2e/src/root-install.e2e.test.ts",
     );
     expect(parsed.issues).toEqual([]);
     expect(parsed.binding).toMatchObject({ boundary: "process" });
@@ -195,7 +195,7 @@ describe("parseExecutionBindingFile", () => {
         boundary: "process",
         rationale: "",
       });`,
-      "packages/cli-e2e/src/root-install.e2e.test.ts",
+      "apps/cli-e2e/src/root-install.e2e.test.ts",
     );
     expect(parsed.issues.some((issue) => issue.message.includes("rationale"))).toBe(true);
   });
@@ -417,7 +417,7 @@ describe("collectCatalog", () => {
         {
           requirements: ["cli/machine-result"],
           boundary: "process",
-          source: "packages/cli-e2e/src/machine.e2e.test.ts",
+          source: "apps/cli-e2e/src/machine.e2e.test.ts",
           rationale: "Observes the emitted process result.",
         },
       ],
@@ -432,7 +432,7 @@ describe("collectCatalog", () => {
     expect(markdown).toContain("- Product goals: `safe-repetition`");
     expect(markdown).toContain("- `safe-repetition` — Reruns are no-ops.");
     expect(markdown).toContain(
-      "- Additional evidence: process via [`packages/cli-e2e/src/machine.e2e.test.ts`](../packages/cli-e2e/src/machine.e2e.test.ts) — Observes the emitted process result.",
+      "- Additional evidence: process via [`apps/cli-e2e/src/machine.e2e.test.ts`](../apps/cli-e2e/src/machine.e2e.test.ts) — Observes the emitted process result.",
     );
     expect(markdown.indexOf("- Requirement: `cli/machine-result`")).toBeLessThan(
       markdown.indexOf("- Additional evidence: process"),

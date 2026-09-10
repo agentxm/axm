@@ -1,1 +1,1 @@
-packages/cli/site-content/install.md
+apps/cli/site-content/install.md

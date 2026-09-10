@@ -29,7 +29,7 @@ describe("CLI package bin ownership", () => {
   it.effect("defers the compiled executable mapping to publication", () =>
     Effect.sync(() => {
       const manifest: unknown = JSON.parse(
-        fs.readFileSync(path.join(repoRoot, "packages/cli/package.json"), "utf8"),
+        fs.readFileSync(path.join(repoRoot, "apps/cli/package.json"), "utf8"),
       );
       expect(manifest).not.toHaveProperty("bin");
       expect(manifest).toHaveProperty("publishConfig.bin.axm", "./dist/src/main.js");

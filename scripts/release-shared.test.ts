@@ -32,7 +32,7 @@ const readJsonRecord = (path: string): Record<PropertyKey, unknown> => {
 };
 
 const temporaryDirectories: string[] = [];
-const preparedRuntimeFile = "packages/extension-model/dist/src/unstable/extensions/common.js";
+const preparedRuntimeFile = "packages/core/extension-model/dist/src/unstable/extensions/common.js";
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
@@ -91,7 +91,7 @@ describe("release tag helpers", () => {
 
   it("validates release tags through the root target without rebuilding prepared runtime", () => {
     const runtimeBefore = statSync(preparedRuntimeFile, { bigint: true });
-    const cliPackageJson = JSON.parse(readFileSync("packages/cli/package.json", "utf8")) as {
+    const cliPackageJson = JSON.parse(readFileSync("apps/cli/package.json", "utf8")) as {
       readonly version: string;
     };
     const tag = `cli-v${cliPackageJson.version}`;
@@ -128,7 +128,7 @@ describe("release tag helpers", () => {
 
   it("emits release metadata through the root target without rebuilding prepared runtime", () => {
     const runtimeBefore = statSync(preparedRuntimeFile, { bigint: true });
-    const cliPackageJson = JSON.parse(readFileSync("packages/cli/package.json", "utf8")) as {
+    const cliPackageJson = JSON.parse(readFileSync("apps/cli/package.json", "utf8")) as {
       readonly version: string;
     };
     const tag = `cli-v${cliPackageJson.version}`;

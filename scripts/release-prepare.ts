@@ -16,6 +16,7 @@ import {
   runReleasePreparation,
 } from "./release-prepare-orchestration.js";
 import {
+  RELEASE_PACKAGES,
   RELEASE_PROCESS_ENV,
   RELEASE_REPO,
   currentHeadSha,
@@ -46,8 +47,14 @@ if (positionalArgs.length !== 0) {
   fail("Usage: pnpm release:prepare -- [--dry-run]");
 }
 
+const cliManifestPath = (): string => {
+  const cli = RELEASE_PACKAGES.find((member) => member.name === "axm.sh");
+  if (cli === undefined) throw new Error("axm.sh is not a member of the release cohort.");
+  return cli.path;
+};
+
 const readCandidateVersion = (workspace: CandidateWorkspace): string => {
-  const packagePath = join(workspace.checkout, "packages", "cli", "package.json");
+  const packagePath = join(workspace.checkout, cliManifestPath());
   const parsed: unknown = JSON.parse(readFileSync(packagePath, "utf8"));
   if (typeof parsed !== "object" || parsed === null) {
     throw new Error(`Expected ${packagePath} to contain a JSON object.`);

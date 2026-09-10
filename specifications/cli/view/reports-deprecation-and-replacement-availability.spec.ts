@@ -17,10 +17,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["extension-adoption", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: [
-    "packages/cli/src/root/view/handler.test.ts",
-    "packages/cli/src/root/view/handler.ts",
-  ],
+  derivedFrom: ["apps/cli/src/root/view/handler.test.ts", "apps/cli/src/root/view/handler.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

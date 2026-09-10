@@ -2,7 +2,7 @@
   "$schema": "./node_modules/nx/schemas/project-schema.json",
   "name": "axm",
   "root": ".",
-  "tags": ["type:tooling", "scope:root"],
+  "tags": ["type:tooling", "role:tooling", "scope:root"],
   "targets": {
     "source-cli-smoke": {
       "executor": "nx:run-commands",
@@ -15,7 +15,13 @@
     "lint": {
       "executor": "nx:run-commands",
       "cache": true,
-      "inputs": ["default", "^default", "^production", "{workspaceRoot}/eslint.config.mjs"],
+      "inputs": [
+        "default",
+        "^default",
+        "^production",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/scripts/placement-tags-plugin.ts"
+      ],
       "options": {
         "command": "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts scripts --max-warnings=192",
         "cwd": "."
@@ -246,7 +252,9 @@
         "{workspaceRoot}/package.json",
         "{workspaceRoot}/scripts/**/*",
         "sharedGlobals",
-        "{workspaceRoot}/packages/**/*"
+        "{workspaceRoot}/apps/**/*",
+        "{workspaceRoot}/packages/**/*",
+        "{workspaceRoot}/tools/**/*"
       ],
       "options": {
         "command": "bun scripts/verify-source-hygiene.ts",

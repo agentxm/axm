@@ -23,8 +23,8 @@ export const specification = defineSpecification({
   goals: ["safe-repetition"],
   methods: ["example", "contract"],
   derivedFrom: [
-    "packages/cli/src/root/lifecycle/command.ts",
-    "packages/cli/src/root/lifecycle/command.test.ts",
+    "apps/cli/src/root/lifecycle/command.ts",
+    "apps/cli/src/root/lifecycle/command.test.ts",
   ],
   supersedes: [],
   assumptions: [],

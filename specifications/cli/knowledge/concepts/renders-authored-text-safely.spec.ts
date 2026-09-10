@@ -25,8 +25,8 @@ export const specification = defineSpecification({
   goals: ["knowledge-access", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/src/root/knowledge/concepts/terminal-text.ts",
-    "packages/cli/src/root/knowledge/concepts/terminal-text.test.ts",
+    "apps/cli/src/root/knowledge/concepts/terminal-text.ts",
+    "apps/cli/src/root/knowledge/concepts/terminal-text.test.ts",
   ],
   supersedes: [],
   assumptions: [],

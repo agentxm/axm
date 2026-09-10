@@ -23,8 +23,8 @@ export const specification = defineSpecification({
   goals: ["trustworthy-distribution", "machine-automation", "safe-repetition"],
   methods: ["example", "contract"],
   derivedFrom: [
-    "packages/cli/src/root/publish/command.test.ts",
-    "packages/extension-publish/src/settlement.test.ts",
+    "apps/cli/src/root/publish/command.test.ts",
+    "packages/core/extension-publish/src/settlement.test.ts",
   ],
   supersedes: [],
   assumptions: [],

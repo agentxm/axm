@@ -27,8 +27,8 @@ export const specification = defineSpecification({
   goals: ["workspace-intent-fidelity", "machine-automation"],
   methods: ["decision-table", "contract"],
   derivedFrom: [
-    "packages/cli/src/root/visibility/handler.ts",
-    "packages/registry-protocol/src/unstable/publish/visibility.ts",
+    "apps/cli/src/root/visibility/handler.ts",
+    "packages/core/registry-protocol/src/unstable/publish/visibility.ts",
   ],
   supersedes: [],
   assumptions: [],

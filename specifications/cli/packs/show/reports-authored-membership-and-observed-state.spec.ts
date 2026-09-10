@@ -20,8 +20,8 @@ export const specification = defineSpecification({
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/cli/src/root/packs/show.ts",
-    "packages/cli-e2e/src/scope-consistency.e2e.test.ts",
+    "apps/cli/src/root/packs/show.ts",
+    "apps/cli-e2e/src/scope-consistency.e2e.test.ts",
   ],
   supersedes: [],
   assumptions: [],

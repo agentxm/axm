@@ -33,7 +33,7 @@ original `cause`, and choose one closed category: `issues`, `usage`,
 `not_found`, `auth`, `forbidden`, `conflict`, `rate_limit`, `network`,
 `validation`, `internal`, `unavailable`, or `quota`. Numeric exit status is a
 pure mapping owned by
-[`ExitCode`](../../packages/cli/src/app-error/app-error.ts).
+[`ExitCode`](../../apps/cli/src/app-error/app-error.ts).
 
 - `usage` means the invocation shape is wrong; `validation` means a parsed
   value violates domain rules.
@@ -51,7 +51,7 @@ pure mapping owned by
 
 Translate generated Registry client failures with
 `registryClientErrorToProblem` or `registryErrorToProblem` from
-`packages/registry-client/src/translate.ts`; the application boundary converts
+`packages/supporting/registry-client/src/translate.ts`; the application boundary converts
 the typed registry failures to `AppError` through the registered
 `app-error/conversions` dispatcher. Do not add operation-local HTTP status
 switches. Keep RFC 9457 response bodies opaque in `metadata.response`; decode a

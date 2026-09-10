@@ -15,10 +15,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: [
-    "packages/cli/src/root/list/command.test.ts",
-    "packages/cli/src/root/list/command.ts",
-  ],
+  derivedFrom: ["apps/cli/src/root/list/command.test.ts", "apps/cli/src/root/list/command.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

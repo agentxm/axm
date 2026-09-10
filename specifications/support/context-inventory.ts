@@ -90,7 +90,7 @@ export const readContextInventory = () => {
 const repositoryUrl = new URL("../../", import.meta.url);
 
 export const requireContextSourceFile = (relativePath: string): void => {
-  if (!relativePath.startsWith("packages/") || relativePath.split("/").includes("..")) {
+  if (!/^(?:apps|packages|tools)\//u.test(relativePath) || relativePath.split("/").includes("..")) {
     throw new Error(`Context source must name a repository package file: ${relativePath}`);
   }
   if (!fs.statSync(new URL(relativePath, repositoryUrl)).isFile()) {
@@ -100,7 +100,7 @@ export const requireContextSourceFile = (relativePath: string): void => {
 
 /** One known flat declaration; changed expression shapes require explicit review. */
 const machineDocumentKinds = (): ReadonlyArray<string> => {
-  const relativePath = "packages/cli/src/cli-runtime/machine-output-document.ts";
+  const relativePath = "apps/cli/src/cli-runtime/machine-output-document.ts";
   const filename = fileURLToPath(new URL(relativePath, repositoryUrl));
   const source = ts.createSourceFile(
     filename,

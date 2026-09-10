@@ -21,8 +21,8 @@ export const specification = defineSpecification({
     "Actual registered root and type-specific CLI invocations choose between distinct fixture Registry destinations; the examples observe nonempty archive files at the selected destination and no files at the other destination.",
   methods: ["decision-table", "example"],
   derivedFrom: [
-    "packages/cli/src/root/publish/command.ts",
-    "packages/cli/src/root/publish/per-type-command.ts",
+    "apps/cli/src/root/publish/command.ts",
+    "apps/cli/src/root/publish/per-type-command.ts",
   ],
   supersedes: [],
   assumptions: [],

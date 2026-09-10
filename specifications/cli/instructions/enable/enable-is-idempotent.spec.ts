@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
   methods: ["example"],
-  derivedFrom: ["packages/cli/src/root/instructions.test.ts"],
+  derivedFrom: ["apps/cli/src/root/instructions.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

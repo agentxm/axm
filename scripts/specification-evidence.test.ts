@@ -64,8 +64,8 @@ describe("repository execution inputs", () => {
   it.each([
     "specifications/cli/install.spec.ts",
     "specifications/support/install-harness.ts",
-    "packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts",
-    "packages/cli/src/install.ts",
+    "apps/cli-e2e/src/cli-commands/auth/token/token.e2e.ts",
+    "apps/cli/src/install.ts",
     "pnpm-lock.yaml",
   ])("invalidates changed %s without relying on a new commit", (file) => {
     const root = repository();
@@ -79,9 +79,10 @@ describe("repository execution inputs", () => {
 
   it("tracks built package content separately from source and ignores generated receipts", () => {
     const root = repository();
-    write(root, "packages/cli/dist/index.js", "before");
+    write(root, "apps/cli/package.json", "{}");
+    write(root, "apps/cli/dist/index.js", "before");
     const before = captureEvidenceInputs(root);
-    write(root, "packages/cli/dist/index.js", "after");
+    write(root, "apps/cli/dist/index.js", "after");
     const after = captureEvidenceInputs(root);
     expect(after.sourceDigest).toBe(before.sourceDigest);
     expect(after.runtimeDigest).not.toBe(before.runtimeDigest);
@@ -91,12 +92,13 @@ describe("repository execution inputs", () => {
 
   it("tracks source execution without requiring or inheriting built artifacts", () => {
     const root = repository();
-    write(root, "packages/cli/src/index.ts", "before");
+    write(root, "apps/cli/package.json", "{}");
+    write(root, "apps/cli/src/index.ts", "before");
     const before = captureEvidenceInputs(root, "source");
     expect(before.runtimeMode).toBe("source");
-    write(root, "packages/cli/dist/index.js", "generated");
+    write(root, "apps/cli/dist/index.js", "generated");
     expect(captureEvidenceInputs(root, "source")).toEqual(before);
-    write(root, "packages/cli/src/index.ts", "after");
+    write(root, "apps/cli/src/index.ts", "after");
     const after = captureEvidenceInputs(root, "source");
     expect(after.runtimeDigest).not.toBe(before.runtimeDigest);
   });

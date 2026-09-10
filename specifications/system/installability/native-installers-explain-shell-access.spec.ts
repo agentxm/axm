@@ -18,8 +18,8 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "install.md",
-    "packages/cli/site-content/docs/quickstart.md",
-    "packages/cli-e2e/src/install-verification.e2e.test.ts",
+    "apps/cli/site-content/docs/quickstart.md",
+    "apps/cli-e2e/src/install-verification.e2e.test.ts",
   ],
   supersedes: [],
   assumptions: [],

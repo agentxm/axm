@@ -32,7 +32,7 @@ export const specification = defineSpecification({
     "cli/mcps/inline-lifecycle-is-idempotent",
     "cli/mcps/inline-authority-is-operation-coherent",
     "cli/activation-follows-desired-state",
-    "packages/extension-workspace/src/mcps/shared-target-catalog.test.ts",
+    "packages/core/extension-workspace/src/mcps/shared-target-catalog.test.ts",
   ],
   supersedes: [],
   assumptions: [

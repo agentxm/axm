@@ -34,9 +34,9 @@ export const specification = defineSpecification({
     "Populated project and user workspaces with the same Knowledge identity establish real scope composition, process argument selection, and preservation of both authoritative workspaces and native files.",
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/cli/help/topics/knowledge.md",
-    "packages/cli/src/root/knowledge/inspect.ts",
-    "packages/cli-e2e/src/knowledge.e2e.test.ts",
+    "apps/cli/help/topics/knowledge.md",
+    "apps/cli/src/root/knowledge/inspect.ts",
+    "apps/cli-e2e/src/knowledge.e2e.test.ts",
   ],
   supersedes: [],
   assumptions: [],

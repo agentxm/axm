@@ -31,7 +31,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The examples observe the streamed response from the real loopback HTTP listener while exchange and credential storage are controlled through their services.",
   methods: ["example"],
-  derivedFrom: ["packages/registry-auth/src/loopback-login.ts"],
+  derivedFrom: ["packages/supporting/registry-auth/src/loopback-login.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

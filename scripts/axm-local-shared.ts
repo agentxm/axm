@@ -55,7 +55,7 @@ export const createAxmLocalInvocation = (input: {
   readonly env: NodeJS.ProcessEnv;
 }): AxmLocalInvocation => {
   const repoRoot = resolveAxmLocalRepoRoot(input.scriptPath);
-  const cliEntrypoint = path.join(repoRoot, "packages", "cli", "src", "main.ts");
+  const cliEntrypoint = path.join(repoRoot, "apps", "cli", "src", "main.ts");
 
   return {
     command: "bun",

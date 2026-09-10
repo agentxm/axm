@@ -46,7 +46,7 @@ export const boundEvidence = defineBoundEvidence([
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 
-const E2E_PROJECT_ROOTS = ["packages/cli-e2e", "packages/e2e-utils"] as const;
+const E2E_PROJECT_ROOTS = ["apps/cli-e2e", "tools/e2e-utils"] as const;
 const FORBIDDEN_PACKAGE_NAMES = [
   "@agentxm/agent-integration",
   "@agentxm/extension-model",
@@ -69,25 +69,25 @@ const FORBIDDEN_PACKAGE_NAMES = [
   "axm.sh",
 ] as const;
 const FORBIDDEN_PROJECT_ROOTS = [
-  "packages/agent-integration",
-  "packages/extension-model",
-  "packages/knowledge-query",
-  "packages/registry-auth",
-  "packages/registry-client",
-  "packages/registry-protocol",
-  "packages/extension-authoring",
-  "packages/extension-discovery",
-  "packages/extension-lifecycle",
-  "packages/extension-publish",
-  "packages/extension-sources",
-  "packages/extension-workspace",
-  "packages/workspace-configuration",
-  "packages/workspace-inspection",
-  "packages/workspace-lint",
-  "packages/workspace-operations",
-  "packages/workspace-state",
-  "packages/workspace-sync",
-  "packages/cli",
+  "packages/supporting/agent-integration",
+  "packages/core/extension-model",
+  "packages/core/knowledge-query",
+  "packages/supporting/registry-auth",
+  "packages/supporting/registry-client",
+  "packages/core/registry-protocol",
+  "packages/core/extension-authoring",
+  "packages/core/extension-discovery",
+  "packages/core/extension-lifecycle",
+  "packages/core/extension-publish",
+  "packages/supporting/extension-sources",
+  "packages/core/extension-workspace",
+  "packages/core/workspace-configuration",
+  "packages/core/workspace-inspection",
+  "packages/core/workspace-lint",
+  "packages/core/workspace-operations",
+  "packages/core/workspace-state",
+  "packages/core/workspace-sync",
+  "apps/cli",
 ] as const;
 const DEPENDENCY_FIELDS = [
   "dependencies",

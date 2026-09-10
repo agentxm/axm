@@ -126,7 +126,7 @@ drained, so live output never overtakes settled output.
 
 ## Gallery
 
-The gallery under `packages/cli/src/screen/gallery/` is the review route for
+The gallery under `apps/cli/src/screen/gallery/` is the review route for
 design. Each fixture is one document for one scenario — an inventory list, an
 inspection, a mutating result with agent outcomes, a failure with recovery, a
 plan preview with risks, a waiting operation, and every node kind — and its

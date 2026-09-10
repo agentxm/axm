@@ -17,8 +17,8 @@ export const specification = defineSpecification({
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/cli/src/root/packs/unpack/handler.test.ts",
-    "packages/cli/src/root/packs/unpack/handler.ts",
+    "apps/cli/src/root/packs/unpack/handler.test.ts",
+    "apps/cli/src/root/packs/unpack/handler.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -30,7 +30,7 @@ describe("axm-local shared helpers", () => {
     expect(invocation.command).toBe("bun");
     expect(invocation.args).toEqual([
       AXM_SOURCE_CONDITION_ARGUMENT,
-      path.join("/tmp", "axm", "packages", "cli", "src", "main.ts"),
+      path.join("/tmp", "axm", "apps", "cli", "src", "main.ts"),
       "whoami",
       "--json",
     ]);

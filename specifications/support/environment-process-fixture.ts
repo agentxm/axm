@@ -4,9 +4,7 @@ import * as path from "node:path";
 import * as http from "node:http";
 import { createCliRunner } from "@agentxm/client-e2e-utils";
 
-const runBuiltCli = createCliRunner(
-  new URL("../../packages/cli/dist/src/main.js", import.meta.url),
-);
+const runBuiltCli = createCliRunner(new URL("../../apps/cli/dist/src/main.js", import.meta.url));
 
 export const makeEnvironmentProcessFixture = () => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-environment-spec-")));

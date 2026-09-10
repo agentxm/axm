@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "registry-protocol",
+  "projectType": "library",
+  "root": "packages/core/registry-protocol",
+  "sourceRoot": "packages/core/registry-protocol/src",
+  "tags": ["type:lib", "role:contract", "scope:registry-protocol", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/registry-protocol/src/unstable/registry/index.ts",
+        "outputPath": "packages/core/registry-protocol/dist",
+        "tsConfig": "packages/core/registry-protocol/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

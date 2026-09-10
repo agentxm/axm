@@ -165,7 +165,7 @@ reachability; the [specification catalog](../../../specifications/catalog.md)
 indexes them.
 
 Exhaustive restoring-transition coverage is internal verification: a test-only
-recovery-conformance registry in `packages/cli/src/root/sync/` is keyed by
+recovery-conformance registry in `apps/cli/src/root/sync/` is keyed by
 every lint error and sync blocker, and a completeness check fails when a
 shipped error or blocker lacks a recovery contract. Each entry captures the
 minimal perturbation, expected diagnostic facts and dependent-rule

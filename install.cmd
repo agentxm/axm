@@ -1,1 +1,1 @@
-packages/cli/site-content/install.cmd
+apps/cli/site-content/install.cmd

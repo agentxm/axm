@@ -2,9 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createCliRunner, createTempDir } from "@agentxm/client-e2e-utils";
 
-const runBuiltCli = createCliRunner(
-  new URL("../../packages/cli/dist/src/main.js", import.meta.url),
-);
+const runBuiltCli = createCliRunner(new URL("../../apps/cli/dist/src/main.js", import.meta.url));
 
 /** The actual CLI in a disposable project and home, with controlled output inputs. */
 export const makeOutputControlsFixture = () => {

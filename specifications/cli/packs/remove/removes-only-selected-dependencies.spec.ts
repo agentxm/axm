@@ -19,8 +19,8 @@ export const specification = defineSpecification({
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/extension-authoring/src/packs/remove-from-pack.test.ts",
-    "packages/cli/src/root/packs/remove.ts",
+    "packages/core/extension-authoring/src/packs/remove-from-pack.test.ts",
+    "apps/cli/src/root/packs/remove.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -13,7 +13,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["workspace-intent-fidelity", "trustworthy-distribution"],
   methods: ["decision-table", "example"],
-  derivedFrom: ["packages/cli/help/topics/publish.md", "packages/cli/src/root/publish/command.ts"],
+  derivedFrom: ["apps/cli/help/topics/publish.md", "apps/cli/src/root/publish/command.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

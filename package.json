@@ -6,7 +6,7 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "axm": "bun --conditions=axm-source packages/cli/src/main.ts",
+    "axm": "bun --conditions=axm-source apps/cli/src/main.ts",
     "axm:local": "./scripts/axm-local",
     "classify:ci": "bun scripts/classify-ci-changes.ts",
     "check:ci-image": "node scripts/check-ci-image.mjs",

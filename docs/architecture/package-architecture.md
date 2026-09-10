@@ -518,13 +518,17 @@ The target plugin shape is:
     },
     {
       "plugin": "@nx/vitest",
-      "include": ["packages/**/vitest.config.ts", "specifications/vitest.config.ts"],
-      "exclude": ["packages/cli-e2e/**"],
+      "include": [
+        "apps/cli/vitest.config.ts",
+        "packages/**/vitest.config.ts",
+        "tools/**/vitest.config.ts",
+        "specifications/vitest.config.ts",
+      ],
       "options": { "testTargetName": "test", "testMode": "run" },
     },
     {
       "plugin": "@nx/vitest",
-      "include": ["packages/cli-e2e/vitest.config.ts"],
+      "include": ["apps/cli-e2e/vitest.config.ts"],
       "options": { "testTargetName": "e2e-main", "testMode": "run" },
     },
   ],

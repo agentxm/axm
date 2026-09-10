@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["packages/registry-auth/src/credential-store.test.ts"],
+  derivedFrom: ["packages/supporting/registry-auth/src/credential-store.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

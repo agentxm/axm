@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Actual CLI output is decoded and compared with the published schema artifacts, detecting Markdown wrapping or unrelated schema content.",
   methods: ["contract", "decision-table"],
-  derivedFrom: ["packages/cli/help/README.md", "packages/cli/src/root/help/command.test.ts"],
+  derivedFrom: ["apps/cli/help/README.md", "apps/cli/src/root/help/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -25,7 +25,7 @@ export const specification = defineSpecification({
 
 const topicDocument = Schema.Struct({ ok: Schema.Literal(true), result: HelpTopicResultSchema });
 const schemaRoot = new URL(
-  "../../../packages/cli/site-content/__generated__/schemas/",
+  "../../../apps/cli/site-content/__generated__/schemas/",
   import.meta.url,
 );
 const schemas = fs.readdirSync(schemaRoot).filter((name) => name.endsWith(".schema.json"));

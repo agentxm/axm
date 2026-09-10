@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["packages/registry-auth/src/token-resolution.test.ts"],
+  derivedFrom: ["packages/supporting/registry-auth/src/token-resolution.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

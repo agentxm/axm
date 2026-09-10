@@ -17,8 +17,8 @@ export const specification = defineSpecification({
   goals: ["safe-repetition"],
   methods: ["example", "contract"],
   derivedFrom: [
-    "packages/cli/src/root/cache/command.ts",
-    "packages/registry-client/src/archive-cache.ts",
+    "apps/cli/src/root/cache/command.ts",
+    "packages/supporting/registry-client/src/archive-cache.ts",
   ],
   supersedes: [],
   assumptions: [],

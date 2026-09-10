@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   methods: ["example", "decision-table"],
   derivedFrom: [
     "cli/version/refuses-invalid-or-unowned-targets",
-    "packages/cli/src/root/shared/version-command.ts",
+    "apps/cli/src/root/shared/version-command.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -1,0 +1,8 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "test-support",
+  "projectType": "library",
+  "root": "tools/test-support",
+  "sourceRoot": "tools/test-support/src",
+  "tags": ["type:lib", "role:tooling", "scope:test"]
+}

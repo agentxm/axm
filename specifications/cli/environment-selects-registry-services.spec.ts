@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "A built CLI view retrieves distinct metadata from a local HTTP origin; separate runtime-layer cases retain production environment decoding and AuthClient request construction while controlling the HTTP transport to avoid real Registry access.",
   methods: ["example", "decision-table"],
-  derivedFrom: ["packages/cli/help/topics/environment.md", "packages/cli/src/runtime.ts"],
+  derivedFrom: ["apps/cli/help/topics/environment.md", "apps/cli/src/runtime.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

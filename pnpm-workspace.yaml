@@ -1,5 +1,7 @@
 packages:
-  - packages/*
+  - apps/*
+  - packages/*/*
+  - tools/*
   - specifications
 
 verifyDepsBeforeRun: error

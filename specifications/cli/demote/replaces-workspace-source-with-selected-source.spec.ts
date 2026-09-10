@@ -33,10 +33,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
-  derivedFrom: [
-    "packages/cli/src/root/demote/command.test.ts",
-    "packages/cli/src/root/demote/command.ts",
-  ],
+  derivedFrom: ["apps/cli/src/root/demote/command.test.ts", "apps/cli/src/root/demote/command.ts"],
   supersedes: [],
   assumptions: [
     "Pack and MCP transitions use registry sources and the other types use local sources; additional registry and Git acquisition behavior is verified by its owning source requirements.",

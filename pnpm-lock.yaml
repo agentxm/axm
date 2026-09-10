@@ -150,16 +150,16 @@ importers:
     devDependencies:
       '@agentxm/client-e2e-utils':
         specifier: workspace:*
-        version: link:packages/e2e-utils
+        version: link:tools/e2e-utils
       '@agentxm/extension-model':
         specifier: workspace:*
-        version: link:packages/extension-model
+        version: link:packages/core/extension-model
       '@agentxm/extension-workspace':
         specifier: workspace:*
-        version: link:packages/extension-workspace
+        version: link:packages/core/extension-workspace
       '@agentxm/registry-protocol':
         specifier: workspace:*
-        version: link:packages/registry-protocol
+        version: link:packages/core/registry-protocol
       '@effect/eslint-plugin':
         specifier: 'catalog:'
         version: 0.3.2
@@ -251,87 +251,62 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/agent-integration:
-    dependencies:
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/cli:
+  apps/cli:
     dependencies:
       '@agentxm/agent-integration':
         specifier: workspace:^
-        version: link:../agent-integration
+        version: link:../../packages/supporting/agent-integration
       '@agentxm/extension-authoring':
         specifier: workspace:^
-        version: link:../extension-authoring
+        version: link:../../packages/core/extension-authoring
       '@agentxm/extension-discovery':
         specifier: workspace:^
-        version: link:../extension-discovery
+        version: link:../../packages/core/extension-discovery
       '@agentxm/extension-lifecycle':
         specifier: workspace:^
-        version: link:../extension-lifecycle
+        version: link:../../packages/core/extension-lifecycle
       '@agentxm/extension-model':
         specifier: workspace:^
-        version: link:../extension-model
+        version: link:../../packages/core/extension-model
       '@agentxm/extension-publish':
         specifier: workspace:^
-        version: link:../extension-publish
+        version: link:../../packages/core/extension-publish
       '@agentxm/extension-sources':
         specifier: workspace:^
-        version: link:../extension-sources
+        version: link:../../packages/supporting/extension-sources
       '@agentxm/extension-workspace':
         specifier: workspace:^
-        version: link:../extension-workspace
+        version: link:../../packages/core/extension-workspace
       '@agentxm/knowledge-query':
         specifier: workspace:^
-        version: link:../knowledge-query
+        version: link:../../packages/core/knowledge-query
       '@agentxm/registry-auth':
         specifier: workspace:^
-        version: link:../registry-auth
+        version: link:../../packages/supporting/registry-auth
       '@agentxm/registry-client':
         specifier: workspace:^
-        version: link:../registry-client
+        version: link:../../packages/supporting/registry-client
       '@agentxm/registry-protocol':
         specifier: workspace:^
-        version: link:../registry-protocol
+        version: link:../../packages/core/registry-protocol
       '@agentxm/workspace-configuration':
         specifier: workspace:^
-        version: link:../workspace-configuration
+        version: link:../../packages/core/workspace-configuration
       '@agentxm/workspace-inspection':
         specifier: workspace:^
-        version: link:../workspace-inspection
+        version: link:../../packages/core/workspace-inspection
       '@agentxm/workspace-lint':
         specifier: workspace:^
-        version: link:../workspace-lint
+        version: link:../../packages/core/workspace-lint
       '@agentxm/workspace-operations':
         specifier: workspace:^
-        version: link:../workspace-operations
+        version: link:../../packages/core/workspace-operations
       '@agentxm/workspace-state':
         specifier: workspace:^
-        version: link:../workspace-state
+        version: link:../../packages/core/workspace-state
       '@agentxm/workspace-sync':
         specifier: workspace:^
-        version: link:../workspace-sync
+        version: link:../../packages/core/workspace-sync
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -376,11 +351,11 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/cli-e2e:
+  apps/cli-e2e:
     devDependencies:
       '@agentxm/client-e2e-utils':
         specifier: workspace:*
-        version: link:../e2e-utils
+        version: link:../../tools/e2e-utils
       '@napi-rs/keyring':
         specifier: ^1.3.0
         version: 1.3.0
@@ -403,17 +378,7 @@ importers:
         specifier: 'catalog:'
         version: 2.9.0
 
-  packages/e2e-utils:
-    dependencies:
-      execa:
-        specifier: 'catalog:'
-        version: 9.6.1
-    devDependencies:
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/extension-authoring:
+  packages/core/extension-authoring:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
@@ -456,7 +421,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/extension-discovery:
+  packages/core/extension-discovery:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
@@ -466,7 +431,7 @@ importers:
         version: link:../extension-workspace
       '@agentxm/registry-client':
         specifier: workspace:^
-        version: link:../registry-client
+        version: link:../../supporting/registry-client
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
@@ -499,20 +464,20 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/extension-lifecycle:
+  packages/core/extension-lifecycle:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
       '@agentxm/extension-sources':
         specifier: workspace:^
-        version: link:../extension-sources
+        version: link:../../supporting/extension-sources
       '@agentxm/extension-workspace':
         specifier: workspace:^
         version: link:../extension-workspace
       '@agentxm/registry-client':
         specifier: workspace:^
-        version: link:../registry-client
+        version: link:../../supporting/registry-client
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
@@ -557,7 +522,7 @@ importers:
         specifier: 'catalog:'
         version: 2.9.0
 
-  packages/extension-model:
+  packages/core/extension-model:
     dependencies:
       effect:
         specifier: 'catalog:'
@@ -591,20 +556,20 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/extension-publish:
+  packages/core/extension-publish:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
       '@agentxm/extension-sources':
         specifier: workspace:^
-        version: link:../extension-sources
+        version: link:../../supporting/extension-sources
       '@agentxm/extension-workspace':
         specifier: workspace:^
         version: link:../extension-workspace
       '@agentxm/registry-client':
         specifier: workspace:^
-        version: link:../registry-client
+        version: link:../../supporting/registry-client
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
@@ -637,47 +602,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/extension-sources:
-    dependencies:
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      '@agentxm/registry-client':
-        specifier: workspace:^
-        version: link:../registry-client
-      '@agentxm/registry-protocol':
-        specifier: workspace:^
-        version: link:../registry-protocol
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112
-      semver:
-        specifier: 'catalog:'
-        version: 7.8.5
-      simple-git:
-        specifier: 'catalog:'
-        version: 3.36.0(supports-color@7.2.0)
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
-      '@types/semver':
-        specifier: 'catalog:'
-        version: 7.7.1
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/extension-workspace:
+  packages/core/extension-workspace:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
@@ -729,7 +654,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/knowledge-query:
+  packages/core/knowledge-query:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
@@ -760,96 +685,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/registry-auth:
-    dependencies:
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      '@agentxm/registry-client':
-        specifier: workspace:^
-        version: link:../registry-client
-      '@agentxm/registry-protocol':
-        specifier: workspace:^
-        version: link:../registry-protocol
-      '@napi-rs/keyring':
-        specifier: ^1.3.0
-        version: 1.3.0
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112
-      proper-lockfile:
-        specifier: ^4.1.2
-        version: 4.1.2
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
-      '@types/bun':
-        specifier: 'catalog:'
-        version: 1.3.14
-      '@types/proper-lockfile':
-        specifier: ^4.1.4
-        version: 4.1.4
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/registry-client:
-    dependencies:
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      '@agentxm/registry-protocol':
-        specifier: workspace:^
-        version: link:../registry-protocol
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112
-      fflate:
-        specifier: 'catalog:'
-        version: 0.8.3
-      semver:
-        specifier: 'catalog:'
-        version: 7.8.5
-    devDependencies:
-      '@effect/openapi-generator':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1))(effect@4.0.0-rc.112)
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
-      '@types/bun':
-        specifier: 'catalog:'
-        version: 1.3.14
-      '@types/semver':
-        specifier: 'catalog:'
-        version: 7.7.1
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      swagger2openapi:
-        specifier: 'catalog:'
-        version: 7.0.8
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/registry-protocol:
+  packages/core/registry-protocol:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
@@ -883,42 +719,17 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/test-support:
-    dependencies:
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112
-      memfs:
-        specifier: ^4.71.0
-        version: 4.71.0
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-
-  packages/workspace-configuration:
+  packages/core/workspace-configuration:
     dependencies:
       '@agentxm/agent-integration':
         specifier: workspace:^
-        version: link:../agent-integration
+        version: link:../../supporting/agent-integration
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
       '@agentxm/extension-sources':
         specifier: workspace:^
-        version: link:../extension-sources
+        version: link:../../supporting/extension-sources
       '@agentxm/extension-workspace':
         specifier: workspace:^
         version: link:../extension-workspace
@@ -951,20 +762,20 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/workspace-inspection:
+  packages/core/workspace-inspection:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
       '@agentxm/extension-sources':
         specifier: workspace:^
-        version: link:../extension-sources
+        version: link:../../supporting/extension-sources
       '@agentxm/extension-workspace':
         specifier: workspace:^
         version: link:../extension-workspace
       '@agentxm/registry-client':
         specifier: workspace:^
-        version: link:../registry-client
+        version: link:../../supporting/registry-client
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
@@ -1000,14 +811,14 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/workspace-lint:
+  packages/core/workspace-lint:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
       '@agentxm/extension-sources':
         specifier: workspace:^
-        version: link:../extension-sources
+        version: link:../../supporting/extension-sources
       '@agentxm/extension-workspace':
         specifier: workspace:^
         version: link:../extension-workspace
@@ -1026,7 +837,7 @@ importers:
     devDependencies:
       '@agentxm/agent-integration':
         specifier: workspace:^
-        version: link:../agent-integration
+        version: link:../../supporting/agent-integration
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -1046,7 +857,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/workspace-operations:
+  packages/core/workspace-operations:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
@@ -1086,7 +897,7 @@ importers:
         specifier: 'catalog:'
         version: 2.9.0
 
-  packages/workspace-state:
+  packages/core/workspace-state:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
@@ -1126,7 +937,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/workspace-sync:
+  packages/core/workspace-sync:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
@@ -1172,26 +983,180 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
+  packages/supporting/agent-integration:
+    dependencies:
+      '@agentxm/extension-model':
+        specifier: workspace:^
+        version: link:../../core/extension-model
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/supporting/extension-sources:
+    dependencies:
+      '@agentxm/extension-model':
+        specifier: workspace:^
+        version: link:../../core/extension-model
+      '@agentxm/registry-client':
+        specifier: workspace:^
+        version: link:../registry-client
+      '@agentxm/registry-protocol':
+        specifier: workspace:^
+        version: link:../../core/registry-protocol
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
+      simple-git:
+        specifier: 'catalog:'
+        version: 3.36.0(supports-color@7.2.0)
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.7.1
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/supporting/registry-auth:
+    dependencies:
+      '@agentxm/extension-model':
+        specifier: workspace:^
+        version: link:../../core/extension-model
+      '@agentxm/registry-client':
+        specifier: workspace:^
+        version: link:../registry-client
+      '@agentxm/registry-protocol':
+        specifier: workspace:^
+        version: link:../../core/registry-protocol
+      '@napi-rs/keyring':
+        specifier: ^1.3.0
+        version: 1.3.0
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+      proper-lockfile:
+        specifier: ^4.1.2
+        version: 4.1.2
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.3.14
+      '@types/proper-lockfile':
+        specifier: ^4.1.4
+        version: 4.1.4
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/supporting/registry-client:
+    dependencies:
+      '@agentxm/extension-model':
+        specifier: workspace:^
+        version: link:../../core/extension-model
+      '@agentxm/registry-protocol':
+        specifier: workspace:^
+        version: link:../../core/registry-protocol
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+      fflate:
+        specifier: 'catalog:'
+        version: 0.8.3
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
+    devDependencies:
+      '@effect/openapi-generator':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1))(effect@4.0.0-rc.112)
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.3.14
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.7.1
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      swagger2openapi:
+        specifier: 'catalog:'
+        version: 7.0.8
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
   specifications:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
-        version: link:../packages/extension-model
+        version: link:../packages/core/extension-model
       '@agentxm/registry-auth':
         specifier: workspace:^
-        version: link:../packages/registry-auth
+        version: link:../packages/supporting/registry-auth
       '@agentxm/registry-protocol':
         specifier: workspace:^
-        version: link:../packages/registry-protocol
+        version: link:../packages/core/registry-protocol
       '@agentxm/test-support':
         specifier: workspace:^
-        version: link:../packages/test-support
+        version: link:../tools/test-support
       '@agentxm/workspace-configuration':
         specifier: workspace:^
-        version: link:../packages/workspace-configuration
+        version: link:../packages/core/workspace-configuration
       axm.sh:
         specifier: workspace:^
-        version: link:../packages/cli
+        version: link:../apps/cli
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -1223,6 +1188,41 @@ importers:
       yaml:
         specifier: 'catalog:'
         version: 2.9.0
+
+  tools/e2e-utils:
+    dependencies:
+      execa:
+        specifier: 'catalog:'
+        version: 9.6.1
+    devDependencies:
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  tools/test-support:
+    dependencies:
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+      memfs:
+        specifier: ^4.71.0
+        version: 4.71.0
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
 
 packages:
 

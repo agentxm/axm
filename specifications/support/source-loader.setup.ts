@@ -17,7 +17,7 @@ registerHooks({
     }
     if (
       context.parentURL?.startsWith("file:") === true &&
-      context.parentURL.includes("/packages/") &&
+      /\/(?:apps|packages|tools)\//u.test(context.parentURL) &&
       specifier.startsWith(".") &&
       specifier.endsWith(".js")
     ) {

@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["privacy-and-consent"],
   methods: ["decision-table"],
-  derivedFrom: ["AgentXM Registry API 0.1.0", "packages/cli/src/root/lifecycle/command.test.ts"],
+  derivedFrom: ["AgentXM Registry API 0.1.0", "apps/cli/src/root/lifecycle/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

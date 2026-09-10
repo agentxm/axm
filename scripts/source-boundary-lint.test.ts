@@ -20,11 +20,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
 /** A production module subject to every boundary rule. */
-const PRODUCTION_SOURCE = "packages/cli/src/root/list/command.ts";
+const PRODUCTION_SOURCE = "apps/cli/src/root/list/command.ts";
 /** Screen's process adapter: the sole writer after runtime startup. */
-const OUTPUT_BOUNDARY = "packages/cli/src/screen/streams.ts";
+const OUTPUT_BOUNDARY = "apps/cli/src/screen/streams.ts";
 /** The guarded prompt boundary, where requireInteractive lives. */
-const PROMPT_BOUNDARY = "packages/cli/src/prompt/helpers.ts";
+const PROMPT_BOUNDARY = "apps/cli/src/prompt/helpers.ts";
 
 describe("production source boundary lint rules", () => {
   let violations: (code: string, filePath: string) => Promise<ReadonlyArray<string>>;
@@ -97,5 +97,185 @@ describe("production source boundary lint rules", () => {
     // A later flat-config block must not silently replace either restriction.
     expect(reported).toContain("axm-policy/no-direct-process-output");
     expect(reported).toContain("no-restricted-syntax");
+  });
+});
+
+/**
+ * The domain and role matrices are proved with real allowed and forbidden
+ * imports between real projects, not by asserting config strings. Each probe
+ * path is an existing production or test file so the type-aware parser
+ * resolves it; the linted text replaces its content.
+ */
+describe("module boundary constraints", () => {
+  let boundaryViolations: (
+    code: string,
+    filePath: string,
+  ) => Promise<ReadonlyArray<{ readonly ruleId: string; readonly message: string }>>;
+
+  beforeAll(() => {
+    const eslint = new ESLint({ cwd: repoRoot });
+    boundaryViolations = async (code, filePath) => {
+      const [result] = await eslint.lintText(code, { filePath });
+      return (result?.messages ?? [])
+        .filter(
+          (message) =>
+            message.ruleId === "@nx/enforce-module-boundaries" ||
+            message.ruleId === "no-restricted-imports" ||
+            message.ruleId === "@typescript-eslint/no-restricted-imports",
+        )
+        .map((message) => ({ ruleId: message.ruleId ?? "", message: message.message }));
+    };
+  });
+
+  const FEATURE = "packages/core/extension-lifecycle/src/index.ts";
+  const FEATURE_TEST =
+    "packages/core/extension-lifecycle/src/workflows/install-command/workflow.test.ts";
+  const CAPABILITY = "packages/core/workspace-operations/src/index.ts";
+  const SUPPORTING_INTEGRATION = "packages/supporting/registry-client/src/index.ts";
+  const SUPPORTING_INTEGRATION_B = "packages/supporting/agent-integration/src/index.ts";
+  const APPLICATION = "apps/cli/src/main.ts";
+  const HANDLER = "apps/cli/src/root/list/command.ts";
+  const E2E = "apps/cli-e2e/src/utils.ts";
+
+  it("lets core depend on supporting and supporting depend on the contract seams", async () => {
+    expect(await boundaryViolations('import "@agentxm/extension-sources";', FEATURE)).toEqual([]);
+    // The contract packages export only ./unstable/* subpaths; the bare root
+    // is unresolvable everywhere, so the seam is proved through a real subpath.
+    expect(
+      await boundaryViolations(
+        'import "@agentxm/extension-model/unstable/extensions";',
+        SUPPORTING_INTEGRATION,
+      ),
+    ).toEqual([]);
+    expect(await boundaryViolations('import "@agentxm/extension-lifecycle";', APPLICATION)).toEqual(
+      [],
+    );
+  });
+
+  it("forbids supporting from depending on core beyond the contract seams", async () => {
+    const violations = await boundaryViolations(
+      'import "@agentxm/workspace-state";',
+      SUPPORTING_INTEGRATION,
+    );
+    expect(violations.map((violation) => violation.ruleId)).toEqual([
+      "@nx/enforce-module-boundaries",
+    ]);
+    expect(violations[0]?.message).toContain("domain:supporting");
+  });
+
+  it("keeps features peers and keeps capabilities and integrations below features", async () => {
+    const featureToFeature = await boundaryViolations(
+      'import "@agentxm/extension-publish";',
+      FEATURE,
+    );
+    expect(featureToFeature[0]?.message).toContain("role:feature");
+    const capabilityToFeature = await boundaryViolations(
+      'import "@agentxm/knowledge-query";',
+      CAPABILITY,
+    );
+    expect(capabilityToFeature[0]?.message).toContain("role:capability");
+    const integrationToCapability = await boundaryViolations(
+      'import "@agentxm/registry-auth";',
+      SUPPORTING_INTEGRATION_B,
+    );
+    expect(integrationToCapability[0]?.message).toContain("role:integration");
+  });
+
+  it("keeps engineering libraries out of runtime while tests may compose them", async () => {
+    expect(
+      (await boundaryViolations('import "@agentxm/test-support";', FEATURE)).map(
+        (violation) => violation.ruleId,
+      ),
+    ).toEqual(["@nx/enforce-module-boundaries"]);
+    expect(
+      (await boundaryViolations('import "@agentxm/test-support";', APPLICATION)).map(
+        (violation) => violation.ruleId,
+      ),
+    ).toEqual(["@nx/enforce-module-boundaries"]);
+    expect(await boundaryViolations('import "@agentxm/test-support";', FEATURE_TEST)).toEqual([]);
+  });
+
+  it("confines end-to-end suites to engineering libraries", async () => {
+    expect(await boundaryViolations('import "@agentxm/client-e2e-utils";', E2E)).toEqual([]);
+    expect(
+      (await boundaryViolations('import "@agentxm/extension-lifecycle";', E2E)).map(
+        (violation) => violation.ruleId,
+      ),
+    ).toEqual(["@nx/enforce-module-boundaries"]);
+  });
+
+  it("forbids deep imports past a package's declared public API", async () => {
+    const violations = await boundaryViolations(
+      'import "@agentxm/workspace-state/src/index.js";',
+      FEATURE,
+    );
+    expect(violations.map((violation) => violation.ruleId)).toContain("no-restricted-imports");
+  });
+
+  it("confines the generic domain to itself", async () => {
+    // No generic package exists yet, so the row cannot be exercised with a real
+    // import; pin the constraint until one does.
+    const config: { readonly default: ReadonlyArray<unknown> } = await import(
+      path.join(repoRoot, "eslint.config.mjs")
+    );
+    const genericRows = config.default.flatMap((block) => {
+      if (typeof block !== "object" || block === null || !("rules" in block)) return [];
+      const rules: unknown = block.rules;
+      if (typeof rules !== "object" || rules === null) return [];
+      const rule: unknown = Reflect.get(rules, "@nx/enforce-module-boundaries");
+      if (!Array.isArray(rule) || typeof rule[1] !== "object" || rule[1] === null) return [];
+      const production = Reflect.get(rule[1], "enforceBuildableLibDependency") === true;
+      const depConstraints: unknown = Reflect.get(rule[1], "depConstraints");
+      return (Array.isArray(depConstraints) ? depConstraints : [])
+        .filter(
+          (constraint) =>
+            typeof constraint === "object" &&
+            constraint !== null &&
+            Reflect.get(constraint, "sourceTag") === "domain:generic",
+        )
+        .map((constraint) => ({
+          production,
+          allowed: Reflect.get(constraint, "onlyDependOnLibsWithTags"),
+        }));
+    });
+    expect(genericRows).toEqual([
+      { production: true, allowed: ["domain:generic"] },
+      { production: false, allowed: ["domain:generic", "role:tooling"] },
+    ]);
+  });
+
+  it("warns handlers away from writers, plan constructors, and integrations", async () => {
+    const warn = (violations: ReadonlyArray<{ readonly ruleId: string }>) =>
+      violations.map((violation) => violation.ruleId);
+    expect(
+      warn(
+        await boundaryViolations(
+          'import { WorkspaceMutations } from "@agentxm/workspace-state";',
+          HANDLER,
+        ),
+      ),
+    ).toEqual(["@typescript-eslint/no-restricted-imports"]);
+    expect(
+      warn(
+        await boundaryViolations(
+          'import { previewOrApplyPlan } from "@agentxm/workspace-operations";',
+          HANDLER,
+        ),
+      ),
+    ).toEqual(["@typescript-eslint/no-restricted-imports"]);
+    expect(
+      warn(
+        await boundaryViolations(
+          'import { resolveSource } from "@agentxm/extension-sources";',
+          HANDLER,
+        ),
+      ),
+    ).toEqual(["@typescript-eslint/no-restricted-imports"]);
+    expect(
+      await boundaryViolations(
+        'import type { Plan } from "@agentxm/workspace-operations";\nimport { operationPresentation } from "@agentxm/workspace-operations";\nimport { handleInstall } from "@agentxm/extension-lifecycle";',
+        HANDLER,
+      ),
+    ).toEqual([]);
   });
 });

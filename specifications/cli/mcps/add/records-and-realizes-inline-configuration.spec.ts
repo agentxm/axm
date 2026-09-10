@@ -20,8 +20,8 @@ export const specification = defineSpecification({
   derivedFrom: [
     "cli/mcps/inline-lifecycle-is-idempotent",
     "cli/mcps/projects-to-every-configured-agent",
-    "packages/cli/src/root/mcps/add.ts",
-    "packages/cli/help/topics/mcps.md",
+    "apps/cli/src/root/mcps/add.ts",
+    "apps/cli/help/topics/mcps.md",
   ],
   supersedes: [],
   assumptions: [],

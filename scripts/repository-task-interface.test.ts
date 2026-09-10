@@ -19,6 +19,7 @@ type ResolvedProject = {
   readonly name: string;
   readonly data: {
     readonly root?: string;
+    readonly tags?: ReadonlyArray<string>;
     readonly targets?: Readonly<Record<string, ResolvedTarget>>;
   };
 };
@@ -329,7 +330,7 @@ describe("repository task interface", () => {
       expect(targetCache(rootTargets, targetName), targetName).toBe(false);
     }
 
-    const e2eTargets = readTargets("packages/cli-e2e/project.json");
+    const e2eTargets = readTargets("apps/cli-e2e/project.json");
     for (const targetName of ["binary-smoke-artifact", "install-suite", "install-verification"]) {
       expect(targetCache(e2eTargets, targetName), targetName).toBe(false);
     }
@@ -340,6 +341,31 @@ describe("repository task interface", () => {
     expect(targetCache(targets, "test")).toBe(false);
     const hygiene = targets["verify-source-hygiene"];
     if (!isRecord(hygiene)) throw new Error("Missing verify-source-hygiene target.");
-    expect(hygiene["inputs"]).toContain("{workspaceRoot}/packages/**/*");
+    for (const family of ["apps", "packages", "tools"]) {
+      expect(hygiene["inputs"]).toContain(`{workspaceRoot}/${family}/**/*`);
+    }
+  });
+
+  it("infers one domain from placement and declares one role for every project", () => {
+    expect(projects.length).toBeGreaterThan(0);
+    for (const project of projects) {
+      const root = project.data.root ?? "";
+      const tags = project.data.tags ?? [];
+      const domains = tags.filter((tag) => tag.startsWith("domain:"));
+      const roles = tags.filter((tag) => tag.startsWith("role:"));
+      expect(roles, project.name).toHaveLength(1);
+      if (root.startsWith("packages/")) {
+        expect(domains, project.name).toHaveLength(1);
+        expect(root.split("/"), project.name).toHaveLength(3);
+        expect(["core", "supporting", "generic"], project.name).toContain(root.split("/")[1]);
+      } else {
+        expect(domains, project.name).toEqual([]);
+      }
+      if (tags.includes("release:cli")) {
+        // The cohort ships the application plus domain-classified libraries.
+        expect(project.data.targets?.["build"], project.name).toBeDefined();
+        if (!tags.includes("type:app")) expect(domains, project.name).toHaveLength(1);
+      }
+    }
   });
 });

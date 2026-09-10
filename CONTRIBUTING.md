@@ -116,7 +116,7 @@ private coordination and private PR links in the internal system.
   affected-file conveniences only.
 - **ESLint** handles linting and runs in CI.
 - Co-locate tests with the code they test (`feature.ts` + `feature.test.ts` in the same directory).
-- CLI E2E coverage lives in dedicated `packages/<cli>-e2e/` projects and runs against built artifacts.
+- CLI E2E coverage lives in dedicated `apps/<cli>-e2e/` projects and runs against built artifacts.
 
 ## Releasing
 

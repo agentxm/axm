@@ -13,9 +13,9 @@ export const specification = defineSpecification({
   goals: ["actionable-diagnostics", "machine-automation"],
   methods: ["decision-table", "example"],
   derivedFrom: [
-    "packages/cli/help/topics/machine-output.md",
-    "packages/cli/src/cli-runtime/handle-error.test.ts",
-    "packages/cli/src/cli-runtime/json-envelope.test.ts",
+    "apps/cli/help/topics/machine-output.md",
+    "apps/cli/src/cli-runtime/handle-error.test.ts",
+    "apps/cli/src/cli-runtime/json-envelope.test.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-publish",
+  "projectType": "library",
+  "root": "packages/core/extension-publish",
+  "sourceRoot": "packages/core/extension-publish/src",
+  "tags": ["type:lib", "role:feature", "scope:extension-publish", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/extension-publish/src/index.ts",
+        "outputPath": "packages/core/extension-publish/dist",
+        "tsConfig": "packages/core/extension-publish/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

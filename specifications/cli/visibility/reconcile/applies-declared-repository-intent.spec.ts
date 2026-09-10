@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
   methods: ["example", "contract"],
-  derivedFrom: ["packages/cli/src/root/visibility/handler.ts", "AgentXM Registry API 0.1.0"],
+  derivedFrom: ["apps/cli/src/root/visibility/handler.ts", "AgentXM Registry API 0.1.0"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

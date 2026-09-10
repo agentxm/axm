@@ -1,11 +1,11 @@
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as Schema from "effect/Schema";
 import { packReleaseCohort } from "./release-packages.js";
-const version = Schema.decodeUnknownSync(
-  Schema.fromJsonString(Schema.Struct({ version: Schema.String })),
-)(readFileSync("packages/cli/package.json", "utf8")).version;
+import { RELEASE_PACKAGES, readPackageVersion } from "./release-shared.js";
+const cli = RELEASE_PACKAGES.find((member) => member.name === "axm.sh");
+if (cli === undefined) throw new Error("axm.sh is not a member of the release cohort.");
+const version = readPackageVersion(cli.path);
 const directory = mkdtempSync(join(tmpdir(), "axm-pack-verification-"));
 try {
   packReleaseCohort(version, directory);

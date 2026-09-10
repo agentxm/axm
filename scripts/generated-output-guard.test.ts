@@ -81,17 +81,17 @@ describe("generated output guard", () => {
     temporaryDirectories.push(source, snapshot);
     mkdirSync(join(source, "node_modules", ".pnpm"), { recursive: true });
     mkdirSync(join(source, "node_modules", "@agentxm"));
-    mkdirSync(join(source, "packages", "extension-model"), { recursive: true });
-    mkdirSync(join(snapshot, "packages", "extension-model"), { recursive: true });
+    mkdirSync(join(source, "packages", "core", "extension-model"), { recursive: true });
+    mkdirSync(join(snapshot, "packages", "core", "extension-model"), { recursive: true });
     symlinkSync(
-      "../../packages/extension-model",
+      "../../packages/core/extension-model",
       join(source, "node_modules", "@agentxm", "extension-model"),
     );
 
     mirrorNodeModules(join(source, "node_modules"), join(snapshot, "node_modules"));
 
     expect(realpathSync(join(snapshot, "node_modules", "@agentxm", "extension-model"))).toBe(
-      realpathSync(join(snapshot, "packages", "extension-model")),
+      realpathSync(join(snapshot, "packages", "core", "extension-model")),
     );
     expect(realpathSync(join(snapshot, "node_modules", ".pnpm"))).toBe(
       realpathSync(join(source, "node_modules", ".pnpm")),

@@ -28,7 +28,7 @@ export const RELEASE_PACKAGE_JSON_PATHS = RELEASE_PACKAGES.map(({ path }) => pat
 
 export const AXM_SKILL_MANIFEST_PATH = "skills/axm/skill.json";
 export const AXM_SKILL_DOCUMENT_PATH = "skills/axm/src/SKILL.md";
-export const AXM_SKILL_GENERATED_PATH = "packages/cli/src/__generated__/bundled-axm-skill.ts";
+export const AXM_SKILL_GENERATED_PATH = "apps/cli/src/__generated__/bundled-axm-skill.ts";
 
 const releaseVersionJsonPaths = (packages: readonly ReleasePackage[]): readonly string[] => [
   ...packages.map(({ path }) => path),

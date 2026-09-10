@@ -78,7 +78,7 @@ describe("Execution evidence at the review boundary", () => {
       const source = fixtureSource("specification source", { methods: ["example", "review"], selection: "platform-matrix" });
       const boundSource = { ...source, specification: { ...source.specification, boundEvidence: [{ gate: "axm:static-check", verifies: "Checks a repository constraint." }] } };
       return report(fixtureContext({ executionBindings: [{
-        source: "packages/cli-e2e/src/install.e2e.test.ts", requirements: [source.specification.metadata.requirement],
+        source: "apps/cli-e2e/src/install.e2e.test.ts", requirements: [source.specification.metadata.requirement],
         boundary: "process", rationale: "Observes real process output.",
       }] }), boundSource);
     })()`);
@@ -92,7 +92,7 @@ describe("Execution evidence at the review boundary", () => {
   it("joins a separately executed boundary only to its declared owning requirement", () => {
     const evidence = evaluateVerdict(`(() => {
       const source = fixtureSource();
-      const boundarySource = "packages/cli-e2e/src/install.e2e.test.ts";
+      const boundarySource = "apps/cli-e2e/src/install.e2e.test.ts";
       return report(fixtureContext({
         runs: [fixtureRun(), fixtureRun({ source: boundarySource, contentDigest: "boundary-digest" }, { suite: "cli-e2e" })],
         sourceDigests: new Map([[boundarySource, "boundary-digest"]]),
@@ -100,7 +100,7 @@ describe("Execution evidence at the review boundary", () => {
       }))[1];
     })()`);
     expect(evidence).toMatchObject({
-      source: "packages/cli-e2e/src/install.e2e.test.ts",
+      source: "apps/cli-e2e/src/install.e2e.test.ts",
       boundary: "process",
       status: "fresh",
       outcome: "passed",
@@ -109,8 +109,8 @@ describe("Execution evidence at the review boundary", () => {
   it("attributes imported scenarios only through their selected execution entrypoint", () => {
     const evidence = evaluateVerdict(`(() => {
       const source = fixtureSource();
-      const helper = "packages/cli-e2e/src/cli-commands/auth/token/token.e2e.ts";
-      const entrypoint = "packages/cli-e2e/src/auth.e2e.test.ts";
+      const helper = "apps/cli-e2e/src/cli-commands/auth/token/token.e2e.ts";
+      const entrypoint = "apps/cli-e2e/src/auth.e2e.test.ts";
       const binding = (executionSource) => ({ source: executionSource, requirements: [source.specification.metadata.requirement], boundary: "process", rationale: "Executes the imported token scenarios through the selected Vitest entrypoint." });
       const run = (file = {}) => fixtureRun({ source: entrypoint, contentDigest: "entrypoint-digest", ...file }, { suite: "cli-e2e" });
       const context = { runs: [fixtureRun(), run()], sourceDigests: new Map([[helper, "helper-digest"], [entrypoint, "entrypoint-digest"]]) };

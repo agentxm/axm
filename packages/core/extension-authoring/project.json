@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-authoring",
+  "projectType": "library",
+  "root": "packages/core/extension-authoring",
+  "sourceRoot": "packages/core/extension-authoring/src",
+  "tags": ["type:lib", "role:feature", "scope:extension-authoring", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/extension-authoring/src/index.ts",
+        "outputPath": "packages/core/extension-authoring/dist",
+        "tsConfig": "packages/core/extension-authoring/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

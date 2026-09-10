@@ -25,9 +25,9 @@ export const specification = defineSpecification({
     "Actual CLI invocations distinguish the registered option combinations and observe persisted activation state plus the resulting native configurations.",
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "packages/cli/src/root/mcps/import.ts",
-    "packages/cli/src/root/mcps/import.test.ts",
-    "packages/cli-e2e/src/fork-import.e2e.test.ts",
+    "apps/cli/src/root/mcps/import.ts",
+    "apps/cli/src/root/mcps/import.test.ts",
+    "apps/cli-e2e/src/fork-import.e2e.test.ts",
     "cli/mcps/projects-to-every-configured-agent",
   ],
   supersedes: [],

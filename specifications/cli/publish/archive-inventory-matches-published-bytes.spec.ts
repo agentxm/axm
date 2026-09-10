@@ -19,10 +19,7 @@ export const specification = defineSpecification({
   role: "interface",
   goals: ["trustworthy-distribution", "machine-automation"],
   methods: ["example", "contract"],
-  derivedFrom: [
-    "packages/cli/help/topics/publish.md",
-    "packages/cli/src/root/publish/command.test.ts",
-  ],
+  derivedFrom: ["apps/cli/help/topics/publish.md", "apps/cli/src/root/publish/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

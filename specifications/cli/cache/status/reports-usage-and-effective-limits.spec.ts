@@ -14,10 +14,7 @@ export const specification = defineSpecification({
   role: "interface",
   goals: ["machine-automation"],
   methods: ["example", "contract"],
-  derivedFrom: [
-    "packages/cli/src/root/cache/command.ts",
-    "packages/cli/src/root/cache/command.test.ts",
-  ],
+  derivedFrom: ["apps/cli/src/root/cache/command.ts", "apps/cli/src/root/cache/command.test.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [

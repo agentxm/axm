@@ -108,8 +108,11 @@ const outputFiles = (repoRoot: string, directory: string): string[] => {
 /**
  * Conservative repository-wide invalidation is deliberate: no inferred import
  * graph can establish every file read by repository and command specifications.
- * Built workspace packages are separate runtime inputs because tests load dist.
- * node_modules is represented by the lockfile, assuming a frozen installation.
+ * Built workspace packages are separate runtime inputs because tests load dist;
+ * a package is any directory holding a repository-tracked `package.json`, so
+ * the layout under `apps/`, `packages/`, and `tools/` never has to be
+ * enumerated here. node_modules is represented by the lockfile, assuming a
+ * frozen installation.
  */
 export const captureEvidenceInputs = (
   repoRoot: string,
@@ -129,15 +132,14 @@ export const captureEvidenceInputs = (
   const sources = git("ls-files", "--cached", "--others", "--exclude-standard", "-z")
     .split("\0")
     .filter(Boolean);
-  const packagesPath = path.join(repoRoot, "packages");
   const runtimeFiles =
     runtimeMode === "source"
       ? sources
-      : fs.existsSync(packagesPath)
-        ? fs
-            .readdirSync(packagesPath)
-            .flatMap((name) => outputFiles(repoRoot, `packages/${name}/dist`))
-        : [];
+      : sources
+          .filter((file) => path.posix.basename(file) === "package.json")
+          .flatMap((file) =>
+            outputFiles(repoRoot, path.posix.join(path.posix.dirname(file), "dist")),
+          );
   return {
     sourceDigest: digestFiles(repoRoot, sources),
     runtimeDigest: digestFiles(repoRoot, runtimeFiles),

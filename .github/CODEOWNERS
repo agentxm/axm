@@ -1,5 +1,5 @@
-# Specification source is the requirements authority. Changing it is a
+# Specification files are the requirements authority. Changing one is a
 # requirements decision and requires maintainer review; implementation-scoped
-# work treats specifications as read-only.
+# work treats specification files as read-only wherever they live.
 /specifications/ @craigsmitham
 **/*.spec.ts @craigsmitham

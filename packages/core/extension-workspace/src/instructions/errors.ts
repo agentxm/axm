@@ -7,11 +7,8 @@
  */
 
 import * as Schema from "effect/Schema";
-import type {
-  PathTraversalDetected,
-  SymlinkCreationError,
-  WorkspaceSnapshotError,
-} from "@agentxm/workspace-state";
+import type { PathTraversalDetected, SymlinkCreationError } from "@agentxm/workspace-state";
+import type { WorkspaceSnapshotError } from "@agentxm/workspace-transactions";
 
 const CarriedSuggestedActionSchema = Schema.Struct({
   description: Schema.String,

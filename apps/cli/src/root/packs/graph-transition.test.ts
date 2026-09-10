@@ -15,7 +15,7 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { bindWorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 
 import { toPlanResolutionResult } from "../../operation-output.js";
 import { operationDoc } from "../../operation-view.js";
@@ -41,7 +41,7 @@ describe("atomic pack graph transition", () => {
 
     return provide(
       Effect.gen(function* () {
-        const ws = yield* WorkspaceMutations;
+        const runTransaction = yield* bindWorkspaceTransactionRunner;
         const targets = ["pack", "skill", "command"].map((name) =>
           path.join(tempDir, "agent_extensions", name, "content.txt"),
         );
@@ -55,28 +55,26 @@ describe("atomic pack graph transition", () => {
           const childSteps: ReadonlyArray<PlannedJobStep> = targets.map((target, index) => ({
             readiness: "ready",
             label: `member-${String(index)}`,
-            run: ws
-              .runTransaction({
-                targets: [target],
-                transition: Effect.sync(() => {
-                  fs.writeFileSync(target, `after-${String(index)}\n`);
-                  return index === failAt
-                    ? ({
-                        result: "error",
-                        message: `injected failure at ${String(index)}`,
-                        error: new StepFailure({
-                          category: "internal",
-                          detail: `injected failure at ${String(index)}`,
-                        }),
-                      } satisfies JobStepResult)
-                    : ({
-                        result: "success",
-                        message: `updated member ${String(index)}`,
-                      } satisfies JobStepResult);
-                }),
-                validate: () => Effect.void,
-              })
-              .pipe(Effect.mapError(failureToStepFailure)),
+            run: runTransaction({
+              targets: [target],
+              transition: Effect.sync(() => {
+                fs.writeFileSync(target, `after-${String(index)}\n`);
+                return index === failAt
+                  ? ({
+                      result: "error",
+                      message: `injected failure at ${String(index)}`,
+                      error: new StepFailure({
+                        category: "internal",
+                        detail: `injected failure at ${String(index)}`,
+                      }),
+                    } satisfies JobStepResult)
+                  : ({
+                      result: "success",
+                      message: `updated member ${String(index)}`,
+                    } satisfies JobStepResult);
+              }),
+              validate: () => Effect.void,
+            }).pipe(Effect.mapError(failureToStepFailure)),
           }));
           const graphStep = yield* buildAtomicPackGraphStep({
             label: "@test/packs/atomic",
@@ -113,7 +111,7 @@ describe("atomic pack graph transition", () => {
 
     return provide(
       Effect.gen(function* () {
-        const workspace = yield* WorkspaceMutations;
+        const runTransaction = yield* bindWorkspaceTransactionRunner;
         const failedTarget = path.join(tempDir, "agent_extensions", "failed", "content.txt");
         const healthyTarget = path.join(tempDir, "agent_extensions", "healthy", "content.txt");
         for (const target of [failedTarget, healthyTarget]) {
@@ -136,16 +134,14 @@ describe("atomic pack graph transition", () => {
                 step: {
                   readiness: "ready",
                   label: `${label} member`,
-                  run: workspace
-                    .runTransaction({
-                      targets: [target],
-                      transition: Effect.sync(() => {
-                        fs.writeFileSync(target, "after\n");
-                        return { result: "success", message: `Updated ${label} member` } as const;
-                      }),
-                      validate: () => Effect.void,
-                    })
-                    .pipe(Effect.mapError(failureToStepFailure)),
+                  run: runTransaction({
+                    targets: [target],
+                    transition: Effect.sync(() => {
+                      fs.writeFileSync(target, "after\n");
+                      return { result: "success", message: `Updated ${label} member` } as const;
+                    }),
+                    validate: () => Effect.void,
+                  }).pipe(Effect.mapError(failureToStepFailure)),
                 },
               },
             ],
@@ -414,7 +410,7 @@ describe("atomic pack graph transition", () => {
       Effect.gen(function* () {
         const target = path.join(tempDir, "coverage-scope.txt");
         fs.writeFileSync(target, "before\n");
-        const ws = yield* WorkspaceMutations;
+        const runTransaction = yield* bindWorkspaceTransactionRunner;
         const graphStep = yield* buildAtomicPackGraphStep({
           label: "@test/packs/mixed-scope",
           message: "installed mixed-scope pack",
@@ -425,25 +421,23 @@ describe("atomic pack graph transition", () => {
               step: {
                 readiness: "ready",
                 label: "skill:user",
-                run: ws
-                  .runTransaction({
-                    targets: [target],
-                    transition: Effect.sync(() => {
-                      fs.writeFileSync(target, "after\n");
-                      return {
-                        result: "success",
-                        message: "installed user skill",
-                        artifact: {
-                          path: ".agents/skills/user-skill",
-                          scope: "user",
-                          change: "created",
-                          agents: ["codex"],
-                        },
-                      } satisfies JobStepResult;
-                    }),
-                    validate: () => Effect.void,
-                  })
-                  .pipe(Effect.mapError(failureToStepFailure)),
+                run: runTransaction({
+                  targets: [target],
+                  transition: Effect.sync(() => {
+                    fs.writeFileSync(target, "after\n");
+                    return {
+                      result: "success",
+                      message: "installed user skill",
+                      artifact: {
+                        path: ".agents/skills/user-skill",
+                        scope: "user",
+                        change: "created",
+                        agents: ["codex"],
+                      },
+                    } satisfies JobStepResult;
+                  }),
+                  validate: () => Effect.void,
+                }).pipe(Effect.mapError(failureToStepFailure)),
               },
             },
           ],

@@ -17,6 +17,10 @@ import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-transactions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   PACK_MANIFEST_FILENAME,
@@ -65,7 +69,11 @@ export type RemoveFromPackOperation = Operation<"remove-from-pack", RemoveFromPa
  */
 export const removeFromPack: OperationHandler<
   RemoveFromPackOperation,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | AuthoringFailureAdapter
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | WorkspaceTransactionScope
+  | AuthoringFailureAdapter
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -97,7 +105,7 @@ export const removeFromPack: OperationHandler<
       packName,
       PACK_MANIFEST_FILENAME,
     );
-    yield* ws.runTransaction({
+    yield* runWorkspaceTransaction({
       targets: [manifestPath],
       transition: Effect.gen(function* () {
         const manifestContent = yield* fs.readFileString(manifestPath).pipe(

@@ -59,15 +59,15 @@ import type {
   McpServerRuleContext,
   RuleRuleContext,
   SubagentRuleContext,
-} from "@agentxm/registry-protocol/unstable/lint/context";
+} from "@agentxm/extension-content/lint";
 import type {
   InstalledExtensionManifest,
   WorkspaceInstructionAccessor,
   WorkspaceProjectionsAccessor,
   WorkspaceRuleContext,
 } from "../../workspace-context.js";
-import type { InstalledSkillInfo } from "@agentxm/registry-protocol/unstable/lint/catalog/skill-accessor/contexts";
-import type { InstalledPackInfo } from "@agentxm/registry-protocol/unstable/lint/catalog/pack-accessor/contexts";
+import type { InstalledSkillInfo } from "@agentxm/extension-content/lint";
+import type { InstalledPackInfo } from "@agentxm/extension-content/lint";
 import { makePlatformSkillFileAccessor } from "@agentxm/extension-workspace";
 import { makePlatformPackFileAccessor } from "@agentxm/extension-workspace";
 import {
@@ -88,7 +88,7 @@ import {
   observeInstructionProjection,
   resolveInstructionsConfig,
 } from "@agentxm/extension-workspace";
-import type { KnowledgeInspection } from "@agentxm/registry-protocol/unstable/knowledge/okf";
+import type { KnowledgeInspection } from "@agentxm/extension-content/knowledge";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { canonicalDisplayRoot } from "../workspace/display-paths.js";
 import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/manifest-schema";

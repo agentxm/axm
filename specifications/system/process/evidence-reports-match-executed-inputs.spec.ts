@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { evaluateVerdict } from "../../support/verdict-harness.js";
 
 export const specification = defineSpecification({
@@ -75,7 +75,7 @@ describe("Execution evidence at the review boundary", () => {
   );
   it("does not transfer a passing source result to unexecuted boundaries or human assessments", () => {
     const evidence = evaluateVerdict(`(() => {
-      const source = fixtureSource("specification source", { methods: ["example", "review"], selection: "platform-matrix" });
+      const source = fixtureSource(undefined, { methods: ["example", "review"], selection: "platform-matrix" });
       const boundSource = { ...source, specification: { ...source.specification, boundEvidence: [{ gate: "axm:static-check", verifies: "Checks a repository constraint." }] } };
       return report(fixtureContext({ executionBindings: [{
         source: "apps/cli-e2e/src/install.e2e.test.ts", requirements: [source.specification.metadata.requirement],

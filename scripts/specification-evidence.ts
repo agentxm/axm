@@ -7,6 +7,8 @@ import * as path from "node:path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
+import { TEST_PURPOSES } from "./test-purpose.js";
+
 export const digestContent = (content: string | Uint8Array): string =>
   createHash("sha256").update(content).digest("hex");
 
@@ -17,8 +19,17 @@ const InputSnapshot = Schema.Struct({
   runtimeMode: Schema.Literals(["source", "built"]),
   revision: Schema.NonEmptyString,
 });
+/**
+ * The purpose a file executed under, as labelled by the shared purpose setup
+ * during execution. `unlabelled` records that no purpose reached the
+ * receipt, so a specification run without its labelling is never a pass.
+ */
+export const RECEIPT_PURPOSES = [...TEST_PURPOSES, "unlabelled"] as const;
 const FileEvidence = Schema.Struct({
   source: Schema.NonEmptyString,
+  /** Nx project whose test target executed the file. */
+  owner: Schema.NonEmptyString,
+  purpose: Schema.Literals(RECEIPT_PURPOSES),
   contentDigest: Schema.NonEmptyString,
   tests: count,
   passed: count,
@@ -29,7 +40,7 @@ const FileEvidence = Schema.Struct({
   filtered: Schema.Boolean,
 });
 export const EvidenceRunSchema = Schema.Struct({
-  format: Schema.Literal(1),
+  format: Schema.Literal(2),
   suite: Schema.NonEmptyString,
   startedAt: Schema.NonEmptyString,
   finishedAt: Schema.NonEmptyString,
@@ -48,6 +59,7 @@ export const EvidenceRunSchema = Schema.Struct({
 export type EvidenceRun = typeof EvidenceRunSchema.Type;
 export type EvidenceFile = typeof FileEvidence.Type;
 export type EvidenceInputs = typeof InputSnapshot.Type;
+export type ReceiptPurpose = EvidenceFile["purpose"];
 
 export const parseEvidenceRun = (text: string): EvidenceRun | undefined => {
   let value: unknown;
@@ -99,24 +111,34 @@ export const digestFiles = (repoRoot: string, files: readonly string[]): string 
 const outputFiles = (repoRoot: string, directory: string): string[] => {
   const absolute = path.join(repoRoot, directory);
   if (!fs.existsSync(absolute)) return [];
+  if (!fs.statSync(absolute).isDirectory()) return [directory];
   return fs.readdirSync(absolute, { withFileTypes: true }).flatMap((entry) => {
     const relative = `${directory}/${entry.name}`;
     return entry.isDirectory() ? outputFiles(repoRoot, relative) : [relative];
   });
 };
 
+export interface EvidenceInputOptions {
+  readonly runtimeMode?: EvidenceInputs["runtimeMode"];
+  /**
+   * Repository-relative directories holding built runtime artifacts, as the
+   * project graph resolves each project's build and compile outputs
+   * (`runtimeOutputs` in `workspace-discovery.ts`). Ignored in source mode.
+   */
+  readonly runtimeOutputs: readonly string[];
+}
+
 /**
  * Conservative repository-wide invalidation is deliberate: no inferred import
  * graph can establish every file read by repository and command specifications.
- * Built workspace packages are separate runtime inputs because tests load dist;
- * a package is any directory holding a repository-tracked `package.json`, so
- * the layout under `apps/`, `packages/`, and `tools/` never has to be
+ * Built runtime outputs are separate inputs because built-mode tests load
+ * them; the caller names them from the project graph, so no layout is
  * enumerated here. node_modules is represented by the lockfile, assuming a
  * frozen installation.
  */
 export const captureEvidenceInputs = (
   repoRoot: string,
-  runtimeMode: EvidenceInputs["runtimeMode"] = "built",
+  { runtimeMode = "built", runtimeOutputs }: EvidenceInputOptions,
 ): EvidenceInputs => {
   const git = (...args: string[]): string =>
     execFileSync("git", args, {
@@ -135,11 +157,7 @@ export const captureEvidenceInputs = (
   const runtimeFiles =
     runtimeMode === "source"
       ? sources
-      : sources
-          .filter((file) => path.posix.basename(file) === "package.json")
-          .flatMap((file) =>
-            outputFiles(repoRoot, path.posix.join(path.posix.dirname(file), "dist")),
-          );
+      : [...new Set(runtimeOutputs)].sort().flatMap((output) => outputFiles(repoRoot, output));
   return {
     sourceDigest: digestFiles(repoRoot, sources),
     runtimeDigest: digestFiles(repoRoot, runtimeFiles),

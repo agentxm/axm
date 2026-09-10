@@ -1,7 +1,7 @@
 ---
 type: Decision
-status: stable
-description: The resolved design decisions behind the specification infrastructure — identity, metadata carrier, project ownership, adapters, budget, selection, and governance controls.
+status: deprecated
+description: Superseded by Colocated specifications — the pilot-era decisions that tied requirement identity to a path under specifications/, owned every specification in one central project, and adapted results through that project's setup file.
 depends-on:
   - ./executable-specifications-authority.md
   - ../system-wide/testing-strategy.md
@@ -9,8 +9,18 @@ depends-on:
 
 # Specification infrastructure decisions
 
+Superseded by [Colocated specifications](colocated-specifications.md), which
+replaces the requirement-identity, project-ownership, result-adapter,
+selection, and governance sections below: identity is independent of path,
+discovery is per owner project, purpose is labelled per file, and the verdict
+digests metadata, decisive examples, and body separately. The metadata
+carrier, product-goal registry, requirement roles, release verification,
+mutation-testing, and runner-cadence sections carry forward unchanged in
+meaning; the fast-suite budget carries forward as a sum across owner
+projects. This record remains for links and history.
+
 The pilot migration slice resolved the open design decisions required before
-broad adoption. Each subsection records one accepted choice.
+broad adoption. Each subsection records one accepted choice as it stood then.
 
 ## Requirement identity
 
@@ -31,7 +41,7 @@ decision visible in the catalog diff.
 ## Metadata carrier and discovery
 
 Each `*.spec.ts` file exports one `specification` constant built with
-`defineSpecification` from `@agentxm/extension-model/unstable/specifications`,
+`defineSpecification` from `@agentxm/specification-metadata`,
 the shared contract every AgentXM corpus consumes
 ([Shared specification contract](shared-specification-contract.md)). Metadata is
 literal-only data — the catalog generator

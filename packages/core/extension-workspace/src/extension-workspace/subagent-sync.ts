@@ -19,7 +19,7 @@ import * as Option from "effect/Option";
 import { projectionGeneration } from "../projection/generation.js";
 import { SubagentIoFailed } from "../subagents/errors.js";
 import type { ExtensionManagerFailure, SubagentSyncFailure } from "./errors.js";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import {
   renderSubagent,
   buildRooModeEntry,

@@ -24,9 +24,13 @@ import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-transactions";
 import { RenderedFilesMapSchema } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
+import { parseSubagentMd } from "@agentxm/extension-content";
 import { subagentLifecycleArtifact } from "./artifact.js";
 import { usableAcceptedCanonical } from "@agentxm/workspace-state";
 
@@ -71,6 +75,7 @@ export const enableSubagent: OperationHandler<
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceTransactionScope
   | CodingAgentRepository
   | LifecycleFailureAdapter
 > = (op) =>
@@ -149,7 +154,7 @@ export const enableSubagent: OperationHandler<
 
     const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
 
-    yield* ws.runTransaction({
+    yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         yield* Effect.forEach(
           configuredAgents,

@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { canonicalDisplayRoot, settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/knowledge-state-valid";

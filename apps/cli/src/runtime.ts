@@ -19,6 +19,7 @@ import { AppError, makeAppError } from "./app-error/index.js";
 import {
   AgentPresenceProbeLive,
   AxmSkillCandidateGateLive,
+  RegistryResolutionPolicyLive,
   WorkspaceCatalogLive,
 } from "./cli-runtime/index.js";
 import {
@@ -82,7 +83,7 @@ import { RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "./telemetry/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import type { SourceHostConfig } from "@agentxm/workspace-state";
 import {
   decodeAbsolutePathSync,
@@ -338,7 +339,7 @@ const makeWorkspaceProgramLayer = (
   );
   const sourceProvidersLayer = Layer.provide(
     SourceHostProvidersLive,
-    Layer.merge(workspaceCatalogLayer, AxmSkillCandidateGateLive),
+    Layer.mergeAll(workspaceCatalogLayer, AxmSkillCandidateGateLive, RegistryResolutionPolicyLive),
   );
   const gitDirectoryComparisonLayer = Layer.provide(GitDirectoryComparisonLive, PlatformLayer);
   const workspaceServiceLayer = Layer.mergeAll(

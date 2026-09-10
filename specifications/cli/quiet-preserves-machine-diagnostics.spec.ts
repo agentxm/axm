@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import { Screen, handleInstall } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 import { makeDirectoryFixture, unattendedProjectSetup } from "../support/directory-harness.js";
 

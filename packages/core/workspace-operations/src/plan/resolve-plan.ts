@@ -1,23 +1,27 @@
 /**
- * Plan preview/apply function.
+ * Candidate preparation and resolution.
  *
- * Orchestrates `augmentPlanWithReconciliation`, `scanPlanReadiness`,
- * and `applyPlan` with the `ResolvePlanInteraction` port, and produces
- * one `OperationResolution` at every termination path. Channels project the
- * returned resolution; presentation and prompting live behind the port, and
- * per-type outcome refinement behind the optional
- * `ConfiguredAgentOutcomesProvider` port.
+ * `prepareExecutionCandidate` turns a plan into the immutable execution
+ * candidate every later step refers to: it augments the plan with lockfile
+ * reconciliation, projects configured-agent outcomes, scans readiness,
+ * assembles the semantic risk conditions, and fingerprints the material
+ * preimages. `resolveExecutionCandidate` presents that candidate, fails
+ * closed on blockers and missing policies, previews or confirms, acquires
+ * the workspace transition, revalidates the same candidate under it, applies
+ * it closure by closure, and produces one `OperationResolution` at every
+ * termination path. Presentation and prompting live behind the
+ * `ResolvePlanInteraction` port; per-type outcome refinement behind the
+ * `ConfiguredAgentOutcomesProvider`.
  *
- * This is a free function, not a method on WorkspaceMutationsService.
+ * `previewOrApplyPlan` composes the two halves and is transitional: it is
+ * removed when every handler prepares its candidate through its feature.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Cause from "effect/Cause";
-import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import {
@@ -48,6 +52,7 @@ import {
   type ResolvedUnit,
 } from "./operation-resolution.js";
 import {
+  OperationJournal,
   appendResolvedUnit,
   appendStartedUnit,
   recordJournalPhase,
@@ -61,17 +66,25 @@ import {
   publishWaitEnded,
   publishWaiting,
 } from "./operation-events.js";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
-  readPendingClosureRestorationFailures,
-  WorkspaceRestorationIncomplete,
+  ConfiguredAgentOutcomesProvider,
+  WorkspaceMutations,
+  configuredAgentLifecycleOutcomes,
+  type ConfiguredAgentOutcome,
+  type ConfiguredAgentOutcomesProviderService,
+  type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
 import {
+  FootprintRecorder,
+  WorkspaceRestorationIncomplete,
+  acquireWorkspaceTransition,
+  pendingClosureRestorations,
+  readFootprint,
   rollbackWorkspaceClosure,
+  runWorkspaceTransaction,
   settleWorkspaceClosure,
   withWorkspaceClosure,
-} from "../operations/transaction.js";
-import { readFootprint } from "@agentxm/workspace-state";
+} from "@agentxm/workspace-transactions";
 import { InterruptionSignalSource } from "./interruption-signal.js";
 import { ResolvePlanInteraction } from "./resolve-plan-interaction.js";
 import {
@@ -80,9 +93,6 @@ import {
   type ConfiguredAgentOperation,
   type PlanExecution,
 } from "./plan-execution.js";
-import { ConfiguredAgentOutcomesProvider } from "@agentxm/workspace-state";
-import { configuredAgentLifecycleOutcomes } from "@agentxm/workspace-state";
-import type { ConfiguredAgentOutcome } from "@agentxm/workspace-state";
 import {
   candidateFingerprintFailedToStepFailure,
   configuredAgentOutcomesUnavailableToStepFailure,
@@ -92,7 +102,7 @@ import {
 } from "./step-failure-conversions.js";
 
 /** Publish a phase transition to the lifecycle stream and the journal. */
-const enterPhase = (phase: OperationPhase): Effect.Effect<void> =>
+const enterPhase = (phase: OperationPhase): Effect.Effect<void, never, OperationJournal> =>
   publishPhaseStarted(phase).pipe(Effect.andThen(recordJournalPhase(phase)));
 
 interface PlanApplyFailure<Output> {
@@ -161,91 +171,43 @@ const withExecutedAgentOutcomes = <Output>(
 });
 
 /**
- * Preview or apply (display, confirm, and execute) a plan using the workspace read model.
- *
- * Steps:
- * 1. Augment plan with lockfile reconciliation if needed
- * 2. Scan for errors/warnings
- * 3. Construct and display the exact candidate
- * 4. Fail closed on blockers and missing named policies
- * 5. Preview or approve confirmable semantic risk
- * 6. Revalidate and apply the same candidate
- *
- * Every termination path resolves to one `OperationResolution`.
+ * The generic lifecycle outcomes for one operation, refined by the provider's
+ * per-type override when the operation enables the extension.
  */
-export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Requirements, Output>(
-  plan: Plan<Requirements, Output>,
-  options: {
-    execution: PlanExecution;
-    beforeApply?: (
-      candidate: ExecutionCandidate<Requirements, Output>,
-    ) => Effect.Effect<void, StepFailure, Requirements>;
-  },
-) {
-  const ws = yield* WorkspaceMutations;
-  const interaction = yield* ResolvePlanInteraction;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const fsLayer = Layer.mergeAll(
-    Layer.succeed(FileSystem.FileSystem, fs),
-    Layer.succeed(Path.Path, path),
-  );
+const outcomesFor = (
+  ws: WorkspaceMutationsService,
+  provider: ConfiguredAgentOutcomesProviderService,
+  configuredAgents: ReadonlyArray<string>,
+  operation: ConfiguredAgentOperation,
+  state: "projected" | "current",
+): Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>> => {
+  const generic = configuredAgentLifecycleOutcomes({
+    type: operation.extensionType,
+    name: operation.name,
+    agentIds: configuredAgents,
+    scope: ws.scope,
+    state,
+    targetState: operation.plannedState,
+    installed: state === "projected",
+    observedAgentIds: state === "projected" ? configuredAgents : [],
+  });
+  const override = provider.byExtensionType[operation.extensionType];
+  if (operation.plannedState === "enabled" && override !== undefined) {
+    return override(state).pipe(
+      Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)),
+      Effect.map((outcomes) => (outcomes.length === 0 ? generic : outcomes)),
+      Effect.catch(() => Effect.succeed(generic)),
+    );
+  }
+  return Effect.succeed(generic);
+};
 
-  const mode = options.execution.request.mode;
-
-  yield* publishPhaseStarted("planning");
-
-  // Step 1: Lockfile reconciliation, observed as one planning unit.
-  const augmented = yield* observeUnit(
-    { id: "lockfile-reconciliation", label: "lockfile reconciliation" },
-    augmentPlanWithReconciliation(plan, () => ws.getLockfileState()),
-  );
-
-  const operations = options.execution.configuredAgentOperations ?? [];
-  const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
-  const outcomesProvider = yield* Effect.serviceOption(ConfiguredAgentOutcomesProvider);
-  const outcomesOverrideFor = (extensionType: ConfiguredAgentOperation["extensionType"]) =>
-    Option.isSome(outcomesProvider)
-      ? outcomesProvider.value.byExtensionType[extensionType]
-      : undefined;
-  const outcomesFor = (
-    operation: ConfiguredAgentOperation,
-    state: "projected" | "current",
-  ): Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>> => {
-    const generic = configuredAgentLifecycleOutcomes({
-      type: operation.extensionType,
-      name: operation.name,
-      agentIds: configuredAgents,
-      scope: ws.scope,
-      state,
-      targetState: operation.plannedState,
-      installed: state === "projected",
-      observedAgentIds: state === "projected" ? configuredAgents : [],
-    });
-    const override = outcomesOverrideFor(operation.extensionType);
-    if (operation.plannedState === "enabled" && override !== undefined) {
-      return override(state).pipe(
-        Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)),
-        Effect.map((outcomes) => (outcomes.length === 0 ? generic : outcomes)),
-        Effect.catch(() => Effect.succeed(generic)),
-      );
-    }
-    return Effect.succeed(generic);
-  };
-  const projectedOutcomes = (yield* Effect.forEach(operations, (operation) =>
-    outcomesFor(operation, "projected"),
-  )).flat();
-  const augmentedPlan =
-    operations.length === 0
-      ? augmented.plan
-      : withPlannedAgentOutcomes(augmented.plan, projectedOutcomes);
-
-  // Step 2: Scan readiness and construct semantic risk conditions.
-  const readiness = scanPlanReadiness(augmentedPlan);
+/** The readiness blockers a plan's error steps contribute beyond declared conditions. */
+const readinessBlockersOf = <Requirements, Output>(plan: Plan<Requirements, Output>) => {
   const declaredConditionIds = new Set(
-    (augmentedPlan.riskConditions ?? []).map((condition) => condition.id),
+    (plan.riskConditions ?? []).map((condition) => condition.id),
   );
-  const readinessBlockers = augmentedPlan.jobs.flatMap((job) =>
+  return plan.jobs.flatMap((job) =>
     job.steps.flatMap((step) =>
       step.readiness === "error"
         ? (step.blockingConditionIds ?? []).length > 0 &&
@@ -262,6 +224,46 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         : [],
     ),
   );
+};
+
+export interface PrepareExecutionCandidateOptions {
+  /** Operations whose configured-agent outcomes the candidate projects and, after apply, verifies. */
+  readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
+}
+
+/**
+ * Prepare the immutable execution candidate for a plan: augment with lockfile
+ * reconciliation, project configured-agent outcomes, scan readiness, assemble
+ * risk conditions, and fingerprint every material preimage. Preview,
+ * confirmation, and apply all refer to the candidate this returns.
+ */
+export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(function* <
+  Requirements,
+  Output,
+>(plan: Plan<Requirements, Output>, options?: PrepareExecutionCandidateOptions) {
+  const ws = yield* WorkspaceMutations;
+  const provider = yield* ConfiguredAgentOutcomesProvider;
+
+  yield* publishPhaseStarted("planning");
+
+  // Lockfile reconciliation, observed as one planning unit.
+  const augmented = yield* observeUnit(
+    { id: "lockfile-reconciliation", label: "lockfile reconciliation" },
+    augmentPlanWithReconciliation(plan, () => ws.getLockfileState()),
+  );
+
+  const operations = options?.configuredAgentOperations ?? [];
+  const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
+  const projectedOutcomes = (yield* Effect.forEach(operations, (operation) =>
+    outcomesFor(ws, provider, configuredAgents, operation, "projected"),
+  )).flat();
+  const augmentedPlan =
+    operations.length === 0
+      ? augmented.plan
+      : withPlannedAgentOutcomes(augmented.plan, projectedOutcomes);
+
+  // Readiness blockers and unmet preconditions join the declared risk
+  // conditions, so the candidate carries every reason it could be refused.
   const preconditionBlockers = (augmentedPlan.preconditions ?? []).flatMap((precondition) =>
     precondition.status === "unmet"
       ? [
@@ -279,18 +281,66 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   );
   const riskConditions = [
     ...(augmentedPlan.riskConditions ?? []),
-    ...readinessBlockers,
+    ...readinessBlockersOf(augmentedPlan),
     ...preconditionBlockers,
   ];
   const candidatePlan: Plan<Requirements, Output> = {
     ...augmentedPlan,
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
   };
-  const candidate = yield* makeExecutionCandidate(candidatePlan, {
-    settingsPath: ws.layout.settingsPath,
-    lockPath: ws.layout.lockPath,
-    baseDir: ws.baseDir,
-  }).pipe(Effect.provide(fsLayer));
+  return yield* makeExecutionCandidate(
+    candidatePlan,
+    {
+      settingsPath: ws.layout.settingsPath,
+      lockPath: ws.layout.lockPath,
+      baseDir: ws.baseDir,
+    },
+    operations,
+  );
+});
+
+export interface ResolveExecutionCandidateOptions<Requirements, Output> {
+  /** A typed pre-apply gate that runs under the transition before revalidation. */
+  readonly beforeApply?: (
+    candidate: ExecutionCandidate<Requirements, Output>,
+  ) => Effect.Effect<void, StepFailure, Requirements>;
+}
+
+/**
+ * Preview or apply a prepared candidate.
+ *
+ * 1. Present the immutable candidate.
+ * 2. Fail closed on blockers and missing named policies.
+ * 3. Preview, or approve confirmable semantic risk.
+ * 4. Acquire the workspace transition, revalidate the same candidate under
+ *    it, and apply it closure by closure.
+ *
+ * Every termination path resolves to one `OperationResolution`.
+ */
+export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(function* <
+  Requirements,
+  Output,
+>(
+  candidate: ExecutionCandidate<Requirements, Output>,
+  execution: PlanExecution,
+  options?: ResolveExecutionCandidateOptions<Requirements, Output>,
+) {
+  const ws = yield* WorkspaceMutations;
+  const provider = yield* ConfiguredAgentOutcomesProvider;
+  const interaction = yield* ResolvePlanInteraction;
+  const path = yield* Path.Path;
+  // The journal and footprint recorder are requirements of the operation
+  // boundary: the settlement observers below record into them.
+  const journal = yield* OperationJournal;
+  yield* FootprintRecorder;
+
+  const mode = execution.request.mode;
+  const candidatePlan = candidate.plan;
+  const operations = candidate.configuredAgentOperations;
+  const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
+  const readiness = scanPlanReadiness(candidatePlan);
+  const readinessBlockers = readinessBlockersOf(candidatePlan);
+  const riskConditions = candidatePlan.riskConditions ?? [];
 
   const atomicity = declaredAtomicity(candidatePlan);
   const resolutionBase = {
@@ -341,14 +391,14 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       suggestions: candidatePlan.failureSuggestions,
     });
 
-  // Step 3: Display the immutable candidate before any policy terminal or effect.
+  // Display the immutable candidate before any policy terminal or effect.
   if (mode === "preview") {
     yield* enterPhase("preview");
   }
   const hasConfirmableRisk = riskConditions.some((condition) => condition.level === "confirmable");
   yield* interaction.presentPlan(candidatePlan, { mode });
 
-  // Step 4: Hard blockers dominate preview, overrides, and confirmation.
+  // Hard blockers dominate preview, overrides, and confirmation.
   if (readiness.hasErrors) {
     const firstError = readinessBlockers[0];
     return notExecuted({
@@ -375,8 +425,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     });
   }
 
-  // Step 5: Preview is speculative and never grants approval to a later invocation.
-  if (options.execution.request.mode === "preview") {
+  // Preview is speculative and never grants approval to a later invocation.
+  if (execution.request.mode === "preview") {
     return makeOperationResolution<Output>({
       ...resolutionBase,
       atomicity: { declared: atomicity, applied: "closure-atomic" },
@@ -384,10 +434,10 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     });
   }
 
-  if (!("approvalRecovery" in options.execution)) {
+  if (!("approvalRecovery" in execution)) {
     return yield* new ApprovalRecoveryMissing();
   }
-  const applyExecution = options.execution;
+  const applyExecution = execution;
 
   const overrideConditions = riskConditions.filter(
     (
@@ -421,8 +471,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     });
   }
 
-  // Step 5b: Confirmation. A condition that consents only at a prompt — a
-  // publisher change, or any confirmable condition met by a command with no
+  // Confirmation. A condition that consents only at a prompt — a publisher
+  // change, or any confirmable condition met by a command with no
   // preapprovable confirmation — is never satisfied by preapproval. A
   // preapprovable condition is satisfied by explicit preapproval; otherwise
   // it is asked when a prompt can open and blocks when one cannot, naming
@@ -466,7 +516,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     }
   }
 
-  // Step 6: Acquire the workspace transition — planning, network acquisition,
+  // Acquire the workspace transition — planning, network acquisition,
   // preview, and confirmation ran without it — then revalidate every material
   // candidate preimage and apply the exact candidate while holding it.
   const totalUnits = candidate.plan.jobs.reduce((count, job) => count + job.steps.length, 0);
@@ -480,16 +530,16 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       },
       { restored: false },
     )[0]?.state ?? "committed";
-  let startedUnits = 0;
-  let resolvedUnits = 0;
+  const startedUnits = yield* Ref.make(0);
+  const resolvedUnits = yield* Ref.make(0);
   const applyFreshCandidate = Effect.gen(function* () {
     yield* enterPhase("validation");
-    if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
+    if (!(yield* isExecutionCandidateFresh(candidate))) {
       return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
     }
-    if (options.beforeApply !== undefined) {
+    if (options?.beforeApply !== undefined) {
       yield* options.beforeApply(candidate);
-      if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
+      if (!(yield* isExecutionCandidateFresh(candidate))) {
         return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
       }
     }
@@ -518,14 +568,16 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       // interruption mid-run reports the unit in flight, never not attempted.
       onStepStarted: (step) =>
         appendStartedUnit(unitIdOf(step)).pipe(
-          Effect.andThen(
+          Effect.provideService(OperationJournal, journal),
+          Effect.andThen(Ref.getAndUpdate(startedUnits, (index) => index + 1)),
+          Effect.flatMap((index) =>
             publishOperationEvent((seq, atMs) => ({
               _tag: "UnitStarted",
               seq,
               atMs,
               unitId: unitIdOf(step),
               label: step.label,
-              index: startedUnits++,
+              index,
               total: totalUnits,
             })),
           ),
@@ -536,12 +588,14 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       // itself, and later ready closures continue.
       onStepCompleted: (step) =>
         appendResolvedUnit(step).pipe(
+          Effect.provideService(OperationJournal, journal),
           Effect.andThen(
             step.result.result === "error"
               ? rollbackWorkspaceClosure(unitIdOf(step))
               : settleWorkspaceClosure(unitIdOf(step)),
           ),
-          Effect.andThen(
+          Effect.andThen(Ref.getAndUpdate(resolvedUnits, (index) => index + 1)),
+          Effect.flatMap((index) =>
             publishOperationEvent((seq, atMs) => ({
               _tag: "UnitResolved",
               seq,
@@ -549,7 +603,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
               unitId: unitIdOf(step),
               label: step.label,
               state: resolvedUnitState(step),
-              index: resolvedUnits++,
+              index,
               total: totalUnits,
             })),
           ),
@@ -576,7 +630,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     // apply-level failure is a closure rollback that did not complete and
     // verify — the typed restoration fact derives the retained truth from
     // the in-memory pending record alone.
-    const pendingRestoration = yield* readPendingClosureRestorationFailures;
+    const pendingRestoration = yield* pendingClosureRestorations;
     if (Option.isSome(pendingRestoration) && pendingRestoration.value.failures.length > 0) {
       const pending = pendingRestoration.value;
       const first = pending.failures[0];
@@ -609,7 +663,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
     }
     const currentOutcomes = (yield* Effect.forEach(operations, (operation) => {
-      const override = outcomesOverrideFor(operation.extensionType);
+      const override = provider.byExtensionType[operation.extensionType];
       return operation.plannedState === "enabled" && override !== undefined
         ? override("current").pipe(
             Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)),
@@ -673,11 +727,13 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   const guardedApply = (
     candidatePlan.executionCapabilities?.rollback === "non-rollbackable"
       ? applyCandidate
-      : ws.runTransaction({
+      : runWorkspaceTransaction({
           targets: [],
           transition: applyCandidate,
           validate: () => Effect.void,
-          onRestorationStarted: enterPhase("restoration"),
+          onRestorationStarted: enterPhase("restoration").pipe(
+            Effect.provideService(OperationJournal, journal),
+          ),
           // Closures protect the shared settings and lockfile at their own
           // first touch; claiming them here would let a late failure tear an
           // earlier closure's settled commit out of the shared files.
@@ -709,7 +765,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   const applyResult = yield* Effect.scoped(
     Effect.gen(function* () {
       const waited = yield* Ref.make(false);
-      const contention = yield* ws.acquireTransition({
+      const contention = yield* acquireWorkspaceTransition({
         command: applyExecution.approvalRecovery.command.join(" "),
         candidateId: candidate.id,
         // Contention is a first-class lifecycle fact: observers render the
@@ -931,3 +987,30 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         }),
   });
 });
+
+/**
+ * TRANSITIONAL: prepare and resolve in one call. Removed when every handler
+ * prepares its candidate through its feature's application API.
+ */
+export const previewOrApplyPlan = <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options: {
+    readonly execution: PlanExecution;
+    readonly beforeApply?: (
+      candidate: ExecutionCandidate<Requirements, Output>,
+    ) => Effect.Effect<void, StepFailure, Requirements>;
+  },
+) =>
+  prepareExecutionCandidate(plan, {
+    ...(options.execution.configuredAgentOperations === undefined
+      ? {}
+      : { configuredAgentOperations: options.execution.configuredAgentOperations }),
+  }).pipe(
+    Effect.flatMap((candidate) =>
+      resolveExecutionCandidate(
+        candidate,
+        options.execution,
+        options.beforeApply === undefined ? undefined : { beforeApply: options.beforeApply },
+      ),
+    ),
+  );

@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace-configuration",
   "version": "0.28.12",
-  "description": "AXM workspace-configuration feature: setup, configured-agent membership, instruction management, and inline workspace capabilities for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "AXM workspace-configuration feature: setup, configured-agent membership, instruction management, and inline workspace capabilities for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -47,6 +47,7 @@
     "@agentxm/extension-workspace": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
+    "@agentxm/workspace-transactions": "workspace:^",
     "effect": "catalog:"
   },
   "devDependencies": {

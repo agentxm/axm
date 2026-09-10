@@ -13,8 +13,8 @@ import { createSymlink } from "@agentxm/workspace-state";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { AXM_DIR_NAME } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
-import { recordFootprint } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
+import { recordFootprint } from "@agentxm/workspace-transactions";
 import { projectionGeneration, reconcilePatternList } from "../projection/adapters.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {

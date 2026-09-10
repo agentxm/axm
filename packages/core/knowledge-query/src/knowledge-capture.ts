@@ -15,7 +15,7 @@ import {
   collectKnowledgeBundleEntries,
   inspectKnowledgeEntries,
   type KnowledgeBundleEntry,
-} from "@agentxm/registry-protocol/unstable/knowledge/okf";
+} from "@agentxm/extension-content/knowledge";
 
 export interface KnowledgeBundleCaptureDescriptor {
   readonly bundle: KnowledgeBundleFqn;

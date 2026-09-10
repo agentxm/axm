@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/extension-authoring",
   "version": "0.28.12",
-  "description": "AXM extension-authoring feature: new-extension scaffolding, fork, native import, adopt/demote identity policy, and authored pack membership for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "AXM extension-authoring feature: new-extension scaffolding, fork, native import, adopt/demote identity policy, and authored pack membership for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -36,11 +36,12 @@
     "includedScripts": []
   },
   "dependencies": {
+    "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-workspace": "workspace:^",
-    "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
+    "@agentxm/workspace-transactions": "workspace:^",
     "effect": "catalog:",
     "yaml": "catalog:"
   },

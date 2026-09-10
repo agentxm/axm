@@ -41,6 +41,7 @@
     "includedScripts": []
   },
   "dependencies": {
+    "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",

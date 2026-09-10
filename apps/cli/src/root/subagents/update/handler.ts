@@ -38,7 +38,7 @@ import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+} from "@agentxm/extension-resolution";
 import { type ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   operationPresentation,

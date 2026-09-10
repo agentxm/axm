@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-import type { AdvisoryFinding, LintFinding } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { AdvisoryFinding, LintFinding } from "@agentxm/extension-content/lint";
 import type { Operation } from "@agentxm/workspace-operations";
 
 /** Shared empty AdvisoryFinding array. */

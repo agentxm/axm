@@ -9,8 +9,8 @@ import {
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
 } from "./errors.js";
-import { protectWorkspacePath, type WorkspaceSnapshotError } from "@agentxm/workspace-state";
-import { recordFootprint } from "@agentxm/workspace-state";
+import { protectWorkspacePath, type WorkspaceSnapshotError } from "@agentxm/workspace-transactions";
+import { recordFootprint } from "@agentxm/workspace-transactions";
 import {
   MARKER_KIND_END,
   MARKER_KIND_START,

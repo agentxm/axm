@@ -33,7 +33,7 @@ import {
   McpSharedTargetConflict,
 } from "../mcps/errors.js";
 import type { ExtensionManagerFailure } from "./errors.js";
-import type { WorkspaceSnapshotError } from "@agentxm/workspace-state";
+import type { WorkspaceSnapshotError } from "@agentxm/workspace-transactions";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   McpServerManifestSchema,
@@ -49,7 +49,7 @@ import {
   type SharedMcpTransport,
 } from "../mcps/shared-target.js";
 import { resolveMcpServer } from "../mcps/resolution.js";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer.js";
 import { managedYamlNames } from "../yaml/index.js";
 import type {

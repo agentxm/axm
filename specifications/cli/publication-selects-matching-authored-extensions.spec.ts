@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { normalizePerTypePublishSelection } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makePublicationSpecContext } from "../support/publication-evidence-harness.js";
 import {
   type RootPublishArgs,

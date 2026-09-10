@@ -2,6 +2,7 @@
   "$schema": "./node_modules/nx/schemas/project-schema.json",
   "name": "axm",
   "root": ".",
+  "sourceRoot": "scripts",
   "tags": ["type:tooling", "role:tooling", "scope:root"],
   "targets": {
     "source-cli-smoke": {
@@ -23,7 +24,7 @@
         "{workspaceRoot}/scripts/placement-tags-plugin.ts"
       ],
       "options": {
-        "command": "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts scripts --max-warnings=192",
+        "command": "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts scripts --max-warnings=192",
         "cwd": "."
       }
     },
@@ -58,6 +59,8 @@
         "{workspaceRoot}/allurerc.ts",
         "{workspaceRoot}/vitest.execution.ts",
         "{workspaceRoot}/vitest.reporting.ts",
+        "{workspaceRoot}/vitest.purpose.setup.ts",
+        "{workspaceRoot}/scripts/test-purpose.ts",
         "{workspaceRoot}/scripts/specification-evidence*.ts",
         "{workspaceRoot}/tsconfig*.json",
         {
@@ -254,7 +257,8 @@
         "sharedGlobals",
         "{workspaceRoot}/apps/**/*",
         "{workspaceRoot}/packages/**/*",
-        "{workspaceRoot}/tools/**/*"
+        "{workspaceRoot}/tools/**/*",
+        "{workspaceRoot}/specifications/**/*"
       ],
       "options": {
         "command": "bun scripts/verify-source-hygiene.ts",
@@ -296,6 +300,32 @@
       ],
       "options": {
         "command": "bun scripts/verify-release-packs.ts",
+        "cwd": "."
+      }
+    },
+    "generate": {
+      "executor": "nx:noop",
+      "dependsOn": ["generate:specification-catalog"]
+    },
+    "generate:specification-catalog": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/apps/**/*.spec.ts",
+        "{workspaceRoot}/packages/**/*.spec.ts",
+        "{workspaceRoot}/tools/**/*.spec.ts",
+        "{workspaceRoot}/specifications/**/*.spec.ts",
+        "{workspaceRoot}/apps/*-e2e/src/**/*.ts",
+        "{workspaceRoot}/specifications/product-goals.ts",
+        "{workspaceRoot}/**/project.json",
+        "{workspaceRoot}/scripts/specification-catalog.ts",
+        "{workspaceRoot}/scripts/specification-catalog-lib.ts",
+        "sharedGlobals",
+        "^production"
+      ],
+      "outputs": ["{workspaceRoot}/specifications/catalog.md"],
+      "options": {
+        "command": "bun --conditions=axm-source scripts/specification-catalog.ts",
         "cwd": "."
       }
     }

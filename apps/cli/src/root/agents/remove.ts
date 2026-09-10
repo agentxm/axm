@@ -261,7 +261,6 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
     ...agentIds.map((agentId) => removeAgentStep(ws, agentId)),
   ];
   const atomicSteps = yield* makeAtomicMembershipSteps({
-    ws,
     steps,
     toStepFailure: configurationFailureToStepFailure,
     validate: () =>

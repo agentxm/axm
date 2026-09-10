@@ -349,7 +349,7 @@ const adversarialContracts = [
   ["unrelated-invalid-closure-allows-progress", "apps/cli/src/root/sync/handler.test.ts"],
   [
     "authored-and-unowned-content-preserved",
-    "packages/core/workspace-operations/src/operations/transaction.test.ts",
+    "packages/core/workspace-transactions/src/transaction.test.ts",
   ],
   [
     "aggregate-contributors-survive-lifecycle",

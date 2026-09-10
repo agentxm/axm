@@ -9,7 +9,7 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
 import { versionSatisfiesRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { DesiredExtensionNode } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { lockfileDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/skills-lockfile-aligned";

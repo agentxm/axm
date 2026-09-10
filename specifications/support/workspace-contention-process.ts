@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageDirectory = fileURLToPath(
-  new URL("../../packages/core/workspace-operations/", import.meta.url),
+  new URL("../../packages/core/workspace-transactions/", import.meta.url),
 );
 
 // JavaScript evaluated by Node imports only published package exports. It is
@@ -15,9 +15,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Semaphore from "effect/Semaphore";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { acquireWorkspaceTransitionLock, liveWorkspaceTransitionLock, runWorkspaceTransaction } from "@agentxm/workspace-operations";
+import { WorkspaceTransactionScope, acquireWorkspaceTransition, runWorkspaceTransaction } from "@agentxm/workspace-transactions";
 const [root, label] = process.argv.slice(1);
 if (root === undefined || (label !== "first" && label !== "second")) throw new Error("Invalid worker inputs");
 const statePath = path.join(root, "state.json");
@@ -31,19 +30,15 @@ process.on("message", message => { if (message === "release") { send("release-re
 await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
   yield* Effect.addFinalizer(() => Effect.sync(() => send("scope-closed")));
   send("acquiring");
-  const contention = yield* acquireWorkspaceTransitionLock({
-    workspaceDir: path.join(root, ".axm"),
-    holder: { command: label, pid: process.pid },
+  const contention = yield* acquireWorkspaceTransition({
+    command: label,
     onWaiting: holder => Effect.sync(() => send("waiting", Option.isSome(holder) ? holder.value.pid : undefined)),
   });
   if (Option.isSome(contention)) throw new Error("The controlled holder was not released before the production contention bound");
   send("acquired");
   yield* Effect.addFinalizer(() => Effect.sync(() => send("scope-closing")));
-  const semaphore = yield* Semaphore.make(1);
   yield* runWorkspaceTransaction({
-    lock: liveWorkspaceTransitionLock,
-    workspaceDir: path.join(root, ".axm"),
-    semaphore,
+    claimDefaultTargets: false,
     targets: [statePath, mirrorPath],
     transition: Effect.gen(function* () {
       const prior = JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -67,7 +62,11 @@ await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
     }),
   });
   send("transaction-finished");
-})).pipe(Effect.provide(NodeServices.layer)));
+})).pipe(Effect.provide(WorkspaceTransactionScope.layer({
+  workspaceDir: path.join(root, ".axm"),
+  settingsPath: path.join(root, "axm.json"),
+  lockPath: path.join(root, "axm-lock.yaml"),
+})), Effect.provide(NodeServices.layer)));
 send("released");
 process.disconnect?.();
 `;

@@ -9,7 +9,7 @@ import { describe, expect, it } from "@effect/vitest";
 // identities decode the way they do inside the CLI.
 import { allCatalogRuleIds, SettingsSchema } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "settings-contract/published-settings-schema-agrees-with-accepted-input",

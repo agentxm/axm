@@ -4,7 +4,7 @@ status: stable
 description: The executable-specification metadata contract, classification lens, controlled vocabularies, and shared product-goal identities live once in `@agentxm/extension-model` and are consumed by every AgentXM specification corpus.
 depends-on:
   - ./executable-specifications-authority.md
-  - ./specification-infrastructure.md
+  - ./colocated-specifications.md
   - ../system-wide/testing-strategy.md
 ---
 
@@ -12,7 +12,7 @@ depends-on:
 
 ## Decision
 
-`@agentxm/extension-model/unstable/specifications` owns the executable
+`@agentxm/specification-metadata` owns the executable
 specification contract for every AgentXM repository: the metadata shape, the
 classification lens, the controlled vocabularies, the shared product-goal
 registry, the decoders, and the corpus conformance check. AXM's
@@ -86,9 +86,14 @@ established that specifications own AXM requirements.
   select by characteristic.
 - The catalog renders each specification's statement, lineage,
   assumptions, open questions, and limitations, and separates shared from
-  local product goals. The per-change verdict digests the complete metadata,
-  so a changed statement, lineage entry, or assumption is a
-  requirement-contract change.
+  local product goals. The per-change verdict digests the complete metadata
+  and bound evidence as the requirement contract, so a changed statement,
+  lineage entry, assumption, or gate binding is a requirement-contract
+  change; it digests the decisive example surface (ordered test titles and
+  `each` rows) separately, so changed examples render as a possible
+  requirement change to review, and a body-only change renders as evidence
+  maintenance that tooling did not review for meaning
+  ([Colocated specifications](colocated-specifications.md)).
 - The Allure adapter and catalog generator validate metadata through the
   shared decoders; a specification that does not satisfy the contract fails
   to load.

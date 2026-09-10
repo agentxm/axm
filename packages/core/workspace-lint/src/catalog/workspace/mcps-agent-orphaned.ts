@@ -5,11 +5,7 @@ import { isAxmManagedMcpEntry } from "@agentxm/workspace-state";
 import { groupConfiguredMcpTargets } from "@agentxm/extension-workspace";
 import type { UnmanagedMcpServer } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import type {
-  AdvisoryFinding,
-  AdvisoryRule,
-  LintFinding,
-} from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
 
 const RULE_ID = "workspace/mcps-agent-orphaned";
 

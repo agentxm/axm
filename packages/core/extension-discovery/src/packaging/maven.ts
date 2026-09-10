@@ -13,10 +13,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { parseTomlStringEntries, readTomlSection } from "@agentxm/extension-workspace";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { isTomlTable, parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const mavenType = Schema.decodeUnknownSync(PackageTypeSchema)("maven");
@@ -209,59 +209,40 @@ const parseGradleBuild = (content: string, source: string): ReadonlyArray<Detect
 const parseVersionCatalog = (content: string, source: string): ReadonlyArray<DetectedPackage> => {
   const results: Array<DetectedPackage> = [];
 
-  const librariesSection = readTomlSection(content, "libraries");
-  if (librariesSection === undefined) return results;
+  const document = parseTomlDocument(content);
+  const libraries = tomlTable(document, "libraries");
+  if (libraries === undefined) return results;
 
-  // Parse [versions] section for version references
-  const versions = new Map<string, string>();
-  const versionsSection = readTomlSection(content, "versions");
-  if (versionsSection !== undefined) {
-    for (const { key, value } of parseTomlStringEntries(versionsSection)) {
-      versions.set(key, value);
-    }
-  }
+  // [versions] entries referenced by `version.ref`
+  const versions = new Map(
+    tomlStringEntries(tomlTable(document, "versions")).map(({ key, value }) => [key, value]),
+  );
 
-  // Parse library entries line by line
-  const lines = librariesSection.split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed === "" || trimmed.startsWith("#")) continue;
-
-    // Match: name = { ... }
-    const entryMatch = /^[a-zA-Z0-9_-]+\s*=\s*\{(.+)\}/.exec(trimmed);
-    if (entryMatch?.[1] === undefined) continue;
-
-    const props = entryMatch[1];
+  for (const entry of Object.values(libraries)) {
+    if (!isTomlTable(entry)) continue;
 
     let groupId: string | undefined;
     let artifactId: string | undefined;
-    let version: string | undefined;
 
-    // Check for module = "group:name"
-    const moduleMatch = /module\s*=\s*"([^"]+)"/.exec(props);
-    if (moduleMatch?.[1] !== undefined) {
-      const parts = moduleMatch[1].split(":");
+    const module = entry["module"];
+    if (typeof module === "string") {
+      const parts = module.split(":");
       groupId = parts[0];
       artifactId = parts[1];
     } else {
-      // Check for separate group and name keys
-      const groupMatch = /group\s*=\s*"([^"]+)"/.exec(props);
-      const nameMatch = /name\s*=\s*"([^"]+)"/.exec(props);
-      groupId = groupMatch?.[1];
-      artifactId = nameMatch?.[1];
+      groupId = typeof entry["group"] === "string" ? entry["group"] : undefined;
+      artifactId = typeof entry["name"] === "string" ? entry["name"] : undefined;
     }
 
     if (groupId === undefined || artifactId === undefined) continue;
 
-    // Check for version
-    const versionMatch = /version\s*=\s*"([^"]+)"/.exec(props);
-    const versionRefMatch = /version\.ref\s*=\s*"([^"]+)"/.exec(props);
-
-    if (versionMatch?.[1] !== undefined) {
-      version = versionMatch[1];
-    } else if (versionRefMatch?.[1] !== undefined) {
-      version = versions.get(versionRefMatch[1]);
-    }
+    const declaredVersion = entry["version"];
+    const version =
+      typeof declaredVersion === "string"
+        ? declaredVersion
+        : isTomlTable(declaredVersion) && typeof declaredVersion["ref"] === "string"
+          ? versions.get(declaredVersion["ref"])
+          : undefined;
 
     appendMavenPackage(results, groupId, artifactId, version, source);
   }

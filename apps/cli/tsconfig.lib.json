@@ -14,12 +14,6 @@
       "path": "../../packages/core/workspace-sync/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/workspace-configuration/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/core/workspace-inspection/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/core/workspace-state/tsconfig.lib.json"
     },
     {
@@ -27,6 +21,12 @@
     },
     {
       "path": "../../packages/core/workspace-lint/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/workspace-inspection/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/workspace-configuration/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/registry-protocol/tsconfig.lib.json"
@@ -47,6 +47,9 @@
       "path": "../../packages/supporting/extension-sources/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/core/extension-resolution/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/core/extension-publish/tsconfig.lib.json"
     },
     {
@@ -59,10 +62,16 @@
       "path": "../../packages/core/extension-discovery/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/core/extension-content/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/core/extension-authoring/tsconfig.lib.json"
     },
     {
       "path": "../../packages/supporting/agent-integration/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/workspace-transactions/tsconfig.lib.json"
     }
   ]
 }

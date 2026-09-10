@@ -1,4 +1,6 @@
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type {
@@ -13,6 +15,10 @@ import {
   WorkspaceMutations,
   type DesiredExtensionNode,
 } from "@agentxm/workspace-state";
+import {
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-transactions";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 
 const normalizedIdentity = (identity: string): string =>
@@ -88,9 +94,18 @@ export const buildAtomicPackGraphStep = (args: {
   readonly reportUnchangedWhenChildrenUnchanged?: boolean;
   readonly preTransition?: Effect.Effect<void, AppError, WorkspaceMutations>;
   readonly validate: Effect.Effect<void, AppError, WorkspaceMutations>;
-}): Effect.Effect<PlannedJobStep, never, WorkspaceMutations> =>
+}): Effect.Effect<
+  PlannedJobStep,
+  never,
+  WorkspaceMutations | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    // The step contract the pack workflows consume is `R = never`, so the
+    // transaction scope and platform are bound here, beside the workspace.
+    const scope = yield* WorkspaceTransactionScope;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const readinessErrors = args.children.flatMap(({ step }) =>
       step.readiness === "error" ? [step.errorMessage] : [],
     );
@@ -115,54 +130,54 @@ export const buildAtomicPackGraphStep = (args: {
         child.step.readiness !== "error",
     );
     let validatedCoverage: PackCoverage = { applicable: false, agents: [] };
-    const run = ws
-      .runTransaction({
-        transition: Effect.gen(function* () {
-          if (args.preTransition !== undefined) {
-            yield* args.preTransition.pipe(Effect.provideService(WorkspaceMutations, ws));
-          }
-          return yield* Effect.forEach(
-            runnableChildren,
-            ({ step, coverage }) =>
-              step.run.pipe(
-                Effect.flatMap((result) => failedStep(step.label, result)),
-                Effect.map((result) => ({ result, coverage })),
-              ),
-            { concurrency: 1 },
+    const run = runWorkspaceTransaction({
+      transition: Effect.gen(function* () {
+        if (args.preTransition !== undefined) {
+          yield* args.preTransition.pipe(Effect.provideService(WorkspaceMutations, ws));
+        }
+        return yield* Effect.forEach(
+          runnableChildren,
+          ({ step, coverage }) =>
+            step.run.pipe(
+              Effect.flatMap((result) => failedStep(step.label, result)),
+              Effect.map((result) => ({ result, coverage })),
+            ),
+          { concurrency: 1 },
+        );
+      }),
+      validate: (results) =>
+        Effect.gen(function* () {
+          yield* args.validate.pipe(Effect.provideService(WorkspaceMutations, ws));
+          validatedCoverage = yield* aggregatePackCoverage(results, args.artifact.scope);
+        }),
+    }).pipe(
+      Effect.mapError((error) =>
+        error._tag === "StepFailure" ? error : failureToStepFailure(error),
+      ),
+      Effect.provideService(WorkspaceTransactionScope, scope),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.map((results) => {
+        const warnings = results.flatMap(({ result }) => result.warnings ?? []);
+        const allChildrenUnchanged =
+          args.reportUnchangedWhenChildrenUnchanged === true &&
+          results.length > 0 &&
+          results.every(
+            ({ result }) => result.result === "success" && result.artifact?.change === "unchanged",
           );
-        }),
-        validate: (results) =>
-          Effect.gen(function* () {
-            yield* args.validate.pipe(Effect.provideService(WorkspaceMutations, ws));
-            validatedCoverage = yield* aggregatePackCoverage(results, args.artifact.scope);
-          }),
-      })
-      .pipe(
-        Effect.mapError((error) =>
-          error._tag === "StepFailure" ? error : failureToStepFailure(error),
-        ),
-        Effect.map((results) => {
-          const warnings = results.flatMap(({ result }) => result.warnings ?? []);
-          const allChildrenUnchanged =
-            args.reportUnchangedWhenChildrenUnchanged === true &&
-            results.length > 0 &&
-            results.every(
-              ({ result }) =>
-                result.result === "success" && result.artifact?.change === "unchanged",
-            );
-          const artifact = allChildrenUnchanged
-            ? { ...args.artifact, change: "unchanged" as const }
-            : args.artifact;
-          return {
-            result: "success",
-            message: args.message,
-            artifact: !validatedCoverage.applicable
-              ? artifact
-              : { ...artifact, agents: validatedCoverage.agents },
-            ...(warnings.length === 0 ? {} : { warnings }),
-          } satisfies JobStepResult;
-        }),
-      );
+        const artifact = allChildrenUnchanged
+          ? { ...args.artifact, change: "unchanged" as const }
+          : args.artifact;
+        return {
+          result: "success",
+          message: args.message,
+          artifact: !validatedCoverage.applicable
+            ? artifact
+            : { ...artifact, agents: validatedCoverage.agents },
+          ...(warnings.length === 0 ? {} : { warnings }),
+        } satisfies JobStepResult;
+      }),
+    );
 
     return readinessWarnings.length === 0
       ? ({

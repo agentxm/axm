@@ -7,6 +7,7 @@ import {
 } from "@agentxm/extension-workspace";
 import { ensureSkillAgentArtifact } from "@agentxm/extension-lifecycle";
 import { WorkspaceMutations, sanitizeName } from "@agentxm/workspace-state";
+import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -199,50 +200,48 @@ export const installBundledAxmSkill = Effect.gen(function* () {
     Layer.succeed(CodingAgentRepository, agentRepo),
   );
 
-  yield* ws
-    .runTransaction({
-      targets: [readiness.canonicalPath, ...targetDirectories],
-      transition: materializeBundledAxmSkill.pipe(Effect.provide(captured)),
-      validate: () =>
-        Effect.gen(function* () {
-          const configured = yield* ws.getConfiguredSkillEntries();
-          const installedEntry = configured[BUNDLED_AXM_SKILL_NAME];
-          if (installedEntry?.source !== "workspace" || installedEntry.origin !== "bundled") {
-            return yield* makeAppError({
-              code: "internal",
-              detail: "Bundled AXM skill did not retain its bundled source authority",
-            });
-          }
-          const locked = yield* ws.getLockedSkill(BUNDLED_AXM_SKILL_NAME);
-          if (Option.isSome(locked)) {
-            return yield* makeAppError({
-              code: "internal",
-              detail: "Bundled AXM skill retained a superseded accepted external resolution",
-            });
-          }
-          const compatibility = evaluateAxmSkillCompatibility({
-            cliVersion: loadVersion(),
-            skill: {
-              manifestVersion: AXM_SKILL_VERSION,
-              source: `bundled:@agentxm/skills/axm@${AXM_SKILL_VERSION}`,
-              metadata: {
-                [AXM_SKILL_CLI_VERSION_METADATA_KEY]: AXM_SKILL_CLI_VERSION,
-                [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: AXM_SKILL_CLI_VERSION_RANGE,
-              },
-            },
+  yield* runWorkspaceTransaction({
+    targets: [readiness.canonicalPath, ...targetDirectories],
+    transition: materializeBundledAxmSkill.pipe(Effect.provide(captured)),
+    validate: () =>
+      Effect.gen(function* () {
+        const configured = yield* ws.getConfiguredSkillEntries();
+        const installedEntry = configured[BUNDLED_AXM_SKILL_NAME];
+        if (installedEntry?.source !== "workspace" || installedEntry.origin !== "bundled") {
+          return yield* makeAppError({
+            code: "internal",
+            detail: "Bundled AXM skill did not retain its bundled source authority",
           });
-          if (compatibility.status === "incompatible") {
-            return yield* makeAppError({
-              code: "internal",
-              detail:
-                compatibility.detail ??
-                "Bundled AXM skill remained incompatible after workspace installation",
-              ...(compatibility.recovery.nextAction === null
-                ? {}
-                : { cmd: compatibility.recovery.nextAction }),
-            });
-          }
-        }),
-    })
-    .pipe(Effect.mapError(toAppError));
+        }
+        const locked = yield* ws.getLockedSkill(BUNDLED_AXM_SKILL_NAME);
+        if (Option.isSome(locked)) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: "Bundled AXM skill retained a superseded accepted external resolution",
+          });
+        }
+        const compatibility = evaluateAxmSkillCompatibility({
+          cliVersion: loadVersion(),
+          skill: {
+            manifestVersion: AXM_SKILL_VERSION,
+            source: `bundled:@agentxm/skills/axm@${AXM_SKILL_VERSION}`,
+            metadata: {
+              [AXM_SKILL_CLI_VERSION_METADATA_KEY]: AXM_SKILL_CLI_VERSION,
+              [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: AXM_SKILL_CLI_VERSION_RANGE,
+            },
+          },
+        });
+        if (compatibility.status === "incompatible") {
+          return yield* makeAppError({
+            code: "internal",
+            detail:
+              compatibility.detail ??
+              "Bundled AXM skill remained incompatible after workspace installation",
+            ...(compatibility.recovery.nextAction === null
+              ? {}
+              : { cmd: compatibility.recovery.nextAction }),
+          });
+        }
+      }),
+  }).pipe(Effect.mapError(toAppError));
 });

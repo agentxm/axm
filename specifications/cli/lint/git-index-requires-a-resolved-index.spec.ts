@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { isolatedGitEnvironment, JsonErrorEnvelopeSchema } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture } from "../../support/directory-harness.js";
 import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 

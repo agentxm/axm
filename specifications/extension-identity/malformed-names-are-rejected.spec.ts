@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { parseFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "extension-identity/malformed-names-are-rejected",

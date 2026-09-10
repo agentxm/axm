@@ -34,10 +34,7 @@
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import type {
-  FileAccessError,
-  PackFileAccessor,
-} from "@agentxm/registry-protocol/unstable/lint/context";
+import type { FileAccessError, PackFileAccessor } from "@agentxm/extension-content/lint";
 
 // -----------------------------------------------------------------------------
 // Factory

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { lintCatalogRuleMetadata } from "@agentxm/registry-protocol/unstable/lint/catalog-metadata";
+import { lintCatalogRuleMetadata } from "@agentxm/extension-content/lint";
 import { CATALOG_GROUP_ORDER } from "../catalog-contexts.js";
 import { allCatalogRuleMetadata } from "./index.js";
 import { workspaceRules } from "./workspace.js";

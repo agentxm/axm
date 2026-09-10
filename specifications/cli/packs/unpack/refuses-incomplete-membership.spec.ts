@@ -2,7 +2,7 @@ import { getAppError } from "axm.sh/specification-harness";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { handleUnpack } from "axm.sh/specification-harness";

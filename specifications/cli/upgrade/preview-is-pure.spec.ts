@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { probeFlag } from "../../support/parser-probe.js";
 import { LOCAL_VERSION, TARGET_VERSION, runUpgrade } from "../../support/upgrade-harness.js";
 

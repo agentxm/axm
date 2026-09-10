@@ -11,6 +11,7 @@ import {
   recoveryOption,
   recoverySwitch,
 } from "@agentxm/workspace-operations";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import {
   deriveOperationOutcome,
   operationPresentation,
@@ -110,7 +111,7 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
       scope: ws.scope,
       change: "updated" as const,
     };
-    const step: PlannedJobStep =
+    const step: PlannedJobStep<WorkspaceTransactionScope> =
       readiness.readiness === "error"
         ? {
             key: "bundled-axm-skill-authored",
@@ -133,7 +134,7 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
               } satisfies JobStepResult),
             ),
           };
-    const plan: Plan = {
+    const plan: Plan<WorkspaceTransactionScope> = {
       _tag: "Plan",
       name: "Install bundled AXM skill",
       description: Option.some("Install the embedded compatible official AXM skill"),

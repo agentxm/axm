@@ -3,9 +3,11 @@
  *
  * The workspace-state kernel: settings and lockfile authority, the workspace
  * read model, desired-state and canonical-observation vocabulary, extension
- * paths and layout, and the `WorkspaceMutations` service contract. Extension
- * ref and source vocabulary lives in `@agentxm/extension-model`; plan
- * execution and workspace transactions live in
+ * paths and layout, and the narrow workspace-state services (`WorkspaceLocation`,
+ * readers, writers) with the transitional `WorkspaceMutations` facade over
+ * them. Extension ref and source vocabulary lives in
+ * `@agentxm/extension-model`; workspace transactions live in
+ * `@agentxm/workspace-transactions`; plan execution in
  * `@agentxm/workspace-operations`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -116,7 +118,7 @@ export {
   resolveUserHome,
   resolveUserWorkspaceRoot,
   resolveUserWorkspaceRootPure,
-  type WorkspaceLocation,
+  type LocatedWorkspace,
 } from "./workspace/paths.js";
 
 // Managed filesystem primitives
@@ -306,10 +308,37 @@ export type {
   TreeFiles,
 } from "./workspace/read-model/__fixtures__/builder.js";
 
-// Workspace mutation facade
+// Narrow workspace-state services
+export { WorkspaceLocation, type WorkspaceLocationService } from "./workspace/location.js";
+export { SettingsReader, type SettingsReaderService } from "./workspace/settings-reader.js";
+export { LockfileReader, type LockfileReaderService } from "./workspace/lockfile-reader.js";
+export {
+  DesiredStateReader,
+  type DesiredStateReaderService,
+} from "./workspace/desired-state-reader.js";
+export { WorkspaceRecords, type WorkspaceRecordsService } from "./workspace/workspace-records.js";
+export { ExtensionPaths, type ExtensionPathsService } from "./workspace/extension-paths-service.js";
+export { SettingsWriter, type SettingsWriterService } from "./workspace/settings-writer.js";
+export {
+  AcceptedResolutionWriter,
+  type AcceptedResolutionWriterService,
+} from "./workspace/accepted-resolution-writer.js";
+export {
+  DesiredStateWriter,
+  type DeclareArgsByType,
+  type DesiredStateWriterService,
+} from "./workspace/desired-state-writer.js";
+export type {
+  LockEntriesOf,
+  LockEntryByType,
+  SettingsEntriesOf,
+  SettingsEntryByType,
+} from "./workspace/entry-accessors.js";
+
+// TRANSITIONAL workspace mutation facade — removed when the last handler
+// migrates to the narrow services above.
 export {
   WorkspaceMutations,
-  type MakeWorkspaceTransactionCapabilities,
   type WorkspaceMutationsService,
   type WorkspaceMutationsError,
   type WorkspaceMutationsOptions,
@@ -323,15 +352,13 @@ export {
   type SetPackArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
+  type SetRuleArgs,
+  type SetHookArgs,
+  type SetKnowledgeArgs,
   type PackDirPath,
   type ExtensionTarget,
   type ExtensionTargetFor,
   type LockfileState,
-  type WorkspaceTransactionRunner,
-  type WorkspaceTransactionCapabilities,
-  type WorkspaceTransitionAcquirer,
-  type WorkspaceTransitionRequest,
-  type WorkspaceLifecycleTransactionArgs,
   type SkillExtensionTarget,
   type PackExtensionTarget,
   type McpServerExtensionTarget,
@@ -340,7 +367,6 @@ export {
   type HookExtensionTarget,
   type KnowledgeExtensionTarget,
 } from "./workspace/service-interface.js";
-export { makeWorkspaceMutations, type WorkspaceLayerOptions } from "./workspace/service.js";
 
 // Read-model per-source typed failure families
 export {
@@ -380,29 +406,6 @@ export {
   WorkspaceSourceInvalid,
 } from "./workspace/errors.js";
 
-// Workspace transaction registration (the WS half of the transaction seam)
-export {
-  CurrentWorkspaceClosure,
-  CurrentWorkspaceTransaction,
-  protectCreatedAncestors,
-  protectInContext,
-  protectWorkspacePath,
-  readPendingClosureRestorationFailures,
-  type Snapshot,
-  type WorkspaceTransactionContext,
-  TransitionLockError,
-  TransitionLockUnavailable,
-  WorkspaceDirectoryError,
-  WorkspaceRestorationError,
-  WorkspaceRestorationIncomplete,
-  WorkspaceSnapshotError,
-  WorkspaceTransitionCompromised,
-  type TransitionContention,
-  type TransitionLockHolder,
-  type WorkspaceTransactionFailure,
-  type WorkspaceTransitionAcquireFailure,
-} from "./workspace/transaction.js";
-
 export {
   setupScopeSupport,
   setupScopeSupportOutcomes,
@@ -416,14 +419,6 @@ export {
   EXTENSION_CONFIGURED_AGENT_POLICY,
   type ConfiguredAgentLifecycleState,
 } from "./workspace/configured-agent-outcomes.js";
-export {
-  FootprintRecorder,
-  makeFootprintRecorder,
-  readFootprint,
-  recordFootprint,
-  type FootprintObservation,
-} from "./workspace/footprint-recorder.js";
-
 export {
   AgentPresenceProbe,
   AgentPresenceUnavailable,

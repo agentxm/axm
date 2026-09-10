@@ -41,8 +41,8 @@ import {
   ExtensionTypeSchema,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/registry-protocol/unstable/publish/manifest-policy";
-import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content/skill-content";
+import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
+import { parseSkillMd } from "@agentxm/extension-content";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Diagnostics } from "../diagnostics.js";

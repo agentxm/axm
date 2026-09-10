@@ -29,6 +29,7 @@ import {
   extensionName,
   handle,
   makeTestAxmSkillGate,
+  makeTestRegistryResolutionPolicy,
   makeTestWorkspaceCatalog,
 } from "./test-helpers.js";
 import { SourceHostProvidersLive } from "./live.js";
@@ -93,7 +94,11 @@ const runWithService = <A, E>(
 ) => {
   const spLayer = SourceHostProvidersLive.pipe(
     Layer.provide(
-      Layer.merge(makeTestWorkspaceCatalog({ sources, workspaceRoot }), makeTestAxmSkillGate()),
+      Layer.mergeAll(
+        makeTestWorkspaceCatalog({ sources, workspaceRoot }),
+        makeTestAxmSkillGate(),
+        makeTestRegistryResolutionPolicy(),
+      ),
     ),
     Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );

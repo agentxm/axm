@@ -15,7 +15,7 @@ import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowl
 import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
+import { parseSkillMd } from "@agentxm/extension-content";
 import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import type {

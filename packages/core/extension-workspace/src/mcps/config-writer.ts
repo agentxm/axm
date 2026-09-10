@@ -23,7 +23,7 @@ import {
 import { getHome } from "../utils/environment.js";
 import { isPathSafe } from "@agentxm/workspace-state";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import { stringifyToml, stringifyTomlKey } from "../toml/index.js";
 import { deleteYamlEntry, readYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
 import { isAxmManagedMcpEntry } from "@agentxm/workspace-state";

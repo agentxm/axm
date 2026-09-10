@@ -20,6 +20,10 @@ import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-transactions";
 import { sanitizeName } from "@agentxm/workspace-state";
 import { ensureSkillAgentArtifact } from "../materialization.js";
 import {
@@ -51,7 +55,11 @@ export type EnableSkillOperation = Operation<"enable-skill", { readonly skillNam
  */
 export const enableSkill: OperationHandler<
   EnableSkillOperation,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | LifecycleFailureAdapter
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | WorkspaceTransactionScope
+  | LifecycleFailureAdapter
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -98,7 +106,7 @@ export const enableSkill: OperationHandler<
       ? canonical.value.observation.path
       : path.join(canonical.value.observation.path, "src");
 
-    const installableTargets = yield* ws.runTransaction({
+    const installableTargets = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         const resolvedTargets = yield* Effect.forEach(
           materializationAgents,

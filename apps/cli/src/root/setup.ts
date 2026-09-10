@@ -1,4 +1,3 @@
-import { liveWorkspaceTransitionLock } from "@agentxm/workspace-operations";
 import { CodingAgentRepository, resolveInstructionTarget } from "@agentxm/extension-workspace";
 import { bootstrapWorkspace, type SetupAgentCandidate } from "@agentxm/workspace-configuration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
@@ -13,6 +12,7 @@ import { ExitCode, makeAppError } from "../app-error/index.js";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import {
   AXM_DIR_NAME,
+  LOCK_FILENAME,
   resolveUserWorkspaceRoot,
   scanAllSubagentFiles,
   setupScopeSupport,
@@ -22,14 +22,16 @@ import {
   ArtifactChangeSchema,
   type ArtifactChange,
 } from "@agentxm/workspace-state";
-import { runWorkspaceTransaction } from "@agentxm/workspace-operations";
+import {
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-transactions";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import { isGitManaged } from "@agentxm/extension-sources";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as Semaphore from "effect/Semaphore";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { Command, Flag } from "effect/unstable/cli";
@@ -668,13 +670,22 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
     args.preview === true || settingsExists
       ? yield* initialize
       : yield* runWorkspaceTransaction({
-          lock: liveWorkspaceTransitionLock,
-          semaphore: Semaphore.makeUnsafe(1),
-          workspaceDir,
-          targets: [],
+          claimDefaultTargets: false,
           transition: initialize,
           validate: () => Effect.void,
-        }).pipe(Effect.catchIf(isKnownFailure, (error) => Effect.fail(toAppError(error))));
+        }).pipe(
+          // Setup runs before a workspace exists, so no located workspace
+          // provides the transaction scope; the bootstrap composes its own
+          // over the directory it is about to create.
+          Effect.provide(
+            WorkspaceTransactionScope.layer({
+              workspaceDir,
+              settingsPath: authoritativeSettingsPath,
+              lockPath: path.join(path.dirname(authoritativeSettingsPath), LOCK_FILENAME),
+            }),
+          ),
+          Effect.catchIf(isKnownFailure, (error) => Effect.fail(toAppError(error))),
+        );
   const defaultSkillInstalled = initialized;
   const agentIds = settings.agents ?? [];
   const scopeAgentIds = cancelled

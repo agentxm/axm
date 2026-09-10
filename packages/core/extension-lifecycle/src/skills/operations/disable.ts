@@ -20,6 +20,10 @@ import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-transactions";
 import { sanitizeName } from "@agentxm/workspace-state";
 import {
   skillArtifactFromTargets,
@@ -52,7 +56,11 @@ export type DisableSkillOperation = Operation<"disable-skill", { readonly skillN
  */
 export const disableSkill: OperationHandler<
   DisableSkillOperation,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | LifecycleFailureAdapter
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | WorkspaceTransactionScope
+  | LifecycleFailureAdapter
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -84,7 +92,7 @@ export const disableSkill: OperationHandler<
       yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
         Effect.provideService(WorkspaceMutations, ws),
       );
-    const installableTargetOptions = yield* ws.runTransaction({
+    const installableTargetOptions = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         if (isImplicit) {
           const source =

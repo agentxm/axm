@@ -51,7 +51,10 @@
       "{workspaceRoot}/tsconfig*.json",
       "{workspaceRoot}/vitest.execution.ts",
       "{workspaceRoot}/vitest.reporting.ts",
+      "{workspaceRoot}/vitest.purpose.setup.ts",
       "{workspaceRoot}/scripts/specification-evidence*.ts",
+      "{workspaceRoot}/scripts/test-purpose.ts",
+      "{workspaceRoot}/scripts/workspace-discovery.ts",
       "{workspaceRoot}/scripts/placement-tags-plugin.ts"
     ],
     "hostPlatform": [
@@ -107,7 +110,12 @@
     "projects": ["tag:release:cli"],
     "projectsRelationship": "fixed",
     "versionPlans": {
-      "ignorePatternsForPlanCheck": ["{projectRoot}/vitest*.config.ts", "vitest.execution.ts"]
+      "ignorePatternsForPlanCheck": [
+        "{projectRoot}/vitest*.config.ts",
+        "vitest.execution.ts",
+        "vitest.reporting.ts",
+        "vitest.purpose.setup.ts"
+      ]
     },
     "releaseTag": {
       "pattern": "cli-v{version}",

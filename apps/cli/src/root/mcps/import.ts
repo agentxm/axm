@@ -17,6 +17,7 @@ import {
 import { Screen, count } from "../../screen/index.js";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
@@ -105,8 +106,10 @@ const makePlan = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   hooks: McpsImportTestHooks,
-): Plan => {
-  const conflictSteps = preflight.conflicts.map<PlannedJobStep>((conflict) => ({
+): Plan<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope> => {
+  const conflictSteps = preflight.conflicts.map<
+    PlannedJobStep<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope>
+  >((conflict) => ({
     label: conflict.name,
     readiness: "error",
     errorMessage: conflict.reason,

@@ -10,7 +10,7 @@ import { afterEach } from "vitest";
 
 import { getAppError, handleLint, LintResultDocumentSchema } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { installBundledAxmSkill, makeLintSpecWorkspace } from "../../support/lint-harness.js";
 
 export const specification = defineSpecification({

@@ -4,7 +4,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { describe, expect, it } from "@effect/vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   AuthClient,
   AuthClientLive,

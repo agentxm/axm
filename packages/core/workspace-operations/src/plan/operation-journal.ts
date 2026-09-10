@@ -20,7 +20,7 @@ import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
 
 import type { CompletedJobStep, OperationPresentation, PlanRiskCondition } from "./plan.js";
-import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import type { ReleaseAgeOperationEvidence } from "@agentxm/extension-resolution";
 import type { OperationPrecondition } from "./plan.js";
 import type { OperationAtomicity, OperationPhase, ResolvedUnit } from "./operation-resolution.js";
 
@@ -60,46 +60,42 @@ export class OperationJournal extends ServiceMap.Service<
   OperationJournalService
 >()("@agentxm/workspace-operations/plan/operation-journal/OperationJournal") {}
 
-/** Record the operation's frozen facts. No-op when no journal is provided. */
-export const recordOperationJournal = (state: OperationJournalState): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const service = yield* Effect.serviceOption(OperationJournal);
-    if (Option.isNone(service)) return;
-    yield* Ref.set(service.value.ref, Option.some(state));
-  });
+/** Record the operation's frozen facts. */
+export const recordOperationJournal = (
+  state: OperationJournalState,
+): Effect.Effect<void, never, OperationJournal> =>
+  Effect.flatMap(OperationJournal, (service) => Ref.set(service.ref, Option.some(state)));
 
-/** Merge updates onto the recorded state. No-op when nothing was recorded. */
+/** Merge updates onto the recorded state. No-op when nothing was recorded yet. */
 export const updateOperationJournal = (
   update: (state: OperationJournalState) => OperationJournalState,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const service = yield* Effect.serviceOption(OperationJournal);
-    if (Option.isNone(service)) return;
-    yield* Ref.update(service.value.ref, Option.map(update));
-  });
+): Effect.Effect<void, never, OperationJournal> =>
+  Effect.flatMap(OperationJournal, (service) => Ref.update(service.ref, Option.map(update)));
 
 /** Record the lifecycle phase the invocation has entered. */
-export const recordJournalPhase = (phase: OperationPhase): Effect.Effect<void> =>
+export const recordJournalPhase = (
+  phase: OperationPhase,
+): Effect.Effect<void, never, OperationJournal> =>
   updateOperationJournal((state) => ({ ...state, phase }));
 
 /** Record that a unit's run began. */
-export const appendStartedUnit = (unitId: string): Effect.Effect<void> =>
+export const appendStartedUnit = (unitId: string): Effect.Effect<void, never, OperationJournal> =>
   updateOperationJournal((state) => ({
     ...state,
     startedUnitIds: [...state.startedUnitIds, unitId],
   }));
 
 /** Record one unit's settlement fact. */
-export const appendResolvedUnit = (step: CompletedJobStep<unknown>): Effect.Effect<void> =>
+export const appendResolvedUnit = (
+  step: CompletedJobStep<unknown>,
+): Effect.Effect<void, never, OperationJournal> =>
   updateOperationJournal((state) => ({ ...state, resolved: [...state.resolved, step] }));
 
-export const getOperationJournal: Effect.Effect<Option.Option<OperationJournalState>> = Effect.gen(
-  function* () {
-    const service = yield* Effect.serviceOption(OperationJournal);
-    if (Option.isNone(service)) return Option.none();
-    return yield* Ref.get(service.value.ref);
-  },
-);
+export const getOperationJournal: Effect.Effect<
+  Option.Option<OperationJournalState>,
+  never,
+  OperationJournal
+> = Effect.flatMap(OperationJournal, (service) => Ref.get(service.ref));
 
 export const makeOperationJournal: Effect.Effect<OperationJournalService> = Ref.make(
   Option.none<OperationJournalState>(),

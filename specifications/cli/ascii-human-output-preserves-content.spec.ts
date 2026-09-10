@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { Screen } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { humanScreenLayer, makeRecordingStreams } from "../support/screen-harness.js";
 
 export const specification = defineSpecification({

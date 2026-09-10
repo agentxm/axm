@@ -34,11 +34,12 @@ describe("accepted-resolution authority boundary", () => {
 
   it("keeps workspace locking compatible with the Bun-distributed CLI", () => {
     const lockingSources = [
-      "packages/core/workspace-state/src/workspace/transaction.ts",
-      "packages/core/workspace-operations/src/operations/transaction.ts",
-      "packages/core/workspace-operations/src/operations/transition-lock.ts",
+      "packages/core/workspace-transactions/src/transaction.ts",
+      "packages/core/workspace-transactions/src/transition-lock.ts",
+      "packages/core/workspace-transactions/src/atomic-write.ts",
     ].map((source) => fs.readFileSync(path.join(repoRoot, source), "utf8"));
     const kernelPackages = [
+      "packages/core/workspace-transactions/package.json",
       "packages/core/workspace-state/package.json",
       "packages/core/workspace-operations/package.json",
     ].map((manifest) => fs.readFileSync(path.join(repoRoot, manifest), "utf8"));

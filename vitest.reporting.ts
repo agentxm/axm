@@ -2,18 +2,29 @@ import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import type { InlineConfig } from "vitest/node";
 
-type TestLayer = "e2e" | "internal" | "specification" | "tooling";
-
 type TestReportingOptions = {
-  readonly layer: TestLayer;
+  /** Nx project whose test target runs this configuration. */
+  readonly project: string;
+  /**
+   * Results directory under `test-results/`; defaults to the project name so
+   * `targetDefaults.test.outputs` matches. A project with more than one test
+   * target names each suite distinctly.
+   */
+  readonly suite?: string;
   readonly runtimeMode?: "source" | "built";
-  readonly suite: string;
 };
 
+/**
+ * Labels every test file by purpose (specification, e2e, test) and joins
+ * specification metadata onto native results. Every owner project's Vitest
+ * configuration lists it in `setupFiles`.
+ */
+export const purposeSetupFile = fileURLToPath(new URL("vitest.purpose.setup.ts", import.meta.url));
+
 export const makeTestReporting = ({
-  layer,
+  project,
+  suite = project,
   runtimeMode = "built",
-  suite,
 }: TestReportingOptions): Pick<InlineConfig, "outputFile" | "reporters"> => {
   const outputDirectory = fileURLToPath(new URL(`test-results/${suite}/`, import.meta.url));
 
@@ -26,8 +37,9 @@ export const makeTestReporting = ({
         {
           repoRoot: fileURLToPath(new URL(".", import.meta.url)),
           outputDirectory,
-          runtimeMode,
+          project,
           suite,
+          runtimeMode,
         },
       ],
       [
@@ -40,8 +52,7 @@ export const makeTestReporting = ({
             os_release: os.release(),
           },
           globalLabels: {
-            layer,
-            project: suite,
+            project,
             repository: "axm",
           },
           resultsDir: `${outputDirectory}allure-results`,

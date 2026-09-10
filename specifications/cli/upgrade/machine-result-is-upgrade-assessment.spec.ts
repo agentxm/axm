@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { UpgradeDocumentSchema } from "axm.sh/specification-harness";
 import { LOCAL_VERSION, TARGET_VERSION, runUpgrade } from "../../support/upgrade-harness.js";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "cli/upgrade/machine-result-is-upgrade-assessment",

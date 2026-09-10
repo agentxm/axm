@@ -10,21 +10,11 @@
  */
 
 import type * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import type * as Option from "effect/Option";
-import type * as Path from "effect/Path";
-import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 
-import type {
-  TransitionContention,
-  TransitionLockHolder,
-  WorkspaceRestorationIncomplete,
-  WorkspaceSnapshotError,
-  WorkspaceTransactionFailure,
-  WorkspaceTransitionAcquireFailure,
-} from "./transaction.js";
+import type { WorkspaceSnapshotError } from "@agentxm/workspace-transactions";
 import type {
   LockfileReadError,
   SettingsReadError,
@@ -204,77 +194,6 @@ export type WorkspaceLockfileMutationFailure =
 export type WorkspaceStateMutationFailure =
   WorkspaceSettingsMutationFailure | WorkspaceLockfileMutationFailure;
 
-export interface WorkspaceLifecycleTransactionArgs<A, E = never, R = never> {
-  readonly targets?: ReadonlyArray<string>;
-  readonly transition: Effect.Effect<A, E, R>;
-  readonly validate: (value: A) => Effect.Effect<void, E, R>;
-  /** Observes the start of rollback restoration; never controls it. */
-  readonly onRestorationStarted?: Effect.Effect<void>;
-  /**
-   * When `false`, the transaction does not claim the shared settings and
-   * lockfile targets up front. A closure-scoped plan apply passes `false`:
-   * each closure protects the shared files at its own first touch, so a
-   * closure's rollback restores only its own delta and never tears an
-   * earlier closure's settled commit out of the shared files. Defaults to
-   * `true` — a direct transaction is one closure and claims them itself.
-   */
-  readonly claimDefaultTargets?: boolean;
-}
-
-export type WorkspaceTransactionRunner = <A, E = never, R = never>(
-  args: WorkspaceLifecycleTransactionArgs<A, E, R>,
-) => Effect.Effect<A, WorkspaceTransactionFailure | WorkspaceRestorationIncomplete | E, R>;
-
-/** What a post-confirmation apply records as the workspace transition holder. */
-export interface WorkspaceTransitionRequest {
-  readonly command: string;
-  readonly candidateId?: string;
-  /** Called once when the invocation starts waiting on another holder. */
-  readonly onWaiting?: (holder: Option.Option<TransitionLockHolder>) => Effect.Effect<void>;
-}
-
-/**
- * Acquire the workspace transition for the calling scope's lifetime. Resolves
- * `None` when acquired (release is a scope finalizer) and `Some(contention)`
- * when the wait bound elapsed while another invocation held it.
- */
-export type WorkspaceTransitionAcquirer = (
-  request: WorkspaceTransitionRequest,
-) => Effect.Effect<
-  Option.Option<TransitionContention>,
-  WorkspaceTransitionAcquireFailure,
-  Scope.Scope
->;
-
-// ---------------------------------------------------------------------------
-// Transaction capabilities (implemented by workspace operations)
-// ---------------------------------------------------------------------------
-
-/**
- * The two operations-side capabilities the workspace mutation facade
- * receives by injection: the transaction runner and the transition acquirer.
- */
-export interface WorkspaceTransactionCapabilities {
-  readonly runTransaction: WorkspaceTransactionRunner;
-  readonly acquireTransition: WorkspaceTransitionAcquirer;
-}
-
-/** Workspace paths the capability closures are anchored to. */
-export interface WorkspaceTransactionCapabilityArgs {
-  readonly workspaceDir: string;
-  readonly settingsPath: string;
-  readonly lockPath: string;
-}
-
-/**
- * Builds the injected capabilities for one workspace-service instance. The
- * facade calls this once with its resolved paths; the implementation owns
- * transaction admission and eliminates FileSystem/Path from the members.
- */
-export type MakeWorkspaceTransactionCapabilities = (
-  args: WorkspaceTransactionCapabilityArgs,
-) => Effect.Effect<WorkspaceTransactionCapabilities, never, FileSystem.FileSystem | Path.Path>;
-
 export interface WorkspaceReadModelRecords {
   /** Deterministic inventory across every installable extension type or one selected type. */
   readonly getInventory: (options: {
@@ -377,8 +296,12 @@ export interface SetKnowledgeArgs {
 /**
  * WorkspaceMutations mutation service interface.
  *
- * Gateway for settings, lockfile, and materialized workspace mutations.
- * Read-only callers should prefer `WorkspaceReadModel` projections.
+ * TRANSITIONAL: a thin composition over the narrow workspace-state services
+ * (`WorkspaceLocation`, `SettingsReader`, `LockfileReader`,
+ * `DesiredStateReader`, `WorkspaceRecords`, `ExtensionPaths`,
+ * `SettingsWriter`, `AcceptedResolutionWriter`, `DesiredStateWriter`),
+ * removed when the last handler migrates to them. Transactions run through
+ * `runWorkspaceTransaction` from `@agentxm/workspace-transactions`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -391,10 +314,6 @@ export interface WorkspaceMutationsService {
   readonly baseDir: string;
   /** Explicit scope-aware paths for authoritative, runtime, and package state. */
   readonly layout: WorkspaceLayout;
-  /** Run one coupled authoritative workspace transition under the workspace lock. */
-  readonly runTransaction: WorkspaceTransactionRunner;
-  /** Acquire the workspace transition for a post-confirmation apply. */
-  readonly acquireTransition: WorkspaceTransitionAcquirer;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<
     LockfileState,

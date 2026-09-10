@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { authCredentialFile, makeAuthSpecContext } from "../../../support/auth-harness.js";

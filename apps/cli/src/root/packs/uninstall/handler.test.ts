@@ -21,8 +21,11 @@ import {
   type WorkspaceMutationsOptions,
   computePackManifestContentIdentity,
 } from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
-import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
+import {
+  PlanInvocationTest,
+  ResolvePlanInteractionTest,
+} from "@agentxm/workspace-operations/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { handleUninstallPack } from "./handler.js";
@@ -35,7 +38,11 @@ import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
 import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
 import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { AxmSkillCandidateGateLive, WorkspaceCatalogLive } from "../../../cli-runtime/index.js";
+import {
+  AxmSkillCandidateGateLive,
+  RegistryResolutionPolicyLive,
+  WorkspaceCatalogLive,
+} from "../../../cli-runtime/index.js";
 import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
@@ -238,7 +245,13 @@ describe("packs uninstall handler", () => {
     );
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
-      Layer.mergeAll(BaseLayer, WsLayer, CatalogLayer, AxmSkillCandidateGateLive),
+      Layer.mergeAll(
+        BaseLayer,
+        WsLayer,
+        CatalogLayer,
+        AxmSkillCandidateGateLive,
+        RegistryResolutionPolicyLive,
+      ),
     );
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,
@@ -256,6 +269,7 @@ describe("packs uninstall handler", () => {
       SPLayer,
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
+      PlanInvocationTest,
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const FullLayer = Layer.merge(CoreLayer, MgrLayer);

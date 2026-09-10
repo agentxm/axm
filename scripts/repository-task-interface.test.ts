@@ -19,6 +19,7 @@ type ResolvedProject = {
   readonly name: string;
   readonly data: {
     readonly root?: string;
+    readonly sourceRoot?: string;
     readonly tags?: ReadonlyArray<string>;
     readonly targets?: Readonly<Record<string, ResolvedTarget>>;
   };
@@ -176,7 +177,7 @@ describe("repository task interface", () => {
     const command = commandText(lint?.options?.command);
     expect(lint?.executor).toBe("nx:run-commands");
     expect(command).toBe(
-      "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts scripts --max-warnings=192",
+      "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts scripts --max-warnings=192",
     );
     expect(command).not.toContain("eslint .");
   });
@@ -341,9 +342,38 @@ describe("repository task interface", () => {
     expect(targetCache(targets, "test")).toBe(false);
     const hygiene = targets["verify-source-hygiene"];
     if (!isRecord(hygiene)) throw new Error("Missing verify-source-hygiene target.");
-    for (const family of ["apps", "packages", "tools"]) {
+    for (const family of ["apps", "packages", "tools", "specifications"]) {
       expect(hygiene["inputs"]).toContain(`{workspaceRoot}/${family}/**/*`);
     }
+    const catalog = targets["generate:specification-catalog"];
+    if (!isRecord(catalog)) throw new Error("Missing generate:specification-catalog target.");
+    for (const family of ["apps", "packages", "tools", "specifications"]) {
+      expect(catalog["inputs"]).toContain(`{workspaceRoot}/${family}/**/*.spec.ts`);
+    }
+    expect(catalog["outputs"]).toEqual(["{workspaceRoot}/specifications/catalog.md"]);
+  });
+
+  it("invalidates discovery-dependent targets when discovery, tags, or reporting change", () => {
+    const nx = readObject("nx.json");
+    const namedInputs = nx["namedInputs"];
+    if (!isRecord(namedInputs)) throw new Error("nx.json must declare namedInputs.");
+    const sharedGlobals = namedInputs["sharedGlobals"];
+    for (const file of [
+      "scripts/workspace-discovery.ts",
+      "scripts/placement-tags-plugin.ts",
+      "scripts/test-purpose.ts",
+      "vitest.purpose.setup.ts",
+      "vitest.reporting.ts",
+    ]) {
+      expect(sharedGlobals, file).toContain(`{workspaceRoot}/${file}`);
+    }
+    const root = projects.find((project) => project.name === "axm");
+    for (const targetName of ["generate:specification-catalog", "verify-source-hygiene", "test"]) {
+      const inputs = root?.data.targets?.[targetName]?.inputs;
+      expect(inputs, targetName).toContain("sharedGlobals");
+    }
+    expect(root?.data.targets?.["generate"]?.dependsOn).toContain("generate:specification-catalog");
+    expect(root?.data.sourceRoot).toBe("scripts");
   });
 
   it("infers one domain from placement and declares one role for every project", () => {
@@ -362,9 +392,13 @@ describe("repository task interface", () => {
         expect(domains, project.name).toEqual([]);
       }
       if (tags.includes("release:cli")) {
-        // The cohort ships the application plus domain-classified libraries.
+        // The cohort ships the application, domain-classified libraries, and
+        // the published engineering libraries under tools/ (role:tooling).
         expect(project.data.targets?.["build"], project.name).toBeDefined();
-        if (!tags.includes("type:app")) expect(domains, project.name).toHaveLength(1);
+        if (!tags.includes("type:app") && !tags.includes("role:tooling")) {
+          expect(domains, project.name).toHaveLength(1);
+        }
+        if (tags.includes("role:tooling")) expect(root, project.name).toMatch(/^tools\//u);
       }
     }
   });

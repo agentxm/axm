@@ -31,38 +31,42 @@ export const handleKnowledgeInstall = (args: KnowledgeInstallHandlerArgs) =>
       mode: args.preview ? "preview" : "apply",
       planName: "Install Knowledge",
     },
-    Option.match(args.source, {
-      onNone: () =>
-        handleWorkspaceInstall({
-          command: "knowledge.install",
-          type: Option.some("knowledge"),
-          planName: "Install Knowledge",
-          planDescription: Option.some("Install configured Knowledge bundles"),
-          flags: { preview: args.preview },
-        }),
-      onSome: (value) =>
-        Effect.gen(function* () {
-          const actions = yield* InstallKnowledgeCommandWorkflowActions;
-          const execution = yield* makeInstallPlanExecution(
-            { preview: args.preview },
-            ["knowledge", "install"],
-            [value],
-          );
-          const resolution = yield* runInstallCommandWorkflow({ source: value }, actions, {
-            execution,
-            transformPlan: (plan) =>
-              Effect.succeed({
-                ...plan,
-                presentation: operationPresentation(
-                  { imperative: "install", past: "Installed", gerund: "Installing" },
-                  "knowledge",
-                ),
-              } satisfies Plan),
-          });
-          yield* emitOperationResolution("knowledge.install", resolution, {
-            suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
-          });
-        }),
+    Effect.gen(function* () {
+      return yield* Option.match(args.source, {
+        onNone: () =>
+          handleWorkspaceInstall({
+            command: "knowledge.install",
+            type: Option.some("knowledge"),
+            planName: "Install Knowledge",
+            planDescription: Option.some("Install configured Knowledge bundles"),
+            flags: { preview: args.preview },
+          }),
+        onSome: (value) =>
+          Effect.gen(function* () {
+            const actions = yield* InstallKnowledgeCommandWorkflowActions;
+            const execution = yield* makeInstallPlanExecution(
+              { preview: args.preview },
+              ["knowledge", "install"],
+              [value],
+            );
+            const resolution = yield* runInstallCommandWorkflow({ source: value }, actions, {
+              execution,
+              transformPlan: (plan) =>
+                Effect.succeed({
+                  ...plan,
+                  presentation: operationPresentation(
+                    { imperative: "install", past: "Installed", gerund: "Installing" },
+                    "knowledge",
+                  ),
+                } satisfies Plan),
+            });
+            yield* emitOperationResolution("knowledge.install", resolution, {
+              suggestions: [
+                { description: "Browse installed Knowledge", cmd: "axm knowledge list" },
+              ],
+            });
+          }),
+      });
     }),
   );
 

@@ -23,7 +23,7 @@ import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeHoldbackRecord,
   type ReleaseAgeOperationEvidence,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+} from "@agentxm/extension-resolution";
 import {
   type ReleaseAgeEvaluation,
   type ReleaseAgeEvidence,
@@ -36,6 +36,7 @@ import {
   type DesiredStateGraph,
   usableAcceptedCanonical,
 } from "@agentxm/workspace-state";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import {
   decodeVersionRangeSync,
   versionSatisfiesRange,
@@ -81,7 +82,11 @@ export interface RootUpdateFlags {
  */
 type TargetedPlanTransform = (
   plan: Plan,
-) => Effect.Effect<Plan, AppError, WorkspaceMutations | FileSystem.FileSystem | Path.Path>;
+) => Effect.Effect<
+  Plan,
+  AppError,
+  WorkspaceMutations | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
+>;
 
 export interface RootUpdateHandlerArgs extends RootUpdateFlags {
   readonly source: Option.Option<string>;

@@ -8,7 +8,7 @@ import type { Command } from "effect/unstable/cli";
 
 import { rootCommand } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "system/architecture/specification-folders-mirror-command-tree",

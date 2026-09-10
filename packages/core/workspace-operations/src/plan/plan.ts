@@ -27,7 +27,7 @@ import {
 import type { ArtifactChange } from "@agentxm/workspace-state";
 import type { ConfiguredAgentOutcome } from "@agentxm/workspace-state";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
-import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import type { ReleaseAgeOperationEvidence } from "@agentxm/extension-resolution";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const PlanPolicyIds = ["ignore-version-constraints", "accept-warnings"] as const;

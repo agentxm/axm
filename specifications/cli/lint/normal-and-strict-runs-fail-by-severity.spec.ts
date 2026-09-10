@@ -3,7 +3,7 @@ import * as Exit from "effect/Exit";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   installSkillWithMissingProjection,
   makeIsolatedLintRules,

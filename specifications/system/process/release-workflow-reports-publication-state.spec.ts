@@ -4,10 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
-import {
-  defineSpecification,
-  defineBoundEvidence,
-} from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification, defineBoundEvidence } from "@agentxm/specification-metadata";
 import { readReleaseWorkflow } from "../../support/release-workflow.js";
 
 export const specification = defineSpecification({

@@ -3,8 +3,11 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { SymlinkCreationError } from "./errors.js";
-import { protectCreatedAncestors, protectWorkspacePath } from "./transaction.js";
-import { recordFootprint } from "./footprint-recorder.js";
+import {
+  protectCreatedAncestors,
+  protectWorkspacePath,
+  recordFootprint,
+} from "@agentxm/workspace-transactions";
 import { resolveParentSymlinks } from "../utils/resolve-parent-symlinks.js";
 
 /**

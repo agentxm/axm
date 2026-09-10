@@ -8,7 +8,7 @@ import { afterEach } from "vitest";
 
 import { handleSetup } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { probeFlag } from "../../support/parser-probe.js";
 import { makeSetupSpecContext } from "../../support/setup-harness.js";
 import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";

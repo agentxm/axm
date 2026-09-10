@@ -9,18 +9,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import type {
-  WorkspaceMutationsService,
-  WorkspaceTransactionRunner,
-  WorkspaceTransitionAcquirer,
-} from "./service-interface.js";
+import type { WorkspaceMutationsService } from "./service-interface.js";
 import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 import type {
   WorkspaceLockfileReadFailure,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
 } from "./service-interface.js";
-import type { TransitionContention } from "./transaction.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
@@ -283,17 +278,6 @@ export const makeBaseWorkspaceMock = (
       );
       return { complete: true, nodes, mcpSourceClosures: [], problems: [] };
     });
-  const runTransaction: WorkspaceTransactionRunner = (args) =>
-    Effect.gen(function* () {
-      const value = yield* args.transition;
-      yield* args.validate(value);
-      return value;
-    });
-  // The mock acquires nothing: unit tests share literal workspace paths, and
-  // a real lock would contend across parallel test files. Tests exercising
-  // real transition semantics override this with the real acquirer.
-  const acquireTransition: WorkspaceTransitionAcquirer = () =>
-    Effect.succeed(Option.none<TransitionContention>());
   const entryFrom =
     <A>(read: () => Effect.Effect<Readonly<Record<string, A>>, WorkspaceLockfileReadFailure>) =>
     (name: string): Effect.Effect<Option.Option<A>, WorkspaceLockfileReadFailure> =>
@@ -321,8 +305,6 @@ export const makeBaseWorkspaceMock = (
         decodeAbsolutePathSync(path.resolve(baseDir, type === "mcp-server" ? "mcps" : `${type}s`)),
     },
     records,
-    runTransaction,
-    acquireTransition,
     getLockfileState: () => Effect.succeed("ok" as const),
     getDesiredStateGraph: getSynthesizedDesiredStateGraph,
     getConfiguredSources: () => Effect.succeed([]),

@@ -138,6 +138,10 @@ const axmPolicyPlugin = {
  */
 const moduleBoundaryOptions = {
   banTransitiveDependencies: true,
+  // The root purpose setup loads the specification contract lazily so a
+  // project without specifications never needs it built; the repository
+  // scripts in the same root project import it statically.
+  checkDynamicDependenciesExceptions: ["@agentxm/specification-metadata"],
   allow: [
     "^.*/eslint(\\.base)?\\.config\\.[cm]?js$",
     "^.*/vitest\\.execution\\.js$",
@@ -157,8 +161,10 @@ const moduleBoundaryOptions = {
 // as shipped artifacts, never as imported code.
 const productScopeBans = [
   "scope:agent-integration",
+  "scope:extension-content",
   "scope:extension-model",
   "scope:extension-lifecycle",
+  "scope:extension-resolution",
   "scope:extension-sources",
   "scope:extension-workspace",
   "scope:registry-client",
@@ -166,6 +172,7 @@ const productScopeBans = [
   "scope:workspace-lint",
   "scope:workspace-operations",
   "scope:workspace-state",
+  "scope:workspace-transactions",
   "scope:workspace-sync",
 ];
 
@@ -175,12 +182,15 @@ const runtimeRoleDependencies = {
   "role:application": ["role:feature", "role:capability", "role:integration", "role:contract"],
   "role:feature": ["role:capability", "role:integration", "role:contract"],
   "role:capability": ["role:capability", "role:integration", "role:contract"],
-  "role:integration": ["role:integration", "role:contract"],
+  // Integrations may also compose the leaf content library, whose own budget
+  // is the extension model alone (see the scope:extension-content row).
+  "role:integration": ["role:integration", "role:contract", "scope:extension-content"],
   "role:contract": ["role:contract"],
 };
 
 // Strategic direction: core may use supporting and generic; supporting may use
-// generic plus the two exact contract seams; generic depends on nothing of AXM.
+// generic plus the exact contract seams and the leaf content library; generic
+// depends on nothing of AXM.
 const domainDependencies = {
   "domain:core": ["domain:core", "domain:supporting", "domain:generic"],
   "domain:supporting": [
@@ -188,14 +198,16 @@ const domainDependencies = {
     "domain:generic",
     "scope:extension-model",
     "scope:registry-protocol",
+    "scope:extension-content",
   ],
   "domain:generic": ["domain:generic"],
 };
 
 /**
- * `production: true` keeps every runtime role away from role:tooling so the
- * engineering libraries under tools/ never enter runtime; `production: false`
- * lets test-purpose files inside runtime packages compose them.
+ * `production: true` keeps every runtime role's own source away from
+ * role:tooling so the engineering libraries under tools/ never enter runtime;
+ * `production: false` lets test-purpose files inside runtime packages compose
+ * them.
  */
 const moduleBoundaryConstraints = ({ production }) => [
   { sourceTag: "type:app", onlyDependOnLibsWithTags: ["type:lib"] },
@@ -216,18 +228,28 @@ const moduleBoundaryConstraints = ({ production }) => [
     sourceTag,
     onlyDependOnLibsWithTags: production ? targets : [...targets, "role:tooling"],
   })),
-  ...Object.entries(runtimeRoleDependencies).map(([sourceTag, targets]) =>
-    production
-      ? { sourceTag, onlyDependOnLibsWithTags: targets, notDependOnLibsWithTags: ["role:tooling"] }
-      : { sourceTag, onlyDependOnLibsWithTags: [...targets, "role:tooling"] },
-  ),
+  // Runtime roles list no role:tooling target, so production source can never
+  // import a tooling library directly. A transitive notDependOnLibsWithTags ban
+  // is deliberately absent: colocated specifications and tests import the
+  // specification-metadata and test-support tooling libraries, those imports
+  // are project-graph edges, and a transitive ban would flag every runtime
+  // consumer of a library that merely tests itself.
+  ...Object.entries(runtimeRoleDependencies).map(([sourceTag, targets]) => ({
+    sourceTag,
+    onlyDependOnLibsWithTags: production ? targets : [...targets, "role:tooling"],
+  })),
   { sourceTag: "role:e2e", onlyDependOnLibsWithTags: ["role:tooling", "role:contract"] },
   { sourceTag: "role:tooling", onlyDependOnLibsWithTags: ["type:lib"] },
   // Stable asymmetric contract boundary the role matrix cannot express: the
   // shared model depends on nothing, the Registry protocol only on the model.
+  // Colocated specifications inside either contract import the shared
+  // specification-metadata tooling library, so test-purpose files may reach
+  // role:tooling while runtime code keeps the exact seam.
   {
     sourceTag: "scope:extension-model",
-    onlyDependOnLibsWithTags: ["scope:extension-model"],
+    onlyDependOnLibsWithTags: production
+      ? ["scope:extension-model"]
+      : ["scope:extension-model", "role:tooling"],
     allowedExternalImports: [
       "effect",
       "effect/**",
@@ -242,7 +264,16 @@ const moduleBoundaryConstraints = ({ production }) => [
   },
   {
     sourceTag: "scope:registry-protocol",
-    onlyDependOnLibsWithTags: ["scope:registry-protocol", "scope:extension-model"],
+    onlyDependOnLibsWithTags: production
+      ? ["scope:registry-protocol", "scope:extension-model"]
+      : ["scope:registry-protocol", "scope:extension-model", "role:tooling"],
+  },
+  // Content behavior is a leaf: it reads the model and nothing else, so the
+  // Registry implementation and integrations can consume it without pulling
+  // workspace or transport packages.
+  {
+    sourceTag: "scope:extension-content",
+    onlyDependOnLibsWithTags: ["scope:extension-content", "scope:extension-model"],
   },
 ];
 
@@ -603,6 +634,71 @@ export default [
     },
   },
   {
+    // A package's own `./testing` entry point is test-support, not production
+    // source: it may compose the deterministic ports its dependencies publish
+    // under the same entry point. Everything else the rule above bans stays
+    // banned here — a testing module still may not compose a `./live` layer or
+    // reach past a package's public API.
+    files: [
+      "{apps,packages,tools}/**/src/testing.ts",
+      "{apps,packages,tools}/**/src/testing/**/*.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "effect/unstable/http/FetchHttpClient",
+              message:
+                "Provide the Fetch HTTP client once in apps/cli/src/runtime.ts so transport policy is applied uniformly.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@agentxm/*/live"],
+              message:
+                "Concrete environment-backed Layers compose only in the application composition root (apps/cli/src/runtime.ts); feature logic keeps service requirements in its Effect environment.",
+            },
+            {
+              group: ["@agentxm/*/src/*", "@agentxm/*/dist/*", "axm.sh/src/*", "axm.sh/dist/*"],
+              message:
+                "Deep imports bypass the provider's declared public API; export the symbol intentionally or move the responsibility to the right package.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Closure settlement is workspace-operations' alone: every plan unit is
+    // one semantic closure that operations settles or rolls back at its
+    // boundary. Other packages register writes through protectWorkspacePath
+    // and run transactions; they never settle closures themselves.
+    files: ["{apps,packages,tools,specifications}/**/*.ts"],
+    ignores: ["packages/core/workspace-operations/**", "packages/core/workspace-transactions/**"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@agentxm/workspace-transactions",
+              importNames: [
+                "withWorkspaceClosure",
+                "settleWorkspaceClosure",
+                "rollbackWorkspaceClosure",
+                "pendingClosureRestorations",
+              ],
+              message:
+                "The closure API is consumed by @agentxm/workspace-operations only; register writes with protectWorkspacePath and run transactions with runWorkspaceTransaction.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // CLI handler boundary: handlers parse, call feature and capability
     // application APIs, and render. They do not construct plans, touch
     // workspace writers, or reach integrations directly; only the composition
@@ -681,7 +777,7 @@ export default [
             },
             {
               regex:
-                "^@agentxm/(workspace-(state|operations|sync|lint|configuration|inspection)|extension-(workspace|sources|lifecycle|authoring|publish|discovery)|agent-integration|registry-(client|auth)|knowledge-query)(/(?!testing$).*)?$",
+                "^@agentxm/(workspace-(state|operations|transactions|sync|lint|configuration|inspection)|extension-(workspace|sources|lifecycle|authoring|publish|discovery)|agent-integration|registry-(client|auth)|knowledge-query)(/(?!testing$).*)?$",
               message:
                 "Specifications never import a kernel, integration, or feature root; compose the published CLI harness, the contract packages, or a package-owned ./testing port.",
             },

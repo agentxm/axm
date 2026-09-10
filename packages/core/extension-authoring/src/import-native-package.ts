@@ -4,15 +4,9 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
-import {
-  manifestFilenameForType,
-  manifestSchemaForType,
-} from "@agentxm/registry-protocol/unstable/publish/manifest-policy";
+import { manifestFilenameForType, manifestSchemaForType } from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
-import {
-  parseFrontmatterEffect,
-  type FrontmatterParseFailure,
-} from "@agentxm/registry-protocol/unstable/content/frontmatter";
+import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
 import { copyExtensionDirectory } from "@agentxm/extension-workspace";
 import {
   NativeImportConflict,

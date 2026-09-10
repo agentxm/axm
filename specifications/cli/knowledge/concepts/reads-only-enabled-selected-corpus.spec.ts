@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   handleKnowledgeConceptQuery,
   handleKnowledgeConceptSearch,

@@ -15,6 +15,7 @@ import {
   configuredRow,
   makeBaseWorkspaceMock,
   makeRegistrySkillLockEntry,
+  MockWorkspaceTransactionScope,
   rowsFor,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
@@ -112,6 +113,7 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
   return Layer.mergeAll(
     NodeServices.layer,
     WorkspaceMutations.layer(mockWs),
+    MockWorkspaceTransactionScope(axmDir),
     TestLifecycleFailureAdapter,
   );
 };

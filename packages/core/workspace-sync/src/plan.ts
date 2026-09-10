@@ -45,7 +45,7 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import type { ReleaseAgeOperationEvidence } from "@agentxm/extension-resolution";
 import { WorkspaceMutations, type McpServerEntry } from "@agentxm/workspace-state";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import type { SyncFailureAdapter } from "./failure-adapter.js";

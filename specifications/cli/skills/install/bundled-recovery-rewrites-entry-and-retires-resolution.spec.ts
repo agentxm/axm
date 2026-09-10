@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 
 import { handleInstall } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   installBundledAxmSkill,
   makeLintSpecWorkspace,

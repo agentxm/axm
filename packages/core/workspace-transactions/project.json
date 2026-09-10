@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-transactions",
+  "projectType": "library",
+  "root": "packages/core/workspace-transactions",
+  "sourceRoot": "packages/core/workspace-transactions/src",
+  "tags": ["type:lib", "role:capability", "scope:workspace-transactions", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/workspace-transactions/src/index.ts",
+        "outputPath": "packages/core/workspace-transactions/dist",
+        "tsConfig": "packages/core/workspace-transactions/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

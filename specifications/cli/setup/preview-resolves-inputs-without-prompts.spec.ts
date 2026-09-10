@@ -7,7 +7,7 @@ import { afterEach } from "vitest";
 
 import { handleSetup } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSetupSpecContext } from "../../support/setup-harness.js";
 
 export const specification = defineSpecification({

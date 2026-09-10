@@ -20,7 +20,7 @@ import {
   extensionTypes,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/registry-protocol/unstable/publish/manifest-policy";
+import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
 import {
   buildFixture,
   resolveFixtureProjectLayout,

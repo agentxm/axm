@@ -12,7 +12,7 @@ import {
 import { pathToFileURL } from "node:url";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { describe, expect, it } from "@effect/vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecRegistry } from "../support/registry-fixture.js";
 import {
   makeEnvironmentProcessFixture,

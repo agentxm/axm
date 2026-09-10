@@ -10,7 +10,7 @@
  * @packageDocumentation
  */
 
-import type { LintRule } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { LintRule } from "@agentxm/extension-content/lint";
 import type { WorkspaceRuleContext } from "../workspace-context.js";
 import { initializedRule } from "./workspace/initialized.js";
 import { settingsSchemaValidRule } from "./workspace/settings-schema-valid.js";

@@ -36,6 +36,7 @@
     "includedScripts": []
   },
   "dependencies": {
+    "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",
     "@agentxm/extension-workspace": "workspace:^",

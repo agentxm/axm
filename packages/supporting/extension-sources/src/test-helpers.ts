@@ -9,7 +9,9 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as semver from "semver";
 import {
   ExtensionDependencyConstraintMapSchema,
   decodeExtensionNameSync,
@@ -19,6 +21,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import { resolveVersionEntry } from "@agentxm/registry-protocol/unstable/registry/version-selection";
 import type { RegistrySourceHost } from "@agentxm/extension-model/unstable/sources/types";
 import {
   decodeVersionRangeSync,
@@ -27,6 +30,7 @@ import {
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { AxmSkillCandidateGate, type AxmSkillCandidateGateService } from "./axm-skill-gate.js";
+import { RegistryResolutionPolicy } from "./registry-resolution-policy.js";
 import {
   WorkspaceCatalog,
   type ConfiguredSourceHost,
@@ -93,6 +97,39 @@ export interface TestWorkspaceCatalogOptions {
 export const makeTestAxmSkillGate = (evaluate?: AxmSkillCandidateGateService["evaluate"]) =>
   Layer.succeed(AxmSkillCandidateGate, {
     evaluate: evaluate ?? (() => Effect.succeed(null)),
+  });
+
+/**
+ * A deterministic registry resolution policy for tests: the Registry's own
+ * selection rule with no release-age policy. Every matching version is a
+ * selectable candidate, newest first; nothing is held or exempted.
+ */
+export const makeTestRegistryResolutionPolicy = () =>
+  Layer.succeed(RegistryResolutionPolicy, {
+    selectVersion: (versions, versionRange) =>
+      Effect.succeed(resolveVersionEntry(versions, versionRange)),
+    decideNamedVersion: (index, options) => {
+      const selected = resolveVersionEntry(index.versions, options.versionRange);
+      if (Option.isSome(selected)) {
+        return { kind: "selected", version: selected.value.version };
+      }
+      const requested = Option.getOrElse(options.versionRange, () => "*");
+      return semver.valid(requested) === requested
+        ? { kind: "not_found" }
+        : { kind: "version_unsatisfied", requestedRange: requested };
+    },
+    namedCandidates: (index, options) => {
+      const requested = Option.getOrElse(options.versionRange, () => "*");
+      const exact = semver.valid(requested) === requested;
+      return index.versions
+        .filter((entry) =>
+          exact
+            ? entry.version === requested
+            : entry.yankedAt === undefined && semver.satisfies(entry.version, requested),
+        )
+        .sort((left, right) => semver.compareBuild(right.version, left.version))
+        .map((entry) => ({ version: entry.version, outcome: { kind: "selected" } }));
+    },
   });
 
 /**

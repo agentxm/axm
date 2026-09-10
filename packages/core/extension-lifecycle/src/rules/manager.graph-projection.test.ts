@@ -34,7 +34,10 @@ import {
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import {
+  makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
+} from "@agentxm/workspace-state/testing";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { RuleManagerLive } from "./manager.js";
 
@@ -179,7 +182,8 @@ describe("RuleManager graph-derived region projection", () => {
     readonly graph: DesiredStateGraph;
     readonly locked: RulesLockMap;
   }) => {
-    const wsMock = makeBaseWorkspaceMock(nodePath.join(baseDir, ".axm"), {
+    const axmDir = nodePath.join(baseDir, ".axm");
+    const wsMock = makeBaseWorkspaceMock(axmDir, {
       getDesiredStateGraph: () => Effect.succeed(args.graph),
       getLockedRules: () => Effect.succeed(args.locked),
       getInstructionsConfig: () => Effect.succeed(Option.some({})),
@@ -192,6 +196,7 @@ describe("RuleManager graph-derived region projection", () => {
       Layer.provideMerge(TestLifecycleFailureAdapter),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
+      Layer.provide(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
     );

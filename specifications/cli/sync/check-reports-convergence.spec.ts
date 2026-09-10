@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { PlanResolutionDocumentSchema } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture, unattendedProjectSetup } from "../../support/directory-harness.js";
 import { snapshotProtectedState } from "../../support/preview-purity.js";
 

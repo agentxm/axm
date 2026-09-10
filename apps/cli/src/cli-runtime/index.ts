@@ -112,4 +112,5 @@ export {
 } from "./command-summary.js";
 export { AgentPresenceProbeLive } from "./agent-presence-live.js";
 export { AxmSkillCandidateGateLive } from "./axm-skill-gate-live.js";
+export { RegistryResolutionPolicyLive } from "./registry-resolution-policy-live.js";
 export { WorkspaceCatalogLive } from "./workspace-catalog-live.js";

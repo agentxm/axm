@@ -14,10 +14,10 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { parseTomlValue } from "@agentxm/extension-workspace";
 import { envWithDefault } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
+import { isTomlTable, parseTomlDocument, tomlTable, type TomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const cargoType = Schema.decodeUnknownSync(PackageTypeSchema)("cargo");
@@ -34,11 +34,8 @@ const isExactVersion = (specifier: string): boolean => specifier.startsWith("=")
 const stripExactPrefix = (specifier: string): string =>
   specifier.startsWith("=") ? specifier.slice(1) : specifier;
 
-/** Regex to detect section headers like [dependencies] or [build-dependencies]. */
-const SECTION_RE = /^\[([^\]]+)\]/;
-
-/** Dependency section names we care about. */
-const DEP_SECTIONS = new Set(["dependencies", "dev-dependencies", "build-dependencies"]);
+/** Dependency tables we read. */
+const DEP_SECTIONS = ["dependencies", "dev-dependencies", "build-dependencies"] as const;
 
 /**
  * Represents a parsed dependency entry from Cargo.toml.
@@ -55,34 +52,19 @@ interface CargoDep {
  * Parse a dependency value (the right-hand side of `name = ...`).
  * Handles:
  * - Shorthand string: `"1.0"` or `"=1.0.193"`
- * - Inline table: `{ version = "1.0", features = ["derive"] }`
+ * - Table: `{ version = "1.0", features = ["derive"] }`
  */
-const parseDependencyValue = (name: string, value: string): CargoDep => {
-  const trimmed = value.trim();
-
-  // Shorthand string syntax: name = "1.0"
-  if (trimmed.startsWith('"') || trimmed.startsWith("'")) {
-    const inner = trimmed.slice(1, -1);
-    return { name, version: inner, isPathOrGit: false, packageName: undefined };
+const parseDependencyValue = (name: string, value: unknown): CargoDep => {
+  if (typeof value === "string") {
+    return { name, version: value, isPathOrGit: false, packageName: undefined };
   }
 
-  // Inline table syntax: name = { version = "1.0", ... }
-  if (trimmed.startsWith("{")) {
-    const hasPath = /\bpath\s*=/.test(trimmed);
-    const hasGit = /\bgit\s*=/.test(trimmed);
-
-    if (hasPath || hasGit) {
+  if (isTomlTable(value)) {
+    if ("path" in value || "git" in value) {
       return { name, version: undefined, isPathOrGit: true, packageName: undefined };
     }
-
-    // Extract version
-    const versionMatch = /\bversion\s*=\s*"([^"]*)"/.exec(trimmed);
-    const version = versionMatch?.[1];
-
-    // Extract package rename
-    const packageMatch = /\bpackage\s*=\s*"([^"]*)"/.exec(trimmed);
-    const packageName = packageMatch?.[1];
-
+    const version = typeof value["version"] === "string" ? value["version"] : undefined;
+    const packageName = typeof value["package"] === "string" ? value["package"] : undefined;
     return { name, version, isPathOrGit: false, packageName };
   }
 
@@ -91,56 +73,35 @@ const parseDependencyValue = (name: string, value: string): CargoDep => {
 };
 
 /**
- * Parse Cargo.toml content and extract dependencies.
+ * Extract dependencies from a parsed Cargo.toml document.
  */
-const parseCargoToml = (content: string, source: string): ReadonlyArray<DetectedPackage> => {
-  const lines = content.split("\n");
+const parseCargoToml = (document: TomlTable, source: string): ReadonlyArray<DetectedPackage> => {
   const results: Array<DetectedPackage> = [];
-  let currentSection = "";
 
-  for (const line of lines) {
-    const trimmed = line.trim();
+  for (const section of DEP_SECTIONS) {
+    const table = tomlTable(document, section);
+    if (table === undefined) continue;
 
-    // Skip empty lines and comments
-    if (trimmed === "" || trimmed.startsWith("#")) continue;
+    for (const [depName, depValue] of Object.entries(table)) {
+      const dep = parseDependencyValue(depName, depValue);
 
-    // Check for section header
-    const sectionMatch = SECTION_RE.exec(trimmed);
-    if (sectionMatch !== undefined && sectionMatch !== null && sectionMatch[1] !== undefined) {
-      currentSection = sectionMatch[1];
-      continue;
+      // Skip path and git dependencies
+      if (dep.isPathOrGit) continue;
+
+      // Use the real package name if renamed
+      const resolvedName = dep.packageName ?? dep.name;
+
+      // Determine version: only exact pins get a version in the purl
+      const version =
+        dep.version !== undefined && isExactVersion(dep.version)
+          ? stripExactPrefix(dep.version)
+          : undefined;
+
+      const purl = new PackageURL("cargo", null, resolvedName, version ?? null, null, null);
+      const purlParts = decodePurl(purl.toString());
+
+      results.push({ purl: purlParts, type: cargoType, source });
     }
-
-    // Only process lines in dependency sections
-    if (!DEP_SECTIONS.has(currentSection)) continue;
-
-    // Parse key = value
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-
-    const depName = trimmed.slice(0, eqIdx).trim();
-    const depValue = trimmed.slice(eqIdx + 1).trim();
-
-    if (depName === "" || depValue === "") continue;
-
-    const dep = parseDependencyValue(depName, depValue);
-
-    // Skip path and git dependencies
-    if (dep.isPathOrGit) continue;
-
-    // Use the real package name if renamed
-    const resolvedName = dep.packageName ?? dep.name;
-
-    // Determine version: only exact pins get a version in the purl
-    const version =
-      dep.version !== undefined && isExactVersion(dep.version)
-        ? stripExactPrefix(dep.version)
-        : undefined;
-
-    const purl = new PackageURL("cargo", null, resolvedName, version ?? null, null, null);
-    const purlParts = decodePurl(purl.toString());
-
-    results.push({ purl: purlParts, type: cargoType, source });
   }
 
   return results;
@@ -164,14 +125,13 @@ export const cargoDetector: PackageDetector = {
       const content = yield* readFileOptional(cargoTomlPath);
       if (Option.isNone(content)) return [];
 
-      // Validate that it looks like TOML (basic check)
-      const trimmed = content.value.trim();
-      if (trimmed.length > 0 && !trimmed.includes("=") && !trimmed.includes("[")) {
+      const document = parseTomlDocument(content.value);
+      if (document === undefined) {
         yield* Effect.logWarning("Malformed Cargo.toml, skipping");
         return [];
       }
 
-      return parseCargoToml(content.value, cargoTomlPath);
+      return parseCargoToml(document, cargoTomlPath);
     },
     Effect.annotateLogs({ detector: "cargo" }),
     Effect.withSpan("detect.cargo"),
@@ -184,11 +144,11 @@ export const cargoDetector: PackageDetector = {
 const resolveCargoHome = () => envWithDefault("CARGO_HOME", `${os.homedir()}/.cargo`);
 
 /**
- * Parse the `[package.metadata.axm]` table from a Cargo.toml string.
+ * Read the `[package.metadata.axm]` table from a Cargo.toml string.
  *
- * Returns `undefined` when the section is absent. `Cargo.toml` is TOML; we
- * scan section headers line-by-line rather than depending on a full TOML
- * parser, mirroring `julia.ts`/`parseAxmSection`. Supported forms:
+ * Returns `undefined` when the file does not parse or the table is absent.
+ * `[package.metadata.*]` is Cargo's standard extensibility mechanism for
+ * third-party tools. Supported forms:
  *
  *   [package.metadata.axm]
  *   extensions = [{ ref = "@owner/packs/example", versionRange = "^1.0.0" }]
@@ -197,68 +157,8 @@ const resolveCargoHome = () => envWithDefault("CARGO_HOME", `${os.homedir()}/.ca
  *   ref = "@owner/packs/example"
  *   versionRange = "^1.0.0"
  */
-const parsePackageMetadataAxm = (content: string): Record<string, unknown> | undefined => {
-  const lines = content.split("\n");
-  let inAxmSection = false;
-  let found = false;
-  const fields: Record<string, unknown> = {};
-  const extensionEntries: Array<Record<string, unknown>> = [];
-  let currentTable: Record<string, unknown> | undefined;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Skip empty lines and comments
-    if (trimmed === "" || trimmed.startsWith("#")) continue;
-
-    // Section headers (`[section.path]` or `[[array.of.tables]]`)
-    if (trimmed.startsWith("[")) {
-      const arrayTableMatch = /^\[\[package\.metadata\.axm\.([A-Za-z0-9_-]+)\]\]$/.exec(trimmed);
-      const arrayTableKey = arrayTableMatch?.[1];
-      if (arrayTableKey !== undefined) {
-        found = true;
-        inAxmSection = false;
-
-        if (arrayTableKey === "extensions") {
-          const entry: Record<string, unknown> = {};
-          extensionEntries.push(entry);
-          fields["extensions"] = extensionEntries;
-          currentTable = entry;
-        } else {
-          currentTable = undefined;
-        }
-
-        continue;
-      }
-
-      const axmTableMatch = /^\[package\.metadata\.axm(?:\.([A-Za-z0-9_-]+))?\]$/.exec(trimmed);
-      if (axmTableMatch !== null) {
-        found = true;
-        inAxmSection = axmTableMatch[1] === undefined;
-        currentTable = undefined;
-        continue;
-      }
-
-      inAxmSection = false;
-      currentTable = undefined;
-      continue;
-    }
-
-    const target = currentTable ?? (inAxmSection ? fields : undefined);
-    if (target === undefined) continue;
-
-    const match = /^([^=\s]+)\s*=\s*(.+)$/.exec(trimmed);
-    if (match === null) continue;
-
-    const key = match[1];
-    const rawValue = match[2]?.trim();
-    if (key === undefined || rawValue === undefined) continue;
-
-    target[key] = parseTomlValue(rawValue);
-  }
-
-  return found ? fields : undefined;
-};
+const parsePackageMetadataAxm = (content: string): TomlTable | undefined =>
+  tomlTable(tomlTable(tomlTable(parseTomlDocument(content), "package"), "metadata"), "axm");
 
 /**
  * Cargo package reader.

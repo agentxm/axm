@@ -31,6 +31,7 @@ import type {
 import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import type { ExtensionTarget, McpServerExtensionTarget } from "@agentxm/workspace-state";
 import { mcpRegistryResolutionKey, WorkspaceMutations } from "@agentxm/workspace-state";
+import { bindWorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 import { canReuseInstalledPackage } from "@agentxm/extension-workspace";
 import { materializeRegistryPackageWithTreeIntegrity } from "../registry-materialization.js";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
@@ -46,7 +47,7 @@ import {
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 
 // Build lock entry from registry ref
@@ -77,6 +78,7 @@ export const McpServerManagerLive = Layer.effect(
   McpServerManager,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const runTransaction = yield* bindWorkspaceTransactionRunner;
     const fs = yield* FileSystem.FileSystem;
     const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
@@ -240,7 +242,7 @@ export const McpServerManagerLive = Layer.effect(
 
     return {
       type: "mcp-server",
-      runTransaction: ws.runTransaction,
+      runTransaction,
       isInstalled: Effect.fn("McpServerManager.isInstalled")(function* ({
         target,
       }: {

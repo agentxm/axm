@@ -6,7 +6,7 @@ import * as Result from "effect/Result";
 import type { Lockfile } from "@agentxm/workspace-state";
 import type { SourceHostConfig } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/source-endpoints-aligned";

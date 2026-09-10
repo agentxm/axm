@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import type { AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { AdvisoryRule } from "@agentxm/extension-content/lint";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 

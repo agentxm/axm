@@ -36,6 +36,7 @@ import {
   usableAcceptedCanonical,
 } from "@agentxm/workspace-state";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";
@@ -355,9 +356,13 @@ const handlePacksAddBody = Effect.fn("PacksAdd.handle")(function* (args: PacksAd
     effect: Effect.Effect<
       A,
       E,
-      FileSystem.FileSystem | Path.Path | WorkspaceMutations | AuthoringFailureAdapter
+      | FileSystem.FileSystem
+      | Path.Path
+      | WorkspaceMutations
+      | AuthoringFailureAdapter
+      | WorkspaceTransactionScope
     >,
-  ): Effect.Effect<A, E, never> =>
+  ): Effect.Effect<A, E, WorkspaceTransactionScope> =>
     effect.pipe(
       provideAuthoringFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
@@ -365,13 +370,13 @@ const handlePacksAddBody = Effect.fn("PacksAdd.handle")(function* (args: PacksAd
       Effect.provideService(Path.Path, path),
     );
 
-  const step: PlannedJobStep = {
+  const step: PlannedJobStep<WorkspaceTransactionScope> = {
     readiness: "ready",
     label: packName,
     run: provideServices(addToPack(op)),
   };
 
-  const plan: Plan = {
+  const plan: Plan<WorkspaceTransactionScope> = {
     _tag: "Plan",
     name: "Add to pack",
     description: Option.some(

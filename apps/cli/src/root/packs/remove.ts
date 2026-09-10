@@ -26,6 +26,7 @@ import {
 } from "@agentxm/workspace-operations";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -199,9 +200,13 @@ const handlePacksRemoveBody = Effect.fn("PacksRemove.handle")(function* (
     effect: Effect.Effect<
       A,
       E,
-      FileSystem.FileSystem | Path.Path | WorkspaceMutations | AuthoringFailureAdapter
+      | FileSystem.FileSystem
+      | Path.Path
+      | WorkspaceMutations
+      | AuthoringFailureAdapter
+      | WorkspaceTransactionScope
     >,
-  ): Effect.Effect<A, E, never> =>
+  ): Effect.Effect<A, E, WorkspaceTransactionScope> =>
     effect.pipe(
       provideAuthoringFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
@@ -209,13 +214,13 @@ const handlePacksRemoveBody = Effect.fn("PacksRemove.handle")(function* (
       Effect.provideService(Path.Path, path),
     );
 
-  const step: PlannedJobStep = {
+  const step: PlannedJobStep<WorkspaceTransactionScope> = {
     readiness: "ready",
     label: packName,
     run: provideServices(removeFromPack(op)),
   };
 
-  const plan: Plan = {
+  const plan: Plan<WorkspaceTransactionScope> = {
     _tag: "Plan",
     name: "Remove from pack",
     description: Option.some(`Remove ${count(matchedNames.length, "extension")} from ${packName}`),

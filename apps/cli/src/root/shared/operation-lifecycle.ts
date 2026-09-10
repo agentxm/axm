@@ -45,12 +45,12 @@ import {
   type SettledOutcome,
 } from "@agentxm/workspace-operations";
 import { Screen } from "../../screen/index.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   FootprintRecorder,
-  WorkspaceMutations,
   makeFootprintRecorder,
   readFootprint,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace-transactions";
 
 import { emitOperationResolution } from "../../operation-output.js";
 

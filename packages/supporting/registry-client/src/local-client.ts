@@ -62,13 +62,11 @@ import {
   PackageUrlSchema,
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
+import { extensionDir, extensionLifecycleWarnings, pluralizeType } from "./utils.js";
 import {
-  extensionDir,
-  extensionLifecycleWarnings,
-  pluralizeType,
   resolveVersionEntry,
   selectVersion,
-} from "./utils.js";
+} from "@agentxm/registry-protocol/unstable/registry/version-selection";
 import type {
   PublishVisibility,
   VisibilityEvaluation,

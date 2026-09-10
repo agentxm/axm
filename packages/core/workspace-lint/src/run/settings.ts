@@ -19,8 +19,8 @@ import {
   reconcileInstructionTargets,
   resolveInstructionsConfig,
 } from "@agentxm/extension-workspace";
-import type { LintConfig } from "@agentxm/registry-protocol/unstable/lint/config";
-import { composePath } from "@agentxm/registry-protocol/unstable/lint/compose-path";
+import type { LintConfig } from "@agentxm/extension-content/lint";
+import { composePath } from "@agentxm/extension-content/lint";
 import {
   AXM_DIR_NAME,
   SettingsSchema,

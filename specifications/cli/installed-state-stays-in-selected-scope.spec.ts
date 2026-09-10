@@ -6,7 +6,7 @@ import {
   AgentsListOutputSchema,
   InstructionsStatusOutputSchema,
 } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture } from "../support/directory-harness.js";
 import { writeLocalSkillPackage } from "../support/install-harness.js";
 import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";

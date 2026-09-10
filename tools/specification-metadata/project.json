@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "specification-metadata",
+  "projectType": "library",
+  "root": "tools/specification-metadata",
+  "sourceRoot": "tools/specification-metadata/src",
+  "tags": ["type:lib", "role:tooling", "scope:specification-metadata", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "tools/specification-metadata/src/index.ts",
+        "outputPath": "tools/specification-metadata/dist",
+        "tsConfig": "tools/specification-metadata/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

@@ -9,7 +9,7 @@ import {
   rootCommand,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture } from "../support/directory-harness.js";
 import { writeMalformedWorkspaceState } from "../support/malformed-workspace-fixture.js";
 import { snapshotWorkspaceContent } from "../support/workspace-fixtures.js";

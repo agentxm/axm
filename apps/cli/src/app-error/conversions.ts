@@ -10,9 +10,9 @@ import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
-import { FrontmatterParseFailure } from "@agentxm/registry-protocol/unstable/content/frontmatter";
-import { FRONTMATTER_PARSE_FALLBACK_REASON } from "@agentxm/registry-protocol/unstable/content/frontmatter";
-import { SubagentContentError } from "@agentxm/registry-protocol/unstable/content/subagent-content";
+import { FrontmatterParseFailure } from "@agentxm/extension-content";
+import { FRONTMATTER_PARSE_FALLBACK_REASON } from "@agentxm/extension-content";
+import { SubagentContentError } from "@agentxm/extension-content";
 import type { AppErrorCode } from "./app-error.js";
 import { AppErrorCodes } from "./app-error.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -24,7 +24,7 @@ import {
   WorkspaceRestorationIncomplete,
   WorkspaceSnapshotError,
   WorkspaceTransitionCompromised,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace-transactions";
 import {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,

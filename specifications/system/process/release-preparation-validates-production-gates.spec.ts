@@ -7,10 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-import {
-  defineBoundEvidence,
-  defineSpecification,
-} from "@agentxm/extension-model/unstable/specifications";
+import { defineBoundEvidence, defineSpecification } from "@agentxm/specification-metadata";
 import { unrecognizedOptions } from "../../support/parser-probe.js";
 
 export const specification = defineSpecification({

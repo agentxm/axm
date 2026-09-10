@@ -15,7 +15,7 @@ import {
   PlanResolutionDocumentSchema,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 import { admitRecoveryArgv } from "../support/recovery-argv-admission.js";
 import { makeDirectoryFixture } from "../support/directory-harness.js";

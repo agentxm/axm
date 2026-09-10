@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { VisibilityMutationResultSchema } from "@agentxm/registry-protocol/unstable/publish";
 import { handleVisibilitySet } from "axm.sh/specification-harness";
 import {

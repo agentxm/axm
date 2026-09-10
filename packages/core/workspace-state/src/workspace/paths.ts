@@ -17,7 +17,7 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 
 export { AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
 
-export interface WorkspaceLocation {
+export interface LocatedWorkspace {
   readonly scope: WorkspaceScope;
   readonly path: AbsolutePath;
   readonly baseDir: AbsolutePath;
@@ -75,7 +75,7 @@ export const getProjectRuntimeDir = (
 export const locateWorkspace = (
   scope: WorkspaceScope,
   projectRoot: AbsolutePath,
-): Effect.Effect<WorkspaceLocation, never, Path.Path> =>
+): Effect.Effect<LocatedWorkspace, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const baseDir = scope === "user" ? yield* resolveUserHome() : projectRoot;

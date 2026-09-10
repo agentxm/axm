@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/registry-client",
   "version": "0.28.12",
-  "description": "AXM registry integration: local and remote registry clients over the generated OpenAPI transport, request policy and retries, typed registry failures, archive cache, and lifecycle administration for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "AXM registry integration: local and remote registry clients over the generated OpenAPI transport, request policy and retries, typed registry failures, archive cache, and lifecycle administration for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -39,15 +39,13 @@
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "effect": "catalog:",
-    "fflate": "catalog:",
-    "semver": "catalog:"
+    "fflate": "catalog:"
   },
   "devDependencies": {
     "@effect/openapi-generator": "catalog:",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
-    "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "swagger2openapi": "catalog:",
     "typescript": "catalog:",

@@ -27,6 +27,7 @@ import type {
 } from "@agentxm/extension-workspace";
 import type { ExtensionTarget, SubagentExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { bindWorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 import {
   CodingAgentRepository,
   renderManagedSubagentOutputs,
@@ -56,7 +57,7 @@ import { stripFileProtocol } from "../internal/fs-helpers.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "@agentxm/workspace-state";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
-import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
+import { parseSubagentMd } from "@agentxm/extension-content";
 import { configuredSubagentsToDiskRefs } from "@agentxm/extension-workspace";
 import {
   acceptedRegistryVersionForRef,
@@ -83,7 +84,7 @@ import {
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 
 const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
@@ -123,6 +124,7 @@ export const SubagentManagerLive = Layer.effect(
   SubagentManager,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const runTransaction = yield* bindWorkspaceTransactionRunner;
     const fs = yield* FileSystem.FileSystem;
     const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
@@ -876,7 +878,7 @@ export const SubagentManagerLive = Layer.effect(
     return {
       type: "subagent",
       projectionObservation,
-      runTransaction: ws.runTransaction,
+      runTransaction,
       isInstalled: Effect.fn("SubagentManager.isInstalled")(function* ({
         target,
       }: {

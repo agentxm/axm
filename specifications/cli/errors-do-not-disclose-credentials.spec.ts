@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { AppError, classifyError } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "cli/errors-do-not-disclose-credentials",

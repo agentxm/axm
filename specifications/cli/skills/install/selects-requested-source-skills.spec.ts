@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { describe, expect, it } from "@effect/vitest";
 import { LockfileSchema, Screen, handleSkillsInstall } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   makeDirectoryFixture,
   unattendedProjectSetup,

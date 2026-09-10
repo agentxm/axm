@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { Npm, Pnpm, Yarn, type InstallMethodType } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { runUpgrade, TARGET_VERSION } from "../../support/upgrade-harness.js";
 
 export const specification = defineSpecification({

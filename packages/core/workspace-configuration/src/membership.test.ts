@@ -9,8 +9,9 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { protectWorkspacePath, WorkspaceMutations } from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -32,7 +33,12 @@ const readAgents = (root: string): ReadonlyArray<string> => {
     : [];
 };
 
-const plan = (steps: ReadonlyArray<PlannedJobStep>): Plan => ({
+// The atomic steps carry the transaction requirements the shared transition
+// needs; the helper keeps them in the plan so the provided layer discharges
+// them at the boundary.
+const plan = <Requirements>(
+  steps: ReadonlyArray<PlannedJobStep<Requirements>>,
+): Plan<Requirements> => ({
   _tag: "Plan",
   name: "Change coding agents",
   description: Option.none(),
@@ -90,7 +96,6 @@ describe("makeAtomicMembershipSteps", () => {
         },
       ];
       const atomic = yield* makeAtomicMembershipSteps({
-        ws,
         steps,
         validate: () => Effect.void,
         toStepFailure: testToStepFailure,
@@ -130,7 +135,6 @@ describe("makeAtomicMembershipSteps", () => {
     );
 
     return Effect.gen(function* () {
-      const ws = yield* WorkspaceMutations;
       const steps: ReadonlyArray<PlannedJobStep> = [
         {
           label: "Add cursor",
@@ -150,7 +154,6 @@ describe("makeAtomicMembershipSteps", () => {
         },
       ];
       const atomic = yield* makeAtomicMembershipSteps({
-        ws,
         steps,
         validate: () => Effect.void,
         toStepFailure: testToStepFailure,
@@ -227,7 +230,6 @@ describe("makeAtomicMembershipSteps", () => {
         },
       ];
       const atomic = yield* makeAtomicMembershipSteps({
-        ws,
         steps,
         validate: () => Effect.void,
         toStepFailure: testToStepFailure,

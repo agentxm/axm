@@ -42,7 +42,7 @@ import type {
   ResolvedInstructionsConfig,
 } from "@agentxm/extension-workspace";
 import { RULES_REGION_OWNER, RuleManager } from "@agentxm/extension-workspace";
-import { parseFrontmatterEffect } from "@agentxm/registry-protocol/unstable/content/frontmatter";
+import { parseFrontmatterEffect } from "@agentxm/extension-content";
 import { computePackageContentHash } from "@agentxm/workspace-state";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
@@ -62,6 +62,7 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import type { ExtensionManager, MaterializationObservation } from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { bindWorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 import { usableAcceptedCanonicalRef } from "@agentxm/workspace-state";
 import { LifecycleFailureAdapter } from "../failure-adapter.js";
 import { isObservedInstalled } from "@agentxm/workspace-state";
@@ -183,6 +184,7 @@ export const RuleManagerLive = Layer.effect(
   RuleManager,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const runTransaction = yield* bindWorkspaceTransactionRunner;
     const fs = yield* FileSystem.FileSystem;
     const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
@@ -675,7 +677,7 @@ export const RuleManagerLive = Layer.effect(
     return {
       type: "rule",
       projectionPlans,
-      runTransaction: ws.runTransaction,
+      runTransaction,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "rule", target.name).pipe(
           Effect.withSpan("RuleManager.isInstalled"),

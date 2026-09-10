@@ -9,10 +9,9 @@ export interface LocalPlanFlags extends CommandExecutionIntent {
   readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
 }
 
-export const previewOrApplyLocalPlan = Effect.fn("previewOrApplyLocalPlan")(function* (
-  plan: Plan,
-  flags: LocalPlanFlags,
-) {
+export const previewOrApplyLocalPlan = Effect.fn("previewOrApplyLocalPlan")(function* <
+  Requirements,
+>(plan: Plan<Requirements>, flags: LocalPlanFlags) {
   const execution = yield* makePlanExecution(
     { preview: flags.preview, ...(flags.yes === undefined ? {} : { yes: flags.yes }) },
     flags.recovery ?? { command: [], arguments: [] },

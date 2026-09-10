@@ -11,8 +11,8 @@
 
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import type { PackFileAccessor } from "@agentxm/registry-protocol/unstable/lint/context";
-import { makeManifestJsonParseFailure } from "@agentxm/registry-protocol/unstable/lint/catalog/shared/manifest-json";
+import type { PackFileAccessor } from "@agentxm/extension-content/lint";
+import { makeManifestJsonParseFailure } from "@agentxm/extension-content/lint";
 
 const decoder = new TextDecoder();
 

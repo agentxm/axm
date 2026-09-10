@@ -20,7 +20,7 @@ import {
   DeviceLoginInteractionTest,
 } from "@agentxm/registry-auth/testing";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "cli/agent-selection-is-membership-or-filter",

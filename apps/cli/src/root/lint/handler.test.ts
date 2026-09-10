@@ -30,10 +30,14 @@ import { toAppError } from "../../app-error/conversions.js";
 import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { AxmSkillCandidateGateLive, WorkspaceCatalogLive } from "../../cli-runtime/index.js";
+import {
+  AxmSkillCandidateGateLive,
+  RegistryResolutionPolicyLive,
+  WorkspaceCatalogLive,
+} from "../../cli-runtime/index.js";
 import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { ExecutionDirectory } from "../../execution-directory.js";
@@ -125,7 +129,12 @@ describe("axm lint handler", () => {
     );
     const sourceProvidersLayer = Layer.provide(
       SourceHostProvidersLive,
-      Layer.mergeAll(workspaceFoundation, workspaceCatalogLayer, AxmSkillCandidateGateLive),
+      Layer.mergeAll(
+        workspaceFoundation,
+        workspaceCatalogLayer,
+        AxmSkillCandidateGateLive,
+        RegistryResolutionPolicyLive,
+      ),
     );
     const workspaceServiceLayer = Layer.mergeAll(
       workspaceFoundation,

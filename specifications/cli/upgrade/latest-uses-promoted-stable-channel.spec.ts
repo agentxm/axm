@@ -4,7 +4,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { resolveLatestVersion } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { stableChannelDocument } from "../../support/release-channel-fixture.js";
 
 export const specification = defineSpecification({

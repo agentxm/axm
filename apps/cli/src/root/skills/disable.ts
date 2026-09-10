@@ -10,6 +10,7 @@ import type { DisableSkillOperation } from "@agentxm/extension-lifecycle";
 import { disableSkill } from "@agentxm/extension-lifecycle";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
@@ -80,7 +81,7 @@ const handleDisableBody = Effect.fn("Disable.handle")(function* (args: DisableHa
   } satisfies DisableSkillOperation;
 
   // Build plan with inline run closure
-  const step: PlannedJobStep = {
+  const step: PlannedJobStep<WorkspaceTransactionScope> = {
     readiness: "ready",
     label: skillName,
     run: disableSkill(op).pipe(
@@ -92,7 +93,7 @@ const handleDisableBody = Effect.fn("Disable.handle")(function* (args: DisableHa
     ),
   };
 
-  const plan: Plan = {
+  const plan: Plan<WorkspaceTransactionScope> = {
     _tag: "Plan",
     name: "Disable skill",
     description: Option.some(`Disable ${skillName}`),

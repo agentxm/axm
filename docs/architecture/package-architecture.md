@@ -99,7 +99,7 @@ inward package instead of creating feature-to-feature dependencies.
 flowchart TB
   CLI["axm.sh\napplication shell"]
   FEATURES["Vertical features\nsync · lint · lifecycle · authoring · publish\ndiscovery · configuration · inspection · auth · Knowledge query"]
-  KERNELS["Shared kernels\nworkspace-state · workspace-operations · extension-workspace"]
+  KERNELS["Shared kernels\nworkspace-transactions · workspace-state · workspace-operations · extension-workspace"]
   INTEGRATIONS["Integrations\nextension-sources · agent-integration · registry-client"]
   PROTOCOL["@agentxm/registry-protocol"]
   MODEL["@agentxm/extension-model"]
@@ -130,10 +130,29 @@ use case directly against a kernel or integration.
 
 The existing shared contracts remain the innermost packages.
 
-| Package                      | Responsibility                                                                                                  | Expected inward dependencies |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| `@agentxm/extension-model`   | Platform-neutral extension identity, types, manifests, constraints, package identity, and agent capability data | None                         |
-| `@agentxm/registry-protocol` | Registry wire contracts, protocol error vocabulary, content parsing, and contract-level publication validation  | `@agentxm/extension-model`   |
+| Package                      | Responsibility                                                                                                       | Expected inward dependencies |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `@agentxm/extension-model`   | Platform-neutral extension identity, types, manifests, constraints, package identity, and agent capability data      | None                         |
+| `@agentxm/registry-protocol` | Registry wire contracts (index, discovery, publication set, visibility, authorization) and protocol error vocabulary | `@agentxm/extension-model`   |
+
+Two leaf capabilities sit beside the contracts. They carry policy and behavior
+rather than wire shapes, so they are `role:capability`, but their budgets are
+as narrow as a contract's:
+
+| Package                         | Responsibility                                                                                                              | Expected inward dependencies                             |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `@agentxm/extension-content`    | Skill and subagent content parsing, Knowledge inspection and search, the lint rule catalog, archive and manifest validation | `@agentxm/extension-model`                               |
+| `@agentxm/extension-resolution` | Minimum-release-age policy and evidence, version selection under that policy, named Registry target decisions               | `@agentxm/extension-model`, `@agentxm/registry-protocol` |
+
+Integrations may compose `@agentxm/extension-content` (it is the one
+capability admitted into the supporting tier's budget); `@agentxm/extension-sources`
+reaches `@agentxm/extension-resolution` only through its
+`RegistryResolutionPolicy` port, bound at the composition root.
+
+The executable-specification metadata contract is engineering support, not a
+runtime contract: `@agentxm/specification-metadata` lives under `tools/`, is
+published with the release cohort so other repositories author specifications
+against it, and is barred from every runtime role.
 
 Dependency columns in this document describe expected direction, not
 permission to declare every listed dependency by default. Each manifest
@@ -149,24 +168,34 @@ does not acquire filesystem, terminal, workspace, or transport behavior.
 Workspace management is divided into distinct packages rather than recreated
 as internal modules under a new umbrella.
 
-| Package                         | Responsibility                                                                                                |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/workspace-state`      | Settings, lockfile, desired and observed state, authority, repositories, and snapshots                        |
-| `@agentxm/workspace-operations` | Plans, semantic mutation closures, outcomes, transactions, journals, rollback, and safe application mechanics |
-| `@agentxm/extension-workspace`  | Extension-type workspace semantics, canonical content, contributor calculation, and projection contributions  |
+| Package                           | Responsibility                                                                                                                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@agentxm/workspace-transactions` | The workspace transition lock and scope, the transaction runner, per-closure snapshot ledger with restoration and verification, write registration, atomic single-file publication, and footprint observation      |
+| `@agentxm/workspace-state`        | Settings and lockfile authority, desired and observed state, the read model, and the narrow location, reader, and writer services every workspace mutation goes through; registers each write with the transaction |
+| `@agentxm/workspace-operations`   | Plans, execution candidates, semantic closure execution and settlement through the transaction closure API, operation resolutions, journals, and readiness gating                                                  |
+| `@agentxm/extension-workspace`    | Extension-type workspace semantics, canonical content, contributor calculation, and projection contributions                                                                                                       |
 
 The intended lower-level graph is deliberately small:
 
 ```mermaid
 flowchart LR
   OPERATIONS["workspace-operations"] --> STATE["workspace-state"]
+  OPERATIONS --> TRANSACTIONS["workspace-transactions"]
+  STATE --> TRANSACTIONS
   EXTENSION_WORKSPACE["extension-workspace"] --> STATE
+  EXTENSION_WORKSPACE --> TRANSACTIONS
   EXTENSION_WORKSPACE --> PROTOCOL["registry-protocol"]
   EXTENSION_WORKSPACE --> MODEL["extension-model"]
   STATE --> PROTOCOL
   STATE --> MODEL
   PROTOCOL --> MODEL
 ```
+
+`workspace-transactions` depends on nothing of AXM: it is the lowest workspace
+capability, so state can register every write with it and operations can
+settle each semantic closure through it without either package depending on
+the other. Only `workspace-operations` consumes the closure API; every other
+package registers writes and runs transactions.
 
 `workspace-operations` is generic only within the AXM workspace model. It owns
 the mechanics for safely applying a plan, but not the feature policy that

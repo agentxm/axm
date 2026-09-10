@@ -14,10 +14,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { extractTomlQuotedStrings } from "@agentxm/extension-workspace";
 import { readEnv } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseTomlDocument, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
@@ -81,60 +81,34 @@ const parseDependencyLine = (
 // File parsers
 // ---------------------------------------------------------------------------
 
+const dependencyStrings = (value: unknown): ReadonlyArray<string> =>
+  Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
+
 /**
- * Parse pyproject.toml for dependencies.
- * Uses simple regex parsing for the subset of TOML we need.
+ * Parse pyproject.toml for `[project]` dependencies and every
+ * `[project.optional-dependencies]` group.
  * Returns an Effect so we can log warnings for malformed content.
  */
 const parsePyprojectToml = (content: string, source: string) =>
   Effect.gen(function* () {
-    const result = yield* Effect.try({
-      try: () => {
-        const packages: Array<DetectedPackage> = [];
-
-        // Parse [project] dependencies = [...]
-        const projectDepsMatch =
-          /\[project\]\s*\n(?:(?!\[).*\n)*?dependencies\s*=\s*\[([\s\S]*?)\]/m.exec(content);
-        if (projectDepsMatch) {
-          const depsStr = projectDepsMatch[1] ?? "";
-          for (const dep of extractTomlQuotedStrings(depsStr)) {
-            const parsed = parseDependencyLine(dep);
-            if (parsed) {
-              packages.push(makeDetectedPackage(parsed.name, parsed.version, source));
-            }
-          }
-        }
-
-        // Parse [project.optional-dependencies] groups
-        const optDepsRegex = /\[project\.optional-dependencies\]\s*\n([\s\S]*?)(?=\n\[|\n*$)/gm;
-        let optMatch;
-        while ((optMatch = optDepsRegex.exec(content)) !== null) {
-          const section = optMatch[1] ?? "";
-          // Match group_name = [...]
-          const groupRegex = /\w+\s*=\s*\[([\s\S]*?)\]/gm;
-          let groupMatch;
-          while ((groupMatch = groupRegex.exec(section)) !== null) {
-            for (const dep of extractTomlQuotedStrings(groupMatch[1] ?? "")) {
-              const parsed = parseDependencyLine(dep);
-              if (parsed) {
-                packages.push(makeDetectedPackage(parsed.name, parsed.version, source));
-              }
-            }
-          }
-        }
-
-        return packages;
-      },
-      catch: () => ({ _tag: "PyprojectParseError" as const }),
-    }).pipe(Effect.option);
-
-    if (Option.isNone(result)) {
+    const document = parseTomlDocument(content);
+    if (document === undefined) {
       yield* Effect.logWarning("Malformed pyproject.toml, skipping");
       const empty: ReadonlyArray<DetectedPackage> = [];
       return empty;
     }
 
-    return result.value;
+    const project = tomlTable(document, "project");
+    const optionalGroups = tomlTable(project, "optional-dependencies");
+    const declared = [
+      ...dependencyStrings(project?.["dependencies"]),
+      ...Object.values(optionalGroups ?? {}).flatMap(dependencyStrings),
+    ];
+
+    return declared.flatMap((dep) => {
+      const parsed = parseDependencyLine(dep);
+      return parsed === undefined ? [] : [makeDetectedPackage(parsed.name, parsed.version, source)];
+    });
   });
 
 /**

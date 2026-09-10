@@ -31,13 +31,13 @@
  */
 
 import * as Effect from "effect/Effect";
-import { composePath } from "@agentxm/registry-protocol/unstable/lint/compose-path";
-import type { LintConfig } from "@agentxm/registry-protocol/unstable/lint/config";
-import { platformCanonicalLintConfig } from "@agentxm/registry-protocol/unstable/lint/config";
-import type { Evaluated } from "@agentxm/registry-protocol/unstable/lint/evaluate";
-import { evaluateContexts } from "@agentxm/registry-protocol/unstable/lint/evaluate";
+import { composePath } from "@agentxm/extension-content/lint";
+import type { LintConfig } from "@agentxm/extension-content/lint";
+import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
+import type { Evaluated } from "@agentxm/extension-content/lint";
+import { evaluateContexts } from "@agentxm/extension-content/lint";
 import type { LintInput, LintJsonDocument, LintJsonFinding } from "./json-schema.js";
-import type { LintFinding, Severity } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { LintFinding, Severity } from "@agentxm/extension-content/lint";
 import type { AxmSkillCompatibility } from "@agentxm/extension-workspace";
 import {
   CATALOG_GROUP_ORDER,

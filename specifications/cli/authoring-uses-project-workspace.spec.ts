@@ -8,7 +8,7 @@ import {
   JsonErrorEnvelopeSchema,
   writeWorkspaceFiles,
 } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture, unattendedProjectSetup } from "../support/directory-harness.js";
 import {
   importedRemote,

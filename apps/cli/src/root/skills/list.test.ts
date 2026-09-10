@@ -15,7 +15,7 @@ import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { handleList } from "./list.js";

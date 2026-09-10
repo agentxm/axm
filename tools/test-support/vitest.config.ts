@@ -1,11 +1,12 @@
 import { defineConfig } from "vitest/config";
 import { testExecution } from "../../vitest.execution.js";
-import { makeTestReporting } from "../../vitest.reporting.js";
+import { makeTestReporting, purposeSetupFile } from "../../vitest.reporting.js";
 
 export default defineConfig({
   test: {
     ...testExecution,
-    ...makeTestReporting({ layer: "tooling", suite: "test-support" }),
+    ...makeTestReporting({ project: "test-support" }),
     include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
+    setupFiles: [purposeSetupFile],
   },
 });

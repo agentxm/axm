@@ -8,7 +8,7 @@ import { afterEach } from "vitest";
 
 import { handleSync, PlanResolutionDocumentSchema } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({

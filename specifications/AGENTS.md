@@ -1,9 +1,10 @@
 # Authoring specifications
 
 Every `*.spec.ts` states one requirement in the shared contract from
-`@agentxm/extension-model/unstable/specifications`. Directories are physical
-layout; requirement identity, statement, class, role, goals, and lineage
-carry the meaning.
+`@agentxm/specification-metadata`. Files live beside the source they govern,
+inside the project that owns that source; requirement identity, statement,
+class, role, goals, and lineage carry the meaning, and the generated
+[catalog](catalog.md) organizes them by meaning rather than location.
 
 Use the [requirements-engineering guidance](../agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
 for elicitation, review, impact analysis, and requirement changes. The acceptance
@@ -49,7 +50,7 @@ shared contract. Fields, in this order:
 
 | Field            | Rule                                                                                                                                                                       |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `requirement`    | Equals the file path under `specifications/` without `.spec.ts`                                                                                                            |
+| `requirement`    | Stable semantic identity: two or more kebab segments joined by `/`; independent of the file path and preserved when the file moves                                         |
 | `title`          | Product language; no camelCase tokens or implementation words                                                                                                              |
 | `statement`      | One normative sentence: subject, condition, required or prohibited outcome (`shall` / `shall not`)                                                                         |
 | `class`          | `functional`, `quality`, `constraint`, `external-conformance`, `human-factors`, or `process`                                                                               |
@@ -69,17 +70,16 @@ Metadata is literal-only; the catalog reads it statically.
 
 ## Placement
 
-The tree under `cli/` mirrors the registered CLI command tree. Place a spec at
-the command node it is about; if it quantifies over several commands, place it
-at their nearest common ancestor (whole-surface and workspace-state invariants
-sit directly in `cli/`). Folders exist only for commands that exist
-(`system/architecture/specification-folders-mirror-command-tree` enforces
-this).
-
-Library requirements go under a top-level product concept area
-(`extension-identity/`, `package-identity/`, `settings-contract/`,
-`source-resolution/`, `version-constraints/`); repository, release, and
-platform requirements under `system/<area>/`.
+Colocate a specification beside the source that realizes it, under the
+owning project's source root: a library rule in
+`packages/<domain>/<package>/src/<area>/<name>.spec.ts`, a CLI grammar,
+prompt, rendering, or exit rule in `apps/cli/src/...` beside the adapter, and
+a process- or binary-boundary rule in `apps/cli-e2e/src/` beside its
+execution binding. Only projects that ship runtime code, end-to-end projects,
+and this retiring catalog project may own specifications; discovery rejects a
+`.spec.ts` anywhere else, outside its owner's source root, or inside
+`__generated__/`. Specifications not yet moved stay under this directory until
+their owner adopts them.
 
 ## Requirement roles
 
@@ -93,9 +93,10 @@ in ordinary `*.test.ts` tests beside the source.
 ## Recurring invariant families
 
 Idempotency, preview purity, and preserved-unowned-state recur per command.
-Keep them in each command's folder with the shared names (`preview-is-pure`,
-`*-is-idempotent`, `preserves-*`) and tag the matching product goal.
-Cross-cutting views come from goal metadata, never duplicate directories.
+Keep them beside each owning feature with the shared names
+(`preview-is-pure`, `*-is-idempotent`, `preserves-*`) and tag the matching
+product goal. Cross-cutting views come from goal metadata, never from
+directories.
 
 ## Bound evidence
 
@@ -105,15 +106,24 @@ evidence supports the owning specification and never replaces it.
 
 ## Moves and identity
 
-The `requirement` identity must equal the file's path under `specifications/`.
-Moving a file therefore changes its identity: a requirements decision, landed
-as one coherent break with `catalog.md` regenerated in the same change and
-shown in the verdict as a removal and an addition.
+The `requirement` identity is stable and semantic; it is not derived from the
+path. Moving a file preserves its identity and history: regenerate
+`catalog.md` in the same change, and the verdict shows the file as `moved`
+when metadata, decisive examples, and body are unchanged. Exactly one
+canonical `*.spec.ts` exists per identity across every project; a second file
+fails discovery, hygiene, and the catalog. Renaming an identity is a
+requirements decision: the successor lists the old identity in `supersedes`,
+or `disposition-ledger.json` beside this file records why the identity was
+removed (`converted-to-test`, `engineering-policy`, `retired`, or
+`superseded-by` with a successor); an unexplained removal still renders,
+visibly, in the verdict.
 
 ## Validate
 
 ```bash
-pnpm exec nx run specifications:generate   # conformance + catalog.md
-pnpm test:spec --requirement <id>          # evidence for one requirement
-pnpm exec nx run axm:specification-verdict # per-change requirement diff
+pnpm exec nx run axm:generate:specification-catalog   # discovery + conformance + catalog.md
+pnpm exec nx run <owner>:test                         # the owner's specifications and tests
+pnpm test:spec --requirement <id>                     # evidence for one requirement, in its owner
+pnpm exec nx run axm:verify-source-hygiene            # specification and test file rules
+pnpm exec nx run axm:specification-verdict            # per-change requirement diff
 ```

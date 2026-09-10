@@ -31,7 +31,7 @@ import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/
 import {
   PublishVisibilitySchema,
   type PublishVisibility,
-} from "@agentxm/registry-protocol/unstable/publish/visibility";
+} from "@agentxm/registry-protocol/unstable/publish";
 import {
   PreviewPublicationSetResponseSchema,
   type PreviewPublicationSetRequest,

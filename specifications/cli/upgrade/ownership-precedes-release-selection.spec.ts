@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { Unknown, getAppError } from "axm.sh/specification-harness";
 import { makeUpgradeExecution } from "../../support/upgrade-execution-fixture.js";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "cli/upgrade/ownership-precedes-release-selection",

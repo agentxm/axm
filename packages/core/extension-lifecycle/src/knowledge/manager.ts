@@ -52,7 +52,7 @@ import type { KnowledgeMap } from "@agentxm/workspace-state";
 import { knowledgeLockEntryToRef } from "@agentxm/workspace-state";
 import { stripFileProtocol } from "../internal/fs-helpers.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { recordFootprint } from "@agentxm/workspace-state";
+import { recordFootprint } from "@agentxm/workspace-transactions";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -66,13 +66,14 @@ import {
 } from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { bindWorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import { isSourcedDesiredExtension, type DesiredStateGraph } from "@agentxm/workspace-state";
 import type { ResolvedKnowledgeDiscoveryConfig } from "@agentxm/workspace-state";
 import {
@@ -85,7 +86,7 @@ import {
 import {
   inspectKnowledgeBundle,
   type KnowledgeInspection,
-} from "@agentxm/registry-protocol/unstable/knowledge/okf";
+} from "@agentxm/extension-content/knowledge";
 import { resolveKnowledgeInstructionEntry } from "@agentxm/extension-workspace";
 import type {
   GitHostedKnowledgeRef,
@@ -166,6 +167,7 @@ export const KnowledgeManagerLive = Layer.effect(
   KnowledgeManager,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const runTransaction = yield* bindWorkspaceTransactionRunner;
     const fs = yield* FileSystem.FileSystem;
     const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
@@ -879,83 +881,80 @@ export const KnowledgeManagerLive = Layer.effect(
       readonly versionRange: Option.Option<VersionRange>;
       readonly deferProjection?: boolean;
     }) =>
-      ws
-        .runTransaction({
-          transition: Effect.gen(function* () {
-            const name = args.ref.knowledge.name;
-            const relativeLocalSource =
-              args.ref.refType === "local"
-                ? makeWorkspaceRelativeSourcePath(
-                    path,
-                    baseDir,
-                    args.ref.sourcePath ?? stripFileProtocol(args.ref.location),
-                  )
-                : Option.none<string>();
-            if (args.ref.refType === "local" && Option.isNone(relativeLocalSource)) {
-              return yield* new KnowledgeDefinitionInvalid({
-                detail: `Local knowledge source must stay within the workspace: ${args.ref.source.path}`,
+      runTransaction({
+        transition: Effect.gen(function* () {
+          const name = args.ref.knowledge.name;
+          const relativeLocalSource =
+            args.ref.refType === "local"
+              ? makeWorkspaceRelativeSourcePath(
+                  path,
+                  baseDir,
+                  args.ref.sourcePath ?? stripFileProtocol(args.ref.location),
+                )
+              : Option.none<string>();
+          if (args.ref.refType === "local" && Option.isNone(relativeLocalSource)) {
+            return yield* new KnowledgeDefinitionInvalid({
+              detail: `Local knowledge source must stay within the workspace: ${args.ref.source.path}`,
+            });
+          }
+          const cleanupSupersededCanonical = yield* provide(
+            prepareAcceptedCanonicalTransition({
+              workspace: ws,
+              type: "knowledge",
+              name,
+              ref: args.ref,
+            }),
+          );
+          const prepared = yield* preparePackage(args.ref);
+          const committed = yield* Effect.gen(function* () {
+            lastInstallState.set(name, {
+              relativeLocalSource,
+              sourceHash: prepared.sourceHash,
+              ...(prepared.treeIntegrity === undefined
+                ? {}
+                : { treeIntegrity: prepared.treeIntegrity }),
+            });
+            if (args.ref.refType !== "workspace" && prepared.treeIntegrity === undefined) {
+              return yield* new KnowledgeInstallStateMissing({
+                name,
+                kind: "staged-tree-integrity",
               });
             }
-            const cleanupSupersededCanonical = yield* provide(
-              prepareAcceptedCanonicalTransition({
-                workspace: ws,
-                type: "knowledge",
+            const lockEntry = yield* buildLockEntry(args.ref);
+            if (Option.isSome(lockEntry)) {
+              yield* ws.setKnowledge({
                 name,
-                ref: args.ref,
-              }),
-            );
-            const prepared = yield* preparePackage(args.ref);
-            const committed = yield* Effect.gen(function* () {
-              lastInstallState.set(name, {
-                relativeLocalSource,
-                sourceHash: prepared.sourceHash,
-                ...(prepared.treeIntegrity === undefined
-                  ? {}
-                  : { treeIntegrity: prepared.treeIntegrity }),
+                lockEntry: lockEntry.value,
+                versionRange: args.versionRange,
               });
-              if (args.ref.refType !== "workspace" && prepared.treeIntegrity === undefined) {
-                return yield* new KnowledgeInstallStateMissing({
-                  name,
-                  kind: "staged-tree-integrity",
-                });
-              }
-              const lockEntry = yield* buildLockEntry(args.ref);
-              if (Option.isSome(lockEntry)) {
-                yield* ws.setKnowledge({
-                  name,
-                  lockEntry: lockEntry.value,
-                  versionRange: args.versionRange,
-                });
-              } else {
-                yield* setKnowledgeSourceEntry(name, "workspace");
-              }
-              yield* cleanupSupersededCanonical;
-              return { name };
-            });
-            if (args.deferProjection !== true) yield* applyKnowledgeProjection;
-            // The workspace transaction owns a nested scope. Settle the staged
-            // package before that scope closes; a later postcondition failure
-            // still restores the transaction snapshot.
-            yield* prepared.commit;
-            return committed;
-          }),
-          validate: ({ name }) =>
-            isObservedInstalled(ws, "knowledge", name).pipe(
-              Effect.flatMap((installed) =>
-                installed ? Effect.void : new KnowledgeObservableContractViolated({ name }),
-              ),
+            } else {
+              yield* setKnowledgeSourceEntry(name, "workspace");
+            }
+            yield* cleanupSupersededCanonical;
+            return { name };
+          });
+          if (args.deferProjection !== true) yield* applyKnowledgeProjection;
+          // The workspace transaction owns a nested scope. Settle the staged
+          // package before that scope closes; a later postcondition failure
+          // still restores the transaction snapshot.
+          yield* prepared.commit;
+          return committed;
+        }),
+        validate: ({ name }) =>
+          isObservedInstalled(ws, "knowledge", name).pipe(
+            Effect.flatMap((installed) =>
+              installed ? Effect.void : new KnowledgeObservableContractViolated({ name }),
             ),
-        })
-
-        .pipe(
-          Effect.scoped,
-          Effect.tapError(() =>
-            Effect.sync(() => {
-              lastInstallState.delete(args.ref.knowledge.name);
-            }),
           ),
-          Effect.asVoid,
-        );
+      }).pipe(
+        Effect.scoped,
+        Effect.tapError(() =>
+          Effect.sync(() => {
+            lastInstallState.delete(args.ref.knowledge.name);
+          }),
+        ),
+        Effect.asVoid,
+      );
 
     // Canonical removal only. The shared operation flow re-renders the
     // discovery region after settings and lock removal, once the target has
@@ -995,9 +994,9 @@ export const KnowledgeManagerLive = Layer.effect(
     return {
       type: "knowledge",
       projectionPlans,
-      runTransaction: ws.runTransaction,
+      runTransaction,
       refreshCatalog: () =>
-        ws.runTransaction({
+        runTransaction({
           transition: applyKnowledgeProjection,
           validate: () => Effect.void,
         }),
@@ -1005,7 +1004,7 @@ export const KnowledgeManagerLive = Layer.effect(
         dryRun
           ? Effect.scoped(syncLocked(true))
           : Effect.scoped(
-              ws.runTransaction({
+              runTransaction({
                 transition: syncLocked(false),
                 validate: () => Effect.void,
               }),

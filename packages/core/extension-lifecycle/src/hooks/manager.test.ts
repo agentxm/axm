@@ -19,7 +19,11 @@ import { applyPlannedProjections, HookManager } from "@agentxm/extension-workspa
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "@agentxm/workspace-state/testing";
+import {
+  makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
+  TEST_CONTENT_IDENTITY,
+} from "@agentxm/workspace-state/testing";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   TestLifecycleFailureAdapter,
@@ -93,6 +97,7 @@ const makeHookManagerLayer = (
   },
 ) => {
   const hookNames = options?.hooks ?? [];
+  const axmDir = nodePath.join(workspaceRoot, ".axm");
   const entries = Object.fromEntries(
     hookNames.map((name) => [name, { source: "./source-hook", enabled: true }]),
   );
@@ -103,7 +108,7 @@ const makeHookManagerLayer = (
     Layer.provide(
       Layer.succeed(
         WorkspaceMutations,
-        makeBaseWorkspaceMock(nodePath.join(workspaceRoot, ".axm"), {
+        makeBaseWorkspaceMock(axmDir, {
           getConfiguredAgents: () => Effect.succeed(options?.configuredAgents ?? ["claude-code"]),
           getConfiguredHookEntries: () => Effect.succeed(entries),
           getLockedHooks: () =>
@@ -132,6 +137,7 @@ const makeHookManagerLayer = (
         }),
       ),
     ),
+    Layer.provide(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(makeSourceHostProviders()),
     Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );

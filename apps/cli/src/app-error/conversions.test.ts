@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import * as Cause from "effect/Cause";
 import { StepFailure } from "@agentxm/workspace-operations";
-import { WorkspaceRestorationIncomplete } from "@agentxm/workspace-state";
+import { WorkspaceRestorationIncomplete } from "@agentxm/workspace-transactions";
 import {
   AppError,
   makeAppError,
@@ -45,7 +45,7 @@ import {
   WorkspaceRestorationError,
   WorkspaceSnapshotError,
   WorkspaceTransitionCompromised,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace-transactions";
 
 const ioCause = new Error("EACCES");
 

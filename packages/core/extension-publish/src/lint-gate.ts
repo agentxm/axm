@@ -4,8 +4,8 @@ import type * as Path from "effect/Path";
 import { PublishFailed } from "./errors.js";
 import { makePlatformPackFileAccessor } from "@agentxm/extension-workspace";
 import { makePlatformSkillFileAccessor } from "@agentxm/extension-workspace";
-import { platformCanonicalLintConfig } from "@agentxm/registry-protocol/unstable/lint/config";
-import { composePath } from "@agentxm/registry-protocol/unstable/lint/compose-path";
+import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
+import { composePath } from "@agentxm/extension-content/lint";
 import type {
   HookRuleContext,
   KnowledgeRuleContext,
@@ -14,18 +14,18 @@ import type {
   SkillRuleContext,
   SubagentRuleContext,
   RuleRuleContext,
-} from "@agentxm/registry-protocol/unstable/lint/context";
-import { evaluateContexts } from "@agentxm/registry-protocol/unstable/lint/evaluate";
+} from "@agentxm/extension-content/lint";
+import { evaluateContexts } from "@agentxm/extension-content/lint";
 import {
   hookRules,
-  knowledgeRules,
+  publishKnowledgeRules as knowledgeRules,
   mcpServerRules,
   packRules,
   skillRules,
   ruleRules,
   subagentRules,
-} from "@agentxm/registry-protocol/unstable/lint/publish";
-import type { LintFinding } from "@agentxm/registry-protocol/unstable/lint/rule";
+} from "@agentxm/extension-content/lint";
+import type { LintFinding } from "@agentxm/extension-content/lint";
 
 interface PublishLintPlatform {
   readonly fs: FileSystem.FileSystem;

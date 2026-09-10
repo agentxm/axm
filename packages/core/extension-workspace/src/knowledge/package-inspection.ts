@@ -14,7 +14,7 @@ import {
   inspectKnowledgeBundle,
   type KnowledgeDiagnostic,
   type KnowledgeInspection,
-} from "@agentxm/registry-protocol/unstable/knowledge/okf";
+} from "@agentxm/extension-content/knowledge";
 
 const missingManifestDescription = (): KnowledgeDiagnostic => ({
   code: "missing-manifest-description",

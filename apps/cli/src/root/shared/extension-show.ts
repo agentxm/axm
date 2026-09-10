@@ -25,10 +25,7 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import { inspectMcpServerAcrossAgents, HookManager } from "@agentxm/extension-workspace";
-import {
-  ManifestIdentitySchema,
-  manifestFilenameForType,
-} from "@agentxm/registry-protocol/unstable/publish";
+import { ManifestIdentitySchema, manifestFilenameForType } from "@agentxm/extension-content";
 import {
   WorkspaceMutations,
   configuredRowsByName,

@@ -31,6 +31,10 @@ import {
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { resolveWorkspaceExtensionRef, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
+  runWorkspaceTransaction,
+  type WorkspaceTransactionScope,
+} from "@agentxm/workspace-transactions";
+import {
   operationPresentation,
   type JobStepArtifact,
   type JobStepArtifactTarget,
@@ -167,132 +171,130 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
       ...agentConfigTargets,
     ],
   };
-  const step: PlannedJobStep = {
+  const step: PlannedJobStep<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope> = {
     readiness: "ready",
     label: fqn,
     artifact: plannedArtifact,
-    run: ws
-      .runTransaction({
-        targets: [targetDir],
-        transition: Effect.gen(function* () {
+    run: runWorkspaceTransaction({
+      targets: [targetDir],
+      transition: Effect.gen(function* () {
+        const currentConfigured = yield* ws
+          .getConfiguredMcpServerEntries()
+          .pipe(Effect.mapError(toAppError));
+        yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        yield* preflightCreateOnly({
+          subject: "MCP server",
+          name: args.name,
+          configured: Object.hasOwn(currentConfigured, args.name),
+          destinations: [targetDir],
+        }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+        yield* createCanonicalDirectory({
+          baseDir: ws.baseDir,
+          canonicalPath: targetDir,
+          subject: "MCP server",
+          requiredFiles: [MCP_SERVER_MANIFEST_FILENAME],
+          populate: (stagingPath) =>
+            fs
+              .writeFileString(
+                path.join(stagingPath, MCP_SERVER_MANIFEST_FILENAME),
+                `${JSON.stringify(manifest, null, 2)}\n`,
+              )
+              .pipe(
+                Effect.mapError((error) =>
+                  makeAppError({
+                    code: "internal",
+                    detail: `Failed to stage MCP server manifest for ${targetDir}`,
+                    cause: error,
+                  }),
+                ),
+              ),
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        yield* establish;
+        yield* ws
+          .setMcpServerEntry(args.name, {
+            source: "workspace",
+            enabled: true,
+            env: {},
+          })
+          .pipe(Effect.mapError(toAppError));
+        const resolvedRef = yield* resolveWorkspaceExtensionRef({
+          settingsName: args.name,
+          source: "workspace",
+          expectedType: "mcp-server",
+          layout: ws.layout,
+          scope: ws.scope,
+        }).pipe(
+          Effect.provideService(WorkspaceMutations, ws),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        if (resolvedRef.type !== "mcp-server") {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Newly scaffolded MCP server resolved as ${resolvedRef.type}`,
+          });
+        }
+        yield* Effect.scoped(
+          installMcpServer({
+            name: "install-mcp-server",
+            args: {
+              ref: resolvedRef,
+              nonInteractive: yield* isNonInteractiveOptional,
+              force: false,
+              versionRange: Option.none(),
+              skipSettings: Option.none(),
+              env: Option.none(),
+            },
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(WorkspaceMutations, ws),
+            Effect.provideService(Screen, screen),
+            Effect.provideService(CodingAgentRepository, agentRepo),
+            Effect.provideService(HttpClient.HttpClient, httpClient),
+            provideLifecycleFailureAdapter,
+          ),
+        );
+      }),
+      validate: () =>
+        Effect.gen(function* () {
           const currentConfigured = yield* ws
             .getConfiguredMcpServerEntries()
             .pipe(Effect.mapError(toAppError));
-          yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          );
-          yield* preflightCreateOnly({
-            subject: "MCP server",
-            name: args.name,
-            configured: Object.hasOwn(currentConfigured, args.name),
-            destinations: [targetDir],
-          }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
-          yield* createCanonicalDirectory({
-            baseDir: ws.baseDir,
-            canonicalPath: targetDir,
-            subject: "MCP server",
-            requiredFiles: [MCP_SERVER_MANIFEST_FILENAME],
-            populate: (stagingPath) =>
-              fs
-                .writeFileString(
-                  path.join(stagingPath, MCP_SERVER_MANIFEST_FILENAME),
-                  `${JSON.stringify(manifest, null, 2)}\n`,
-                )
-                .pipe(
-                  Effect.mapError((error) =>
-                    makeAppError({
-                      code: "internal",
-                      detail: `Failed to stage MCP server manifest for ${targetDir}`,
-                      cause: error,
-                    }),
-                  ),
-                ),
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          );
-          yield* establish;
-          yield* ws
-            .setMcpServerEntry(args.name, {
-              source: "workspace",
-              enabled: true,
-              env: {},
-            })
-            .pipe(Effect.mapError(toAppError));
-          const resolvedRef = yield* resolveWorkspaceExtensionRef({
-            settingsName: args.name,
-            source: "workspace",
-            expectedType: "mcp-server",
-            layout: ws.layout,
-            scope: ws.scope,
-          }).pipe(
-            Effect.provideService(WorkspaceMutations, ws),
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          );
-          if (resolvedRef.type !== "mcp-server") {
-            return yield* makeAppError({
-              code: "internal",
-              detail: `Newly scaffolded MCP server resolved as ${resolvedRef.type}`,
-            });
-          }
-          yield* Effect.scoped(
-            installMcpServer({
-              name: "install-mcp-server",
-              args: {
-                ref: resolvedRef,
-                nonInteractive: yield* isNonInteractiveOptional,
-                force: false,
-                versionRange: Option.none(),
-                skipSettings: Option.none(),
-                env: Option.none(),
-              },
-            }).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-              Effect.provideService(WorkspaceMutations, ws),
-              Effect.provideService(Screen, screen),
-              Effect.provideService(CodingAgentRepository, agentRepo),
-              Effect.provideService(HttpClient.HttpClient, httpClient),
-              provideLifecycleFailureAdapter,
+          const manifestExists = yield* fs.exists(manifestPath).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to validate MCP server manifest: ${manifestPath}`,
+                cause,
+              }),
             ),
           );
+          if (!Object.hasOwn(currentConfigured, args.name) || !manifestExists) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: `New MCP server '${args.name}' did not satisfy its observable contract`,
+            });
+          }
         }),
-        validate: () =>
-          Effect.gen(function* () {
-            const currentConfigured = yield* ws
-              .getConfiguredMcpServerEntries()
-              .pipe(Effect.mapError(toAppError));
-            const manifestExists = yield* fs.exists(manifestPath).pipe(
-              Effect.mapError((cause) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to validate MCP server manifest: ${manifestPath}`,
-                  cause,
-                }),
-              ),
-            );
-            if (!Object.hasOwn(currentConfigured, args.name) || !manifestExists) {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `New MCP server '${args.name}' did not satisfy its observable contract`,
-              });
-            }
-          }),
-      })
-      .pipe(
-        Effect.mapError((error) =>
-          error._tag === "StepFailure" ? error : failureToStepFailure(error),
-        ),
-        Effect.as({
-          result: "success",
-          message: `Created ${fqn}`,
-          artifact: plannedArtifact,
-        } satisfies JobStepResult),
+    }).pipe(
+      Effect.mapError((error) =>
+        error._tag === "StepFailure" ? error : failureToStepFailure(error),
       ),
+      Effect.as({
+        result: "success",
+        message: `Created ${fqn}`,
+        artifact: plannedArtifact,
+      } satisfies JobStepResult),
+    ),
   };
-  const plan: Plan = {
+  const plan: Plan<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope> = {
     _tag: "Plan",
     name: "New MCP server",
     description: Option.some(`Create ${fqn}`),

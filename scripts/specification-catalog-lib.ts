@@ -1,19 +1,23 @@
 /**
  * Static extraction and validation for the specification catalog.
  *
- * Reads `specifications/` source with the TypeScript compiler API without
+ * Reads specification source with the TypeScript compiler API without
  * executing any test file, so the catalog renders even when an
  * implementation fails its specification. Metadata must be literal-only:
  * computed metadata is rejected so every requirement-contract change is an
  * explicit source diff. Vocabulary, shape, and corpus linkage come from the
- * shared contract in `@agentxm/extension-model`; this module owns only the
- * static extraction and the repository's catalog rendering.
+ * shared contract; this module owns only the static extraction, the
+ * statically derived digests the verdict compares, and the repository's
+ * catalog rendering. Which files are specifications, and which project owns
+ * each, is decided by `workspace-discovery.ts`.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 import ts from "typescript";
+
+import { digestContent } from "./specification-evidence.js";
 
 import {
   type BoundEvidenceGate,
@@ -27,9 +31,9 @@ import {
   decodeProductGoalRegistry,
   decodeSpecificationMetadata,
   sharedProductGoals,
-} from "@agentxm/extension-model/unstable/specifications";
+} from "@agentxm/specification-metadata";
 
-export interface CatalogSpecification {
+export interface ParsedSpecification {
   readonly metadata: SpecificationMetadata;
   /**
    * Static gates declared beside the specification whose results are bound
@@ -39,6 +43,26 @@ export interface CatalogSpecification {
   readonly boundEvidence: readonly BoundEvidenceGate[];
   /** Repository-relative source path. */
   readonly source: string;
+}
+
+export interface CatalogSpecification extends ParsedSpecification {
+  /** Nx project that owns the canonical source file. */
+  readonly owner: string;
+}
+
+/**
+ * One specification with the statically derived digests the verdict
+ * compares: raw bytes for evidence-receipt matching, the decisive example
+ * surface, and the normalized body.
+ */
+export interface SpecificationSource {
+  readonly specification: CatalogSpecification;
+  /** SHA-256 of the file bytes, matched against execution receipts. */
+  readonly contentDigest: string;
+  /** SHA-256 of the ordered decisive example surface. */
+  readonly examplesDigest: string;
+  /** SHA-256 of the AST printed without comments or formatting. */
+  readonly bodyDigest: string;
 }
 
 export interface CatalogExecutionBinding extends ExecutionBinding {
@@ -71,17 +95,8 @@ const REQUIREMENT_ROLE_LABELS: Readonly<Record<(typeof REQUIREMENT_ROLE_ORDER)[n
   supporting: "Supporting system behavior",
 };
 
-export const SPECIFICATION_AREAS = [
-  "cli",
-  "extension-identity",
-  "package-identity",
-  "settings-contract",
-  "source-resolution",
-  "version-constraints",
-  "system",
-] as const;
-
-const PRODUCT_GOALS_SOURCE = "specifications/product-goals.ts";
+/** The local product-goal registry stays beside the generated catalog. */
+export const PRODUCT_GOALS_SOURCE = "specifications/product-goals.ts";
 
 type LiteralValue =
   string | number | boolean | readonly LiteralValue[] | { readonly [key: string]: LiteralValue };
@@ -240,7 +255,7 @@ const isRecordValue = (
 export const parseSpecificationFile = (
   sourceText: string,
   relativePath: string,
-): { readonly specification?: CatalogSpecification; readonly issues: CatalogIssue[] } => {
+): { readonly specification?: ParsedSpecification; readonly issues: CatalogIssue[] } => {
   const issues: CatalogIssue[] = [];
   const extraction = extractDefinedLiteral(sourceText, relativePath, "specification", [
     "defineSpecification",
@@ -352,27 +367,184 @@ export const parseExecutionBindingFile = (
   return { binding: { ...decoded.value, source: relativePath }, issues };
 };
 
-const listFilesRecursively = (root: string, suffix: string): string[] => {
-  if (!fs.existsSync(root)) {
-    return [];
+const TEST_CALLEES: ReadonlySet<string> = new Set(["describe", "suite", "it", "test"]);
+
+const calleeChain = (expression: ts.Expression): string[] | undefined => {
+  if (ts.isIdentifier(expression)) return [expression.text];
+  if (ts.isPropertyAccessExpression(expression)) {
+    const chain = calleeChain(expression.expression);
+    return chain === undefined ? undefined : [...chain, expression.name.text];
   }
-  const collected: string[] = [];
-  const walk = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      if (entry.name === "node_modules" || entry.name === "out-tsc" || entry.name === "dist") {
-        continue;
-      }
-      const entryPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        walk(entryPath);
-      } else if (entry.name.endsWith(suffix)) {
-        collected.push(entryPath);
+  return undefined;
+};
+
+const literalText = (node: ts.Node, sourceFile: ts.SourceFile): string =>
+  ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
+    ? node.text
+    : node.getText(sourceFile);
+
+const rowLabel = (row: ts.Expression, sourceFile: ts.SourceFile): string => {
+  if (ts.isObjectLiteralExpression(row)) {
+    const labelled = row.properties.find(
+      (property) =>
+        ts.isPropertyAssignment(property) &&
+        ts.isIdentifier(property.name) &&
+        property.name.text === "label",
+    );
+    const candidate =
+      labelled ??
+      row.properties.find(
+        (property) =>
+          ts.isPropertyAssignment(property) &&
+          (ts.isStringLiteral(property.initializer) ||
+            ts.isNoSubstitutionTemplateLiteral(property.initializer)),
+      );
+    if (candidate !== undefined && ts.isPropertyAssignment(candidate)) {
+      return literalText(candidate.initializer, sourceFile);
+    }
+    return row.getText(sourceFile);
+  }
+  if (ts.isArrayLiteralExpression(row)) {
+    const first = row.elements[0];
+    return first === undefined ? row.getText(sourceFile) : literalText(first, sourceFile);
+  }
+  return literalText(row, sourceFile);
+};
+
+const tableRows = (table: ts.Expression | undefined, sourceFile: ts.SourceFile): string[] => {
+  if (table === undefined) return [];
+  const unwrapped =
+    ts.isAsExpression(table) || ts.isSatisfiesExpression(table) ? table.expression : table;
+  if (!ts.isArrayLiteralExpression(unwrapped)) return [unwrapped.getText(sourceFile)];
+  return unwrapped.elements.map((row) => rowLabel(row, sourceFile));
+};
+
+/**
+ * The decisive example surface, in source order: every `describe`, `it`,
+ * `test` title (through any modifier chain such as `it.effect`, `it.live`,
+ * `it.skip`, `it.effect.prop`) plus the row labels of every `each` table.
+ * Titles are what a reviewer reads as the examples that adjudicate the rule;
+ * asserted literals inside a body are deliberately not part of this surface.
+ */
+export const extractExampleSurface = (sourceText: string): readonly string[] => {
+  const sourceFile = ts.createSourceFile(
+    "specification.ts",
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const surface: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression;
+      if (ts.isCallExpression(callee)) {
+        // `it.each(table)(title, body)`: rows first, then the parameterized title.
+        const chain = calleeChain(callee.expression);
+        const head = chain?.[0];
+        if (
+          chain !== undefined &&
+          head !== undefined &&
+          TEST_CALLEES.has(head) &&
+          chain.at(-1) === "each"
+        ) {
+          const name = chain.join(".");
+          for (const row of tableRows(callee.arguments[0], sourceFile))
+            surface.push(`${name}[row]:${row}`);
+          const title = node.arguments[0];
+          if (title !== undefined) surface.push(`${name}:${literalText(title, sourceFile)}`);
+        }
+      } else {
+        const chain = calleeChain(callee);
+        const head = chain?.[0];
+        if (
+          chain !== undefined &&
+          head !== undefined &&
+          TEST_CALLEES.has(head) &&
+          chain.at(-1) !== "each"
+        ) {
+          const title = node.arguments[0];
+          if (title !== undefined)
+            surface.push(`${chain.join(".")}:${literalText(title, sourceFile)}`);
+        }
       }
     }
+    ts.forEachChild(node, visit);
   };
-  walk(root);
-  return collected.sort();
+  visit(sourceFile);
+  return surface;
 };
+
+const bodyPrinter = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
+
+const MODULE_PLACEHOLDER = "<module>";
+
+/** Import module specifiers become a placeholder; the imported bindings stay. */
+const neutralizeImportSpecifiers: ts.TransformerFactory<ts.SourceFile> = (context) => {
+  const visit = (node: ts.Node): ts.Node => {
+    if (ts.isImportDeclaration(node)) {
+      return ts.factory.updateImportDeclaration(
+        node,
+        node.modifiers,
+        node.importClause,
+        ts.factory.createStringLiteral(MODULE_PLACEHOLDER),
+        node.attributes,
+      );
+    }
+    return ts.visitEachChild(node, visit, context);
+  };
+  return (sourceFile) => ts.visitEachChild(sourceFile, visit, context);
+};
+
+/**
+ * The source printed from its AST without comments, with every import's
+ * module specifier neutralized, then collapsed to one space between tokens
+ * and none around punctuation. Comments, line breaks, indentation, and the
+ * path a binding is imported from never masquerade as revision: a move
+ * rewrites import paths mechanically, while a change in which bindings a
+ * specification imports, or how it uses them, still changes the body. The
+ * printer keeps a block's single- or multi-line shape from the original,
+ * which is why the printed text is collapsed rather than compared directly.
+ */
+export const normalizedBody = (sourceText: string): string => {
+  const sourceFile = ts.createSourceFile(
+    "specification.ts",
+    sourceText,
+    ts.ScriptTarget.Latest,
+    false,
+  );
+  const transformed = ts.transform(sourceFile, [neutralizeImportSpecifiers]);
+  const [neutralized] = transformed.transformed;
+  const printed = bodyPrinter.printFile(neutralized ?? sourceFile);
+  transformed.dispose();
+  return printed
+    .replace(/\s+/gu, " ")
+    .replace(/\s*([{}()[\];,])\s*/gu, "$1")
+    .trim();
+};
+
+/** Whether the file declares an exported `specification` constant (statically). */
+export const exportsSpecification = (sourceText: string): boolean => {
+  const sourceFile = ts.createSourceFile("file.ts", sourceText, ts.ScriptTarget.Latest, false);
+  return sourceFile.statements.some(
+    (statement) =>
+      ts.isVariableStatement(statement) &&
+      isExported(statement) &&
+      statement.declarationList.declarations.some(
+        (declaration) =>
+          ts.isIdentifier(declaration.name) && declaration.name.text === "specification",
+      ),
+  );
+};
+
+export const digestSpecificationSource = (
+  specification: CatalogSpecification,
+  content: string,
+): SpecificationSource => ({
+  specification,
+  contentDigest: digestContent(content),
+  examplesDigest: digestContent(JSON.stringify(extractExampleSurface(content))),
+  bodyDigest: digestContent(normalizedBody(content)),
+});
 
 const toCatalogGoals = (
   registry: ProductGoalRegistry,
@@ -387,16 +559,23 @@ const toCatalogGoals = (
 
 export interface CollectCatalogOptions {
   readonly repoRoot: string;
-  /** Directories under the repository root that hold execution bindings. */
-  readonly executionBindingRoots?: readonly string[];
+  /** Every discovered specification, each with its owner project. */
+  readonly specifications: readonly CatalogSpecification[];
+  /** Every discovered execution binding. */
+  readonly executionBindings?: readonly CatalogExecutionBinding[];
+  /** Discovery issues (ownership, placement, parse failures) to carry into the catalog. */
+  readonly issues?: readonly CatalogIssue[];
 }
 
+/**
+ * Validates the discovered corpus against the shared contract and the local
+ * product-goal registry. Discovery happens before this call and never
+ * executes a specification; neither does this.
+ */
 export const collectCatalog = (options: CollectCatalogOptions): SpecificationCatalog => {
-  const { repoRoot, executionBindingRoots = ["apps/cli-e2e/src"] } = options;
-  const issues: CatalogIssue[] = [];
-  const specifications: CatalogSpecification[] = [];
+  const { repoRoot, specifications, executionBindings = [] } = options;
+  const issues: CatalogIssue[] = [...(options.issues ?? [])];
 
-  const specificationsRoot = path.join(repoRoot, "specifications");
   const productGoalsPath = path.join(repoRoot, PRODUCT_GOALS_SOURCE);
   let localGoals: ProductGoalRegistry = {};
   if (fs.existsSync(productGoalsPath)) {
@@ -414,29 +593,6 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
     });
   }
 
-  for (const area of SPECIFICATION_AREAS) {
-    for (const filePath of listFilesRecursively(path.join(specificationsRoot, area), ".spec.ts")) {
-      const relativePath = path.relative(repoRoot, filePath);
-      const parsed = parseSpecificationFile(fs.readFileSync(filePath, "utf8"), relativePath);
-      issues.push(...parsed.issues);
-      if (parsed.specification !== undefined) {
-        specifications.push(parsed.specification);
-      }
-    }
-  }
-
-  const executionBindings: CatalogExecutionBinding[] = [];
-  for (const bindingRoot of executionBindingRoots) {
-    for (const filePath of listFilesRecursively(path.join(repoRoot, bindingRoot), ".ts")) {
-      const relativePath = path.relative(repoRoot, filePath);
-      const parsed = parseExecutionBindingFile(fs.readFileSync(filePath, "utf8"), relativePath);
-      issues.push(...parsed.issues);
-      if (parsed.binding !== undefined) {
-        executionBindings.push(parsed.binding);
-      }
-    }
-  }
-
   issues.push(
     ...checkSpecificationCorpus({
       specifications,
@@ -449,19 +605,10 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
     }),
   );
 
-  for (const specification of specifications) {
-    const directory = path.dirname(specification.source).replace(/^specifications\//, "");
-    if (!specification.metadata.requirement.startsWith(`${directory}/`)) {
-      issues.push({
-        severity: "warning",
-        source: specification.source,
-        message: `requirement identity \`${specification.metadata.requirement}\` does not match its directory \`${directory}\``,
-      });
-    }
-  }
-
   return {
-    specifications,
+    specifications: [...specifications].sort((left, right) =>
+      left.metadata.requirement.localeCompare(right.metadata.requirement),
+    ),
     productGoals: [
       ...toCatalogGoals(sharedProductGoals, "shared"),
       ...toCatalogGoals(localGoals, "local"),
@@ -471,33 +618,25 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
   };
 };
 
-const groupLabel = (segment: string): string => {
-  if (segment === "cli") {
-    return "CLI";
-  }
-  if (segment === "extension-identity") {
-    return "Extension identity";
-  }
-  if (segment === "package-identity") {
-    return "Package identity";
-  }
-  if (segment === "settings-contract") {
-    return "Settings contract";
-  }
-  if (segment === "source-resolution") {
-    return "Source resolution";
-  }
-  if (segment === "version-constraints") {
-    return "Version constraints";
-  }
-  if (segment === "system") {
-    return "System";
-  }
-  return segment
-    .split("-")
-    .map((word) => (word.length > 0 ? `${word.slice(0, 1).toUpperCase()}${word.slice(1)}` : word))
-    .join(" ");
+const CLASS_LABELS: Readonly<Record<SpecificationMetadata["class"], string>> = {
+  functional: "Functional",
+  quality: "Quality",
+  constraint: "Constraints",
+  "external-conformance": "External conformance",
+  "human-factors": "Human factors",
+  process: "Process",
 };
+
+type SpecificationClass = SpecificationMetadata["class"];
+
+const CLASS_ORDER: readonly SpecificationClass[] = [
+  "functional",
+  "quality",
+  "constraint",
+  "external-conformance",
+  "human-factors",
+  "process",
+];
 
 const renderStatedOrUnknown = (value: readonly string[] | "unknown"): string | undefined => {
   if (value === "unknown") {
@@ -509,27 +648,29 @@ const renderStatedOrUnknown = (value: readonly string[] | "unknown"): string | u
   return value.join("; ");
 };
 
-interface CatalogDirectory {
-  readonly specifications: CatalogSpecification[];
-  readonly directories: Map<string, CatalogDirectory>;
-}
-
-/** Renders the committed, product-shaped catalog document. */
+/**
+ * Renders the committed, product-shaped catalog document: role, then the
+ * primary product goal, then review class. Nothing about the layout of the
+ * repository shapes the headings; each entry names its owner and links its
+ * canonical source.
+ */
 export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => {
   const lines: string[] = [
     "# AXM specification catalog",
     "",
-    "Generated from `specifications/` metadata by `scripts/specification-catalog.ts`.",
-    "Do not edit by hand: run `pnpm run generate` after a specification change.",
-    "This catalog lists every requirement specification whether or not its",
-    "implementation currently passes; execution evidence lives in test results,",
-    "never here. Every specification in this catalog is normative: a",
-    "specification on `main` is accepted authority, and merging the change that",
-    "adds, revises, or removes one is the acceptance decision. Requirements are",
-    "organized by their role in the product contract: product behavior,",
-    "programmatic interfaces, and supporting system behavior. Within each role,",
-    "directory headings follow the specification tree; CLI directories name",
-    "registered command paths. Requirements at each node precede its child commands.",
+    "Generated from specification metadata discovered across every authored",
+    "project by `scripts/specification-catalog.ts`. Do not edit by hand: run",
+    "`pnpm run generate` after a specification change. This catalog lists every",
+    "requirement specification whether or not its implementation currently",
+    "passes; execution evidence lives in test results, never here. Every",
+    "specification in this catalog is normative: a specification on `main` is",
+    "accepted authority, and merging the change that adds, revises, or removes",
+    "one is the acceptance decision. Requirements are organized by meaning, not",
+    "by location: by their role in the product contract (product behavior,",
+    "programmatic interfaces, supporting system behavior), then by the first",
+    "product goal each names as its primary goal, then by review class. Each",
+    "entry names the project that owns its canonical source file and links it;",
+    "the requirement identity is stable and independent of that path.",
     "",
     "Start from a command or an operating context with these structural maps:",
     "",
@@ -541,29 +682,19 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     "",
   ];
 
-  const byRole = new Map<string, CatalogDirectory>();
+  const goalOutcomes = new Map(catalog.productGoals.map((goal) => [goal.id, goal.outcome]));
+  type ByClass = Map<SpecificationClass, CatalogSpecification[]>;
+  const byRole = new Map<string, Map<string, ByClass>>();
   for (const specification of catalog.specifications) {
-    const directories = specification.source
-      .replace(/\\/g, "/")
-      .replace(/^specifications\//, "")
-      .split("/")
-      .slice(0, -1);
-    const role = specification.metadata.role;
-    const root = byRole.get(role) ?? {
-      specifications: [],
-      directories: new Map<string, CatalogDirectory>(),
-    };
-    let directory: CatalogDirectory = root;
-    for (const segment of directories) {
-      const child = directory.directories.get(segment) ?? {
-        specifications: [],
-        directories: new Map<string, CatalogDirectory>(),
-      };
-      directory.directories.set(segment, child);
-      directory = child;
-    }
-    directory.specifications.push(specification);
-    byRole.set(role, root);
+    const { role, goals } = specification.metadata;
+    const primaryGoal = goals[0];
+    const byGoal = byRole.get(role) ?? new Map<string, ByClass>();
+    const byClass: ByClass = byGoal.get(primaryGoal) ?? new Map();
+    const entries = byClass.get(specification.metadata.class) ?? [];
+    entries.push(specification);
+    byClass.set(specification.metadata.class, entries);
+    byGoal.set(primaryGoal, byClass);
+    byRole.set(role, byGoal);
   }
 
   const bindingsByRequirement = new Map<string, CatalogExecutionBinding[]>();
@@ -575,14 +706,11 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     }
   }
 
-  const renderSpecification = (entry: CatalogSpecification, directoryDepth: number): void => {
+  const renderSpecification = (entry: CatalogSpecification): void => {
     const { metadata } = entry;
-    const titleLevel = directoryDepth + 3;
-    lines.push(
-      titleLevel <= 6 ? `${"#".repeat(titleLevel)} ${metadata.title}` : `**${metadata.title}**`,
-      "",
-    );
+    lines.push(`##### ${metadata.title}`, "");
     lines.push(`- Requirement: \`${metadata.requirement}\``);
+    lines.push(`- Owner: \`${entry.owner}\``);
     lines.push(`- Statement: ${metadata.statement}`);
     lines.push(
       `- Class: ${metadata.class}${
@@ -622,8 +750,7 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     for (const gateEvidence of entry.boundEvidence) {
       lines.push(`- Bound evidence: \`${gateEvidence.gate}\` — ${gateEvidence.verifies}`);
     }
-    const bindings = bindingsByRequirement.get(metadata.requirement) ?? [];
-    for (const binding of bindings) {
+    for (const binding of bindingsByRequirement.get(metadata.requirement) ?? []) {
       lines.push(
         `- Additional evidence: ${binding.boundary} via [\`${binding.source}\`](../${binding.source}) — ${binding.rationale}`,
       );
@@ -632,32 +759,29 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     lines.push("");
   };
 
-  const renderDirectory = (directory: CatalogDirectory, segments: readonly string[]): void => {
-    const name = segments.at(-1);
-    if (name !== undefined) {
-      // Markdown has six heading levels; deeper directory paths stay explicit as breadcrumbs.
-      const label = segments.length > 4 ? segments.map(groupLabel).join(" / ") : groupLabel(name);
-      lines.push(`${"#".repeat(Math.min(segments.length + 2, 6))} ${label}`, "");
-    }
-    for (const entry of [...directory.specifications].sort((a, b) =>
-      a.metadata.requirement.localeCompare(b.metadata.requirement),
-    )) {
-      renderSpecification(entry, segments.length);
-    }
-    for (const [segment, child] of [...directory.directories.entries()].sort(([a], [b]) =>
-      a.localeCompare(b),
-    )) {
-      renderDirectory(child, [...segments, segment]);
-    }
-  };
-
   for (const role of REQUIREMENT_ROLE_ORDER) {
-    const directory = byRole.get(role);
-    if (directory === undefined) {
+    const byGoal = byRole.get(role);
+    if (byGoal === undefined) {
       continue;
     }
     lines.push(`## ${REQUIREMENT_ROLE_LABELS[role]}`, "");
-    renderDirectory(directory, []);
+    for (const [goal, byClass] of [...byGoal.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      lines.push(`### Goal: ${goal}`, "");
+      const outcome = goalOutcomes.get(goal);
+      if (outcome !== undefined) {
+        lines.push(outcome, "");
+      }
+      for (const [specificationClass, entries] of [...byClass.entries()].sort(
+        ([a], [b]) => CLASS_ORDER.indexOf(a) - CLASS_ORDER.indexOf(b),
+      )) {
+        lines.push(`#### ${CLASS_LABELS[specificationClass]}`, "");
+        for (const entry of [...entries].sort((a, b) =>
+          a.metadata.requirement.localeCompare(b.metadata.requirement),
+        )) {
+          renderSpecification(entry);
+        }
+      }
+    }
   }
 
   lines.push("## Product goals", "");

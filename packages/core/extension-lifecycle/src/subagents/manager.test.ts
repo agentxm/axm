@@ -21,6 +21,7 @@ import { CodingAgentRepository, SubagentManager } from "@agentxm/extension-works
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
 } from "@agentxm/workspace-state/testing";
@@ -131,6 +132,7 @@ const makeTestLayer = (overrides?: {
 
   return SubagentManagerLive.pipe(
     Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
+    Layer.provide(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(agentRepoLayer),
     Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );

@@ -49,7 +49,8 @@ import {
 } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { DiscoverPackagesResponseSchema } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { extensionLifecycleWarnings, pluralizeType, resolveVersionEntry } from "./utils.js";
+import { extensionLifecycleWarnings, pluralizeType } from "./utils.js";
+import { resolveVersionEntry } from "@agentxm/registry-protocol/unstable/registry/version-selection";
 import type {
   DiscoverPackagesArgs,
   ExtensionExistsArgs,

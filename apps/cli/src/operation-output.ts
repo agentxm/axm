@@ -54,7 +54,7 @@ import {
   redactSensitiveText,
   serializeErrorCauseChain,
 } from "./app-error/index.js";
-import { formatMinimumReleaseAgeSeconds } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { formatMinimumReleaseAgeSeconds } from "@agentxm/extension-resolution";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 

@@ -24,6 +24,12 @@
     },
     {
       "path": "../extension-model/tsconfig.lib.json"
+    },
+    {
+      "path": "../workspace-transactions/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-resolution/tsconfig.lib.json"
     }
   ]
 }

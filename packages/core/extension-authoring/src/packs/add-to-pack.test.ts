@@ -9,7 +9,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import { configuredRow, makeBaseWorkspaceMock, rowsFor } from "@agentxm/workspace-state/testing";
+import {
+  configuredRow,
+  makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
+  rowsFor,
+} from "@agentxm/workspace-state/testing";
 import { handle, TestAuthoringFailureAdapter } from "../test-helpers.js";
 import type { AddToPackOperation } from "./add-to-pack.js";
 import { addToPack } from "./add-to-pack.js";
@@ -60,6 +65,7 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
   return Layer.mergeAll(
     NodeServices.layer,
     WorkspaceMutations.layer(mockWs),
+    MockWorkspaceTransactionScope(axmDir),
     TestAuthoringFailureAdapter,
   );
 };

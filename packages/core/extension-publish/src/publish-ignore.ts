@@ -21,7 +21,7 @@ import { PublishFailed } from "./errors.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { BuildZipArchiveOptions } from "./archive.js";
 import { expandGlobs } from "./internal/glob.js";
-import { manifestFilenameForType } from "@agentxm/registry-protocol/unstable/publish/manifest-policy";
+import { manifestFilenameForType } from "@agentxm/extension-content";
 
 /** @experimental This API is unstable and may change without notice. */
 export class PublishIgnoreError extends Data.TaggedError("PublishIgnoreError")<{

@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-import type { FindingBase } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { FindingBase } from "@agentxm/extension-content/lint";
 
 /** Structural identity used by rule `fix` lookups. */
 export const isSameFinding = (left: FindingBase, right: FindingBase): boolean =>

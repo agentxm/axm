@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { formatAxmSkillCompatibilityTarget } from "@agentxm/extension-workspace";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import type { AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { AdvisoryRule } from "@agentxm/extension-content/lint";
 import { canonicalDisplayRoot } from "./display-paths.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 

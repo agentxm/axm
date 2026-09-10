@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { KNOWLEDGE_SEARCH_TOKENIZER_PROFILE } from "@agentxm/registry-protocol/unstable/knowledge/knowledge-search";
+import { KNOWLEDGE_SEARCH_TOKENIZER_PROFILE } from "@agentxm/extension-content/knowledge";
 import {
   KNOWLEDGE_DISCOVERY_OPERATIONS,
   KNOWLEDGE_LIFECYCLE_FILTER_FIELDS,

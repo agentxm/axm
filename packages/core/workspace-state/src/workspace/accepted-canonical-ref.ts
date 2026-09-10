@@ -13,7 +13,7 @@ import {
   type WorkspaceSourceInvalid,
 } from "./errors.js";
 import type { PathTraversalDetected } from "../utils/path-safety.js";
-import type { WorkspaceSnapshotError } from "./transaction.js";
+import type { WorkspaceSnapshotError } from "@agentxm/workspace-transactions";
 import {
   hookLockEntryToRef,
   knowledgeLockEntryToRef,
@@ -34,7 +34,7 @@ import {
   extensionPathSourceFromLockEntry,
 } from "./extension-paths.js";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
-import { protectWorkspacePath } from "./transaction.js";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import type { WorkspaceMutationsService, WorkspaceStateReadFailure } from "./service-interface.js";

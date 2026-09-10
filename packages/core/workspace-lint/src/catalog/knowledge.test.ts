@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { KNOWLEDGE_DIAGNOSTIC_CODES } from "@agentxm/registry-protocol/unstable/knowledge";
-import { knowledgeRules } from "@agentxm/registry-protocol/unstable/lint/catalog/knowledge";
+import { KNOWLEDGE_DIAGNOSTIC_CODES } from "@agentxm/extension-content/knowledge";
+import { knowledgeRules } from "@agentxm/extension-content/lint";
 import {
   knowledgeDiagnosticRuleDefinitions,
   knowledgeDiagnosticRules,
-} from "@agentxm/registry-protocol/unstable/lint/catalog/knowledge/diagnostics";
+} from "@agentxm/extension-content/lint";
 
 describe("Knowledge diagnostic lint rules", () => {
   it("maps every stable diagnostic code exactly once", () => {

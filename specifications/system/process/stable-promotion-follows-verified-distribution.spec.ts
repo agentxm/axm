@@ -1,8 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import {
-  defineSpecification,
-  defineBoundEvidence,
-} from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification, defineBoundEvidence } from "@agentxm/specification-metadata";
 import { readReleaseWorkflow, promotionPermitted } from "../../support/release-workflow.js";
 
 export const specification = defineSpecification({

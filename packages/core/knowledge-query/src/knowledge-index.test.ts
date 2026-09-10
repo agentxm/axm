@@ -13,10 +13,7 @@ import {
 import { KnowledgeIndexLive } from "./live.js";
 import { makeKnowledgeQuery } from "./knowledge-query.js";
 import { computeKnowledgeSourceRevision } from "./knowledge-revision.js";
-import type {
-  KnowledgeConcept,
-  KnowledgeInspection,
-} from "@agentxm/registry-protocol/unstable/knowledge/okf";
+import type { KnowledgeConcept, KnowledgeInspection } from "@agentxm/extension-content/knowledge";
 
 const encoder = new TextEncoder();
 const bundleFqn = Schema.decodeUnknownSync(KnowledgeBundleFqnSchema)("@agentxm/knowledge/platform");

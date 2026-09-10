@@ -87,6 +87,60 @@ export type NamedRegistryResolution =
       readonly candidate: ReleaseAgeEvidence;
     };
 
+/**
+ * Index-level selection decision for one named Registry target, before the
+ * provider maps the chosen entry to an `ExtensionRef` or probes any archive.
+ * Versions are identified by their version string; the provider owns the
+ * index and looks the entry up.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type NamedRegistryVersionDecision =
+  | {
+      readonly kind: "selected";
+      readonly version: string;
+      readonly newerHeld?: ReleaseAgeEvidence;
+    }
+  | {
+      readonly kind: "exempted";
+      readonly version: string;
+      readonly bypassed: ReleaseAgeEvidence;
+      readonly exemption: ReleaseAgeExemption;
+    }
+  | { readonly kind: "not_found" }
+  | { readonly kind: "version_unsatisfied"; readonly requestedRange: string }
+  | {
+      readonly kind: "policy_held";
+      readonly requestedRange?: string;
+      readonly candidate: ReleaseAgeEvidence;
+    };
+
+/**
+ * What selecting one probe-verified candidate would mean under the policy.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type NamedRegistryCandidateOutcome =
+  | { readonly kind: "selected" }
+  | {
+      readonly kind: "exempted";
+      readonly bypassed: ReleaseAgeEvidence;
+      readonly exemption: ReleaseAgeExemption;
+    }
+  | { readonly kind: "held"; readonly candidate: ReleaseAgeEvidence };
+
+/**
+ * One candidate a provider may verify before selecting a named target, in
+ * policy order: selectable candidates newest first, then held candidates
+ * newest first.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface NamedRegistryCandidate {
+  readonly version: string;
+  readonly outcome: NamedRegistryCandidateOutcome;
+}
+
 // -----------------------------------------------------------------------------
 // Fetch Result
 // -----------------------------------------------------------------------------

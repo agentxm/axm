@@ -15,9 +15,9 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { parseTomlStringEntries, readTomlSection } from "@agentxm/extension-workspace";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const mojoType = Schema.decodeUnknownSync(PackageTypeSchema)("mojo");
@@ -44,17 +44,15 @@ const isExactVersion = (specifier: string): boolean =>
   /^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9._+-]*)?$/.test(specifier);
 
 /**
- * Parse a TOML [dependencies] section using simple regex.
+ * Read the string-valued `[dependencies]` entries of a pixi.toml document.
  * Returns an array of { name, version } entries.
  */
 const parseTomlDependencies = (
   content: string,
-): ReadonlyArray<{ readonly name: string; readonly version: string }> => {
-  const depsBlock = readTomlSection(content, "dependencies");
-  if (depsBlock === undefined) return [];
-
-  return parseTomlStringEntries(depsBlock).map(({ key, value }) => ({ name: key, version: value }));
-};
+): ReadonlyArray<{ readonly name: string; readonly version: string }> =>
+  tomlStringEntries(tomlTable(parseTomlDocument(content), "dependencies")).map(
+    ({ key, value }) => ({ name: key, version: value }),
+  );
 
 /**
  * Mojo package detector.

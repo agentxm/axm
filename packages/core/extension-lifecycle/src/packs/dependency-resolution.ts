@@ -40,12 +40,12 @@ import * as semver from "semver";
 import type {
   ReleaseAgeBypassRecord,
   ReleaseAgeHoldbackRecord,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+} from "@agentxm/extension-resolution";
 import type {
   ReleaseAgeEvaluation,
   ReleaseAgeEvidence,
 } from "@agentxm/extension-model/unstable/extensions/release-age";
-import { releaseAgeExemptionForIdentity } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { releaseAgeExemptionForIdentity } from "@agentxm/extension-resolution";
 
 /** Every extension type a pack can depend on — packs cannot nest. */
 type SupportedPackDependencyType = Exclude<ExtensionType, "pack">;

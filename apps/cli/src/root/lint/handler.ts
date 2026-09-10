@@ -51,8 +51,8 @@ import {
   type LintInput,
   type LintSummary,
 } from "@agentxm/workspace-lint";
-import { buildPackRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/pack-accessor/contexts";
-import { buildSkillRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/skill-accessor/contexts";
+import { buildPackRuleContexts } from "@agentxm/extension-content/lint";
+import { buildSkillRuleContexts } from "@agentxm/extension-content/lint";
 import {
   WorkspaceMutations,
   resolveUserHome,

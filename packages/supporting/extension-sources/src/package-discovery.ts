@@ -20,7 +20,7 @@ import {
   manifestSchemaForType,
   validateManifestHasNoAgentsField,
   type ManifestIdentity,
-} from "@agentxm/registry-protocol/unstable/publish/manifest-policy";
+} from "@agentxm/extension-content";
 
 export interface ExtensionPackageFilter {
   readonly names: ReadonlyArray<string>;

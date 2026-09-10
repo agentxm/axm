@@ -10,7 +10,7 @@ import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestRenderer } from "../../screen/index.js";
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { isWorkspaceTransitionHeldByThisInvocation } from "@agentxm/workspace-operations";
+import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import * as Option from "effect/Option";
 
 import { makeBaseWorkspaceMock } from "../../test-stubs.js";
@@ -307,8 +307,9 @@ describe("withOperationLifecycle", () => {
       let heldAtBodyStart: boolean | undefined;
       yield* withOperationLifecycle(
         { command: "update", mode: "apply", planName: "Update extensions" },
-        Effect.sync(() => {
-          heldAtBodyStart = isWorkspaceTransitionHeldByThisInvocation(resolved);
+        Effect.gen(function* () {
+          const scope = yield* WorkspaceTransactionScope;
+          heldAtBodyStart = Option.isSome(yield* scope.lock.held(resolved));
         }),
       ).pipe(
         Effect.provide(
@@ -317,6 +318,11 @@ describe("withOperationLifecycle", () => {
             renderer.layer,
             TestFlagsLayer({ nonInteractive: true }),
             WorkspaceMutations.layer(makeBaseWorkspaceMock(workspaceDir)),
+            WorkspaceTransactionScope.layer({
+              workspaceDir,
+              settingsPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.json"),
+              lockPath: nodePath.join(nodePath.dirname(workspaceDir), "axm-lock.yaml"),
+            }),
           ),
         ),
       );

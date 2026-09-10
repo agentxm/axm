@@ -13,8 +13,8 @@
 
 import * as Data from "effect/Data";
 import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
-import type { FrontmatterParseFailure } from "@agentxm/registry-protocol/unstable/content/frontmatter";
-import type { SubagentContentError } from "@agentxm/registry-protocol/unstable/content/subagent-content";
+import type { FrontmatterParseFailure } from "@agentxm/extension-content";
+import type { SubagentContentError } from "@agentxm/extension-content";
 import type { ExtensionsError } from "../extensions/errors.js";
 import type { ProjectionError } from "../projection/errors.js";
 import type { InstructionMaintenanceFailed } from "../instructions/errors.js";
@@ -22,7 +22,7 @@ import type { MaterializedTreeInvalid } from "@agentxm/workspace-state";
 import type {
   WorkspaceTransactionFailure,
   WorkspaceRestorationIncomplete,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace-transactions";
 import type {
   WorkspaceStateMutationFailure,
   WorkspaceStateReadFailure,
@@ -31,7 +31,7 @@ import type { TransientBackupFailed } from "../utils/transient-backup.js";
 import type { RuleManagerError } from "../rules/errors.js";
 import type { HookManagerError } from "../hooks/errors.js";
 import type { SubagentIoFailed, SubagentManagerError } from "../subagents/errors.js";
-import type { WorkspaceSnapshotError } from "@agentxm/workspace-state";
+import type { WorkspaceSnapshotError } from "@agentxm/workspace-transactions";
 import type { McpManagerError } from "../mcps/errors.js";
 import type { SkillManagerError } from "../skills/errors.js";
 import type { PackManagerError } from "../packs/errors.js";

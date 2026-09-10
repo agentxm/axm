@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace-sync",
   "version": "0.28.12",
-  "description": "AXM workspace-sync feature: desired-state reconciliation planning, projection realization, and reconciliation outcomes for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "AXM workspace-sync feature: desired-state reconciliation planning, projection realization, and reconciliation outcomes for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -37,10 +37,11 @@
   },
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-resolution": "workspace:^",
     "@agentxm/extension-workspace": "workspace:^",
-    "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
+    "@agentxm/workspace-transactions": "workspace:^",
     "effect": "catalog:",
     "semver": "catalog:"
   },

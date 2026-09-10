@@ -23,15 +23,27 @@ import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "./cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer, logsByTag, type Screen } from "./screen/index.js";
 import { presentPlan } from "./operation-view.js";
-import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import {
+  PlanInvocationTest,
+  ResolvePlanInteractionTest,
+} from "@agentxm/workspace-operations/testing";
 import type {
   WorkspaceMutations,
   WorkspaceMutationsError,
   WorkspaceMutationsOptions,
 } from "@agentxm/workspace-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
-import { AxmSkillCandidateGateLive, WorkspaceCatalogLive } from "./cli-runtime/index.js";
+import {
+  layer as coreWorkspaceLayer,
+  type WorkspaceStateServices,
+} from "@agentxm/workspace-state/live";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+import {
+  AxmSkillCandidateGateLive,
+  RegistryResolutionPolicyLive,
+  WorkspaceCatalogLive,
+} from "./cli-runtime/index.js";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 export { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
@@ -614,9 +626,12 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly onFileSystemWrite?: ((event: FileSystemWriteEvent) => void) | undefined;
   /** Override filesystem operations before workspace services capture the platform. */
   readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
-  /** An already initialized workspace, composed over the selected test platform. */
+  /**
+   * An already initialized workspace — the state services with their
+   * transaction scope — composed over the selected test platform.
+   */
   readonly workspaceLayer?: Layer.Layer<
-    WorkspaceMutations,
+    WorkspaceStateServices | WorkspaceMutations | WorkspaceTransactionScope,
     WorkspaceMutationsError,
     FileSystem.FileSystem | Path.Path
   >;
@@ -658,12 +673,22 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
       Layer.mergeAll(coreWsLayer, CodingAgentRepositoryLive, cliTestContext.baseLayer),
     ),
     AxmSkillCandidateGateLive,
+    RegistryResolutionPolicyLive,
+    // No per-type outcome refinement: every configured-agent outcome stays
+    // generic, as it did before the provider became a boundary requirement.
+    // Tests that need the native refinement merge
+    // `HookConfiguredAgentOutcomesProviderLive` over this layer.
+    ConfiguredAgentOutcomesProviderTest,
   );
   const fullLayer = Layer.mergeAll(
     cliTestContext.baseLayer,
     wsLayer,
     KnowledgeIndexLive,
     LifecycleFailureAdapterLive,
+    // Every command runs inside the operation lifecycle, which opens the
+    // journal and footprint recorder once per invocation; a test that drives
+    // a handler directly gets empty ones here.
+    PlanInvocationTest,
   );
 
   return {

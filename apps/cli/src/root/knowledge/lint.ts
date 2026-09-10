@@ -9,7 +9,7 @@ import { ExitCode, makeAppError } from "../../app-error/index.js";
 import { Screen, errorDoc, headlineDoc, successDoc } from "../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
-import { type KnowledgeDiagnostic } from "@agentxm/registry-protocol/unstable/knowledge";
+import { type KnowledgeDiagnostic } from "@agentxm/extension-content/knowledge";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";

@@ -9,6 +9,9 @@ client and the AgentXM platform. Every export lives under an explicit
 `./unstable/*` subpath: the surface is unsupported and may change in any
 release. Ordinary users should use the [`axm` CLI](https://axm.sh) instead.
 
+The executable-specification metadata contract that used to ship as
+`./unstable/specifications` now lives in `@agentxm/specification-metadata`.
+
 ## VERS Parser Reference
 
 `VersRangeSchema` currently targets `package-url/vers-spec` commit

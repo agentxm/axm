@@ -21,7 +21,10 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { afterEach, beforeEach } from "vitest";
 import { previewOrApplyPlan, deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import {
+  PlanInvocationTest,
+  preapprovedPlanExecution,
+} from "@agentxm/workspace-operations/testing";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
@@ -233,6 +236,7 @@ describe("skills install handler — error propagation", () => {
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
       SMLayer,
+      PlanInvocationTest,
     );
     const provide = makeEffectProvide(FullLayer);
 
@@ -274,6 +278,7 @@ describe("skills install handler — error propagation", () => {
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       LifecycleFailureAdapterLive,
+      PlanInvocationTest,
     );
     const provide = makeEffectProvide(fullLayer);
     const handleTestInstall = (

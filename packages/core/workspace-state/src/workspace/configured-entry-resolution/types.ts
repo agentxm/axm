@@ -11,7 +11,7 @@ import type { NamedRegistryResolution } from "@agentxm/extension-model/unstable/
 import type {
   ReleaseAgeBypassRecord,
   ReleaseAgeHoldbackRecord,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+} from "@agentxm/extension-resolution";
 
 export type ConfiguredEntryFailureReason =
   | "entry-malformed"

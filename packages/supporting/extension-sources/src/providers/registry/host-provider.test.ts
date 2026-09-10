@@ -18,7 +18,6 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
 
@@ -30,7 +29,6 @@ import {
   type GetExtensionsByOwnerResponse,
 } from "@agentxm/registry-client";
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
-import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   PUBLICATION_SET_CONTRACT,
@@ -43,6 +41,7 @@ import type { RegistrySubagentRef } from "@agentxm/extension-model/unstable/exte
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import { AxmSkillCandidateGate } from "../../axm-skill-gate.js";
+import { RegistryResolutionPolicy } from "../../registry-resolution-policy.js";
 import {
   createLocalRegistrySourceHostProvider,
   createRemoteRegistrySourceHostProvider,
@@ -55,6 +54,7 @@ import {
   exactVersion,
   handle,
   makeTestAxmSkillGate,
+  makeTestRegistryResolutionPolicy,
 } from "../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
@@ -65,12 +65,22 @@ const runEffect = <A, E>(
   effect: Effect.Effect<
     A,
     E,
-    FileSystem.FileSystem | Path.Path | AxmSkillCandidateGate | Scope.Scope
+    | FileSystem.FileSystem
+    | Path.Path
+    | AxmSkillCandidateGate
+    | RegistryResolutionPolicy
+    | Scope.Scope
   >,
 ) =>
   effect.pipe(
     Effect.scoped,
-    Effect.provide(Layer.merge(NodeServices.layer, makeTestAxmSkillGate())),
+    Effect.provide(
+      Layer.mergeAll(
+        NodeServices.layer,
+        makeTestAxmSkillGate(),
+        makeTestRegistryResolutionPolicy(),
+      ),
+    ),
   );
 
 const sha512 = (data: Uint8Array): string => {
@@ -325,6 +335,23 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
     versionRange: Option.none<string>(),
     releaseAgeEvaluation: evaluation,
   };
+  const heldEvidence = {
+    version: "2.0.0",
+    publishedAt: "2025-01-02T12:00:00.000Z",
+    eligibleAt: "2025-01-03T12:00:00.000Z",
+    minimumReleaseAgeSeconds: 86_400,
+  };
+  const visibleIndex = {
+    owner: handle("@test"),
+    type: "skill" as const,
+    name: extensionName("my-skill"),
+    publisherBindingId: "hbnd_test",
+    deprecation: null,
+    versions: [
+      makeVersionEntry({ version: "1.0.0" }),
+      makeVersionEntry({ version: "2.0.0", published: "2025-01-02T12:00:00Z" }),
+    ],
+  };
 
   it.effect("returns not_found from one index read when the target is not visible", () => {
     let reads = 0;
@@ -378,122 +405,6 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
     );
   });
 
-  it.effect("returns a policy-held candidate with absolute eligibility evidence", () => {
-    const provider = createRemoteRegistrySourceHostProvider(
-      createMockClient({
-        getExtensionIndex: () =>
-          Effect.succeed(
-            Option.some({
-              owner: handle("@test"),
-              type: "skill",
-              name: extensionName("my-skill"),
-              publisherBindingId: "hbnd_test",
-              deprecation: null,
-              versions: [makeVersionEntry({ version: "2.0.0", published: "2025-01-02T12:00:00Z" })],
-            }),
-          ),
-      }),
-    );
-
-    return runEffect(
-      Effect.gen(function* () {
-        const result = yield* provider.resolveNamed(testSource, {
-          ...options,
-          versionRange: Option.some("2.0.0"),
-        });
-        expect(result).toEqual({
-          kind: "policy_held",
-          target: "@test/skills/my-skill",
-          requestedRange: "2.0.0",
-          candidate: {
-            version: "2.0.0",
-            publishedAt: "2025-01-02T12:00:00.000Z",
-            eligibleAt: "2025-01-03T12:00:00.000Z",
-            minimumReleaseAgeSeconds: 86_400,
-          },
-        });
-      }),
-    );
-  });
-
-  it.effect("selects an under-age release excluded by authoritative Registry identity", () => {
-    const provider = createRemoteRegistrySourceHostProvider(
-      createMockClient({
-        getExtensionIndex: () =>
-          Effect.succeed(
-            Option.some({
-              owner: handle("@test"),
-              type: "skill",
-              name: extensionName("my-skill"),
-              publisherBindingId: "hbnd_test",
-              deprecation: null,
-              versions: [makeVersionEntry({ version: "2.0.0", published: "2025-01-02T12:00:00Z" })],
-            }),
-          ),
-      }),
-    );
-
-    return runEffect(
-      Effect.gen(function* () {
-        const result = yield* provider.resolveNamed(testSource, {
-          ...options,
-          releaseAgeEvaluation: {
-            ...evaluation,
-            mode: "ignore",
-            exclude: [
-              {
-                pattern: Schema.decodeUnknownSync(ReleaseAgeExcludePatternSchema)("@test/skills/*"),
-                scope: "project",
-              },
-            ],
-          },
-        });
-        expect(result.kind).toBe("exempted");
-        if (result.kind !== "exempted") return;
-        expect(result.exemption).toEqual({
-          bypassCause: "exclude",
-          exemptionScope: "project",
-        });
-      }),
-    );
-  });
-
-  it.effect("does not emit bypass evidence when an excluded release is already mature", () => {
-    const provider = createRemoteRegistrySourceHostProvider(
-      createMockClient({
-        getExtensionIndex: () =>
-          Effect.succeed(
-            Option.some({
-              owner: handle("@test"),
-              type: "skill",
-              name: extensionName("my-skill"),
-              publisherBindingId: "hbnd_test",
-              deprecation: null,
-              versions: [makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" })],
-            }),
-          ),
-      }),
-    );
-
-    return runEffect(
-      Effect.gen(function* () {
-        const result = yield* provider.resolveNamed(testSource, {
-          ...options,
-          releaseAgeEvaluation: {
-            ...evaluation,
-            exclude: [
-              {
-                pattern: Schema.decodeUnknownSync(ReleaseAgeExcludePatternSchema)("@test/*"),
-                scope: "user",
-              },
-            ],
-          },
-        });
-        expect(result.kind).toBe("selected");
-      }),
-    );
-  });
-
   it.effect("returns not_found when an exact requested release is absent", () => {
     const provider = createRemoteRegistrySourceHostProvider(
       createMockClient({
@@ -523,107 +434,7 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
     );
   });
 
-  it.effect("selects the newest eligible version and discloses a newer held candidate", () => {
-    const provider = createRemoteRegistrySourceHostProvider(
-      createMockClient({
-        getExtensionIndex: () =>
-          Effect.succeed(
-            Option.some({
-              owner: handle("@test"),
-              type: "skill",
-              name: extensionName("my-skill"),
-              publisherBindingId: "hbnd_test",
-              deprecation: null,
-              versions: [
-                makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" }),
-                makeVersionEntry({ version: "2.0.0", published: "2025-01-02T12:00:00Z" }),
-              ],
-            }),
-          ),
-      }),
-    );
-
-    return runEffect(
-      Effect.gen(function* () {
-        const result = yield* provider.resolveNamed(testSource, options);
-        expect(result.kind).toBe("selected");
-        if (result.kind !== "selected") return;
-        if (result.ref.refType !== "registry") return;
-        expect(result.ref.version).toBe("1.0.0");
-        expect(result.newerHeld?.version).toBe("2.0.0");
-      }),
-    );
-  });
-
-  it.effect("preserves an accepted under-age version from the same publisher", () => {
-    const provider = createRemoteRegistrySourceHostProvider(
-      createMockClient({
-        getExtensionIndex: () =>
-          Effect.succeed(
-            Option.some({
-              owner: handle("@test"),
-              type: "skill",
-              name: extensionName("my-skill"),
-              publisherBindingId: "hbnd_test",
-              deprecation: null,
-              versions: [
-                makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" }),
-                makeVersionEntry({ version: "1.5.0", published: "2025-01-02T12:00:00Z" }),
-                makeVersionEntry({ version: "2.0.0", published: "2025-01-02T18:00:00Z" }),
-              ],
-            }),
-          ),
-      }),
-    );
-
-    return runEffect(
-      Effect.gen(function* () {
-        const result = yield* provider.resolveNamed(testSource, {
-          ...options,
-          accepted: { version: "1.5.0", publisherBindingId: "hbnd_test" },
-        });
-        expect(result.kind).toBe("selected");
-        if (result.kind !== "selected") return;
-        expect(result.ref.version).toBe("1.5.0");
-        expect(result.newerHeld?.version).toBe("2.0.0");
-      }),
-    );
-  });
-
-  it.effect("does not trust an accepted version from a different publisher", () => {
-    const provider = createRemoteRegistrySourceHostProvider(
-      createMockClient({
-        getExtensionIndex: () =>
-          Effect.succeed(
-            Option.some({
-              owner: handle("@test"),
-              type: "skill",
-              name: extensionName("my-skill"),
-              publisherBindingId: "hbnd_test",
-              deprecation: null,
-              versions: [
-                makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" }),
-                makeVersionEntry({ version: "1.5.0", published: "2025-01-02T12:00:00Z" }),
-              ],
-            }),
-          ),
-      }),
-    );
-
-    return runEffect(
-      Effect.gen(function* () {
-        const result = yield* provider.resolveNamed(testSource, {
-          ...options,
-          accepted: { version: "1.5.0", publisherBindingId: "hbnd_other" },
-        });
-        expect(result.kind).toBe("selected");
-        if (result.kind !== "selected") return;
-        expect(result.ref.version).toBe("1.0.0");
-      }),
-    );
-  });
-
-  it.effect("keeps members from the accepted Pack while a newer Pack is held", () => {
+  it.effect("maps the policy's selected version to a registry ref with its dependencies", () => {
     const provider = createRemoteRegistrySourceHostProvider(
       createMockClient({
         getExtensionIndex: () =>
@@ -635,13 +446,11 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
               publisherBindingId: "hbnd_test",
               deprecation: null,
               versions: [
-                makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z" }),
+                makeVersionEntry({ version: "1.0.0" }),
                 makeVersionEntry({
                   version: "1.5.0",
-                  published: "2025-01-02T12:00:00Z",
                   dependencies: { "@test/skills/reviewer": "^1.0.0" },
                 }),
-                makeVersionEntry({ version: "2.0.0", published: "2025-01-02T18:00:00Z" }),
               ],
             }),
           ),
@@ -654,7 +463,6 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
           ...options,
           type: "pack",
           name: "toolkit",
-          accepted: { version: "1.5.0", publisherBindingId: "hbnd_test" },
         });
         expect(result.kind).toBe("selected");
         if (result.kind !== "selected") return;
@@ -664,6 +472,85 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
           "@test/skills/reviewer": "^1.0.0",
         });
       }),
+    );
+  });
+
+  it.effect("passes the policy's held decision through with its evidence", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({ getExtensionIndex: () => Effect.succeed(Option.some(visibleIndex)) }),
+    );
+    const heldPolicy = Layer.succeed(RegistryResolutionPolicy, {
+      selectVersion: () => Effect.succeed(Option.none()),
+      decideNamedVersion: () => ({
+        kind: "policy_held",
+        requestedRange: "2.0.0",
+        candidate: heldEvidence,
+      }),
+      namedCandidates: () => [],
+    });
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, {
+          ...options,
+          versionRange: Option.some("2.0.0"),
+        });
+        expect(result).toEqual({
+          kind: "policy_held",
+          target: "@test/skills/my-skill",
+          requestedRange: "2.0.0",
+          candidate: heldEvidence,
+        });
+      }).pipe(Effect.provide(heldPolicy)),
+    );
+  });
+
+  it.effect("maps an exempted decision to the selected ref with its bypass evidence", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({ getExtensionIndex: () => Effect.succeed(Option.some(visibleIndex)) }),
+    );
+    const exemption = { bypassCause: "exclude" as const, exemptionScope: "project" as const };
+    const exemptedPolicy = Layer.succeed(RegistryResolutionPolicy, {
+      selectVersion: () => Effect.succeed(Option.none()),
+      decideNamedVersion: () => ({
+        kind: "exempted",
+        version: "2.0.0",
+        bypassed: heldEvidence,
+        exemption,
+      }),
+      namedCandidates: () => [],
+    });
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, options);
+        expect(result.kind).toBe("exempted");
+        if (result.kind !== "exempted") return;
+        expect(result.ref.version).toBe("2.0.0");
+        expect(result.bypassed).toEqual(heldEvidence);
+        expect(result.exemption).toEqual(exemption);
+      }).pipe(Effect.provide(exemptedPolicy)),
+    );
+  });
+
+  it.effect("discloses a newer held candidate on a selected decision", () => {
+    const provider = createRemoteRegistrySourceHostProvider(
+      createMockClient({ getExtensionIndex: () => Effect.succeed(Option.some(visibleIndex)) }),
+    );
+    const selectedPolicy = Layer.succeed(RegistryResolutionPolicy, {
+      selectVersion: () => Effect.succeed(Option.none()),
+      decideNamedVersion: () => ({ kind: "selected", version: "1.0.0", newerHeld: heldEvidence }),
+      namedCandidates: () => [],
+    });
+
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.resolveNamed(testSource, options);
+        expect(result.kind).toBe("selected");
+        if (result.kind !== "selected") return;
+        expect(result.ref.version).toBe("1.0.0");
+        expect(result.newerHeld).toEqual(heldEvidence);
+      }).pipe(Effect.provide(selectedPolicy)),
     );
   });
 });

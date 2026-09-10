@@ -1,4 +1,6 @@
 import * as Effect from "effect/Effect";
+import type * as Path from "effect/Path";
+import type * as FileSystem from "effect/FileSystem";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
@@ -8,6 +10,7 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 
 import { buildAtomicPackGraphStep, type AtomicPackGraphChild } from "../packs/graph-transition.js";
 import {
@@ -65,7 +68,11 @@ export const wrapTargetedUpdatePlan = (args: {
   readonly plan: Plan;
   readonly context: TargetedUpdateContext;
   readonly explicitRange?: string;
-}): Effect.Effect<Plan, AppError, WorkspaceMutations> =>
+}): Effect.Effect<
+  Plan,
+  AppError,
+  WorkspaceMutations | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const workspace = yield* WorkspaceMutations;
     const children: ReadonlyArray<AtomicPackGraphChild> = args.plan.jobs.flatMap((job) =>

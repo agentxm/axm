@@ -30,7 +30,7 @@ import {
   packageUrl,
 } from "../test-helpers.js";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
-import type { WorkspaceTransactionRunner } from "@agentxm/workspace-state";
+import type { WorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 import type {
   RegistrySkillRef,
   SkillExtensionRef,

@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-content",
+  "projectType": "library",
+  "root": "packages/core/extension-content",
+  "sourceRoot": "packages/core/extension-content/src",
+  "tags": ["type:lib", "role:capability", "scope:extension-content", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/extension-content/src/index.ts",
+        "outputPath": "packages/core/extension-content/dist",
+        "tsConfig": "packages/core/extension-content/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

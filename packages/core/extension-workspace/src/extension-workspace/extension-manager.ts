@@ -15,11 +15,8 @@ import type * as Option from "effect/Option";
 import type { ExtensionManagerFailure } from "./errors.js";
 import type { ProjectionPlan } from "../projection/planning.js";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import type {
-  ExtensionTarget,
-  ExtensionTargetFor,
-  WorkspaceTransactionRunner,
-} from "@agentxm/workspace-state";
+import type { ExtensionTarget, ExtensionTargetFor } from "@agentxm/workspace-state";
+import type { WorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 
 /**
  * Machine-local effects observed during the most recent materialization.

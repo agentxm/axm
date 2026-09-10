@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { handleLogin } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   DEVICE_USER_CODE,
   EXISTING_ACCESS_TOKEN,

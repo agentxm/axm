@@ -7,8 +7,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import { CanonicalPathRemovalError } from "./errors.js";
-import { protectWorkspacePath } from "./transaction.js";
-import { recordFootprint } from "./footprint-recorder.js";
+import { protectWorkspacePath, recordFootprint } from "@agentxm/workspace-transactions";
 
 /**
  * Remove a directory if it exists.

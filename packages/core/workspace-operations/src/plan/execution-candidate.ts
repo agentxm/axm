@@ -6,6 +6,7 @@ import * as Option from "effect/Option";
 
 import { CandidateFingerprintFailed } from "./errors.js";
 import type { Plan } from "./plan.js";
+import type { ConfiguredAgentOperation } from "./plan-execution.js";
 
 export interface ExecutionCandidate<Requirements = never, Output = never> {
   readonly id: string;
@@ -14,6 +15,11 @@ export interface ExecutionCandidate<Requirements = never, Output = never> {
   readonly materialFingerprint: string;
   /** Base the material fingerprint is relative to; freshness recomputes against it. */
   readonly baseDir: string;
+  /**
+   * Configured-agent operations whose outcomes the candidate projected into
+   * its steps and verifies after apply.
+   */
+  readonly configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation>;
 }
 
 const collectArtifactPaths = (plan: Plan<unknown, unknown>): ReadonlyArray<string> =>
@@ -123,6 +129,7 @@ export const makeExecutionCandidate = <Requirements, Output>(
     readonly lockPath: string;
     readonly baseDir: string;
   },
+  configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation> = [],
 ): Effect.Effect<
   ExecutionCandidate<Requirements, Output>,
   CandidateFingerprintFailed,
@@ -145,7 +152,14 @@ export const makeExecutionCandidate = <Requirements, Output>(
       .update("\0")
       .update(materialFingerprint)
       .digest("hex");
-    return { id, plan, materialPaths, materialFingerprint, baseDir: paths.baseDir };
+    return {
+      id,
+      plan,
+      materialPaths,
+      materialFingerprint,
+      baseDir: paths.baseDir,
+      configuredAgentOperations,
+    };
   });
 
 export const isExecutionCandidateFresh = (

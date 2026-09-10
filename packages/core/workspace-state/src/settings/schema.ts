@@ -16,7 +16,7 @@ import {
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions/fqn-pattern";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
-import { LintConfigSchema } from "@agentxm/registry-protocol/unstable/lint/config";
+import { LintConfigSchema } from "@agentxm/extension-content/lint";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 
 // -----------------------------------------------------------------------------

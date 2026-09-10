@@ -281,7 +281,6 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   );
   const steps = [...agentIds.map((agentId) => addAgentStep(ws, agentId)), ...materializeSteps];
   const atomicSteps = yield* makeAtomicMembershipSteps({
-    ws,
     steps,
     toStepFailure: configurationFailureToStepFailure,
     validate: () =>

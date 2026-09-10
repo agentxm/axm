@@ -25,11 +25,14 @@ import {
   type WorkspaceMutationsOptions,
   computePackManifestContentIdentity,
 } from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { previewOrApplyPlan, deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import {
+  PlanInvocationTest,
+  ResolvePlanInteractionTest,
+} from "@agentxm/workspace-operations/testing";
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
 import type { ExtensionFiles } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
@@ -49,7 +52,11 @@ import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
 import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
 import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { AxmSkillCandidateGateLive, WorkspaceCatalogLive } from "../../../cli-runtime/index.js";
+import {
+  AxmSkillCandidateGateLive,
+  RegistryResolutionPolicyLive,
+  WorkspaceCatalogLive,
+} from "../../../cli-runtime/index.js";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging";
 import {
@@ -180,7 +187,13 @@ describe("packs install handler", () => {
     );
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
-      Layer.mergeAll(BaseLayer, WsLayer, CatalogLayer, AxmSkillCandidateGateLive),
+      Layer.mergeAll(
+        BaseLayer,
+        WsLayer,
+        CatalogLayer,
+        AxmSkillCandidateGateLive,
+        RegistryResolutionPolicyLive,
+      ),
     );
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,
@@ -198,6 +211,7 @@ describe("packs install handler", () => {
       SPLayer,
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
+      PlanInvocationTest,
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const FullLayer = Layer.merge(CoreLayer, MgrLayer);
@@ -261,6 +275,7 @@ describe("packs install handler", () => {
       SPLayer,
       CodingAgentRepositoryLive,
       LifecycleFailureAdapterLive,
+      PlanInvocationTest,
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const FullLayer = Layer.merge(CoreLayer, MgrLayer);

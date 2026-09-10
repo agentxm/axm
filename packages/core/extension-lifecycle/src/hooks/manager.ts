@@ -77,13 +77,14 @@ import type { ExtensionManager, MaterializationObservation } from "@agentxm/exte
 import { HOOK_FALLBACKS_REGION_OWNER, HookManager } from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { bindWorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import {
   HOOK_EXTENSION_DIR,
   HOOK_MANIFEST_FILENAME,
@@ -420,6 +421,7 @@ export const HookManagerLive = Layer.effect(
   HookManager,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const runTransaction = yield* bindWorkspaceTransactionRunner;
     const fs = yield* FileSystem.FileSystem;
     const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
@@ -1113,7 +1115,7 @@ export const HookManagerLive = Layer.effect(
 
     return {
       type: "hook",
-      runTransaction: ws.runTransaction,
+      runTransaction,
       projectionPlans,
       configuredAgentOutcomes,
       configuredAgentOutcomesForRef,

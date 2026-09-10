@@ -6,6 +6,7 @@ import { makeAppError } from "../../../app-error/index.js";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import type { DisableSubagentOperation } from "@agentxm/extension-lifecycle";
@@ -80,7 +81,7 @@ const handleDisableSubagentBody = Effect.fn("DisableSubagent.handle")(function* 
     args: { subagentName },
   } satisfies DisableSubagentOperation;
 
-  const step: PlannedJobStep = {
+  const step: PlannedJobStep<WorkspaceTransactionScope> = {
     readiness: "ready",
     label: subagentName,
     run: disableSubagent(op).pipe(
@@ -92,7 +93,7 @@ const handleDisableSubagentBody = Effect.fn("DisableSubagent.handle")(function* 
     ),
   };
 
-  const plan: Plan = {
+  const plan: Plan<WorkspaceTransactionScope> = {
     _tag: "Plan",
     name: "Disable subagent",
     description: Option.some(`Disable ${subagentName}`),

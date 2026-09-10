@@ -19,13 +19,13 @@
  * @packageDocumentation
  */
 
-import { hookRules } from "@agentxm/registry-protocol/unstable/lint/catalog/hook";
-import { knowledgeRules } from "@agentxm/registry-protocol/unstable/lint/catalog/knowledge";
-import { mcpServerRules } from "@agentxm/registry-protocol/unstable/lint/catalog/mcp-server";
-import { packRules } from "@agentxm/registry-protocol/unstable/lint/catalog/pack";
-import { ruleRules } from "@agentxm/registry-protocol/unstable/lint/catalog/rule";
-import { skillRules } from "@agentxm/registry-protocol/unstable/lint/catalog/skill";
-import { subagentRules } from "@agentxm/registry-protocol/unstable/lint/catalog/subagent";
+import { hookRules } from "@agentxm/extension-content/lint";
+import { knowledgeRules } from "@agentxm/extension-content/lint";
+import { mcpServerRules } from "@agentxm/extension-content/lint";
+import { packRules } from "@agentxm/extension-content/lint";
+import { ruleRules } from "@agentxm/extension-content/lint";
+import { skillRules } from "@agentxm/extension-content/lint";
+import { subagentRules } from "@agentxm/extension-content/lint";
 import {
   liveOnlyWorkspaceRules,
   repositoryWorkspaceRules,
@@ -40,9 +40,9 @@ import type {
   RuleRuleContext,
   SkillRuleContext,
   SubagentRuleContext,
-} from "@agentxm/registry-protocol/unstable/lint/context";
+} from "@agentxm/extension-content/lint";
 import type { WorkspaceRuleContext } from "./workspace-context.js";
-import type { LintRule } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { LintRule } from "@agentxm/extension-content/lint";
 
 /**
  * The contexts a full lint run evaluates, one array per catalog.

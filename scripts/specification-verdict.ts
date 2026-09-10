@@ -4,9 +4,11 @@
  * Usage:
  *   bun specification-verdict.ts [--base <revision>]
  *
- * Compares specification metadata and content between the base revision
- * (default: merge-base with origin/main, falling back to main) and the
- * working tree, then joins input-bound native runner receipts.
+ * Discovers specifications on both sides through project ownership — the
+ * base revision's tracked tree and the working tree's project graph — keys
+ * them by requirement identity, compares metadata, decisive examples, and
+ * normalized bodies, then joins input-bound native runner receipts. An
+ * optional `specifications/disposition-ledger.json` explains removals.
  */
 
 import { execFileSync } from "node:child_process";
@@ -14,20 +16,28 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { collectCatalog, parseSpecificationFile } from "./specification-catalog-lib.js";
+import { collectCatalog, formatIssue } from "./specification-catalog-lib.js";
 import {
   computeVerdict,
+  parseDispositionLedger,
   renderVerdictMarkdown,
-  type VerdictSource,
 } from "./specification-verdict-lib.js";
 import {
   captureEvidenceInputs,
   digestContent,
   readEvidenceRuns,
 } from "./specification-evidence.js";
+import {
+  discoverExecutionBindings,
+  discoverSpecifications,
+  gitRefWorkspace,
+  readWorkspace,
+  runtimeOutputs,
+} from "./workspace-discovery.js";
 
 const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");
+const DISPOSITION_LEDGER = "specifications/disposition-ledger.json";
 
 const git = (...args: string[]): string =>
   execFileSync("git", args, { cwd: repoRoot, encoding: "utf8" }).trim();
@@ -50,42 +60,46 @@ const resolveBaseRevision = (): string => {
 
 const baseRevision = git("rev-parse", "--verify", `${resolveBaseRevision()}^{commit}`);
 
-const baseSources: VerdictSource[] = [];
-const baseFiles = git("ls-tree", "-r", "--name-only", baseRevision, "--", "specifications/")
-  .split("\n")
-  .filter((file) => file.endsWith(".spec.ts"));
-for (const file of baseFiles) {
-  const content = execFileSync("git", ["show", `${baseRevision}:${file}`], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
-  const parsed = parseSpecificationFile(content, file);
-  if (parsed.specification !== undefined) {
-    baseSources.push({
-      specification: parsed.specification,
-      contentDigest: digestContent(content),
-    });
-  }
-}
+// The base is accepted history; its discovery issues are not this change's to fix.
+const baseSources = discoverSpecifications(gitRefWorkspace(baseRevision, repoRoot)).specifications;
 
-const headCatalog = collectCatalog({ repoRoot });
-if (headCatalog.issues.length > 0) {
+const workspace = await readWorkspace();
+const discovered = discoverSpecifications(workspace);
+const bindings = discoverExecutionBindings(workspace);
+const headCatalog = collectCatalog({
+  repoRoot,
+  specifications: discovered.specifications.map((entry) => entry.specification),
+  executionBindings: bindings.bindings,
+  issues: [...discovered.issues, ...bindings.issues],
+});
+if (headCatalog.issues.some((issue) => issue.severity === "error")) {
   throw new Error(
-    `Cannot render a verdict for an invalid specification catalog:\n${headCatalog.issues.map((issue) => issue.message).join("\n")}`,
+    `Cannot render a verdict for an invalid specification catalog:\n${headCatalog.issues
+      .filter((issue) => issue.severity === "error")
+      .map(formatIssue)
+      .join("\n")}`,
   );
 }
-const headSources: VerdictSource[] = headCatalog.specifications.map((specification) => ({
-  specification,
-  contentDigest: digestContent(fs.readFileSync(path.join(repoRoot, specification.source), "utf8")),
-}));
+const headSources = discovered.specifications;
 
 const evidence = readEvidenceRuns(repoRoot);
+const evidenceIssues = [...evidence.issues];
+const ledgerPath = path.join(repoRoot, DISPOSITION_LEDGER);
+const ledger = fs.existsSync(ledgerPath)
+  ? parseDispositionLedger(fs.readFileSync(ledgerPath, "utf8"))
+  : { ledger: [], issues: [] };
+evidenceIssues.push(...ledger.issues.map((issue) => `${DISPOSITION_LEDGER}: ${issue}`));
+
 const changedFiles = [
   ...new Set([
     ...git("diff", "--name-only", "-z", baseRevision, "--").split("\0"),
     ...git("ls-files", "--others", "--exclude-standard", "-z").split("\0"),
   ]),
 ].filter(Boolean);
+const specificationSources = new Set([
+  ...baseSources.map((entry) => entry.specification.source),
+  ...headSources.map((entry) => entry.specification.source),
+]);
 const sourceDigests = new Map([
   ...headSources.map((entry) => [entry.specification.source, entry.contentDigest] as const),
   ...headCatalog.executionBindings.map(
@@ -93,15 +107,15 @@ const sourceDigests = new Map([
       [entry.source, digestContent(fs.readFileSync(path.join(repoRoot, entry.source)))] as const,
   ),
 ]);
+const outputs = runtimeOutputs(workspace);
 const verdict = computeVerdict(baseSources, headSources, {
-  inputs: captureEvidenceInputs(repoRoot),
-  sourceInputs: captureEvidenceInputs(repoRoot, "source"),
+  inputs: captureEvidenceInputs(repoRoot, { runtimeMode: "built", runtimeOutputs: outputs }),
+  sourceInputs: captureEvidenceInputs(repoRoot, { runtimeMode: "source", runtimeOutputs: outputs }),
   runs: evidence.runs,
   executionBindings: headCatalog.executionBindings,
   sourceDigests,
-  implementationChanges: changedFiles.filter(
-    (file) => !file.startsWith("specifications/") || !file.endsWith(".spec.ts"),
-  ),
-  issues: evidence.issues,
+  implementationChanges: changedFiles.filter((file) => !specificationSources.has(file)),
+  issues: evidenceIssues,
+  dispositions: ledger.ledger,
 });
 console.log(renderVerdictMarkdown(verdict));

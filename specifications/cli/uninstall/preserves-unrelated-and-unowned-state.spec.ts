@@ -7,7 +7,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import { handleInstall, handleUninstall } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { localLifecycleRows } from "../../support/local-lifecycle-fixtures.js";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 

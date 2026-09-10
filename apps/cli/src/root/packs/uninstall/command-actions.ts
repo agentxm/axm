@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -25,6 +26,7 @@ import {
   type PackExtensionTarget,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
+import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { buildUninstallOperation, toLabel } from "@agentxm/extension-workspace";
 import {
   type DesiredPackageAuthority,
@@ -199,6 +201,8 @@ const uninstallPresentation = operationPresentation(
 
 export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
+  const transactionScope = yield* WorkspaceTransactionScope;
+  const fs = yield* FileSystem.FileSystem;
   const packMgr = yield* PackManager;
   const skillMgr = yield* SkillManager;
   const hookManager = yield* HookManager;
@@ -542,7 +546,12 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
           });
         }),
         validate: validatePackGraphPostcondition({ absent: orderedTargets }),
-      }).pipe(Effect.provideService(WorkspaceMutations, ws));
+      }).pipe(
+        Effect.provideService(WorkspaceMutations, ws),
+        Effect.provideService(WorkspaceTransactionScope, transactionScope),
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      );
 
       return {
         _tag: "Plan",

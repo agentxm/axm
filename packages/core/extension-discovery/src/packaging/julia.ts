@@ -14,9 +14,9 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { parseTomlValue } from "@agentxm/extension-workspace";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
+import { parseTomlDocument, tomlStringEntries, tomlTable, type TomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const juliaType = Schema.decodeUnknownSync(PackageTypeSchema)("julia");
@@ -25,37 +25,13 @@ const juliaType = Schema.decodeUnknownSync(PackageTypeSchema)("julia");
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Parse a simple TOML [deps] section from Project.toml content.
- * Julia's Project.toml uses TOML format with [deps] section containing:
- *   PackageName = "uuid-string"
+ * Extract the `[deps]` table from a parsed Project.toml document. Julia's
+ * Project.toml lists `PackageName = "uuid-string"` under `[deps]`.
  */
-const parseDepsSection = (content: string, source: string): ReadonlyArray<DetectedPackage> => {
+const parseDepsSection = (document: TomlTable, source: string): ReadonlyArray<DetectedPackage> => {
   const results: Array<DetectedPackage> = [];
-  const lines = content.split("\n");
-  let inDepsSection = false;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Section headers
-    if (trimmed.startsWith("[")) {
-      inDepsSection = trimmed === "[deps]";
-      continue;
-    }
-
-    if (!inDepsSection) continue;
-
-    // Skip empty lines and comments
-    if (trimmed === "" || trimmed.startsWith("#")) continue;
-
-    // Parse key = "value" entries
-    const match = /^(\S+)\s*=\s*"([^"]*)"/.exec(trimmed);
-    if (match === null) continue;
-
-    const name = match[1];
-    const value = match[2];
-    if (name === undefined || value === undefined) continue;
-
+  for (const { key: name, value } of tomlStringEntries(tomlTable(document, "deps"))) {
     // Validate it looks like a UUID
     if (!UUID_PATTERN.test(value)) continue;
 
@@ -87,15 +63,13 @@ export const juliaDetector: PackageDetector = {
       const content = yield* readFileOptional(projectTomlPath);
       if (Option.isNone(content)) return [];
 
-      const deps = parseDepsSection(content.value, projectTomlPath);
-      if (deps.length === 0 && content.value.trim().length > 0) {
-        // Content exists but no deps found - check if it looks like valid TOML
-        if (!content.value.includes("=") && !content.value.includes("[")) {
-          yield* Effect.logWarning("Malformed Project.toml, skipping");
-        }
+      const document = parseTomlDocument(content.value);
+      if (document === undefined) {
+        yield* Effect.logWarning("Malformed Project.toml, skipping");
+        return [];
       }
 
-      return deps;
+      return parseDepsSection(document, projectTomlPath);
     },
     Effect.annotateLogs({ detector: "julia" }),
     Effect.withSpan("detect.julia"),
@@ -103,45 +77,11 @@ export const juliaDetector: PackageDetector = {
 };
 
 /**
- * Parse a simple TOML [axm] section from Project.toml content.
- * Returns the parsed fields as a record, or undefined if no [axm] section found.
+ * Read the `[axm]` table from Project.toml content, or `undefined` when the
+ * file does not parse or the table is absent.
  */
-const parseAxmSection = (content: string): Record<string, unknown> | undefined => {
-  const lines = content.split("\n");
-  let inAxmSection = false;
-  const fields: Record<string, unknown> = {};
-  let foundSection = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Section headers
-    if (trimmed.startsWith("[")) {
-      if (inAxmSection) break; // End of [axm] section
-      inAxmSection = trimmed === "[axm]";
-      if (inAxmSection) foundSection = true;
-      continue;
-    }
-
-    if (!inAxmSection) continue;
-
-    // Skip empty lines and comments
-    if (trimmed === "" || trimmed.startsWith("#")) continue;
-
-    // Parse key = value entries
-    const match = /^(\S+)\s*=\s*(.+)$/.exec(trimmed);
-    if (match === null) continue;
-
-    const key = match[1];
-    const rawValue = match[2]?.trim();
-    if (key === undefined || rawValue === undefined) continue;
-
-    // Parse TOML values
-    fields[key] = parseTomlValue(rawValue);
-  }
-
-  return foundSection ? fields : undefined;
-};
+const parseAxmSection = (content: string): TomlTable | undefined =>
+  tomlTable(parseTomlDocument(content), "axm");
 
 /**
  * Julia package reader.

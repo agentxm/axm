@@ -55,6 +55,7 @@ import {
   type DesiredStateGraph,
   usableAcceptedCanonical,
 } from "@agentxm/workspace-state";
+import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
@@ -99,10 +100,7 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import {
-  parseMinimumReleaseAge,
-  normalizeReleaseAgeRecords,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { parseMinimumReleaseAge, normalizeReleaseAgeRecords } from "@agentxm/extension-resolution";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
@@ -400,6 +398,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
   const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const ws = yield* WorkspaceMutations;
+  const transactionScope = yield* WorkspaceTransactionScope;
   const screen = yield* Screen;
   const fsSvc = yield* FileSystem.FileSystem;
   const agentRepo = yield* CodingAgentRepository;
@@ -425,6 +424,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
     Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(WorkspaceMutations, ws),
+    Layer.succeed(WorkspaceTransactionScope, transactionScope),
     Layer.succeed(Screen, screen),
     Layer.succeed(FileSystem.FileSystem, fsSvc),
     Layer.succeed(Path.Path, pathSvc),
@@ -1316,7 +1316,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
           ),
           absent: droppedTargets.map(({ target }) => target),
         }),
-      }).pipe(Effect.provideService(WorkspaceMutations, ws));
+      }).pipe(provide);
 
       yield* screen.note(headlineDoc("info", "Pack activation:"));
       yield* screen.note(

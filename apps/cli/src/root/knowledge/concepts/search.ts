@@ -15,7 +15,7 @@ import {
   type KnowledgeQueryClause,
   makeKnowledgeQuery,
 } from "@agentxm/knowledge-query";
-import { parseKnowledgeSearchQuery } from "@agentxm/registry-protocol/unstable/knowledge";
+import { parseKnowledgeSearchQuery } from "@agentxm/extension-content/knowledge";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";

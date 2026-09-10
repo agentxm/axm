@@ -23,11 +23,8 @@ import {
 } from "../../app-error/conversions.js";
 import type { JobStepArtifact, Plan } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
-import {
-  protectCreatedAncestors,
-  WorkspaceMutations,
-  resolveWorkspaceExtensionRef,
-} from "@agentxm/workspace-state";
+import { WorkspaceMutations, resolveWorkspaceExtensionRef } from "@agentxm/workspace-state";
+import { protectCreatedAncestors } from "@agentxm/workspace-transactions";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { provideLifecycleFailureAdapter } from "../../feature-errors.js";

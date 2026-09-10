@@ -26,7 +26,7 @@ import {
   type VisibilityIntent,
 } from "@agentxm/registry-protocol/unstable/publish";
 import { createRegistryClient, type ExtensionVisibility } from "@agentxm/registry-client";
-import { manifestFilenameForType } from "@agentxm/registry-protocol/unstable/publish";
+import { manifestFilenameForType } from "@agentxm/extension-content";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { runWithStepUp } from "../step-up.js";

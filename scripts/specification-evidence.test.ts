@@ -4,7 +4,19 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { withoutLocalGitEnvironment } from "@agentxm/client-e2e-utils";
-import { captureEvidenceInputs, digestFiles, readEvidenceRuns } from "./specification-evidence.js";
+import {
+  captureEvidenceInputs as captureInputs,
+  digestFiles,
+  readEvidenceRuns,
+  type EvidenceInputOptions,
+} from "./specification-evidence.js";
+import { fixtureRun } from "./specification-verdict-fixtures.js";
+
+const captureEvidenceInputs = (
+  root: string,
+  options: Partial<EvidenceInputOptions> = {},
+): ReturnType<typeof captureInputs> =>
+  captureInputs(root, { runtimeOutputs: ["apps/cli/dist"], ...options });
 
 const roots: string[] = [];
 const repository = (): string => {
@@ -62,8 +74,8 @@ describe("repository execution inputs", () => {
   });
 
   it.each([
-    "specifications/cli/install.spec.ts",
-    "specifications/support/install-harness.ts",
+    "packages/core/extension-lifecycle/src/install/install.spec.ts",
+    "tools/test-support/src/install-harness.ts",
     "apps/cli-e2e/src/cli-commands/auth/token/token.e2e.ts",
     "apps/cli/src/install.ts",
     "pnpm-lock.yaml",
@@ -77,16 +89,23 @@ describe("repository execution inputs", () => {
     expect(after.sourceDigest).not.toBe(before.sourceDigest);
   });
 
-  it("tracks built package content separately from source and ignores generated receipts", () => {
+  it("tracks the named runtime outputs separately from source and ignores generated receipts", () => {
     const root = repository();
     write(root, "apps/cli/package.json", "{}");
     write(root, "apps/cli/dist/index.js", "before");
+    write(root, "packages/core/model/dist/index.js", "unnamed output");
     const before = captureEvidenceInputs(root);
     write(root, "apps/cli/dist/index.js", "after");
     const after = captureEvidenceInputs(root);
     expect(after.sourceDigest).toBe(before.sourceDigest);
     expect(after.runtimeDigest).not.toBe(before.runtimeDigest);
-    write(root, "test-results/specifications/evidence.json", "generated");
+    write(root, "packages/core/model/dist/index.js", "changed but not a resolved output");
+    expect(captureEvidenceInputs(root)).toEqual(after);
+    expect(
+      captureEvidenceInputs(root, { runtimeOutputs: ["apps/cli/dist", "packages/core/model/dist"] })
+        .runtimeDigest,
+    ).not.toBe(after.runtimeDigest);
+    write(root, "test-results/extension-lifecycle/evidence.json", "generated");
     expect(captureEvidenceInputs(root)).toEqual(after);
   });
 
@@ -94,12 +113,12 @@ describe("repository execution inputs", () => {
     const root = repository();
     write(root, "apps/cli/package.json", "{}");
     write(root, "apps/cli/src/index.ts", "before");
-    const before = captureEvidenceInputs(root, "source");
+    const before = captureEvidenceInputs(root, { runtimeMode: "source" });
     expect(before.runtimeMode).toBe("source");
     write(root, "apps/cli/dist/index.js", "generated");
-    expect(captureEvidenceInputs(root, "source")).toEqual(before);
+    expect(captureEvidenceInputs(root, { runtimeMode: "source" })).toEqual(before);
     write(root, "apps/cli/src/index.ts", "after");
-    const after = captureEvidenceInputs(root, "source");
+    const after = captureEvidenceInputs(root, { runtimeMode: "source" });
     expect(after.runtimeDigest).not.toBe(before.runtimeDigest);
   });
 
@@ -119,12 +138,21 @@ describe("repository execution inputs", () => {
     expect(digestFiles(root, ["input"])).not.toBe(linked);
   });
 
-  it("reports malformed evidence as an issue instead of silently adopting it", () => {
+  it("reports malformed or superseded-format evidence as an issue instead of silently adopting it", () => {
     const root = repository();
-    write(root, "test-results/specifications/evidence.json", '{"passed":true}');
+    write(root, "test-results/extension-lifecycle/evidence.json", '{"passed":true}');
+    write(
+      root,
+      "test-results/cli/evidence.json",
+      JSON.stringify({ ...fixtureRun(), format: 1, files: [{ source: "x.spec.ts" }] }),
+    );
+    write(root, "test-results/workspace-state/evidence.json", JSON.stringify(fixtureRun()));
     expect(readEvidenceRuns(root)).toEqual({
-      runs: [],
-      issues: ["Invalid execution evidence: test-results/specifications/evidence.json"],
+      runs: [fixtureRun()],
+      issues: [
+        "Invalid execution evidence: test-results/cli/evidence.json",
+        "Invalid execution evidence: test-results/extension-lifecycle/evidence.json",
+      ],
     });
   });
 });

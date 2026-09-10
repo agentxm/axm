@@ -14,5 +14,9 @@
     "src/**/*.type-test.ts",
     "src/**/test-helpers.ts"
   ],
-  "references": []
+  "references": [
+    {
+      "path": "../../../tools/specification-metadata/tsconfig.lib.json"
+    }
+  ]
 }

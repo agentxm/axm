@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -15,11 +14,30 @@ import {
   formatTestTaxonomyViolation,
   formatViolation,
 } from "./verify-source-hygiene-lib.js";
+import { readWorkspace, workspaceFromProjectFiles } from "./workspace-discovery.js";
 
 const tempRoots: string[] = [];
 
 const project = (name: string, ...tags: ReadonlyArray<string>): string =>
   JSON.stringify({ name, tags });
+
+const rootProject = JSON.stringify({ name: "axm", tags: ["role:tooling"], sourceRoot: "scripts" });
+
+const specification = (requirement: string): string => `
+export const specification = defineSpecification({
+  requirement: "${requirement}",
+  title: "Title",
+  statement: "AXM shall do the thing.",
+  class: "functional",
+  role: "experience",
+  goals: ["extension-adoption"],
+  methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
+});
+`;
 
 const createRepoFixture = (files: Readonly<Record<string, Buffer | string>>): string => {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axm-source-hygiene-"));
@@ -40,7 +58,7 @@ afterEach(() => {
 
 describe("findControlBytes", () => {
   it("allows tab, LF, CR, and ESC", () => {
-    const contents = Buffer.from("a\tb\r\n\u001b[1mc\u001b[0m\n", "utf8");
+    const contents = Buffer.from("a\tb\r\n[1mc[0m\n", "utf8");
     expect(findControlBytes("a.ts", contents)).toEqual([]);
   });
 
@@ -59,8 +77,11 @@ describe("findControlBytes", () => {
 });
 
 describe("findSourceHygieneViolations", () => {
-  it("scans only TypeScript sources under every discovered project's src", () => {
+  it("scans only TypeScript sources under every discovered project's source root", () => {
     const repoRoot = createRepoFixture({
+      "project.json": rootProject,
+      "scripts/dirty.ts": Buffer.from([0x00]),
+      "benchmarks/ignored.ts": Buffer.from([0x00]),
       "packages/core/workspace-state/project.json": project("workspace-state", "role:capability"),
       "packages/core/workspace-state/src/clean.ts": "export const ok = 1;\n",
       "packages/core/workspace-state/src/nested/dirty.ts": Buffer.concat([
@@ -74,25 +95,19 @@ describe("findSourceHygieneViolations", () => {
       "tools/test-support/src/dirty.ts": Buffer.from([0x00]),
       "apps/cli/project.json": project("cli", "role:application"),
       "apps/cli/src/dirty.ts": Buffer.from([0x00]),
-      "packages/core/orphan/src/not-a-project.ts": Buffer.from([0x00]),
     });
 
-    const violations = findSourceHygieneViolations(repoRoot);
+    const violations = findSourceHygieneViolations(workspaceFromProjectFiles(repoRoot));
     expect(violations).toEqual([
-      { filePath: path.join("apps", "cli", "src", "dirty.ts"), line: 1, byte: 0 },
-      {
-        filePath: path.join("packages", "core", "workspace-state", "src", "nested", "dirty.ts"),
-        line: 1,
-        byte: 0,
-      },
-      { filePath: path.join("tools", "test-support", "src", "dirty.ts"), line: 1, byte: 0 },
+      { filePath: "apps/cli/src/dirty.ts", line: 1, byte: 0 },
+      { filePath: "packages/core/workspace-state/src/nested/dirty.ts", line: 1, byte: 0 },
+      { filePath: "scripts/dirty.ts", line: 1, byte: 0 },
+      { filePath: "tools/test-support/src/dirty.ts", line: 1, byte: 0 },
     ]);
   });
 
-  it("finds no violations in this repository's package sources", () => {
-    const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
-    const repoRoot = path.resolve(scriptsRoot, "..");
-    expect(findSourceHygieneViolations(repoRoot).map(formatViolation)).toEqual([]);
+  it("finds no violations in this repository's sources", async () => {
+    expect(findSourceHygieneViolations(await readWorkspace()).map(formatViolation)).toEqual([]);
   });
 });
 
@@ -109,9 +124,11 @@ describe("findAxmEnvironmentContractViolations", () => {
     });
 
     expect(
-      findAxmEnvironmentContractViolations(repoRoot).map(formatAxmEnvironmentContractViolation),
+      findAxmEnvironmentContractViolations(workspaceFromProjectFiles(repoRoot)).map(
+        formatAxmEnvironmentContractViolation,
+      ),
     ).toEqual([
-      `${path.join("apps", "cli", "src", "runtime.ts")}:1 AXM_NEW_CONTROL: production AXM environment literal lacks a classified reference row`,
+      "apps/cli/src/runtime.ts:1 AXM_NEW_CONTROL: production AXM environment literal lacks a classified reference row",
     ]);
   });
 
@@ -133,10 +150,10 @@ describe("findAxmEnvironmentContractViolations", () => {
       ].join("\n"),
     });
 
-    expect(findAxmEnvironmentContractViolations(repoRoot)).toEqual([
+    expect(findAxmEnvironmentContractViolations(workspaceFromProjectFiles(repoRoot))).toEqual([
       {
         variable: "AXM_STALE",
-        filePath: path.join("apps", "cli", "help", "topics", "environment.md"),
+        filePath: "apps/cli/help/topics/environment.md",
         line: 5,
         reason: "classified reference row has no production CLI/core string literal",
       },
@@ -155,14 +172,14 @@ describe("findAxmEnvironmentContractViolations", () => {
       ].join("\n"),
     });
 
-    expect(findAxmEnvironmentContractViolations(repoRoot)).toEqual([]);
+    expect(findAxmEnvironmentContractViolations(workspaceFromProjectFiles(repoRoot))).toEqual([]);
   });
 
-  it("finds no environment contract violations in this repository", () => {
-    const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
-    const repoRoot = path.resolve(scriptsRoot, "..");
+  it("finds no environment contract violations in this repository", async () => {
     expect(
-      findAxmEnvironmentContractViolations(repoRoot).map(formatAxmEnvironmentContractViolation),
+      findAxmEnvironmentContractViolations(await readWorkspace()).map(
+        formatAxmEnvironmentContractViolation,
+      ),
     ).toEqual([]);
   });
 });
@@ -180,37 +197,57 @@ describe("countUnboundedConcurrencySites", () => {
         'const options = { concurrency: "unbounded" };\n',
     });
 
-    expect(countUnboundedConcurrencySites(repoRoot)).toBe(2);
+    expect(countUnboundedConcurrencySites(workspaceFromProjectFiles(repoRoot))).toBe(2);
   });
 });
 
 describe("findTestTaxonomyViolations", () => {
-  it("flags e2e tests outside e2e projects and misplaced benchmarks", () => {
+  it("enforces the specification and test file rules discovery relies on", () => {
     const repoRoot = createRepoFixture({
-      "project.json": JSON.stringify({ name: "axm", tags: ["type:tooling"] }),
-      "packages/demo/project.json": JSON.stringify({ name: "demo", tags: ["type:lib"] }),
-      "packages/demo/src/a.spec.ts": "",
-      "packages/demo/src/b.test.ts": "",
-      "packages/demo/src/c.bench.ts": "",
-      "packages/demo/src/d.windows.test.ts": "",
-      "packages/demo/src/e.e2e.test.ts": "",
-      "packages/demo-e2e/project.json": JSON.stringify({ name: "demo-e2e", tags: ["type:e2e"] }),
-      "packages/demo-e2e/src/f.e2e.test.ts": "",
-      "packages/demo-e2e/src/g.windows.e2e.test.ts": "",
+      "project.json": rootProject,
       "scripts/h.test.ts": "",
       "scripts/i.e2e.test.ts": "",
+      "scripts/j.test.ts": specification("scripts/j"),
+      "benchmarks/allowed.bench.ts": "",
+      "packages/core/demo/project.json": project("demo", "role:capability"),
+      "packages/core/demo/src/a.spec.ts": specification("demo/a"),
+      "packages/core/demo/src/again.spec.ts": specification("demo/a"),
+      "packages/core/demo/src/b.test.ts": "",
+      "packages/core/demo/src/c.bench.ts": "",
+      "packages/core/demo/src/d.windows.test.ts": "",
+      "packages/core/demo/src/e.e2e.test.ts": "",
+      "packages/core/demo/src/f.spec.ts": "export const other = 1;",
+      "packages/core/demo/src/__generated__/g.test.ts": "",
+      "packages/core/demo/src/__generated__/h.spec.ts": specification("demo/h"),
+      "apps/demo-e2e/project.json": project("demo-e2e", "role:e2e"),
+      "apps/demo-e2e/src/f.e2e.test.ts": "",
+      "apps/demo-e2e/src/g.windows.e2e.test.ts": "",
     });
+    fs.symlinkSync("a.spec.ts", path.join(repoRoot, "packages/core/demo/src/linked.spec.ts"));
+    fs.symlinkSync("src", path.join(repoRoot, "packages/core/demo/hidden"));
+    fs.symlinkSync("README.md", path.join(repoRoot, "packages/core/demo/notes.md"));
 
-    expect(findTestTaxonomyViolations(repoRoot).map(formatTestTaxonomyViolation)).toEqual([
-      "packages/demo/src/c.bench.ts: diagnostic benchmarks live under benchmarks/",
-      "packages/demo/src/e.e2e.test.ts: *.e2e.test.ts lives only inside projects tagged type:e2e",
-      "scripts/i.e2e.test.ts: *.e2e.test.ts lives only inside projects tagged type:e2e",
+    expect(
+      findTestTaxonomyViolations(workspaceFromProjectFiles(repoRoot)).map(
+        formatTestTaxonomyViolation,
+      ),
+    ).toEqual([
+      "packages/core/demo/hidden: symbolic links may not hide test or specification files",
+      "packages/core/demo/src/__generated__/g.test.ts: test and specification files never live inside __generated__/",
+      "packages/core/demo/src/__generated__/h.spec.ts: test and specification files never live inside __generated__/",
+      "packages/core/demo/src/again.spec.ts: requirement identity `demo/a` is already declared by packages/core/demo/src/a.spec.ts; exactly one canonical specification file per identity",
+      "packages/core/demo/src/c.bench.ts: diagnostic benchmarks live under benchmarks/",
+      "packages/core/demo/src/e.e2e.test.ts: *.e2e.test.ts lives only inside projects tagged role:e2e",
+      "packages/core/demo/src/f.spec.ts: *.spec.ts must export a valid `specification`: specification file must export a `specification` constant",
+      "packages/core/demo/src/linked.spec.ts: symbolic links may not hide test or specification files",
+      "scripts/i.e2e.test.ts: *.e2e.test.ts lives only inside projects tagged role:e2e",
+      "scripts/j.test.ts: *.test.ts must not export `specification`; name it *.spec.ts or drop the export",
     ]);
   });
 
-  it("finds no taxonomy violations in this repository", () => {
-    const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
-    const repoRoot = path.resolve(scriptsRoot, "..");
-    expect(findTestTaxonomyViolations(repoRoot).map(formatTestTaxonomyViolation)).toEqual([]);
+  it("finds no taxonomy violations in this repository", async () => {
+    expect(
+      findTestTaxonomyViolations(await readWorkspace()).map(formatTestTaxonomyViolation),
+    ).toEqual([]);
   });
 });

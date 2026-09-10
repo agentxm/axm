@@ -12,11 +12,17 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { ConfirmationRecovery } from "@agentxm/workspace-operations";
-import { promptablePlanExecution } from "@agentxm/workspace-operations/testing";
 import type { Plan } from "@agentxm/workspace-operations";
-import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import {
+  PlanInvocationTest,
+  ResolvePlanInteractionTest,
+  promptablePlanExecution,
+} from "@agentxm/workspace-operations/testing";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import {
+  makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
+} from "@agentxm/workspace-state/testing";
 import {
   type UninstallExtensionCommandWorkflowActions,
   runUninstallCommandWorkflow,
@@ -50,13 +56,17 @@ const testRecovery: ConfirmationRecovery = {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeMockWorkspace = () => makeBaseWorkspaceMock("/tmp/test/.axm");
+const testAxmDir = "/tmp/test/.axm";
+
+const makeMockWorkspace = () => makeBaseWorkspaceMock(testAxmDir);
 
 const makeTestLayer = () => {
   const interaction = ResolvePlanInteractionTest();
   return Layer.mergeAll(
     NodeServices.layer,
     WorkspaceMutations.layer(makeMockWorkspace()),
+    MockWorkspaceTransactionScope(testAxmDir),
+    PlanInvocationTest,
     interaction.layer,
   );
 };

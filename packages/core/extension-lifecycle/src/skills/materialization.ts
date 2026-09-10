@@ -26,7 +26,7 @@ import type { WorkspaceLayout } from "@agentxm/workspace-state";
 import { stripFileProtocol } from "../internal/fs-helpers.js";
 import { isPathSafe } from "@agentxm/workspace-state";
 import { createSymlink } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 
 export type ProvideFs = <A, E, R>(
   effect: Effect.Effect<A, E, R>,

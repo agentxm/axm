@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "extension-identity/owner-input-normalizes-to-the-canonical-handle",

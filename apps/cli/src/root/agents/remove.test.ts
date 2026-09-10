@@ -11,7 +11,8 @@ import type { CodingAgentRepositoryService } from "@agentxm/extension-workspace"
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -93,6 +94,7 @@ describe("agents remove.handler", () => {
       baseLayer,
       wsLayer,
       Layer.succeed(CodingAgentRepository, agentRepo),
+      ConfiguredAgentOutcomesProviderTest,
     );
 
     return {

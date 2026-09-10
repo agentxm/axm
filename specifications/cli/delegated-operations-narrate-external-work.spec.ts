@@ -4,7 +4,7 @@ import * as Fiber from "effect/Fiber";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { UpgradeDocumentSchema, type OperationEvent } from "axm.sh/specification-harness";
 import {
   runUpgrade,

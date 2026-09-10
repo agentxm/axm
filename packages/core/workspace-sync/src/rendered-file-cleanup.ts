@@ -20,11 +20,8 @@ import {
 } from "@agentxm/extension-workspace";
 import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
-import {
-  WorkspaceMutations,
-  protectWorkspacePath,
-  recordFootprint,
-} from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { protectWorkspacePath, recordFootprint } from "@agentxm/workspace-transactions";
 import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 
 export interface ReconcileAgentOutputsResult {

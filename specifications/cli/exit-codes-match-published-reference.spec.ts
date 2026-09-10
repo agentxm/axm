@@ -17,7 +17,7 @@ import {
   rootCommand,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 import { parserRejection } from "../support/parser-probe.js";
 import { writeAuthoredSkill } from "../support/publish-harness.js";

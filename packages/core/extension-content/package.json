@@ -1,0 +1,65 @@
+{
+  "name": "@agentxm/extension-content",
+  "version": "0.28.12",
+  "description": "AXM extension content behavior: skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation shared by the axm CLI and the AgentXM Registry. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/core/extension-content"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "axm-source": "./src/index.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./knowledge": {
+      "types": "./dist/src/knowledge/index.d.ts",
+      "axm-source": "./src/knowledge/index.ts",
+      "default": "./dist/src/knowledge/index.js"
+    },
+    "./lint": {
+      "types": "./dist/src/lint/index.d.ts",
+      "axm-source": "./src/lint/index.ts",
+      "default": "./dist/src/lint/index.js"
+    },
+    "./testing": {
+      "types": "./dist/src/testing.d.ts",
+      "axm-source": "./src/testing.ts",
+      "default": "./dist/src/testing.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "effect": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

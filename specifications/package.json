@@ -12,11 +12,13 @@
     "includedScripts": []
   },
   "dependencies": {
+    "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/registry-auth": "workspace:^",
-    "@agentxm/workspace-configuration": "workspace:^",
-    "@agentxm/test-support": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/specification-metadata": "workspace:^",
+    "@agentxm/test-support": "workspace:^",
+    "@agentxm/workspace-configuration": "workspace:^",
     "axm.sh": "workspace:^"
   },
   "devDependencies": {

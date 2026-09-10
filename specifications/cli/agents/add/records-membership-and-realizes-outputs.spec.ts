@@ -13,7 +13,7 @@ import {
   SettingsSchema,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../../support/install-harness.js";
 import { snapshotWorkspaceContent } from "../../../support/workspace-fixtures.js";
 import { writeLocalHookPackage } from "../../../support/extension-fixtures.js";

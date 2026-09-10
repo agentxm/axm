@@ -22,20 +22,14 @@ import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable
 import {
   createRegistryClient,
   extractZip,
-  resolveVersionEntryWithReleaseAge,
-  resolveVersionEntryForReleaseAge,
   extensionLifecycleWarnings,
   type RegistryClient,
   type RegistryExtensionManifest,
   type GetExtensionsByOwnerArgs,
 } from "@agentxm/registry-client";
 import { packagesToPackageUrlParts } from "@agentxm/registry-protocol/unstable/registry";
-import {
-  isVersionEntryEligibleAt,
-  releaseAgeEvidence,
-  releaseAgeExemptionForIdentity,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { AxmSkillCandidateGate } from "../../axm-skill-gate.js";
+import { RegistryResolutionPolicy } from "../../registry-resolution-policy.js";
 import {
   SourceNetworkFailure,
   SourceNotResolvable,
@@ -68,6 +62,13 @@ import type {
   RegistrySourceHost,
 } from "@agentxm/extension-model/unstable/sources/types";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
+type RegistryProviderRequirements =
+  | FileSystem.FileSystem
+  | Path.Path
+  | AxmSkillCandidateGate
+  | RegistryResolutionPolicy
+  | Scope.Scope;
+
 type RegistrySourceHostProvider<R = never> = SourceHostProvider<
   RegistrySource,
   R,
@@ -122,37 +123,15 @@ const manifestFromIndex = (
   index: ExtensionIndex,
   versionRange: Option.Option<string>,
   minimumReleaseAge: FindOptions["minimumReleaseAge"],
-): Effect.Effect<Option.Option<RegistryExtensionManifest>> =>
+): Effect.Effect<Option.Option<RegistryExtensionManifest>, never, RegistryResolutionPolicy> =>
   Effect.gen(function* () {
-    const selectedVersion = yield* resolveVersionEntryWithReleaseAge(
+    const policy = yield* RegistryResolutionPolicy;
+    const selectedVersion = yield* policy.selectVersion(
       index.versions,
       versionRange,
       minimumReleaseAge ?? Option.none(),
     );
-    if (Option.isNone(selectedVersion)) return Option.none();
-
-    const version = selectedVersion.value;
-    const lifecycleWarnings = extensionLifecycleWarnings(index, version);
-    return Option.some({
-      owner: index.owner,
-      type: index.type,
-      name: index.name,
-      publisherBindingId: index.publisherBindingId,
-      description: Option.fromUndefinedOr(index.description),
-      repository: Option.fromUndefinedOr(index.repository),
-      bugs: Option.fromUndefinedOr(index.bugs),
-      license: Option.fromUndefinedOr(index.license),
-      authors: Option.match(Option.fromUndefinedOr(index.authors), {
-        onNone: (): ReadonlyArray<Author> => [],
-        onSome: (authors) => authors.map((author) => toAuthor(author)),
-      }),
-      dependencies: version.dependencies ?? {},
-      version: version.version,
-      integrity: version.integrity,
-      packages: packagesToPackageUrlParts(version.packages),
-      ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
-      ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
-    } satisfies RegistryExtensionManifest);
+    return Option.map(selectedVersion, (version) => manifestForVersion(index, version));
   });
 
 const namedTarget = (options: NamedRegistryFindOptions): string =>
@@ -188,28 +167,22 @@ const manifestForVersion = (
   };
 };
 
-const versionsMatchingNamedOptions = (
-  versions: ReadonlyArray<VersionEntry>,
-  options: NamedRegistryFindOptions,
-  exempt: boolean,
-  acceptedVersion?: string,
-): ReadonlyArray<VersionEntry> => {
-  const requested = Option.getOrElse(options.versionRange, () => "*");
-  const exact = semver.valid(requested) === requested;
-  return versions
-    .filter((entry) =>
-      exact
-        ? entry.version === requested
-        : entry.yankedAt === undefined && semver.satisfies(entry.version, requested),
-    )
-    .filter(
-      (entry) =>
-        exempt ||
-        entry.version === acceptedVersion ||
-        isVersionEntryEligibleAt(entry, options.releaseAgeEvaluation),
-    )
-    .sort((left, right) => semver.compareBuild(right.version, left.version));
-};
+/** The index entry a policy decision names; the decision came from this index. */
+const entryForVersion = (
+  index: ExtensionIndex,
+  version: string,
+  target: string,
+): Effect.Effect<VersionEntry, SourceNotResolvable> =>
+  Option.match(Option.fromUndefinedOr(index.versions.find((entry) => entry.version === version)), {
+    onNone: () =>
+      Effect.fail(
+        new SourceNotResolvable({
+          category: "internal",
+          detail: `Registry index for ${target} does not list the selected version ${version}`,
+        }),
+      ),
+    onSome: Effect.succeed,
+  });
 
 const probeAxmSkillCompatibility = (
   client: RegistryClient,
@@ -274,12 +247,9 @@ const resolveNamedFromClient = (
   client: RegistryClient,
   source: RegistrySource,
   options: NamedRegistryFindOptions,
-): Effect.Effect<
-  NamedRegistryResolution,
-  SourceResolutionFailure,
-  FileSystem.FileSystem | Path.Path | AxmSkillCandidateGate | Scope.Scope
-> =>
+): Effect.Effect<NamedRegistryResolution, SourceResolutionFailure, RegistryProviderRequirements> =>
   Effect.gen(function* () {
+    const policy = yield* RegistryResolutionPolicy;
     const indexOption = yield* client.getExtensionIndex({
       owner: options.owner,
       type: options.type,
@@ -289,115 +259,85 @@ const resolveNamedFromClient = (
     if (Option.isNone(indexOption)) {
       return { kind: "not_found", target } as const;
     }
+    const index = indexOption.value;
 
-    const exemption = releaseAgeExemptionForIdentity(options.releaseAgeEvaluation, {
-      owner: indexOption.value.owner,
-      type: indexOption.value.type,
-      name: indexOption.value.name,
-    });
-    const acceptedVersion =
-      options.accepted?.publisherBindingId === indexOption.value.publisherBindingId
-        ? options.accepted.version
-        : undefined;
-    const resolution = resolveVersionEntryForReleaseAge(
-      indexOption.value.versions,
-      options.versionRange,
-      options.releaseAgeEvaluation,
-      exemption,
-      acceptedVersion,
-    );
-    if (resolution.kind === "version_unsatisfied") {
-      const requested = Option.getOrUndefined(options.versionRange);
-      if (requested !== undefined && semver.valid(requested) === requested) {
+    const decision = policy.decideNamedVersion(index, options);
+    switch (decision.kind) {
+      case "not_found":
         return { kind: "not_found", target } as const;
-      }
-      return {
-        kind: "version_unsatisfied",
-        target,
-        requestedRange: Option.getOrElse(options.versionRange, () => "*"),
-      } as const;
-    }
-    if (resolution.kind === "policy_held") {
-      return {
-        kind: "policy_held",
-        target,
-        ...(Option.isSome(options.versionRange)
-          ? { requestedRange: options.versionRange.value }
-          : {}),
-        candidate: resolution.candidate,
-      } as const;
+      case "version_unsatisfied":
+        return {
+          kind: "version_unsatisfied",
+          target,
+          requestedRange: decision.requestedRange,
+        } as const;
+      case "policy_held":
+        return {
+          kind: "policy_held",
+          target,
+          ...(decision.requestedRange === undefined
+            ? {}
+            : { requestedRange: decision.requestedRange }),
+          candidate: decision.candidate,
+        } as const;
+      case "selected":
+      case "exempted":
+        break;
     }
 
     if (isOfficialAxmSkill(options)) {
       const requested = Option.getOrElse(options.versionRange, () => "*");
       const exactRequest = semver.valid(requested) === requested;
       const probeCandidate = (candidate: VersionEntry) =>
-        probeAxmSkillCompatibility(client, source, indexOption.value, candidate).pipe(
+        probeAxmSkillCompatibility(client, source, index, candidate).pipe(
           Effect.map(Option.some),
           Effect.catchIf(
             (error) => !exactRequest && sourceResolutionFailureCategory(error) === "not_found",
             () => Effect.succeed(Option.none()),
           ),
         );
-      const candidates = versionsMatchingNamedOptions(
-        indexOption.value.versions,
-        options,
-        exemption !== undefined,
-        acceptedVersion,
-      );
       let latestIncompatibility: string | null = null;
       let latestRecoveryAction: string | null = null;
       let latestRecoveryTarget: string | null = null;
-      for (const candidate of candidates) {
-        const probe = yield* probeCandidate(candidate);
+      for (const candidate of policy.namedCandidates(index, options)) {
+        const entry = yield* entryForVersion(index, candidate.version, target);
+        const probe = yield* probeCandidate(entry);
         if (Option.isNone(probe)) continue;
         const probed = probe.value;
-        if (probed.result.status === "incompatible") {
-          latestIncompatibility = probed.result.detail;
-          latestRecoveryAction = probed.result.recoveryCommand;
-          latestRecoveryTarget = probed.result.recoveryTarget;
-          continue;
-        }
-        if (
-          exemption !== undefined &&
-          !isVersionEntryEligibleAt(candidate, options.releaseAgeEvaluation)
-        ) {
-          return {
-            kind: "exempted",
-            target,
-            ref: probed.ref,
-            bypassed: releaseAgeEvidence(candidate, options.releaseAgeEvaluation),
-            exemption,
-          } as const;
-        }
-        return {
-          kind: "selected",
-          target,
-          ref: probed.ref,
-          ...(resolution.kind === "selected" && resolution.newerHeld !== undefined
-            ? { newerHeld: resolution.newerHeld }
-            : {}),
-        } as const;
-      }
-
-      if (exemption === undefined) {
-        const heldCandidates = versionsMatchingNamedOptions(
-          indexOption.value.versions,
-          options,
-          true,
-        ).filter((candidate) => !isVersionEntryEligibleAt(candidate, options.releaseAgeEvaluation));
-        for (const candidate of heldCandidates) {
-          const probe = yield* probeCandidate(candidate);
-          if (Option.isNone(probe) || probe.value.result.status === "incompatible") continue;
+        if (candidate.outcome.kind === "held") {
+          if (probed.result.status === "incompatible") continue;
           return {
             kind: "policy_held",
             target,
             ...(Option.isSome(options.versionRange)
               ? { requestedRange: options.versionRange.value }
               : {}),
-            candidate: releaseAgeEvidence(candidate, options.releaseAgeEvaluation),
+            candidate: candidate.outcome.candidate,
           } as const;
         }
+        if (probed.result.status === "incompatible") {
+          latestIncompatibility = probed.result.detail;
+          latestRecoveryAction = probed.result.recoveryCommand;
+          latestRecoveryTarget = probed.result.recoveryTarget;
+          continue;
+        }
+        if (candidate.outcome.kind === "exempted") {
+          return {
+            kind: "exempted",
+            target,
+            ref: probed.ref,
+            bypassed: candidate.outcome.bypassed,
+            exemption: candidate.outcome.exemption,
+          } as const;
+        }
+        return {
+          kind: "selected",
+          target,
+          ref: probed.ref,
+          ...(decision.kind === "selected" && decision.newerHeld !== undefined
+            ? { newerHeld: decision.newerHeld }
+            : {}),
+        } as const;
       }
 
       if (exactRequest || latestIncompatibility !== null) {
@@ -416,8 +356,8 @@ const resolveNamedFromClient = (
       return { kind: "not_found", target } as const;
     }
 
-    const version = resolution.version;
-    const manifest = manifestForVersion(indexOption.value, version);
+    const version = yield* entryForVersion(index, decision.version, target);
+    const manifest = manifestForVersion(index, version);
     const ref = toExtensionRef(manifest, source);
     if (Option.isNone(ref)) {
       return yield* new SourceNotResolvable({
@@ -425,19 +365,19 @@ const resolveNamedFromClient = (
         detail: `Registry returned unsupported extension type for ${target}`,
       });
     }
-    return resolution.kind === "exempted"
+    return decision.kind === "exempted"
       ? ({
           kind: "exempted",
           target,
           ref: ref.value,
-          bypassed: resolution.bypassed,
-          exemption: resolution.exemption,
+          bypassed: decision.bypassed,
+          exemption: decision.exemption,
         } as const)
       : ({
           kind: "selected",
           target,
           ref: ref.value,
-          ...(resolution.newerHeld === undefined ? {} : { newerHeld: resolution.newerHeld }),
+          ...(decision.newerHeld === undefined ? {} : { newerHeld: decision.newerHeld }),
         } as const);
   });
 
@@ -747,9 +687,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
  */
 export const createLocalRegistrySourceHostProvider = (
   client: RegistryClient,
-): RegistrySourceHostProvider<
-  FileSystem.FileSystem | Path.Path | AxmSkillCandidateGate | Scope.Scope
-> => ({
+): RegistrySourceHostProvider<RegistryProviderRequirements> => ({
   type: "registry",
 
   match: (url: URL) => Effect.succeed(url.protocol === "file:"),
@@ -811,9 +749,7 @@ export const createLocalRegistrySourceHostProvider = (
  */
 export const createRemoteRegistrySourceHostProvider = (
   client: RegistryClient,
-): RegistrySourceHostProvider<
-  FileSystem.FileSystem | Path.Path | AxmSkillCandidateGate | Scope.Scope
-> => ({
+): RegistrySourceHostProvider<RegistryProviderRequirements> => ({
   type: "registry",
 
   match: (url: URL) => Effect.succeed(url.protocol === "https:"),

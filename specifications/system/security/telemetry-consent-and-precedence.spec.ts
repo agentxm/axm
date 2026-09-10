@@ -9,7 +9,7 @@ import {
   resolveTelemetryMode,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "system/security/telemetry-consent-and-precedence",

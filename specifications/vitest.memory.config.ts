@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
-import { makeTestReporting } from "../vitest.reporting.js";
+import { makeTestReporting, purposeSetupFile } from "../vitest.reporting.js";
 import { resolveWorkspaceSourceSpecifier } from "./support/source-package-resolver.js";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
@@ -42,9 +42,9 @@ export default defineConfig({
   },
   test: {
     ...makeTestReporting({
-      layer: "specification",
-      runtimeMode: "source",
+      project: "specifications",
       suite: "specifications-memory",
+      runtimeMode: "source",
     }),
     experimental: { fsModuleCache: false },
     fileParallelism: false,
@@ -56,6 +56,6 @@ export default defineConfig({
       "cli/install/preview-is-pure.spec.ts",
       "cli/install/materializes-canonical-content.spec.ts",
     ],
-    setupFiles: ["./support/source-loader.setup.ts", "./support/reporting.setup.ts"],
+    setupFiles: ["./support/source-loader.setup.ts", purposeSetupFile],
   },
 });

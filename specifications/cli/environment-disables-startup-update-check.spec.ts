@@ -11,7 +11,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 import { decodeStableChannelDocumentSync } from "@agentxm/extension-model/unstable/release-channel";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   UpdateCheck,
   UpdateCheckLive,

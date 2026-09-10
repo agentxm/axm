@@ -6,7 +6,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 
 import { captureTelemetry, makeTelemetryOperation } from "../../support/telemetry-harness.js";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "system/reliability/telemetry-failure-never-alters-outcomes",

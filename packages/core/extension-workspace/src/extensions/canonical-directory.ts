@@ -13,8 +13,8 @@ import {
   protectCreatedAncestors,
   protectWorkspacePath,
   type WorkspaceSnapshotError,
-} from "@agentxm/workspace-state";
-import { recordFootprint } from "@agentxm/workspace-state";
+} from "@agentxm/workspace-transactions";
+import { recordFootprint } from "@agentxm/workspace-transactions";
 import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
 import { copyExtensionDirectory } from "./copy-directory.js";
 import { validatePathSafety } from "@agentxm/workspace-state";

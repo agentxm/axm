@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-resolution",
+  "projectType": "library",
+  "root": "packages/core/extension-resolution",
+  "sourceRoot": "packages/core/extension-resolution/src",
+  "tags": ["type:lib", "role:capability", "scope:extension-resolution", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/extension-resolution/src/index.ts",
+        "outputPath": "packages/core/extension-resolution/dist",
+        "tsConfig": "packages/core/extension-resolution/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

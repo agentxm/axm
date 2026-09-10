@@ -2,7 +2,7 @@ import { getAppError } from "axm.sh/specification-harness";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { handlePacksAdd, expectAppliedPlanResult } from "axm.sh/specification-harness";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";
 import {

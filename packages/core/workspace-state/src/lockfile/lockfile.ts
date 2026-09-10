@@ -16,8 +16,11 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import YAML from "yaml";
 
-import { recordFootprint } from "../workspace/footprint-recorder.js";
-import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "../utils/atomic-write.js";
+import {
+  recordFootprint,
+  sweepStaleAtomicWriteTemps,
+  writeFileAtomic,
+} from "@agentxm/workspace-transactions";
 import { LockfileValidationError, LockfileWriteError } from "./errors.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 

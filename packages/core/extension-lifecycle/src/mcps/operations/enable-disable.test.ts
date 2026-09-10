@@ -25,6 +25,7 @@ import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
   makeRegistryMcpServerLockEntry,
+  MockWorkspaceTransactionScope,
 } from "@agentxm/workspace-state/testing";
 import { mcpResolutionKey } from "@agentxm/workspace-state";
 import { disableMcpServer } from "./disable.js";
@@ -67,6 +68,7 @@ const makeServices = (
     layer: Layer.mergeAll(
       NodeServices.layer,
       WorkspaceMutations.layer(workspace),
+      MockWorkspaceTransactionScope(axmDir),
       TestLifecycleFailureAdapter,
       Layer.succeed(CodingAgentRepository, agentRepo),
     ),

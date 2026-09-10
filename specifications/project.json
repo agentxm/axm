@@ -30,22 +30,6 @@
         "command": "vitest run --config vitest.memory.config.ts",
         "cwd": "specifications"
       }
-    },
-    "generate": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "inputs": [
-        "{projectRoot}/**/*.ts",
-        "{workspaceRoot}/scripts/specification-catalog.ts",
-        "{workspaceRoot}/scripts/specification-catalog-lib.ts",
-        "{workspaceRoot}/apps/cli-e2e/src/**/*.ts",
-        "{workspaceRoot}/packages/core/extension-model/src/unstable/specifications/**/*.ts"
-      ],
-      "outputs": ["{projectRoot}/catalog.md"],
-      "options": {
-        "command": "bun --conditions=axm-source scripts/specification-catalog.ts",
-        "cwd": "."
-      }
     }
   }
 }

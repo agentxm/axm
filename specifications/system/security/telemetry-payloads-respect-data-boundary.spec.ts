@@ -23,7 +23,7 @@ import {
   sensitiveSentinels,
 } from "../../support/telemetry-harness.js";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "system/security/telemetry-payloads-respect-data-boundary",

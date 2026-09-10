@@ -9,7 +9,7 @@ import {
   type FileCommentStyle,
   type ManagedMarker,
 } from "../projection/marker-grammar.js";
-import { parseFrontmatterSync } from "@agentxm/registry-protocol/unstable/content/frontmatter";
+import { parseFrontmatterSync } from "@agentxm/extension-content";
 
 export type ManagedFileFormat = "markdown" | "toml";
 

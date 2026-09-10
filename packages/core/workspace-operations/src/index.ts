@@ -1,11 +1,12 @@
 /**
  * @agentxm/workspace-operations public API.
  *
- * The workspace-operations kernel: plan vocabulary and execution, the
- * interactive preview/apply orchestration (`previewOrApplyPlan`), operation
- * resolutions and journals, plan readiness and reconciliation gating, and the
- * workspace transaction and transition-lock machinery. The composed workspace
- * layer lives behind `./live`.
+ * The workspace-operations capability: plan vocabulary and execution, the
+ * two-phase candidate orchestration (`prepareExecutionCandidate` then
+ * `resolveExecutionCandidate`), operation resolutions and journals, and plan
+ * readiness and reconciliation gating. Transactions and the transition lock
+ * live in `@agentxm/workspace-transactions`; the composed workspace layer in
+ * `@agentxm/workspace-state/live`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -145,8 +146,16 @@ export {
   type OperationErrorCategory,
 } from "./plan/errors.js";
 
-// Interactive preview/apply orchestration over the workspace read model.
-export { previewOrApplyPlan } from "./plan/resolve-plan.js";
+// Candidate preparation and interactive preview/apply resolution over the
+// workspace read model. `previewOrApplyPlan` is the transitional composition
+// of both halves, removed when the handler migration completes.
+export {
+  prepareExecutionCandidate,
+  previewOrApplyPlan,
+  resolveExecutionCandidate,
+  type PrepareExecutionCandidateOptions,
+  type ResolveExecutionCandidateOptions,
+} from "./plan/resolve-plan.js";
 
 // Interaction port for preview/apply presentation, progress, and confirmation.
 // The CLI runtime provides the Live implementation.
@@ -197,24 +206,3 @@ export {
   type AugmentedPlanResult,
   type DegradedLockfileState,
 } from "./operations/augment-plan.js";
-
-// Workspace transaction runner and closure lifecycle
-export {
-  rollbackWorkspaceClosure,
-  runWorkspaceTransaction,
-  settleWorkspaceClosure,
-  withWorkspaceClosure,
-  type WorkspaceTransactionArgs,
-} from "./operations/transaction.js";
-
-// Transition lock runtime
-export {
-  liveWorkspaceTransitionLock,
-  type WorkspaceTransitionLock,
-  TRANSITION_WAIT_BOUND_MILLIS,
-  acquireWorkspaceTransitionLock,
-  heldWorkspaceTransition,
-  isWorkspaceTransitionHeldByThisInvocation,
-  transitionLockPath,
-  type HeldWorkspaceTransition,
-} from "./operations/transition-lock.js";

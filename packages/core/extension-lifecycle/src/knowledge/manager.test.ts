@@ -19,6 +19,7 @@ import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
   readModelRecordStubs,
   TEST_CONTENT_IDENTITY,
 } from "@agentxm/workspace-state/testing";
@@ -128,21 +129,23 @@ const desiredHandbookOverrides = (
 const managerLayer = (
   workspaceRoot: string,
   overrides: NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]> = {},
-) =>
-  KnowledgeManagerLive.pipe(
+) => {
+  const axmDir = nodePath.join(workspaceRoot, ".axm");
+  return KnowledgeManagerLive.pipe(
     Layer.provideMerge(WorkspaceCatalogTestLive),
     Layer.provideMerge(TestLifecycleFailureAdapter),
     Layer.provideMerge(CodingAgentRepositoryLive),
     Layer.provide(
       Layer.succeed(
         WorkspaceMutations,
-        makeBaseWorkspaceMock(nodePath.join(workspaceRoot, ".axm"), {
+        makeBaseWorkspaceMock(axmDir, {
           getConfiguredKnowledgeEntries: () => Effect.succeed({}),
           getInstructionsConfig: () => Effect.succeed(Option.some({})),
           ...overrides,
         }),
       ),
     ),
+    Layer.provide(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(
       Layer.succeed(SourceHostProviders, {
         resolveNamedRegistry: () => Effect.die("not used"),
@@ -155,6 +158,7 @@ const managerLayer = (
     ),
     Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );
+};
 
 describe("KnowledgeManager", () => {
   it.effect("persists the compact source for workspace Knowledge", () =>

@@ -131,18 +131,8 @@ export {
 } from "./error-mapping.js";
 
 // Utilities
-export {
-  extensionDir,
-  extensionLifecycleWarnings,
-  extractZip,
-  pluralizeType,
-  resolveVersionEntry,
-  resolveVersionEntryForReleaseAge,
-  resolveVersionEntryWithReleaseAge,
-  selectVersion,
-} from "./utils.js";
+export { extensionDir, extensionLifecycleWarnings, extractZip, pluralizeType } from "./utils.js";
 export { formatDeprecationWarning } from "./deprecation-warning.js";
-export type { ReleaseAgeVersionResolution } from "./utils.js";
 
 export { RegistryUrl } from "./registry-url.js";
 

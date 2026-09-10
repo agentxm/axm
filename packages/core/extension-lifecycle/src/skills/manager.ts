@@ -24,6 +24,7 @@ import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { ExtensionManager, MaterializationObservation } from "@agentxm/extension-workspace";
 import type { ExtensionTarget, SkillExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { bindWorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 import { sanitizeName } from "@agentxm/workspace-state";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { computePackageContentHash } from "@agentxm/workspace-state";
@@ -87,6 +88,7 @@ export const SkillManagerLive = Layer.effect(
   SkillManager,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const runTransaction = yield* bindWorkspaceTransactionRunner;
     const fs = yield* FileSystem.FileSystem;
     const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
@@ -315,7 +317,7 @@ export const SkillManagerLive = Layer.effect(
 
     return {
       type: "skill",
-      runTransaction: ws.runTransaction,
+      runTransaction,
       isInstalled: Effect.fn("SkillManager.isInstalled")(function* ({
         target,
       }: {

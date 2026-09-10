@@ -15,12 +15,9 @@ import {
   manifestFilenameForType,
   manifestSchemaForType,
   type ManifestIdentity,
-} from "@agentxm/registry-protocol/unstable/publish/manifest-policy";
+} from "@agentxm/extension-content";
 import { copyExtensionDirectory } from "@agentxm/extension-workspace";
-import {
-  parseFrontmatterEffect,
-  type FrontmatterParseFailure,
-} from "@agentxm/registry-protocol/unstable/content/frontmatter";
+import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
 import type {
   ExtensionFqnParts,
   ExtensionName,

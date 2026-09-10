@@ -1,11 +1,11 @@
-import { defineProductGoals } from "@agentxm/extension-model/unstable/specifications";
+import { defineProductGoals } from "@agentxm/specification-metadata";
 
 /**
  * The local product-goal registry: outcomes and capabilities only AXM serves.
  *
  * Goals that more than one AgentXM repository serves are registered once in
  * the shared contract (`sharedProductGoals` from
- * `@agentxm/extension-model/unstable/specifications`) and referenced from
+ * `@agentxm/specification-metadata`) and referenced from
  * here by identity; this registry must not redefine them. The registry does
  * not restate, own, or rank the requirements that support a goal.
  * Requirements review walks both registries: a retired goal makes its

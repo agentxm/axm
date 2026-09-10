@@ -15,6 +15,7 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import { StepFailure } from "./errors.js";
 import type {
   CompletedJobStep,
@@ -342,33 +343,36 @@ export const applyPlan = <Requirements, Output>(
     const hasReadinessError = plan.jobs.some((job) =>
       job.steps.some((step) => step.readiness === "error"),
     );
-    let blocked = false;
+    // Any job with an error blocks every later job; the fact travels in a
+    // `Ref` because it crosses the job traversal's iteration boundary.
+    const blocked = yield* Ref.make(false);
     const jobResults = hasReadinessError
       ? applyReadinessGate(plan)
       : yield* Effect.forEach(
           plan.jobs,
           (job) =>
-            blocked
-              ? Effect.succeed<ReadonlyArray<CompletedJobStep<Output>>>(
-                  job.steps.map((step) =>
-                    blockStep(step, "blocked by earlier job failure", {
-                      class: "operation-aborted",
-                    }),
+            Effect.flatMap(Ref.get(blocked), (isBlocked) =>
+              isBlocked
+                ? Effect.succeed<ReadonlyArray<CompletedJobStep<Output>>>(
+                    job.steps.map((step) =>
+                      blockStep(step, "blocked by earlier job failure", {
+                        class: "operation-aborted",
+                      }),
+                    ),
+                  )
+                : (job.steps.some((step) => (step.dependsOn ?? []).length > 0)
+                    ? executeDependencyAwareJob(job, observeStart, observeStep)
+                    : job.executionPolicy === "best-effort"
+                      ? executeBestEffortJob(job, observeStart, observeStep)
+                      : executeFailFastJob(job, observeStart, observeStep)
+                  ).pipe(
+                    Effect.tap((steps) =>
+                      steps.some((step) => step.result.result === "error")
+                        ? Ref.set(blocked, true)
+                        : Effect.void,
+                    ),
                   ),
-                )
-              : (job.steps.some((step) => (step.dependsOn ?? []).length > 0)
-                  ? executeDependencyAwareJob(job, observeStart, observeStep)
-                  : job.executionPolicy === "best-effort"
-                    ? executeBestEffortJob(job, observeStart, observeStep)
-                    : executeFailFastJob(job, observeStart, observeStep)
-                ).pipe(
-                  Effect.tap((steps) => {
-                    if (steps.some((step) => step.result.result === "error")) {
-                      blocked = true;
-                    }
-                    return Effect.void;
-                  }),
-                ),
+            ),
           { concurrency: 1 },
         );
 

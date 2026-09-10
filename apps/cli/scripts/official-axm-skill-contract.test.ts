@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 
-import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
+import { parseSkillMd } from "@agentxm/extension-content";
 
 const packageRoot = "../../skills/axm";
 const skillMd = readFileSync(`${packageRoot}/src/SKILL.md`, "utf8");

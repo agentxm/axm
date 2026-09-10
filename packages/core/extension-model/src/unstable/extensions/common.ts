@@ -8,7 +8,8 @@ import * as EffectRecord from "effect/Record";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { AGENT_IDS, CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
+import { AgentIdSchema } from "../agent-capabilities/catalog.js";
+import { CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { parseLicenseExpression } from "./license.js";
 import { CompanionPackageSchema } from "../package-urls/index.js";
@@ -1015,19 +1016,12 @@ export const NonPackManifestFields = {
 };
 
 /**
- * Agent identifier enumeration for supported coding agents.
- *
- * Derived from `AGENT_IDS` in agents/types.ts — compile-time enforced,
- * no manual sync required.
+ * Agent identifier enumeration for supported coding agents: the single
+ * definition lives in the capability catalog.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const AgentIdSchema = Schema.Literals([...AGENT_IDS]).annotate({
-  identifier: "AgentId",
-  title: "Agent ID",
-  description: "Supported coding agent identifier.",
-  examples: ["claude-code", "codex", "cursor"],
-});
+export { AgentIdSchema };
 
 /**
  * Agent identifiers users may persist in `axm.json`.

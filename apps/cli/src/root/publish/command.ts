@@ -106,15 +106,17 @@ import {
   KNOWLEDGE_SOURCE_DIR,
   KnowledgeManifestSchema,
 } from "@agentxm/extension-model/unstable/knowledge";
-import { inspectKnowledgeBundle } from "@agentxm/registry-protocol/unstable/knowledge";
+import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
 import {
   checkForbiddenSourceEntries,
   enforceArchiveSizeLimit,
+  normalizePublishInput,
+  validateArchive,
+} from "@agentxm/extension-content";
+import {
   resolveVisibilityIntent,
   type PublishVisibility,
   type VisibilityIntent,
-  normalizePublishInput,
-  validateArchive,
 } from "@agentxm/registry-protocol/unstable/publish";
 import {
   alreadyPublishedVersionConflict,
@@ -175,6 +177,7 @@ import {
   acceptedCanonicalObservation,
   configuredRowsByName,
 } from "@agentxm/workspace-state";
+import { FootprintRecorder, makeFootprintRecorder } from "@agentxm/workspace-transactions";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import {
@@ -2312,6 +2315,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   // and failure where a response was recorded, indeterminate where the
   // registry may have committed first, pending where nothing was dispatched.
   const operationJournal = yield* makeOperationJournal;
+  const footprintRecorder = yield* makeFootprintRecorder;
   const resolveCandidatePlan = Effect.scoped(
     Effect.gen(function* () {
       const authorizationDeferred = yield* Deferred.make<PublishAuthorizationState, AppError>();
@@ -2350,7 +2354,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
           ),
       }).pipe(Effect.provideService(PublishAuthorization, authorization));
     }),
-  ).pipe(Effect.provideService(OperationJournal, operationJournal));
+  ).pipe(
+    Effect.provideService(OperationJournal, operationJournal),
+    Effect.provideService(FootprintRecorder, footprintRecorder),
+  );
   const resolution = yield* Effect.uninterruptibleMask((restoreInterruptibility) =>
     restoreInterruptibility(resolveCandidatePlan).pipe(
       Effect.catchCause((cause) =>

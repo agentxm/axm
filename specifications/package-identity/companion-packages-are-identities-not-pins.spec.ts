@@ -7,7 +7,7 @@ import {
   PackageIdentityPurlSchema,
 } from "@agentxm/extension-model/unstable/package-urls";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "package-identity/companion-packages-are-identities-not-pins",

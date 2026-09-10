@@ -95,10 +95,12 @@ reports workspace findings read-only; `axm lint --fix` performs only
 deterministic, meaning-preserving source or configuration normalization.
 
 `pnpm test:spec` consumes only `--requirement`, `--class`, and
-`--characteristic`; every other flag
-is forwarded verbatim to the `specifications:test` target, so runner flags such
-as `--skip-nx-cache` reach Nx. A forwarded flag that takes a value must use the
-`--flag=value` form, because a bare value is read as a requirement identity.
+`--characteristic`; it resolves each selected specification to its owner
+project and runs `nx run <owner>:test` with the project-relative file, one
+invocation per owner. Every other flag is forwarded verbatim to those Nx
+invocations, so runner flags such as `--skip-nx-cache` reach Nx. A forwarded
+flag that takes a value must use the `--flag=value` form, because a bare value
+is read as a requirement identity.
 
 ### Releasing
 
@@ -113,7 +115,7 @@ specification on `main` is accepted. Ordinary tests, prose, and implementation
 are witnesses; schemas and contracts keep only their declared interface
 authority; execution produces evidence, never acceptance.
 The metadata contract, vocabularies, and shared goal identities live in
-`@agentxm/extension-model/unstable/specifications` and are shared with the
+`@agentxm/specification-metadata` and are shared with the
 AgentXM platform; an obligation is allocated to one corpus and never restated
 in the other.
 

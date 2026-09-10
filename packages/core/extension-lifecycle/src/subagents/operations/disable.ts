@@ -18,6 +18,10 @@ import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-transactions";
 import { subagentLifecycleArtifact } from "./artifact.js";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -57,6 +61,7 @@ export const disableSubagent: OperationHandler<
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceTransactionScope
   | CodingAgentRepository
   | LifecycleFailureAdapter
 > = (op) =>
@@ -90,7 +95,7 @@ export const disableSubagent: OperationHandler<
     const renderedFiles: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
-    yield* ws.runTransaction({
+    yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         if (isImplicit) {
           const source =

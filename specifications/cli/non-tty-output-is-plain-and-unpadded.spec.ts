@@ -11,7 +11,7 @@ import {
   stripTerminalFormatting,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 import { humanScreenLayer, makeRecordingStreams } from "../support/screen-harness.js";
 

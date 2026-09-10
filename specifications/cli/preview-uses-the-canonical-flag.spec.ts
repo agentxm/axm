@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { collectHelpFiles } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { COMMAND_ROUTE_ALLOCATION, formatRoute } from "../support/command-routes.js";
 import { probeFlag } from "../support/parser-probe.js";
 

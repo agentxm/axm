@@ -23,6 +23,7 @@ import {
   type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
 import type { McpServerEntry } from "@agentxm/workspace-state";
+import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
 import { WorkspaceConfigurationFailed } from "./errors.js";
 import type {
   McpImportAdoption,
@@ -334,7 +335,7 @@ export const applyMcpImport = <HookError = never>(
     env: candidate.env,
     enabled: true,
   });
-  return ws.runTransaction({
+  return runWorkspaceTransaction({
     targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),
     transition: Effect.gen(function* () {
       for (const candidate of candidates) {

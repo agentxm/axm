@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 
-import type { AdvisoryFinding, LintRule } from "@agentxm/registry-protocol/unstable/lint/rule";
+import type { AdvisoryFinding, LintRule } from "@agentxm/extension-content/lint";
 import { makeWorkspaceReadModel } from "@agentxm/workspace-state";
 import { WorkspaceReadModelTest, type ScopeFiles } from "@agentxm/workspace-state/testing";
 import type { WorkspaceRuleContext } from "../../../workspace-context.js";

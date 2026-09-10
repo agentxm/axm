@@ -62,6 +62,12 @@ export {
   type AxmSkillCandidateVerdict,
 } from "./axm-skill-gate.js";
 
+// Registry resolution policy port (implemented by the composition root)
+export {
+  RegistryResolutionPolicy,
+  type RegistryResolutionPolicyService,
+} from "./registry-resolution-policy.js";
+
 // Source resolver
 export {
   resolveSource,

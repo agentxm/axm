@@ -25,6 +25,7 @@ import type {
 import type { GitHostingSource, Source } from "@agentxm/extension-model/unstable/sources/types";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { AxmSkillCandidateGate } from "./axm-skill-gate.js";
+import { RegistryResolutionPolicy } from "./registry-resolution-policy.js";
 import { SourceNotResolvable, type SourceResolutionFailure } from "./errors.js";
 import { fileUrlToPath } from "./file-url.js";
 import { createGitSourceHostProvider } from "./providers/git.js";
@@ -50,9 +51,9 @@ import { findGitRoot } from "./git/detect.js";
  * Live layer for SourceHostProviders.
  *
  * Constructs the provider registry with all source type providers.
- * Captures FileSystem, Path, HttpClient, the WorkspaceCatalog port, and the
- * AxmSkillCandidateGate port at creation time so the service interface
- * doesn't leak these dependencies.
+ * Captures FileSystem, Path, HttpClient, the WorkspaceCatalog port, the
+ * AxmSkillCandidateGate port, and the RegistryResolutionPolicy port at
+ * creation time so the service interface doesn't leak these dependencies.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -64,6 +65,7 @@ export const SourceHostProvidersLive: Layer.Layer<
   | Path.Path
   | WorkspaceCatalog
   | AxmSkillCandidateGate
+  | RegistryResolutionPolicy
 > = Layer.effect(
   SourceHostProviders,
   Effect.gen(function* () {
@@ -72,6 +74,7 @@ export const SourceHostProvidersLive: Layer.Layer<
     const path = yield* Path.Path;
     const catalog = yield* WorkspaceCatalog;
     const axmSkillGate = yield* AxmSkillCandidateGate;
+    const resolutionPolicy = yield* RegistryResolutionPolicy;
 
     const localProvider = createLocalSourceHostProvider();
     const gitProvider = createGitSourceHostProvider();
@@ -83,6 +86,7 @@ export const SourceHostProvidersLive: Layer.Layer<
       Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(Path.Path, path),
       Layer.succeed(AxmSkillCandidateGate, axmSkillGate),
+      Layer.succeed(RegistryResolutionPolicy, resolutionPolicy),
     );
 
     const findGitHosting = (source: GitHostingSource, options: FindOptions) => {

@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { withNativeInstallerFixture } from "../../support/native-installer-fixture.js";
 
 export const specification = defineSpecification({

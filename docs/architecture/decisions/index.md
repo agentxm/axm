@@ -9,10 +9,14 @@ specifications, never in these records.
   executable specifications under `specifications/` are the sole local
   authority for accepted AXM requirements; documentation retains explanation
   without owning obligations
+- [Colocated specifications](colocated-specifications.md) — specifications
+  live beside the source they govern, are discovered per owner project from
+  the project graph, keep a stable identity independent of path, are labelled
+  by purpose at execution, and are compared by metadata, decisive examples,
+  and body
 - [Specification infrastructure decisions](specification-infrastructure.md) —
-  the resolved design decisions behind the specification infrastructure:
-  identity, metadata carrier, project ownership, adapters, budget, selection,
-  and governance controls
+  deprecated; the pilot-era identity, ownership, adapter, and governance
+  decisions superseded by colocated specifications, kept for links and history
 - [Shared specification contract](shared-specification-contract.md) — the
   metadata contract, classification lens, vocabularies, and shared product-goal
   identities live once in `@agentxm/extension-model` and are consumed by every

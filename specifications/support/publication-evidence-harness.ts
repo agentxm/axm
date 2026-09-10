@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { inflateRawSync } from "node:zlib";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { validateArchive } from "@agentxm/registry-protocol/unstable/publish";
+import { validateArchive } from "@agentxm/extension-content";
 import { handleRootPublish, PublishResultSchema } from "axm.sh/specification-harness";
 import { makeSpecWorkspace, type SpecWorkspaceOptions } from "./install-harness.js";
 import {

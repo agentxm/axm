@@ -17,7 +17,7 @@ import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import type { OperationErrorCategory, StepFailure } from "./errors.js";
-import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import type { ReleaseAgeOperationEvidence } from "@agentxm/extension-resolution";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type {
   BlockingClass,

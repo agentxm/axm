@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Result from "effect/Result";
 import { handleKnowledgeConceptSearch } from "axm.sh/specification-harness";
 import { makeKnowledgeSpecWorkspace } from "../../../../support/knowledge-harness.js";

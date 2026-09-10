@@ -13,9 +13,9 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { parseTomlStringEntries, readTomlSection } from "@agentxm/extension-workspace";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const hexType = Schema.decodeUnknownSync(PackageTypeSchema)("hex");
@@ -81,10 +81,10 @@ const parseTomlDeps = (
   source: string,
 ): ReadonlyArray<DetectedPackage> => {
   const results: Array<DetectedPackage> = [];
-  const sectionContent = readTomlSection(content, sectionName);
-  if (sectionContent === undefined) return [];
 
-  for (const { key: name, value: versionSpec } of parseTomlStringEntries(sectionContent, "\\w+")) {
+  for (const { key: name, value: versionSpec } of tomlStringEntries(
+    tomlTable(parseTomlDocument(content), sectionName),
+  )) {
     const version = isExactVersion(versionSpec) ? versionSpec : undefined;
 
     const purl = new PackageURL("hex", null, name, version ?? null, null, null);

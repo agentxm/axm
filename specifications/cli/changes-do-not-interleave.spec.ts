@@ -16,7 +16,7 @@ import {
   handleInstall,
 } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 import { startWorkspaceTransitionProcess } from "../support/workspace-contention-process.js";
 import { pinSpecUserHome } from "../support/workspace-fixtures.js";
@@ -106,6 +106,13 @@ describe("Concurrent workspace changes", () => {
             force: false,
             preview: false,
           }).pipe(workspace.provide, Effect.exit);
+
+        // The TestClock schedules its own "not advancing the clock" warning on
+        // the live clock — a native timer, which the memory world's no-native-IO
+        // guard refuses. This example drives the clock itself, so retire that
+        // warning before anything sleeps: the first adjust marks it done and no
+        // live timer is ever scheduled.
+        yield* TestClock.adjust("0 millis");
 
         // Contention against the workspace transition hold waits on the
         // clock, so the race runs on a forked fiber while a driver fiber

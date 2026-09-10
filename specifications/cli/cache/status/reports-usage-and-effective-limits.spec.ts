@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { CacheStatusOutputSchema, handleCacheStatus } from "axm.sh/specification-harness";
 import { makeCacheSpecContext } from "../../../support/cache-harness.js";
 

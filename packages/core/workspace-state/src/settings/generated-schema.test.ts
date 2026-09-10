@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { allLintCatalogRuleIds } from "@agentxm/registry-protocol/unstable/lint/catalog-metadata";
+import { allLintCatalogRuleIds } from "@agentxm/extension-content/lint";
 
 import { SETTINGS_KEY_ORDER } from "./schema.js";
 

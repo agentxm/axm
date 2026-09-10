@@ -9,7 +9,7 @@ import {
   type KnowledgeIndexSnapshot,
   type KnowledgeIndexedConcept,
 } from "./knowledge-index.js";
-import { tokenizeKnowledgeSearchText } from "@agentxm/registry-protocol/unstable/knowledge/knowledge-search";
+import { tokenizeKnowledgeSearchText } from "@agentxm/extension-content/knowledge";
 
 export type KnowledgeRelation = "outgoing" | "backlink";
 

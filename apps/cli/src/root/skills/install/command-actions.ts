@@ -28,10 +28,7 @@ import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { InputParseResult } from "@agentxm/extension-model/unstable/sources/parser";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { createRegistryClient } from "@agentxm/registry-client";
-import {
-  isVersionEntryMature,
-  parseMinimumReleaseAge,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { isVersionEntryMature, parseMinimumReleaseAge } from "@agentxm/extension-resolution";
 import { Screen, count, headlineDoc } from "../../../screen/index.js";
 import { WorkspaceMutations, type SkillPathSource, sanitizeName } from "@agentxm/workspace-state";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";

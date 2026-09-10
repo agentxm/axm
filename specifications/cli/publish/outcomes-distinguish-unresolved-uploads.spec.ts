@@ -5,7 +5,7 @@ import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import { describe, expect, it } from "@effect/vitest";
 import { ExitCodeDefinitions, classifyError } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { writeAuthoredPack, writeAuthoredSkill } from "../../support/publish-harness.js";
 import { registryProblem } from "../../support/registry-management-harness.js";
 import {

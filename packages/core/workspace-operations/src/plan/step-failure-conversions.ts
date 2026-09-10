@@ -12,10 +12,12 @@ import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import type {
   ConfiguredAgentOutcomesUnavailable,
-  WorkspaceRestorationIncomplete,
   WorkspaceStateReadFailure,
-  WorkspaceTransactionFailure,
 } from "@agentxm/workspace-state";
+import type {
+  WorkspaceRestorationIncomplete,
+  WorkspaceTransactionFailure,
+} from "@agentxm/workspace-transactions";
 import {
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,

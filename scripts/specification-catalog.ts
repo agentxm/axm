@@ -4,6 +4,9 @@
  * Usage:
  *   bun specification-catalog.ts            # validate metadata, write specifications/catalog.md
  *   bun specification-catalog.ts --check    # validate metadata and catalog freshness only
+ *
+ * Specifications are discovered in every authored project through the Nx
+ * project graph; nothing here executes a test file.
  */
 
 import * as fs from "node:fs";
@@ -11,13 +14,26 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { collectCatalog, formatIssue, renderCatalogMarkdown } from "./specification-catalog-lib.js";
+import {
+  discoverExecutionBindings,
+  discoverSpecifications,
+  readWorkspace,
+} from "./workspace-discovery.js";
 
 const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");
 const catalogPath = path.join(repoRoot, "specifications", "catalog.md");
 const checkOnly = process.argv.includes("--check");
 
-const catalog = collectCatalog({ repoRoot });
+const workspace = await readWorkspace();
+const discovered = discoverSpecifications(workspace);
+const bindings = discoverExecutionBindings(workspace);
+const catalog = collectCatalog({
+  repoRoot,
+  specifications: discovered.specifications.map((entry) => entry.specification),
+  executionBindings: bindings.bindings,
+  issues: [...discovered.issues, ...bindings.issues],
+});
 
 const errors = catalog.issues.filter((issue) => issue.severity === "error");
 const warnings = catalog.issues.filter((issue) => issue.severity === "warning");

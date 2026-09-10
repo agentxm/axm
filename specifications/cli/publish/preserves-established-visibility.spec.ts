@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Option from "effect/Option";
 import { makePublicationSpecContext } from "../../support/publication-evidence-harness.js";
 import { writeAuthoredSkill } from "../../support/publish-harness.js";

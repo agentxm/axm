@@ -6,11 +6,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   collectCatalog,
+  extractExampleSurface,
+  normalizedBody,
   parseExecutionBindingFile,
   parseProductGoalRegistry,
   parseSpecificationFile,
   renderCatalogMarkdown,
+  type CatalogSpecification,
 } from "./specification-catalog-lib.js";
+import { discoverSpecifications, workspaceFromProjectFiles } from "./workspace-discovery.js";
 
 const metadataLiteral = (overrides = ""): string => `{
   requirement: "cli/install/realizes-direct-intent",
@@ -28,7 +32,7 @@ const metadataLiteral = (overrides = ""): string => `{
 }`;
 
 const validSpecificationSource = `
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification(${metadataLiteral()});
 
@@ -201,12 +205,96 @@ describe("parseExecutionBindingFile", () => {
   });
 });
 
+describe("extractExampleSurface", () => {
+  it("lists titles through modifier chains and each rows in source order", () => {
+    const surface = extractExampleSurface(`
+      describe("Install", () => {
+        it("installs", () => {});
+        it.effect("installs in effect", () => {});
+        it.live("installs live", () => {});
+        it.effect.prop("holds for every input", { a: arb }, () => {});
+        it.each([{ label: "row one", value: 1 }, { value: 2, kind: "row two" }, ["row three", 3], "row four"])(
+          "accepts $label",
+          () => {},
+        );
+        it.effect.each([{ value: "x" }] as const)("refuses $value", () => {});
+        test(\`template \${name}\`, () => {});
+      });
+    `);
+    expect(surface).toEqual([
+      "describe:Install",
+      "it:installs",
+      "it.effect:installs in effect",
+      "it.live:installs live",
+      "it.effect.prop:holds for every input",
+      "it.each[row]:row one",
+      "it.each[row]:row two",
+      "it.each[row]:row three",
+      "it.each[row]:row four",
+      "it.each:accepts $label",
+      "it.effect.each[row]:x",
+      "it.effect.each:refuses $value",
+      "test:`template ${name}`",
+    ]);
+  });
+
+  it("ignores assertions, helpers, and non-test calls", () => {
+    expect(
+      extractExampleSurface(`const helper = build("thing"); expect(helper).toBe("thing");`),
+    ).toEqual([]);
+  });
+});
+
+describe("normalizedBody", () => {
+  it("is stable across comments and formatting but not across code", () => {
+    const formatted = normalizedBody(
+      `// leading comment\nconst   a = 1;   /* c */ it("x", () => {\n  expect(a).toBe(1);\n});\n`,
+    );
+    const compact = normalizedBody(`const a=1;it("x",()=>{expect(a).toBe(1)})`);
+    expect(formatted).toBe(compact);
+    expect(formatted).toBe('const a = 1;it("x",()=>{expect(a).toBe(1);});');
+    expect(normalizedBody(`const a=2;it("x",()=>{expect(a).toBe(1)})`)).not.toBe(compact);
+  });
+
+  it("ignores import paths but not imported bindings", () => {
+    const relative = normalizedBody(
+      `import { decode } from "./version-constraints.js";\nimport { defineSpecification } from "@agentxm/specification-metadata";\nit("x", () => decode());`,
+    );
+    const packaged = normalizedBody(
+      `import { decode } from "@agentxm/extension-model/unstable/version-constraints";\nimport { defineSpecification } from "@agentxm/extension-model/unstable/specifications";\nit("x", () => decode());`,
+    );
+    expect(relative).toBe(packaged);
+    expect(relative).toContain('from "<module>"');
+    expect(
+      normalizedBody(
+        `import { decodeStrict } from "./version-constraints.js";\nimport { defineSpecification } from "@agentxm/specification-metadata";\nit("x", () => decode());`,
+      ),
+    ).not.toBe(relative);
+  });
+});
+
 describe("collectCatalog", () => {
   let repoRoot: string;
 
+  const project = (name: string, tags: readonly string[]): string => JSON.stringify({ name, tags });
+
   beforeEach(() => {
     repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axm-spec-catalog-"));
-    fs.mkdirSync(path.join(repoRoot, "specifications", "cli", "install"), { recursive: true });
+    fs.mkdirSync(path.join(repoRoot, "specifications"), { recursive: true });
+    fs.mkdirSync(path.join(repoRoot, "packages", "core", "extension-lifecycle", "src"), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(repoRoot, "packages", "core", "extension-lifecycle", "project.json"),
+      project("extension-lifecycle", ["role:feature"]),
+    );
+    fs.mkdirSync(path.join(repoRoot, "packages", "core", "extension-model", "src"), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(repoRoot, "packages", "core", "extension-model", "project.json"),
+      project("extension-model", ["role:contract"]),
+    );
     fs.writeFileSync(
       path.join(repoRoot, "specifications", "product-goals.ts"),
       `export const productGoals = defineProductGoals({
@@ -222,7 +310,7 @@ describe("collectCatalog", () => {
   });
 
   const writeSpec = (relativePath: string, requirement: string, goal: string, extra = ""): void => {
-    const target = path.join(repoRoot, "specifications", relativePath);
+    const target = path.join(repoRoot, relativePath);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(
       target,
@@ -232,21 +320,57 @@ describe("collectCatalog", () => {
     );
   };
 
-  it("flags duplicate requirement identities", () => {
-    writeSpec("cli/install/a.spec.ts", "cli/install/same", "extension-adoption");
-    writeSpec("cli/install/b.spec.ts", "cli/install/same", "extension-adoption");
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+  const lifecycle = (name: string): string =>
+    `packages/core/extension-lifecycle/src/install/${name}.spec.ts`;
+  const model = (name: string): string => `packages/core/extension-model/src/${name}.spec.ts`;
+
+  const collect = () => {
+    const discovered = discoverSpecifications(workspaceFromProjectFiles(repoRoot));
+    return collectCatalog({
+      repoRoot,
+      specifications: discovered.specifications.map((entry) => entry.specification),
+      issues: discovered.issues,
+    });
+  };
+
+  it("attributes each specification to its discovered owner", () => {
+    writeSpec(lifecycle("a"), "cli/install/a", "extension-adoption");
+    writeSpec(model("b"), "extension-identity/b", "extension-adoption");
+    const catalog = collect();
+    expect(catalog.issues.filter((issue) => issue.severity === "error")).toEqual([]);
     expect(
-      catalog.issues.some(
+      catalog.specifications.map((entry) => [entry.metadata.requirement, entry.owner]),
+    ).toEqual([
+      ["cli/install/a", "extension-lifecycle"],
+      ["extension-identity/b", "extension-model"],
+    ]);
+  });
+
+  it("flags duplicate requirement identities across owners once", () => {
+    writeSpec(lifecycle("a"), "cli/install/same", "extension-adoption");
+    writeSpec(model("b"), "cli/install/same", "extension-adoption");
+    const catalog = collect();
+    expect(
+      catalog.issues.filter(
         (issue) => issue.severity === "error" && issue.message.includes("duplicate requirement"),
       ),
-    ).toBe(true);
+    ).toHaveLength(1);
+  });
+
+  it("does not tie identity to the file's directory", () => {
+    writeSpec(lifecycle("a"), "cli/uninstall/a", "extension-adoption");
+    writeSpec(model("deep/nested/b"), "workspace/records/b", "extension-adoption");
+    const catalog = collect();
+    expect(catalog.issues.filter((issue) => issue.severity !== "warning")).toEqual([]);
+    expect(catalog.issues.map((issue) => issue.message)).not.toContainEqual(
+      expect.stringContaining("directory"),
+    );
   });
 
   it("resolves shared goals from the contract and local goals from the registry", () => {
-    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
-    writeSpec("cli/install/b.spec.ts", "cli/install/b", "safe-repetition");
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    writeSpec(lifecycle("a"), "cli/install/a", "extension-adoption");
+    writeSpec(lifecycle("b"), "cli/install/b", "safe-repetition");
+    const catalog = collect();
     expect(catalog.issues.filter((issue) => issue.severity === "error")).toEqual([]);
     expect(catalog.productGoals).toContainEqual(
       expect.objectContaining({ id: "extension-adoption", scope: "shared" }),
@@ -257,9 +381,9 @@ describe("collectCatalog", () => {
   });
 
   it("flags unregistered and retired product goals, and unreferenced active goals", () => {
-    writeSpec("cli/install/a.spec.ts", "cli/install/a", "missing-goal");
-    writeSpec("cli/install/b.spec.ts", "cli/install/b", "retired-outcome");
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    writeSpec(lifecycle("a"), "cli/install/a", "missing-goal");
+    writeSpec(lifecycle("b"), "cli/install/b", "retired-outcome");
+    const catalog = collect();
     expect(
       catalog.issues.some((issue) => issue.message.includes("unregistered product goal")),
     ).toBe(true);
@@ -276,141 +400,118 @@ describe("collectCatalog", () => {
       path.join(repoRoot, "specifications", "product-goals.ts"),
       `export const productGoals = defineProductGoals({ "extension-adoption": { outcome: "Redefined locally." } });`,
     );
-    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    writeSpec(lifecycle("a"), "cli/install/a", "extension-adoption");
+    const catalog = collect();
     expect(catalog.issues.some((issue) => issue.message.includes("shared goal"))).toBe(true);
   });
 
   it("rejects a successor whose superseded predecessor is still present", () => {
-    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
+    writeSpec(lifecycle("a"), "cli/install/a", "extension-adoption");
     writeSpec(
-      "cli/install/b.spec.ts",
+      lifecycle("b"),
       "cli/install/b",
       "extension-adoption",
       `supersedes: ["cli/install/a"],`,
     );
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    const catalog = collect();
     expect(
       catalog.issues.some((issue) => issue.message.includes("still present in the corpus")),
     ).toBe(true);
   });
 
-  it("warns when a requirement identity does not match its directory", () => {
-    writeSpec("cli/install/a.spec.ts", "cli/uninstall/a", "extension-adoption");
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
-    expect(
-      catalog.issues.some(
-        (issue) => issue.severity === "warning" && issue.message.includes("does not match"),
-      ),
-    ).toBe(true);
-  });
-
-  it("renders a product-shaped catalog listing every specification with its statement", () => {
+  it("renders a product-shaped catalog listing every specification with its owner and statement", () => {
     writeSpec(
-      "cli/install/a.spec.ts",
+      lifecycle("a"),
       "cli/install/a",
       "extension-adoption",
       `derivedFrom: ["AXM-REQ-0001"], assumptions: "unknown", limitations: [{ limitation: "Does not observe the real registry.", retirementCondition: "A registry boundary execution binds evidence to this identity." }],`,
     );
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    const catalog = collect();
     const markdown = renderCatalogMarkdown(catalog);
     expect(markdown).toContain("## Product behavior");
-    expect(markdown).toContain("### CLI");
-    expect(markdown).toContain("#### Install");
+    expect(markdown).toContain("### Goal: extension-adoption");
+    expect(markdown).toContain("#### Functional");
     expect(markdown).toContain("`cli/install/a`");
+    expect(markdown).toContain("- Owner: `extension-lifecycle`");
     expect(markdown).not.toContain("- Status:");
     expect(markdown).toContain("- Statement: When a person installs an extension directly");
     expect(markdown).toContain("- Derived from: `AXM-REQ-0001`");
     expect(markdown).toContain("- Assumptions: unknown (not yet assessed)");
     expect(markdown).toContain("- Limitation: Does not observe the real registry.");
+    expect(markdown).toContain(`- Source: [\`${lifecycle("a")}\`](../${lifecycle("a")})`);
     expect(markdown).toContain("### Shared across AgentXM repositories");
     expect(markdown).toContain("### Local to AXM");
+    expect(markdown).not.toContain("directory headings");
   });
 
-  it("uses directory ancestry without turning specification filenames into groups", () => {
+  it("organizes by role, primary goal, and class rather than by location", () => {
     writeSpec(
-      "cli/preserves-unrelated-state.spec.ts",
-      "cli/preserves-unrelated-state",
+      lifecycle("a"),
+      "cli/install/a",
       "extension-adoption",
-      `title: "Workspace changes preserve unrelated files",`,
+      `title: "Install realizes intent",`,
     );
     writeSpec(
-      "cli/skills/retains-intent.spec.ts",
-      "cli/skills/retains-intent",
+      model("b"),
+      "extension-identity/b",
       "extension-adoption",
-      `title: "Skill commands retain declared intent",`,
+      `title: "Identities retain their type", class: "constraint",`,
     );
     writeSpec(
-      "cli/skills/install/realizes-content.spec.ts",
-      "cli/skills/install/realizes-content",
-      "extension-adoption",
-      `title: "Skill installation realizes selected content",`,
+      lifecycle("c"),
+      "cli/install/c",
+      "safe-repetition",
+      `title: "Reinstall is idempotent",`,
     );
     writeSpec(
-      "cli/skills/uninstall/removes-content.spec.ts",
-      "cli/skills/uninstall/removes-content",
+      model("d"),
+      "extension-identity/d",
       "extension-adoption",
-      `title: "Skill removal clears its acquired content",`,
+      `title: "Machine output identifies the result", role: "interface",`,
     );
-    writeSpec(
-      "cli/knowledge/concepts/get/returns-content.spec.ts",
-      "cli/knowledge/concepts/get/returns-content",
-      "extension-adoption",
-      `title: "Concept reads return canonical text",`,
-    );
-    writeSpec(
-      "extension-identity/retains-type.spec.ts",
-      "extension-identity/retains-type",
-      "extension-adoption",
-      `title: "Extension identities retain their type",`,
-    );
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    const catalog = collect();
     const markdown = renderCatalogMarkdown(catalog);
     const headings = markdown.split("\n").filter((line) => /^#{2,6} /u.test(line));
     expect(headings).toEqual([
       "## Product behavior",
-      "### CLI",
-      "#### Workspace changes preserve unrelated files",
-      "#### Knowledge",
-      "##### Concepts",
-      "###### Get",
-      "#### Skills",
-      "##### Skill commands retain declared intent",
-      "##### Install",
-      "###### Skill installation realizes selected content",
-      "##### Uninstall",
-      "###### Skill removal clears its acquired content",
-      "### Extension identity",
-      "#### Extension identities retain their type",
+      "### Goal: extension-adoption",
+      "#### Functional",
+      "##### Install realizes intent",
+      "#### Constraints",
+      "##### Identities retain their type",
+      "### Goal: safe-repetition",
+      "#### Functional",
+      "##### Reinstall is idempotent",
+      "## Programmatic interfaces",
+      "### Goal: extension-adoption",
+      "#### Functional",
+      "##### Machine output identifies the result",
       "## Product goals",
       "### Shared across AgentXM repositories",
       "### Local to AXM",
     ]);
-    expect(markdown).toContain(
-      "**Concept reads return canonical text**\n\n- Requirement: `cli/knowledge/concepts/get/returns-content`",
-    );
-    expect(markdown).not.toMatch(/^#{7,} /mu);
+    expect(markdown).toContain("### Goal: safe-repetition\n\nReruns are no-ops.\n");
     for (const entry of catalog.specifications) {
       expect(markdown.split(`- Requirement: \`${entry.metadata.requirement}\``)).toHaveLength(2);
       expect(markdown).toContain(`- Source: [\`${entry.source}\`](../${entry.source})`);
     }
   });
 
-  it("keeps role sections, goal references and additional evidence attached to their owners", () => {
-    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
+  it("keeps goal references and additional evidence attached to their owners", () => {
+    writeSpec(lifecycle("a"), "cli/install/a", "extension-adoption");
     writeSpec(
-      "cli/machine-result.spec.ts",
+      model("machine-result"),
       "cli/machine-result",
       "extension-adoption",
       `title: "Machine output identifies the result", role: "interface",`,
     );
     writeSpec(
-      "system/process/repetition.spec.ts",
+      model("repetition"),
       "system/process/repetition",
       "safe-repetition",
       `title: "Repository changes keep repeatable checks", role: "supporting",`,
     );
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    const catalog = collect();
     const markdown = renderCatalogMarkdown({
       ...catalog,
       executionBindings: [
@@ -422,11 +523,11 @@ describe("collectCatalog", () => {
         },
       ],
     });
-    expect(markdown).toContain(
-      "## Programmatic interfaces\n\n### CLI\n\n#### Machine output identifies the result",
+    expect(markdown).toMatch(
+      /## Programmatic interfaces\n\n### Goal: extension-adoption\n\n[^\n]+\n\n#### Functional\n\n##### Machine output identifies the result/u,
     );
     expect(markdown).toContain(
-      "## Supporting system behavior\n\n### System\n\n#### Process\n\n##### Repository changes keep repeatable checks",
+      "## Supporting system behavior\n\n### Goal: safe-repetition\n\nReruns are no-ops.\n\n#### Functional\n\n##### Repository changes keep repeatable checks",
     );
     expect(markdown).toContain("- Product goals: `extension-adoption`");
     expect(markdown).toContain("- Product goals: `safe-repetition`");
@@ -443,9 +544,8 @@ describe("collectCatalog", () => {
   });
 
   it("links the structural inventories without presenting them as behavioral evidence", () => {
-    writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
-    const markdown = renderCatalogMarkdown(catalog);
+    writeSpec(lifecycle("a"), "cli/install/a", "extension-adoption");
+    const markdown = renderCatalogMarkdown(collect());
     expect(markdown).toContain(
       "[Command and parameter inventory](support/command-behavior-allocation.json)",
     );
@@ -456,7 +556,8 @@ describe("collectCatalog", () => {
   });
 
   it("renders bound evidence beside its owning requirement", () => {
-    const target = path.join(repoRoot, "specifications", "cli", "install", "a.spec.ts");
+    const target = path.join(repoRoot, lifecycle("a"));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(
       target,
       `export const specification = defineSpecification(${metadataLiteral(
@@ -466,10 +567,33 @@ export const boundEvidence = defineBoundEvidence([
   { gate: "lint: example-gate", verifies: "Rejects the violation on every change." },
 ]);`,
     );
-    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
-    const markdown = renderCatalogMarkdown(catalog);
+    const markdown = renderCatalogMarkdown(collect());
     expect(markdown).toContain(
       "- Bound evidence: `lint: example-gate` — Rejects the violation on every change.",
     );
+  });
+
+  it("renders without discovering when handed an already-owned corpus", () => {
+    const specification: CatalogSpecification = {
+      metadata: {
+        requirement: "cli/install/a",
+        title: "Install realizes intent",
+        statement: "When a person installs, AXM shall realize the intent.",
+        class: "functional",
+        role: "experience",
+        goals: ["extension-adoption"],
+        methods: ["example"],
+        derivedFrom: [],
+        supersedes: [],
+        assumptions: [],
+        openQuestions: [],
+      },
+      boundEvidence: [],
+      owner: "extension-lifecycle",
+      source: lifecycle("a"),
+    };
+    const catalog = collectCatalog({ repoRoot, specifications: [specification] });
+    expect(catalog.issues.filter((issue) => issue.severity === "error")).toEqual([]);
+    expect(renderCatalogMarkdown(catalog)).toContain("- Owner: `extension-lifecycle`");
   });
 });

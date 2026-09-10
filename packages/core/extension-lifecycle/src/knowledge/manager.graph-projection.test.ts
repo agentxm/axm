@@ -25,7 +25,11 @@ import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sou
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "@agentxm/workspace-state/testing";
+import {
+  makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
+  TEST_CONTENT_IDENTITY,
+} from "@agentxm/workspace-state/testing";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   TestLifecycleFailureAdapter,
@@ -120,7 +124,8 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     readonly knowledgeInstructions?: boolean;
     readonly instructionFiles?: boolean;
   }) => {
-    const wsMock = makeBaseWorkspaceMock(nodePath.join(baseDir, ".axm"), {
+    const axmDir = nodePath.join(baseDir, ".axm");
+    const wsMock = makeBaseWorkspaceMock(axmDir, {
       getDesiredStateGraph: () => Effect.succeed(args.graph),
       getLockedKnowledge: () => Effect.succeed(args.locked),
       // The writer must never derive membership from settings entries.
@@ -135,6 +140,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
       Layer.provideMerge(TestLifecycleFailureAdapter),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
+      Layer.provide(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(
         Layer.succeed(SourceHostProviders, {
           resolveNamedRegistry: () => Effect.die("not used"),

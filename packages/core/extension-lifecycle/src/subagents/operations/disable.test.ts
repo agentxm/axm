@@ -8,7 +8,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { configuredRow, makeBaseWorkspaceMock, rowsFor } from "@agentxm/workspace-state/testing";
+import {
+  configuredRow,
+  makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
+  rowsFor,
+} from "@agentxm/workspace-state/testing";
 import {
   CodingAgentRepository,
   type CodingAgent,
@@ -89,6 +94,7 @@ describe("disableSubagent", () => {
       const layers = Layer.mergeAll(
         NodeServices.layer,
         WorkspaceMutations.layer(wsMock),
+        MockWorkspaceTransactionScope(axmDir),
         Layer.succeed(CodingAgentRepository, fakeRepo),
         TestLifecycleFailureAdapter,
       );

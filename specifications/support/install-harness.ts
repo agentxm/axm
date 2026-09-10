@@ -50,9 +50,8 @@ import {
   ReleaseAgePosture,
   type ReleaseAgePostureValue,
   makeMemoryTransitionLockWorld,
-  makeWorkspaceTransactionCapabilities,
-  WorkspaceMutations,
-  makeWorkspaceMutations,
+  MemoryWorkspaceTransactionScope,
+  WorkspaceStateLive,
 } from "axm.sh/specification-harness";
 
 export interface SpecWorkspaceOptions {
@@ -201,20 +200,18 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     memory === undefined
       ? options.fileSystemLayer
       : Layer.succeed(FileSystem.FileSystem, memory.fileSystem);
+  // A memory world admits transitions without a lock file: the state
+  // services compose beside a memory transaction scope instead of the
+  // production one.
   const workspaceLayer =
     transitionWorld === undefined
       ? undefined
-      : Layer.effect(
-          WorkspaceMutations,
-          Effect.suspend(() =>
-            makeWorkspaceMutations(
-              {
-                projectRoot: decodeAbsolutePathSync(root),
-                scope: options.scope ?? "project",
-              },
-              makeWorkspaceTransactionCapabilities(transitionWorld.invocation()),
-            ),
-          ),
+      : Layer.provideMerge(
+          MemoryWorkspaceTransactionScope(transitionWorld.invocation()),
+          WorkspaceStateLive({
+            projectRoot: decodeAbsolutePathSync(root),
+            scope: options.scope ?? "project",
+          }),
         );
   const context = makeWorkspaceHandlerTestContext({
     ...(options.machine !== undefined ? { machine: options.machine } : {}),

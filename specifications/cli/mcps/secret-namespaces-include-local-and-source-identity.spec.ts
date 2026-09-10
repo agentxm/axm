@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 
 import { handleInstallMcpServer, writeWorkspaceFiles } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 import { makeSpecRegistry } from "../../support/registry-fixture.js";
 

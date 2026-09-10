@@ -26,7 +26,7 @@ import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/mani
 import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge";
 import { AxmPackageMetaSchema } from "@agentxm/registry-client";
-import { allLintCatalogRuleIds } from "@agentxm/registry-protocol/unstable/lint/catalog-metadata";
+import { allLintCatalogRuleIds } from "@agentxm/extension-content/lint";
 import { LockfileSchema, SettingsSchema } from "@agentxm/workspace-state";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");

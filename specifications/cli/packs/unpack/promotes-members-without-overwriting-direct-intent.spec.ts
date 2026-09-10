@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import * as path from "node:path";
 import { handleUnpack, expectAppliedPlanResult } from "axm.sh/specification-harness";
 import { makePackEditingFixture } from "../../../support/pack-editing-fixture.js";

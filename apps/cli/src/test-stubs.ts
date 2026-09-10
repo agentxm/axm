@@ -11,14 +11,13 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import {
   type WorkspaceMutationsService,
-  type WorkspaceTransactionRunner,
-  type WorkspaceTransitionAcquirer,
   type ExtensionInventory,
   type PackagingKind,
   type ReadModelRecordRow,
   TreeIntegritySchema,
   computeSourceHash,
 } from "@agentxm/workspace-state";
+import { type WorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
@@ -57,10 +56,6 @@ export const runWorkspaceTransactionStub: WorkspaceTransactionRunner = (args) =>
     yield* args.validate(value);
     return value;
   });
-
-/** Acquires nothing: unit tests share literal workspace paths. */
-export const acquireTransitionStub: WorkspaceTransitionAcquirer = () =>
-  Effect.succeed(Option.none());
 
 export const managerLifecycleStubs = {
   runTransaction: runWorkspaceTransactionStub,
@@ -218,8 +213,6 @@ export const makeBaseWorkspaceMock = (
         decodeAbsolutePathSync(path.join(baseDir, type === "mcp-server" ? "mcps" : `${type}s`)),
     },
     records,
-    runTransaction: runWorkspaceTransactionStub,
-    acquireTransition: acquireTransitionStub,
     getLockfileState: () => Effect.succeed("ok" as const),
     getDesiredStateGraph: () =>
       Effect.succeed({

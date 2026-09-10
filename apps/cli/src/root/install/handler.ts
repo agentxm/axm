@@ -225,47 +225,57 @@ export const handleInstallWithActions = (
 ) => handleInstallWithActionEffect(args, Effect.succeed(actions));
 
 const handleInstallBody = (args: RootInstallHandlerArgs, actions: InstallCommandActions) =>
-  Option.match(args.source, {
-    onNone: () =>
-      handleWorkspaceInstallWithActions(
-        {
-          command: "install",
-          type: Option.none(),
-          planName: "Install configured extensions",
-          planDescription: Option.some("Install configured workspace extensions"),
-          flags: { force: args.force, preview: args.preview },
-        },
-        actions,
-      ),
-    onSome: (source) =>
-      Effect.gen(function* () {
-        const execution = yield* makePlanExecution(
-          { preview: args.preview },
-          makeConfirmationRecovery(
-            ["install"],
-            [
-              recoverySwitch("--reinstall", args.force),
-              recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
-              recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
-            ],
-          ),
-        );
-        const intent = yield* resolveRootInstallIntent(source);
-        if (intent.type === "locator") {
-          yield* runLocatorInstallIntent(intent.source, execution, actions, args.force);
-          return;
-        }
-        const resolution = yield* runRegistryInstallIntent(intent, execution, actions, args.force);
-        yield* setCommandSemanticProperties(
-          summarizeCommandOutcome(
-            operationResolutionSummary(resolution, {
-              subjectType: intent.type,
-              sourceKind: "registry",
-            }),
-          ),
-        );
-        yield* emitOperationResolution("install", resolution, {
-          suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
-        });
-      }),
+  // A generator unifies the two branches' requirements: the workspace-install
+  // branch owns its own operation lifecycle while the locator branch runs
+  // under this handler's.
+  Effect.gen(function* () {
+    return yield* Option.match(args.source, {
+      onNone: () =>
+        handleWorkspaceInstallWithActions(
+          {
+            command: "install",
+            type: Option.none(),
+            planName: "Install configured extensions",
+            planDescription: Option.some("Install configured workspace extensions"),
+            flags: { force: args.force, preview: args.preview },
+          },
+          actions,
+        ),
+      onSome: (source) =>
+        Effect.gen(function* () {
+          const execution = yield* makePlanExecution(
+            { preview: args.preview },
+            makeConfirmationRecovery(
+              ["install"],
+              [
+                recoverySwitch("--reinstall", args.force),
+                recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
+                recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
+              ],
+            ),
+          );
+          const intent = yield* resolveRootInstallIntent(source);
+          if (intent.type === "locator") {
+            yield* runLocatorInstallIntent(intent.source, execution, actions, args.force);
+            return;
+          }
+          const resolution = yield* runRegistryInstallIntent(
+            intent,
+            execution,
+            actions,
+            args.force,
+          );
+          yield* setCommandSemanticProperties(
+            summarizeCommandOutcome(
+              operationResolutionSummary(resolution, {
+                subjectType: intent.type,
+                sourceKind: "registry",
+              }),
+            ),
+          );
+          yield* emitOperationResolution("install", resolution, {
+            suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+          });
+        }),
+    });
   });

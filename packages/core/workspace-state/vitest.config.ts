@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { configDefaults, defineConfig } from "vitest/config";
 import { testExecution } from "../../../vitest.execution.js";
-import { makeTestReporting } from "../../../vitest.reporting.js";
+import { makeTestReporting, purposeSetupFile } from "../../../vitest.reporting.js";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
@@ -9,8 +9,9 @@ export default defineConfig({
   root: projectRoot,
   test: {
     ...testExecution,
-    ...makeTestReporting({ layer: "internal", suite: "workspace-state" }),
+    ...makeTestReporting({ project: "workspace-state" }),
     include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
+    setupFiles: [purposeSetupFile],
     // `*.type-test.ts` files contain only compile-time assertions (no runtime
     // `it`/`expect` wrappers). They are typechecked via `tsconfig.spec.json`
     // but excluded from the runtime suite so vitest does not try to load a

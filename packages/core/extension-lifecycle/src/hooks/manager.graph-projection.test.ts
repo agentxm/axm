@@ -33,7 +33,10 @@ import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import {
+  makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
+} from "@agentxm/workspace-state/testing";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { HookManagerLive } from "./manager.js";
 
@@ -127,7 +130,8 @@ describe("HookManager graph-derived unit projection", () => {
     readonly locked: HooksLockMap;
     readonly configuredAgents: ReadonlyArray<string>;
   }) => {
-    const wsMock = makeBaseWorkspaceMock(nodePath.join(baseDir, ".axm"), {
+    const axmDir = nodePath.join(baseDir, ".axm");
+    const wsMock = makeBaseWorkspaceMock(axmDir, {
       getDesiredStateGraph: () => Effect.succeed(args.graph),
       getLockedHooks: () => Effect.succeed(args.locked),
       getConfiguredAgents: () => Effect.succeed(args.configuredAgents),
@@ -140,6 +144,7 @@ describe("HookManager graph-derived unit projection", () => {
       Layer.provideMerge(TestLifecycleFailureAdapter),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
+      Layer.provide(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
     );

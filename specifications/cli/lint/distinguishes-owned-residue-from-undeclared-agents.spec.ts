@@ -10,7 +10,7 @@ import {
   handleInstall,
   handleLint,
 } from "axm.sh/specification-harness";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";
 import { installBundledAxmSkill, makeLintSpecWorkspace } from "../../support/lint-harness.js";
 

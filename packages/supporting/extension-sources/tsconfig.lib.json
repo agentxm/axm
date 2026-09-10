@@ -24,6 +24,9 @@
     },
     {
       "path": "../../core/extension-model/tsconfig.lib.json"
+    },
+    {
+      "path": "../../core/extension-content/tsconfig.lib.json"
     }
   ]
 }

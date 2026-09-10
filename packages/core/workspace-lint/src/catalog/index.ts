@@ -9,15 +9,15 @@ import type {
   LintCatalogGroup,
   LintCatalogRuleMetadata,
   LintCatalogView,
-} from "@agentxm/registry-protocol/unstable/lint/catalog-metadata";
-import { skillRules } from "@agentxm/registry-protocol/unstable/lint/catalog/skill";
-import { packRules } from "@agentxm/registry-protocol/unstable/lint/catalog/pack";
-import { subagentRules } from "@agentxm/registry-protocol/unstable/lint/catalog/subagent";
-import { mcpServerRules } from "@agentxm/registry-protocol/unstable/lint/catalog/mcp-server";
-import { hookRules } from "@agentxm/registry-protocol/unstable/lint/catalog/hook";
-import { ruleRules } from "@agentxm/registry-protocol/unstable/lint/catalog/rule";
-import { knowledgeRules } from "@agentxm/registry-protocol/unstable/lint/catalog/knowledge";
-import type { LintRule } from "@agentxm/registry-protocol/unstable/lint/rule";
+} from "@agentxm/extension-content/lint";
+import { skillRules } from "@agentxm/extension-content/lint";
+import { packRules } from "@agentxm/extension-content/lint";
+import { subagentRules } from "@agentxm/extension-content/lint";
+import { mcpServerRules } from "@agentxm/extension-content/lint";
+import { hookRules } from "@agentxm/extension-content/lint";
+import { ruleRules } from "@agentxm/extension-content/lint";
+import { knowledgeRules } from "@agentxm/extension-content/lint";
+import type { LintRule } from "@agentxm/extension-content/lint";
 import { workspaceRules } from "./workspace.js";
 import { repositoryWorkspaceRules } from "./workspace.js";
 export { liveOnlyWorkspaceRules, repositoryWorkspaceRules, workspaceRules } from "./workspace.js";

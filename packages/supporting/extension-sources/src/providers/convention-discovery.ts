@@ -36,7 +36,7 @@ import {
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
   SkillManifestSchema,
 } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
+import { parseSkillMd } from "@agentxm/extension-content";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { fileUrlToPath } from "../file-url.js";
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";

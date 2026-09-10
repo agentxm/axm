@@ -35,9 +35,11 @@ import type { FindOptions } from "@agentxm/extension-model/unstable/sources/sour
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
 import {
   AxmSkillCandidateGate,
+  RegistryResolutionPolicy,
   createRemoteRegistrySourceHostProvider,
 } from "@agentxm/extension-sources";
 import { AxmSkillCandidateGateLive } from "./axm-skill-gate-live.js";
+import { RegistryResolutionPolicyLive } from "./registry-resolution-policy-live.js";
 import { toAppError } from "../app-error/conversions.js";
 import { dependencyConstraintMap, exactVersion, extensionName, handle } from "../test-stubs.js";
 
@@ -45,12 +47,18 @@ const runEffect = <A, E>(
   effect: Effect.Effect<
     A,
     E,
-    FileSystem.FileSystem | Path.Path | AxmSkillCandidateGate | Scope.Scope
+    | FileSystem.FileSystem
+    | Path.Path
+    | AxmSkillCandidateGate
+    | RegistryResolutionPolicy
+    | Scope.Scope
   >,
 ) =>
   effect.pipe(
     Effect.scoped,
-    Effect.provide(Layer.merge(NodeServices.layer, AxmSkillCandidateGateLive)),
+    Effect.provide(
+      Layer.mergeAll(NodeServices.layer, AxmSkillCandidateGateLive, RegistryResolutionPolicyLive),
+    ),
   );
 
 const sha512 = (data: Uint8Array): string => {

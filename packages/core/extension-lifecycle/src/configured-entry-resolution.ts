@@ -16,12 +16,12 @@ import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import type {
   ReleaseAgeBypassRecord,
   ReleaseAgeHoldbackRecord,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+} from "@agentxm/extension-resolution";
 import type {
   ReleaseAgeEvaluation,
   ReleaseAgeEvidence,
 } from "@agentxm/extension-model/unstable/extensions/release-age";
-import { parseMinimumReleaseAge } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { parseMinimumReleaseAge } from "@agentxm/extension-resolution";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";

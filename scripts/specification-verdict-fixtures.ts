@@ -1,32 +1,49 @@
 /** Controlled receipts and requirements for verdict verification. */
-import type { SpecificationMetadata } from "@agentxm/extension-model/unstable/specifications";
-import { digestContent, type EvidenceFile, type EvidenceRun } from "./specification-evidence.js";
+import type { SpecificationMetadata } from "@agentxm/specification-metadata";
+import { digestSpecificationSource } from "./specification-catalog-lib.js";
+import { type EvidenceFile, type EvidenceRun } from "./specification-evidence.js";
 import type { VerdictEvidence, VerdictSource } from "./specification-verdict-lib.js";
 
+export const FIXTURE_SOURCE_PATH =
+  "packages/core/extension-lifecycle/src/install/installs-selected-extension.spec.ts";
+
+export interface FixtureLocation {
+  readonly owner?: string;
+  readonly source?: string;
+}
+
+/**
+ * A specification whose digests are derived from `content` exactly as the
+ * verdict derives them: the example surface from `describe`/`it` titles
+ * and `each` rows, the body from the comment-free AST.
+ */
 export const fixtureSource = (
-  content = "specification source",
+  content = 'describe("Install", () => { it("installs the selected extension", () => {}); });',
   overrides: Partial<SpecificationMetadata> = {},
-): VerdictSource => ({
-  specification: {
-    metadata: {
-      requirement: "cli/install/installs-selected-extension",
-      title: "Install installs the selected extension",
-      statement: "When a person installs an extension, AXM shall install the selected extension.",
-      class: "functional",
-      role: "experience",
-      goals: ["extension-adoption"],
-      methods: ["example"],
-      derivedFrom: [],
-      supersedes: [],
-      assumptions: [],
-      openQuestions: [],
-      ...overrides,
+  location: FixtureLocation = {},
+): VerdictSource =>
+  digestSpecificationSource(
+    {
+      metadata: {
+        requirement: "cli/install/installs-selected-extension",
+        title: "Install installs the selected extension",
+        statement: "When a person installs an extension, AXM shall install the selected extension.",
+        class: "functional",
+        role: "experience",
+        goals: ["extension-adoption"],
+        methods: ["example"],
+        derivedFrom: [],
+        supersedes: [],
+        assumptions: [],
+        openQuestions: [],
+        ...overrides,
+      },
+      boundEvidence: [],
+      owner: location.owner ?? "extension-lifecycle",
+      source: location.source ?? FIXTURE_SOURCE_PATH,
     },
-    boundEvidence: [],
-    source: "specifications/cli/install/installs-selected-extension.spec.ts",
-  },
-  contentDigest: digestContent(content),
-});
+    content,
+  );
 export const fixtureInputs = {
   sourceDigest: "source-inputs",
   runtimeDigest: "built-inputs",
@@ -43,8 +60,10 @@ export const fixtureRun = (
   overrides: Partial<EvidenceRun> = {},
 ): EvidenceRun => {
   const source = fixtureSource();
-  const result = {
+  const result: EvidenceFile = {
     source: source.specification.source,
+    owner: source.specification.owner,
+    purpose: "specification",
     contentDigest: source.contentDigest,
     tests: 3,
     passed: 3,
@@ -56,8 +75,8 @@ export const fixtureRun = (
     ...file,
   };
   return {
-    format: 1,
-    suite: "specifications",
+    format: 2,
+    suite: "extension-lifecycle",
     startedAt: "2026-09-05T10:00:00Z",
     finishedAt: "2026-09-05T10:01:00Z",
     inputs: fixtureInputs,

@@ -4,7 +4,7 @@ import type {
   KnowledgeConcept,
   KnowledgeDocumentKind,
   KnowledgeTrustTier,
-} from "@agentxm/registry-protocol/unstable/knowledge/okf";
+} from "@agentxm/extension-content/knowledge";
 
 export type KnowledgeSearchableField =
   | "bundle"

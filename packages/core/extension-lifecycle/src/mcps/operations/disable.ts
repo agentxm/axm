@@ -17,6 +17,10 @@ import type {
   Operation,
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-transactions";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
@@ -35,6 +39,7 @@ export const disableMcpServer = (
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceTransactionScope
   | CodingAgentRepository
   | LifecycleFailureAdapter
 > =>
@@ -54,7 +59,7 @@ export const disableMcpServer = (
     }
 
     const agents = yield* agentRepo.getConfiguredAgents();
-    const outcomes = yield* ws.runTransaction({
+    const outcomes = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         const synced = yield* Effect.forEach(
           agents,

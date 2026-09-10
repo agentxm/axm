@@ -30,6 +30,10 @@ import {
   type DesiredExtensionNode,
 } from "@agentxm/workspace-state";
 import {
+  runWorkspaceTransaction,
+  type WorkspaceTransactionScope,
+} from "@agentxm/workspace-transactions";
+import {
   previewOrApplyPlan,
   operationPresentation,
   type JobStepArtifact,
@@ -328,7 +332,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
     targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated" }, ...memberTargets],
   } satisfies JobStepArtifact;
 
-  const plan: Plan = {
+  const plan: Plan<WorkspaceTransactionScope> = {
     _tag: "Plan",
     name: `${titleVerb} pack`,
     description: Option.some(`${titleVerb} ${packIdentity} without changing locked versions`),
@@ -347,7 +351,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
             label: packIdentity,
             artifact: activationArtifact,
             run: Effect.gen(function* () {
-              const projectionWarnings = yield* ws.runTransaction({
+              const projectionWarnings = yield* runWorkspaceTransaction({
                 transition: Effect.gen(function* () {
                   yield* ws
                     .setPackEntry(args.name, { ...entry, enabled: args.enabled })

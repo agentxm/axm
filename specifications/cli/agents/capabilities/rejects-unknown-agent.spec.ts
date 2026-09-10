@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
 import { handleAgentsCapabilities, getAppError } from "axm.sh/specification-harness";
 import { makeSpecWorkspace } from "../../../support/install-harness.js";

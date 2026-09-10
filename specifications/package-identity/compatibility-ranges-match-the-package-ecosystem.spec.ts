@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { CompanionPackageSchema } from "@agentxm/extension-model/unstable/package-urls";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "package-identity/compatibility-ranges-match-the-package-ecosystem",

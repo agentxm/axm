@@ -17,6 +17,10 @@ import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-transactions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   PACK_MANIFEST_FILENAME,
@@ -65,7 +69,11 @@ export type AddToPackOperation = Operation<"add-to-pack", AddToPackOperationArgs
  */
 export const addToPack: OperationHandler<
   AddToPackOperation,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | AuthoringFailureAdapter
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | WorkspaceTransactionScope
+  | AuthoringFailureAdapter
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -96,7 +104,7 @@ export const addToPack: OperationHandler<
       packName,
       PACK_MANIFEST_FILENAME,
     );
-    yield* ws.runTransaction({
+    yield* runWorkspaceTransaction({
       targets: [manifestPath],
       transition: Effect.gen(function* () {
         // Read and stale-check under the workspace lock.

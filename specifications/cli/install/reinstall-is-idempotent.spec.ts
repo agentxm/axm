@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 
 import { handleInstall, PlanResolutionDocumentSchema } from "axm.sh/specification-harness";
 
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
 import { snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
 

@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   handleWhoami,
   WhoamiDocumentSchema,

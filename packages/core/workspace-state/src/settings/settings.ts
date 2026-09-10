@@ -10,10 +10,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as JsonPatch from "effect/JsonPatch";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "../utils/atomic-write.js";
 import { SettingsWriteError } from "./errors.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
-import { recordFootprint } from "../workspace/footprint-recorder.js";
+import {
+  protectWorkspacePath,
+  recordFootprint,
+  sweepStaleAtomicWriteTemps,
+  writeFileAtomic,
+} from "@agentxm/workspace-transactions";
 import {
   SETTINGS_KEY_ORDER,
   SETTINGS_KNOWN_KEYS,

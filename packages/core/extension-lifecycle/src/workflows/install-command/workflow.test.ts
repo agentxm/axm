@@ -20,12 +20,16 @@ import {
   type OperationEvent,
 } from "@agentxm/workspace-operations";
 import {
+  PlanInvocationTest,
   ResolvePlanInteractionTest,
   preapprovedPlanExecution,
   promptablePlanExecution,
 } from "@agentxm/workspace-operations/testing";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import {
+  makeBaseWorkspaceMock,
+  MockWorkspaceTransactionScope,
+} from "@agentxm/workspace-state/testing";
 import {
   type InstallExtensionCommandWorkflowActions,
   runInstallCommandWorkflow,
@@ -63,7 +67,9 @@ const testRecovery: ConfirmationRecovery = {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeMockWorkspace = () => makeBaseWorkspaceMock("/tmp/test/.axm");
+const testAxmDir = "/tmp/test/.axm";
+
+const makeMockWorkspace = () => makeBaseWorkspaceMock(testAxmDir);
 
 const makeTestContext = () => {
   const interaction = ResolvePlanInteractionTest();
@@ -71,6 +77,8 @@ const makeTestContext = () => {
     layer: Layer.mergeAll(
       NodeServices.layer,
       WorkspaceMutations.layer(makeMockWorkspace()),
+      MockWorkspaceTransactionScope(testAxmDir),
+      PlanInvocationTest,
       interaction.layer,
     ),
   };

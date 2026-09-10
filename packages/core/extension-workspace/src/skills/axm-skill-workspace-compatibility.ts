@@ -8,7 +8,7 @@ import {
   type LockfileReadError,
   type SettingsReadError,
 } from "@agentxm/workspace-state";
-import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content/skill-content";
+import { parseSkillMd } from "@agentxm/extension-content";
 import {
   AXM_SKILL_FQN,
   type AxmSkillCompatibility,

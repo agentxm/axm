@@ -9,7 +9,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { defineSpecification } from "@agentxm/extension-model/unstable/specifications";
+import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   CredentialStore,
   CredentialStoreLive,

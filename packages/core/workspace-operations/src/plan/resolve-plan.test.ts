@@ -1,4 +1,3 @@
-import { liveWorkspaceTransitionLock } from "../operations/transition-lock.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -8,7 +7,7 @@ import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Semaphore from "effect/Semaphore";
+import type * as PlatformError from "effect/PlatformError";
 
 import {
   applyPlanExecution,
@@ -20,19 +19,21 @@ import {
   preapprovedPlanExecution,
   promptablePlanExecution,
 } from "./plan-execution-fixtures.js";
-import { runWorkspaceTransaction } from "../operations/transaction.js";
 import {
-  acquireWorkspaceTransitionLock,
-  isWorkspaceTransitionHeldByThisInvocation,
-} from "../operations/transition-lock.js";
-import {
+  FootprintRecorder,
+  WorkspaceTransactionScope,
+  makeFootprintRecorder,
   protectWorkspacePath,
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-  type WorkspaceTransitionAcquirer,
-} from "@agentxm/workspace-state";
+  type WorkspaceTransitionLock,
+} from "@agentxm/workspace-transactions";
+import { WorkspaceTransactionScopeTest } from "@agentxm/workspace-transactions/testing";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { ResolvePlanInteractionTest, type ApplyConfirmation } from "./resolve-plan-interaction.js";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import {
+  ConfiguredAgentOutcomesProviderTest,
+  makeBaseWorkspaceMock,
+} from "@agentxm/workspace-state/testing";
+import { OperationJournal, makeOperationJournal } from "./operation-journal.js";
 import type { Plan } from "./plan.js";
 import { StepFailure, type PlanInteractionFailed } from "./errors.js";
 import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
@@ -64,10 +65,48 @@ const releaseAge = {
   bypasses: [],
 };
 
+/** The workspace's transaction paths beside its runtime directory. */
+const transactionPaths = (path: Path.Path, workspaceDir: string) => ({
+  workspaceDir,
+  settingsPath: path.join(path.dirname(workspaceDir), "axm.json"),
+  lockPath: path.join(path.dirname(workspaceDir), "axm-lock.yaml"),
+});
+
+/** The production scope — process lock on disk — for one workspace directory. */
+const productionScope = (workspaceDir: string) =>
+  Layer.unwrap(
+    Effect.map(Path.Path, (path) =>
+      WorkspaceTransactionScope.layer(transactionPaths(path, workspaceDir)),
+    ),
+  );
+
+/**
+ * A memory-admission scope over a scoped temporary directory, so a unit test
+ * with a mocked workspace never creates lock files or state directories
+ * beside a literal path.
+ */
+const isolatedScope = (lock?: WorkspaceTransitionLock) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-resolve-plan-" });
+      return WorkspaceTransactionScopeTest(
+        transactionPaths(path, path.join(directory, ".axm")),
+        lock === undefined ? undefined : { lock },
+      );
+    }),
+  );
+
 const makeTestContext = (
   confirmApplyChanges?: () => Effect.Effect<ApplyConfirmation, PlanInteractionFailed>,
   overrides?: { readonly confirmationAvailable?: boolean },
   workspace: WorkspaceMutationsService = makeBaseWorkspaceMock("/tmp/axm-preview/.axm"),
+  scope: Layer.Layer<
+    WorkspaceTransactionScope,
+    PlatformError.PlatformError,
+    FileSystem.FileSystem | Path.Path
+  > = isolatedScope(),
 ) => {
   const interaction = ResolvePlanInteractionTest({
     ...(overrides?.confirmationAvailable === undefined
@@ -78,10 +117,13 @@ const makeTestContext = (
 
   return {
     layer: Layer.mergeAll(
-      NodeServices.layer,
       Layer.succeed(WorkspaceMutations, workspace),
       interaction.layer,
-    ),
+      ConfiguredAgentOutcomesProviderTest,
+      Layer.effect(OperationJournal, makeOperationJournal),
+      Layer.effect(FootprintRecorder, makeFootprintRecorder),
+      scope,
+    ).pipe(Layer.provideMerge(NodeServices.layer)),
     interactionState: interaction.state,
   };
 };
@@ -874,23 +916,12 @@ describe("previewOrApplyPlan", () => {
         const target = path.join(directory, "managed.txt");
         yield* fs.writeFileString(target, "original");
         const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
-        const semaphore = Semaphore.makeUnsafe(1);
-        const workspace: WorkspaceMutationsService = {
-          ...baseWorkspace,
-          runTransaction: (args) =>
-            runWorkspaceTransaction({
-              lock: liveWorkspaceTransitionLock,
-              semaphore,
-              workspaceDir,
-              targets: args.targets ?? [],
-              transition: args.transition,
-              validate: args.validate,
-            }).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-            ),
-        };
-        const context = makeTestContext(undefined, undefined, workspace);
+        const context = makeTestContext(
+          undefined,
+          undefined,
+          baseWorkspace,
+          productionScope(workspaceDir),
+        );
         const plan: Plan = {
           _tag: "Plan",
           name: "Update managed files",
@@ -984,23 +1015,12 @@ describe("previewOrApplyPlan", () => {
       yield* fs.writeFileString(fileB, "b-original");
       yield* fs.writeFileString(fileC, "c-original");
       const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
-      const semaphore = Semaphore.makeUnsafe(1);
-      const workspace: WorkspaceMutationsService = {
-        ...baseWorkspace,
-        runTransaction: (args) =>
-          runWorkspaceTransaction({
-            lock: liveWorkspaceTransitionLock,
-            semaphore,
-            workspaceDir,
-            targets: args.targets ?? [],
-            transition: args.transition,
-            validate: args.validate,
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-      };
-      const context = makeTestContext(undefined, undefined, workspace);
+      const context = makeTestContext(
+        undefined,
+        undefined,
+        baseWorkspace,
+        productionScope(workspaceDir),
+      );
       const write = (target: string, content: string) =>
         protectWorkspacePath(target).pipe(
           Effect.mapError(workspaceTransactionFailureToStepFailure),
@@ -1089,23 +1109,12 @@ describe("previewOrApplyPlan", () => {
       yield* fs.writeFileString(fileA, "a-original");
       yield* fs.writeFileString(fileB, "b-original");
       const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
-      const semaphore = Semaphore.makeUnsafe(1);
-      const workspace: WorkspaceMutationsService = {
-        ...baseWorkspace,
-        runTransaction: (args) =>
-          runWorkspaceTransaction({
-            lock: liveWorkspaceTransitionLock,
-            semaphore,
-            workspaceDir,
-            targets: args.targets ?? [],
-            transition: args.transition,
-            validate: args.validate,
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-      };
-      const context = makeTestContext(undefined, undefined, workspace);
+      const context = makeTestContext(
+        undefined,
+        undefined,
+        baseWorkspace,
+        productionScope(workspaceDir),
+      );
       const inFlight = yield* Deferred.make<void>();
       const plan: Plan = {
         _tag: "Plan",
@@ -1193,24 +1202,13 @@ describe("previewOrApplyPlan", () => {
       const target = path.join(managedDir, "managed.txt");
       yield* fs.makeDirectory(managedDir, { recursive: true });
       yield* fs.writeFileString(target, "original");
-      const semaphore = Semaphore.makeUnsafe(1);
       const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
-      const workspace: WorkspaceMutationsService = {
-        ...baseWorkspace,
-        runTransaction: (args) =>
-          runWorkspaceTransaction({
-            lock: liveWorkspaceTransitionLock,
-            semaphore,
-            workspaceDir,
-            targets: args.targets ?? [],
-            transition: args.transition,
-            validate: args.validate,
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-      };
-      const context = makeTestContext(undefined, undefined, workspace);
+      const context = makeTestContext(
+        undefined,
+        undefined,
+        baseWorkspace,
+        productionScope(workspaceDir),
+      );
       const plan: Plan = {
         _tag: "Plan",
         name: "Update managed files",
@@ -1292,24 +1290,13 @@ describe("previewOrApplyPlan", () => {
       const target = path.join(managedDir, "managed.txt");
       yield* fs.makeDirectory(managedDir, { recursive: true });
       yield* fs.writeFileString(target, "original");
-      const semaphore = Semaphore.makeUnsafe(1);
       const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
-      const workspace: WorkspaceMutationsService = {
-        ...baseWorkspace,
-        runTransaction: (args) =>
-          runWorkspaceTransaction({
-            lock: liveWorkspaceTransitionLock,
-            semaphore,
-            workspaceDir,
-            targets: args.targets ?? [],
-            transition: args.transition,
-            validate: args.validate,
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-      };
-      const context = makeTestContext(undefined, undefined, workspace);
+      const context = makeTestContext(
+        undefined,
+        undefined,
+        baseWorkspace,
+        productionScope(workspaceDir),
+      );
       const failingPlan: Plan = {
         _tag: "Plan",
         name: "Update managed files",
@@ -1407,37 +1394,16 @@ describe("previewOrApplyPlan", () => {
       const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
       const heldDuringApply: Array<boolean> = [];
       const lockOnDisk: Array<boolean> = [];
-      const semaphore = Semaphore.makeUnsafe(1);
       const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
-      const workspace: WorkspaceMutationsService = {
-        ...baseWorkspace,
-        acquireTransition: (request) =>
-          acquireWorkspaceTransitionLock({
-            workspaceDir,
-            holder: {
-              command: request.command,
-              pid: process.pid,
-              ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
-            },
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-        runTransaction: (args) =>
-          runWorkspaceTransaction({
-            lock: liveWorkspaceTransitionLock,
-            semaphore,
-            workspaceDir,
-            targets: args.targets ?? [],
-            transition: args.transition,
-            validate: args.validate,
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-      };
-      const context = makeTestContext(undefined, undefined, workspace);
-      const plan: Plan = {
+      const context = makeTestContext(
+        undefined,
+        undefined,
+        baseWorkspace,
+        productionScope(workspaceDir),
+      );
+      // The step observes the hold through the same scope the apply acquired
+      // it with; the plan carries that requirement to the resolution.
+      const plan: Plan<WorkspaceTransactionScope> = {
         _tag: "Plan",
         name: "Observe the transition hold",
         description: Option.none(),
@@ -1449,7 +1415,8 @@ describe("previewOrApplyPlan", () => {
                 readiness: "ready",
                 label: "observe",
                 run: Effect.gen(function* () {
-                  heldDuringApply.push(isWorkspaceTransitionHeldByThisInvocation(resolved));
+                  const scope = yield* WorkspaceTransactionScope;
+                  heldDuringApply.push(Option.isSome(yield* scope.lock.held(resolved)));
                   lockOnDisk.push(yield* fs.exists(lockPath).pipe(Effect.orDie));
                   return { result: "success" as const, message: "observed" };
                 }),
@@ -1459,14 +1426,16 @@ describe("previewOrApplyPlan", () => {
         ],
       };
 
-      const result = yield* previewOrApplyPlan(plan, {
-        execution: preapprovedPlanExecution,
+      const { result, heldAfter } = yield* Effect.gen(function* () {
+        const result = yield* previewOrApplyPlan(plan, { execution: preapprovedPlanExecution });
+        const scope = yield* WorkspaceTransactionScope;
+        return { result, heldAfter: Option.isSome(yield* scope.lock.held(resolved)) };
       }).pipe(Effect.provide(context.layer));
 
       expect(deriveOperationOutcome(result)).toBe("applied");
       expect(heldDuringApply).toEqual([true]);
       expect(lockOnDisk).toEqual([true]);
-      expect(isWorkspaceTransitionHeldByThisInvocation(resolved)).toBe(false);
+      expect(heldAfter).toBe(false);
       expect(yield* fs.exists(lockPath)).toBe(false);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -1474,16 +1443,29 @@ describe("previewOrApplyPlan", () => {
   it.effect("C-20: preview never requests the workspace transition", () =>
     Effect.gen(function* () {
       let acquisitions = 0;
-      const counting: WorkspaceTransitionAcquirer = () =>
-        Effect.sync(() => {
-          acquisitions += 1;
-          return Option.none();
-        });
-      const workspace: WorkspaceMutationsService = {
-        ...makeBaseWorkspaceMock("/tmp/axm-preview/.axm"),
-        acquireTransition: counting,
+      let holding = false;
+      // Counts acquisitions and reports its own hold, so the apply's
+      // transaction reuses the invocation's hold instead of acquiring again.
+      const counting: WorkspaceTransitionLock = {
+        acquire: () =>
+          Effect.gen(function* () {
+            acquisitions += 1;
+            holding = true;
+            yield* Effect.addFinalizer(() =>
+              Effect.sync(() => {
+                holding = false;
+              }),
+            );
+            return Option.none();
+          }),
+        held: () =>
+          Effect.sync(() =>
+            holding
+              ? Option.some({ compromised: Effect.never, isCompromised: () => false })
+              : Option.none(),
+          ),
       };
-      const context = makeTestContext(undefined, undefined, workspace);
+      const context = makeTestContext(undefined, undefined, undefined, isolatedScope(counting));
       const plan: Plan = {
         _tag: "Plan",
         name: "Preview only",
@@ -1518,18 +1500,17 @@ describe("previewOrApplyPlan", () => {
 
   it.effect("C-20: contention terminates blocked with the holder reference", () =>
     Effect.gen(function* () {
-      const contended: WorkspaceTransitionAcquirer = () =>
-        Effect.succeed(
-          Option.some({
-            holder: Option.some({ command: "install", pid: 1234 }),
-            waitedMillis: 60_000,
-          }),
-        );
-      const workspace: WorkspaceMutationsService = {
-        ...makeBaseWorkspaceMock("/tmp/axm-preview/.axm"),
-        acquireTransition: contended,
+      const contended: WorkspaceTransitionLock = {
+        acquire: () =>
+          Effect.succeed(
+            Option.some({
+              holder: Option.some({ command: "install", pid: 1234 }),
+              waitedMillis: 60_000,
+            }),
+          ),
+        held: () => Effect.succeedNone,
       };
-      const context = makeTestContext(undefined, undefined, workspace);
+      const context = makeTestContext(undefined, undefined, undefined, isolatedScope(contended));
       const plan: Plan = {
         _tag: "Plan",
         name: "Contended apply",

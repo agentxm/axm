@@ -12,6 +12,7 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -66,7 +67,7 @@ const handleDisableMcpServerBody = Effect.fn("DisableMcpServer.handle")(function
   const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
 
-  const step: PlannedJobStep = {
+  const step: PlannedJobStep<WorkspaceTransactionScope> = {
     readiness: "ready",
     label: args.name,
     run: disableMcpServer({ name: "disable-mcp-server", args: { serverName: args.name } }).pipe(
@@ -78,7 +79,7 @@ const handleDisableMcpServerBody = Effect.fn("DisableMcpServer.handle")(function
       Effect.provideService(CodingAgentRepository, agentRepo),
     ),
   };
-  const plan: Plan = {
+  const plan: Plan<WorkspaceTransactionScope> = {
     _tag: "Plan",
     name: "Disable MCP server",
     description: Option.some(`Disable ${args.name}`),

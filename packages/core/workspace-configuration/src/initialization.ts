@@ -41,9 +41,9 @@ import {
   WorkspaceInitializationInteraction,
   type SetupPlanRow,
 } from "./initialization-interaction.js";
-import { type WorkspaceLocation, locateWorkspace, resolveUserHome } from "@agentxm/workspace-state";
+import { type LocatedWorkspace, locateWorkspace, resolveUserHome } from "@agentxm/workspace-state";
 import { setupScopeSupport } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import { LOCK_FILENAME } from "@agentxm/workspace-state";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { resolveInstructionTarget, syncInstructions } from "@agentxm/extension-workspace";
@@ -948,7 +948,7 @@ export const ensureProjectWorkspaceInitialized = (
 
 export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
   Effect.gen(function* () {
-    const location: WorkspaceLocation = yield* locateWorkspace(options.scope, options.projectRoot);
+    const location: LocatedWorkspace = yield* locateWorkspace(options.scope, options.projectRoot);
     const workspaceDir = location.path;
 
     if (options.scope === "user") {

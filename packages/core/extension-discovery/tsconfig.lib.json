@@ -25,9 +25,6 @@
     },
     {
       "path": "../../supporting/registry-client/tsconfig.lib.json"
-    },
-    {
-      "path": "../extension-workspace/tsconfig.lib.json"
     }
   ]
 }

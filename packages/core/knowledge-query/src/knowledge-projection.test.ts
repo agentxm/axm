@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { KnowledgeConcept } from "@agentxm/registry-protocol/unstable/knowledge/okf";
+import type { KnowledgeConcept } from "@agentxm/extension-content/knowledge";
 import {
   projectKnowledgeConcepts,
   resolveKnowledgeFrontmatterPointer,

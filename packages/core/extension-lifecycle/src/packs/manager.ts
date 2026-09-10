@@ -32,6 +32,7 @@ import type { ExtensionManager } from "@agentxm/extension-workspace";
 import { PackManager } from "@agentxm/extension-workspace";
 import type { ExtensionTarget, PackExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations, type SetPackArgs } from "@agentxm/workspace-state";
+import { bindWorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
 import { copyExtensionDirectory } from "@agentxm/extension-workspace";
 import { computePackPathsForLayout } from "@agentxm/workspace-state";
 import { removeIfExists } from "@agentxm/workspace-state";
@@ -91,6 +92,7 @@ export const PackManagerLive = Layer.effect(
   PackManager,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const runTransaction = yield* bindWorkspaceTransactionRunner;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
@@ -213,7 +215,7 @@ export const PackManagerLive = Layer.effect(
 
     return {
       type: "pack",
-      runTransaction: ws.runTransaction,
+      runTransaction,
       isInstalled: Effect.fn("PackManager.isInstalled")(function* ({
         target,
       }: {

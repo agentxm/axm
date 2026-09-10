@@ -13,7 +13,7 @@ import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/e
 import { assessExtensionListItems, type ExtensionListItem } from "./extension-list.js";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { handle, TestInspectionFailureAdapter, WorkspaceCatalogTestLive } from "./test-helpers.js";
 
 const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {

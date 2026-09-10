@@ -20,7 +20,7 @@ import {
 } from "@agentxm/workspace-state/testing";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
-import { extensionName, handle, TestLifecycleFailureAdapter } from "../../test-helpers.js";
+import { extensionName, handle, TestStepFailureConversion } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 // -----------------------------------------------------------------------------
@@ -56,7 +56,7 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
     NodeServices.layer,
     WorkspaceMutations.layer(mockWs),
     MockWorkspaceTransactionScope(axmDir),
-    TestLifecycleFailureAdapter,
+    TestStepFailureConversion,
   );
 };
 
@@ -409,7 +409,7 @@ describe("disableSkill", () => {
               NodeServices.layer,
               WorkspaceMutations.layer(mockWs),
               MockWorkspaceTransactionScope(axmDir),
-              TestLifecycleFailureAdapter,
+              TestStepFailureConversion,
             ),
           ),
         );
@@ -476,7 +476,7 @@ describe("disableSkill", () => {
               NodeServices.layer,
               WorkspaceMutations.layer(mockWs),
               MockWorkspaceTransactionScope(axmDir),
-              TestLifecycleFailureAdapter,
+              TestStepFailureConversion,
             ),
           ),
         );
@@ -511,7 +511,7 @@ describe("disableSkill", () => {
               NodeServices.layer,
               WorkspaceMutations.layer(mockWs),
               MockWorkspaceTransactionScope(axmDir),
-              TestLifecycleFailureAdapter,
+              TestStepFailureConversion,
             ),
           ),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
@@ -544,7 +544,7 @@ describe("disableSkill", () => {
               NodeServices.layer,
               WorkspaceMutations.layer(mockWs),
               MockWorkspaceTransactionScope(axmDir),
-              TestLifecycleFailureAdapter,
+              TestStepFailureConversion,
             ),
           ),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
+
+import { resolveLintExitCategory, toLintHumanBlocks, toLintJsonDocument } from "./cli.js";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
-} from "@agentxm/extension-workspace";
-import { resolveLintExitCategory, toLintHumanBlocks, toLintJsonDocument } from "./cli.js";
+} from "@agentxm/extension-resolution";
 
 describe("lint fact rendering", () => {
   it("maps a rule predicate to explicit machine-readable facts", () => {

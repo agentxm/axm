@@ -1,6 +1,6 @@
 /**
  * Destructive reconciliation of AXM-owned agent-native outputs. Read-only
- * ownership and claimant discovery lives in `@agentxm/extension-workspace`.
+ * ownership and claimant discovery lives in `@agentxm/workspace-projection`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -11,13 +11,16 @@ import * as Path from "effect/Path";
 import {
   CodingAgentRepository,
   observeAgentOutputs,
-  pruneManagedHooksFromJson,
-  pruneManagedMcpServersForAgent,
   safeReadFileString,
   type AgentOutputInventory,
   type AgentOutputObservation,
   type WorkspaceOwnershipIssue,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
+import {
+  NativeWriteAuthority,
+  pruneManagedHooksFromJson,
+  pruneManagedMcpServersForAgent,
+} from "@agentxm/agent-integration";
 import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
@@ -40,7 +43,11 @@ const inventory = (
 ): Effect.Effect<
   AgentOutputInventory,
   never,
-  CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
+  | CodingAgentRepository
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -96,7 +103,11 @@ const pruneMcpContainer = (
   args: ReconcileAgentOutputsArgs,
   workspaceRoot: string,
   scope: "project" | "user",
-): Effect.Effect<void, WorkspaceSyncCleanupFailure, FileSystem.FileSystem | Path.Path> => {
+): Effect.Effect<
+  void,
+  WorkspaceSyncCleanupFailure,
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+> => {
   const claimant = output.claimantAgentIds[0];
   if (claimant === undefined) return Effect.void;
   return pruneManagedMcpServersForAgent(claimant, {
@@ -160,7 +171,11 @@ export const reconcileAgentOutputs = (
 ): Effect.Effect<
   ReconcileAgentOutputsResult,
   WorkspaceSyncCleanupFailure,
-  CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
+  | CodingAgentRepository
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const before = yield* inventory(args);
@@ -211,7 +226,11 @@ export const reconcileAgentOutputs = (
 export const inspectWorkspaceOwnership = (): Effect.Effect<
   ReadonlyArray<WorkspaceOwnershipIssue>,
   WorkspaceSyncCleanupFailure,
-  CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
+  | CodingAgentRepository
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;

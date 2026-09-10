@@ -2,11 +2,10 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 
 import {
-  CreateDestinationExists,
   CreateDestinationInspectionFailed,
   CreateNameConfigured,
-} from "@agentxm/extension-workspace";
-
+} from "./authored-package-errors.js";
+import { CreateDestinationExists } from "@agentxm/extension-materialization";
 export interface CreateOnlyPreflightArgs {
   readonly subject: string;
   readonly name: string;

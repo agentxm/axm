@@ -24,7 +24,7 @@ import {
 } from "../shared/command-capabilities.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
-import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
+import { provideLifecycleStepFailureConversion } from "../../feature-errors.js";
 
 export interface DisableHandlerArgs {
   readonly name: string;
@@ -85,7 +85,7 @@ const handleDisableBody = Effect.fn("Disable.handle")(function* (args: DisableHa
     readiness: "ready",
     label: skillName,
     run: disableSkill(op).pipe(
-      provideLifecycleFailureAdapter,
+      provideLifecycleStepFailureConversion,
       Effect.map((result): JobStepResult => result),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),

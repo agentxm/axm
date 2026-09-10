@@ -1,28 +1,55 @@
 # @agentxm/extension-resolution
 
-Extension resolution policy for the AXM client: the minimum-release-age policy
-(`parseMinimumReleaseAge`, `isVersionEntryEligibleAt`, `releaseAgeEvidence`,
-exemption and holdback records), version selection under that policy
-(`resolveVersionEntryWithReleaseAge`, `resolveVersionEntryForReleaseAge`), and
-named Registry target decisions (`decideNamedRegistryVersion`,
-`namedRegistryCandidates`). Root export only.
+Extension resolution policy for the AXM client: what a configured or requested
+extension resolves to, and whether that resolution may be accepted.
 
-Dependency budget: `@agentxm/extension-model` and `@agentxm/registry-protocol`.
-It never depends on workspace state or any integration.
+- **Minimum release age** — `parseMinimumReleaseAge`,
+  `isVersionEntryEligibleAt`, `releaseAgeEvidence`, exemption and holdback
+  records, and the operator's per-invocation `ReleaseAgePosture`.
+- **Version selection under that policy** — `resolveVersionEntryWithReleaseAge`,
+  `resolveVersionEntryForReleaseAge`, and the named Registry target decisions
+  `decideNamedRegistryVersion` and `namedRegistryCandidates`.
+- **Configured-entry resolution** — `resolveConfiguredSkill` and its six
+  siblings, `resolveConfiguredRegistryEntry`, and the
+  `ResolvedConfiguredEntry` vocabulary the lockfile and plans carry.
+- **Pack dependency resolution** — `resolvePackDependencies`,
+  `resolvePackDependenciesWithReleaseAge`, the resolved-dependency map schema,
+  and `acceptedPackDependencyResolver` for deterministic recovery.
+- **Source authority** — `evaluateSourceAuthority`: whether a requested source
+  may replace the configured one for the same target.
+- **Publisher-binding trust** — `classifyPublisherBindingTransition` and the
+  proposal vocabulary. Shaping the resulting plan risk condition belongs to
+  the feature that owns the plan, not here.
+- **Official AXM skill compatibility** — `evaluateAxmSkillCompatibility`,
+  `evaluateAxmSkillCandidate`, `readAxmSkillWorkspaceCompatibility`.
+
+Exports `.` and `./live`.
+
+Dependency budget: `@agentxm/extension-model`, `@agentxm/registry-protocol`,
+`@agentxm/extension-content`, `@agentxm/extension-sources`, and
+`@agentxm/workspace-state`. Deciding what a configured entry resolves to needs
+workspace facts and source acquisition, so this package sits **above**
+`@agentxm/workspace-state`: state must never depend on it.
 
 ## Provider contract
 
 `@agentxm/extension-sources` (an integration) fetches the Registry index, maps
 entries to refs, and probes archives, but it may not import this core package.
-It therefore declares a `RegistryResolutionPolicy` port whose decision
-vocabulary (`NamedRegistryVersionDecision`, `NamedRegistryCandidate`) lives in
-`@agentxm/extension-model/unstable/sources/source-host-provider`. This
-package's functions implement that port structurally, and the application
-composition root (`apps/cli/src/cli-runtime/registry-resolution-policy-live.ts`)
-binds them. Selection semantics that the Registry itself defines
-(`selectVersion`, `resolveVersionEntry`: yanked handling and range maxima)
-stay in `@agentxm/registry-protocol/unstable/registry/version-selection`, which
-both the client integration and this package consume.
+It therefore declares ports whose vocabulary lives in
+`@agentxm/extension-model/unstable/sources/source-host-provider`:
+
+- `RegistryResolutionPolicy` — implemented structurally by this package's
+  decision functions and bound by the application composition root
+  (`apps/cli/src/cli-runtime/registry-resolution-policy-live.ts`).
+- `AxmSkillCandidateGate` — implemented by `AxmSkillCandidateGateLive` in this
+  package's `./live`.
+- `WorkspaceCatalog` — implemented by `@agentxm/workspace-projection`, which
+  owns the agent-selection facts the catalog reports.
+
+Selection semantics that the Registry itself defines (`selectVersion`,
+`resolveVersionEntry`: yanked handling and range maxima) stay in
+`@agentxm/registry-protocol/unstable/registry/version-selection`, which both
+the client integration and this package consume.
 
 Unstable and unsupported — use the [axm.sh](https://axm.sh) CLI.
 

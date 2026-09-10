@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -19,7 +20,7 @@ import {
   copyExtensionDirectory,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { importNativeExtensionPackage, preflightCreateOnly } from "@agentxm/extension-authoring";
 import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
@@ -47,8 +48,7 @@ import {
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { SkillManager, SubagentManager } from "@agentxm/extension-workspace";
-
+import { SkillManager, SubagentManager } from "@agentxm/extension-materialization";
 type NativeImportType = "skill" | "subagent";
 
 interface ImportHandlerArgs {
@@ -215,7 +215,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
     ),
   };
 
-  let step: PlannedJobStep;
+  let step: PlannedJobStep<StepRequirements>;
   switch (target.type) {
     case "skill":
       step = buildAuthoredExtensionStep(yield* SkillManager, {
@@ -233,7 +233,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
       break;
   }
 
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "Import native extension",
     description: Option.some(

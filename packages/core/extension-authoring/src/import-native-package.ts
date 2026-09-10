@@ -7,14 +7,13 @@ import YAML from "yaml";
 import { manifestFilenameForType, manifestSchemaForType } from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
-import { copyExtensionDirectory } from "@agentxm/extension-workspace";
+import { copyExtensionDirectory } from "@agentxm/extension-materialization";
 import {
   NativeImportConflict,
   NativeImportFailed,
   NativeImportInvalid,
   NativeImportUnsupported,
-} from "@agentxm/extension-workspace";
-
+} from "./authored-package-errors.js";
 const NATIVE_IMPORT_VERSION = "0.1.0";
 const MANIFEST_FILENAMES = new Set([
   "skill.json",

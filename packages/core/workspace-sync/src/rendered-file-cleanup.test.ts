@@ -1,16 +1,14 @@
 import * as fs from "node:fs";
+import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import {
-  codingAgentForId,
-  CodingAgentRepository,
-  hasAxmManagedMarker,
-} from "@agentxm/extension-workspace";
-import type { CodingAgentRepositoryService } from "@agentxm/extension-workspace";
+import { CodingAgentRepository, hasAxmManagedMarker } from "@agentxm/workspace-projection";
+import { codingAgentForId } from "@agentxm/agent-integration";
+import type { CodingAgentRepositoryService } from "@agentxm/workspace-projection";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { reconcileAgentOutputs } from "./index.js";
@@ -76,6 +74,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           getUnknownConfiguredAgentIds: () => Effect.succeed([]),
         };
         const layer = Layer.mergeAll(
+          NativeWriteAuthorityPermissive,
           NodeServices.layer,
           Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(axmDir)),
           Layer.succeed(CodingAgentRepository, agentRepo),
@@ -145,6 +144,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           getUnknownConfiguredAgentIds: () => Effect.succeed([]),
         };
         const layer = Layer.mergeAll(
+          NativeWriteAuthorityPermissive,
           NodeServices.layer,
           Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(axmDir)),
           Layer.succeed(CodingAgentRepository, agentRepo),
@@ -187,6 +187,7 @@ describe("cleanupStaleManagedSkillDirectories", () => {
           getUnknownConfiguredAgentIds: () => Effect.succeed([]),
         };
         const layer = Layer.mergeAll(
+          NativeWriteAuthorityPermissive,
           NodeServices.layer,
           Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(path.join(tempDir, ".axm"))),
           Layer.succeed(CodingAgentRepository, agentRepo),
@@ -237,6 +238,7 @@ describe("cleanupStaleManagedSkillDirectories", () => {
             getConfiguredAgents: () => Effect.succeed(["cursor"]),
           });
           const layer = Layer.mergeAll(
+            NativeWriteAuthorityPermissive,
             NodeServices.layer,
             Layer.succeed(WorkspaceMutations, workspace),
             Layer.succeed(CodingAgentRepository, agentRepo),
@@ -277,6 +279,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
       getUnknownConfiguredAgentIds: () => Effect.succeed([]),
     };
     return Layer.mergeAll(
+      NativeWriteAuthorityPermissive,
       NodeServices.layer,
       Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(path.join(tempDir, ".axm"))),
       Layer.succeed(CodingAgentRepository, agentRepo),

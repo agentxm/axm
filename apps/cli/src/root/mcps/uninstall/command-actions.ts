@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import { failureToStepFailure } from "../../../app-error/conversions.js";
 import * as Option from "effect/Option";
@@ -19,7 +20,6 @@ import {
   WorkspaceMutations,
   type McpServerExtensionTarget,
 } from "@agentxm/workspace-state";
-import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import {
   collectSecretInputNames,
   deleteMcpSecrets,
@@ -29,7 +29,7 @@ import {
 } from "@agentxm/extension-lifecycle";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
-import { buildUninstallOperation } from "@agentxm/extension-workspace";
+import { buildUninstallOperation } from "@agentxm/extension-materialization";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
@@ -37,8 +37,7 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
-import { McpServerManager } from "@agentxm/extension-workspace";
-
+import { McpServerManager } from "@agentxm/extension-materialization";
 // -----------------------------------------------------------------------------
 // Handler Args
 // -----------------------------------------------------------------------------
@@ -59,7 +58,8 @@ type UninstallMcpServerActions = UninstallExtensionCommandWorkflowActions<
   UninstallMcpServerHandlerArgs,
   ParsedMcpServerUninstallArgs,
   UninstallMcpServerCommandIntent,
-  AppError
+  AppError,
+  StepRequirements
 >;
 
 export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
@@ -70,12 +70,12 @@ export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () 
 
   const parseArgs = (
     args: UninstallMcpServerHandlerArgs,
-  ): Effect.Effect<ParsedMcpServerUninstallArgs, AppError> =>
+  ): Effect.Effect<ParsedMcpServerUninstallArgs, AppError, StepRequirements> =>
     Effect.succeed({ serverName: args.serverName.trim() });
 
   const finalizeIntent = (
     parsed: ParsedMcpServerUninstallArgs,
-  ): Effect.Effect<UninstallMcpServerCommandIntent, AppError> =>
+  ): Effect.Effect<UninstallMcpServerCommandIntent, AppError, StepRequirements> =>
     Effect.succeed({
       targets: [
         {
@@ -87,18 +87,14 @@ export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () 
 
   const buildUninstallPlan = (
     intent: UninstallMcpServerCommandIntent,
-  ): Effect.Effect<Plan, AppError> => {
+  ): Effect.Effect<Plan<StepRequirements>, AppError, StepRequirements> => {
     const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
-    const steps = intent.targets.map((target): PlannedJobStep => {
-      const step = buildUninstallOperation<McpServerExtensionRef, AppError>(
-        mcpServerMgr,
-        retentionPolicy,
-        {
-          toStepFailure: failureToStepFailure,
-          target,
-        },
-      );
+    const steps = intent.targets.map((target): PlannedJobStep<StepRequirements> => {
+      const step = buildUninstallOperation(mcpServerMgr, retentionPolicy, {
+        toStepFailure: failureToStepFailure,
+        target,
+      });
       if (step.readiness !== "ready") {
         return step;
       }
@@ -192,7 +188,7 @@ export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () 
         `Uninstall MCP server ${intent.targets.map((t) => t.name).join(", ")}`,
       ),
       jobs: [{ concurrency: 1 as const, steps }],
-    } satisfies Plan);
+    } satisfies Plan<StepRequirements>);
   };
 
   return {

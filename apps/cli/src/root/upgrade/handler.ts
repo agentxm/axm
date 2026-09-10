@@ -24,10 +24,7 @@ import {
 } from "@agentxm/workspace-operations";
 import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import { InstallMeta } from "../../install-meta/install-meta.js";
-import {
-  AXM_SKILL_BUNDLED_APPLY_COMMAND,
-  AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
-} from "@agentxm/extension-workspace";
+
 import {
   InstallMethod,
   Npm,
@@ -49,6 +46,10 @@ import { Subprocess, type CommandResult, type RunCommandOptions } from "./subpro
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { upgradeView } from "./view.js";
 import { UpdateCheck } from "../../update-check/update-check.js";
+import {
+  AXM_SKILL_BUNDLED_APPLY_COMMAND,
+  AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
+} from "@agentxm/extension-resolution";
 
 export interface UpgradeHandlerArgs {
   readonly reinstall: boolean;

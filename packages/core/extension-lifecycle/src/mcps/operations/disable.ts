@@ -4,10 +4,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
@@ -23,7 +24,7 @@ import {
 } from "@agentxm/workspace-transactions";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
-import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 
 export type DisableMcpServerOperation = Operation<
@@ -41,7 +42,8 @@ export const disableMcpServer = (
   | WorkspaceMutations
   | WorkspaceTransactionScope
   | CodingAgentRepository
-  | LifecycleFailureAdapter
+  | NativeWriteAuthority
+  | StepFailureConversion
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

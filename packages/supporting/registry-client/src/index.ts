@@ -132,6 +132,8 @@ export {
 
 // Utilities
 export { extensionDir, extensionLifecycleWarnings, extractZip, pluralizeType } from "./utils.js";
+export { computeIntegrity } from "./integrity.js";
+export { stripFileProtocol } from "./fs-helpers.js";
 export { formatDeprecationWarning } from "./deprecation-warning.js";
 
 export { RegistryUrl } from "./registry-url.js";

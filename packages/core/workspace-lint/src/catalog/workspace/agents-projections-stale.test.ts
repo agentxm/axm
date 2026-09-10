@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { AgentOutputInventory } from "@agentxm/extension-workspace";
+import type { AgentOutputInventory } from "@agentxm/workspace-projection";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import {
   runScenario,

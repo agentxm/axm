@@ -9,6 +9,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Result from "effect/Result";
@@ -32,14 +33,16 @@ import { isVersionEntryMature, parseMinimumReleaseAge } from "@agentxm/extension
 import { Screen, count, headlineDoc } from "../../../screen/index.js";
 import { WorkspaceMutations, type SkillPathSource, sanitizeName } from "@agentxm/workspace-state";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { computeSkillSourceHash, gitHostedSkillArtifactSource } from "@agentxm/extension-lifecycle";
+import { gitHostedSkillArtifactSource } from "@agentxm/extension-lifecycle";
+import { computeSkillSourceHash } from "@agentxm/extension-materialization";
 import {
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
-} from "@agentxm/extension-workspace";
-import { buildInstallOperation } from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
+import { buildInstallOperation } from "@agentxm/extension-materialization";
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
-import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
+import { SkillManager } from "@agentxm/extension-materialization";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-operations";
 import {
@@ -209,7 +212,10 @@ const appendWarningToResult =
     };
   };
 
-const withPlanWarning = (step: PlannedJobStep, warning: Option.Option<string>): PlannedJobStep => {
+const withPlanWarning = (
+  step: PlannedJobStep<StepRequirements>,
+  warning: Option.Option<string>,
+): PlannedJobStep<StepRequirements> => {
   if (Option.isNone(warning) || step.readiness === "error") return step;
 
   if (step.readiness === "warn") {
@@ -323,7 +329,8 @@ type InstallSkillActions = InstallExtensionCommandWorkflowActions<
   SkillExtensionRef,
   InstallSkillCommandIntent,
   AppError,
-  AppError | PromptCancelled
+  AppError | PromptCancelled,
+  StepRequirements
 >;
 
 export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
@@ -698,7 +705,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
               installedBefore,
             }: {
               readonly installedBefore: boolean;
-            }): Effect.Effect<JobStepArtifact, AppError> =>
+            }): Effect.Effect<JobStepArtifact, AppError, StepRequirements> =>
               Effect.gen(function* () {
                 const fileCount = yield* countFiles(fsSvc, pathSvc, skillSrcPath);
                 const currentSourceHash = yield* computeSkillSourceHash(skillSrcPath).pipe(
@@ -774,7 +781,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
             steps,
           },
         ],
-      } satisfies Plan;
+      } satisfies Plan<StepRequirements>;
     });
 
   return {

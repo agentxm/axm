@@ -6,6 +6,12 @@
  */
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { WorkspaceMutations as WorkspaceMutationsTag } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "./test-stubs.js";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { MockWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
+import type { StepRequirements } from "./root/shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -39,17 +45,21 @@ import {
 } from "@agentxm/workspace-state/live";
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+import { RegistryResolutionPolicyLive } from "./cli-runtime/index.js";
+import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
+import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
 import {
-  AxmSkillCandidateGateLive,
-  RegistryResolutionPolicyLive,
-  WorkspaceCatalogLive,
-} from "./cli-runtime/index.js";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-export { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-projection/live";
+export {
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-projection/live";
 export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 export { KnowledgeIndexLive };
+export { HookConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
 export {
-  HookConfiguredAgentOutcomesProviderLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpServerManagerLive,
@@ -57,12 +67,15 @@ export {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/extension-lifecycle/live";
-import { InspectionFailureAdapterLive, LifecycleFailureAdapterLive } from "./feature-errors.js";
-export { InspectionFailureAdapterLive, LifecycleFailureAdapterLive };
+} from "@agentxm/extension-materialization/live";
+import {
+  InspectionFailureAdapterLive,
+  LifecycleStepFailureConversionLive,
+} from "./feature-errors.js";
+export { InspectionFailureAdapterLive, LifecycleStepFailureConversionLive };
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { ExecutionDirectory } from "./execution-directory.js";
-import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
+import { ReleaseAgePosture } from "@agentxm/extension-resolution";
 
 const testHttpClient = HttpClient.make((request) =>
   Effect.succeed(
@@ -668,9 +681,15 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   );
   const wsLayer = Layer.mergeAll(
     coreWsLayer,
+    NativeWriteAuthorityLive,
     Layer.provide(
       WorkspaceCatalogLive,
-      Layer.mergeAll(coreWsLayer, CodingAgentRepositoryLive, cliTestContext.baseLayer),
+      Layer.mergeAll(
+        coreWsLayer,
+        CodingAgentRepositoryLive,
+        NativeWriteAuthorityLive,
+        cliTestContext.baseLayer,
+      ),
     ),
     AxmSkillCandidateGateLive,
     RegistryResolutionPolicyLive,
@@ -684,7 +703,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     cliTestContext.baseLayer,
     wsLayer,
     KnowledgeIndexLive,
-    LifecycleFailureAdapterLive,
+    LifecycleStepFailureConversionLive,
     // Every command runs inside the operation lifecycle, which opens the
     // journal and footprint recorder once per invocation; a test that drives
     // a handler directly gets empty ones here.
@@ -707,3 +726,22 @@ export const makeEffectProvide = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper hides generic layer plumbing
   return <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(layer));
 };
+
+/**
+ * Everything a materialization plan step declares, stubbed for tests that
+ * exercise plan shape rather than workspace effects. The step's requirements
+ * travel with it from the capability; this is the boundary a test composes
+ * them at, exactly as the runtime does.
+ */
+export const StepRequirementsTest = (axmDir = "/tmp/axm"): Layer.Layer<StepRequirements> =>
+  Layer.mergeAll(
+    MockWorkspaceTransactionScope(axmDir),
+    NativeWriteAuthorityPermissive,
+    NodeServices.layer,
+    FetchHttpClient.layer,
+    LifecycleStepFailureConversionLive,
+    TestRenderer.make().layer,
+    CodingAgentRepositoryLive.pipe(
+      Layer.provideMerge(Layer.succeed(WorkspaceMutationsTag, makeBaseWorkspaceMock(axmDir))),
+    ),
+  );

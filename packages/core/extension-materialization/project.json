@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-materialization",
+  "projectType": "library",
+  "root": "packages/core/extension-materialization",
+  "sourceRoot": "packages/core/extension-materialization/src",
+  "tags": ["type:lib", "role:capability", "scope:extension-materialization", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/extension-materialization/src/index.ts",
+        "outputPath": "packages/core/extension-materialization/dist",
+        "tsConfig": "packages/core/extension-materialization/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

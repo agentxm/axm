@@ -1,12 +1,12 @@
 import { Command, Flag } from "effect/unstable/cli";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import { CodingAgentRepository, McpServerManager } from "@agentxm/extension-workspace";
+import { McpServerManager } from "@agentxm/extension-materialization";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -14,8 +14,8 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { Screen, count } from "../../screen/index.js";
-import { installMcpServer } from "@agentxm/extension-lifecycle";
+import { count } from "../../screen/index.js";
+import { materializeAuthoredMcpServer } from "@agentxm/extension-lifecycle";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import {
@@ -28,7 +28,7 @@ import {
   buildAuthoredExtensionStep,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -64,7 +64,6 @@ import {
 import {
   configurationFailureToAppError,
   configurationFailureToStepFailure,
-  provideLifecycleFailureAdapter,
 } from "../../feature-errors.js";
 
 export interface McpsImportArgs {
@@ -74,7 +73,9 @@ export interface McpsImportArgs {
 }
 
 export interface McpsImportTestHooks {
-  readonly beforeAdoptionWrite?: (adoption: McpImportAdoption) => Effect.Effect<void, AppError>;
+  readonly beforeAdoptionWrite?: (
+    adoption: McpImportAdoption,
+  ) => Effect.Effect<void, AppError, StepRequirements>;
 }
 
 const importArtifact = (
@@ -106,7 +107,7 @@ const makePlan = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   hooks: McpsImportTestHooks,
-): Plan<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope> => {
+): Plan<StepRequirements> => {
   const conflictSteps = preflight.conflicts.map<
     PlannedJobStep<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope>
   >((conflict) => ({
@@ -161,7 +162,6 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
 }) {
-  const httpClient = yield* HttpClient.HttpClient;
   const nonInteractive = yield* isNonInteractiveOptional;
   if (args.ws.scope !== "project") {
     return yield* makeAppError({
@@ -243,8 +243,6 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
     },
   };
   const manager = yield* McpServerManager;
-  const screen = yield* Screen;
-  const agentRepo = yield* CodingAgentRepository;
   const source = "workspace";
   const adoptionPaths = Array.from(
     new Set(candidate.adoptions.map((adoption) => adoption.filePath)),
@@ -340,30 +338,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
         ),
         Effect.asVoid,
       ),
-    materializeInstall: (ref) =>
-      installMcpServer({
-        name: "install-mcp-server",
-        args: {
-          ref,
-          nonInteractive,
-          force: false,
-          allowWorkspaceSourceTransition: true,
-          versionRange: Option.none(),
-          skipSettings: Option.none(),
-          skipStateWrites: true,
-          env: Option.none(),
-        },
-      }).pipe(
-        Effect.asVoid,
-        Effect.mapError(toAppError),
-        Effect.provideService(FileSystem.FileSystem, args.fs),
-        Effect.provideService(Path.Path, args.path),
-        Effect.provideService(WorkspaceMutations, args.ws),
-        Effect.provideService(Screen, screen),
-        Effect.provideService(CodingAgentRepository, agentRepo),
-        Effect.provideService(HttpClient.HttpClient, httpClient),
-        provideLifecycleFailureAdapter,
-      ),
+    materializeInstall: (ref) => materializeAuthoredMcpServer({ ref, nonInteractive }),
   });
   return {
     _tag: "Plan",
@@ -376,7 +351,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
       "mcp-server",
     ),
     jobs: [{ concurrency: 1, steps: [step] }],
-  } satisfies Plan;
+  } satisfies Plan<StepRequirements>;
 });
 
 export const handleMcpsImport = (args: McpsImportArgs, hooks: McpsImportTestHooks = {}) =>

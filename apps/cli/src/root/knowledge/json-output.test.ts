@@ -14,6 +14,7 @@ import { isEffectCliExit } from "../../cli-runtime/index.js";
 
 import {
   managerLifecycleStubs,
+  NO_MATERIALIZATION_FACTS,
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
@@ -23,8 +24,7 @@ import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeConceptGet } from "./concepts/get.js";
 import { handleKnowledgeConceptSearch } from "./concepts/search.js";
 import { handleKnowledgeConceptStatus } from "./concepts/status.js";
-import { KnowledgeManager } from "@agentxm/extension-workspace";
-
+import { KnowledgeManager } from "@agentxm/extension-materialization";
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,
   type: "knowledge",
@@ -33,9 +33,9 @@ const stubKnowledgeManager = {
   install: () => Effect.void,
   projectionPlans: () => Effect.succeed([]),
   isInstalled: () => Effect.succeed(true),
-  materializeInstall: () => Effect.void,
+  materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
+  materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   upsertSettingsEntry: () => Effect.void,
   removeSettingsEntry: () => Effect.void,
   upsertLockfileEntry: () => Effect.void,

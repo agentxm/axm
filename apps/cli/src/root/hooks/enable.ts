@@ -1,4 +1,5 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -9,15 +10,12 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { buildInstallOperation } from "@agentxm/extension-workspace";
+import { buildInstallOperation } from "@agentxm/extension-materialization";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
-} from "@agentxm/extension-lifecycle";
+
 import type { HookLockEntry } from "@agentxm/workspace-state";
 import {
   previewOrApplyPlan,
@@ -37,8 +35,12 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../shared/workspace-display-paths.js";
-import { HookManager } from "@agentxm/extension-workspace";
+import { HookManager } from "@agentxm/extension-materialization";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredHook,
+} from "@agentxm/extension-resolution";
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
@@ -151,7 +153,7 @@ const handleEnableHookBody = Effect.fn("EnableHook.handle")(function* (args: {
         });
       }),
   });
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "Enable hooks",
     description: Option.some(`Enable hooks package ${args.name}`),

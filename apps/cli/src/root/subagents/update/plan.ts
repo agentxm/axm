@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import type * as Option from "effect/Option";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type {
@@ -34,7 +35,7 @@ export interface UpdateOperation {
  */
 export type MakeRunClosure = (
   op: UpdateOperation,
-) => Effect.Effect<JobStepResult, StepFailure, never>;
+) => Effect.Effect<JobStepResult, StepFailure, StepRequirements>;
 
 // -----------------------------------------------------------------------------
 // Version comparison
@@ -66,7 +67,7 @@ const hasChanged = (op: UpdateOperation, accepted: SubagentLockEntry): boolean =
 };
 
 // -----------------------------------------------------------------------------
-// Plan builder
+// Plan<StepRequirements> builder
 // -----------------------------------------------------------------------------
 
 /**
@@ -83,14 +84,14 @@ export const buildUpdatePlan = (
   name: string,
   description: Option.Option<string>,
   makeRunClosure: MakeRunClosure,
-): Plan => ({
+): Plan<StepRequirements> => ({
   _tag: "Plan",
   name,
   description,
   jobs: [
     {
       concurrency: "unbounded",
-      steps: ops.map((op): PlannedJobStep => {
+      steps: ops.map((op): PlannedJobStep<StepRequirements> => {
         const accepted = acceptedResolutions[op.ref.subagent.name];
         const needsUpdate = accepted === undefined || op.force || hasChanged(op, accepted);
 

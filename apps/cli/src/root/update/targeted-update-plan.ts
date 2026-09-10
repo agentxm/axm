@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import type * as Path from "effect/Path";
 import type * as FileSystem from "effect/FileSystem";
 
@@ -28,7 +29,7 @@ const validatePostcondition = (args: {
   readonly expected: TargetedUpdateContext;
   readonly actual: TargetedUpdateContext;
   readonly explicitRange?: string;
-}): Effect.Effect<void, AppError> => {
+}): Effect.Effect<void, AppError, StepRequirements> => {
   if (args.explicitRange === undefined) {
     return args.actual.fingerprint === args.expected.fingerprint
       ? Effect.void
@@ -65,11 +66,11 @@ const validatePostcondition = (args: {
 };
 
 export const wrapTargetedUpdatePlan = (args: {
-  readonly plan: Plan;
+  readonly plan: Plan<StepRequirements>;
   readonly context: TargetedUpdateContext;
   readonly explicitRange?: string;
 }): Effect.Effect<
-  Plan,
+  Plan<StepRequirements>,
   AppError,
   WorkspaceMutations | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
 > =>
@@ -120,7 +121,7 @@ export const wrapTargetedUpdatePlan = (args: {
 
     // Ownership-context staleness resolves as typed blocking rather than as a
     // step failure, so the operation terminates blocked/stale-candidate.
-    const graphStep: PlannedJobStep =
+    const graphStep: PlannedJobStep<StepRequirements> =
       builtStep.readiness === "error"
         ? builtStep
         : {
@@ -148,5 +149,5 @@ export const wrapTargetedUpdatePlan = (args: {
         args.context.public.target.type,
       ),
       jobs: [{ concurrency: 1, steps: [graphStep] }],
-    } satisfies Plan;
+    } satisfies Plan<StepRequirements>;
   });

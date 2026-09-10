@@ -44,19 +44,20 @@ import {
   InstallPackCommandWorkflowActions,
 } from "./command-actions.js";
 import type { PackInstallHandlerArgs } from "./handler.js";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
-import { PackManagerLive } from "@agentxm/extension-lifecycle/live";
-import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
-import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
-import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
-import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+import { PackManagerLive } from "@agentxm/extension-materialization/live";
+import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
+import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
+import { RuleManagerLive } from "@agentxm/extension-materialization/live";
+import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
 import {
-  AxmSkillCandidateGateLive,
-  RegistryResolutionPolicyLive,
-  WorkspaceCatalogLive,
-} from "../../../cli-runtime/index.js";
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-projection/live";
+import { RegistryResolutionPolicyLive } from "../../../cli-runtime/index.js";
+import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
+import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging";
 import {
@@ -68,7 +69,7 @@ import {
 } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 import { toPlanResolutionResult } from "../../../operation-output.js";
-import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../../feature-errors.js";
 
 const decodePackageType = Schema.decodeUnknownSync(PackageTypeSchema);
 const ACME = normalizeHandle("@acme");
@@ -183,7 +184,7 @@ describe("packs install handler", () => {
     );
     const CatalogLayer = Layer.provide(
       WorkspaceCatalogLive,
-      Layer.mergeAll(BaseLayer, WsLayer, CodingAgentRepositoryLive),
+      Layer.mergeAll(BaseLayer, WsLayer, CodingAgentRepositoryLive, NativeWriteAuthorityLive),
     );
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
@@ -210,7 +211,8 @@ describe("packs install handler", () => {
       CatalogLayer,
       SPLayer,
       CodingAgentRepositoryLive,
-      LifecycleFailureAdapterLive,
+      NativeWriteAuthorityLive,
+      LifecycleStepFailureConversionLive,
       PlanInvocationTest,
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
@@ -256,7 +258,7 @@ describe("packs install handler", () => {
     );
     const CatalogLayer = Layer.provide(
       WorkspaceCatalogLive,
-      Layer.mergeAll(BaseLayer, WsLayer, CodingAgentRepositoryLive),
+      Layer.mergeAll(BaseLayer, WsLayer, CodingAgentRepositoryLive, NativeWriteAuthorityLive),
     );
     const SPLayer = Layer.succeed(SourceHostProviders, mockService);
     const ManagersLayer = Layer.mergeAll(
@@ -274,7 +276,8 @@ describe("packs install handler", () => {
       CatalogLayer,
       SPLayer,
       CodingAgentRepositoryLive,
-      LifecycleFailureAdapterLive,
+      NativeWriteAuthorityLive,
+      LifecycleStepFailureConversionLive,
       PlanInvocationTest,
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
@@ -1466,7 +1469,7 @@ describe("packs install handler", () => {
             ...rendererState.summaries,
             JSON.stringify(rendererState.results.map((result) => result.data)),
           ].join("\n");
-          // Plan should include the pack and all extension steps
+          // Plan<StepRequirements> should include the pack and all extension steps
           expect(allLogs).toContain("multi-pack");
           expect(allLogs).toContain("code-review");
           expect(allLogs).toContain("lint");

@@ -5,8 +5,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
-import { NativeImportUnsupported } from "@agentxm/extension-workspace";
-
+import { NativeImportUnsupported } from "./authored-package-errors.js";
 import { extensionName, handle } from "./test-helpers.js";
 import { importNativeExtensionPackage } from "./import-native-package.js";
 

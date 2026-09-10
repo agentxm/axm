@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
-import type { AppError } from "../../app-error/index.js";
+import type { StepRequirements } from "../shared/step-requirements.js";
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import { failureToStepFailure } from "../../app-error/conversions.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -8,19 +9,23 @@ import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import {
-  CodingAgentRepository,
   HookManager,
   KnowledgeManager,
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
   buildInstallOperation,
   extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
+  NO_MATERIALIZATION_OBSERVATION,
   toLabelWithCompanions,
-} from "@agentxm/extension-workspace";
+  type ExtensionManagerFailure,
+  type ManagerRequirements,
+  type MaterializationObservation,
+} from "@agentxm/extension-materialization";
 import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
@@ -37,10 +42,10 @@ import {
   type ExtensionType,
   type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { installMcpServer, LifecycleFailureAdapter } from "@agentxm/extension-lifecycle";
+import { installMcpServer, StepFailureConversion } from "@agentxm/extension-lifecycle";
 import type { JobStepArtifact, PlannedJobStep } from "@agentxm/workspace-operations";
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
-import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
 
 export type PackMemberRef =
   | SkillExtensionRef
@@ -102,14 +107,9 @@ const registrySourceArtifactWithCoverage = (args: {
   readonly scope: JobStepArtifact["scope"];
   readonly installedBefore: boolean;
   readonly materialization: Effect.Effect<
-    {
-      readonly agents: ReadonlyArray<string>;
-      readonly targets: ReadonlyArray<{
-        readonly path: string;
-        readonly agentIds?: ReadonlyArray<string>;
-      }>;
-    },
-    never
+    MaterializationObservation,
+    ExtensionManagerFailure,
+    ManagerRequirements
   >;
 }) =>
   Effect.gen(function* () {
@@ -122,7 +122,7 @@ export const buildPackMemberInstallStep = (args: {
   readonly ref: PackMemberRef;
   readonly graphComplete: boolean;
 }): Effect.Effect<
-  PlannedJobStep,
+  PlannedJobStep<StepRequirements>,
   never,
   | CodingAgentRepository
   | HttpClient.HttpClient
@@ -134,6 +134,7 @@ export const buildPackMemberInstallStep = (args: {
   | SkillManager
   | SubagentManager
   | WorkspaceMutations
+  | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -141,6 +142,7 @@ export const buildPackMemberInstallStep = (args: {
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
     const httpClient = yield* HttpClient.HttpClient;
+    const nativeWrites = yield* NativeWriteAuthority;
     const skillManager = yield* SkillManager;
     const subagentManager = yield* SubagentManager;
     const ruleManager = yield* RuleManager;
@@ -155,7 +157,8 @@ export const buildPackMemberInstallStep = (args: {
         | FileSystem.FileSystem
         | Path.Path
         | WorkspaceMutations
-        | LifecycleFailureAdapter
+        | StepFailureConversion
+        | NativeWriteAuthority
       >,
     ): Effect.Effect<A, E, never> =>
       Effect.provide(
@@ -166,13 +169,14 @@ export const buildPackMemberInstallStep = (args: {
           Layer.succeed(Path.Path, path),
           Layer.succeed(CodingAgentRepository, agentRepo),
           Layer.succeed(HttpClient.HttpClient, httpClient),
-          LifecycleFailureAdapterLive,
+          Layer.succeed(NativeWriteAuthority, nativeWrites),
+          LifecycleStepFailureConversionLive,
         ),
       );
     const ref = args.ref;
 
     if (ref.type === "skill") {
-      return buildInstallOperation<SkillExtensionRef, AppError>(skillManager, {
+      return buildInstallOperation(skillManager, {
         toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
@@ -181,17 +185,17 @@ export const buildPackMemberInstallStep = (args: {
         installedBefore: args.graphComplete
           ? skillManager.isInstalled({ target: { type: "skill", name: ref.skill.name } })
           : Effect.succeed(false),
-        buildArtifact: ({ installedBefore }) =>
+        buildArtifact: ({ installedBefore, materialization }) =>
           registrySourceArtifactWithCoverage({
             ref,
             scope: ws.scope,
             installedBefore,
-            materialization:
-              skillManager.getLastMaterialization === undefined
-                ? Effect.succeed({ agents: [], targets: [] })
-                : skillManager.getLastMaterialization({
-                    target: { type: "skill", name: ref.skill.name },
-                  }),
+            materialization: Effect.succeed(
+              Option.match(materialization, {
+                onNone: () => NO_MATERIALIZATION_OBSERVATION,
+                onSome: (facts) => facts.observation,
+              }),
+            ),
           }),
       });
     }
@@ -225,17 +229,17 @@ export const buildPackMemberInstallStep = (args: {
             ...base,
             readiness: "ready",
             ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
-          } satisfies PlannedJobStep)
+          } satisfies PlannedJobStep<StepRequirements>)
         : ({
             ...base,
             readiness: "warn",
             warnMessage: warnings.join("; "),
             ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
-          } satisfies PlannedJobStep);
+          } satisfies PlannedJobStep<StepRequirements>);
     }
 
     if (ref.type === "subagent") {
-      return buildInstallOperation<SubagentExtensionRef, AppError>(subagentManager, {
+      return buildInstallOperation(subagentManager, {
         toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
@@ -246,23 +250,23 @@ export const buildPackMemberInstallStep = (args: {
               target: { type: "subagent", name: ref.subagent.name },
             })
           : Effect.succeed(false),
-        buildArtifact: ({ installedBefore }) =>
+        buildArtifact: ({ installedBefore, materialization }) =>
           registrySourceArtifactWithCoverage({
             ref,
             scope: ws.scope,
             installedBefore,
-            materialization:
-              subagentManager.getLastMaterialization === undefined
-                ? Effect.succeed({ agents: [], targets: [] })
-                : subagentManager.getLastMaterialization({
-                    target: { type: "subagent", name: ref.subagent.name },
-                  }),
+            materialization: Effect.succeed(
+              Option.match(materialization, {
+                onNone: () => NO_MATERIALIZATION_OBSERVATION,
+                onSome: (facts) => facts.observation,
+              }),
+            ),
           }),
       });
     }
 
     if (ref.type === "rule") {
-      return buildInstallOperation<RuleExtensionRef, AppError>(ruleManager, {
+      return buildInstallOperation(ruleManager, {
         toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
@@ -277,18 +281,13 @@ export const buildPackMemberInstallStep = (args: {
             ref,
             scope: ws.scope,
             installedBefore,
-            materialization:
-              ruleManager.getLastMaterialization === undefined
-                ? Effect.succeed({ agents: [], targets: [] })
-                : ruleManager.getLastMaterialization({
-                    target: { type: "rule", name: ref.rule.name },
-                  }),
+            materialization: ruleManager.aggregateProjectionObservation,
           }),
       });
     }
 
     if (ref.type === "hook") {
-      return buildInstallOperation<HookExtensionRef, AppError>(hookManager, {
+      return buildInstallOperation(hookManager, {
         toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
@@ -303,17 +302,12 @@ export const buildPackMemberInstallStep = (args: {
             ref,
             scope: ws.scope,
             installedBefore,
-            materialization:
-              hookManager.getLastMaterialization === undefined
-                ? Effect.succeed({ agents: [], targets: [] })
-                : hookManager.getLastMaterialization({
-                    target: { type: "hook", name: ref.hook.name },
-                  }),
+            materialization: hookManager.aggregateProjectionObservation,
           }),
       });
     }
 
-    return buildInstallOperation<KnowledgeExtensionRef, AppError>(knowledgeManager, {
+    return buildInstallOperation(knowledgeManager, {
       toStepFailure: failureToStepFailure,
       ref,
       versionRange: Option.none(),

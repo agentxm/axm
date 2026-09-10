@@ -1,9 +1,8 @@
-import { formatAxmSkillCompatibilityTarget } from "@agentxm/extension-workspace";
-
 import type { VerbosityLevel } from "../../cli-flags/index.js";
 import type { Doc } from "../../screen/index.js";
 import { headlineDoc, successDoc } from "../../screen/index.js";
 import { methodLabel, type UpgradeCoreResult } from "./handler.js";
+import { formatAxmSkillCompatibilityTarget } from "@agentxm/extension-resolution";
 
 export interface UpgradeViewEntry {
   readonly channel: "result" | "note";

@@ -68,8 +68,8 @@ import type {
 } from "../../workspace-context.js";
 import type { InstalledSkillInfo } from "@agentxm/extension-content/lint";
 import type { InstalledPackInfo } from "@agentxm/extension-content/lint";
-import { makePlatformSkillFileAccessor } from "@agentxm/extension-workspace";
-import { makePlatformPackFileAccessor } from "@agentxm/extension-workspace";
+import { makePlatformSkillFileAccessor } from "@agentxm/extension-content/lint";
+import { makePlatformPackFileAccessor } from "@agentxm/extension-content/lint";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   type ExtensionPathLockEntry,
@@ -78,16 +78,15 @@ import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extens
 import type { SkillLockEntry } from "@agentxm/workspace-state";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
+import { inspectKnowledgePackage } from "@agentxm/extension-content/knowledge";
 import {
-  inspectKnowledgePackage,
   buildPackDependencyReachability,
   type PackDependencyAuthority,
   type PackDependencyMemberObservation,
   type PackDependencyReachability,
-  readAxmSkillWorkspaceCompatibility,
   observeInstructionProjection,
   resolveInstructionsConfig,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import type { KnowledgeInspection } from "@agentxm/extension-content/knowledge";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { canonicalDisplayRoot } from "../workspace/display-paths.js";
@@ -95,7 +94,7 @@ import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import type { AxmSkillCompatibilityPolicyService } from "@agentxm/extension-workspace";
+
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import { readManifestJson } from "./manifest-json.js";
@@ -106,6 +105,10 @@ import {
   ExtensionTypeSchema,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  type AxmSkillCompatibilityPolicyService,
+  readAxmSkillWorkspaceCompatibility,
+} from "@agentxm/extension-resolution";
 
 // -----------------------------------------------------------------------------
 // LintWorkspaceView

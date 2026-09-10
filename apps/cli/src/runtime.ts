@@ -16,12 +16,10 @@ import { resolve as resolvePath } from "node:path";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
-import {
-  AgentPresenceProbeLive,
-  AxmSkillCandidateGateLive,
-  RegistryResolutionPolicyLive,
-  WorkspaceCatalogLive,
-} from "./cli-runtime/index.js";
+import { AgentPresenceProbeLive } from "@agentxm/agent-integration/live";
+import { RegistryResolutionPolicyLive } from "./cli-runtime/index.js";
+import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
+import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
 import {
   type CliTelemetryConfig,
   type ExpectedCliError,
@@ -43,10 +41,9 @@ import {
   quietFlag,
   directoryFlag,
 } from "./cli-flags/index.js";
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
-import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
+
+import { HookConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
 import {
-  HookConfiguredAgentOutcomesProviderLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpServerManagerLive,
@@ -54,22 +51,25 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/extension-lifecycle/live";
+} from "@agentxm/extension-materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
 import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
-import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
-import { toAppError } from "./app-error/conversions.js";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import {
   AuthoringFailureAdapterLive,
   InspectionFailureAdapterLive,
-  LifecycleFailureAdapterLive,
+  LifecycleStepFailureConversionLive,
 } from "./feature-errors.js";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import {
   GitDirectoryComparisonLive,
   SourceHostProvidersLive,
 } from "@agentxm/extension-sources/live";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import {
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-projection/live";
 import {
   AuthClientLive,
   AuthLoginInteractionLive,
@@ -93,6 +93,10 @@ import { ExecutionDirectory } from "./execution-directory.js";
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
 import { ScreenLoggerLive } from "./screen/index.js";
+import {
+  makeAxmSkillCompatibilityPolicyLayer,
+  ReleaseAgePosture,
+} from "@agentxm/extension-resolution";
 
 export { verboseFlag, debugFlag };
 
@@ -343,6 +347,7 @@ const makeWorkspaceProgramLayer = (
   );
   const gitDirectoryComparisonLayer = Layer.provide(GitDirectoryComparisonLive, PlatformLayer);
   const workspaceServiceLayer = Layer.mergeAll(
+    NativeWriteAuthorityLive,
     wsLayer,
     workspaceCatalogLayer,
     sourceProvidersLayer,
@@ -350,7 +355,7 @@ const makeWorkspaceProgramLayer = (
     CodingAgentRepositoryLive,
     AuthoringFailureAdapterLive,
     InspectionFailureAdapterLive,
-    LifecycleFailureAdapterLive,
+    LifecycleStepFailureConversionLive,
   );
 
   // Leaf managers are independent. Packs depend on the other managers.
@@ -365,9 +370,10 @@ const makeWorkspaceProgramLayer = (
   );
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
   const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
+  const participantsLayer = Layer.provide(ProjectionParticipantsLive, fullLayer);
   const invariantFactsLayer = Layer.provide(
-    makeWorkspaceInvariantFactsLive({ describeFailure: (failure) => toAppError(failure).detail }),
-    fullLayer,
+    WorkspaceInvariantFactsLive,
+    Layer.merge(fullLayer, participantsLayer),
   );
   const configuredAgentOutcomesLayer = Layer.provide(
     HookConfiguredAgentOutcomesProviderLive,

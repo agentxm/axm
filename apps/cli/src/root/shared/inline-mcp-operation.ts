@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "./step-requirements.js";
 import * as Option from "effect/Option";
 
 import type { JobStepResult, Plan } from "@agentxm/workspace-operations";
@@ -6,7 +7,7 @@ import type { JobStepResult, Plan } from "@agentxm/workspace-operations";
 export const inlineMcpNotApplicablePlan = (
   name: string,
   operation: "install" | "update",
-): Plan => ({
+): Plan<StepRequirements> => ({
   _tag: "Plan",
   name: `Skip inline MCP server ${operation}`,
   description: Option.some(`${name} is authored directly in workspace configuration`),

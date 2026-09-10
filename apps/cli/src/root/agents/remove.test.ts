@@ -1,4 +1,8 @@
 import * as fs from "node:fs";
+import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
+import { MockWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -6,8 +10,9 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { codingAgentForId, CodingAgentRepository } from "@agentxm/extension-workspace";
-import type { CodingAgentRepositoryService } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { codingAgentForId } from "@agentxm/agent-integration";
+import type { CodingAgentRepositoryService } from "@agentxm/workspace-projection";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
@@ -69,6 +74,8 @@ describe("agents remove.handler", () => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const interaction = ResolvePlanInteractionTest();
     const baseLayer = Layer.mergeAll(
+      NativeWriteAuthorityPermissive,
+      FetchHttpClient.layer,
       NodeServices.layer,
       renderer.layer,
       TestFlagsLayer(),
@@ -95,6 +102,8 @@ describe("agents remove.handler", () => {
       wsLayer,
       Layer.succeed(CodingAgentRepository, agentRepo),
       ConfiguredAgentOutcomesProviderTest,
+      MockWorkspaceTransactionScope(path.join(tempDir, ".axm")),
+      LifecycleStepFailureConversionLive,
     );
 
     return {

@@ -1,0 +1,41 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-type-parity",
+  "projectType": "library",
+  "root": "tools/extension-type-parity",
+  "sourceRoot": "tools/extension-type-parity/src",
+  "tags": ["type:lib", "role:tooling", "scope:extension-type-parity"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "tools/extension-type-parity/src/index.ts",
+        "outputPath": "tools/extension-type-parity/dist",
+        "tsConfig": "tools/extension-type-parity/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "generate": {
+      "executor": "nx:noop",
+      "dependsOn": ["generate:e2e-extension-matrix"]
+    },
+    "generate:e2e-extension-matrix": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": [
+        "{projectRoot}/scripts/generate-e2e-extension-matrix.ts",
+        "{projectRoot}/src/**/*.ts",
+        "{workspaceRoot}/packages/core/extension-model/src/unstable/extensions/common.ts",
+        "{workspaceRoot}/packages/core/workspace-state/src/workspace/configured-agent-outcomes.ts",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{workspaceRoot}/apps/cli-e2e/src/__generated__/extension-type-matrix.ts"],
+      "options": {
+        "command": ["bun", "--conditions=axm-source", "scripts/generate-e2e-extension-matrix.ts"],
+        "cwd": "tools/extension-type-parity"
+      }
+    }
+  }
+}

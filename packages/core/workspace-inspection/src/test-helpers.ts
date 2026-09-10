@@ -11,7 +11,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
   fileUrlToPath,
   WorkspaceCatalog,

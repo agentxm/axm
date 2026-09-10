@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -11,9 +12,9 @@ import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import {
-  TestLifecycleFailureAdapter,
+  TestStepFailureConversion,
   exactVersion,
   extensionName,
   handle,
@@ -127,9 +128,13 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
-            Layer.merge(NodeServices.layer, FetchHttpClient.layer),
+            Layer.mergeAll(
+              NodeServices.layer,
+              FetchHttpClient.layer,
+              NativeWriteAuthorityPermissive,
+            ),
             WorkspaceMutations.layer(wsMock),
-            TestLifecycleFailureAdapter,
+            TestStepFailureConversion,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),
           ),
         ),
@@ -146,9 +151,13 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
-            Layer.merge(NodeServices.layer, FetchHttpClient.layer),
+            Layer.mergeAll(
+              NodeServices.layer,
+              FetchHttpClient.layer,
+              NativeWriteAuthorityPermissive,
+            ),
             WorkspaceMutations.layer(wsMock),
-            TestLifecycleFailureAdapter,
+            TestStepFailureConversion,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),
           ),
         ),

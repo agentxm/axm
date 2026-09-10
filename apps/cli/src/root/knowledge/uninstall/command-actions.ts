@@ -1,11 +1,12 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "../../../app-error/index.js";
-import { buildUninstallOperation } from "@agentxm/extension-workspace";
+import { buildUninstallOperation, KnowledgeUnavailable } from "@agentxm/extension-materialization";
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
@@ -14,19 +15,15 @@ import {
   type KnowledgeExtensionTarget,
   type WorkspaceLayout,
 } from "@agentxm/workspace-state";
-import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import type { UninstallKnowledgeCommandIntent } from "./intent.js";
-import {
-  coupleAppError,
-  failureToStepFailure,
-  toAppError,
-} from "../../../app-error/conversions.js";
-import { KnowledgeManager, resolveInstructionsConfig } from "@agentxm/extension-workspace";
+import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
+import { KnowledgeManager } from "@agentxm/extension-materialization";
+import { resolveInstructionsConfig } from "@agentxm/workspace-projection";
 
 export interface UninstallKnowledgeHandlerArgs {
   readonly name: string;
@@ -40,7 +37,8 @@ type KnowledgeUninstallActions = UninstallExtensionCommandWorkflowActions<
   UninstallKnowledgeHandlerArgs,
   ParsedKnowledgeUninstallArgs,
   UninstallKnowledgeCommandIntent,
-  AppError
+  AppError,
+  StepRequirements
 >;
 
 interface KnowledgeUninstallOwnership {
@@ -73,7 +71,7 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
 
   const inspectOwnership = (
     target: KnowledgeExtensionTarget,
-  ): Effect.Effect<KnowledgeUninstallOwnership, AppError> =>
+  ): Effect.Effect<KnowledgeUninstallOwnership, AppError, StepRequirements> =>
     Effect.gen(function* () {
       const configured = yield* ws
         .getConfiguredKnowledgeEntries()
@@ -152,7 +150,15 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
       return desired?.identity.startsWith("workspace:") === true || Option.isSome(locked);
     });
 
-  const buildStep = (ownership: KnowledgeUninstallOwnership): PlannedJobStep => {
+  /**
+   * The ownership probe reads workspace state through the boundary's envelope;
+   * the manager channel is typed, so the envelope's own facts cross as the
+   * Knowledge family's unavailability rather than opaquely.
+   */
+  const appErrorToKnowledgeUnavailable = (error: AppError): KnowledgeUnavailable =>
+    new KnowledgeUnavailable({ detail: error.detail, cause: error });
+
+  const buildStep = (ownership: KnowledgeUninstallOwnership): PlannedJobStep<StepRequirements> => {
     if (ownership.blocker !== undefined) {
       return {
         key: `knowledge:${ownership.target.name}`,
@@ -161,11 +167,13 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
         errorMessage: ownership.blocker,
       };
     }
-    return buildUninstallOperation<KnowledgeExtensionRef, AppError>(
+    return buildUninstallOperation(
       {
         ...manager,
         isInstalled: () =>
-          isAcceptedTargetPresent(ownership.target).pipe(Effect.mapError(coupleAppError)),
+          isAcceptedTargetPresent(ownership.target).pipe(
+            Effect.mapError(appErrorToKnowledgeUnavailable),
+          ),
       },
       makeWorkspaceRetentionPolicy(ws),
       { target: ownership.target, toStepFailure: failureToStepFailure },
@@ -174,7 +182,9 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
 
   return {
     parseArgs: (args) => Effect.succeed({ name: args.name.trim() }),
-    finalizeIntent: (parsed): Effect.Effect<UninstallKnowledgeCommandIntent, AppError> =>
+    finalizeIntent: (
+      parsed,
+    ): Effect.Effect<UninstallKnowledgeCommandIntent, AppError, StepRequirements> =>
       Effect.gen(function* () {
         const target: KnowledgeExtensionTarget = { type: "knowledge", name: parsed.name };
         const configured =
@@ -217,7 +227,7 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
               steps: ownership.map(buildStep),
             },
           ],
-        } satisfies Plan;
+        } satisfies Plan<StepRequirements>;
       }),
   } satisfies KnowledgeUninstallActions;
 }).pipe(Effect.map((actions): KnowledgeUninstallActions => actions));

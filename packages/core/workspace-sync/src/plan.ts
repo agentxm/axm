@@ -13,29 +13,30 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import type * as ServiceMap from "effect/Context";
+import { HookManager, KnowledgeManager, RuleManager } from "@agentxm/extension-materialization";
 import {
   CodingAgentRepository,
-  HookManager,
-  KnowledgeManager,
-  RuleManager,
   applyPlannedProjections,
   inspectMcpServerAcrossAgents,
   observeInstructionProjection,
   projectionFactRequiresReconciliation,
-  pruneManagedMcpServersForAgent,
   resolveInstructionsConfig,
-  syncInlineMcpServerToAgents,
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
   instructionProjectionEffects,
   instructionProjectionIsCurrent,
+  expectedProjectionNamesOf,
   type ProjectionInvariantFact,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
+import {
+  pruneManagedMcpServersForAgent,
+  syncInlineMcpServerToAgents,
+} from "@agentxm/agent-integration";
+import type { ManagerRequirements, RecipeRequirements } from "@agentxm/extension-materialization";
 import {
   StepFailure,
   type Job,
@@ -75,9 +76,13 @@ export const SYNC_PRESENTATION: OperationPresentation = {
   subject: { singular: "workspace item", plural: "workspace items" },
 };
 
-/** Services the feature's own plan steps require at execution time. */
+/**
+ * Services the feature's own plan steps require at execution time: the
+ * workspace facade and agent repository the selection reads, plus everything a
+ * materialization manager and the transaction its closure opens declare.
+ */
 export type SyncStepRequirements =
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository;
+  ManagerRequirements | RecipeRequirements | WorkspaceMutations | CodingAgentRepository;
 
 // Deliberately duplicated from the CLI-destined renderer helper: a feature
 // package may not depend on application presentation utilities, and this
@@ -349,16 +354,12 @@ export const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function*
   const desiredAgentIds = new Set(
     (yield* agentRepo.getMaterializationAgents()).map(({ id }) => id),
   );
-  const expectedSkillProjectionNames = new Set([
-    ...args.expectedSkillNames,
-    ...args.expectedSubagentNames,
-  ]);
-  const expectedNames = {
-    skill: expectedSkillProjectionNames,
+  const expectedNames = expectedProjectionNamesOf({
+    skill: args.expectedSkillNames,
     subagent: args.expectedSubagentNames,
-    "mcp-server": args.expectedMcpServerNames,
+    mcpServer: args.expectedMcpServerNames,
     hook: args.expectedHookNames,
-  } as const;
+  });
   const preview = yield* reconcileAgentOutputs({
     desiredAgentIds,
     expectedNames,

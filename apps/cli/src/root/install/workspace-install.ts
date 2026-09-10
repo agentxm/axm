@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Option from "effect/Option";
 import * as DateTime from "effect/DateTime";
 import * as FileSystem from "effect/FileSystem";
@@ -10,9 +11,19 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ConfiguredAgentOperation } from "@agentxm/workspace-operations";
 import {
+  acceptedPackDependencyResolver,
+  makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
+  type PackDependencyRefResolver,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeHoldbackRecord,
+  resolveConfiguredHook,
+  resolveConfiguredKnowledge,
+  resolveConfiguredMcpServer,
+  resolveConfiguredPack,
+  resolveConfiguredRule,
+  resolveConfiguredSkill,
+  resolveConfiguredSubagent,
 } from "@agentxm/extension-resolution";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
@@ -22,7 +33,6 @@ import {
 } from "@agentxm/workspace-operations";
 import {
   acceptedResolutionRef,
-  acceptedLockedResolutionRef,
   WorkspaceMutations,
   type WorkspaceMutationsService,
   computePackManifestContentIdentity,
@@ -34,24 +44,14 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
-import {
-  LifecycleFailureAdapter,
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
-  resolveConfiguredKnowledge,
-  resolveConfiguredMcpServer,
-  resolveConfiguredPack,
-  resolveConfiguredRule,
-  resolveConfiguredSkill,
-  resolveConfiguredSubagent,
-} from "@agentxm/extension-lifecycle";
+import { StepFailureConversion } from "@agentxm/extension-lifecycle";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
-import { enabledConfiguredEntries } from "@agentxm/extension-workspace";
+import { enabledConfiguredEntries } from "@agentxm/workspace-state";
 import {
   extensionTypePluralSentenceLabels,
   parseRegistrySourceRef,
 } from "@agentxm/extension-model/unstable/extensions";
-import { type PackDependencyRefResolver } from "@agentxm/extension-lifecycle";
+
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
@@ -73,7 +73,7 @@ import { buildAggregateProjectionStep } from "../shared/aggregate-projection-ste
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";
 import { toAppError } from "../../app-error/conversions.js";
-import { HookManager, KnowledgeManager, RuleManager } from "@agentxm/extension-workspace";
+import { HookManager, KnowledgeManager, RuleManager } from "@agentxm/extension-materialization";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
@@ -83,18 +83,19 @@ type StepOrigin = "direct" | "dependency";
 interface StepFragment {
   readonly key: string;
   readonly origin: StepOrigin;
-  readonly step: PlannedJobStep;
+  readonly step: PlannedJobStep<StepRequirements>;
 }
 
 interface CollectedWorkspaceInstallPlans {
-  readonly plans: ReadonlyArray<Plan>;
+  readonly plans: ReadonlyArray<Plan<StepRequirements>>;
   readonly fragments: ReadonlyArray<StepFragment>;
   readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
   readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
 }
 
 type WorkspaceInstallCollectorContext =
-  | LifecycleFailureAdapter
+  | StepRequirements
+  | StepFailureConversion
   | Scope.Scope
   | HttpClient.HttpClient
   | FileSystem.FileSystem
@@ -120,7 +121,7 @@ export type WorkspaceInstallPlanResult =
     }
   | {
       readonly _tag: "WorkspaceInstallPlan";
-      readonly plan: Plan;
+      readonly plan: Plan<StepRequirements>;
       readonly configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation>;
     };
 
@@ -151,8 +152,9 @@ const noConfiguredMessage = (type: Option.Option<WorkspaceInstallableType>): str
       }.`,
   });
 
-const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
-  plan.jobs.flatMap((job) => job.steps);
+const flattenPlanSteps = (
+  plan: Plan<StepRequirements>,
+): ReadonlyArray<PlannedJobStep<StepRequirements>> => plan.jobs.flatMap((job) => job.steps);
 
 const toCollectedWorkspaceInstallPlans = ({
   plans,
@@ -160,7 +162,7 @@ const toCollectedWorkspaceInstallPlans = ({
   bypasses = [],
   originForStep = () => "direct" as const,
 }: {
-  readonly plans: ReadonlyArray<Plan>;
+  readonly plans: ReadonlyArray<Plan<StepRequirements>>;
   readonly holdbacks?: ReadonlyArray<ReleaseAgeHoldbackRecord>;
   readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
   readonly originForStep?: (index: number) => StepOrigin;
@@ -178,7 +180,7 @@ const toCollectedWorkspaceInstallPlans = ({
 });
 
 const attachConfiguredReleaseAge = (
-  plan: Plan,
+  plan: Plan<StepRequirements>,
   evaluation: ReleaseAgeEvaluation,
   releaseAge:
     | {
@@ -186,7 +188,7 @@ const attachConfiguredReleaseAge = (
         readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
       }
     | undefined,
-): Plan => {
+): Plan<StepRequirements> => {
   if (releaseAge === undefined) return plan;
   return {
     ...plan,
@@ -418,28 +420,25 @@ const hydrateAcceptedPackRef = (name: string, ref: PackRef) =>
     return { ...ref, pack: { name: ref.pack.name, dependencies: manifest.dependencies } };
   });
 
-const acceptedPackDependencyResolver =
-  (
-    ws: WorkspaceMutationsService,
-    fs: FileSystem.FileSystem,
-    path: Path.Path,
-  ): PackDependencyRefResolver<AppError> =>
-  ({ owner, type, name, root }) =>
-    acceptedLockedResolutionRef({ workspace: ws, type, name }).pipe(
+// TRANSITIONAL-HANDLER-LOGIC: the accepted-Pack dependency authority itself
+// lives in `@agentxm/extension-resolution` and keeps its services in `R`. The
+// intent's resolver callback is still `R = never`, so this adapter provides
+// them at the leaf and converts the typed failure into the CLI envelope. The
+// command-family slice that removes the callback removes this adapter too.
+const acceptedPackDependencyResolverForIntent = (
+  ws: WorkspaceMutationsService,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+): PackDependencyRefResolver<AppError> => {
+  const resolveAccepted = acceptedPackDependencyResolver();
+  return (args) =>
+    resolveAccepted(args).pipe(
       Effect.mapError(lifecycleFailureToAppError),
-      Effect.flatMap(
-        Option.match({
-          onNone: () =>
-            makeAppError({
-              code: "conflict",
-              detail: `Accepted Pack recovery for ${root} has no accepted ${type} resolution for ${owner}/${name}`,
-            }),
-          onSome: Effect.succeed,
-        }),
-      ),
+      Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     );
+};
 
 const resolvePackRef = (
   name: string,
@@ -462,7 +461,7 @@ const resolvePackRef = (
           unattended: true,
           releaseAgeEvaluation,
           releaseAgeHoldbackBehavior: "preserve-or-block",
-          dependencyResolver: acceptedPackDependencyResolver(ws, fs, path),
+          dependencyResolver: acceptedPackDependencyResolverForIntent(ws, fs, path),
           ...(forceCanonical === true ? { forceCanonical: true } : {}),
           ...(deferProjections === true ? { deferProjections: true } : {}),
         } satisfies InstallPackCommandIntent,
@@ -784,10 +783,10 @@ const makeWorkspaceInstallCollectors = (
 const makePlan = (
   name: string,
   description: Option.Option<string>,
-  steps: ReadonlyArray<PlannedJobStep>,
+  steps: ReadonlyArray<PlannedJobStep<StepRequirements>>,
   type: Option.Option<WorkspaceInstallableType>,
-  releaseAge: Plan["releaseAge"],
-): Plan => ({
+  releaseAge: Plan<StepRequirements>["releaseAge"],
+): Plan<StepRequirements> => ({
   _tag: "Plan",
   name,
   description,

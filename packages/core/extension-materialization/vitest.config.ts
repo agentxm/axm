@@ -1,0 +1,23 @@
+import { fileURLToPath } from "node:url";
+import { configDefaults, defineConfig } from "vitest/config";
+import { testExecution } from "../../../vitest.execution.js";
+import { makeTestReporting, purposeSetupFile } from "../../../vitest.reporting.js";
+
+const projectRoot = fileURLToPath(new URL(".", import.meta.url));
+
+export default defineConfig({
+  root: projectRoot,
+  test: {
+    ...testExecution,
+    ...makeTestReporting({ project: "extension-materialization" }),
+    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
+    setupFiles: [purposeSetupFile],
+    // `*.type-test.ts` files contain only compile-time assertions (no runtime
+    // `it`/`expect` wrappers). They are typechecked via `tsconfig.spec.json`
+    // but excluded from the runtime suite so vitest does not try to load a
+    // file that registers no tests. Spread Vitest's defaults so the standard
+    // ignore set (node_modules, dist, .{idea,git,cache}, build, etc.) is
+    // preserved.
+    exclude: [...configDefaults.exclude, "src/**/*.type-test.ts"],
+  },
+});

@@ -45,19 +45,20 @@ export interface InstallExtensionCommandWorkflowActions<
   Intent,
   ParseError,
   ResolveError = ParseError,
+  R = never,
 > {
-  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, ParseError>;
+  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, ParseError, R>;
   readonly resolveSourceRequests: (
     parsed: Parsed,
-  ) => Effect.Effect<ReadonlyArray<Req>, ResolveError>;
+  ) => Effect.Effect<ReadonlyArray<Req>, ResolveError, R>;
   readonly discoverRefs: (
     reqs: ReadonlyArray<Req>,
-  ) => Effect.Effect<ReadonlyArray<Ref>, ParseError, Scope.Scope>;
+  ) => Effect.Effect<ReadonlyArray<Ref>, ParseError, R | Scope.Scope>;
   readonly finalizeIntent: (
     parsed: Parsed,
     refs: ReadonlyArray<Ref>,
-  ) => Effect.Effect<Intent, ResolveError>;
-  readonly buildPlan: (intent: Intent) => Effect.Effect<Plan, ParseError>;
+  ) => Effect.Effect<Intent, ResolveError, R>;
+  readonly buildPlan: (intent: Intent) => Effect.Effect<Plan<R>, ParseError, R>;
 }
 
 // -----------------------------------------------------------------------------
@@ -80,6 +81,7 @@ export const buildInstallCommandPlan = <
   ResolveError,
   TransformError = never,
   TransformRequirements = never,
+  R = never,
 >(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<
@@ -89,13 +91,14 @@ export const buildInstallCommandPlan = <
     Ref,
     Intent,
     ParseError,
-    ResolveError
+    ResolveError,
+    R
   >,
   options?: {
     readonly transformIntent?: (intent: Intent) => Intent;
     readonly transformPlan?: (
-      plan: Plan,
-    ) => Effect.Effect<Plan, TransformError, TransformRequirements>;
+      plan: Plan<R>,
+    ) => Effect.Effect<Plan<R>, TransformError, TransformRequirements>;
   },
 ) =>
   Effect.gen(function* () {
@@ -136,6 +139,7 @@ export const runInstallCommandWorkflow = <
   ResolveError,
   TransformError = never,
   TransformRequirements = never,
+  R = never,
 >(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<
@@ -145,14 +149,15 @@ export const runInstallCommandWorkflow = <
     Ref,
     Intent,
     ParseError,
-    ResolveError
+    ResolveError,
+    R
   >,
   options: {
     readonly execution: PlanExecution;
     readonly transformIntent?: (intent: Intent) => Intent;
     readonly transformPlan?: (
-      plan: Plan,
-    ) => Effect.Effect<Plan, TransformError, TransformRequirements>;
+      plan: Plan<R>,
+    ) => Effect.Effect<Plan<R>, TransformError, TransformRequirements>;
   },
 ) =>
   Effect.gen(function* () {

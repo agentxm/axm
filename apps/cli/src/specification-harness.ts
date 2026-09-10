@@ -10,8 +10,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
-import { toAppError } from "./app-error/conversions.js";
+import * as Layer from "effect/Layer";
+import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
 export {
   makeCliTestContext,
   makeWorkspaceHandlerTestContext,
@@ -120,12 +121,13 @@ export {
   allCatalogRuleMetadata,
   isolatedGitEnvironment,
 } from "@agentxm/workspace-lint";
-// The application's workspace-facts layer with its boundary failure
-// rendering, for specification workspaces that compose manager layers
-// directly rather than importing the kernel root.
-export const workspaceInvariantFactsLive = makeWorkspaceInvariantFactsLive({
-  describeFailure: (failure) => toAppError(failure).detail,
-});
+// The workspace-facts layer over the registered projection participants, for
+// specification workspaces that compose manager layers directly rather than
+// importing the kernel root.
+export const workspaceInvariantFactsLive = Layer.provide(
+  WorkspaceInvariantFactsLive,
+  ProjectionParticipantsLive,
+);
 export {
   handleInstructionsDisable,
   handleInstructionsEnable,
@@ -186,7 +188,7 @@ export {
 // Extension-workspace surface the install and lint harnesses compose; specs
 // may not import the kernel root or its /live module directly, so the harness
 // re-exports it (the Live through the sanctioned test-support module).
-export { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
+export { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
 export { WorkspaceStateLive } from "@agentxm/workspace-state/live";
 export {
   MemoryWorkspaceTransactionScope,
@@ -198,7 +200,7 @@ export {
   type FileSystemWriteOperation,
 } from "@agentxm/workspace-transactions/testing";
 export { WorkspaceMutations } from "@agentxm/workspace-state";
-export { CodingAgentRepositoryLive } from "./test-helpers.js";
+export { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "./test-helpers.js";
 export { HelpTopicResultSchema, handleHelpPath } from "./root/help/command.js";
 export { loadVersion } from "./version.js";
 export {
@@ -243,11 +245,8 @@ export {
   type GitDirectoryComparisonService,
   type GitDirectoryDifference,
 } from "@agentxm/extension-sources";
-export {
-  ReleaseAgePosture,
-  mcpSecretAccount,
-  type ReleaseAgePostureValue,
-} from "@agentxm/extension-lifecycle";
+export { mcpSecretAccount } from "@agentxm/extension-lifecycle";
+export { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/extension-resolution";
 export { SourceHostProvidersLive } from "./test-helpers.js";
 // Application-boundary vocabulary the specifications assert against: exit
 // codes, the machine error envelope, telemetry mode, client, and published
@@ -301,7 +300,7 @@ export {
   InspectionFailureAdapterLive,
   KnowledgeIndexLive,
   KnowledgeManagerLive,
-  LifecycleFailureAdapterLive,
+  LifecycleStepFailureConversionLive,
   McpServerManagerLive,
   PackManagerLive,
   RuleManagerLive,
@@ -408,3 +407,5 @@ export { runtimeBaseLayer, resolveBuiltInSources } from "./runtime.js";
 export { withUpdateCheck } from "./update-check-startup.js";
 
 export { authFailureToAppError } from "./feature-errors.js";
+
+export type { StepRequirements } from "./root/shared/step-requirements.js";

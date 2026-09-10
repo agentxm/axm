@@ -29,13 +29,13 @@ import type { PlanExecution } from "@agentxm/workspace-operations";
  * @typeParam Intent - Command-specific uninstall intent
  * @typeParam E - Failures the phases surface
  */
-export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, E> {
-  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, E>;
-  readonly finalizeIntent: (parsed: Parsed) => Effect.Effect<Intent, E>;
+export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, E, R = never> {
+  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, E, R>;
+  readonly finalizeIntent: (parsed: Parsed) => Effect.Effect<Intent, E, R>;
   readonly buildUninstallPlan: (
     intent: Intent,
     flags: UninstallWorkflowFlags,
-  ) => Effect.Effect<Plan, E>;
+  ) => Effect.Effect<Plan<R>, E, R>;
 }
 
 export interface UninstallWorkflowFlags {
@@ -54,9 +54,9 @@ export interface UninstallWorkflowFlags {
  * Executes phases in order: parse -> finalizeIntent -> buildUninstallPlan ->
  * previewOrApplyPlan.
  */
-export const runUninstallCommandWorkflow = <Args, Parsed, Intent, E>(
+export const runUninstallCommandWorkflow = <Args, Parsed, Intent, E, R = never>(
   args: Args,
-  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, E>,
+  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, E, R>,
   flags: UninstallWorkflowFlags,
 ) =>
   Effect.gen(function* () {

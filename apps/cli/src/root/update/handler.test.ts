@@ -33,16 +33,16 @@ import {
   versionSatisfiesRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
-import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
-import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
-import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
+import { RuleManagerLive } from "@agentxm/extension-materialization/live";
+import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
 
-import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/extension-lifecycle";
 import { handleUpdateWithActions, type RootUpdateFlags } from "./handler.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";
+import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/extension-resolution";
 
 interface UpdateCall extends RootUpdateFlags {
   readonly source: string;

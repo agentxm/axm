@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { withArgvTracking } from "../../../cli-runtime/index.js";
@@ -26,8 +27,14 @@ const uninstallPresentation = operationPresentation(
 );
 
 const withUninstallPresentation = <Args, Parsed, Intent>(
-  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError>,
-): UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError> => ({
+  actions: UninstallExtensionCommandWorkflowActions<
+    Args,
+    Parsed,
+    Intent,
+    AppError,
+    StepRequirements
+  >,
+): UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError, StepRequirements> => ({
   ...actions,
   buildUninstallPlan: (intent, workflowFlags) =>
     actions

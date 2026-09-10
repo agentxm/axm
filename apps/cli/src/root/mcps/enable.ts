@@ -1,9 +1,10 @@
 import * as FileSystem from "effect/FileSystem";
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { Screen } from "../../screen/index.js";
 import { enableMcpServer } from "@agentxm/extension-lifecycle";
 import {
@@ -26,7 +27,7 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
+import { provideLifecycleStepFailureConversion } from "../../feature-errors.js";
 
 export const handleEnableMcpServer = (args: { readonly name: string; readonly preview: boolean }) =>
   withOperationLifecycle(
@@ -63,17 +64,22 @@ const handleEnableMcpServerBody = Effect.fn("EnableMcpServer.handle")(function* 
   const path = yield* Path.Path;
   const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
+  const nativeWrites = yield* NativeWriteAuthority;
 
   const step: PlannedJobStep<WorkspaceTransactionScope> = {
     readiness: "ready",
     label: args.name,
     run: enableMcpServer({ name: "enable-mcp-server", args: { serverName: args.name } }).pipe(
-      provideLifecycleFailureAdapter,
+      provideLifecycleStepFailureConversion,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(Screen, screen),
       Effect.provideService(CodingAgentRepository, agentRepo),
+      // TRANSITIONAL-HANDLER-LOGIC: the feature step is still assembled here, so the
+      // native-write port is provided at the leaf; the command-family slice moves it
+      // into the feature's own requirements.
+      Effect.provideService(NativeWriteAuthority, nativeWrites),
     ),
   };
   const plan: Plan<WorkspaceTransactionScope> = {

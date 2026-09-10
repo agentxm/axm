@@ -12,25 +12,26 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
-import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
-import { PackManagerLive } from "@agentxm/extension-lifecycle/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
+import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
+import { PackManagerLive } from "@agentxm/extension-materialization/live";
 import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
-import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
+import { RuleManagerLive } from "@agentxm/extension-materialization/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
 import { toAppError } from "../../app-error/conversions.js";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
   SourceNotResolvable,
 } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
+import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
 import YAML from "yaml";
 import {
   expectAppliedPlanResult,
@@ -54,7 +55,7 @@ import {
 } from "../../test-stubs.js";
 import { handleListMcpServers } from "../mcps/list.js";
 import { handleSync } from "./handler.js";
-import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
 
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -622,7 +623,7 @@ describe("root sync handler", () => {
       ctx.wsLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
-      LifecycleFailureAdapterLive,
+      LifecycleStepFailureConversionLive,
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
@@ -640,7 +641,7 @@ describe("root sync handler", () => {
       Layer.mergeAll(managerDependencies, managersLayer),
     );
     const invariantFactsLayer = Layer.provide(
-      makeWorkspaceInvariantFactsLive({ describeFailure: (failure) => toAppError(failure).detail }),
+      Layer.provide(WorkspaceInvariantFactsLive, ProjectionParticipantsLive),
       Layer.mergeAll(managerDependencies, managersLayer),
     );
     return {
@@ -650,7 +651,7 @@ describe("root sync handler", () => {
           ctx.wsLayer,
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
-          LifecycleFailureAdapterLive,
+          LifecycleStepFailureConversionLive,
           managersLayer,
           packManagerLayer,
           invariantFactsLayer,

@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import {
   formatProjectionExclusion,
   type ProjectionInvariantFact,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";

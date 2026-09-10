@@ -85,8 +85,16 @@ export {
   makeVftSkillFileAccessor,
   makeVftSkillFileAccessorScoped,
 } from "./catalog/skill-accessor/vft.js";
+export {
+  type SkillAccessorPlatform,
+  makePlatformSkillFileAccessor,
+} from "./catalog/skill-accessor/platform.js";
 export { type InstalledPackInfo, buildPackRuleContexts } from "./catalog/pack-accessor/contexts.js";
 export { type PackVFTNode, makeVftPackFileAccessor } from "./catalog/pack-accessor/vft.js";
+export {
+  type PackAccessorPlatform,
+  makePlatformPackFileAccessor,
+} from "./catalog/pack-accessor/platform.js";
 export {
   type ManifestJsonParseFailure,
   isManifestJsonParseFailure,

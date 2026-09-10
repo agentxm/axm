@@ -1,4 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
+import { StepRequirementsTest } from "../../../test-helpers.js";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -134,16 +136,21 @@ const registryLock = (version: Version): SkillLockEntry => ({
 const stubRunClosure: MakeRunClosure = (op) =>
   Effect.succeed<JobStepResult>({ result: "success", message: `executed ${op.name}` });
 
-const firstStep = (entries: ReadonlyArray<PlannedJobStep>): PlannedJobStep => {
+const firstStep = (
+  entries: ReadonlyArray<PlannedJobStep<StepRequirements>>,
+): PlannedJobStep<StepRequirements> => {
   const step = entries[0];
   if (step === undefined) throw new Error("missing first plan step");
   return step;
 };
 
-const runMessage = (step: PlannedJobStep) =>
+const runMessage = (step: PlannedJobStep<StepRequirements>) =>
   step.readiness === "error"
     ? Effect.succeed("error")
-    : step.run.pipe(Effect.map((result) => result.message));
+    : step.run.pipe(
+        Effect.map((result) => result.message),
+        Effect.provide(StepRequirementsTest()),
+      );
 
 const firstMessage = (op: InstallSkillOperation, locks: SkillsLockMap) => {
   const plan = buildUpdatePlan([op], locks, "Update", Option.none(), stubRunClosure);

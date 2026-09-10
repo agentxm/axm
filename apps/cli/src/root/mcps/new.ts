@@ -1,11 +1,15 @@
 import * as FileSystem from "effect/FileSystem";
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError } from "../../app-error/index.js";
-import { createCanonicalDirectory, recoverCanonicalDirectory } from "@agentxm/extension-workspace";
+import {
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
+} from "@agentxm/extension-materialization";
 import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import {
   decodeExtensionNameSync,
@@ -13,7 +17,7 @@ import {
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
 import { Screen } from "../../screen/index.js";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -60,7 +64,7 @@ import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmat
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
+import { provideLifecycleStepFailureConversion } from "../../feature-errors.js";
 
 export const handleMcpServersNew = (args: {
   readonly name: ExtensionName;
@@ -171,7 +175,9 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
       ...agentConfigTargets,
     ],
   };
-  const step: PlannedJobStep<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope> = {
+  const step: PlannedJobStep<
+    FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope | NativeWriteAuthority
+  > = {
     readiness: "ready",
     label: fqn,
     artifact: plannedArtifact,
@@ -258,7 +264,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
             Effect.provideService(Screen, screen),
             Effect.provideService(CodingAgentRepository, agentRepo),
             Effect.provideService(HttpClient.HttpClient, httpClient),
-            provideLifecycleFailureAdapter,
+            provideLifecycleStepFailureConversion,
           ),
         );
       }),
@@ -294,7 +300,9 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
       } satisfies JobStepResult),
     ),
   };
-  const plan: Plan<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope> = {
+  const plan: Plan<
+    FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope | NativeWriteAuthority
+  > = {
     _tag: "Plan",
     name: "New MCP server",
     description: Option.some(`Create ${fqn}`),

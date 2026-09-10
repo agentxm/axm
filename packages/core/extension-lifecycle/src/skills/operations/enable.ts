@@ -12,10 +12,10 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Layer from "effect/Layer";
-import { DefaultCodingAgentRepository } from "@agentxm/extension-workspace";
+import { DefaultCodingAgentRepository } from "@agentxm/workspace-projection";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { ExtensionLifecycleFailed } from "../../errors.js";
-import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
@@ -25,11 +25,11 @@ import {
   runWorkspaceTransaction,
 } from "@agentxm/workspace-transactions";
 import { sanitizeName } from "@agentxm/workspace-state";
-import { ensureSkillAgentArtifact } from "../materialization.js";
+import { ensureSkillAgentArtifact } from "@agentxm/extension-materialization";
 import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { usableAcceptedCanonicalObservation } from "@agentxm/workspace-state";
 
 // Operation types
@@ -59,7 +59,7 @@ export const enableSkill: OperationHandler<
   | Path.Path
   | WorkspaceMutations
   | WorkspaceTransactionScope
-  | LifecycleFailureAdapter
+  | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -70,9 +70,6 @@ export const enableSkill: OperationHandler<
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
-    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-      Effect.provide(effect, fsPathLayer);
-
     const canonical = yield* usableAcceptedCanonicalObservation({
       workspace: ws,
       type: "skill",
@@ -145,9 +142,7 @@ export const enableSkill: OperationHandler<
               canonicalSkillSrcPath: skillSrcPath,
               targetDir: location.targetDir,
               sanitizedName,
-              pathService: path,
               baseDir: base,
-              provide,
             }),
           { concurrency: "unbounded" },
         );

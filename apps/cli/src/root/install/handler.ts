@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Option from "effect/Option";
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {
@@ -29,7 +30,7 @@ import {
   makeInstallCommandActions,
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
-import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
+import { ReleaseAgePosture } from "@agentxm/extension-resolution";
 
 export interface RootInstallFlags {
   readonly force: boolean;
@@ -44,14 +45,14 @@ type RegistryExtensionRootInstallIntent = RootInstallIntent & {
   readonly type: RootInstallableType;
 };
 
-const withInstallPresentation = (type: RootInstallableType) => (plan: Plan) =>
+const withInstallPresentation = (type: RootInstallableType) => (plan: Plan<StepRequirements>) =>
   Effect.succeed({
     ...plan,
     presentation: operationPresentation(
       { imperative: "install", past: "Installed", gerund: "Installing" },
       type,
     ),
-  } satisfies Plan);
+  } satisfies Plan<StepRequirements>);
 
 const runRegistryInstallIntent = (
   intent: RegistryExtensionRootInstallIntent,

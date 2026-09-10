@@ -1,4 +1,5 @@
 import * as FileSystem from "effect/FileSystem";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -7,7 +8,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "../../../app-error/index.js";
 import { toAppError } from "../../../app-error/conversions.js";
-import { buildInstallOperation } from "@agentxm/extension-workspace";
+import { buildInstallOperation } from "@agentxm/extension-materialization";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -18,7 +19,8 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { applyPlannedProjections, RuleManager } from "@agentxm/extension-workspace";
+import { RuleManager } from "@agentxm/extension-materialization";
+import { applyPlannedProjections } from "@agentxm/workspace-projection";
 import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
@@ -50,7 +52,8 @@ type InstallRuleActions = InstallExtensionCommandWorkflowActions<
   RuleExtensionRef,
   InstallRuleCommandIntent,
   AppError,
-  AppError | PromptCancelled
+  AppError | PromptCancelled,
+  StepRequirements
 >;
 
 export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
@@ -75,7 +78,7 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
 
   const parseArgs = (
     args: InstallRuleHandlerArgs,
-  ): Effect.Effect<ParsedRuleInstallArgs, AppError> =>
+  ): Effect.Effect<ParsedRuleInstallArgs, AppError, StepRequirements> =>
     provide(
       Effect.gen(function* () {
         const input = args.source.trim();
@@ -137,7 +140,7 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
   const finalizeIntent = (
     parsed: ParsedRuleInstallArgs,
     refs: ReadonlyArray<RuleExtensionRef>,
-  ): Effect.Effect<InstallRuleCommandIntent, AppError> =>
+  ): Effect.Effect<InstallRuleCommandIntent, AppError, StepRequirements> =>
     Effect.gen(function* () {
       if (refs.length === 0) {
         const suggestions =
@@ -158,7 +161,9 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
       };
     });
 
-  const buildPlan = (intent: InstallRuleCommandIntent): Effect.Effect<Plan, AppError> => {
+  const buildPlan = (
+    intent: InstallRuleCommandIntent,
+  ): Effect.Effect<Plan<StepRequirements>, AppError, StepRequirements> => {
     const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
     const memberSteps = intent.refs.map(({ ref, versionRange }) =>
       buildInstallOperation(ruleManager, {
@@ -171,12 +176,7 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
         }),
         buildArtifact: ({ installedBefore }) =>
           Effect.gen(function* () {
-            const materialization =
-              ruleManager.getLastMaterialization === undefined
-                ? { agents: [], targets: [] }
-                : yield* ruleManager.getLastMaterialization({
-                    target: { type: "rule", name: ref.rule.name },
-                  });
+            const materialization = yield* ruleManager.aggregateProjectionObservation;
             const change: JobStepArtifact["change"] = installedBefore ? "updated" : "created";
             const targets = materialization.targets.map((target) => ({
               path: target.path,
@@ -194,7 +194,7 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
           }),
       }),
     );
-    const projectionSteps: ReadonlyArray<PlannedJobStep> =
+    const projectionSteps: ReadonlyArray<PlannedJobStep<StepRequirements>> =
       deferProjections && intent.deferProjections !== true
         ? [
             {
@@ -221,7 +221,7 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
           steps: [...memberSteps, ...projectionSteps],
         },
       ],
-    } satisfies Plan);
+    } satisfies Plan<StepRequirements>);
   };
 
   return {

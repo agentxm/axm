@@ -1,9 +1,10 @@
 import * as FileSystem from "effect/FileSystem";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { buildNewExtensionStep } from "@agentxm/extension-workspace";
+import { buildNewExtensionStep } from "@agentxm/extension-materialization";
 import {
   computeSourceHash,
   computePackPathsForLayout,
@@ -35,8 +36,7 @@ import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { PackManager } from "@agentxm/extension-workspace";
-
+import { PackManager } from "@agentxm/extension-materialization";
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<string>;
@@ -146,7 +146,7 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
     ),
   });
 
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "New pack",
     description: Option.some(`Create ${fqn}`),

@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -25,12 +26,13 @@ import {
   WorkspaceCatalog,
 } from "@agentxm/extension-sources";
 import { expandGlob } from "../../../utils/index.js";
-import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
+import { SkillManager } from "@agentxm/extension-materialization";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-} from "@agentxm/extension-workspace";
-import { buildUninstallOperation } from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
+import { buildUninstallOperation } from "@agentxm/extension-materialization";
 import type { SkillLockEntry } from "@agentxm/workspace-state";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import {
@@ -74,7 +76,8 @@ type UninstallSkillActions = UninstallExtensionCommandWorkflowActions<
   UninstallHandlerArgs,
   ParsedSkillUninstallArgs,
   UninstallSkillCommandIntent,
-  AppError
+  AppError,
+  StepRequirements
 >;
 
 const skillSourceTarget = (
@@ -118,7 +121,7 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
 
   const parseArgs = (
     args: UninstallHandlerArgs,
-  ): Effect.Effect<ParsedSkillUninstallArgs, AppError> =>
+  ): Effect.Effect<ParsedSkillUninstallArgs, AppError, StepRequirements> =>
     Effect.gen(function* () {
       // Load installed skills for glob expansion
       const installedSkills = yield* ws.records
@@ -153,12 +156,14 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
 
   const finalizeIntent = (
     parsed: ParsedSkillUninstallArgs,
-  ): Effect.Effect<UninstallSkillCommandIntent, AppError> =>
+  ): Effect.Effect<UninstallSkillCommandIntent, AppError, StepRequirements> =>
     Effect.succeed({
       skillsToUninstall: parsed.skills.map((skillName) => ({ skillName })),
     } satisfies UninstallSkillCommandIntent);
 
-  const buildUninstallPlan = (intent: UninstallSkillCommandIntent): Effect.Effect<Plan, AppError> =>
+  const buildUninstallPlan = (
+    intent: UninstallSkillCommandIntent,
+  ): Effect.Effect<Plan<StepRequirements>, AppError, StepRequirements> =>
     Effect.gen(function* () {
       const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
       const configuredAgents = yield* agentRepo
@@ -187,7 +192,7 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
 
       const steps = yield* Effect.forEach(
         intent.skillsToUninstall,
-        (entry): Effect.Effect<PlannedJobStep, AppError> =>
+        (entry): Effect.Effect<PlannedJobStep<StepRequirements>, AppError, StepRequirements> =>
           Effect.gen(function* () {
             const target: SkillExtensionTarget = {
               type: "skill" as const,
@@ -240,7 +245,7 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
               } satisfies JobStepResult;
             });
 
-            return { ...step, artifact, run } satisfies PlannedJobStep;
+            return { ...step, artifact, run } satisfies PlannedJobStep<StepRequirements>;
           }).pipe(Effect.mapError(toAppError)),
         { concurrency: "unbounded" },
       );
@@ -260,7 +265,7 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
             steps,
           },
         ],
-      } satisfies Plan;
+      } satisfies Plan<StepRequirements>;
     });
 
   return {

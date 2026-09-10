@@ -10,10 +10,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
   CodingAgentRepository,
-  syncInlineMcpServerToAgents,
   applyProjectionPlansWithResults,
   planSingletonProjection,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
+import { NativeWriteAuthority, syncInlineMcpServerToAgents } from "@agentxm/agent-integration";
 import {
   normalizeHandle,
   parseExtensionFqnParts,
@@ -34,7 +34,7 @@ import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { usableAcceptedCanonicalObservation } from "@agentxm/workspace-state";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
-import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 
 export type EnableMcpServerOperation = Operation<
@@ -65,7 +65,8 @@ export const enableMcpServer = (
   | WorkspaceMutations
   | WorkspaceTransactionScope
   | CodingAgentRepository
-  | LifecycleFailureAdapter
+  | NativeWriteAuthority
+  | StepFailureConversion
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -197,10 +198,7 @@ export const enableMcpServer = (
                       enabled: true,
                       configValues: entry.env,
                     });
-                  }).pipe(
-                    Effect.provideService(FileSystem.FileSystem, fs),
-                    Effect.provideService(Path.Path, path),
-                  ),
+                  }),
               },
             }),
           ),

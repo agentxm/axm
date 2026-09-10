@@ -2,17 +2,11 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-
-/**
- * Validates that a resolved target path stays within a base directory.
- * Uses path separator boundary check to prevent prefix false positives.
- */
-export const isPathSafe = (path: Path.Path, base: string, target: string): boolean => {
-  const resolvedBase = path.resolve(base);
-  const resolvedTarget = path.resolve(target);
-  return resolvedTarget === resolvedBase || resolvedTarget.startsWith(resolvedBase + path.sep);
-};
+import {
+  isPathSafe,
+  makeAbsolutePath,
+  type AbsolutePath,
+} from "@agentxm/extension-model/unstable/path-types";
 
 /**
  * Resolve `target` and return it only when it stays inside `base`.

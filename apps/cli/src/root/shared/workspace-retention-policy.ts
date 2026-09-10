@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import type { UninstallRetentionPolicy } from "@agentxm/extension-workspace";
+import type { UninstallRetentionPolicy } from "@agentxm/extension-materialization";
 import type { AppError } from "../../app-error/index.js";
 import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { toAppError } from "../../app-error/conversions.js";

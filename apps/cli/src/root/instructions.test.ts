@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
+import { RuleManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../test-helpers.js";
 import { handleInstructionsDisable, handleInstructionsStatus } from "./instructions.js";

@@ -82,3 +82,15 @@ export const makeWorkspaceRelativeSourcePath = (
   if (path.isAbsolute(relative)) return Option.none();
   return Option.some(path.normalize(relative.length === 0 ? "." : relative));
 };
+
+/**
+ * Whether a resolved target path stays within a base directory.
+ *
+ * Uses a path-separator boundary check so a sibling directory sharing a name
+ * prefix is not mistaken for a child.
+ */
+export const isPathSafe = (path: Path.Path, base: string, target: string): boolean => {
+  const resolvedBase = path.resolve(base);
+  const resolvedTarget = path.resolve(target);
+  return resolvedTarget === resolvedBase || resolvedTarget.startsWith(resolvedBase + path.sep);
+};

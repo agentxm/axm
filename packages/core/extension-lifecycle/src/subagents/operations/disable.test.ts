@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -16,12 +17,12 @@ import {
 } from "@agentxm/workspace-state/testing";
 import {
   CodingAgentRepository,
-  type CodingAgent,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
+import { type CodingAgent } from "@agentxm/agent-integration";
 import type { SubagentLockEntry } from "@agentxm/workspace-state";
 import { disableSubagent, type DisableSubagentOperation } from "./disable.js";
-import { TestLifecycleFailureAdapter } from "../../test-helpers.js";
+import { TestStepFailureConversion } from "../../test-helpers.js";
 
 const makeOp = (subagentName: string): DisableSubagentOperation => ({
   name: "disable-subagent",
@@ -92,11 +93,12 @@ describe("disableSubagent", () => {
       });
 
       const layers = Layer.mergeAll(
+        NativeWriteAuthorityPermissive,
         NodeServices.layer,
         WorkspaceMutations.layer(wsMock),
         MockWorkspaceTransactionScope(axmDir),
         Layer.succeed(CodingAgentRepository, fakeRepo),
-        TestLifecycleFailureAdapter,
+        TestStepFailureConversion,
       );
 
       const result = yield* disableSubagent(makeOp("my-subagent")).pipe(Effect.provide(layers));

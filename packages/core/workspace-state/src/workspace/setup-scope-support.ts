@@ -9,7 +9,7 @@ import {
   type ConfigurableAgentId,
   type NativeCapability,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { userScopeRefusal } from "./scope-refusal.js";
+import { userScopeRefusal } from "@agentxm/agent-integration";
 import {
   EXTENSION_TYPE_TABLE,
   extensionTypeLabels,

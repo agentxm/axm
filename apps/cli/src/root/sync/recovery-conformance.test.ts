@@ -14,7 +14,7 @@ import {
   aggregateOwnershipUnits,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   type AggregateOwnershipUnitId,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import { syncRecoveryIdentifiers } from "@agentxm/workspace-sync";
 import { packUninstallRecoveryIdentifiers } from "../packs/uninstall/readiness.js";
 
@@ -102,7 +102,7 @@ const packageLintEvidence = (id: string): ReadonlyArray<string> => {
   if (id.startsWith("knowledge/")) {
     return ["packages/core/workspace-lint/src/catalog/knowledge.test.ts"];
   }
-  return ["packages/core/extension-workspace/src/extension-types/parity/parity.test.ts"];
+  return ["tools/extension-type-parity/src/parity.test.ts"];
 };
 
 const packageLintErrorIds = [
@@ -172,16 +172,16 @@ const workspaceEvidence = [
 
 const aggregateCoverage = {
   "rule:instructions-region": [
-    "packages/core/extension-lifecycle/src/rules/manager.graph-projection.test.ts",
+    "packages/core/extension-materialization/src/rules/manager.graph-projection.test.ts",
   ],
   "hook:agent-hook-entries": [
-    "packages/core/extension-lifecycle/src/hooks/manager.graph-projection.test.ts",
+    "packages/core/extension-materialization/src/hooks/manager.graph-projection.test.ts",
   ],
   "hook:fallback-region": [
-    "packages/core/extension-lifecycle/src/hooks/manager.graph-projection.test.ts",
+    "packages/core/extension-materialization/src/hooks/manager.graph-projection.test.ts",
   ],
   "knowledge:discovery-region": [
-    "packages/core/extension-lifecycle/src/knowledge/manager.graph-projection.test.ts",
+    "packages/core/extension-materialization/src/knowledge/manager.graph-projection.test.ts",
   ],
 } as const satisfies Readonly<Partial<Record<AggregateOwnershipUnitId, ReadonlyArray<string>>>>;
 
@@ -233,7 +233,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     field: "ownedProjection",
     evidence: [
       "apps/cli/src/root/sync/handler.test.ts",
-      "packages/core/extension-workspace/src/projection/invariant-facts.test.ts",
+      "packages/core/workspace-projection/src/invariant-facts.test.ts",
     ],
   }),
   makeEntry("workspace/skills-declarations-valid", {
@@ -296,7 +296,7 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "sync",
     field: "lockAuthority",
     evidence: [
-      "packages/core/extension-workspace/src/projection/constraint-invariant-fact.test.ts",
+      "packages/core/workspace-projection/src/constraint-invariant-fact.test.ts",
       "apps/cli/src/root/sync/handler.test.ts",
     ],
   }),
@@ -304,7 +304,7 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/core/extension-workspace/src/projection/planning.test.ts",
+      "packages/core/workspace-projection/src/planning.test.ts",
       "apps/cli/src/root/sync/handler.test.ts",
     ],
   }),
@@ -353,21 +353,21 @@ const adversarialContracts = [
   ],
   [
     "aggregate-contributors-survive-lifecycle",
-    "packages/core/extension-lifecycle/src/rules/manager.graph-projection.test.ts",
+    "packages/core/extension-materialization/src/rules/manager.graph-projection.test.ts",
   ],
   ["sync-preserves-intent-and-satisfying-lock", "apps/cli/src/root/sync/handler.test.ts"],
   ["lint-fix-does-no-lifecycle-work", "apps/cli/src/root/lint/handler.test.ts"],
   [
     "stale-and-concurrent-plans-do-not-interleave",
-    "packages/core/extension-workspace/src/projection/planning.test.ts",
+    "packages/core/workspace-projection/src/planning.test.ts",
   ],
   [
     "publication-interruption-converges",
-    "packages/core/extension-workspace/src/extensions/canonical-directory.test.ts",
+    "packages/core/extension-materialization/src/extensions/canonical-directory.test.ts",
   ],
   [
     "formatter-drift-remains-projectable",
-    "packages/core/extension-lifecycle/src/knowledge/manager.test.ts",
+    "packages/core/extension-materialization/src/knowledge/manager.test.ts",
   ],
   ["divergent-external-replacement-is-disclosed", "apps/cli/src/root/update/handler.test.ts"],
   ["global-sync-reports-local-outcomes", "apps/cli/src/root/sync/handler.test.ts"],

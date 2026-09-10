@@ -21,7 +21,7 @@ import {
 } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {
-  TestLifecycleFailureAdapter,
+  TestStepFailureConversion,
   exactVersion,
   extensionName,
   handle,
@@ -101,7 +101,7 @@ const makeServices = (
     layer: Layer.mergeAll(
       NodeServices.layer,
       WorkspaceMutations.layer(workspace),
-      TestLifecycleFailureAdapter,
+      TestStepFailureConversion,
       Layer.succeed(SourceHostProviders, sourceProviders),
     ),
   };

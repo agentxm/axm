@@ -27,7 +27,10 @@ import {
 import type { ArtifactChange } from "@agentxm/workspace-state";
 import type { ConfiguredAgentOutcome } from "@agentxm/workspace-state";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
-import type { ReleaseAgeOperationEvidence } from "@agentxm/extension-resolution";
+import type {
+  RegistryBindingProposal,
+  ReleaseAgeOperationEvidence,
+} from "@agentxm/extension-resolution";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const PlanPolicyIds = ["ignore-version-constraints", "accept-warnings"] as const;
@@ -151,22 +154,6 @@ export interface JobStepArtifactSource {
   readonly ref?: string;
   readonly directory?: string;
   readonly gitTreeHash?: string;
-}
-
-/**
- * The Registry identity a step proposes to accept. Trust classification
- * compares it with the accepted resolution for the same configured target,
- * so a change of publisher is identified from structured data rather than
- * from warning text.
- */
-export interface RegistryBindingProposal {
-  readonly extensionType: ExtensionType;
-  /** The configured (local) name whose accepted resolution the step replaces. */
-  readonly target: string;
-  readonly owner: string;
-  readonly packageName: string;
-  readonly version: string;
-  readonly publisherBindingId: string;
 }
 
 export interface RegistryLifecycleEvidence {

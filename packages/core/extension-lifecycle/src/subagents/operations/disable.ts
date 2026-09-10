@@ -7,13 +7,14 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CodingAgentRepository, findManagedSubagentFiles } from "@agentxm/extension-workspace";
+import { CodingAgentRepository, findManagedSubagentFiles } from "@agentxm/workspace-projection";
 import { ExtensionLifecycleFailed } from "../../errors.js";
-import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
@@ -63,7 +64,8 @@ export const disableSubagent: OperationHandler<
   | WorkspaceMutations
   | WorkspaceTransactionScope
   | CodingAgentRepository
-  | LifecycleFailureAdapter
+  | NativeWriteAuthority
+  | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;

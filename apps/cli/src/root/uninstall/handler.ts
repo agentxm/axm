@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace-operations";
@@ -81,8 +82,14 @@ const rootUninstallPresentation = operationPresentation({
 });
 
 const withRootPresentation = <Args, Parsed, Intent>(
-  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError>,
-): UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError> => ({
+  actions: UninstallExtensionCommandWorkflowActions<
+    Args,
+    Parsed,
+    Intent,
+    AppError,
+    StepRequirements
+  >,
+): UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError, StepRequirements> => ({
   ...actions,
   buildUninstallPlan: (intent, flags) =>
     actions

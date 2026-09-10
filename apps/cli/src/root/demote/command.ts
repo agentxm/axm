@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -14,7 +15,7 @@ import {
   publicRecoveryValue,
   recoveryPositional,
 } from "@agentxm/workspace-operations";
-import { buildInstallOperation } from "@agentxm/extension-workspace";
+import { buildInstallOperation } from "@agentxm/extension-materialization";
 import {
   type ExtensionType,
   formatFqn,
@@ -30,16 +31,6 @@ import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
-  resolveConfiguredKnowledge,
-  resolveConfiguredMcpServer,
-  resolveConfiguredPack,
-  resolveConfiguredRule,
-  resolveConfiguredSkill,
-  resolveConfiguredSubagent,
-} from "@agentxm/extension-lifecycle";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
@@ -59,8 +50,18 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredHook,
+  resolveConfiguredKnowledge,
+  resolveConfiguredMcpServer,
+  resolveConfiguredPack,
+  resolveConfiguredRule,
+  resolveConfiguredSkill,
+  resolveConfiguredSubagent,
+} from "@agentxm/extension-resolution";
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -267,7 +268,7 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
         error._tag === "AppError" ? appErrorToStepFailure(error) : error,
       ),
     ),
-  } satisfies PlannedJobStep;
+  } satisfies PlannedJobStep<StepRequirements>;
 });
 
 /**
@@ -305,7 +306,7 @@ export const handleDemote = (args: DemoteHandlerArgs) =>
 
 const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: DemoteHandlerArgs) {
   const step = yield* demotionStep(args.fqn, args.source);
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "Demote workspace extension",
     description: Option.some(

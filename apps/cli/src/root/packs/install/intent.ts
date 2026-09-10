@@ -7,11 +7,12 @@
  */
 
 import type * as Option from "effect/Option";
-import type { PackDependencyRefResolver } from "@agentxm/extension-lifecycle";
+
 import type { AppError } from "../../../app-error/index.js";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+import { type PackDependencyRefResolver } from "@agentxm/extension-resolution";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: PackRef;

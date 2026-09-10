@@ -7,7 +7,8 @@
  */
 
 import * as Schema from "effect/Schema";
-import type { ExtensionManagerFailure, McpConfigSyncFailure } from "@agentxm/extension-workspace";
+import type { ExtensionManagerFailure } from "@agentxm/extension-materialization";
+import type { McpConfigSyncFailure } from "@agentxm/agent-integration";
 
 const CarriedSuggestedActionSchema = Schema.Struct({
   description: Schema.String,

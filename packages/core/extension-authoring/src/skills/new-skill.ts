@@ -9,7 +9,10 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { AuthoringFailed } from "../errors.js";
 import { AuthoringFailureAdapter, withAdaptedStepFailures } from "../failure-adapter.js";
-import { createCanonicalDirectory, recoverCanonicalDirectory } from "@agentxm/extension-workspace";
+import {
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
+} from "@agentxm/extension-materialization";
 import { preflightCreateOnly } from "../create-preflight.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";

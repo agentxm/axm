@@ -4,13 +4,15 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { makeAppError } from "../../app-error/index.js";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
@@ -28,23 +30,14 @@ import {
   type CanonicalObservationStatus,
   type DesiredExtensionNode,
 } from "@agentxm/workspace-state";
-import {
-  LifecycleFailureAdapter,
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
-  resolveConfiguredKnowledge,
-  resolveConfiguredMcpServer,
-  resolveConfiguredRule,
-  resolveConfiguredSkill,
-  resolveConfiguredSubagent,
-} from "@agentxm/extension-lifecycle";
+import { StepFailureConversion } from "@agentxm/extension-lifecycle";
 import {
   parseExtensionFqnParts,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
-import { WorkspaceInvariantFacts } from "@agentxm/extension-workspace";
+import { WorkspaceInvariantFacts } from "@agentxm/workspace-projection";
 import {
   deriveOperationOutcome,
   StepFailure,
@@ -80,6 +73,15 @@ import {
   syncFailureToAppError,
   syncStepFailureAdapter,
 } from "../../feature-errors.js";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredHook,
+  resolveConfiguredKnowledge,
+  resolveConfiguredMcpServer,
+  resolveConfiguredRule,
+  resolveConfiguredSkill,
+  resolveConfiguredSubagent,
+} from "@agentxm/extension-resolution";
 
 export interface HandleSyncArgs {
   readonly target?: Option.Option<string>;
@@ -94,13 +96,15 @@ export interface SyncTestHooks {
 }
 
 type SyncPlanRequirements =
-  | LifecycleFailureAdapter
+  | StepRequirements
+  | StepFailureConversion
   | HttpClient.HttpClient
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
   | Screen
-  | CodingAgentRepository;
+  | CodingAgentRepository
+  | NativeWriteAuthority;
 const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecovery")(
   function* (args: { readonly selection: SyncSelection }) {
     const ws = yield* WorkspaceMutations;
@@ -140,7 +144,7 @@ const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecov
           };
         }),
       ),
-    } satisfies ConfiguredPackRecovery;
+    } satisfies ConfiguredPackRecovery<SyncPlanRequirements>;
   },
 );
 const resolveDesiredExtensionRef = (

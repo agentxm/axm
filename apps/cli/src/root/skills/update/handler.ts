@@ -1,4 +1,5 @@
 import * as FileSystem from "effect/FileSystem";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Path from "effect/Path";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
@@ -6,14 +7,7 @@ import {
   acceptedResolutionRef,
   configuredRowsByName,
 } from "@agentxm/workspace-state";
-import {
-  classifyPublisherBindingTransition,
-  makeConfiguredReleaseAgeEvaluation,
-  publisherTransitionWarning,
-  registryBindingProposal,
-  withPublisherTrustConditions,
-  type PublisherBindingTransition,
-} from "@agentxm/extension-lifecycle";
+import { withPublisherTrustConditions } from "@agentxm/extension-lifecycle";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
@@ -24,7 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError } from "../../../app-error/index.js";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { Screen } from "../../../screen/index.js";
 import {
   previewOrApplyPlan,
@@ -43,11 +37,16 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { createRegistryClient } from "@agentxm/registry-client";
 import {
+  classifyPublisherBindingTransition,
   isVersionEntryEligibleAt,
+  makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
+  type PublisherBindingTransition,
+  publisherTransitionWarning,
+  registryBindingProposal,
+  type ReleaseAgeBypassRecord,
   releaseAgeEvidence,
   releaseAgeHoldbackWarning,
-  type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
 } from "@agentxm/extension-resolution";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
@@ -83,7 +82,7 @@ import {
 } from "../../suggested-actions.js";
 import {
   lifecycleFailureToAppError,
-  provideLifecycleFailureAdapter,
+  provideLifecycleStepFailureConversion,
 } from "../../../feature-errors.js";
 
 export interface UpdateHandlerArgs {
@@ -123,7 +122,7 @@ type RegistrySkillConstraintResolution =
 
 const skippedSkillStep = (
   outcome: Extract<ResolveResult, { readonly type: "skip" }>,
-): PlannedJobStep => ({
+): PlannedJobStep<StepRequirements> => ({
   readiness: "ready",
   label: `Skip ${outcome.name}`,
   run: Effect.succeed({
@@ -736,7 +735,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
 
   const makeRunClosure: import("./plan.js").MakeRunClosure = (op) =>
     installSkill(op).pipe(
-      provideLifecycleFailureAdapter,
+      provideLifecycleStepFailureConversion,
       Effect.map(toJobStepResult),
       Effect.map(appendWarningsToResult(warningsBySkill.get(op.args.ref.skill.name) ?? [])),
       Effect.provideService(WorkspaceMutations, ws),
@@ -756,7 +755,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
     Option.some("Update installed skills"),
     makeRunClosure,
   );
-  const basePlanWithWarnings: Plan = {
+  const basePlanWithWarnings: Plan<StepRequirements> = {
     ...rawPlan,
     presentation: operationPresentation(
       { imperative: "update", past: "Updated", gerund: "Updating" },
@@ -786,7 +785,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
     ...disabledSkillEntries,
   ].map((item) => skippedSkillStep(item));
   const [firstJob, ...restJobs] = basePlanWithWarnings.jobs;
-  const plan: Plan =
+  const plan: Plan<StepRequirements> =
     skippedSteps.length === 0
       ? basePlanWithWarnings
       : firstJob === undefined
@@ -821,7 +820,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
       ),
     ].map((name) => ({ extensionType: "skill", name, plannedState: "enabled" as const })),
   );
-  const executionPlan: Plan = withPublisherTrustConditions(
+  const executionPlan: Plan<StepRequirements> = withPublisherTrustConditions(
     {
       ...plan,
       riskConditions: [

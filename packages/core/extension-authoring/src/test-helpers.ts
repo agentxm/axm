@@ -10,10 +10,10 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
-  CreateDestinationExists,
   CreateDestinationInspectionFailed,
   CreateNameConfigured,
-} from "@agentxm/extension-workspace";
+} from "./authored-package-errors.js";
+import { CreateDestinationExists } from "@agentxm/extension-materialization";
 import { StepFailure } from "@agentxm/workspace-operations";
 import { AuthoringFailed } from "./errors.js";
 import { AuthoringFailureAdapter } from "./failure-adapter.js";

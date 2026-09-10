@@ -8,11 +8,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type {
-  ExtensionManagerFailure,
-  InstructionMaintenanceFailure,
-  McpConfigSyncFailure,
-} from "@agentxm/extension-workspace";
+import type { ExtensionManagerFailure } from "@agentxm/extension-materialization";
+import type { InstructionMaintenanceFailure } from "@agentxm/workspace-projection";
+import type { McpConfigSyncFailure } from "@agentxm/agent-integration";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import type { WorkspaceSyncCleanupFailure } from "./errors.js";
 

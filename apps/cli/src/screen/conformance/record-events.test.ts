@@ -18,10 +18,10 @@ import { afterEach, beforeEach } from "vitest";
 
 import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace-operations";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 
-import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
 import { handleInstall } from "../../root/skills/install/handler.js";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
@@ -80,7 +80,7 @@ describe("recorded lifecycle event logs", () => {
         context.wsLayer,
         sourceProviders,
         CodingAgentRepositoryLive,
-        LifecycleFailureAdapterLive,
+        LifecycleStepFailureConversionLive,
       ),
     );
     const provide = makeEffectProvide(
@@ -89,7 +89,7 @@ describe("recorded lifecycle event logs", () => {
         context.wsLayer,
         sourceProviders,
         CodingAgentRepositoryLive,
-        LifecycleFailureAdapterLive,
+        LifecycleStepFailureConversionLive,
         skillManager,
       ),
     );

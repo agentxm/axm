@@ -29,9 +29,13 @@ import { ExitCode, makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { effectCliExit } from "../../cli-runtime/index.js";
-import { WorkspaceInvariantFacts, observeAgentOutputs } from "@agentxm/extension-workspace";
-import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import {
+  expectedProjectionNames,
+  observeAgentOutputs,
+  WorkspaceInvariantFacts,
+} from "@agentxm/workspace-projection";
+
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { inspectWorkspaceOwnership } from "@agentxm/workspace-sync";
 import { syncFailureToAppError } from "../../feature-errors.js";
 import {
@@ -63,6 +67,7 @@ import * as os from "node:os";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { toAppError } from "../../app-error/conversions.js";
 import { lintView } from "./view.js";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-resolution";
 
 // -----------------------------------------------------------------------------
 // Handler args
@@ -219,13 +224,6 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     Effect.provideService(CodingAgentRepository, agentRepo),
   );
   const desiredGraph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
-  const enabledNames = (extensionType: "skill" | "subagent" | "mcp-server" | "hook") =>
-    new Set(
-      desiredGraph.nodes
-        .filter((node) => node.enabled && node.type === extensionType)
-        .map(({ name }) => name),
-    );
-  const expectedSubagentNames = enabledNames("subagent");
   const desiredAgentIds = new Set(
     (yield* agentRepo.getMaterializationAgents()).map(({ id }) => id),
   );
@@ -233,12 +231,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     workspaceRoot: ws.baseDir,
     scope: ws.scope,
     desiredAgentIds,
-    expectedNames: {
-      skill: new Set([...enabledNames("skill"), ...expectedSubagentNames]),
-      subagent: expectedSubagentNames,
-      "mcp-server": enabledNames("mcp-server"),
-      hook: enabledNames("hook"),
-    },
+    expectedNames: expectedProjectionNames(desiredGraph),
     skillOwnershipRoots:
       ws.layout.scope === "project"
         ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]

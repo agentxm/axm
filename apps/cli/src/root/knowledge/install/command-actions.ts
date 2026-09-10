@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -13,7 +14,7 @@ import {
   targetFromRef,
   toLabelWithCompanions,
   toStepKey,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -21,7 +22,8 @@ import {
 import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { applyPlannedProjections, KnowledgeManager } from "@agentxm/extension-workspace";
+import { KnowledgeManager } from "@agentxm/extension-materialization";
+import { applyPlannedProjections } from "@agentxm/workspace-projection";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -42,7 +44,8 @@ type KnowledgeInstallActions = InstallExtensionCommandWorkflowActions<
   KnowledgeExtensionRef,
   InstallKnowledgeCommandIntent,
   AppError,
-  AppError | PromptCancelled
+  AppError | PromptCancelled,
+  StepRequirements
 >;
 
 interface ParsedKnowledgeInstallArgs {
@@ -73,7 +76,7 @@ export const InstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
 
   const parseArgs = (
     args: InstallKnowledgeHandlerArgs,
-  ): Effect.Effect<ParsedKnowledgeInstallArgs, AppError> =>
+  ): Effect.Effect<ParsedKnowledgeInstallArgs, AppError, StepRequirements> =>
     provide(
       Effect.gen(function* () {
         const input = args.source.trim();
@@ -179,7 +182,7 @@ export const InstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
               };
         })(),
       );
-      const projectionSteps: ReadonlyArray<PlannedJobStep> =
+      const projectionSteps: ReadonlyArray<PlannedJobStep<StepRequirements>> =
         deferProjections && intent.deferProjections !== true
           ? [
               {
@@ -207,7 +210,7 @@ export const InstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
             steps: [...memberSteps, ...projectionSteps],
           },
         ],
-      } satisfies Plan);
+      } satisfies Plan<StepRequirements>);
     },
   } satisfies KnowledgeInstallActions;
 }).pipe(Effect.map((actions): KnowledgeInstallActions => actions));

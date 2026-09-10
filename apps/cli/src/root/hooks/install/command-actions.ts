@@ -1,4 +1,5 @@
 import * as FileSystem from "effect/FileSystem";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -15,7 +16,7 @@ import {
   type ConfiguredAgentOutcome,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
-import { buildInstallOperation } from "@agentxm/extension-workspace";
+import { buildInstallOperation } from "@agentxm/extension-materialization";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -28,7 +29,8 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { applyPlannedProjections, HookManager } from "@agentxm/extension-workspace";
+import { HookManager } from "@agentxm/extension-materialization";
+import { applyPlannedProjections } from "@agentxm/workspace-projection";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -58,7 +60,8 @@ type InstallHookActions = InstallExtensionCommandWorkflowActions<
   HookExtensionRef,
   InstallHookCommandIntent,
   AppError,
-  AppError | PromptCancelled
+  AppError | PromptCancelled,
+  StepRequirements
 >;
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
@@ -124,7 +127,7 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
 
   const parseArgs = (
     args: InstallHookHandlerArgs,
-  ): Effect.Effect<ParsedHookInstallArgs, AppError> =>
+  ): Effect.Effect<ParsedHookInstallArgs, AppError, StepRequirements> =>
     provide(
       Effect.gen(function* () {
         const input = args.source.trim();
@@ -186,7 +189,7 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
   const finalizeIntent = (
     parsed: ParsedHookInstallArgs,
     refs: ReadonlyArray<HookExtensionRef>,
-  ): Effect.Effect<InstallHookCommandIntent, AppError> =>
+  ): Effect.Effect<InstallHookCommandIntent, AppError, StepRequirements> =>
     Effect.gen(function* () {
       if (refs.length === 0) {
         const suggestions =
@@ -207,12 +210,17 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
       };
     });
 
-  const buildPlan = (intent: InstallHookCommandIntent): Effect.Effect<Plan, AppError> =>
+  const buildPlan = (
+    intent: InstallHookCommandIntent,
+  ): Effect.Effect<Plan<StepRequirements>, AppError, StepRequirements> =>
     Effect.gen(function* () {
       const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
       const memberSteps = yield* Effect.forEach(
         intent.refs,
-        ({ ref, versionRange }): Effect.Effect<PlannedJobStep, AppError> =>
+        ({
+          ref,
+          versionRange,
+        }): Effect.Effect<PlannedJobStep<StepRequirements>, AppError, StepRequirements> =>
           Effect.gen(function* () {
             const installedBefore = yield* hookManager.isInstalled({
               target: { type: "hook", name: ref.hook.name },
@@ -263,12 +271,7 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
               message: `Installed ${ref.hook.name}`,
               buildArtifact: ({ installedBefore }) =>
                 Effect.gen(function* () {
-                  const materialization =
-                    hookManager.getLastMaterialization === undefined
-                      ? { agents: [], targets: [] }
-                      : yield* hookManager.getLastMaterialization({
-                          target: { type: "hook", name: ref.hook.name },
-                        });
+                  const materialization = yield* hookManager.aggregateProjectionObservation;
                   const appliedOutcomes =
                     hookManager.configuredAgentOutcomesForRef === undefined
                       ? []
@@ -320,13 +323,16 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
                   .map(({ agentId, reason }) => `${agentId}: ${reason}`)
                   .join("; "),
                 artifact: previewArtifact,
-              } satisfies PlannedJobStep;
+              } satisfies PlannedJobStep<StepRequirements>;
             }
-            return { ...operation, artifact: previewArtifact } satisfies PlannedJobStep;
+            return {
+              ...operation,
+              artifact: previewArtifact,
+            } satisfies PlannedJobStep<StepRequirements>;
           }).pipe(Effect.mapError(toAppError)),
         { concurrency: 1 },
       );
-      const projectionSteps: ReadonlyArray<PlannedJobStep> =
+      const projectionSteps: ReadonlyArray<PlannedJobStep<StepRequirements>> =
         deferProjections && intent.deferProjections !== true
           ? [
               {
@@ -353,7 +359,7 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
             steps: [...memberSteps, ...projectionSteps],
           },
         ],
-      } satisfies Plan;
+      } satisfies Plan<StepRequirements>;
     });
 
   return {

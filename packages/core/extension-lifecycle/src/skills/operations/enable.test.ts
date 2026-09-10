@@ -24,7 +24,7 @@ import { sanitizeName } from "@agentxm/workspace-state";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 import {
-  TestLifecycleFailureAdapter,
+  TestStepFailureConversion,
   computeMaterializedTreeIntegritySync,
   extensionName,
   handle,
@@ -114,7 +114,7 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
     NodeServices.layer,
     WorkspaceMutations.layer(mockWs),
     MockWorkspaceTransactionScope(axmDir),
-    TestLifecycleFailureAdapter,
+    TestStepFailureConversion,
   );
 };
 

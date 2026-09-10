@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
+import { HookManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {

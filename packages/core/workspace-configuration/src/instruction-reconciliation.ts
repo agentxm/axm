@@ -19,11 +19,11 @@ import {
   removeInstructionsGitignore,
   resolveInstructionsConfig,
   syncInstructions,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import type {
   InstructionProjectionSnapshot,
   ResolvedInstructionsConfig,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import { WorkspaceConfigurationFailed } from "./errors.js";
 
 const configuredAgents = (ws: WorkspaceMutationsService) => ws.getConfiguredAgents();
@@ -104,11 +104,11 @@ export const removeInstructionTargetsFor = (args: {
  * observation (the plan's readiness check ran before the transaction opened),
  * apply the transition, reconcile, and verify from the sync's own readback.
  */
-export const reconcileInstructionTransition = <A, E>(args: {
+export const reconcileInstructionTransition = <A, E, R = never>(args: {
   readonly ws: WorkspaceMutationsService;
   readonly config: ResolvedInstructionsConfig;
   readonly preflightConfig?: ResolvedInstructionsConfig;
-  readonly transition: Effect.Effect<A, E>;
+  readonly transition: Effect.Effect<A, E, R>;
 }) =>
   Effect.gen(function* () {
     const agents = yield* configuredAgents(args.ws);

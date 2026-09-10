@@ -1,16 +1,14 @@
 import * as Effect from "effect/Effect";
+import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Option from "effect/Option";
 import { Argument } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { buildInstallOperation } from "@agentxm/extension-workspace";
+import { buildInstallOperation } from "@agentxm/extension-materialization";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredKnowledge,
-} from "@agentxm/extension-lifecycle";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
@@ -20,8 +18,13 @@ import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { applyPlannedProjections, KnowledgeManager } from "@agentxm/extension-workspace";
+import { KnowledgeManager } from "@agentxm/extension-materialization";
+import { applyPlannedProjections } from "@agentxm/workspace-projection";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredKnowledge,
+} from "@agentxm/extension-resolution";
 
 export const activationConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Configured knowledge bundle name")),
@@ -65,7 +68,7 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
     return;
   }
 
-  const step: PlannedJobStep = enabled
+  const step: PlannedJobStep<StepRequirements> = enabled
     ? buildInstallOperation(manager, {
         toStepFailure: failureToStepFailure,
         ...(yield* resolveConfiguredKnowledge(
@@ -87,35 +90,33 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
     : {
         label: name,
         readiness: "ready",
-        run: manager
-          .runTransaction({
-            transition: Effect.gen(function* () {
-              yield* ws
-                .updateKnowledgeEntry(name, (current) => ({
-                  ...current,
-                  enabled: false,
-                }))
-                .pipe(Effect.mapError(toAppError));
-              // Rendering the discovery region is what deactivation means for
-              // a Knowledge bundle, so this step carries its exclusion report.
-              return yield* applyPlannedProjections(manager);
-            }),
-            validate: () => Effect.void,
-          })
-          .pipe(
-            Effect.mapError(failureToStepFailure),
-            Effect.map((warnings): JobStepResult => ({
-              result: "success",
-              message: `Disabled knowledge bundle ${name}`,
-              artifact: {
-                path: workspaceSettingsPath(ws.scope),
-                scope: ws.scope,
-                change: "updated",
-                targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated" }],
-              },
-              ...(warnings.length === 0 ? {} : { warnings }),
-            })),
-          ),
+        run: runWorkspaceTransaction({
+          transition: Effect.gen(function* () {
+            yield* ws
+              .updateKnowledgeEntry(name, (current) => ({
+                ...current,
+                enabled: false,
+              }))
+              .pipe(Effect.mapError(toAppError));
+            // Rendering the discovery region is what deactivation means for
+            // a Knowledge bundle, so this step carries its exclusion report.
+            return yield* applyPlannedProjections(manager);
+          }),
+          validate: () => Effect.void,
+        }).pipe(
+          Effect.mapError(failureToStepFailure),
+          Effect.map((warnings): JobStepResult => ({
+            result: "success",
+            message: `Disabled knowledge bundle ${name}`,
+            artifact: {
+              path: workspaceSettingsPath(ws.scope),
+              scope: ws.scope,
+              change: "updated",
+              targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated" }],
+            },
+            ...(warnings.length === 0 ? {} : { warnings }),
+          })),
+        ),
       };
   const resolution = yield* previewOrApplyLocalPlan(
     {

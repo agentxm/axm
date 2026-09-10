@@ -1,0 +1,33 @@
+{
+  "name": "@agentxm/extension-type-parity",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Extension-type parity obligations, lifecycle contract, reconciliation table, and exemption ledger for AXM conformance suites",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "axm-source": "./src/index.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@agentxm/workspace-state": "workspace:^",
+    "@types/bun": "catalog:",
+    "@typescript/native": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ]
+}

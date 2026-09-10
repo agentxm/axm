@@ -18,6 +18,9 @@
   ],
   "references": [
     {
+      "path": "../workspace-projection/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-operations/tsconfig.lib.json"
     },
     {
@@ -25,9 +28,6 @@
     },
     {
       "path": "../../supporting/registry-client/tsconfig.lib.json"
-    },
-    {
-      "path": "../extension-workspace/tsconfig.lib.json"
     },
     {
       "path": "../../supporting/extension-sources/tsconfig.lib.json"

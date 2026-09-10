@@ -7,27 +7,29 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as Duration from "effect/Duration";
 import type * as Option from "effect/Option";
-import type { SourceAuthorityBlocked, PackManagerError } from "@agentxm/extension-workspace";
-
-/** Failures pack expansion can surface. */
-type PackExpansionError = SourceResolutionFailure | PackManagerError | SourceAuthorityBlocked;
 import { type ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type {
   SourceHostProvidersService,
   SourceResolutionFailure,
 } from "@agentxm/extension-sources";
-import type * as Duration from "effect/Duration";
-import { resolvePackDependencies } from "./dependency-resolution.js";
 import {
+  resolvePackDependencies,
   resolvePackDependenciesWithReleaseAge,
   type PackDependencyRefResolver,
+  type PackDependencyResolutionFailure,
   type ReleaseAgeAwarePackDependencyResolution,
+  type SourceAuthorityBlocked,
   type WorkspacePackDependencyResolver,
-} from "./dependency-resolution.js";
-import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+} from "@agentxm/extension-resolution";
+
+/** Failures pack expansion can surface. */
+type PackExpansionError =
+  SourceResolutionFailure | PackDependencyResolutionFailure | SourceAuthorityBlocked;
 
 // -----------------------------------------------------------------------------
 // expandPackInstallRefs
@@ -43,14 +45,14 @@ import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/ext
  * Dependency refs use the pack's registry source and empty integrity
  * (integrity is resolved during materialization, not at expansion time).
  */
-export const expandPackInstallRefs = <E = never>(args: {
+export const expandPackInstallRefs = <E = never, R = never>(args: {
   readonly pack: PackRef;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly sources: SourceHostProvidersService;
   readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
-  readonly workspaceResolver?: WorkspacePackDependencyResolver<E>;
-  readonly dependencyResolver?: PackDependencyRefResolver<E>;
-}): Effect.Effect<ReadonlyArray<ExtensionRef>, PackExpansionError | E> =>
+  readonly workspaceResolver?: WorkspacePackDependencyResolver<E, R>;
+  readonly dependencyResolver?: PackDependencyRefResolver<E, R>;
+}): Effect.Effect<ReadonlyArray<ExtensionRef>, PackExpansionError | E, R> =>
   Effect.gen(function* () {
     const {
       pack,
@@ -92,14 +94,14 @@ export type ReleaseAgeAwarePackExpansion =
     }
   | Extract<ReleaseAgeAwarePackDependencyResolution, { kind: "policy_held" }>;
 
-export const expandPackInstallRefsWithReleaseAge = <E = never>(args: {
+export const expandPackInstallRefsWithReleaseAge = <E = never, R = never>(args: {
   readonly pack: PackRef;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly sources: SourceHostProvidersService;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
-  readonly workspaceResolver?: WorkspacePackDependencyResolver<E>;
-  readonly dependencyResolver?: PackDependencyRefResolver<E>;
-}): Effect.Effect<ReleaseAgeAwarePackExpansion, PackExpansionError | E> =>
+  readonly workspaceResolver?: WorkspacePackDependencyResolver<E, R>;
+  readonly dependencyResolver?: PackDependencyRefResolver<E, R>;
+}): Effect.Effect<ReleaseAgeAwarePackExpansion, PackExpansionError | E, R> =>
   Effect.gen(function* () {
     const resolved = yield* resolvePackDependenciesWithReleaseAge(
       args.pack,

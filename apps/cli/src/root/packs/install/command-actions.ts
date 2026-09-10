@@ -8,6 +8,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as ServiceMap from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import type * as Duration from "effect/Duration";
@@ -25,7 +27,6 @@ import {
 } from "../../shared/install-source-resolution.js";
 
 import {
-  CodingAgentRepository,
   SkillManager,
   PackManager,
   HookManager,
@@ -33,13 +34,10 @@ import {
   RuleManager,
   McpServerManager,
   SubagentManager,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
-import {
-  type SourceAuthorityBlockedFact,
-  type SourceAuthorityInput,
-  evaluateSourceAuthority,
-} from "@agentxm/extension-workspace";
+
 import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
@@ -57,13 +55,7 @@ import {
 } from "@agentxm/workspace-state";
 import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
-import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
-import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
@@ -82,7 +74,6 @@ import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/e
 import { Verbosity } from "../../../cli-flags/index.js";
 import { Screen, headlineDoc } from "../../../screen/index.js";
 import {
-  type WorkspacePackDependencyResolver,
   expandPackInstallRefs,
   expandPackInstallRefsWithReleaseAge,
 } from "@agentxm/extension-lifecycle";
@@ -91,7 +82,7 @@ import {
   buildUninstallOperation,
   targetFromRef,
   toLabel,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import {
   operationPresentation,
@@ -100,7 +91,14 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { parseMinimumReleaseAge, normalizeReleaseAgeRecords } from "@agentxm/extension-resolution";
+import {
+  evaluateSourceAuthority,
+  normalizeReleaseAgeRecords,
+  parseMinimumReleaseAge,
+  type SourceAuthorityBlockedFact,
+  type SourceAuthorityInput,
+  type WorkspacePackDependencyResolver,
+} from "@agentxm/extension-resolution";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
@@ -153,7 +151,8 @@ type InstallPackActions = InstallExtensionCommandWorkflowActions<
   PackDiscoveryResult,
   InstallPackCommandIntent,
   AppError,
-  AppError | PromptCancelled
+  AppError | PromptCancelled,
+  StepRequirements
 >;
 
 interface PackDiscoveryResult {
@@ -376,7 +375,7 @@ const registrySourcePath = (ref: ExtensionRef, scope: JobStepArtifact["scope"]):
 const resolveMinimumReleaseAge = (
   ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
   unattended: boolean,
-): Effect.Effect<Option.Option<Duration.Duration>, AppError> =>
+): Effect.Effect<Option.Option<Duration.Duration>, AppError, StepRequirements> =>
   Effect.gen(function* () {
     if (!unattended) return Option.none<Duration.Duration>();
 
@@ -410,6 +409,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
   const knowledgeManager = yield* KnowledgeManager;
   const mcpServerMgr = yield* McpServerManager;
   const subagentMgr = yield* SubagentManager;
+  const nativeWrites = yield* NativeWriteAuthority;
   const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
   const verbosityOption = yield* Effect.serviceOption(Verbosity);
   const verbose = Option.match(verbosityOption, {
@@ -436,6 +436,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
     Layer.succeed(RuleManager, ruleManager),
     Layer.succeed(HookManager, hookManager),
     Layer.succeed(KnowledgeManager, knowledgeManager),
+    Layer.succeed(NativeWriteAuthority, nativeWrites),
   );
 
   // Assertion needed: strips service requirements (R) from inner effects.
@@ -968,7 +969,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
             errorCode: "conflict" as const,
           })),
           failureSuggestions: suggestions,
-        } satisfies Plan;
+        } satisfies Plan<StepRequirements>;
       }
       const minimumReleaseAge = yield* resolveMinimumReleaseAge(ws, intent.unattended ?? false);
       const supportedDependencyTypes = [
@@ -1078,7 +1079,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
                 ],
               }
             : {}),
-        } satisfies Plan;
+        } satisfies Plan<StepRequirements>;
       }
       const refs = expansion.refs;
       const graph = authority.graph;
@@ -1100,10 +1101,10 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
 
       const installSteps = yield* Effect.forEach(
         refs,
-        (ref): Effect.Effect<PlannedJobStep, never> =>
+        (ref): Effect.Effect<PlannedJobStep<StepRequirements>, never> =>
           ref.type === "pack"
             ? Effect.succeed(
-                buildInstallOperation<PackRef, AppError>(packMgr, {
+                buildInstallOperation(packMgr, {
                   toStepFailure: failureToStepFailure,
                   ref,
                   versionRange: intent.versionRange,
@@ -1151,38 +1152,30 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
           ),
         { concurrency: 1 },
       );
-      const uninstallSteps = droppedTargets.map(({ target }): PlannedJobStep => {
+      const uninstallSteps = droppedTargets.map(({ target }): PlannedJobStep<StepRequirements> => {
         if (target.type === "skill") {
-          return buildUninstallOperation<SkillExtensionRef, AppError>(skillMgr, retentionPolicy, {
+          return buildUninstallOperation(skillMgr, retentionPolicy, {
             toStepFailure: failureToStepFailure,
             target,
           });
         }
 
         if (target.type === "mcp-server") {
-          return buildUninstallOperation<McpServerExtensionRef, AppError>(
-            mcpServerMgr,
-            retentionPolicy,
-            {
-              toStepFailure: failureToStepFailure,
-              target,
-            },
-          );
+          return buildUninstallOperation(mcpServerMgr, retentionPolicy, {
+            toStepFailure: failureToStepFailure,
+            target,
+          });
         }
 
         if (target.type === "subagent") {
-          return buildUninstallOperation<SubagentExtensionRef, AppError>(
-            subagentMgr,
-            retentionPolicy,
-            {
-              toStepFailure: failureToStepFailure,
-              target,
-            },
-          );
+          return buildUninstallOperation(subagentMgr, retentionPolicy, {
+            toStepFailure: failureToStepFailure,
+            target,
+          });
         }
 
         if (target.type === "rule") {
-          return buildUninstallOperation<RuleExtensionRef, AppError>(ruleManager, retentionPolicy, {
+          return buildUninstallOperation(ruleManager, retentionPolicy, {
             toStepFailure: failureToStepFailure,
             target,
             skipProjections: true,
@@ -1190,7 +1183,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
         }
 
         if (target.type === "hook") {
-          return buildUninstallOperation<HookExtensionRef, AppError>(hookManager, retentionPolicy, {
+          return buildUninstallOperation(hookManager, retentionPolicy, {
             toStepFailure: failureToStepFailure,
             target,
             skipProjections: true,
@@ -1198,15 +1191,11 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
         }
 
         if (target.type === "knowledge") {
-          return buildUninstallOperation<KnowledgeExtensionRef, AppError>(
-            knowledgeManager,
-            retentionPolicy,
-            {
-              toStepFailure: failureToStepFailure,
-              target,
-              skipProjections: true,
-            },
-          );
+          return buildUninstallOperation(knowledgeManager, retentionPolicy, {
+            toStepFailure: failureToStepFailure,
+            target,
+            skipProjections: true,
+          });
         }
 
         return {
@@ -1253,7 +1242,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
       ];
       const projectionStep =
         intent.deferProjections === true
-          ? Option.none<PlannedJobStep>()
+          ? Option.none<PlannedJobStep<StepRequirements>>()
           : yield* buildAggregateProjectionStep({
               types: new Set([
                 ...refs.map((ref) => ref.type),
@@ -1343,7 +1332,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
         ),
         jobs: [{ concurrency: 1, steps: [graphStep] }],
         ...(releaseAge === undefined ? {} : { releaseAge }),
-      } satisfies Plan;
+      } satisfies Plan<StepRequirements>;
     }).pipe(Effect.mapError(toAppError));
 
   return {

@@ -5,7 +5,7 @@
  * candidate release is compatible with the running CLI. That policy is owned
  * above this integration, so the registry host provider consumes it through
  * this port: candidate bytes in, a rendered verdict out. The composition
- * root implements it from the extension-workspace compatibility policy (see
+ * root implements it from the extension-resolution compatibility policy (see
  * the application runtime's axm-skill gate Live).
  *
  * @experimental This API is unstable and may change without notice.

@@ -17,8 +17,8 @@ import {
   computePackManifestContentIdentity,
 } from "@agentxm/workspace-state";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { type UninstallHandlerArgs } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
 import {

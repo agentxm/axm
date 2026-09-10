@@ -13,18 +13,19 @@ import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+
 import type {
   PackDependencyReachability,
   AgentOutputInventory,
-  AxmSkillCompatibility,
   WorkspaceOwnershipIssue,
   InstructionProjectionSnapshot,
-} from "@agentxm/extension-workspace";
-import type { ProjectionInvariantFact } from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
+import type { ProjectionInvariantFact } from "@agentxm/workspace-projection";
 import type { CanonicalObservation } from "@agentxm/workspace-state";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 import type { LockfileReadError, SettingsReadError } from "@agentxm/workspace-state";
 import type { WorkspaceReadModel } from "@agentxm/workspace-state";
+import { type AxmSkillCompatibility } from "@agentxm/extension-resolution";
 
 /**
  * Context passed to `workspace/*` rules.

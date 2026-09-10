@@ -9,17 +9,11 @@
  */
 
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
-import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
-import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
   type DesiredStateGraph,
   type ExtensionTarget,
@@ -27,7 +21,7 @@ import {
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
 import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
-import { buildUninstallOperation, toLabel } from "@agentxm/extension-workspace";
+import { buildUninstallOperation, toLabel } from "@agentxm/extension-materialization";
 import {
   type DesiredPackageAuthority,
   decodeDesiredExtensionIdentity,
@@ -65,8 +59,7 @@ import {
   McpServerManager,
   RuleManager,
   SubagentManager,
-} from "@agentxm/extension-workspace";
-
+} from "@agentxm/extension-materialization";
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
@@ -95,7 +88,8 @@ type UninstallPackActions = UninstallExtensionCommandWorkflowActions<
   UninstallPackHandlerArgs,
   ParsedPackUninstallArgs,
   UninstallPackCommandIntent,
-  AppError
+  AppError,
+  StepRequirements
 >;
 
 export interface ResolvedPackUninstallTarget extends PackExtensionTarget {
@@ -332,7 +326,7 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
               errorCode: "conflict",
             },
           ],
-        } satisfies Plan;
+        } satisfies Plan<StepRequirements>;
       }
       const graph = graphReadiness.graph;
       const plannedRetirements = graphReadiness.retirements;
@@ -355,7 +349,7 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
           description: Option.none(),
           presentation: uninstallPresentation,
           jobs: [{ concurrency: 1 as const, steps: [] }],
-        } satisfies Plan;
+        } satisfies Plan<StepRequirements>;
       }
 
       const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
@@ -400,10 +394,10 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
         ]),
       );
 
-      const steps = orderedTargets.map((target): PlannedJobStep => {
+      const steps = orderedTargets.map((target): PlannedJobStep<StepRequirements> => {
         if (target.type === "pack") {
           const retirement = retirementByPackName.get(target.name);
-          return buildUninstallOperation<PackRef, AppError>(packMgr, retentionPolicy, {
+          return buildUninstallOperation(packMgr, retentionPolicy, {
             target,
             toStepFailure: failureToStepFailure,
             ...(retirement === undefined
@@ -420,68 +414,48 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
         }
 
         if (target.type === "skill") {
-          return buildUninstallOperation<SkillExtensionRef, AppError>(
-            skillMgr,
-            exclusiveMemberPolicy,
-            {
-              toStepFailure: failureToStepFailure,
-              target,
-            },
-          );
+          return buildUninstallOperation(skillMgr, exclusiveMemberPolicy, {
+            toStepFailure: failureToStepFailure,
+            target,
+          });
         }
 
         if (target.type === "mcp-server") {
-          return buildUninstallOperation<McpServerExtensionRef, AppError>(
-            mcpServerMgr,
-            exclusiveMemberPolicy,
-            {
-              target,
-              toStepFailure: failureToStepFailure,
-            },
-          );
+          return buildUninstallOperation(mcpServerMgr, exclusiveMemberPolicy, {
+            target,
+            toStepFailure: failureToStepFailure,
+          });
         }
 
         if (target.type === "subagent") {
-          return buildUninstallOperation<SubagentExtensionRef, AppError>(
-            subagentMgr,
-            exclusiveMemberPolicy,
-            {
-              toStepFailure: failureToStepFailure,
-              target,
-            },
-          );
+          return buildUninstallOperation(subagentMgr, exclusiveMemberPolicy, {
+            toStepFailure: failureToStepFailure,
+            target,
+          });
         }
 
         if (target.type === "rule") {
-          return buildUninstallOperation<RuleExtensionRef, AppError>(
-            ruleManager,
-            exclusiveMemberPolicy,
-            {
-              toStepFailure: failureToStepFailure,
-              target,
-              skipProjections: true,
-            },
-          );
+          return buildUninstallOperation(ruleManager, exclusiveMemberPolicy, {
+            toStepFailure: failureToStepFailure,
+            target,
+            skipProjections: true,
+          });
         }
 
         if (target.type === "hook") {
-          return buildUninstallOperation<HookExtensionRef, AppError>(
-            hookManager,
-            exclusiveMemberPolicy,
-            {
-              toStepFailure: failureToStepFailure,
-              target,
-              skipProjections: true,
-            },
-          );
+          return buildUninstallOperation(hookManager, exclusiveMemberPolicy, {
+            toStepFailure: failureToStepFailure,
+            target,
+            skipProjections: true,
+          });
         }
 
         if (target.type === "knowledge") {
-          return buildUninstallOperation<KnowledgeExtensionRef, AppError>(
-            knowledgeManager,
-            exclusiveMemberPolicy,
-            { target, skipProjections: true, toStepFailure: failureToStepFailure },
-          );
+          return buildUninstallOperation(knowledgeManager, exclusiveMemberPolicy, {
+            target,
+            skipProjections: true,
+            toStepFailure: failureToStepFailure,
+          });
         }
 
         return {
@@ -564,7 +538,7 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
         description: Option.none(),
         presentation: uninstallPresentation,
         jobs: [{ concurrency: 1, steps: [graphStep] }],
-      } satisfies Plan;
+      } satisfies Plan<StepRequirements>;
     });
 
   return {

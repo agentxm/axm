@@ -9,6 +9,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -17,7 +18,12 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Terminal from "effect/Terminal";
 import { nonInteractiveFlag, Verbosity } from "../../../cli-flags/index.js";
-import { CodingAgentRepository, SubagentManager } from "@agentxm/extension-workspace";
+import {
+  NO_MATERIALIZATION_OBSERVATION,
+  SubagentManager,
+  type SubagentMaterializationFacts,
+} from "@agentxm/extension-materialization";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { makeAppError, type AppError } from "../../../app-error/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -28,7 +34,7 @@ import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-source
 import { Screen, count, headlineDoc } from "../../../screen/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import { buildInstallOperation } from "@agentxm/extension-workspace";
+import { buildInstallOperation } from "@agentxm/extension-materialization";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import {
   operationPresentation,
@@ -183,7 +189,8 @@ type InstallSubagentActions = InstallExtensionCommandWorkflowActions<
   SubagentExtensionRef,
   InstallSubagentCommandIntent,
   AppError,
-  AppError | PromptCancelled
+  AppError | PromptCancelled,
+  StepRequirements
 >;
 
 export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
@@ -422,9 +429,11 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
             const version = ref.refType === "registry" ? ref.version : undefined;
             const buildArtifact = ({
               installedBefore,
+              materialization,
             }: {
               readonly installedBefore: boolean;
-            }): Effect.Effect<JobStepArtifact, AppError> =>
+              readonly materialization: Option.Option<SubagentMaterializationFacts>;
+            }): Effect.Effect<JobStepArtifact, AppError, StepRequirements> =>
               Effect.gen(function* () {
                 const lockEntryOption = yield* ws
                   .getLockedSubagent(ref.subagent.name)
@@ -442,13 +451,11 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
                   previousSourceHash: sourceHashBeforeInstall,
                   sourceHash,
                 });
-                const materialization =
-                  subagentMgr.getLastMaterialization === undefined
-                    ? { agents: [], targets: [] }
-                    : yield* subagentMgr.getLastMaterialization({
-                        target: { type: "subagent", name: ref.subagent.name },
-                      });
-                const targets = materialization.targets.map((target) => ({
+                const observation = Option.match(materialization, {
+                  onNone: () => NO_MATERIALIZATION_OBSERVATION,
+                  onSome: (facts) => facts.observation,
+                });
+                const targets = observation.targets.map((target) => ({
                   path: target.path,
                   change,
                   ...(target.agentIds === undefined ? {} : { agentIds: target.agentIds }),
@@ -457,7 +464,7 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
                 return {
                   path: targets[0]?.path ?? ref.subagent.name,
                   scope: ws.scope,
-                  agents: materialization.agents,
+                  agents: observation.agents,
                   ...(version !== undefined ? { version } : {}),
                   change,
                   ...(previousVersion !== undefined && previousVersion !== version
@@ -494,7 +501,7 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
             steps,
           },
         ],
-      } satisfies Plan;
+      } satisfies Plan<StepRequirements>;
     });
 
   return {

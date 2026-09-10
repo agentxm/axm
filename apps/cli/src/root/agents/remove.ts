@@ -1,12 +1,16 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import type { StepRequirements } from "../shared/step-requirements.js";
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
   CodingAgentRepository,
+  expectedProjectionNames,
+  UNIVERSAL_AGENT_ID,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import {
   reconcileAgentOutputs,
   type ReconcileAgentOutputsArgs,
@@ -62,7 +66,11 @@ const provideCleanupServices = <A, E>(
   effect: Effect.Effect<
     A,
     E,
-    WorkspaceMutations | FileSystem.FileSystem | Path.Path | CodingAgentRepository
+    | WorkspaceMutations
+    | FileSystem.FileSystem
+    | Path.Path
+    | CodingAgentRepository
+    | NativeWriteAuthority
   >,
   services: CleanupServices,
 ) =>
@@ -78,7 +86,7 @@ const cleanupStep = (
   reconciliation: ReconcileAgentOutputsArgs,
   services: CleanupServices,
   preview: ReconcileAgentOutputsResult,
-): PlannedJobStep => ({
+): PlannedJobStep<NativeWriteAuthority> => ({
   label: "Remove managed agent artifacts",
   readiness: "ready",
   artifact: {
@@ -135,7 +143,10 @@ const cleanupStep = (
   ),
 });
 
-const removeAgentStep = (ws: WorkspaceMutationsService, agentId: string): PlannedJobStep => ({
+const removeAgentStep = (
+  ws: WorkspaceMutationsService,
+  agentId: string,
+): PlannedJobStep<StepRequirements> => ({
   label: `Remove ${agentId}`,
   readiness: "ready",
   artifact: {
@@ -229,25 +240,13 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
       detail: "Cannot safely clean agent projections while desired workspace state is incomplete",
     });
   }
-  const enabledNames = (extensionType: "skill" | "subagent" | "mcp-server" | "hook") =>
-    new Set(
-      graph.nodes
-        .filter((node) => node.enabled && node.type === extensionType)
-        .map(({ name }) => name),
-    );
-  const expectedSubagentNames = enabledNames("subagent");
   const desiredAgentIds = new Set([
-    "universal",
+    UNIVERSAL_AGENT_ID,
     ...configured.filter((agentId) => !removedAgentIds.has(agentId)),
   ]);
   const reconciliation = {
     desiredAgentIds,
-    expectedNames: {
-      skill: new Set([...enabledNames("skill"), ...expectedSubagentNames]),
-      subagent: expectedSubagentNames,
-      "mcp-server": enabledNames("mcp-server"),
-      hook: enabledNames("hook"),
-    },
+    expectedNames: expectedProjectionNames(graph),
   } as const;
   const cleanupServices = { ws, fs, path, agentRepo };
   const cleanupPreview = yield* provideCleanupServices(

@@ -1,4 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -31,8 +33,7 @@ import {
   workspaceSettingsPath,
 } from "../shared/workspace-display-paths.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { HookManager } from "@agentxm/extension-workspace";
-
+import { HookManager } from "@agentxm/extension-materialization";
 const hookPackagePath = (
   scope: JobStepArtifact["scope"],
   entry: HookLockEntry,
@@ -108,7 +109,7 @@ const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
     return;
   }
 
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "Disable hooks",
     description: Option.some(`Disable hooks package ${args.name}`),
@@ -128,7 +129,7 @@ const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
                 .getLockedHookEntry(args.name)
                 .pipe(Effect.mapError(toAppError))
                 .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-              yield* hookManager.runTransaction({
+              yield* runWorkspaceTransaction({
                 transition: Effect.gen(function* () {
                   yield* ws
                     .updateHookEntry(args.name, (current) => ({

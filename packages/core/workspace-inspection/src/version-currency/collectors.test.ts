@@ -22,7 +22,7 @@ import {
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
 } from "@agentxm/workspace-state/testing";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 
 const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
   const wsLayer = Layer.succeed(WorkspaceMutations, ws);

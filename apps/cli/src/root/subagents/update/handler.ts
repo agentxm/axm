@@ -1,4 +1,5 @@
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import { failureToStepFailure } from "../../../app-error/conversions.js";
 import {
   WorkspaceMutations,
@@ -6,14 +7,7 @@ import {
   configuredRowsByName,
   type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
-import {
-  classifyPublisherBindingTransition,
-  makeConfiguredReleaseAgeEvaluation,
-  publisherTransitionWarning,
-  registryBindingProposal,
-  withPublisherTrustConditions,
-  type PublisherBindingTransition,
-} from "@agentxm/extension-lifecycle";
+import { withPublisherTrustConditions } from "@agentxm/extension-lifecycle";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
@@ -33,9 +27,14 @@ import { decodeExtensionNameSync, type Handle } from "@agentxm/extension-model/u
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { resolveSource } from "@agentxm/extension-sources";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { buildInstallOperation } from "@agentxm/extension-workspace";
+import { buildInstallOperation } from "@agentxm/extension-materialization";
 import {
+  classifyPublisherBindingTransition,
+  makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
+  type PublisherBindingTransition,
+  publisherTransitionWarning,
+  registryBindingProposal,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
 } from "@agentxm/extension-resolution";
@@ -57,7 +56,7 @@ import {
   resolveUpdateTargets,
 } from "../../shared/update-targets.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
-import { SubagentManager } from "@agentxm/extension-workspace";
+import { SubagentManager } from "@agentxm/extension-materialization";
 import { lifecycleFailureToAppError } from "../../../feature-errors.js";
 
 export interface UpdateHandlerArgs {
@@ -95,7 +94,7 @@ const appendWarning =
 const skippedSubagentStep = (
   ws: WorkspaceMutationsService,
   outcome: Extract<ResolveResult, { readonly type: "skip" }>,
-): PlannedJobStep => ({
+): PlannedJobStep<StepRequirements> => ({
   readiness: "ready",
   label: `Skip ${outcome.name}`,
   run: Effect.succeed({
@@ -426,7 +425,7 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
     Option.some("Update installed subagents"),
     makeRunClosure,
   );
-  const basePlanWithReleaseAge: Plan = {
+  const basePlanWithReleaseAge: Plan<StepRequirements> = {
     ...rawPlan,
     presentation: operationPresentation(
       { imperative: "update", past: "Updated", gerund: "Updating" },
@@ -445,7 +444,7 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
     .filter((item) => item.holdback === undefined)
     .map((item) => skippedSubagentStep(ws, item));
   const [firstJob, ...restJobs] = basePlanWithReleaseAge.jobs;
-  const plan: Plan =
+  const plan: Plan<StepRequirements> =
     skippedSteps.length === 0
       ? basePlanWithReleaseAge
       : firstJob === undefined
@@ -482,7 +481,7 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
       ),
     ].map((name) => ({ extensionType: "subagent", name, plannedState: "enabled" as const })),
   );
-  const executionPlan: Plan = withPublisherTrustConditions(
+  const executionPlan: Plan<StepRequirements> = withPublisherTrustConditions(
     {
       ...plan,
       riskConditions: [

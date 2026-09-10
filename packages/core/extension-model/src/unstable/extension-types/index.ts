@@ -23,4 +23,10 @@ export {
   UrlSchema,
   isCatalogExtensionType,
 } from "./schema.js";
+export { EXTENSION_TYPES, EXTENSION_TYPES_BY_ID } from "./catalog.js";
+export {
+  getExtensionTypeDefinition,
+  getStandardForExtensionType,
+  isSpecTracked,
+} from "./derive.js";
 export { STANDARDS } from "./standards.js";

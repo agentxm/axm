@@ -1,13 +1,12 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import {
-  CodingAgentRepository,
   HookManager,
   KnowledgeManager,
   McpServerManager,
@@ -15,9 +14,8 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-workspace";
-import { Screen } from "../../screen/index.js";
-import { installMcpServer } from "@agentxm/extension-lifecycle";
+} from "@agentxm/extension-materialization";
+import { materializeAuthoredMcpServer } from "@agentxm/extension-lifecycle";
 import { makeAppError } from "../../app-error/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -33,7 +31,7 @@ import {
   copyExtensionDirectory,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { forkExtensionPackage, preflightCreateOnly } from "@agentxm/extension-authoring";
 import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
@@ -72,7 +70,6 @@ import {
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 const exactFilter = (fqn: ExtensionFqnParts): ExtensionPackageFilter => ({
   names: [fqn.name],
@@ -151,7 +148,6 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const providers = yield* SourceHostProviders;
-  const httpClient = yield* HttpClient.HttpClient;
   const source = yield* resolveSource(args.source);
   const filter = yield* filterForSource(args.source, args.from);
   const packages =
@@ -358,7 +354,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
     ),
   };
 
-  let step: PlannedJobStep;
+  let step: PlannedJobStep<StepRequirements>;
   switch (target.type) {
     case "skill":
       step = buildAuthoredExtensionStep(yield* SkillManager, {
@@ -368,36 +364,11 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
       });
       break;
     case "mcp-server": {
-      const screen = yield* Screen;
-      const agentRepo = yield* CodingAgentRepository;
       step = buildAuthoredExtensionStep(yield* McpServerManager, {
         toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "mcp-server", name: target.name },
-        materializeInstall: (ref) =>
-          installMcpServer({
-            name: "install-mcp-server",
-            args: {
-              ref,
-              nonInteractive,
-              force: false,
-              allowWorkspaceSourceTransition: true,
-              versionRange: Option.none(),
-              skipSettings: Option.none(),
-              skipStateWrites: true,
-              env: Option.none(),
-            },
-          }).pipe(
-            Effect.asVoid,
-            Effect.mapError(toAppError),
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-            Effect.provideService(WorkspaceMutations, ws),
-            Effect.provideService(Screen, screen),
-            Effect.provideService(CodingAgentRepository, agentRepo),
-            Effect.provideService(HttpClient.HttpClient, httpClient),
-            provideLifecycleFailureAdapter,
-          ),
+        materializeInstall: (ref) => materializeAuthoredMcpServer({ ref, nonInteractive }),
       });
       break;
     }
@@ -438,7 +409,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
       break;
   }
 
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "Fork AXM extension package",
     description: Option.some(

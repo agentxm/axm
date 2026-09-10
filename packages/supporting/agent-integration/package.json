@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/agent-integration",
   "version": "0.28.12",
-  "description": "AXM agent integration: effectful detection of installed AI coding agents and native-surface path primitives for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "AXM agent integration: effectful detection of installed AI coding agents plus the native-format mechanics AXM writes into them \u2014 coding-agent adapters, subagent rendering, MCP entry projection and config writing, hook-group editing, and the ownership marker grammar. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -25,6 +25,11 @@
       "types": "./dist/src/live.d.ts",
       "axm-source": "./src/live.ts",
       "default": "./dist/src/live.js"
+    },
+    "./testing": {
+      "types": "./dist/src/testing.d.ts",
+      "axm-source": "./src/testing.ts",
+      "default": "./dist/src/testing.js"
     }
   },
   "files": [
@@ -42,12 +47,15 @@
   },
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "jsonc-parser": "catalog:",
+    "yaml": "catalog:"
   },
   "devDependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@typescript/native": "catalog:",
+    "smol-toml": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

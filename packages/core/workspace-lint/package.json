@@ -36,11 +36,13 @@
     "includedScripts": []
   },
   "dependencies": {
+    "@agentxm/agent-integration": "workspace:^",
     "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-resolution": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",
-    "@agentxm/extension-workspace": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
+    "@agentxm/workspace-projection": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
     "effect": "catalog:"
   },

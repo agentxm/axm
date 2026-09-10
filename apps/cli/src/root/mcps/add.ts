@@ -4,9 +4,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
+  NativeWriteAuthority,
   syncInlineMcpServerToAgents,
   type McpServerSyncTarget,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/agent-integration";
 import { makeAppError } from "../../app-error/index.js";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -56,7 +57,7 @@ const syncStep = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   name: string,
-): PlannedJobStep => ({
+): PlannedJobStep<NativeWriteAuthority> => ({
   label: `Sync ${name} to configured agents`,
   readiness: "ready",
   run: Effect.gen(function* () {
@@ -157,7 +158,10 @@ const configArtifact = (
   targets: [{ path: workspaceSettingsPath(scope), change }],
 });
 
-const makePlan = (name: string, steps: ReadonlyArray<PlannedJobStep>): Plan => ({
+const makePlan = (
+  name: string,
+  steps: ReadonlyArray<PlannedJobStep<NativeWriteAuthority>>,
+): Plan<NativeWriteAuthority> => ({
   _tag: "Plan",
   name: "Add MCP server",
   description: Option.some(`Configure ${name} and sync agent MCP configs`),

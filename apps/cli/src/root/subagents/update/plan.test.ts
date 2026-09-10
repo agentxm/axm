@@ -1,4 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
+import { StepRequirementsTest } from "../../../test-helpers.js";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { SubagentsLockMap } from "@agentxm/workspace-state";
@@ -60,9 +62,11 @@ const runFirst = (operation: UpdateOperation, locks: SubagentsLockMap) => {
     Option.none(),
     noopRunClosure,
   );
-  const step: PlannedJobStep | undefined = plan.jobs[0]?.steps[0];
+  const step: PlannedJobStep<StepRequirements> | undefined = plan.jobs[0]?.steps[0];
   if (step === undefined || step.readiness === "error") return Effect.succeed("error");
-  return step.run.pipe(Effect.map((result) => result.message));
+  return step.run
+    .pipe(Effect.provide(StepRequirementsTest()))
+    .pipe(Effect.map((result) => result.message));
 };
 
 describe("buildUpdatePlan", () => {

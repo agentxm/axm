@@ -10,39 +10,18 @@
  */
 
 export { ExtensionLifecycleFailed } from "./errors.js";
-export { ReleaseAgePosture, type ReleaseAgePostureValue } from "./release-age-posture.js";
 export {
-  LifecycleFailureAdapter,
+  StepFailureConversion,
   withAdaptedStepFailures,
-  type LifecycleFailureAdapterService,
-} from "./failure-adapter.js";
-
-export {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
-  resolveConfiguredKnowledge,
-  resolveConfiguredMcpServer,
-  resolveConfiguredPack,
-  resolveConfiguredRegistryEntry,
-  resolveConfiguredRule,
-  resolveConfiguredSkill,
-  resolveConfiguredSubagent,
-} from "./configured-entry-resolution.js";
-
-export {
-  CONFIGURED_ENTRY_RESOLUTION_TIMEOUT,
-  withConfiguredEntryResolutionTimeout,
-} from "./resolution-timeout.js";
+  type LifecycleFailure,
+  type StepFailureConversionService,
+} from "./step-failure-conversion.js";
 
 export {
   PUBLISHER_CHANGE_CONDITION_ID,
-  classifyPublisherBindingTransition,
   publisherChangeRiskCondition,
-  publisherTransitionWarning,
-  registryBindingProposal,
   withPublisherTrust,
   withPublisherTrustConditions,
-  type PublisherBindingTransition,
 } from "./publisher-binding.js";
 
 export {
@@ -56,18 +35,9 @@ export {
   type UninstallWorkflowFlags,
 } from "./workflows/uninstall-command/workflow.js";
 
-export {
-  materializeRegistryPackage,
-  materializeRegistryPackageWithTreeIntegrity,
-  type MaterializeRegistryPackageArgs,
-  type RegistryPackageMaterializationMessages,
-} from "./registry-materialization.js";
-
 // Skill lifecycle operations
-export { ensureSkillAgentArtifact, removeSkillAgentArtifact } from "./skills/materialization.js";
 export { getSkillDisplayName } from "./skills/utils.js";
 export {
-  computeSkillSourceHash,
   gitHostedSkillArtifactSource,
   installSkill,
   type InstallSkillOperation,
@@ -87,6 +57,7 @@ export {
   type InstallMcpServerOperation,
   type InstallMcpServerOperationArgs,
 } from "./mcps/operations/install.js";
+export { materializeAuthoredMcpServer } from "./mcps/operations/authored-materialization.js";
 export {
   uninstallMcpServer,
   type UninstallMcpServerOperation,
@@ -116,20 +87,7 @@ export {
   expandPackInstallRefsWithReleaseAge,
   type ReleaseAgeAwarePackExpansion,
 } from "./packs/expansion.js";
-export {
-  resolvePackDependenciesWithReleaseAge,
-  type PackDependencyRefResolver,
-  type ReleaseAgeAwarePackDependencyResolution,
-  type WorkspacePackDependencyResolution,
-  type WorkspacePackDependencyResolver,
-} from "./packs/dependency-resolution.js";
-export {
-  ResolvedPackDependencyMapSchema,
-  ResolvedPackDependencySchema,
-  validateExactPackDependencyVersions,
-  type ResolvedPackDependency,
-  type ResolvedPackDependencyMap,
-} from "./packs/resolved-dependency.js";
+export { validateExactPackDependencyVersions } from "./packs/resolved-dependency.js";
 export {
   installPack,
   type InstallPackOperation,

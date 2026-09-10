@@ -14,8 +14,6 @@ import { FrontmatterParseFailure } from "@agentxm/extension-content";
 import { FRONTMATTER_PARSE_FALLBACK_REASON } from "@agentxm/extension-content";
 import { SubagentContentError } from "@agentxm/extension-content";
 import type { AppErrorCode } from "./app-error.js";
-import { AppErrorCodes } from "./app-error.js";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   TransitionLockError,
   TransitionLockUnavailable,
@@ -78,29 +76,15 @@ import {
 import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
-  CreateDestinationExists,
-  CreateDestinationInspectionFailed,
-  CreateNameConfigured,
-  ForkPackageConflict,
-  ForkPackageFailed,
-  ForkPackageInvalid,
   LifecyclePostconditionViolated,
-  NativeImportConflict,
-  NativeImportFailed,
-  NativeImportInvalid,
-  NativeImportUnsupported,
   PackageCopyFailed,
   PackageMaterializationFailed,
   ScaffoldedExtensionUnresolved,
-  SourceAuthorityBlocked,
   StagedPackageInvalid,
   RuleDefinitionInvalid,
   RuleInstallStateMissing,
-  HookConfigInvalid,
   HookDefinitionInvalid,
   HookInstallStateMissing,
-  HookIoFailed,
-  TransientBackupFailed,
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
   KnowledgeInstallStateMissing,
@@ -109,34 +93,32 @@ import {
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
   PackArchiveFetchFailed,
-  PackConstraintShadowed,
   PackDefinitionInvalid,
-  PackDependencyConflict,
-  PackDependencyInvalid,
-  PackDependencyMissing,
-  PackDependencyUnsatisfied,
   PackInstallStateMissing,
   PackStagingFailed,
-  AxmSkillCompatibilityUnavailable,
-  AxmSkillIncompatible,
   SkillDefinitionInvalid,
   SkillInstallStateMissing,
   SkillMaterializationFailed,
-  McpConfigInvalid,
-  McpConfigIoFailed,
-  McpDefinitionInvalid,
-  McpEntryUnmanaged,
   McpInstallStateMissing,
-  McpOwnershipMarkerInvalid,
   McpRegistryOnlyInstall,
-  McpSharedTargetConflict,
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
   SubagentInstallStateMissing,
-  SubagentIoFailed,
-  CoupledDependencyFailure,
+} from "@agentxm/extension-materialization";
+import {
+  CreateDestinationInspectionFailed,
+  CreateNameConfigured,
+  ForkPackageConflict,
+  ForkPackageFailed,
+  ForkPackageInvalid,
+  NativeImportConflict,
+  NativeImportFailed,
+  NativeImportInvalid,
+  NativeImportUnsupported,
+} from "@agentxm/extension-authoring";
+import { CreateDestinationExists } from "@agentxm/extension-materialization";
+import {
   InstructionMaintenanceFailed,
-  WriteBackupRetained,
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
   ContributorTreeMismatch,
@@ -145,9 +127,22 @@ import {
   ManagedRegionViolation,
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
+import {
+  HookConfigInvalid,
+  HookIoFailed,
+  TransientBackupFailed,
+  McpConfigInvalid,
+  McpConfigIoFailed,
+  McpDefinitionInvalid,
+  McpEntryUnmanaged,
+  McpOwnershipMarkerInvalid,
+  McpSharedTargetConflict,
+  SubagentIoFailed,
+  WriteBackupRetained,
+} from "@agentxm/agent-integration";
 import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace-state";
-import { AgentDetectionFailed } from "@agentxm/agent-integration";
+import { AgentDetectionFailed, NativeWriteRefused } from "@agentxm/agent-integration";
 import {
   RegistryOperationFailed,
   RegistryProblem,
@@ -162,7 +157,6 @@ import {
   SourceSyntaxInvalid,
   WorkspaceCatalogUnavailable,
 } from "@agentxm/extension-sources";
-import { agentDetectionFailedToAppError } from "./conversions/agent-integration.js";
 import {
   registryOperationFailedToAppError,
   registryProblemToAppError,
@@ -178,29 +172,46 @@ import {
   workspaceCatalogUnavailableToAppError,
 } from "./conversions/extension-sources.js";
 import {
-  archiveIntegrityMismatchToAppError,
-  canonicalPackageProbeFailedToAppError,
-  createDestinationExistsToAppError,
+  AxmSkillCompatibilityUnavailable,
+  AxmSkillIncompatible,
+  ExtensionResolutionFailed,
+  PackConstraintShadowed,
+  PackDependencyConflict,
+  PackDependencyInvalid,
+  PackDependencyMissing,
+  PackDependencyUnsatisfied,
+  SourceAuthorityBlocked,
+} from "@agentxm/extension-resolution";
+import {
+  agentDetectionFailedToAppError,
+  hookConfigInvalidToAppError,
+  hookIoFailedToAppError,
+  mcpConfigInvalidToAppError,
+  mcpConfigIoFailedToAppError,
+  mcpDefinitionInvalidToAppError,
+  mcpEntryUnmanagedToAppError,
+  mcpOwnershipMarkerInvalidToAppError,
+  mcpSharedTargetConflictToAppError,
+  subagentIoFailedToAppError,
+  transientBackupFailedToAppError,
+} from "./conversions/agent-integration.js";
+import {
   createDestinationInspectionFailedToAppError,
   createNameConfiguredToAppError,
   forkPackageConflictToAppError,
   forkPackageFailedToAppError,
   forkPackageInvalidToAppError,
-  lifecyclePostconditionViolatedToAppError,
-  materializedTreeInvalidToAppError,
   nativeImportConflictToAppError,
   nativeImportFailedToAppError,
   nativeImportInvalidToAppError,
   nativeImportUnsupportedToAppError,
-  authoredContributorUnsupportedToAppError,
-  hookConfigInvalidToAppError,
+} from "./conversions/extension-authoring.js";
+import {
+  archiveIntegrityMismatchToAppError,
+  canonicalPackageProbeFailedToAppError,
+  createDestinationExistsToAppError,
   hookDefinitionInvalidToAppError,
   hookInstallStateMissingToAppError,
-  hookIoFailedToAppError,
-  ruleDefinitionInvalidToAppError,
-  ruleInstallStateMissingToAppError,
-  axmSkillCompatibilityUnavailableToAppError,
-  axmSkillIncompatibleToAppError,
   knowledgeDefinitionInvalidToAppError,
   knowledgeDesiredStateUnreconcilableToAppError,
   knowledgeInstallStateMissingToAppError,
@@ -208,45 +219,51 @@ import {
   knowledgeObservableContractViolatedToAppError,
   knowledgeResolutionMissingToAppError,
   knowledgeUnavailableToAppError,
-  mcpConfigInvalidToAppError,
+  lifecyclePostconditionViolatedToAppError,
+  mcpInstallStateMissingToAppError,
+  mcpRegistryOnlyInstallToAppError,
   packArchiveFetchFailedToAppError,
-  packConstraintShadowedToAppError,
   packDefinitionInvalidToAppError,
+  packInstallStateMissingToAppError,
+  packStagingFailedToAppError,
+  packageCopyFailedToAppError,
+  packageMaterializationFailedToAppError,
+  ruleDefinitionInvalidToAppError,
+  ruleInstallStateMissingToAppError,
+  scaffoldedExtensionUnresolvedToAppError,
+  skillDefinitionInvalidToAppError,
+  skillInstallStateMissingToAppError,
+  skillMaterializationFailedToAppError,
+  stagedPackageInvalidToAppError,
+  subagentContentUnreadableToAppError,
+  subagentDefinitionInvalidToAppError,
+  subagentInstallStateMissingToAppError,
+} from "./conversions/extension-materialization.js";
+import {
+  axmSkillCompatibilityUnavailableToAppError,
+  axmSkillIncompatibleToAppError,
+  extensionResolutionFailedToAppError,
+  packConstraintShadowedToAppError,
   packDependencyConflictToAppError,
   packDependencyInvalidToAppError,
   packDependencyMissingToAppError,
   packDependencyUnsatisfiedToAppError,
-  packInstallStateMissingToAppError,
-  packStagingFailedToAppError,
-  mcpConfigIoFailedToAppError,
-  mcpDefinitionInvalidToAppError,
-  mcpEntryUnmanagedToAppError,
-  mcpInstallStateMissingToAppError,
-  mcpOwnershipMarkerInvalidToAppError,
-  mcpRegistryOnlyInstallToAppError,
-  mcpSharedTargetConflictToAppError,
-  skillDefinitionInvalidToAppError,
-  skillInstallStateMissingToAppError,
-  skillMaterializationFailedToAppError,
-  subagentContentUnreadableToAppError,
-  subagentDefinitionInvalidToAppError,
-  subagentInstallStateMissingToAppError,
-  subagentIoFailedToAppError,
-  transientBackupFailedToAppError,
+  sourceAuthorityBlockedToAppError,
+} from "./conversions/extension-resolution.js";
+import {
+  authoredContributorUnsupportedToAppError,
   contributorIdentityInvalidToAppError,
   contributorTreeMismatchToAppError,
   contributorUnresolvedToAppError,
   desiredStateIncompleteToAppError,
   managedRegionViolationToAppError,
-  packageCopyFailedToAppError,
-  packageMaterializationFailedToAppError,
   projectionIoFailedToAppError,
   projectionTargetUnsupportedToAppError,
+} from "./conversions/workspace-projection.js";
+import {
+  materializedTreeInvalidToAppError,
   pathTraversalDetectedToAppError,
-  scaffoldedExtensionUnresolvedToAppError,
-  sourceAuthorityBlockedToAppError,
-  stagedPackageInvalidToAppError,
-} from "./conversions/extension-workspace.js";
+} from "./conversions/workspace-state.js";
 import { AppError, makeAppError } from "./index.js";
 
 // The kernel's serialized category vocabulary and the CLI's AppErrorCode must
@@ -354,6 +371,17 @@ export const workspaceSnapshotErrorToAppError = (error: WorkspaceSnapshotError):
   return makeAppError({ code: "internal", detail: detail(), cause: error.cause });
 };
 
+/**
+ * Translate a refused native write: the workspace could not preserve the
+ * target's preimage, so the native writer stopped before mutating it.
+ */
+export const nativeWriteRefusedToAppError = (error: NativeWriteRefused): AppError =>
+  makeAppError({
+    code: "internal",
+    detail: `Failed to snapshot native write target ${error.path}`,
+    cause: error.cause,
+  });
+
 /** Translate a workspace state-directory preparation failure. */
 export const workspaceDirectoryErrorToAppError = (error: WorkspaceDirectoryError): AppError =>
   makeAppError({
@@ -440,72 +468,6 @@ export const staleExecutionCandidateToAppError = (_error: StaleExecutionCandidat
     code: "conflict",
     detail: STALE_CANDIDATE_DETAIL,
   });
-
-/**
- * Interim bridge for producers whose dependencies still fail with `AppError`:
- * the envelope travels opaquely through kernel-typed manager channels and
- * `toAppError` restores it unchanged. Call sites dissolve as the integration
- * decoupling waves give those dependencies typed failures.
- */
-export const coupleAppError = (error: AppError): CoupledDependencyFailure =>
-  new CoupledDependencyFailure({ failure: error });
-
-/**
- * Selective form of {@link coupleAppError} for channels that mix typed
- * failures with envelopes from still-coupled dependencies: envelopes are
- * carried, typed failures pass through untouched.
- */
-export const coupleRemainingAppError = <E>(error: E | AppError): E | CoupledDependencyFailure =>
-  error instanceof AppError ? coupleAppError(error) : error;
-
-/**
- * Restore a coupled dependency's carried failure: an `AppError` verbatim, a
- * known typed failure through its own conversion, a feature-carried envelope
- * fact record through the envelope constructor, and anything else degrades
- * to an internal error.
- */
-export const coupledDependencyFailureToAppError = (error: CoupledDependencyFailure): AppError => {
-  if (error.failure instanceof AppError) return error.failure;
-  if (isKnownFailure(error.failure)) return toAppError(error.failure);
-  if (isCarriedEnvelopeFact(error.failure)) {
-    return makeAppError({
-      code: error.failure.category,
-      ...(error.failure.title === undefined ? {} : { title: error.failure.title }),
-      ...(error.failure.detail === undefined ? {} : { detail: error.failure.detail }),
-      ...(error.failure.recover === undefined ? {} : { recover: error.failure.recover }),
-      ...(error.failure.cmd === undefined ? {} : { cmd: error.failure.cmd }),
-      ...(error.failure.suggestions === undefined
-        ? {}
-        : { suggestions: error.failure.suggestions }),
-      ...(error.failure.cause === undefined ? {} : { cause: error.failure.cause }),
-    });
-  }
-  return makeAppError({ code: "internal", detail: String(error.failure), cause: error.failure });
-};
-
-/**
- * A feature-owned failure that carries the envelope's construction inputs
- * 1:1 (category plus the optional wording fields), recognized structurally so
- * this boundary needs no dependency on the feature packages that construct
- * them.
- */
-const isCarriedEnvelopeFact = (
-  failure: unknown,
-): failure is {
-  readonly category: AppErrorCode;
-  readonly title?: string;
-  readonly detail?: string;
-  readonly recover?: string;
-  readonly cmd?: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
-  readonly cause?: unknown;
-} =>
-  typeof failure === "object" &&
-  failure !== null &&
-  "category" in failure &&
-  typeof failure.category === "string" &&
-  AppErrorCodes.some((code) => code === failure.category) &&
-  (!("detail" in failure) || typeof failure.detail === "string" || failure.detail === undefined);
 
 /**
  * Interim bridge for producers whose dependencies still fail with `AppError`:
@@ -1055,6 +1017,7 @@ export type KnownFailure =
   | ApprovalRecoveryMissing
   | ConfiguredAgentOutcomesUnavailable
   | WorkspaceSnapshotError
+  | NativeWriteRefused
   | WorkspaceDirectoryError
   | TransitionLockError
   | TransitionLockUnavailable
@@ -1097,7 +1060,6 @@ export type KnownFailure =
   | HookInstallStateMissing
   | TransientBackupFailed
   | WriteBackupRetained
-  | CoupledDependencyFailure
   | SubagentDefinitionInvalid
   | SubagentContentUnreadable
   | SubagentIoFailed
@@ -1141,7 +1103,8 @@ export type KnownFailure =
   | SourceNetworkFailure
   | GitOperationFailed
   | WorkspaceCatalogUnavailable
-  | AxmSkillGateUnavailable;
+  | AxmSkillGateUnavailable
+  | ExtensionResolutionFailed;
 
 export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof FqnInvalidError ||
@@ -1187,6 +1150,7 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof ApprovalRecoveryMissing ||
   error instanceof ConfiguredAgentOutcomesUnavailable ||
   error instanceof WorkspaceSnapshotError ||
+  error instanceof NativeWriteRefused ||
   error instanceof WorkspaceDirectoryError ||
   error instanceof TransitionLockError ||
   error instanceof TransitionLockUnavailable ||
@@ -1229,7 +1193,6 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof HookInstallStateMissing ||
   error instanceof TransientBackupFailed ||
   error instanceof WriteBackupRetained ||
-  error instanceof CoupledDependencyFailure ||
   error instanceof SubagentDefinitionInvalid ||
   error instanceof SubagentContentUnreadable ||
   error instanceof SubagentIoFailed ||
@@ -1273,7 +1236,8 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof SourceNetworkFailure ||
   error instanceof GitOperationFailed ||
   error instanceof WorkspaceCatalogUnavailable ||
-  error instanceof AxmSkillGateUnavailable;
+  error instanceof AxmSkillGateUnavailable ||
+  error instanceof ExtensionResolutionFailed;
 
 /**
  * Convert a known typed failure into the CLI-facing `AppError` envelope. An
@@ -1366,6 +1330,8 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return configuredAgentOutcomesUnavailableToAppError(error);
     case "WorkspaceSnapshotError":
       return workspaceSnapshotErrorToAppError(error);
+    case "NativeWriteRefused":
+      return nativeWriteRefusedToAppError(error);
     case "WorkspaceDirectoryError":
       return workspaceDirectoryErrorToAppError(error);
     case "TransitionLockError":
@@ -1536,8 +1502,8 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return workspaceCatalogUnavailableToAppError(error);
     case "AxmSkillGateUnavailable":
       return axmSkillGateUnavailableToAppError(error);
-    case "CoupledDependencyFailure":
-      return coupledDependencyFailureToAppError(error);
+    case "ExtensionResolutionFailed":
+      return extensionResolutionFailedToAppError(error);
     case "WriteBackupRetained": {
       const inner = toAppError(error.failure);
       return makeAppError({

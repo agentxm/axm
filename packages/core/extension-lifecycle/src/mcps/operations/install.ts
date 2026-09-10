@@ -16,13 +16,15 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { createHash } from "node:crypto";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import type { CodingAgent, McpServerSyncOutcome } from "@agentxm/extension-workspace";
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
+import type { CodingAgent, McpServerSyncOutcome } from "@agentxm/agent-integration";
 import {
   CodingAgentRepository,
   applyProjectionPlansWithResults,
   planSingletonProjection,
-} from "@agentxm/extension-workspace";
-import { isPathSafe, mcpRegistryResolutionKey } from "@agentxm/workspace-state";
+} from "@agentxm/workspace-projection";
+import { mcpRegistryResolutionKey } from "@agentxm/workspace-state";
+import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
@@ -32,8 +34,8 @@ import {
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { canReuseInstalledPackage } from "@agentxm/extension-workspace";
-import { materializeRegistryPackage } from "../../registry-materialization.js";
+import { canReuseInstalledPackage } from "@agentxm/extension-materialization";
+import { materializeRegistryPackage } from "@agentxm/extension-materialization";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type {
@@ -58,7 +60,7 @@ import {
   mcpSettingsTarget,
   mcpSourceTarget,
 } from "./artifact.js";
-import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 
 // -----------------------------------------------------------------------------
@@ -515,8 +517,6 @@ const syncConfiguredAgentsOnInstall = (args: {
 }) =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const warnings: Array<string> = [];
 
     const unknownConfiguredAgentIds = yield* agentRepo.getUnknownConfiguredAgentIds();
@@ -573,10 +573,7 @@ const syncConfiguredAgentsOnInstall = (args: {
                     configValues: args.configValues,
                   });
                   return { agentId: agent.id, outcome };
-                }).pipe(
-                  Effect.provideService(FileSystem.FileSystem, fs),
-                  Effect.provideService(Path.Path, path),
-                ),
+                }),
             },
           }),
         ),
@@ -651,7 +648,8 @@ export const installMcpServer: (
   | Path.Path
   | WorkspaceMutations
   | CodingAgentRepository
-  | LifecycleFailureAdapter
+  | NativeWriteAuthority
+  | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;

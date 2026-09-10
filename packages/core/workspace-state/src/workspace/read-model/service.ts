@@ -10,7 +10,7 @@ import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import type { WorkspaceLayoutError } from "../errors.js";
-import { AgentPresenceProbe } from "./agent-presence.js";
+import { AgentPresenceProbe } from "@agentxm/agent-integration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";

@@ -16,8 +16,8 @@ import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../tes
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { toPlanResolutionResult } from "../../../operation-output.js";
 import { UninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
-import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 
 const sourceProvidersLayer = Layer.succeed(SourceHostProviders, {
   resolveNamedRegistry: () => Effect.die("not used"),

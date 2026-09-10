@@ -1,11 +1,6 @@
-import {
-  AXM_SKILL_CLI_VERSION_METADATA_KEY,
-  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
-  CodingAgentRepository,
-  evaluateAxmSkillCompatibility,
-  replaceCanonicalDirectory,
-} from "@agentxm/extension-workspace";
-import { ensureSkillAgentArtifact } from "@agentxm/extension-lifecycle";
+import { replaceCanonicalDirectory } from "@agentxm/extension-materialization";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { ensureSkillAgentArtifact } from "@agentxm/extension-materialization";
 import { WorkspaceMutations, sanitizeName } from "@agentxm/workspace-state";
 import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
 import * as Effect from "effect/Effect";
@@ -25,6 +20,11 @@ import {
 import { makeAppError } from "../../../app-error/index.js";
 import { toAppError } from "../../../app-error/conversions.js";
 import { loadVersion } from "../../../version.js";
+import {
+  AXM_SKILL_CLI_VERSION_METADATA_KEY,
+  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  evaluateAxmSkillCompatibility,
+} from "@agentxm/extension-resolution";
 
 const BUNDLED_AXM_SKILL_NAME = sanitizeName("axm");
 
@@ -87,7 +87,6 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
   );
-  const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, fsPathLayer);
 
   yield* replaceCanonicalDirectory({
     baseDir: ws.baseDir,
@@ -151,9 +150,7 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
         canonicalSkillSrcPath: skillSrcPath,
         targetDir,
         sanitizedName: BUNDLED_AXM_SKILL_NAME,
-        pathService: path,
         baseDir: ws.baseDir,
-        provide,
       }),
     { concurrency: "unbounded" },
   );

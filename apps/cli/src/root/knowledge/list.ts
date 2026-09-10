@@ -14,7 +14,7 @@ import {
 import {
   resolveKnowledgeInstructionEntry,
   type KnowledgeInstructionEntryResolution,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";

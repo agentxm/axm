@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace-inspection",
   "version": "0.28.12",
-  "description": "AXM workspace-inspection feature: list, view, inventory, and version-currency queries for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "AXM workspace-inspection feature: list, view, inventory, and version-currency queries for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -38,9 +38,9 @@
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",
-    "@agentxm/extension-workspace": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-projection": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
     "effect": "catalog:",
     "semver": "catalog:"

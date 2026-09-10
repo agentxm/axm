@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";

@@ -9,6 +9,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -29,7 +31,7 @@ import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/e
 import { mcpRegistryResolutionKey, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { installMcpServer } from "@agentxm/extension-lifecycle";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
@@ -43,7 +45,7 @@ import { parseRegistryInstallTarget } from "../../shared/registry-install-target
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import { toAppError } from "../../../app-error/conversions.js";
 import type { PromptCancelled } from "../../../prompt/prompt-cancelled.js";
-import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../../feature-errors.js";
 import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
@@ -89,7 +91,8 @@ type InstallMcpServerActions = InstallExtensionCommandWorkflowActions<
   McpServerExtensionRef,
   InstallMcpServerCommandIntent,
   AppError,
-  AppError | PromptCancelled
+  AppError | PromptCancelled,
+  StepRequirements
 >;
 
 /**
@@ -128,6 +131,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
   const agentRepo = yield* CodingAgentRepository;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const nativeWrites = yield* NativeWriteAuthority;
   const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
 
   const registryLoginSuggestions = ws
@@ -146,14 +150,15 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
     Layer.succeed(Path.Path, path),
     Layer.succeed(Screen, screen),
     Layer.succeed(CodingAgentRepository, agentRepo),
-    LifecycleFailureAdapterLive,
+    Layer.succeed(NativeWriteAuthority, nativeWrites),
+    LifecycleStepFailureConversionLive,
   );
 
   const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
 
   const parseArgs = (
     args: InstallMcpServerHandlerArgs,
-  ): Effect.Effect<ParsedMcpServerInstallArgs, AppError> =>
+  ): Effect.Effect<ParsedMcpServerInstallArgs, AppError, StepRequirements> =>
     Effect.gen(function* () {
       const trimmed = args.source.trim();
       const env = yield* parseEnvFlag(args.env ?? []);
@@ -261,7 +266,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
 
   const resolveSourceRequests = (
     parsed: ParsedMcpServerInstallArgs,
-  ): Effect.Effect<ReadonlyArray<McpServerInstallSourceRequest>, AppError> =>
+  ): Effect.Effect<ReadonlyArray<McpServerInstallSourceRequest>, AppError, StepRequirements> =>
     provide(
       Effect.gen(function* () {
         const source = yield* resolveSource(parsed.resolvedInput).pipe(
@@ -387,7 +392,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
   const finalizeIntent = (
     parsed: ParsedMcpServerInstallArgs,
     refs: ReadonlyArray<McpServerExtensionRef>,
-  ): Effect.Effect<InstallMcpServerCommandIntent, AppError> =>
+  ): Effect.Effect<InstallMcpServerCommandIntent, AppError, StepRequirements> =>
     Effect.gen(function* () {
       if (refs.length === 0) {
         const loginSuggestions = yield* registryLoginSuggestions;
@@ -425,7 +430,9 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
       };
     });
 
-  const buildPlan = (intent: InstallMcpServerCommandIntent): Effect.Effect<Plan, AppError> =>
+  const buildPlan = (
+    intent: InstallMcpServerCommandIntent,
+  ): Effect.Effect<Plan<StepRequirements>, AppError, StepRequirements> =>
     Effect.gen(function* () {
       if (ws.scope === "user") {
         const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
@@ -479,7 +486,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
             ],
           },
         ],
-      } satisfies Plan;
+      } satisfies Plan<StepRequirements>;
     });
 
   return {

@@ -1,0 +1,34 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-projection",
+  "projectType": "library",
+  "root": "packages/core/workspace-projection",
+  "sourceRoot": "packages/core/workspace-projection/src",
+  "tags": ["type:lib", "role:capability", "scope:workspace-projection", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/workspace-projection/src/index.ts",
+        "outputPath": "packages/core/workspace-projection/dist",
+        "tsConfig": "packages/core/workspace-projection/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    },
+    "test-windows": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"],
+      "outputs": ["{workspaceRoot}/test-results/workspace-projection-windows"],
+      "options": {
+        "command": "pnpm exec vitest run --config vitest.windows.config.ts",
+        "cwd": "packages/core/workspace-projection"
+      }
+    }
+  }
+}

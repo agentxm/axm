@@ -15,7 +15,7 @@
 
 import * as Schema from "effect/Schema";
 import { CATALOG_GROUP_ORDER } from "./catalog-contexts.js";
-import { AxmSkillCompatibilitySchema } from "@agentxm/extension-workspace";
+import { AxmSkillCompatibilitySchema } from "@agentxm/extension-resolution";
 
 const LintJsonLocationSchema = Schema.Struct({
   file: Schema.String,

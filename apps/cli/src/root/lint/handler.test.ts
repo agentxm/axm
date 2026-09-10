@@ -17,25 +17,26 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import {
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-projection/live";
 import { TestMachineRenderer, TestRenderer, logsByTag } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
-import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
-import { PackManagerLive } from "@agentxm/extension-lifecycle/live";
-import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
-import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
-import { toAppError } from "../../app-error/conversions.js";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
-import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
+import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
+import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
+import { PackManagerLive } from "@agentxm/extension-materialization/live";
+import { RuleManagerLive } from "@agentxm/extension-materialization/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import {
-  AxmSkillCandidateGateLive,
-  RegistryResolutionPolicyLive,
-  WorkspaceCatalogLive,
-} from "../../cli-runtime/index.js";
-import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
+import { RegistryResolutionPolicyLive } from "../../cli-runtime/index.js";
+import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
+import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
+import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -43,7 +44,8 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint } from "./handler.js";
 import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-lint";
-import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-resolution";
 
 describe("axm lint handler", () => {
   let tempDir: string;
@@ -141,7 +143,8 @@ describe("axm lint handler", () => {
       workspaceCatalogLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
-      LifecycleFailureAdapterLive,
+      NativeWriteAuthorityLive,
+      LifecycleStepFailureConversionLive,
     );
     const mcpServersLayer = McpServerManagerLive;
     const hooksLayer = HookManagerLive;
@@ -160,7 +163,7 @@ describe("axm lint handler", () => {
     const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
     const extensionWorkspaceLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
     const invariantFactsLayer = Layer.provide(
-      makeWorkspaceInvariantFactsLive({ describeFailure: (failure) => toAppError(failure).detail }),
+      Layer.provide(WorkspaceInvariantFactsLive, ProjectionParticipantsLive),
       extensionWorkspaceLayer,
     );
     const fullLayer = Layer.merge(extensionWorkspaceLayer, invariantFactsLayer);

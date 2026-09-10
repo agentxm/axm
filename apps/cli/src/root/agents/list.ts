@@ -16,7 +16,7 @@ import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 import {
   observeInstructionProjection,
   resolveInstructionsConfig,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 
 export interface AgentsListArgs {
   readonly detected: boolean;

@@ -18,13 +18,16 @@
   ],
   "references": [
     {
+      "path": "../extension-resolution/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-state/tsconfig.lib.json"
     },
     {
-      "path": "../workspace-operations/tsconfig.lib.json"
+      "path": "../workspace-projection/tsconfig.lib.json"
     },
     {
-      "path": "../extension-workspace/tsconfig.lib.json"
+      "path": "../workspace-operations/tsconfig.lib.json"
     },
     {
       "path": "../../supporting/extension-sources/tsconfig.lib.json"

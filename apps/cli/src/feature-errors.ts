@@ -19,8 +19,9 @@ import {
 import { appErrorToStepFailure, isKnownFailure, toAppError } from "./app-error/conversions.js";
 import {
   ExtensionLifecycleFailed,
-  LifecycleFailureAdapter,
-  type LifecycleFailureAdapterService,
+  StepFailureConversion,
+  type LifecycleFailure,
+  type StepFailureConversionService,
 } from "@agentxm/extension-lifecycle";
 import {
   AuthoringFailed,
@@ -210,7 +211,7 @@ export const lifecycleFailureToAppError = (failure: unknown): AppError => {
 };
 
 /** Serialize any lifecycle failure into the plan-step vocabulary. */
-export const lifecycleFailureToStepFailure = (failure: unknown) =>
+export const lifecycleFailureToStepFailure = (failure: LifecycleFailure) =>
   appErrorToStepFailure(lifecycleFailureToAppError(failure));
 
 /**
@@ -218,16 +219,17 @@ export const lifecycleFailureToStepFailure = (failure: unknown) =>
  * message text reuse the boundary's own conversions so plan data and machine
  * output stay byte-identical with rendered errors.
  */
-export const lifecycleFailureAdapter: LifecycleFailureAdapterService = {
+export const lifecycleStepFailureConversion: StepFailureConversionService = {
   toStepFailure: lifecycleFailureToStepFailure,
-  describeFailure: (failure) => lifecycleFailureToAppError(failure).detail,
-  describeFailureMessage: (failure) => lifecycleFailureToAppError(failure).message,
+  describeFailure: (failure: LifecycleFailure) => lifecycleFailureToAppError(failure).detail,
+  describeFailureMessage: (failure: LifecycleFailure) =>
+    lifecycleFailureToAppError(failure).message,
 };
 
 /** Layer wiring the boundary's failure conversions into lifecycle operations. */
-export const LifecycleFailureAdapterLive = Layer.succeed(
-  LifecycleFailureAdapter,
-  lifecycleFailureAdapter,
+export const LifecycleStepFailureConversionLive = Layer.succeed(
+  StepFailureConversion,
+  lifecycleStepFailureConversion,
 );
 
 /**
@@ -235,10 +237,10 @@ export const LifecycleFailureAdapterLive = Layer.succeed(
  * outside the shared runtime layer (handlers that build their own local
  * service environment).
  */
-export const provideLifecycleFailureAdapter = <A, E, R>(
+export const provideLifecycleStepFailureConversion = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, Exclude<R, LifecycleFailureAdapter>> =>
-  Effect.provideService(effect, LifecycleFailureAdapter, lifecycleFailureAdapter);
+): Effect.Effect<A, E, Exclude<R, StepFailureConversion>> =>
+  Effect.provideService(effect, StepFailureConversion, lifecycleStepFailureConversion);
 
 /**
  * Convert only the lifecycle feature's own typed failure into the envelope,

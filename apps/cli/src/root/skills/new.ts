@@ -1,10 +1,11 @@
 import * as FileSystem from "effect/FileSystem";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "../../app-error/index.js";
-import { buildNewExtensionStep } from "@agentxm/extension-workspace";
+import { buildNewExtensionStep } from "@agentxm/extension-materialization";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -12,7 +13,7 @@ import {
   decodeExtensionNameSync,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { InstallableSkillTarget } from "@agentxm/extension-workspace";
+import type { InstallableSkillTarget } from "@agentxm/extension-materialization";
 import {
   newSkill,
   preflightCreateOnly,
@@ -22,9 +23,10 @@ import {
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
   groupInstallTargetsByDirectory,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
+import { SkillManager } from "@agentxm/extension-materialization";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
@@ -271,7 +273,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
       ),
   });
 
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "New skill",
     description: Option.some(`Create ${fqn}`),

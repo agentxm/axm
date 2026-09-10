@@ -56,6 +56,16 @@
       "axm-source": "./src/unstable/extension-types/index.ts",
       "default": "./dist/src/unstable/extension-types/index.js"
     },
+    "./unstable/extension-types/catalog": {
+      "types": "./dist/src/unstable/extension-types/catalog.d.ts",
+      "axm-source": "./src/unstable/extension-types/catalog.ts",
+      "default": "./dist/src/unstable/extension-types/catalog.js"
+    },
+    "./unstable/extension-types/derive": {
+      "types": "./dist/src/unstable/extension-types/derive.d.ts",
+      "axm-source": "./src/unstable/extension-types/derive.ts",
+      "default": "./dist/src/unstable/extension-types/derive.js"
+    },
     "./unstable/extension-types/schema": {
       "types": "./dist/src/unstable/extension-types/schema.d.ts",
       "axm-source": "./src/unstable/extension-types/schema.ts",

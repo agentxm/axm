@@ -1,5 +1,5 @@
 /**
- * Plan-family machine document (`plan-result-v3`) and the emit boundary.
+ * Plan<StepRequirements>-family machine document (`plan-result-v3`) and the emit boundary.
  *
  * `emitOperationResolution` is the one place a plan-family command terminates:
  * it derives the outcome and exit code from the resolution with the shared

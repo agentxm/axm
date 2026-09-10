@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { findingsForProjectionOwnership } from "@agentxm/workspace-lint";
-import { makeProjectionInvariantFact } from "@agentxm/extension-workspace";
-import { type ProjectionUnitObservation } from "@agentxm/extension-workspace";
+import { makeProjectionInvariantFact } from "@agentxm/workspace-projection";
+import { type ProjectionUnitObservation } from "@agentxm/workspace-projection";
 import {
   projectionDivergenceLabel,
   projectionFactsNeedReconciliation,

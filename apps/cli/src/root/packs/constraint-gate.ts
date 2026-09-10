@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Option from "effect/Option";
 
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
@@ -93,7 +94,7 @@ export const configuredPackConstraintBlockPlan = (args: {
   readonly problems: ReadonlyArray<
     Extract<DesiredStateProblem, { readonly type: "constraint-conflict" }>
   >;
-}): Plan => ({
+}): Plan<StepRequirements> => ({
   _tag: "Plan",
   name: `Block configured Pack ${args.operation}`,
   description: Option.some("Configured Pack constraints cannot be satisfied together"),

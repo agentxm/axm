@@ -94,7 +94,7 @@ import {
 import {
   makeProspectiveExtensionConstraintFacts,
   type ExtensionConstraintInvariantFact,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,

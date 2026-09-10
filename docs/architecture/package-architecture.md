@@ -99,7 +99,7 @@ inward package instead of creating feature-to-feature dependencies.
 flowchart TB
   CLI["axm.sh\napplication shell"]
   FEATURES["Vertical features\nsync · lint · lifecycle · authoring · publish\ndiscovery · configuration · inspection · auth · Knowledge query"]
-  KERNELS["Shared kernels\nworkspace-transactions · workspace-state · workspace-operations · extension-workspace"]
+  KERNELS["Shared kernels\nworkspace-transactions · workspace-state · workspace-operations · workspace-projection · extension-materialization"]
   INTEGRATIONS["Integrations\nextension-sources · agent-integration · registry-client"]
   PROTOCOL["@agentxm/registry-protocol"]
   MODEL["@agentxm/extension-model"]
@@ -135,19 +135,31 @@ The existing shared contracts remain the innermost packages.
 | `@agentxm/extension-model`   | Platform-neutral extension identity, types, manifests, constraints, package identity, and agent capability data      | None                         |
 | `@agentxm/registry-protocol` | Registry wire contracts (index, discovery, publication set, visibility, authorization) and protocol error vocabulary | `@agentxm/extension-model`   |
 
-Two leaf capabilities sit beside the contracts. They carry policy and behavior
-rather than wire shapes, so they are `role:capability`, but their budgets are
-as narrow as a contract's:
+One leaf capability sits beside the contracts. It carries policy and behavior
+rather than wire shapes, so it is `role:capability`, but its budget is as
+narrow as a contract's:
 
-| Package                         | Responsibility                                                                                                              | Expected inward dependencies                             |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `@agentxm/extension-content`    | Skill and subagent content parsing, Knowledge inspection and search, the lint rule catalog, archive and manifest validation | `@agentxm/extension-model`                               |
-| `@agentxm/extension-resolution` | Minimum-release-age policy and evidence, version selection under that policy, named Registry target decisions               | `@agentxm/extension-model`, `@agentxm/registry-protocol` |
+| Package                      | Responsibility                                                                                                              | Expected inward dependencies |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `@agentxm/extension-content` | Skill and subagent content parsing, Knowledge inspection and search, the lint rule catalog, archive and manifest validation | `@agentxm/extension-model`   |
+
+`@agentxm/extension-resolution` decides what a configured or requested
+extension resolves to and whether that resolution may be accepted:
+minimum-release-age policy and evidence, version selection under it, named
+Registry target decisions, configured-entry and Pack dependency resolution,
+workspace source authority, publisher-binding trust classification, and
+official AXM skill compatibility. Deciding those needs workspace facts and
+source acquisition, so it reads `@agentxm/workspace-state`,
+`@agentxm/extension-sources`, and `@agentxm/extension-content` as well as the
+contracts. It sits above state, never below it: `@agentxm/workspace-state`
+must not depend on it.
 
 Integrations may compose `@agentxm/extension-content` (it is the one
 capability admitted into the supporting tier's budget); `@agentxm/extension-sources`
 reaches `@agentxm/extension-resolution` only through its
-`RegistryResolutionPolicy` port, bound at the composition root.
+`RegistryResolutionPolicy` port and its `AxmSkillCandidateGate` and
+`WorkspaceCatalog` ports, bound at the composition root — resolution supplies
+the skill-gate Live from its own `./live`.
 
 The executable-specification metadata contract is engineering support, not a
 runtime contract: `@agentxm/specification-metadata` lives under `tools/`, is
@@ -168,12 +180,13 @@ does not acquire filesystem, terminal, workspace, or transport behavior.
 Workspace management is divided into distinct packages rather than recreated
 as internal modules under a new umbrella.
 
-| Package                           | Responsibility                                                                                                                                                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@agentxm/workspace-transactions` | The workspace transition lock and scope, the transaction runner, per-closure snapshot ledger with restoration and verification, write registration, atomic single-file publication, and footprint observation      |
-| `@agentxm/workspace-state`        | Settings and lockfile authority, desired and observed state, the read model, and the narrow location, reader, and writer services every workspace mutation goes through; registers each write with the transaction |
-| `@agentxm/workspace-operations`   | Plans, execution candidates, semantic closure execution and settlement through the transaction closure API, operation resolutions, journals, and readiness gating                                                  |
-| `@agentxm/extension-workspace`    | Extension-type workspace semantics, canonical content, contributor calculation, and projection contributions                                                                                                       |
+| Package                              | Responsibility                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@agentxm/workspace-transactions`    | The workspace transition lock and scope, the transaction runner, per-closure snapshot ledger with restoration and verification, write registration, atomic single-file publication, and footprint observation                                                                                                                                    |
+| `@agentxm/workspace-state`           | Settings and lockfile authority, desired and observed state, the read model, and the narrow location, reader, and writer services every workspace mutation goes through; registers each write with the transaction                                                                                                                               |
+| `@agentxm/workspace-operations`      | Plans, execution candidates, semantic closure execution and settlement through the transaction closure API, operation resolutions, journals, and readiness gating                                                                                                                                                                                |
+| `@agentxm/workspace-projection`      | Ownership units and their participant registry, projection planning, contributor calculation over the desired-state graph, managed-file ownership and provenance, instruction targets, and the invariant and drift facts lint and sync read                                                                                                      |
+| `@agentxm/extension-materialization` | The per-extension-type manager contract and its seven implementations, canonical package staging and swap, registry-backed acquisition, and the install, uninstall, materialize, and authored-package closure recipes; ownership and projection live in `@agentxm/workspace-projection`, native format mechanics in `@agentxm/agent-integration` |
 
 The intended lower-level graph is deliberately small:
 
@@ -182,12 +195,20 @@ flowchart LR
   OPERATIONS["workspace-operations"] --> STATE["workspace-state"]
   OPERATIONS --> TRANSACTIONS["workspace-transactions"]
   STATE --> TRANSACTIONS
-  EXTENSION_WORKSPACE["extension-workspace"] --> STATE
-  EXTENSION_WORKSPACE --> TRANSACTIONS
-  EXTENSION_WORKSPACE --> PROTOCOL["registry-protocol"]
-  EXTENSION_WORKSPACE --> MODEL["extension-model"]
+  PROJECTION["workspace-projection"] --> STATE
+  PROJECTION --> TRANSACTIONS
+  PROJECTION --> AGENT_INTEGRATION["agent-integration"]
+  MATERIALIZATION["extension-materialization"] --> PROJECTION
+  MATERIALIZATION --> OPERATIONS
+  MATERIALIZATION --> STATE
+  MATERIALIZATION --> TRANSACTIONS
+  MATERIALIZATION --> AGENT_INTEGRATION
+  MATERIALIZATION --> PROTOCOL["registry-protocol"]
+  MATERIALIZATION --> MODEL["extension-model"]
+  STATE --> AGENT_INTEGRATION
   STATE --> PROTOCOL
   STATE --> MODEL
+  AGENT_INTEGRATION --> MODEL
   PROTOCOL --> MODEL
 ```
 
@@ -202,25 +223,49 @@ the mechanics for safely applying a plan, but not the feature policy that
 decides which plan should exist. Every feature that changes workspace state —
 sync, lifecycle, authoring, configuration — builds its own plan and applies it
 through `workspace-operations`; no feature executes another feature's plans.
-`extension-workspace` owns the extension-type
-knowledge required to derive canonical and projected state; it does not own a
-complete lifecycle or sync workflow.
+`extension-materialization` owns the extension-type knowledge required to
+derive canonical state and the closure recipes that commit it; it does not own
+a complete lifecycle or sync workflow. It sits above `workspace-operations`,
+because its recipes produce plan steps, and its managers keep their platform,
+registry-transport, and native-write requirements explicit in `R` so the
+command boundary composes them once instead of a manager capturing them.
+`workspace-projection` owns what AXM claims in agent-facing output and what its
+observed state means: the ownership units, who may contribute to each, the
+provenance that proves a claim, and the facts lint and sync reconcile against.
+It reaches the capabilities that materialize those units only through the
+`ProjectionParticipants` registry they register with, so a fact never depends on
+the package that writes the unit.
+
+No transitional kernel remains beside these five. The umbrella boundary this
+refactor started from was dissolved into them, and it left no façade, alias, or
+compatibility export: the extension-type catalog is contract data in
+`@agentxm/extension-model`, Knowledge package inspection is content behavior in
+`@agentxm/extension-content`, and the extension-type parity tables are
+engineering support under `tools/`.
 
 ### Integrations
 
 Integration packages isolate change driven by external systems and native
 agent surfaces.
 
-| Package                      | Responsibility                                                                                     | Expected inward dependencies          |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `@agentxm/extension-sources` | Source syntax, source resolution, probing, and acquisition across Registry, Git, and local sources | Registry client and contracts         |
-| `@agentxm/agent-integration` | Agent detection and adapters for native agent capability surfaces                                  | Extension model                       |
-| `@agentxm/registry-client`   | Registry transport, caching, OAuth transport primitives, and generated client integration          | Registry protocol and extension model |
+| Package                      | Responsibility                                                                                                                                                                                                                                                    | Expected inward dependencies          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `@agentxm/extension-sources` | Source syntax, source resolution, probing, and acquisition across Registry, Git, and local sources                                                                                                                                                                | Registry client and contracts         |
+| `@agentxm/agent-integration` | Agent detection plus every native format mechanic AXM writes into an agent: coding-agent adapters, subagent rendering, MCP entry projection and config writing, hook-group editing, the ownership marker grammar, and the YAML/TOML/JSON codecs those writers use | Extension model                       |
+| `@agentxm/registry-client`   | Registry transport, caching, OAuth transport primitives, and generated client integration                                                                                                                                                                         | Registry protocol and extension model |
 
 `@agentxm/extension-sources` may depend on `@agentxm/registry-client`; other
 integration packages do not depend on features or the CLI. Integrations expose
 typed services at their package root and concrete environment-backed Layers
 through explicit `./live` exports.
+
+`@agentxm/agent-integration` depends only on `@agentxm/extension-model`, so
+every input crosses as plain data: a rendered MCP entry, an ownership metadata
+record, a generation token, banner text. It never protects or accounts for its
+own writes — it declares the `NativeWriteAuthority` port (`protect`, `record`)
+and a core capability supplies the layer that joins it to the enclosing
+workspace transaction. A native target that cannot be snapshotted is refused
+before it is mutated.
 
 ### Vertical features
 
@@ -229,18 +274,18 @@ policy, orchestration, typed failures, typed result, and focused tests needed by
 the CLI and other sanctioned entry points. It depends on contracts, kernels,
 and integrations through their public service APIs.
 
-| Package                            | Use cases it owns                                                                                                 | Expected inward dependencies                                                    |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `@agentxm/workspace-sync`          | Desired-state reconciliation planning, projection realization, and reconciliation outcomes                        | Workspace state and operations, extension workspace, sources, agent integration |
-| `@agentxm/workspace-lint`          | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                    | Workspace state and operations, extension workspace, agent integration          |
-| `@agentxm/extension-lifecycle`     | Install, update, uninstall, enable, and disable across root and type-specific command forms                       | Workspace state and operations, extension workspace, sources, agent integration |
-| `@agentxm/extension-authoring`     | New, fork, import, adopt, demote, version, and authored pack membership                                           | Workspace state and operations, extension workspace, contracts                  |
-| `@agentxm/extension-publish`       | Publish selection, validation, authentication requirements, upload, settlement, and recovery                      | Workspace state, extension workspace, registry client, registry protocol        |
-| `@agentxm/extension-discovery`     | Project detectors, local declarations, Registry recommendations, and discovery results                            | Workspace state, extension sources, registry client, extension model            |
-| `@agentxm/workspace-configuration` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers | Workspace state and operations, extension workspace, agent integration          |
-| `@agentxm/workspace-inspection`    | List, view, inventory, and version-currency queries                                                               | Workspace state, extension workspace, sources, registry client                  |
-| `@agentxm/registry-auth`           | Login, logout, token, identity inspection, device and loopback flows, and credential lifecycle                    | Registry client and registry protocol                                           |
-| `@agentxm/knowledge-query`         | Knowledge concept resolution, retrieval, search, related concepts, and status                                     | Workspace state and extension workspace                                         |
+| Package                            | Use cases it owns                                                                                                 | Expected inward dependencies                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `@agentxm/workspace-sync`          | Desired-state reconciliation planning, projection realization, and reconciliation outcomes                        | Workspace state, operations, projection, materialization, sources, agent integration  |
+| `@agentxm/workspace-lint`          | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                    | Workspace state and operations, projection, extension content, agent integration      |
+| `@agentxm/extension-lifecycle`     | Install, update, uninstall, enable, and disable across root and type-specific command forms                       | Workspace state, operations, materialization, resolution, sources, agent integration  |
+| `@agentxm/extension-authoring`     | New, fork, import, adopt, demote, version, and authored pack membership                                           | Workspace state, operations, materialization, extension content, contracts            |
+| `@agentxm/extension-publish`       | Publish selection, validation, authentication requirements, upload, settlement, and recovery                      | Workspace state, extension content, registry auth, registry client, registry protocol |
+| `@agentxm/extension-discovery`     | Project detectors, local declarations, Registry recommendations, and discovery results                            | Workspace state, extension sources, registry client, extension model                  |
+| `@agentxm/workspace-configuration` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers | Workspace state and operations, projection, agent integration                         |
+| `@agentxm/workspace-inspection`    | List, view, inventory, and version-currency queries                                                               | Workspace state, resolution, sources, registry client                                 |
+| `@agentxm/registry-auth`           | Login, logout, token, identity inspection, device and loopback flows, and credential lifecycle                    | Registry client and registry protocol                                                 |
+| `@agentxm/knowledge-query`         | Knowledge concept resolution, retrieval, search, related concepts, and status                                     | Workspace state and extension content                                                 |
 
 Smaller capabilities such as cache housekeeping or self-upgrade remain in the
 CLI or a focused integration until they develop enough policy and reuse to earn
@@ -314,38 +359,53 @@ package. A broad barrel is not added merely to make an import legal.
 
 ## Dependency rules
 
-Every project receives tags along independent dimensions; `layer`, `scope`,
-and `release` apply only to production packages:
+Every project receives tags along independent dimensions. `role`, `scope`, and
+`release` apply only to production packages, and `domain` is inferred from
+placement rather than authored:
 
-| Dimension | Values and meaning                                                                                                                                  |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type`    | `type:app`, `type:lib`, `type:e2e`, or `type:tooling`; retains the existing project-kind constraints                                                |
-| `layer`   | `layer:app`, `layer:feature`, `layer:kernel`, `layer:integration`, or `layer:contract`                                                              |
-| `scope`   | A package-specific tag such as `scope:workspace-sync`; supports focused selection and future policy without defining dependency direction by itself |
-| `release` | `release:cli` for every publishable package that ships in the fixed CLI release group                                                               |
+| Dimension | Values and meaning                                                                                                                                                                 |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`    | `type:app`, `type:lib`, `type:e2e`, or `type:tooling`; retains the existing project-kind constraints                                                                               |
+| `role`    | `role:application`, `role:feature`, `role:capability`, `role:integration`, `role:contract`, `role:e2e`, or `role:tooling`; the technical direction of a dependency                 |
+| `domain`  | `domain:core`, `domain:supporting`, or `domain:generic`; the strategic tier, inferred from `packages/<tier>/<name>` by the placement plugin and never authored in a `project.json` |
+| `scope`   | A package-specific tag such as `scope:workspace-sync`; supports focused selection and future policy without defining dependency direction by itself                                |
+| `release` | `release:cli` for every publishable package that ships in the fixed CLI release group                                                                                              |
 
-The layer rules are:
+The two matrices are enforced independently, so a dependency must satisfy both.
+The role rules are:
 
-| Source layer | May depend on                                                      |
-| ------------ | ------------------------------------------------------------------ |
-| Application  | Features and any lower package needed only for runtime composition |
-| Feature      | Kernels, integrations, and contracts                               |
-| Kernel       | Kernels and contracts                                              |
-| Integration  | Integrations and contracts                                         |
-| Contract     | Contracts                                                          |
+| Source role | May depend on                                       |
+| ----------- | --------------------------------------------------- |
+| Application | Features, capabilities, integrations, and contracts |
+| Feature     | Capabilities, integrations, and contracts           |
+| Capability  | Capabilities, integrations, and contracts           |
+| Integration | Integrations and contracts                          |
+| Contract    | Contracts                                           |
 
-A feature may not depend on another feature. A kernel and an integration may
+The domain rules are:
+
+| Source domain       | May depend on                                                               |
+| ------------------- | --------------------------------------------------------------------------- |
+| `domain:core`       | Core, supporting, and generic                                               |
+| `domain:supporting` | Supporting, generic, and the exact contract and content seams it is granted |
+| `domain:generic`    | Generic                                                                     |
+
+A feature may not depend on another feature. A capability and an integration may
 depend on a peer only where that dependency remains inward and is justified by
 the packages' responsibilities. Stable asymmetric restrictions use focused Nx
 tag constraints rather than a separately maintained whole-workspace adjacency
 list. Cycles are never permitted.
 
-E2e and test-support projects carry no `layer:*` tag; inventing pseudo-layers
-for them would recreate the exact-adjacency habit this architecture removes.
-The existing `type:*` constraints continue to govern them: e2e projects
-observe published artifacts and entry points, consistent with the
-`system/architecture/e2e-observes-only-shipped-artifacts` specification, and
-may use test-support libraries; tooling projects depend only on libraries.
+E2e and engineering-support projects carry `role:e2e` and `role:tooling` and no
+`domain:*` tag; inventing a strategic tier for them would recreate the
+exact-adjacency habit this architecture removes. E2e projects observe published
+artifacts and entry points, consistent with the
+`system/architecture/e2e-observes-only-shipped-artifacts` specification, and may
+use test-support libraries; tooling projects depend only on libraries. Every
+runtime role's production source is barred from `role:tooling`, so the
+engineering libraries under `tools/` — the specification metadata contract,
+shared test support, and the extension-type parity tables — never enter runtime;
+test-purpose files inside a runtime package may compose them.
 
 ## Enforcement
 
@@ -358,8 +418,8 @@ is implementation state derived by Nx, not another normative graph to maintain.
 ### Project topology
 
 Nx owns the production project graph. `@nx/enforce-module-boundaries` applies
-the `type:*` and `layer:*` matrices and keeps its circular-dependency checks
-enabled without ignored project pairs. Its configuration also enables:
+the `type:*`, `role:*`, and `domain:*` matrices and keeps its
+circular-dependency checks enabled without ignored project pairs. Its configuration also enables:
 
 - `enforceBuildableLibDependency` so a buildable package cannot acquire a
   non-buildable production dependency;
@@ -632,8 +692,9 @@ defaults for:
 - `project.json` configuration; and
 - buildable and publishable setup where the package ships with the CLI.
 
-Supply the package's `layer:*`, `scope:*`, and `release:cli` tags when it is
-created. Do not build a custom generator until repeated AXM-specific edits
+Supply the package's `role:*`, `scope:*`, and `release:cli` tags when it is
+created, and place it under `packages/<tier>/<name>` so the plugin infers its
+`domain:*` tag; authoring a `domain:*` tag is an error. Do not build a custom generator until repeated AXM-specific edits
 remain after the official generator and workspace defaults are in place.
 
 ### Keep domain workflows custom
@@ -671,7 +732,7 @@ The refactor proceeds from inward boundaries to outward features:
    `system/architecture/packages-follow-permitted-dependency-graph`. Do not
    retain the old manifest scanner as a second verifier.
 3. Extract `workspace-state`, `workspace-operations`, and
-   `extension-workspace`, preserving the authority and execution models
+   `extension-materialization`, preserving the authority and execution models
    described by the workspace architecture.
 4. Extract `registry-client`, `extension-sources`, and `agent-integration` so
    feature packages depend on stable service boundaries rather than old

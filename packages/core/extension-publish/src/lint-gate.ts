@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { PublishFailed } from "./errors.js";
-import { makePlatformPackFileAccessor } from "@agentxm/extension-workspace";
-import { makePlatformSkillFileAccessor } from "@agentxm/extension-workspace";
+import { makePlatformPackFileAccessor } from "@agentxm/extension-content/lint";
+import { makePlatformSkillFileAccessor } from "@agentxm/extension-content/lint";
 import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
 import { composePath } from "@agentxm/extension-content/lint";
 import type {

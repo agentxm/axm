@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as DateTime from "effect/DateTime";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -13,23 +14,22 @@ import {
 } from "@agentxm/workspace-operations";
 import type { OperationResolution, Plan } from "@agentxm/workspace-operations";
 import { makeOperationResolution, operationPresentation } from "@agentxm/workspace-operations";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  runInstallCommandWorkflow,
-  withPublisherTrust,
-} from "@agentxm/extension-lifecycle";
+import { runInstallCommandWorkflow, withPublisherTrust } from "@agentxm/extension-lifecycle";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
+  AXM_SKILL_BUNDLED_APPLY_COMMAND,
+  makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   type ReleaseAgeHoldbackRecord,
   type ReleaseAgeOperationEvidence,
+  ReleaseAgePosture,
 } from "@agentxm/extension-resolution";
 import {
   type ReleaseAgeEvaluation,
   type ReleaseAgeEvidence,
 } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
-import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/extension-workspace";
+
 import {
   WorkspaceMutations,
   acceptedResolutionRef,
@@ -68,7 +68,6 @@ import {
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
-import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
 
 export interface RootUpdateFlags {
   readonly force: boolean;
@@ -81,9 +80,9 @@ export interface RootUpdateFlags {
  * classifies its acceptances before the wrap.
  */
 type TargetedPlanTransform = (
-  plan: Plan,
+  plan: Plan<StepRequirements>,
 ) => Effect.Effect<
-  Plan,
+  Plan<StepRequirements>,
   AppError,
   WorkspaceMutations | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
 >;
@@ -681,7 +680,7 @@ const resolveTargetedUpdate = (
         name: `Update ${intent.target}`,
         description: Option.some(`Update pack-derived member ${intent.target}`),
         jobs: [{ concurrency: 1, steps: [memberStep] }],
-      } satisfies Plan);
+      } satisfies Plan<StepRequirements>);
       const plan = yield* wrapTargetedUpdatePlan({
         plan: memberPlan,
         context: targetedContext,
@@ -710,7 +709,7 @@ const resolveTargetedUpdate = (
               Effect.succeed({
                 ...plan,
                 presentation: updatePresentation(intent.type),
-              } satisfies Plan)
+              } satisfies Plan<StepRequirements>)
           : (plan) =>
               withPublisherTrust(plan).pipe(
                 Effect.flatMap((classified) =>

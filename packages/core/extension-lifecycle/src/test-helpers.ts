@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import type { CodingAgent } from "@agentxm/extension-workspace";
+import type { CodingAgent } from "@agentxm/agent-integration";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   decodeExtensionNameSync,
@@ -28,7 +28,7 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
   fileUrlToPath,
   WorkspaceCatalog,
@@ -45,7 +45,7 @@ import {
 import { TreeIntegritySchema, type TreeIntegrity } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { ExtensionLifecycleFailed } from "./errors.js";
-import { LifecycleFailureAdapter } from "./failure-adapter.js";
+import { StepFailureConversion } from "./step-failure-conversion.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
 
@@ -177,7 +177,7 @@ export const testFailureToStepFailure = (failure: unknown): StepFailure =>
         cause: failure,
       });
 
-export const TestLifecycleFailureAdapter = Layer.succeed(LifecycleFailureAdapter, {
+export const TestStepFailureConversion = Layer.succeed(StepFailureConversion, {
   toStepFailure: testFailureToStepFailure,
   describeFailure: describeTestFailure,
   describeFailureMessage: describeTestFailure,

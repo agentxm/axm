@@ -8,7 +8,7 @@
  */
 
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { stripFileProtocol } from "../internal/fs-helpers.js";
+import { stripFileProtocol } from "@agentxm/registry-client";
 
 // -----------------------------------------------------------------------------
 // Display Name

@@ -8,6 +8,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import { stripFileProtocol } from "@agentxm/registry-client";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
@@ -17,8 +18,11 @@ import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { printSkillLockSourceLocator } from "@agentxm/workspace-state";
 import { sourceToLockEntry } from "@agentxm/workspace-state";
-import { canReuseInstalledPackage, materializeExternalPackage } from "@agentxm/extension-workspace";
-import { materializeRegistryPackage } from "../../registry-materialization.js";
+import {
+  canReuseInstalledPackage,
+  materializeExternalPackage,
+} from "@agentxm/extension-materialization";
+import { materializeRegistryPackage } from "@agentxm/extension-materialization";
 import { computePackageContentHash } from "@agentxm/workspace-state";
 import {
   type RenderedFilePath,
@@ -35,9 +39,9 @@ import type {
   WorkspaceSkillRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { SourceHostProviders } from "@agentxm/extension-sources";
-import { CodingAgentRepository, validateAxmSkillCandidate } from "@agentxm/extension-workspace";
-import { stripFileProtocol } from "../../internal/fs-helpers.js";
-import { isPathSafe } from "@agentxm/workspace-state";
+
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { createSymlink } from "@agentxm/workspace-state";
 import { validatePathSafety } from "@agentxm/workspace-state";
@@ -47,7 +51,7 @@ import {
   validateExactResolvedVersion,
 } from "@agentxm/workspace-state";
 import { ExtensionLifecycleFailed } from "../../errors.js";
-import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
@@ -60,16 +64,17 @@ import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   copyExtensionDirectory,
   formatCopyExtensionDirectoryFailure,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import {
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { sanitizeName } from "@agentxm/workspace-state";
 import type { InstallResult } from "./install-result.js";
-import { computeSkillSourceHash } from "./source-hash.js";
+import { computeSkillSourceHash } from "@agentxm/extension-materialization";
+import { validateAxmSkillCandidate } from "@agentxm/extension-resolution";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -220,7 +225,7 @@ export const gitHostedSkillArtifactSource = (
 
 const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: string) =>
   Effect.gen(function* () {
-    const adapter = yield* LifecycleFailureAdapter;
+    const adapter = yield* StepFailureConversion;
     const fs = yield* FileSystem.FileSystem;
     const ws = yield* WorkspaceMutations;
 
@@ -267,7 +272,7 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
-export { computeSkillSourceHash } from "./source-hash.js";
+export { computeSkillSourceHash } from "@agentxm/extension-materialization";
 
 /**
  * Build a RenderedFilesMap from per-agent copy-mode install results.
@@ -552,10 +557,10 @@ export const installSkill: OperationHandler<
   | WorkspaceMutations
   | SourceHostProviders
   | CodingAgentRepository
-  | LifecycleFailureAdapter
+  | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
-    const adapter = yield* LifecycleFailureAdapter;
+    const adapter = yield* StepFailureConversion;
     const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;

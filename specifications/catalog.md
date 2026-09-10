@@ -405,7 +405,7 @@ Configured extensions realize correctly and completely for every configured codi
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/inline-authority-is-operation-coherent`, `cli/activation-follows-desired-state`, `packages/core/extension-workspace/src/mcps/shared-target-catalog.test.ts`
+- Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/inline-authority-is-operation-coherent`, `cli/activation-follows-desired-state`, `packages/supporting/agent-integration/src/mcps/shared-target-catalog.test.ts`
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.
 - Source: [`specifications/cli/mcps/projects-to-every-configured-agent.spec.ts`](../specifications/cli/mcps/projects-to-every-configured-agent.spec.ts)
 
@@ -1236,7 +1236,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/knowledge/list.ts`, `apps/cli/help/topics/knowledge.md`, `packages/core/extension-workspace/src/knowledge/instruction-entry.test.ts`
+- Derived from: `apps/cli/src/root/knowledge/list.ts`, `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-projection/src/knowledge/instruction-entry.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`specifications/cli/knowledge/list/explains-instruction-entry-inclusion.spec.ts`](../specifications/cli/knowledge/list/explains-instruction-entry-inclusion.spec.ts)
 
@@ -3954,7 +3954,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/core/extension-lifecycle/src/knowledge/manager.ts`, `packages/core/extension-workspace/src/projection/planning.ts`
+- Derived from: `packages/core/extension-lifecycle/src/knowledge/manager.ts`, `packages/core/workspace-projection/src/planning.ts`
 - Source: [`specifications/cli/unreadable-knowledge-is-left-out-and-reported.spec.ts`](../specifications/cli/unreadable-knowledge-is-left-out-and-reported.spec.ts)
 
 ##### Unusable directories fail before the command runs

@@ -11,15 +11,15 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { subagentContentFilename, subagentContentPath } from "@agentxm/workspace-state";
 import {
   CodingAgentRepository,
-  subagentContentFilename,
-  subagentContentPath,
-  warnOnOrphanOverrides,
+  managedSubagentRenderInput,
   managedSubagentFile,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
+import { NativeWriteAuthority, warnOnOrphanOverrides } from "@agentxm/agent-integration";
 import { ExtensionLifecycleFailed } from "../../errors.js";
-import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
@@ -77,7 +77,8 @@ export const enableSubagent: OperationHandler<
   | WorkspaceMutations
   | WorkspaceTransactionScope
   | CodingAgentRepository
-  | LifecycleFailureAdapter
+  | NativeWriteAuthority
+  | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -163,14 +164,16 @@ export const enableSubagent: OperationHandler<
               .addSubagent({
                 workspaceRoot: baseDir,
                 scope: ws.scope,
-                managedFile,
-                input: {
-                  agentId: agent.id,
-                  name: op.args.subagentName,
-                  body: parsed.body,
-                  frontmatter: renderFrontmatter,
-                  agentOverrides: agentOverrides?.[agent.id],
-                },
+                input: managedSubagentRenderInput({
+                  managedFile,
+                  input: {
+                    agentId: agent.id,
+                    name: op.args.subagentName,
+                    body: parsed.body,
+                    frontmatter: renderFrontmatter,
+                    agentOverrides: agentOverrides?.[agent.id],
+                  },
+                }),
                 force: false,
               })
               .pipe(

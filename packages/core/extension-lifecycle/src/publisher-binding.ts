@@ -1,17 +1,11 @@
 /**
- * Publisher binding trust classification.
+ * Publisher-change plan shaping.
  *
- * A Registry resolution binds a publisher identity. When an operation
- * proposes to replace an already accepted binding for the same configured
- * extension with a different one, that transition is a trust decision a
- * person makes at a prompt: no flag and no unattended mode can approve it.
- * Every route that can replace an accepted binding — root and type update
- * forms, reinstall and re-resolution, and pack closures — classifies the
- * transition from the structured accepted and proposed identities here, so
- * the same rule holds everywhere the transition can occur.
- *
- * A first acceptance is not a change, and an integrity mismatch while
- * reacquiring the same accepted identity remains a hard failure elsewhere.
+ * `@agentxm/extension-resolution` classifies whether a proposed Registry
+ * acceptance replaces an accepted publisher binding. This module turns that
+ * classification into plan vocabulary: the per-step warning, the
+ * interactive-only risk condition, and the blocking condition raised when an
+ * accepted resolution cannot be read at all.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -21,77 +15,18 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
-import type {
-  Plan,
-  PlanRiskCondition,
-  PlannedJobStep,
-  RegistryBindingProposal,
-} from "@agentxm/workspace-operations";
+import {
+  classifyPublisherBindingTransition,
+  describePublisherBindingTransition,
+  publisherTransitionWarning,
+  type PublisherBindingTransition,
+} from "@agentxm/extension-resolution";
+import type { Plan, PlanRiskCondition, PlannedJobStep } from "@agentxm/workspace-operations";
 import { acceptedResolutionRef, WorkspaceMutations } from "@agentxm/workspace-state";
-import { targetFromRef } from "@agentxm/extension-workspace";
-
-export interface PublisherBindingTransition {
-  readonly extensionType: ExtensionType;
-  /** The configured (local) name whose accepted resolution changes publisher. */
-  readonly target: string;
-  readonly owner: string;
-  readonly packageName: string;
-  /** The accepted publisher binding being replaced. */
-  readonly accepted: string;
-  /** The publisher binding the operation proposes to accept. */
-  readonly proposed: string;
-}
 
 export const PUBLISHER_CHANGE_CONDITION_ID = "publisher-ownership-change";
 
 const ACCEPTED_RESOLUTION_UNREADABLE_ID = "accepted-resolution-unreadable";
-
-/** The structured proposal an extension ref makes, when it is a Registry ref. */
-export const registryBindingProposal = (ref: ExtensionRef): RegistryBindingProposal | undefined =>
-  ref.refType === "registry"
-    ? {
-        extensionType: ref.type,
-        target: targetFromRef(ref).name,
-        owner: ref.owner,
-        packageName: ref.name,
-        version: ref.version,
-        publisherBindingId: ref.publisherBindingId,
-      }
-    : undefined;
-
-/**
- * Classify one proposed acceptance against the accepted resolution for the
- * same configured target. Only a Registry binding replacing a different
- * Registry binding is a publisher change.
- */
-export const classifyPublisherBindingTransition = (args: {
-  readonly accepted: Option.Option<ExtensionRef>;
-  readonly proposed: RegistryBindingProposal;
-}): Option.Option<PublisherBindingTransition> =>
-  Option.flatMap(args.accepted, (accepted) =>
-    accepted.refType === "registry" &&
-    accepted.type === args.proposed.extensionType &&
-    accepted.publisherBindingId !== args.proposed.publisherBindingId
-      ? Option.some({
-          extensionType: args.proposed.extensionType,
-          target: args.proposed.target,
-          owner: args.proposed.owner,
-          packageName: args.proposed.packageName,
-          accepted: accepted.publisherBindingId,
-          proposed: args.proposed.publisherBindingId,
-        })
-      : Option.none(),
-  );
-
-const describeTransition = (transition: PublisherBindingTransition): string =>
-  `${transition.owner}/${toExtensionTypePlural(transition.extensionType)}/${transition.packageName}`;
-
-/** The warning a step carries when its acceptance changes publisher. */
-export const publisherTransitionWarning = (transition: PublisherBindingTransition): string =>
-  `Publisher identity changed (${transition.accepted} → ${transition.proposed}); confirm only if you trust the current publisher`;
 
 /**
  * The interactive-only condition a plan carries when any of its steps
@@ -107,7 +42,7 @@ export const publisherChangeRiskCondition = (
         consent: "interactive-only",
         id: PUBLISHER_CHANGE_CONDITION_ID,
         detail: `Publisher identity changed for ${transitions
-          .map(describeTransition)
+          .map(describePublisherBindingTransition)
           .join(", ")}; confirm only if you trust the current publisher.`,
       };
 

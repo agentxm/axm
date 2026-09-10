@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
@@ -6,7 +7,7 @@ import { makeAppError } from "../../../app-error/index.js";
 import {
   type UninstallRetentionPolicy,
   buildUninstallOperation,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -31,8 +32,7 @@ import {
 } from "../../shared/workspace-display-paths.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
-import { PackManager } from "@agentxm/extension-workspace";
-
+import { PackManager } from "@agentxm/extension-materialization";
 export interface UnpackHandlerArgs {
   readonly name: string;
   readonly preview: boolean;
@@ -45,7 +45,7 @@ const neverRetain: UninstallRetentionPolicy = {
 const promoteToDirectSettings = (
   ws: WorkspaceMutationsService,
   node: DesiredExtensionNode & { readonly source: string },
-): PlannedJobStep => {
+): PlannedJobStep<StepRequirements> => {
   const entry = { source: node.source, enabled: node.enabled };
   const run = (() => {
     switch (node.type) {
@@ -193,7 +193,7 @@ const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackH
     { concurrency: "unbounded" },
   );
 
-  const promotionSteps = promotions.map((node): PlannedJobStep => {
+  const promotionSteps = promotions.map((node): PlannedJobStep<StepRequirements> => {
     const alreadyDirect = node.origins.some((origin) => origin.type === "settings");
     if (alreadyDirect) {
       return {
@@ -274,7 +274,7 @@ const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackH
       "pack",
     ),
     jobs: [{ steps: [graphStep], concurrency: 1 as const }],
-  } satisfies Plan;
+  } satisfies Plan<StepRequirements>;
 
   const execution = yield* makePublicPositionalPlanExecution(
     args,

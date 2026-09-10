@@ -26,12 +26,7 @@ export {
 } from "./knowledge/discovery-config.js";
 
 // Path safety
-export {
-  isPathSafe,
-  safeChildPath,
-  validatePathSafety,
-  PathTraversalDetected,
-} from "./utils/path-safety.js";
+export { safeChildPath, validatePathSafety, PathTraversalDetected } from "./utils/path-safety.js";
 
 // Additional settings and lockfile vocabulary consumed beyond the barrels
 export { SETTINGS_KNOWN_KEYS } from "./settings/schema.js";
@@ -77,6 +72,18 @@ export {
   type SkillPathSource,
   type SkillDirPaths,
 } from "./workspace/skill-paths.js";
+export {
+  computeSubagentPathsForLayout,
+  subagentContentFilename,
+  subagentContentPath,
+  type SubagentDirPaths,
+  type SubagentPathSource,
+} from "./workspace/subagent-paths.js";
+export {
+  enabledConfiguredEntries,
+  isConfiguredEntryEnabled,
+  type ConfiguredEntryEnabledState,
+} from "./workspace/configured-entry.js";
 
 // Plan-facing workspace vocabulary
 export { ArtifactChangeSchema, type ArtifactChange } from "./workspace/artifact-change.js";
@@ -91,15 +98,6 @@ export {
   type ConfiguredAgentOutcomesForState,
   type ConfiguredAgentOutcomesProviderService,
 } from "./workspace/configured-agent-outcomes-provider.js";
-
-// MCP entry settings semantics
-export {
-  AXM_MCP_METADATA_KEY,
-  AxmMcpMetadataSchema,
-  isAxmManagedMcpEntry,
-  readAxmMcpMetadata,
-  type AxmMcpMetadata,
-} from "./workspace/mcp-entry-semantics.js";
 
 // Layout and paths
 export {
@@ -124,9 +122,6 @@ export {
 // Managed filesystem primitives
 export { removeIfExists } from "./workspace/remove-if-exists.js";
 export { createSymlink, type SymlinkResult } from "./workspace/create-symlink.js";
-
-// Scope refusal
-export { userScopeRefusal, type UserScopedExtension } from "./workspace/scope-refusal.js";
 
 // Read-model record rows + lifecycle views
 export {
@@ -202,20 +197,8 @@ export {
 } from "./workspace/accepted-canonical-ref.js";
 export { isObservedInstalled } from "./workspace/observed-installed.js";
 
-// Configured entry vocabulary (resolution policy lives in extension-lifecycle)
+// Configured entry vocabulary (resolution policy lives in extension-resolution)
 export { resolveWorkspaceExtensionRef } from "./workspace/configured-entry-resolution/workspace-ref.js";
-export {
-  type ConfiguredEntryFailureReason,
-  type ConfiguredRegistryResolution,
-  type ResolvedConfiguredEntry,
-  type ResolvedConfiguredHook,
-  type ResolvedConfiguredKnowledge,
-  type ResolvedConfiguredMcpServer,
-  type ResolvedConfiguredPack,
-  type ResolvedConfiguredRule,
-  type ResolvedConfiguredSkill,
-  type ResolvedConfiguredSubagent,
-} from "./workspace/configured-entry-resolution/types.js";
 
 // Lock entry translation
 export {
@@ -419,8 +402,3 @@ export {
   EXTENSION_CONFIGURED_AGENT_POLICY,
   type ConfiguredAgentLifecycleState,
 } from "./workspace/configured-agent-outcomes.js";
-export {
-  AgentPresenceProbe,
-  AgentPresenceUnavailable,
-  type AgentPresenceProbeService,
-} from "./workspace/read-model/agent-presence.js";

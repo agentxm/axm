@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -10,7 +11,7 @@ import {
   buildNewExtensionStep,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -38,8 +39,7 @@ import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { KnowledgeManager } from "@agentxm/extension-workspace";
-
+import { KnowledgeManager } from "@agentxm/extension-materialization";
 export interface KnowledgeNewHandlerArgs {
   readonly name: string;
   readonly owner: Option.Option<string>;
@@ -142,7 +142,7 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (
     Effect.provideService(FileSystem.FileSystem, fs),
     Effect.provideService(Path.Path, path),
   );
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "New knowledge",
     presentation: operationPresentation(

@@ -23,7 +23,8 @@ import {
   makeInstallCommandActions,
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
-import { ReleaseAgePosture, withPublisherTrust } from "@agentxm/extension-lifecycle";
+import { withPublisherTrust } from "@agentxm/extension-lifecycle";
+import { ReleaseAgePosture } from "@agentxm/extension-resolution";
 
 const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>): SubjectType =>
   Option.match(type, {

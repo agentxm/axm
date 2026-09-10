@@ -15,8 +15,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-export const LEDGER_PATH =
-  "packages/core/extension-workspace/src/extension-types/parity/exemptions.ts";
+export const LEDGER_PATH = "tools/extension-type-parity/src/exemptions.ts";
 
 /**
  * A `seed: true` marker, which only rows present at ledger introduction carry.

@@ -165,9 +165,13 @@ describe("repository task interface", () => {
     ]) {
       const dependencies = root?.data.targets?.[targetName]?.dependsOn ?? [];
       expect(dependencies, targetName).toContain("^build");
-      expect(dependencies, targetName).not.toContain("extension-model:build");
-      expect(dependencies, targetName).not.toContain("registry-protocol:build");
-      expect(dependencies, targetName).not.toContain("extension-workspace:build");
+      // The prerequisite is the graph edge itself. Naming an individual
+      // project's build pins the root contract to a package list that goes
+      // stale the moment a package is renamed, split, or retired.
+      const namedProjectBuilds = dependencies.filter(
+        (dependency) => typeof dependency === "string" && dependency.endsWith(":build"),
+      );
+      expect(namedProjectBuilds, targetName).toEqual([]);
     }
   });
 

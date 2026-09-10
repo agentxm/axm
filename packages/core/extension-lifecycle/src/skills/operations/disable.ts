@@ -13,9 +13,9 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Layer from "effect/Layer";
-import { DefaultCodingAgentRepository } from "@agentxm/extension-workspace";
+import { DefaultCodingAgentRepository } from "@agentxm/workspace-projection";
 import { ExtensionLifecycleFailed } from "../../errors.js";
-import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
@@ -28,9 +28,9 @@ import { sanitizeName } from "@agentxm/workspace-state";
 import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { installedRowsByName } from "@agentxm/workspace-state";
-import { removeSkillAgentArtifact } from "../materialization.js";
+import { removeSkillAgentArtifact } from "@agentxm/extension-materialization";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -60,7 +60,7 @@ export const disableSkill: OperationHandler<
   | Path.Path
   | WorkspaceMutations
   | WorkspaceTransactionScope
-  | LifecycleFailureAdapter
+  | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -121,12 +121,7 @@ export const disableSkill: OperationHandler<
                 outcome._tag === "supported"
                   ? Effect.gen(function* () {
                       const targetDir = path.normalize(outcome.dir);
-                      yield* removeSkillAgentArtifact({
-                        fs,
-                        pathService: path,
-                        targetDir,
-                        sanitizedName,
-                      });
+                      yield* removeSkillAgentArtifact({ targetDir, sanitizedName });
                       return Option.some({
                         agentId: agent.id,
                         targetDir,

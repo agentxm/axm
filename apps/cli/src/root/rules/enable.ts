@@ -1,4 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -10,7 +12,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { buildInstallOperation } from "@agentxm/extension-workspace";
+import { buildInstallOperation } from "@agentxm/extension-materialization";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -19,10 +21,7 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredRule,
-} from "@agentxm/extension-lifecycle";
+
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -37,11 +36,15 @@ import {
   reconcileInstructionTransition,
 } from "@agentxm/workspace-configuration";
 import { toAppError, failureToStepFailure } from "../../app-error/conversions.js";
-import { RuleManager } from "@agentxm/extension-workspace";
+import { RuleManager } from "@agentxm/extension-materialization";
 import {
   configurationFailureToAppError,
   lifecycleFailureToAppError,
 } from "../../feature-errors.js";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredRule,
+} from "@agentxm/extension-resolution";
 
 export const handleEnableRule = (args: { readonly name: string; readonly preview: boolean }) =>
   withOperationLifecycle(
@@ -113,7 +116,7 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
         configurationFailureToAppError,
       )
     : Option.none();
-  const activationStep: PlannedJobStep =
+  const activationStep: PlannedJobStep<StepRequirements> =
     installStep.readiness === "error"
       ? installStep
       : Option.match(readiness, {
@@ -134,9 +137,9 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
                   Effect.provideService(Path.Path, path),
                 )
               : installStep.run.pipe(Effect.mapError(toAppError));
-            const run = ruleManager
-              .runTransaction({ transition, validate: () => Effect.void })
-              .pipe(Effect.mapError(failureToStepFailure));
+            const run = runWorkspaceTransaction({ transition, validate: () => Effect.void }).pipe(
+              Effect.mapError(failureToStepFailure),
+            );
             return installStep.readiness === "warn"
               ? {
                   label: installStep.label,
@@ -151,7 +154,7 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
                 };
           },
         });
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "Enable rules",
     description: Option.some(`Enable rule ${args.name}`),

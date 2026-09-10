@@ -10,7 +10,11 @@ import {
   handleSkillsNew,
   handleSubagentsNew,
 } from "axm.sh/specification-harness";
+import type { StepRequirements } from "axm.sh/specification-harness";
 import type { AuthoringType } from "./authoring-fixtures.js";
+
+/** What every authored-new handler's plan step declares at execution time. */
+export type NewExtensionRequirements = StepRequirements;
 
 export const createNewExtension = (
   row: AuthoringType,

@@ -12,19 +12,30 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
 } from "@agentxm/workspace-state";
-import { LifecycleFailureAdapter } from "../failure-adapter.js";
-import { HookManager } from "@agentxm/extension-workspace";
-
+import { StepFailureConversion } from "../step-failure-conversion.js";
+import { HookManager } from "@agentxm/extension-materialization";
 export const HookConfiguredAgentOutcomesProviderLive = Layer.effect(
   ConfiguredAgentOutcomesProvider,
   Effect.gen(function* () {
-    const adapter = yield* LifecycleFailureAdapter;
+    const adapter = yield* StepFailureConversion;
     const hookManager = yield* HookManager;
+    // The provider's members answer with no requirements of their own, so this
+    // layer is the boundary that composes what the manager needs.
+    const managerLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, yield* FileSystem.FileSystem),
+      Layer.succeed(Path.Path, yield* Path.Path),
+      Layer.succeed(HttpClient.HttpClient, yield* HttpClient.HttpClient),
+      Layer.succeed(NativeWriteAuthority, yield* NativeWriteAuthority),
+    );
     const configuredAgentOutcomes = hookManager.configuredAgentOutcomes;
     if (configuredAgentOutcomes === undefined) {
       return { byExtensionType: {} };
@@ -33,6 +44,7 @@ export const HookConfiguredAgentOutcomesProviderLive = Layer.effect(
       byExtensionType: {
         hook: (state: "projected" | "current") =>
           configuredAgentOutcomes(state).pipe(
+            Effect.provide(managerLayer),
             Effect.mapError((failure) => {
               const step = adapter.toStepFailure(failure);
               return new ConfiguredAgentOutcomesUnavailable({

@@ -1,11 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import * as Option from "effect/Option";
 
-import {
-  AXM_SKILL_CLI_VERSION_METADATA_KEY,
-  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
-  evaluateAxmSkillCompatibility,
-} from "@agentxm/extension-workspace";
 import { parseSkillMd } from "@agentxm/extension-content";
 
 import { capture, run, tryCapture } from "./release-command.js";
@@ -15,6 +10,11 @@ import {
   resolveReleaseCohort,
   workingTreeSnapshot,
 } from "./release-cohort.js";
+import {
+  AXM_SKILL_CLI_VERSION_METADATA_KEY,
+  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  evaluateAxmSkillCompatibility,
+} from "@agentxm/extension-resolution";
 
 const readEnvWithDefault = (env: NodeJS.ProcessEnv, name: string, fallback: string): string => {
   const value = env[name];

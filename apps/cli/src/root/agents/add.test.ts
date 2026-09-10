@@ -8,8 +8,7 @@ import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { makeAppError } from "../../app-error/index.js";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -18,9 +17,13 @@ import {
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../test-helpers.js";
-import { managerLifecycleStubs, writeWorkspaceFiles } from "../../test-stubs.js";
+import {
+  managerLifecycleStubs,
+  NO_MATERIALIZATION_FACTS,
+  writeWorkspaceFiles,
+} from "../../test-stubs.js";
 import { handleAgentsAdd } from "./add.js";
-import { coupleAppError, toAppError } from "../../app-error/conversions.js";
+import { toAppError } from "../../app-error/conversions.js";
 import {
   HookManager,
   KnowledgeManager,
@@ -29,8 +32,8 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-workspace";
-
+  SkillDefinitionInvalid,
+} from "@agentxm/extension-materialization";
 const cursorSuggestion = {
   description: "Allow AXM in Cursor by adding `axm` to `.cursor/sandbox.json`",
   url: "https://cursor.com/docs/cli/reference/permissions.md",
@@ -40,9 +43,9 @@ const emptySkillManager = {
   ...managerLifecycleStubs,
   type: "skill",
   isInstalled: () => Effect.succeed(false),
-  materializeInstall: () => Effect.void,
+  materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
+  materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   upsertSettingsEntry: () => Effect.void,
   removeSettingsEntry: () => Effect.void,
   upsertLockfileEntry: () => Effect.void,
@@ -53,9 +56,9 @@ const emptyMcpServerManager = {
   ...managerLifecycleStubs,
   type: "mcp-server",
   isInstalled: () => Effect.succeed(false),
-  materializeInstall: () => Effect.void,
+  materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
+  materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   upsertSettingsEntry: () => Effect.void,
   removeSettingsEntry: () => Effect.void,
   upsertLockfileEntry: () => Effect.void,
@@ -66,9 +69,9 @@ const emptyHookManager = {
   ...managerLifecycleStubs,
   type: "hook",
   isInstalled: () => Effect.succeed(false),
-  materializeInstall: () => Effect.void,
+  materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
+  materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   projectionPlans: () => Effect.succeed([]),
   upsertSettingsEntry: () => Effect.void,
   removeSettingsEntry: () => Effect.void,
@@ -81,9 +84,9 @@ const emptyRuleManager = {
   type: "rule",
   projectionPlans: () => Effect.succeed([]),
   isInstalled: () => Effect.succeed(false),
-  materializeInstall: () => Effect.void,
+  materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
+  materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   upsertSettingsEntry: () => Effect.void,
   removeSettingsEntry: () => Effect.void,
   upsertLockfileEntry: () => Effect.void,
@@ -95,9 +98,9 @@ const emptySubagentManager = {
   type: "subagent",
   projectionObservation: () => Effect.succeed({ present: false, current: false }),
   isInstalled: () => Effect.succeed(false),
-  materializeInstall: () => Effect.void,
+  materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
+  materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   upsertSettingsEntry: () => Effect.void,
   removeSettingsEntry: () => Effect.void,
   upsertLockfileEntry: () => Effect.void,
@@ -112,9 +115,9 @@ const emptyKnowledgeManager = {
   install: () => Effect.void,
   projectionPlans: () => Effect.succeed([]),
   isInstalled: () => Effect.succeed(false),
-  materializeInstall: () => Effect.void,
+  materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
+  materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   upsertSettingsEntry: () => Effect.void,
   removeSettingsEntry: () => Effect.void,
   upsertLockfileEntry: () => Effect.void,
@@ -125,9 +128,9 @@ const emptyPackManager = {
   ...managerLifecycleStubs,
   type: "pack",
   isInstalled: () => Effect.succeed(false),
-  materializeInstall: () => Effect.void,
+  materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.void,
+  materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   upsertSettingsEntry: () => Effect.void,
   removeSettingsEntry: () => Effect.void,
   upsertLockfileEntry: () => Effect.void,
@@ -365,11 +368,8 @@ describe("agents add.handler", () => {
     const failingSkillManager = {
       ...emptySkillManager,
       materializeInstall: () =>
-        coupleAppError(
-          makeAppError({
-            code: "not_found",
-            detail: "Injected review skill materialization failure",
-          }),
+        Effect.fail(
+          new SkillDefinitionInvalid({ detail: "Injected review skill materialization failure" }),
         ),
     } satisfies ServiceMap.Service.Shape<typeof SkillManager>;
     const { provide, rendererState } = makeLayers({ skillManager: failingSkillManager });
@@ -420,11 +420,8 @@ describe("agents add.handler", () => {
     const failingSkillManager = {
       ...emptySkillManager,
       materializeInstall: () =>
-        coupleAppError(
-          makeAppError({
-            code: "not_found",
-            detail: "Injected review skill materialization failure",
-          }),
+        Effect.fail(
+          new SkillDefinitionInvalid({ detail: "Injected review skill materialization failure" }),
         ),
     } satisfies ServiceMap.Service.Shape<typeof SkillManager>;
     const { provide, rendererState } = makeLayers({

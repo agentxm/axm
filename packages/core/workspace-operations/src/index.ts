@@ -46,7 +46,6 @@ export type {
   PlanRiskCondition,
   PlannedJobStep,
   ReadyJobStep,
-  RegistryBindingProposal,
   RegistryLifecycleEvidence,
   UnitBlocking,
   WarnJobStep,

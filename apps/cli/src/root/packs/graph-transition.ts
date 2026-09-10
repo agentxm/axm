@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
@@ -36,7 +37,7 @@ const failedStep = (label: string, result: JobStepResult) =>
     : Effect.succeed(result);
 
 export interface AtomicPackGraphChild {
-  readonly step: PlannedJobStep;
+  readonly step: PlannedJobStep<StepRequirements>;
   readonly coverage: "eligible" | "ineligible";
 }
 
@@ -51,7 +52,7 @@ const aggregatePackCoverage = (
     readonly coverage: AtomicPackGraphChild["coverage"];
   }>,
   scope: JobStepArtifact["scope"],
-): Effect.Effect<PackCoverage, AppError> =>
+): Effect.Effect<PackCoverage, AppError, StepRequirements> =>
   Effect.gen(function* () {
     const applicableArtifacts = results.flatMap(({ result, coverage }) =>
       coverage === "eligible" &&
@@ -92,15 +93,14 @@ export const buildAtomicPackGraphStep = (args: {
   readonly artifact: JobStepArtifact;
   readonly children: ReadonlyArray<AtomicPackGraphChild>;
   readonly reportUnchangedWhenChildrenUnchanged?: boolean;
-  readonly preTransition?: Effect.Effect<void, AppError, WorkspaceMutations>;
-  readonly validate: Effect.Effect<void, AppError, WorkspaceMutations>;
+  readonly preTransition?: Effect.Effect<void, AppError, StepRequirements>;
+  readonly validate: Effect.Effect<void, AppError, StepRequirements>;
 }): Effect.Effect<
-  PlannedJobStep,
+  PlannedJobStep<StepRequirements>,
   never,
   WorkspaceMutations | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
     // The step contract the pack workflows consume is `R = never`, so the
     // transaction scope and platform are bound here, beside the workspace.
     const scope = yield* WorkspaceTransactionScope;
@@ -119,7 +119,7 @@ export const buildAtomicPackGraphStep = (args: {
         errorMessage: readinessErrors.join("; "),
         artifact: args.artifact,
         ...(blockingConditionIds.length === 0 ? {} : { blockingConditionIds }),
-      } satisfies PlannedJobStep;
+      } satisfies PlannedJobStep<StepRequirements>;
     }
 
     const readinessWarnings = args.children.flatMap(({ step }) =>
@@ -133,7 +133,7 @@ export const buildAtomicPackGraphStep = (args: {
     const run = runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         if (args.preTransition !== undefined) {
-          yield* args.preTransition.pipe(Effect.provideService(WorkspaceMutations, ws));
+          yield* args.preTransition;
         }
         return yield* Effect.forEach(
           runnableChildren,
@@ -147,7 +147,7 @@ export const buildAtomicPackGraphStep = (args: {
       }),
       validate: (results) =>
         Effect.gen(function* () {
-          yield* args.validate.pipe(Effect.provideService(WorkspaceMutations, ws));
+          yield* args.validate;
           validatedCoverage = yield* aggregatePackCoverage(results, args.artifact.scope);
         }),
     }).pipe(
@@ -185,14 +185,14 @@ export const buildAtomicPackGraphStep = (args: {
           label: args.label,
           artifact: args.artifact,
           run,
-        } satisfies PlannedJobStep)
+        } satisfies PlannedJobStep<StepRequirements>)
       : ({
           readiness: "warn",
           label: args.label,
           warnMessage: readinessWarnings.join("; "),
           artifact: args.artifact,
           run,
-        } satisfies PlannedJobStep);
+        } satisfies PlannedJobStep<StepRequirements>);
   });
 
 interface RequiredPack {

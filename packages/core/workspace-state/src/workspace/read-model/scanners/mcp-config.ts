@@ -43,7 +43,7 @@ import {
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import { isPathSafe } from "../../../utils/path-safety.js";
+import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import type { McpConfigOccurrence, McpConfigSurface } from "./types.js";

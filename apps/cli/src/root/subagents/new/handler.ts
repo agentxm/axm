@@ -1,4 +1,5 @@
 import * as FileSystem from "effect/FileSystem";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
@@ -7,7 +8,7 @@ import {
   buildNewExtensionStep,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
@@ -21,7 +22,8 @@ import {
   MANIFEST_SCHEMA_URL,
   type SubagentManifest,
 } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import { subagentContentPath, SubagentManager } from "@agentxm/extension-workspace";
+import { subagentContentPath } from "@agentxm/workspace-state";
+import { SubagentManager } from "@agentxm/extension-materialization";
 import type { JobStepArtifact, Plan } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
@@ -226,7 +228,7 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
     ),
   });
 
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "New subagent",
     description: Option.some(`Create ${fqn}`),

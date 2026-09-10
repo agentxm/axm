@@ -31,3 +31,4 @@ export {
   openKnowledgeConcept,
   searchKnowledgeConcepts,
 } from "./okf.js";
+export { inspectKnowledgePackage, readKnowledgePackageManifest } from "./package-inspection.js";

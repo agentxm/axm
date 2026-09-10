@@ -3,7 +3,10 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { AgentPresenceUnavailable, type AgentPresenceProbeService } from "@agentxm/workspace-state";
+import {
+  AgentPresenceUnavailable,
+  type AgentPresenceProbeService,
+} from "@agentxm/agent-integration";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import {
   runScenario,

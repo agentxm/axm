@@ -6,6 +6,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { MockWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
+import { LifecycleStepFailureConversionLive } from "../../../feature-errors.js";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import { describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -14,17 +18,16 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { TestRenderer } from "../../../screen/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestFlagsLayer } from "../../../cli-flags/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { WorkspaceCatalogLive } from "../../../cli-runtime/index.js";
+import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
 import { makeBaseWorkspaceMock, managerLifecycleStubs } from "../../../test-stubs.js";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import { InstallMcpServerCommandWorkflowActions, parseEnvFlag } from "./command-actions.js";
-import { McpServerManager } from "@agentxm/extension-workspace";
-
+import { McpServerManager } from "@agentxm/extension-materialization";
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
   getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test-ns"))),
 });
@@ -60,6 +63,9 @@ const workspaceCatalogLayer = WorkspaceCatalogLive.pipe(
 );
 
 const testLayer = Layer.mergeAll(
+  MockWorkspaceTransactionScope("/tmp/axm"),
+  LifecycleStepFailureConversionLive,
+  NativeWriteAuthorityPermissive,
   workspaceLayer,
   workspaceCatalogLayer,
   Layer.succeed(McpServerManager, mockMcpServerManager),
@@ -74,7 +80,7 @@ const testLayer = Layer.mergeAll(
 const runWithActions = <A, E>(
   fn: (
     actions: Effect.Success<typeof InstallMcpServerCommandWorkflowActions>,
-  ) => Effect.Effect<A, E>,
+  ) => Effect.Effect<A, E, StepRequirements>,
 ) =>
   Effect.gen(function* () {
     const actions = yield* InstallMcpServerCommandWorkflowActions;

@@ -25,9 +25,9 @@ import {
 import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
 import { extensionTypes } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProviders } from "@agentxm/extension-sources";
-import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
-import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
+import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
+import { RuleManagerLive } from "@agentxm/extension-materialization/live";
 
 import { handleInstallWithActions, type RootInstallFlags } from "./handler.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";

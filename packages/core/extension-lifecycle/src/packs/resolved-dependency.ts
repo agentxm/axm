@@ -1,37 +1,16 @@
+/**
+ * Pack lock-entry validation over the resolved dependency map: the map's
+ * shape belongs to `@agentxm/extension-resolution`; refusing an inexact
+ * version before a lock entry is written is the pack manager's obligation.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { PackDefinitionInvalid } from "@agentxm/extension-workspace";
-import { ExtensionFqnSchema } from "@agentxm/extension-model/unstable/extensions";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
+import { PackDefinitionInvalid } from "@agentxm/extension-materialization";
+import type { ResolvedPackDependencyMap } from "@agentxm/extension-resolution";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
-
-const ResolvedRegistryDependencySchema = Schema.Struct({
-  source: Schema.Literal("registry"),
-  version: VersionSchema,
-  publisherBindingId: Schema.NonEmptyString,
-  integrity: Schema.String,
-});
-
-const ResolvedWorkspaceDependencySchema = Schema.Struct({
-  source: Schema.Literal("workspace"),
-  version: VersionSchema,
-  sourceIdentity: Schema.String,
-  contentIdentity: SourceHashSchema,
-});
-
-export const ResolvedPackDependencySchema = Schema.Union([
-  ResolvedRegistryDependencySchema,
-  ResolvedWorkspaceDependencySchema,
-]);
-
-export type ResolvedPackDependency = typeof ResolvedPackDependencySchema.Type;
-
-export const ResolvedPackDependencyMapSchema = Schema.Record(
-  ExtensionFqnSchema,
-  ResolvedPackDependencySchema,
-);
-
-export type ResolvedPackDependencyMap = typeof ResolvedPackDependencyMapSchema.Type;
 
 export const validateExactPackDependencyVersions = (
   field: string,

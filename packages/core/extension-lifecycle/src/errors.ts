@@ -7,8 +7,6 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CoupledDependencyFailure } from "@agentxm/extension-workspace";
-
 const CarriedSuggestedActionSchema = Schema.Struct({
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
@@ -40,12 +38,3 @@ export class ExtensionLifecycleFailed extends Schema.TaggedError<ExtensionLifecy
     cause: Schema.optional(Schema.Unknown),
   },
 ) {}
-
-/**
- * Carry a lifecycle dependency's failure opaquely through a kernel-typed
- * manager channel. The application boundary restores and converts the carried
- * failure, so rendering, exit codes, and machine output stay byte-identical
- * with the previous in-place conversion.
- */
-export const coupleLifecycleDependencyFailure = (failure: unknown): CoupledDependencyFailure =>
-  new CoupledDependencyFailure({ failure });

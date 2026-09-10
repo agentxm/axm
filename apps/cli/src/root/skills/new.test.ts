@@ -14,9 +14,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {

@@ -4,7 +4,7 @@ import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   inspectMcpServerAcrossAgents,
   type AgentMcpServerInspection,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import {
   type ConfiguredAgentOutcome,

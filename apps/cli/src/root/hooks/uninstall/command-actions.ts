@@ -1,15 +1,15 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Option from "effect/Option";
 
 import type { AppError } from "../../../app-error/index.js";
 import { failureToStepFailure, toAppError } from "../../../app-error/conversions.js";
-import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   type HookExtensionTarget,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
-import { buildUninstallOperation } from "@agentxm/extension-workspace";
+import { buildUninstallOperation } from "@agentxm/extension-materialization";
 import type { HookLockEntry } from "@agentxm/workspace-state";
 import type {
   JobStepArtifact,
@@ -26,8 +26,7 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
-import { HookManager } from "@agentxm/extension-workspace";
-
+import { HookManager } from "@agentxm/extension-materialization";
 export interface UninstallHookHandlerArgs {
   readonly name: string;
 }
@@ -40,7 +39,8 @@ type UninstallHookActions = UninstallExtensionCommandWorkflowActions<
   UninstallHookHandlerArgs,
   ParsedHookUninstallArgs,
   UninstallHookCommandIntent,
-  AppError
+  AppError,
+  StepRequirements
 >;
 
 const hookUninstallArtifactTargets = (
@@ -86,11 +86,11 @@ const hookUninstallArtifact = (args: {
 };
 
 const withHookUninstallArtifact = (args: {
-  readonly step: PlannedJobStep;
+  readonly step: PlannedJobStep<StepRequirements>;
   readonly scope: JobStepArtifact["scope"];
   readonly targetName: string;
   readonly ws: typeof WorkspaceMutations.Service;
-}): PlannedJobStep => {
+}): PlannedJobStep<StepRequirements> => {
   const step = args.step;
   if (step.readiness === "error") return step;
   return {
@@ -122,7 +122,7 @@ export const UninstallHookCommandWorkflowActions = Effect.gen(function* () {
 
   const finalizeIntent = (
     parsed: ParsedHookUninstallArgs,
-  ): Effect.Effect<UninstallHookCommandIntent, AppError> =>
+  ): Effect.Effect<UninstallHookCommandIntent, AppError, StepRequirements> =>
     Effect.gen(function* () {
       const target: HookExtensionTarget = { type: "hook", name: parsed.name };
       const configured =
@@ -136,7 +136,9 @@ export const UninstallHookCommandWorkflowActions = Effect.gen(function* () {
       return { targets: [target] };
     }).pipe(Effect.mapError(toAppError));
 
-  const buildUninstallPlan = (intent: UninstallHookCommandIntent): Effect.Effect<Plan, AppError> =>
+  const buildUninstallPlan = (
+    intent: UninstallHookCommandIntent,
+  ): Effect.Effect<Plan<StepRequirements>, AppError, StepRequirements> =>
     Effect.succeed({
       _tag: "Plan",
       name: "Uninstall hooks",
@@ -146,11 +148,10 @@ export const UninstallHookCommandWorkflowActions = Effect.gen(function* () {
           concurrency: 1,
           steps: intent.targets.map((target) =>
             withHookUninstallArtifact({
-              step: buildUninstallOperation<HookExtensionRef, AppError>(
-                hookManager,
-                makeWorkspaceRetentionPolicy(ws),
-                { target, toStepFailure: failureToStepFailure },
-              ),
+              step: buildUninstallOperation(hookManager, makeWorkspaceRetentionPolicy(ws), {
+                target,
+                toStepFailure: failureToStepFailure,
+              }),
               scope: ws.scope,
               targetName: target.name,
               ws,
@@ -158,7 +159,7 @@ export const UninstallHookCommandWorkflowActions = Effect.gen(function* () {
           ),
         },
       ],
-    } satisfies Plan);
+    } satisfies Plan<StepRequirements>);
 
   return {
     parseArgs,

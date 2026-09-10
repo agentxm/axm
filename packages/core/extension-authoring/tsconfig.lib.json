@@ -18,22 +18,22 @@
   ],
   "references": [
     {
+      "path": "../workspace-transactions/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-state/tsconfig.lib.json"
     },
     {
       "path": "../workspace-operations/tsconfig.lib.json"
     },
     {
-      "path": "../extension-workspace/tsconfig.lib.json"
-    },
-    {
       "path": "../extension-model/tsconfig.lib.json"
     },
     {
-      "path": "../extension-content/tsconfig.lib.json"
+      "path": "../extension-materialization/tsconfig.lib.json"
     },
     {
-      "path": "../workspace-transactions/tsconfig.lib.json"
+      "path": "../extension-content/tsconfig.lib.json"
     }
   ]
 }

@@ -344,7 +344,7 @@ describe("enable.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Plan building and execution
+  // Plan<StepRequirements> building and execution
   // ---------------------------------------------------------------------------
 
   describe("plan execution", () => {

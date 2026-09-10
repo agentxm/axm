@@ -18,8 +18,8 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { InstallSubagentCommandWorkflowActions } from "./command-actions.js";
 import {
   handleInstall,
@@ -32,7 +32,7 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../../test-helpers.js";
-import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../../feature-errors.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -109,7 +109,7 @@ describe("subagents install handler — error propagation", () => {
         handlerTestContext.wsLayer,
         SPLayer,
         CodingAgentRepositoryLive,
-        LifecycleFailureAdapterLive,
+        LifecycleStepFailureConversionLive,
       ),
     );
     const FullLayer = Layer.mergeAll(
@@ -118,7 +118,7 @@ describe("subagents install handler — error propagation", () => {
       SPLayer,
       SMLayer,
       CodingAgentRepositoryLive,
-      LifecycleFailureAdapterLive,
+      LifecycleStepFailureConversionLive,
     );
     const provide = makeEffectProvide(FullLayer);
 
@@ -157,7 +157,7 @@ describe("subagents install handler — error propagation", () => {
     const fullLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
-      LifecycleFailureAdapterLive,
+      LifecycleStepFailureConversionLive,
     );
     const provide = makeEffectProvide(fullLayer);
     const handleTestInstall = (
@@ -229,7 +229,7 @@ describe("subagents install handler — error propagation", () => {
     const fullLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
-      LifecycleFailureAdapterLive,
+      LifecycleStepFailureConversionLive,
     );
     const provide = makeEffectProvide(fullLayer);
     const handleTestInstall = (

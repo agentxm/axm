@@ -1,5 +1,5 @@
 /**
- * Plan-family operation lifecycle wrapper.
+ * Plan<StepRequirements>-family operation lifecycle wrapper.
  *
  * Owns the lifecycle fact a handler body cannot own for itself:
  * **interruption**. An external termination request resolves through the

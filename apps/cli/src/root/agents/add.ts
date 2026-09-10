@@ -1,4 +1,5 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { detectAgentsForScope } from "@agentxm/agent-integration";
@@ -49,7 +50,10 @@ export interface AgentsAddArgs {
   readonly preview: boolean;
 }
 
-const addAgentStep = (ws: WorkspaceMutationsService, agentId: string): PlannedJobStep => ({
+const addAgentStep = (
+  ws: WorkspaceMutationsService,
+  agentId: string,
+): PlannedJobStep<StepRequirements> => ({
   label: `Add ${agentId}`,
   readiness: "ready",
   artifact: {

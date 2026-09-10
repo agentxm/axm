@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { isAxmManagedMcpEntry } from "@agentxm/workspace-state";
-import { groupConfiguredMcpTargets } from "@agentxm/extension-workspace";
+import { isAxmManagedMcpEntry } from "@agentxm/agent-integration";
+import { groupConfiguredMcpTargets } from "@agentxm/agent-integration";
 import type { UnmanagedMcpServer } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";

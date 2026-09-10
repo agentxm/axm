@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -13,8 +14,8 @@ import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-workspace";
-import type { CodingAgent } from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
+import type { CodingAgent } from "@agentxm/agent-integration";
 import { SettingsWriteError, type WorkspaceSettingsReadFailure } from "@agentxm/workspace-state";
 import type { WorkspaceStateMutationFailure } from "@agentxm/workspace-state";
 import { LockfileWriteError } from "@agentxm/workspace-state";
@@ -28,7 +29,7 @@ import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {
-  TestLifecycleFailureAdapter,
+  TestStepFailureConversion,
   exactVersion,
   expectRecord,
   extensionName,
@@ -188,9 +189,9 @@ const makeServices = (
 
   return {
     layer: Layer.mergeAll(
-      Layer.merge(NodeServices.layer, FetchHttpClient.layer),
+      Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, NativeWriteAuthorityPermissive),
       WorkspaceMutations.layer(mockWs),
-      TestLifecycleFailureAdapter,
+      TestStepFailureConversion,
       Layer.succeed(SourceHostProviders, sourceProviders),
       Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
     ),

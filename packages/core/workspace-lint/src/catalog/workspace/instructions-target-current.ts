@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
-import type { InstructionStatusItem } from "@agentxm/extension-workspace";
+import type { InstructionStatusItem } from "@agentxm/workspace-projection";
 
 const RULE_ID = "workspace/instructions-target-current";
 

@@ -6,6 +6,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Duration from "effect/Duration";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import {
@@ -356,6 +357,19 @@ export const MinimumReleaseAgeSchema = Schema.String.check(
 
 /** @experimental */
 export type MinimumReleaseAge = Schema.Schema.Type<typeof MinimumReleaseAgeSchema>;
+
+/**
+ * The minimum release age a workspace applies when neither the project nor
+ * the user scope declares one. The value is a workspace-settings default, so
+ * it lives with the settings schema that validates it; resolution policy
+ * reads it through the settings reader.
+ *
+ * @experimental
+ */
+export const DEFAULT_MINIMUM_RELEASE_AGE = "24h";
+
+/** The same default as a duration, for policy that compares against a clock. */
+export const DEFAULT_MINIMUM_RELEASE_AGE_DURATION = Duration.hours(24);
 
 /** @experimental */
 export type MinimumReleaseAgeExclude = ReadonlyArray<typeof ReleaseAgeExcludePatternSchema.Type>;

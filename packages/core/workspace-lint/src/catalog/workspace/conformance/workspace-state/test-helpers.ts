@@ -2,12 +2,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
-  AXM_SKILL_CLI_VERSION_METADATA_KEY,
-  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   type AgentOutputInventory,
-  evaluateAxmSkillCompatibility,
   type ProjectionInvariantFact,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { agentsDetectedDeclaredRule } from "../../agents-detected-declared.js";
 import { agentsProjectionsStaleRule } from "../../agents-projections-stale.js";
@@ -25,6 +22,11 @@ import {
   validSettings,
   type WorkspaceRuleConformanceCase,
 } from "../test-helpers.js";
+import {
+  AXM_SKILL_CLI_VERSION_METADATA_KEY,
+  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  evaluateAxmSkillCompatibility,
+} from "@agentxm/extension-resolution";
 
 export const settingsKeysRecognizedConformance: WorkspaceRuleConformanceCase = {
   rule: settingsKeysRecognizedRule,

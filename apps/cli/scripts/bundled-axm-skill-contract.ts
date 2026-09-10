@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 
-import { evaluateAxmSkillCompatibility } from "@agentxm/extension-workspace";
 import { parseSkillMd } from "@agentxm/extension-content";
+import { evaluateAxmSkillCompatibility } from "@agentxm/extension-resolution";
 
 export interface BundledAxmSkillContract {
   readonly version: string;

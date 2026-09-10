@@ -7,6 +7,8 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { defineBoundEvidence, defineSpecification } from "@agentxm/specification-metadata";
 
+import { readProductionPackages } from "../../support/production-packages.js";
+
 export const specification = defineSpecification({
   requirement: "system/architecture/e2e-observes-only-shipped-artifacts",
   title: "End-to-end suites reach the product only as a shipped artifact, never as imported code",
@@ -44,48 +46,6 @@ export const boundEvidence = defineBoundEvidence([
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 
 const E2E_PROJECT_ROOTS = ["apps/cli-e2e", "tools/e2e-utils"] as const;
-const FORBIDDEN_PACKAGE_NAMES = [
-  "@agentxm/agent-integration",
-  "@agentxm/extension-model",
-  "@agentxm/knowledge-query",
-  "@agentxm/registry-auth",
-  "@agentxm/registry-client",
-  "@agentxm/registry-protocol",
-  "@agentxm/extension-authoring",
-  "@agentxm/extension-discovery",
-  "@agentxm/extension-lifecycle",
-  "@agentxm/extension-publish",
-  "@agentxm/extension-sources",
-  "@agentxm/extension-workspace",
-  "@agentxm/workspace-configuration",
-  "@agentxm/workspace-inspection",
-  "@agentxm/workspace-lint",
-  "@agentxm/workspace-operations",
-  "@agentxm/workspace-state",
-  "@agentxm/workspace-sync",
-  "axm.sh",
-] as const;
-const FORBIDDEN_PROJECT_ROOTS = [
-  "packages/supporting/agent-integration",
-  "packages/core/extension-model",
-  "packages/core/knowledge-query",
-  "packages/supporting/registry-auth",
-  "packages/supporting/registry-client",
-  "packages/core/registry-protocol",
-  "packages/core/extension-authoring",
-  "packages/core/extension-discovery",
-  "packages/core/extension-lifecycle",
-  "packages/core/extension-publish",
-  "packages/supporting/extension-sources",
-  "packages/core/extension-workspace",
-  "packages/core/workspace-configuration",
-  "packages/core/workspace-inspection",
-  "packages/core/workspace-lint",
-  "packages/core/workspace-operations",
-  "packages/core/workspace-state",
-  "packages/core/workspace-sync",
-  "apps/cli",
-] as const;
 const DEPENDENCY_FIELDS = [
   "dependencies",
   "devDependencies",
@@ -111,11 +71,22 @@ const listTsconfigs = (directory: string): string[] => {
   return collected;
 };
 
+/*
+ * The forbidden packages and project roots are read from what the repository
+ * declares: a production package is a workspace package whose project carries
+ * a runtime `role:*` tag, so end-to-end and engineering-support projects are
+ * excluded. The requirement names *any* product source package, and a roster
+ * kept in this file would silently stop covering the packages it never learned
+ * about as one is added, renamed, split, or retired.
+ */
 describe("End-to-end boundary", () => {
   it.effect.each([...E2E_PROJECT_ROOTS].map((projectRoot) => ({ projectRoot })))(
     "$projectRoot declares no dependency on product source packages",
     ({ projectRoot }) =>
       Effect.sync(() => {
+        const packages = readProductionPackages(repoRoot);
+        expect(packages.length).toBeGreaterThan(0);
+        const forbiddenPackageNames = packages.map((entry) => entry.name);
         const manifest = readJson(path.join(repoRoot, projectRoot, "package.json"));
         if (typeof manifest !== "object" || manifest === null) {
           throw new Error(`${projectRoot}/package.json must be an object`);
@@ -127,7 +98,7 @@ describe("End-to-end boundary", () => {
             continue;
           }
           for (const name of Object.keys(dependencies)) {
-            expect(FORBIDDEN_PACKAGE_NAMES).not.toContain(name);
+            expect(forbiddenPackageNames, `${projectRoot} ${field}`).not.toContain(name);
           }
         }
       }),
@@ -137,6 +108,9 @@ describe("End-to-end boundary", () => {
     "$projectRoot references no product source project from its TypeScript configuration",
     ({ projectRoot }) =>
       Effect.sync(() => {
+        const packages = readProductionPackages(repoRoot);
+        expect(packages.length).toBeGreaterThan(0);
+        const forbiddenProjectRoots = packages.map((entry) => entry.directory);
         for (const tsconfigPath of listTsconfigs(path.join(repoRoot, projectRoot))) {
           const tsconfig = readJson(tsconfigPath);
           if (typeof tsconfig !== "object" || tsconfig === null) {
@@ -158,8 +132,11 @@ describe("End-to-end boundary", () => {
               .relative(repoRoot, path.resolve(path.dirname(tsconfigPath), referencePath))
               .split(path.sep)
               .join("/");
-            for (const forbidden of FORBIDDEN_PROJECT_ROOTS) {
-              expect(resolved === forbidden || resolved.startsWith(`${forbidden}/`)).toBe(false);
+            for (const forbidden of forbiddenProjectRoots) {
+              expect(
+                resolved === forbidden || resolved.startsWith(`${forbidden}/`),
+                `${tsconfigPath} -> ${resolved}`,
+              ).toBe(false);
             }
           }
         }

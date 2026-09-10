@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Option from "effect/Option";
 import { Argument, Command } from "effect/unstable/cli";
 
@@ -58,7 +59,7 @@ export const handleKnowledgeInstall = (args: KnowledgeInstallHandlerArgs) =>
                     { imperative: "install", past: "Installed", gerund: "Installing" },
                     "knowledge",
                   ),
-                } satisfies Plan),
+                } satisfies Plan<StepRequirements>),
             });
             yield* emitOperationResolution("knowledge.install", resolution, {
               suggestions: [

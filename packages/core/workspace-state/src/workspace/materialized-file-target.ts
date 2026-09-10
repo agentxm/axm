@@ -4,8 +4,8 @@ import { RelativePathSchema } from "@agentxm/extension-model/unstable/path-types
 /**
  * Ephemeral result of one Rule or Hook projection reconciliation. This is the
  * extensibility axis for placement and materialization mode; grammar-level
- * changes belong to the managed-file ownership contract referenced by
- * `projection/marker-grammar.ts`.
+ * changes belong to the managed-file ownership contract implemented by
+ * `@agentxm/agent-integration` `managed-markers.ts`.
  */
 export const MaterializedFileTargetSchema = Schema.Struct({
   target: RelativePathSchema,

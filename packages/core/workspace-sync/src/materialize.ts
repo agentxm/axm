@@ -17,28 +17,31 @@ import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as semver from "semver";
 import {
-  CodingAgentRepository,
   HookManager,
   KnowledgeManager,
   RuleManager,
   SkillManager,
   SubagentManager,
   buildMaterializeOperation,
-  collectManagedAgentMcpServers,
-  enabledConfiguredEntries,
-  extensionConstraintFactText,
-  inspectMcpServerAcrossAgents,
-  isConfiguredEntryEnabled,
-  makeExtensionConstraintInvariantFact,
-  planExtensionConstraintFact,
   skillArtifactFromTargets,
   targetFromRef,
   toStepKey,
+} from "@agentxm/extension-materialization";
+import { enabledConfiguredEntries, isConfiguredEntryEnabled } from "@agentxm/workspace-state";
+import {
+  CodingAgentRepository,
+  extensionConstraintFactText,
+  inspectMcpServerAcrossAgents,
+  isObservedMaterializationCurrent,
+  type ProjectionParticipantRequirements,
+  makeExtensionConstraintInvariantFact,
+  planExtensionConstraintFact,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeOperationEvidence,
+  type ResolvedConfiguredEntry,
 } from "@agentxm/extension-resolution";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
@@ -53,7 +56,6 @@ import {
   type CanonicalObservationStatus,
   type DesiredExtensionNode,
   type DesiredStateGraph,
-  type ResolvedConfiguredEntry,
 } from "@agentxm/workspace-state";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -271,108 +273,6 @@ const buildMcpServerSyncOperation = <R>({
   };
 };
 
-const isObservedMaterializationCurrent = (
-  ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
-  node: DesiredExtensionNode,
-  configuredAgents: ReadonlyArray<string>,
-  agentRepo: CodingAgentRepositoryService,
-  subagentManager: ServiceMap.Service.Shape<typeof SubagentManager>,
-  resolvedRef: ExtensionRef,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-) =>
-  ws.records
-    .getExtensionInventory(node.type, {
-      ...(configuredAgents.length > 0 &&
-      (node.type === "skill" || node.type === "mcp-server" || node.type === "subagent")
-        ? { agents: configuredAgents }
-        : {}),
-    })
-    .pipe(
-      Effect.flatMap((inventory) => {
-        const observed = inventory.items.find((item) => item.name === node.name && item.installed);
-        if (observed === undefined) return Effect.succeed(false);
-        if (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent") {
-          // Rule, hook, and knowledge outputs are aggregate units whose
-          // currency is judged by reading the unit back (collectInstructionStep,
-          // collectHooksStep, collectKnowledgeStep). Canonical presence decides
-          // only whether this node needs canonical rematerialization.
-          return Effect.succeed(true);
-        }
-        if (configuredAgents.length === 0 && node.type !== "skill") return Effect.succeed(true);
-        if (node.type === "subagent") {
-          return resolvedRef.type === "subagent"
-            ? subagentManager
-                .projectionObservation(resolvedRef)
-                .pipe(Effect.map(({ current }) => current))
-            : Effect.succeed(false);
-        }
-        const hasProjectionOrigin = (() => {
-          switch (node.type) {
-            case "skill":
-              return observed.origins.includes("agent-skill-dir");
-            case "mcp-server":
-              return (
-                observed.origins.includes("workspace-mcp-config") ||
-                observed.origins.includes("agent-mcp-config")
-              );
-            default:
-              return true;
-          }
-        })();
-        if (!hasProjectionOrigin) return Effect.succeed(false);
-        if (node.type !== "skill") {
-          if (node.type === "mcp-server") {
-            return collectManagedAgentMcpServers({
-              workspaceRoot: ws.baseDir,
-              scope: ws.scope,
-              agentIds: configuredAgents,
-            }).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-              Effect.map((managed) =>
-                configuredAgents.every(
-                  (agentId) =>
-                    observed.agents.includes(agentId) ||
-                    managed.some(
-                      (entry) => entry.agentId === agentId && entry.serverName === node.name,
-                    ),
-                ),
-              ),
-            );
-          }
-          return Effect.succeed(
-            configuredAgents.every((agentId) => observed.agents.includes(agentId)),
-          );
-        }
-
-        return agentRepo.all.pipe(
-          Effect.flatMap((agents) => {
-            const configured = agents.filter((agent) => configuredAgents.includes(agent.id));
-            if (configured.length !== configuredAgents.length) return Effect.succeed(false);
-            return Effect.forEach(
-              configured,
-              (agent) =>
-                agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
-                  Effect.provideService(FileSystem.FileSystem, fs),
-                  Effect.provideService(Path.Path, path),
-                  Effect.map((outcome) => {
-                    if (outcome._tag === "unsupported" || outcome._tag === "disabled") return true;
-                    if (outcome._tag === "misconfigured") return false;
-                    const expectedPath = path.relative(
-                      ws.baseDir,
-                      path.join(outcome.dir, sanitizeName(node.name)),
-                    );
-                    return observed.paths.includes(expectedPath);
-                  }),
-                ),
-              { concurrency: "unbounded" },
-            ).pipe(Effect.map((results) => results.every(Boolean)));
-          }),
-        );
-      }),
-    );
-
 /** Application-supplied MCP server install operation for one sync transition. */
 export type RunMcpServerInstall<R> = (args: {
   readonly ref: McpServerExtensionRef;
@@ -387,9 +287,16 @@ export type ResolvedDesiredRef =
       readonly versionRange: Option.Option<never>;
     };
 
+/**
+ * Everything a collected materialize step may require at execution time: the
+ * feature's own step requirements plus what a projection participant declares
+ * when currency is judged by reading a unit back.
+ */
+type MaterializeStepRequirements = SyncStepRequirements | ProjectionParticipantRequirements;
+
 export const collectMaterializeSteps = <
   E = never,
-  R = SyncStepRequirements,
+  R = MaterializeStepRequirements,
   RResolve = never,
 >(args: {
   readonly selection?: SyncSelection;
@@ -514,16 +421,16 @@ export const collectMaterializeSteps = <
             );
           });
           const ref = resolved.ref;
-          const materializationCurrent = yield* isObservedMaterializationCurrent(
-            ws,
+          const materializationCurrent = yield* isObservedMaterializationCurrent({
+            workspace: ws,
             node,
-            configuredAgents,
-            agentRepo,
-            subagentManager,
-            ref,
+            configuredAgentIds: configuredAgents,
+            agents: agentRepo,
+            subagents: subagentManager,
+            resolvedRef: ref,
             fs,
             path,
-          );
+          });
           const materialize = observation.status !== "usable" || !materializationCurrent;
           const resolvedVersion =
             ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined;

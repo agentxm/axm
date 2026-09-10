@@ -25,8 +25,8 @@ import {
 } from "@agentxm/workspace-state";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import { AXM_SKILL_VERSION } from "../../../__generated__/bundled-axm-skill.js";
 import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";
@@ -42,6 +42,7 @@ import {
   stringProperty,
 } from "../../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
 
 // -----------------------------------------------------------------------------
 // Helpers

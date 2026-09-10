@@ -46,8 +46,8 @@ import { setupScopeSupport } from "@agentxm/workspace-state";
 import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import { LOCK_FILENAME } from "@agentxm/workspace-state";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { resolveInstructionTarget, syncInstructions } from "@agentxm/extension-workspace";
-import type { InstructionMechanism } from "@agentxm/extension-workspace";
+import { resolveInstructionTarget, syncInstructions } from "@agentxm/workspace-projection";
+import type { InstructionMechanism } from "@agentxm/workspace-projection";
 
 const SELECT_AGENTS_PROMPT_MISSING = new WorkspaceConfigurationFailed({
   category: "usage",

@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as os from "node:os";
 import * as path from "node:path";
 
@@ -52,30 +53,32 @@ describe("atomic pack graph transition", () => {
             fs.writeFileSync(target, "before\n");
           }
 
-          const childSteps: ReadonlyArray<PlannedJobStep> = targets.map((target, index) => ({
-            readiness: "ready",
-            label: `member-${String(index)}`,
-            run: runTransaction({
-              targets: [target],
-              transition: Effect.sync(() => {
-                fs.writeFileSync(target, `after-${String(index)}\n`);
-                return index === failAt
-                  ? ({
-                      result: "error",
-                      message: `injected failure at ${String(index)}`,
-                      error: new StepFailure({
-                        category: "internal",
-                        detail: `injected failure at ${String(index)}`,
-                      }),
-                    } satisfies JobStepResult)
-                  : ({
-                      result: "success",
-                      message: `updated member ${String(index)}`,
-                    } satisfies JobStepResult);
-              }),
-              validate: () => Effect.void,
-            }).pipe(Effect.mapError(failureToStepFailure)),
-          }));
+          const childSteps: ReadonlyArray<PlannedJobStep<StepRequirements>> = targets.map(
+            (target, index) => ({
+              readiness: "ready",
+              label: `member-${String(index)}`,
+              run: runTransaction({
+                targets: [target],
+                transition: Effect.sync(() => {
+                  fs.writeFileSync(target, `after-${String(index)}\n`);
+                  return index === failAt
+                    ? ({
+                        result: "error",
+                        message: `injected failure at ${String(index)}`,
+                        error: new StepFailure({
+                          category: "internal",
+                          detail: `injected failure at ${String(index)}`,
+                        }),
+                      } satisfies JobStepResult)
+                    : ({
+                        result: "success",
+                        message: `updated member ${String(index)}`,
+                      } satisfies JobStepResult);
+                }),
+                validate: () => Effect.void,
+              }).pipe(Effect.mapError(failureToStepFailure)),
+            }),
+          );
           const graphStep = yield* buildAtomicPackGraphStep({
             label: "@test/packs/atomic",
             message: "updated atomic pack graph",

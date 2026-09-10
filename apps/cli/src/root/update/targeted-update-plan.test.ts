@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as os from "node:os";
 import * as path from "node:path";
 
@@ -49,7 +50,7 @@ describe("targeted update transaction", () => {
           steps: [{ readiness: "ready", label: "reviewer", run }],
         },
       ],
-    }) satisfies Plan;
+    }) satisfies Plan<StepRequirements>;
 
   it.effect(
     "C-02: a stale ownership context resolves as typed stale-candidate blocking before the member step runs",

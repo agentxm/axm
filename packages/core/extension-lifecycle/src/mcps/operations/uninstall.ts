@@ -14,8 +14,9 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import type { CodingAgent, McpServerSyncOutcome } from "@agentxm/extension-workspace";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { NativeWriteAuthority } from "@agentxm/agent-integration";
+import type { CodingAgent, McpServerSyncOutcome } from "@agentxm/agent-integration";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
@@ -27,7 +28,7 @@ import {
   removableAcceptedCanonicalPath,
 } from "@agentxm/workspace-state";
 import { agentConfigTarget, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
-import { LifecycleFailureAdapter, withAdaptedStepFailures } from "../../failure-adapter.js";
+import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { collectSecretInputNames, deleteMcpSecrets, readMcpServerManifest } from "./install.js";
 
@@ -220,7 +221,8 @@ export const uninstallMcpServer: (
   | Path.Path
   | WorkspaceMutations
   | CodingAgentRepository
-  | LifecycleFailureAdapter
+  | NativeWriteAuthority
+  | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

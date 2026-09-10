@@ -2,13 +2,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import { contextFor, validLockfile, validSettings } from "./conformance/test-helpers.js";
+import { axmSkillDeclaredRule } from "./axm-skill-declared.js";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
-} from "@agentxm/extension-workspace";
-import { contextFor, validLockfile, validSettings } from "./conformance/test-helpers.js";
-import { axmSkillDeclaredRule } from "./axm-skill-declared.js";
+} from "@agentxm/extension-resolution";
 
 const compatible = evaluateAxmSkillCompatibility({
   cliVersion: "1.2.3",

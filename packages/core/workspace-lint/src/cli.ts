@@ -38,7 +38,7 @@ import type { Evaluated } from "@agentxm/extension-content/lint";
 import { evaluateContexts } from "@agentxm/extension-content/lint";
 import type { LintInput, LintJsonDocument, LintJsonFinding } from "./json-schema.js";
 import type { LintFinding, Severity } from "@agentxm/extension-content/lint";
-import type { AxmSkillCompatibility } from "@agentxm/extension-workspace";
+
 import {
   CATALOG_GROUP_ORDER,
   lintCatalogsForView,
@@ -47,6 +47,7 @@ import {
   type CatalogRuleContexts,
   type LintView,
 } from "./catalog-contexts.js";
+import { type AxmSkillCompatibility } from "@agentxm/extension-resolution";
 
 // -----------------------------------------------------------------------------
 // Grouping + summary

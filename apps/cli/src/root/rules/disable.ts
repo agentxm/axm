@@ -1,4 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -33,8 +35,7 @@ import {
   reconcileInstructionTransition,
 } from "@agentxm/workspace-configuration";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { RuleManager } from "@agentxm/extension-workspace";
-
+import { RuleManager } from "@agentxm/extension-materialization";
 export const handleDisableRule = (args: { readonly name: string; readonly preview: boolean }) =>
   withOperationLifecycle(
     {
@@ -105,7 +106,7 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
       } satisfies JobStepArtifact,
     } satisfies JobStepResult;
   }).pipe(Effect.mapError(toAppError));
-  const activationStep: PlannedJobStep = Option.match(readiness, {
+  const activationStep: PlannedJobStep<StepRequirements> = Option.match(readiness, {
     onSome: (error) => ({
       label: args.name,
       readiness: "error",
@@ -114,25 +115,23 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
     onNone: () => ({
       readiness: "ready",
       label: args.name,
-      run: ruleManager
-        .runTransaction({
-          transition: Option.isSome(instructionsConfig)
-            ? reconcileInstructionTransition({
-                ws,
-                config: instructionsConfig.value,
-                transition: disableTransition,
-              }).pipe(
-                Effect.mapError(configurationFailureToAppError),
-                Effect.provideService(FileSystem.FileSystem, fs),
-                Effect.provideService(Path.Path, path),
-              )
-            : disableTransition,
-          validate: () => Effect.void,
-        })
-        .pipe(Effect.mapError(failureToStepFailure)),
+      run: runWorkspaceTransaction({
+        transition: Option.isSome(instructionsConfig)
+          ? reconcileInstructionTransition({
+              ws,
+              config: instructionsConfig.value,
+              transition: disableTransition,
+            }).pipe(
+              Effect.mapError(configurationFailureToAppError),
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            )
+          : disableTransition,
+        validate: () => Effect.void,
+      }).pipe(Effect.mapError(failureToStepFailure)),
     }),
   });
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "Disable rules",
     description: Option.some(`Disable rule ${args.name}`),

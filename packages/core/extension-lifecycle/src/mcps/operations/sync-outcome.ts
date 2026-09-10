@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import type { McpServerSyncOutcome } from "@agentxm/extension-workspace";
+import type { McpServerSyncOutcome } from "@agentxm/agent-integration";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 
 export interface AgentMcpSyncOutcome {

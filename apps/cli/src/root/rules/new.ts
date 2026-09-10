@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -15,7 +16,7 @@ import {
   buildNewExtensionStep,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -39,8 +40,7 @@ import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
 import { isValidScaffoldName, scaffoldNameValidationSuggestion } from "../shared/scaffold-name.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { RuleManager } from "@agentxm/extension-workspace";
-
+import { RuleManager } from "@agentxm/extension-materialization";
 /** Rule bodies live under `src/` alongside every other package-body type. */
 const RULE_SOURCE_DIR = "src";
 
@@ -154,7 +154,7 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
     Effect.provideService(Path.Path, path),
   );
 
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "New rule",
     description: Option.some(`Create ${fqn}`),

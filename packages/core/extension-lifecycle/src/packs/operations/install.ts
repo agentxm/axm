@@ -13,7 +13,10 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { recoverCanonicalDirectory, replaceCanonicalDirectory } from "@agentxm/extension-workspace";
+import {
+  recoverCanonicalDirectory,
+  replaceCanonicalDirectory,
+} from "@agentxm/extension-materialization";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { validateExactResolvedVersion } from "@agentxm/workspace-state";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
@@ -21,24 +24,22 @@ import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import {
-  LifecycleFailureAdapter,
-  type LifecycleFailureAdapterService,
-} from "../../failure-adapter.js";
+  StepFailureConversion,
+  type StepFailureConversionService,
+} from "../../step-failure-conversion.js";
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { copyExtensionDirectory } from "@agentxm/extension-workspace";
+import { copyExtensionDirectory } from "@agentxm/extension-materialization";
 import { computePackPathsForLayout } from "@agentxm/workspace-state";
 import {
   PACK_MANIFEST_FILENAME,
   type PackManifest,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import {
-  type ResolvedPackDependencyMap,
-  validateExactPackDependencyVersions,
-} from "../resolved-dependency.js";
+import { validateExactPackDependencyVersions } from "../resolved-dependency.js";
+import type { ResolvedPackDependencyMap } from "@agentxm/extension-resolution";
 import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
 import { computeMaterializedTreeIntegrity } from "@agentxm/workspace-state";
 
@@ -119,14 +120,14 @@ export const installPack: OperationHandler<
   | SourceHostProviders
   | FileSystem.FileSystem
   | Path.Path
-  | LifecycleFailureAdapter
+  | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
-    const adapter = yield* LifecycleFailureAdapter;
+    const adapter = yield* StepFailureConversion;
     return yield* runInstallPack(op, adapter);
   });
 
-const runInstallPack = (op: InstallPackOperation, adapter: LifecycleFailureAdapterService) =>
+const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversionService) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const sources = yield* SourceHostProviders;

@@ -17,7 +17,7 @@ import {
   TreeIntegritySchema,
   computeSourceHash,
 } from "@agentxm/workspace-state";
-import { type WorkspaceTransactionRunner } from "@agentxm/workspace-transactions";
+import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/extension-materialization";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
@@ -50,16 +50,22 @@ import {
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
   Partial<WorkspaceMutationsService["records"]>;
 
-export const runWorkspaceTransactionStub: WorkspaceTransactionRunner = (args) =>
-  Effect.gen(function* () {
-    const value = yield* args.transition;
-    yield* args.validate(value);
-    return value;
-  });
+/**
+ * What a stub manager reports from a materialization: nothing acquired and
+ * nothing projected. Stated here rather than imported from the capability's
+ * `./testing` surface, which production-classified modules may not reach.
+ */
+export const NO_MATERIALIZATION_FACTS = {
+  observation: NO_MATERIALIZATION_OBSERVATION,
+  treeIntegrity: Option.none(),
+  sourceHash: Option.none(),
+  acquired: Option.none(),
+  removal: Option.none(),
+} as const;
 
 export const managerLifecycleStubs = {
-  runTransaction: runWorkspaceTransactionStub,
-  materializeDeactivate: () => Effect.void,
+  materializeDeactivate: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
+  aggregateProjectionObservation: Effect.succeed(NO_MATERIALIZATION_OBSERVATION),
 };
 
 const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>> => Effect.succeed([]);

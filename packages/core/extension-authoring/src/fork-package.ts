@@ -9,14 +9,14 @@ import {
   ForkPackageConflict,
   ForkPackageFailed,
   ForkPackageInvalid,
-} from "@agentxm/extension-workspace";
+} from "./authored-package-errors.js";
 import {
   ManifestIdentitySchema,
   manifestFilenameForType,
   manifestSchemaForType,
   type ManifestIdentity,
 } from "@agentxm/extension-content";
-import { copyExtensionDirectory } from "@agentxm/extension-workspace";
+import { copyExtensionDirectory } from "@agentxm/extension-materialization";
 import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
 import type {
   ExtensionFqnParts,

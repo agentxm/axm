@@ -1,14 +1,12 @@
 import { Command, Flag } from "effect/unstable/cli";
+import type { StepRequirements } from "./shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type { InstructionsConfig, InstructionsConfigValue } from "@agentxm/workspace-state";
-import {
-  runWorkspaceTransaction,
-  type WorkspaceTransactionScope,
-} from "@agentxm/workspace-transactions";
+import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
 import { withArgvTracking } from "../cli-runtime/index.js";
 import { Screen, inventoryDoc, type ViewColumn } from "../screen/index.js";
 import type {
@@ -18,15 +16,15 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
+import { RuleManager } from "@agentxm/extension-materialization";
 import {
   applyPlannedProjections,
   observeProjectionPlans,
-  RuleManager,
   instructionProjectionEffects,
   instructionProjectionRemovalEffects,
   observeInstructionProjection,
   resolveInstructionsConfig,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags/scope-flag.js";
@@ -54,7 +52,7 @@ import { failureToStepFailure, toAppError } from "../app-error/conversions.js";
 import type {
   InstructionProjectionEffect,
   InstructionStatusItem,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 
 interface InstructionTableItem {
   readonly agentId: string;
@@ -317,51 +315,50 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
     yield* instructionReconciliationReadiness({ ws, snapshot: preflight }),
     configurationFailureToAppError,
   );
-  const step: PlannedJobStep<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope> =
-    Option.match(readiness, {
-      onNone: () => ({
-        label: "Enable instruction-file management",
-        readiness: "ready",
-        artifact,
-        run: runWorkspaceTransaction({
-          transition: reconcileInstructionTransition({
-            ws,
-            config: resolvedConfig,
-            ...(configChanged && Option.isSome(previousConfig)
-              ? { preflightConfig: previousConfig.value }
-              : {}),
-            transition: Effect.gen(function* () {
-              if (configChanged && Option.isSome(previousConfig)) {
-                yield* removeInstructionTargetsFor({ ws, config: previousConfig.value });
-              }
-              yield* ws.setInstructionsConfig(config).pipe(Effect.mapError(toAppError));
-              yield* applyPlannedProjections(ruleManager);
-            }).pipe(
-              Effect.mapError(configurationFailureToAppError),
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-            ),
+  const step: PlannedJobStep<StepRequirements> = Option.match(readiness, {
+    onNone: () => ({
+      label: "Enable instruction-file management",
+      readiness: "ready",
+      artifact,
+      run: runWorkspaceTransaction({
+        transition: reconcileInstructionTransition({
+          ws,
+          config: resolvedConfig,
+          ...(configChanged && Option.isSome(previousConfig)
+            ? { preflightConfig: previousConfig.value }
+            : {}),
+          transition: Effect.gen(function* () {
+            if (configChanged && Option.isSome(previousConfig)) {
+              yield* removeInstructionTargetsFor({ ws, config: previousConfig.value });
+            }
+            yield* ws.setInstructionsConfig(config).pipe(Effect.mapError(toAppError));
+            yield* applyPlannedProjections(ruleManager);
           }).pipe(
             Effect.mapError(configurationFailureToAppError),
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
           ),
-          validate: () => Effect.void,
         }).pipe(
-          Effect.mapError(failureToStepFailure),
-          Effect.as({
-            result: "success",
-            message: "Enabled and reconciled instruction-file management",
-            artifact,
-          } satisfies JobStepResult),
+          Effect.mapError(configurationFailureToAppError),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
         ),
-      }),
-      onSome: (error) => ({
-        label: "Enable instruction-file management",
-        readiness: "error",
-        errorMessage: error.detail,
-      }),
-    });
+        validate: () => Effect.void,
+      }).pipe(
+        Effect.mapError(failureToStepFailure),
+        Effect.as({
+          result: "success",
+          message: "Enabled and reconciled instruction-file management",
+          artifact,
+        } satisfies JobStepResult),
+      ),
+    }),
+    onSome: (error) => ({
+      label: "Enable instruction-file management",
+      readiness: "error",
+      errorMessage: error.detail,
+    }),
+  });
   const resolution = yield* previewOrApplyLocalPlan(
     makeInstructionsConfigPlan({
       name: "Enable instruction-file management",
@@ -414,34 +411,33 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
     yield* instructionReconciliationReadiness({ ws, snapshot }),
     configurationFailureToAppError,
   );
-  const step: PlannedJobStep<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope> =
-    Option.match(readiness, {
-      onNone: () => ({
-        label: "Disable instruction-file management",
-        readiness: "ready",
-        artifact,
-        run: runWorkspaceTransaction({
-          transition: disableInstructionManagement({ ws, config }).pipe(
-            Effect.mapError(configurationFailureToAppError),
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-          validate: () => Effect.void,
-        }).pipe(
-          Effect.mapError(failureToStepFailure),
-          Effect.as({
-            result: "success",
-            message: "Disabled instruction-file management and removed owned aliases",
-            artifact,
-          } satisfies JobStepResult),
+  const step: PlannedJobStep<StepRequirements> = Option.match(readiness, {
+    onNone: () => ({
+      label: "Disable instruction-file management",
+      readiness: "ready",
+      artifact,
+      run: runWorkspaceTransaction({
+        transition: disableInstructionManagement({ ws, config }).pipe(
+          Effect.mapError(configurationFailureToAppError),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
         ),
-      }),
-      onSome: (error) => ({
-        label: "Disable instruction-file management",
-        readiness: "error",
-        errorMessage: error.detail,
-      }),
-    });
+        validate: () => Effect.void,
+      }).pipe(
+        Effect.mapError(failureToStepFailure),
+        Effect.as({
+          result: "success",
+          message: "Disabled instruction-file management and removed owned aliases",
+          artifact,
+        } satisfies JobStepResult),
+      ),
+    }),
+    onSome: (error) => ({
+      label: "Disable instruction-file management",
+      readiness: "error",
+      errorMessage: error.detail,
+    }),
+  });
   const resolution = yield* previewOrApplyLocalPlan(
     makeInstructionsConfigPlan({
       name: "Disable instruction-file management",

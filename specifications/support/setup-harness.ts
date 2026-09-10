@@ -37,6 +37,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import {
   CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
   ExecutionDirectory,
   makeEffectProvide,
 } from "axm.sh/specification-harness";
@@ -102,6 +103,7 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
     platformLayer,
     FetchHttpClient.layer,
     CodingAgentRepositoryLive,
+    NativeWriteAuthorityLive,
     renderer.layer,
     interaction.layer,
     TestFlagsLayer({

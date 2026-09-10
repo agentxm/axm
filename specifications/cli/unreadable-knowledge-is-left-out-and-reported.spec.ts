@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "packages/core/extension-lifecycle/src/knowledge/manager.ts",
-    "packages/core/extension-workspace/src/projection/planning.ts",
+    "packages/core/workspace-projection/src/planning.ts",
   ],
   supersedes: [],
   assumptions: [],

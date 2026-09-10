@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -9,15 +10,16 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import {
-  CodingAgentRepository,
-  findManagedSubagentFiles,
   HookManager,
   KnowledgeManager,
   McpServerManager,
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-workspace";
+  type ExtensionManagerFailure,
+  type ManagerRequirements,
+} from "@agentxm/extension-materialization";
+import { CodingAgentRepository, findManagedSubagentFiles } from "@agentxm/workspace-projection";
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
 import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
@@ -29,10 +31,7 @@ import {
   WorkspaceMutations,
   type DesiredExtensionNode,
 } from "@agentxm/workspace-state";
-import {
-  runWorkspaceTransaction,
-  type WorkspaceTransactionScope,
-} from "@agentxm/workspace-transactions";
+import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -45,7 +44,7 @@ import {
   applyProjectionPlans,
   projectionPlanExclusionWarnings,
   type ProjectionPlan,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
@@ -65,9 +64,9 @@ import {
 } from "../shared/workspace-display-paths.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
-import { toAppError } from "../../app-error/conversions.js";
-import { lifecycleFailureToStepFailure } from "../../feature-errors.js";
-import { LifecycleFailureAdapter, ReleaseAgePosture } from "@agentxm/extension-lifecycle";
+import { toAppError, failureToStepFailure } from "../../app-error/conversions.js";
+import { StepFailureConversion } from "@agentxm/extension-lifecycle";
+import { ReleaseAgePosture } from "@agentxm/extension-resolution";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
@@ -190,7 +189,7 @@ const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(functio
 // desired-state contributor set, after the pack's activation change commits.
 const reconcileAggregateProjections = Effect.fn("PacksActivation.reconcileAggregateProjections")(
   function* (types: ReadonlySet<string>) {
-    const plans: Array<ProjectionPlan> = [];
+    const plans: Array<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>> = [];
     if (types.has("rule")) {
       const manager = yield* RuleManager;
       plans.push(...(yield* manager.projectionPlans()));
@@ -258,7 +257,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
   const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
   const runServices = yield* Effect.context<
-    | LifecycleFailureAdapter
+    | StepFailureConversion
     | ReleaseAgePosture
     | Scope.Scope
     | HttpClient.HttpClient
@@ -332,7 +331,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
     targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated" }, ...memberTargets],
   } satisfies JobStepArtifact;
 
-  const plan: Plan<WorkspaceTransactionScope> = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: `${titleVerb} pack`,
     description: Option.some(`${titleVerb} ${packIdentity} without changing locked versions`),
@@ -403,7 +402,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
                 artifact: activationArtifact,
                 ...(projectionWarnings.length === 0 ? {} : { warnings: projectionWarnings }),
               } satisfies JobStepResult;
-            }).pipe(Effect.provide(runServices), Effect.mapError(lifecycleFailureToStepFailure)),
+            }).pipe(Effect.mapError(failureToStepFailure)),
           },
         ],
       },

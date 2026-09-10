@@ -18,7 +18,7 @@ import {
   makeInstallCommandActions,
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
-import { ReleaseAgePosture } from "@agentxm/extension-lifecycle";
+import { ReleaseAgePosture } from "@agentxm/extension-resolution";
 
 const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableType>): SubjectType =>
   Option.match(type, {

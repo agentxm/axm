@@ -6,7 +6,7 @@ import type {
   InstructionsGitignoreStatus,
   InstructionsStatus,
   InstructionStatusItem,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { instructionsAgentSupportedRule } from "../../instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "../../instructions-gitignore-current.js";

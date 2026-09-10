@@ -351,7 +351,7 @@ const handlePacksAddBody = Effect.fn("PacksAdd.handle")(function* (args: PacksAd
     },
   } satisfies AddToPackOperation;
 
-  // Build Plan directly with inline run closure
+  // Build Plan<StepRequirements> directly with inline run closure
   const provideServices = <A, E>(
     effect: Effect.Effect<
       A,

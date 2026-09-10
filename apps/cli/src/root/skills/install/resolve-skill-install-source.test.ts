@@ -19,8 +19,8 @@ import {
 } from "@agentxm/extension-model/unstable/sources/parser";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
-import { WorkspaceCatalogLive } from "../../../cli-runtime/index.js";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 import { toAppError } from "../../../app-error/conversions.js";
 

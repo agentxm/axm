@@ -46,9 +46,9 @@
     "includedScripts": []
   },
   "dependencies": {
+    "@agentxm/agent-integration": "workspace:^",
     "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
-    "@agentxm/extension-resolution": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-transactions": "workspace:^",
     "effect": "catalog:",

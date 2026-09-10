@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
@@ -8,9 +9,18 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
+  makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
+  resolveConfiguredHook,
+  resolveConfiguredKnowledge,
+  resolveConfiguredMcpServer,
+  resolveConfiguredPack,
+  resolveConfiguredRegistryEntry,
+  resolveConfiguredRule,
+  resolveConfiguredSkill,
+  resolveConfiguredSubagent,
 } from "@agentxm/extension-resolution";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
@@ -30,20 +40,9 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import {
-  LifecycleFailureAdapter,
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
-  resolveConfiguredKnowledge,
-  resolveConfiguredMcpServer,
-  resolveConfiguredPack,
-  resolveConfiguredRegistryEntry,
-  resolveConfiguredRule,
-  resolveConfiguredSkill,
-  resolveConfiguredSubagent,
-} from "@agentxm/extension-lifecycle";
+import { StepFailureConversion } from "@agentxm/extension-lifecycle";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
-import { enabledConfiguredEntries } from "@agentxm/extension-workspace";
+import { enabledConfiguredEntries } from "@agentxm/workspace-state";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { JobStepResult } from "@agentxm/workspace-operations";
@@ -73,11 +72,11 @@ type StepOrigin = "direct" | "dependency";
 interface StepFragment {
   readonly key: string;
   readonly origin: StepOrigin;
-  readonly step: PlannedJobStep;
+  readonly step: PlannedJobStep<StepRequirements>;
 }
 
 interface CollectedWorkspaceUpdatePlans {
-  readonly plans: ReadonlyArray<Plan>;
+  readonly plans: ReadonlyArray<Plan<StepRequirements>>;
   readonly fragments: ReadonlyArray<StepFragment>;
   readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
   readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
@@ -88,7 +87,8 @@ interface WorkspaceUpdateCollectionRequest extends WorkspaceUpdateNameSelection 
 }
 
 type WorkspaceUpdateCollectorContext =
-  | LifecycleFailureAdapter
+  | StepRequirements
+  | StepFailureConversion
   | Scope.Scope
   | HttpClient.HttpClient
   | FileSystem.FileSystem
@@ -133,7 +133,7 @@ export type WorkspaceUpdatePlanResult =
     }
   | {
       readonly _tag: "WorkspaceUpdatePlan";
-      readonly plan: Plan;
+      readonly plan: Plan<StepRequirements>;
     };
 
 const noConfiguredMessage = (type: Option.Option<WorkspaceUpdatableType>): string =>
@@ -145,15 +145,16 @@ const noConfiguredMessage = (type: Option.Option<WorkspaceUpdatableType>): strin
       }.`,
   });
 
-const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
-  plan.jobs.flatMap((job) => job.steps);
+const flattenPlanSteps = (
+  plan: Plan<StepRequirements>,
+): ReadonlyArray<PlannedJobStep<StepRequirements>> => plan.jobs.flatMap((job) => job.steps);
 
 const workspaceSourceUnchangedPlan = (
   type: InstallableExtensionType,
   name: string,
   source: string,
   scope: WorkspaceScope,
-): Plan => ({
+): Plan<StepRequirements> => ({
   _tag: "Plan",
   name: `Skip workspace-sourced ${type}`,
   description: Option.some(`${name} is locally authoritative`),
@@ -185,7 +186,7 @@ const workspacePlanningErrorPlan = (
   type: InstallableExtensionType,
   name: string,
   error: AppError,
-): Plan => ({
+): Plan<StepRequirements> => ({
   _tag: "Plan",
   name: `Block configured ${type} update`,
   description: Option.some(`${name} could not be planned`),
@@ -210,7 +211,7 @@ const toCollectedWorkspaceUpdatePlans = ({
   bypasses = [],
   originForStep = () => "direct" as const,
 }: {
-  readonly plans: ReadonlyArray<Plan>;
+  readonly plans: ReadonlyArray<Plan<StepRequirements>>;
   readonly holdbacks?: ReadonlyArray<ReleaseAgeRecord>;
   readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
   readonly originForStep?: (index: number) => StepOrigin;
@@ -557,15 +558,15 @@ const resolvePackRef = (name: string, source: string, releaseAgeEvaluation: Rele
   });
 
 interface ResolvedPlanCollection {
-  readonly plans: ReadonlyArray<Plan>;
+  readonly plans: ReadonlyArray<Plan<StepRequirements>>;
   readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
   readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
 }
 
 const collectResolvedPlan = <TIntent, RResolution, RPlan>(
   resolution: Effect.Effect<ConfiguredUpdateResolution<TIntent>, AppError, RResolution>,
-  buildPlan: (intent: TIntent) => Effect.Effect<Plan, AppError, RPlan>,
-  onError: (error: AppError) => Plan,
+  buildPlan: (intent: TIntent) => Effect.Effect<Plan<StepRequirements>, AppError, RPlan>,
+  onError: (error: AppError) => Plan<StepRequirements>,
 ) =>
   resolution.pipe(
     Effect.flatMap((resolved) =>
@@ -592,7 +593,7 @@ const collectResolvedPlan = <TIntent, RResolution, RPlan>(
     ),
   );
 
-const collectedWorkspaceSourcePlan = (plan: Plan): ResolvedPlanCollection => ({
+const collectedWorkspaceSourcePlan = (plan: Plan<StepRequirements>): ResolvedPlanCollection => ({
   plans: [plan],
   holdbacks: [],
   bypasses: [],
@@ -959,10 +960,10 @@ const makeWorkspaceUpdateCollectors = (
 export const makeWorkspaceUpdatePlan = (
   name: string,
   description: Option.Option<string>,
-  steps: ReadonlyArray<PlannedJobStep>,
+  steps: ReadonlyArray<PlannedJobStep<StepRequirements>>,
   type: Option.Option<WorkspaceUpdatableType>,
-  releaseAge: Plan["releaseAge"],
-): Plan => ({
+  releaseAge: Plan<StepRequirements>["releaseAge"],
+): Plan<StepRequirements> => ({
   _tag: "Plan",
   name,
   description,
@@ -1020,7 +1021,7 @@ export const buildWorkspaceUpdatePlan = (
       evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
       holdbacks,
       bypasses,
-    } satisfies NonNullable<Plan["releaseAge"]>;
+    } satisfies NonNullable<Plan<StepRequirements>["releaseAge"]>;
 
     return {
       _tag: "WorkspaceUpdatePlan",

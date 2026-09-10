@@ -14,7 +14,8 @@ import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";
-import { inspectInstalledKnowledge, inspectKnowledgePackage } from "./inspect.js";
+import { inspectKnowledgePackage } from "@agentxm/extension-content/knowledge";
+import { inspectInstalledKnowledge } from "./inspect.js";
 
 const FrontmatterParseDetailsSchema = Schema.Struct({
   kind: Schema.Literal("frontmatter-parse"),

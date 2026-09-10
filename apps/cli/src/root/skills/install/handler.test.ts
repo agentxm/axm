@@ -26,8 +26,8 @@ import {
   preapprovedPlanExecution,
 } from "@agentxm/workspace-operations/testing";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 import { handleInstall, handleInstallWithActions, type InstallHandlerArgs } from "./handler.js";
 import {
@@ -39,7 +39,7 @@ import {
   property,
 } from "../../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../../feature-errors.js";
 
 const unsupportedRegistryHttpClient = HttpClient.make((request) =>
   Effect.succeed(
@@ -226,7 +226,7 @@ describe("skills install handler — error propagation", () => {
         handlerTestContext.wsLayer,
         SPLayer,
         CodingAgentRepositoryLive,
-        LifecycleFailureAdapterLive,
+        LifecycleStepFailureConversionLive,
       ),
     );
     const FullLayer = Layer.mergeAll(
@@ -234,7 +234,7 @@ describe("skills install handler — error propagation", () => {
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
-      LifecycleFailureAdapterLive,
+      LifecycleStepFailureConversionLive,
       SMLayer,
       PlanInvocationTest,
     );
@@ -277,7 +277,7 @@ describe("skills install handler — error propagation", () => {
     const fullLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
-      LifecycleFailureAdapterLive,
+      LifecycleStepFailureConversionLive,
       PlanInvocationTest,
     );
     const provide = makeEffectProvide(fullLayer);

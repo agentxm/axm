@@ -9,14 +9,14 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
-import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
-import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
+import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
+import { RuleManagerLive } from "@agentxm/extension-materialization/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
+import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
 
 import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
@@ -30,7 +30,7 @@ import {
 } from "../../test-helpers.js";
 import { handlePackActivation } from "./activation.js";
 import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
-import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
 
 const initializePack = (root: string) => {
   const axmDir = path.join(root, ".axm");
@@ -143,7 +143,7 @@ describe("packs activation", () => {
       context.wsLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
-      LifecycleFailureAdapterLive,
+      LifecycleStepFailureConversionLive,
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
@@ -164,7 +164,7 @@ describe("packs activation", () => {
           context.wsLayer,
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
-          LifecycleFailureAdapterLive,
+          LifecycleStepFailureConversionLive,
           managersLayer,
         ),
       ),

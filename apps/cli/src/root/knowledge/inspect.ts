@@ -20,10 +20,8 @@ import { KnowledgeIndex, captureKnowledgeIndexBundles } from "@agentxm/knowledge
 import {
   inspectKnowledgePackage,
   readKnowledgePackageManifest,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-content/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
-
-export { inspectKnowledgePackage } from "@agentxm/extension-workspace";
 
 export const bundleRoot = (
   layout: WorkspaceLayout,

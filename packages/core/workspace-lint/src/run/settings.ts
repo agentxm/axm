@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
 import {
   reconcileInstructionTargets,
   resolveInstructionsConfig,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import type { LintConfig } from "@agentxm/extension-content/lint";
 import { composePath } from "@agentxm/extension-content/lint";
 import {

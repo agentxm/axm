@@ -8,6 +8,8 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import { readWorkspacePackageDirectories } from "../../support/workspace-packages.js";
+
 export const specification = defineSpecification({
   requirement: "system/architecture/public-system-depends-only-on-published-contracts",
   title:
@@ -29,31 +31,17 @@ export const specification = defineSpecification({
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 
-const WORKSPACE_MANIFESTS = [
+/**
+ * The repository manifest and every workspace package manifest, enumerated
+ * from the pnpm workspace globs rather than from a list kept in this file.
+ * The requirement is about *no* workspace package, so a roster maintained by
+ * hand would quietly stop covering packages added, renamed, or split after it
+ * was written.
+ */
+const workspaceManifestPaths = (): ReadonlyArray<string> => [
   "package.json",
-  "packages/supporting/agent-integration/package.json",
-  "apps/cli/package.json",
-  "packages/core/extension-authoring/package.json",
-  "packages/core/extension-discovery/package.json",
-  "packages/core/extension-lifecycle/package.json",
-  "packages/core/extension-model/package.json",
-  "packages/core/extension-publish/package.json",
-  "packages/supporting/extension-sources/package.json",
-  "packages/core/extension-workspace/package.json",
-  "packages/core/knowledge-query/package.json",
-  "packages/supporting/registry-auth/package.json",
-  "packages/supporting/registry-client/package.json",
-  "packages/core/workspace-configuration/package.json",
-  "packages/core/workspace-inspection/package.json",
-  "packages/core/workspace-lint/package.json",
-  "packages/core/workspace-operations/package.json",
-  "packages/core/workspace-state/package.json",
-  "packages/core/workspace-sync/package.json",
-  "packages/core/registry-protocol/package.json",
-  "apps/cli-e2e/package.json",
-  "tools/e2e-utils/package.json",
-  "specifications/package.json",
-] as const;
+  ...readWorkspacePackageDirectories(repoRoot).map((directory) => `${directory}/package.json`),
+];
 
 const DEPENDENCY_FIELDS = [
   "dependencies",
@@ -89,7 +77,9 @@ const trackedFiles = (paths: ReadonlyArray<string>): ReadonlySet<string> =>
 describe("Public and private boundary", () => {
   it.effect("no workspace package depends on private repository source or paths", () =>
     Effect.sync(() => {
-      for (const manifestPath of WORKSPACE_MANIFESTS) {
+      const manifestPaths = workspaceManifestPaths();
+      expect(manifestPaths.length).toBeGreaterThan(1);
+      for (const manifestPath of manifestPaths) {
         const manifest: unknown = JSON.parse(
           fs.readFileSync(path.join(repoRoot, manifestPath), "utf8"),
         );
@@ -106,10 +96,11 @@ describe("Public and private boundary", () => {
             // Interaction with the private platform happens only through
             // published packages and generated API clients, never through
             // filesystem paths escaping this repository or private scopes.
-            expect(name).not.toContain("internal");
+            const site = `${manifestPath} ${field} ${name}`;
+            expect(name, site).not.toContain("internal");
             if (typeof version === "string") {
-              expect(version.startsWith("file:..")).toBe(false);
-              expect(version.startsWith("link:..")).toBe(false);
+              expect(version.startsWith("file:.."), site).toBe(false);
+              expect(version.startsWith("link:.."), site).toBe(false);
             }
           }
         }

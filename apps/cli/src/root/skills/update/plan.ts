@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import type * as Option from "effect/Option";
 import type {
   JobStepResult,
@@ -63,7 +64,7 @@ const hasChanged = (op: InstallSkillOperation, accepted: SkillLockEntry): boolea
 };
 
 // -----------------------------------------------------------------------------
-// Plan builder
+// Plan<StepRequirements> builder
 // -----------------------------------------------------------------------------
 
 /**
@@ -80,14 +81,14 @@ export const buildUpdatePlan = (
   name: string,
   description: Option.Option<string>,
   makeRunClosure: MakeRunClosure,
-): Plan => ({
+): Plan<StepRequirements> => ({
   _tag: "Plan",
   name,
   description,
   jobs: [
     {
       concurrency: "unbounded",
-      steps: ops.map((op): PlannedJobStep => {
+      steps: ops.map((op): PlannedJobStep<StepRequirements> => {
         const accepted = acceptedResolutions[op.args.ref.skill.name];
         const needsUpdate = accepted === undefined || op.args.force || hasChanged(op, accepted);
 

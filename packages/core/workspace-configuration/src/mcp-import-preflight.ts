@@ -1,6 +1,6 @@
 import * as DateTime from "effect/DateTime";
 
-import { isAxmManagedMcpEntry } from "@agentxm/workspace-state";
+import { isAxmManagedMcpEntry } from "@agentxm/agent-integration";
 export type InlineMcpDefinition =
   | {
       readonly type: "stdio";

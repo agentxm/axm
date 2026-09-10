@@ -24,7 +24,8 @@ import {
   extensionTypeSentenceLabels,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { inspectMcpServerAcrossAgents, HookManager } from "@agentxm/extension-workspace";
+import { HookManager } from "@agentxm/extension-materialization";
+import { inspectMcpServerAcrossAgents } from "@agentxm/workspace-projection";
 import { ManifestIdentitySchema, manifestFilenameForType } from "@agentxm/extension-content";
 import {
   WorkspaceMutations,

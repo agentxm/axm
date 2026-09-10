@@ -10,6 +10,18 @@
 
 export { AuthoringFailed } from "./errors.js";
 export {
+  CreateDestinationInspectionFailed,
+  CreateNameConfigured,
+  ForkPackageConflict,
+  ForkPackageFailed,
+  ForkPackageInvalid,
+  NativeImportConflict,
+  NativeImportFailed,
+  NativeImportInvalid,
+  NativeImportUnsupported,
+  type AuthoredPackageError,
+} from "./authored-package-errors.js";
+export {
   AuthoringFailureAdapter,
   withAdaptedStepFailures,
   type AuthoringFailureAdapterService,

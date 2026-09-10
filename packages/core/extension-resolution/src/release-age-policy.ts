@@ -85,9 +85,6 @@ export const normalizeReleaseAgeRecords = <Record extends ReleaseAgeRecord>(
     .map(([, record]) => record);
 };
 
-export const DEFAULT_MINIMUM_RELEASE_AGE = "24h";
-export const DEFAULT_MINIMUM_RELEASE_AGE_DURATION = Duration.hours(24);
-
 /**
  * Documented exception: hand-rolled parser for the compact duration grammar
  * (`24h`, `30d`, `500ms`).

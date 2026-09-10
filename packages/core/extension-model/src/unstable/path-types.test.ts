@@ -9,6 +9,7 @@ import {
   makeRelativePath,
   makeWorkspaceRelativePath,
   makeWorkspaceRelativeSourcePath,
+  isPathSafe,
 } from "./path-types.js";
 
 layer(Path.layer, { excludeTestServices: true })("path-types", (it) => {
@@ -103,5 +104,40 @@ layer(Path.layer, { excludeTestServices: true })("path-types", (it) => {
 
       expect(Option.getOrNull(result)).toBe(path.normalize("../outside/review"));
     }),
+  );
+
+  const pathSafe = (base: string, target: string) =>
+    Effect.map(Path.Path, (path) => isPathSafe(path, base, target));
+
+  it.effect("accepts a target within base", () =>
+    Effect.map(pathSafe("/a/b", "/a/b/c/d"), (safe) => expect(safe).toBe(true)),
+  );
+
+  it.effect("accepts a target equal to base", () =>
+    Effect.map(pathSafe("/a/b", "/a/b"), (safe) => expect(safe).toBe(true)),
+  );
+
+  it.effect("rejects a target that escapes via parent traversal", () =>
+    Effect.map(pathSafe("/a/b", "/a/b/../../etc/passwd"), (safe) => expect(safe).toBe(false)),
+  );
+
+  it.effect("rejects a sibling of base", () =>
+    Effect.map(pathSafe("/a/b", "/a/c"), (safe) => expect(safe).toBe(false)),
+  );
+
+  it.effect("normalizes . and .. segments before comparison", () =>
+    Effect.map(pathSafe("/a/b", "/a/b/./c/../c/d"), (safe) => expect(safe).toBe(true)),
+  );
+
+  it.effect("rejects a sibling whose name extends base (boundary check)", () =>
+    Effect.map(pathSafe("/a/base", "/a/base-extended/file"), (safe) => expect(safe).toBe(false)),
+  );
+
+  it.effect("accepts a deeply nested target within base", () =>
+    Effect.map(pathSafe("/a", "/a/b/c/d/e/f"), (safe) => expect(safe).toBe(true)),
+  );
+
+  it.effect("rejects a target that is the parent of base", () =>
+    Effect.map(pathSafe("/a/b/c", "/a/b"), (safe) => expect(safe).toBe(false)),
   );
 });

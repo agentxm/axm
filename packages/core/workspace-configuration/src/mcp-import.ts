@@ -16,12 +16,9 @@ import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { buildAxmMcpMetadataFromSettingsSource } from "@agentxm/extension-workspace";
-import {
-  AXM_MCP_METADATA_KEY,
-  isAxmManagedMcpEntry,
-  type WorkspaceMutationsService,
-} from "@agentxm/workspace-state";
+import { buildAxmMcpMetadataFromSettingsSource } from "@agentxm/agent-integration";
+import { type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { AXM_MCP_METADATA_KEY, isAxmManagedMcpEntry } from "@agentxm/agent-integration";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
 import { WorkspaceConfigurationFailed } from "./errors.js";
@@ -318,12 +315,14 @@ const validateAdoption = (
  * mark their native entries as AXM-managed, in one validated workspace
  * transaction.
  */
-export const applyMcpImport = <HookError = never>(
+export const applyMcpImport = <HookError = never, HookRequirements = never>(
   candidates: ReadonlyArray<McpImportCandidate>,
   ws: WorkspaceMutationsService,
   fs: FileSystem.FileSystem,
   hooks: {
-    readonly beforeAdoptionWrite?: (adoption: McpImportAdoption) => Effect.Effect<void, HookError>;
+    readonly beforeAdoptionWrite?: (
+      adoption: McpImportAdoption,
+    ) => Effect.Effect<void, HookError, HookRequirements>;
   } = {},
 ) => {
   const adoptions = candidates.flatMap((candidate) => candidate.adoptions);

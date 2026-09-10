@@ -30,19 +30,20 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { handleUninstallPack } from "./handler.js";
 import { type UninstallPackHandlerArgs } from "./command-actions.js";
-import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
-import { PackManagerLive } from "@agentxm/extension-lifecycle/live";
-import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
-import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
-import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
-import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+import { PackManagerLive } from "@agentxm/extension-materialization/live";
+import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
+import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
+import { RuleManagerLive } from "@agentxm/extension-materialization/live";
+import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
 import {
-  AxmSkillCandidateGateLive,
-  RegistryResolutionPolicyLive,
-  WorkspaceCatalogLive,
-} from "../../../cli-runtime/index.js";
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-projection/live";
+import { RegistryResolutionPolicyLive } from "../../../cli-runtime/index.js";
+import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
+import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
 import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
@@ -50,7 +51,7 @@ import {
 } from "../../../test-helpers.js";
 import { PACK_UNINSTALL_GRAPH_BLOCKER_ID } from "./readiness.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "../../../feature-errors.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -241,7 +242,7 @@ describe("packs uninstall handler", () => {
     );
     const CatalogLayer = Layer.provide(
       WorkspaceCatalogLive,
-      Layer.mergeAll(BaseLayer, WsLayer, CodingAgentRepositoryLive),
+      Layer.mergeAll(BaseLayer, WsLayer, CodingAgentRepositoryLive, NativeWriteAuthorityLive),
     );
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
@@ -268,7 +269,8 @@ describe("packs uninstall handler", () => {
       CatalogLayer,
       SPLayer,
       CodingAgentRepositoryLive,
-      LifecycleFailureAdapterLive,
+      NativeWriteAuthorityLive,
+      LifecycleStepFailureConversionLive,
       PlanInvocationTest,
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);

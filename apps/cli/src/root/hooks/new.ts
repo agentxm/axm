@@ -1,11 +1,12 @@
 import * as FileSystem from "effect/FileSystem";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { buildNewExtensionStep } from "@agentxm/extension-workspace";
+import { buildNewExtensionStep } from "@agentxm/extension-materialization";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -44,8 +45,7 @@ import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
 import { isValidScaffoldName, scaffoldNameValidationSuggestion } from "../shared/scaffold-name.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { HookManager } from "@agentxm/extension-workspace";
-
+import { HookManager } from "@agentxm/extension-materialization";
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
 const HOOK_EVENTS = [
   "tool.pre",
@@ -203,7 +203,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
     ],
   };
 
-  const step: PlannedJobStep = buildNewExtensionStep(manager, {
+  const step: PlannedJobStep<StepRequirements> = buildNewExtensionStep(manager, {
     toStepFailure: failureToStepFailure,
     ref,
     target: { type: "hook", name: args.name },
@@ -226,12 +226,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
           .getLockedHookEntry(args.name)
           .pipe(Effect.mapError(toAppError))
           .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-        const materialization =
-          manager.getLastMaterialization === undefined
-            ? { agents: [], targets: [] }
-            : yield* manager.getLastMaterialization({
-                target: { type: "hook", name: args.name },
-              });
+        const materialization = yield* manager.aggregateProjectionObservation;
         if (Option.isNone(currentLockEntry)) {
           const targets = materialization.targets.map((target) => ({
             ...target,
@@ -278,7 +273,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
     ),
   });
 
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "New hook",
     description: Option.some(`Create ${fqn}`),

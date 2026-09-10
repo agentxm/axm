@@ -18,8 +18,7 @@ import {
   inventoryState,
   inventorySummary,
 } from "../inventory-view.js";
-import { HookManager } from "@agentxm/extension-workspace";
-
+import { HookManager } from "@agentxm/extension-materialization";
 interface HookListItem {
   readonly name: string;
   readonly state: string;

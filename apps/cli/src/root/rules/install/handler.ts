@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../../shared/step-requirements.js";
 import {
   deriveOperationOutcome,
   operationPresentation,
@@ -43,7 +44,7 @@ const handleInstallRuleBody = (
             { imperative: "install", past: "Installed", gerund: "Installing" },
             "rule",
           ),
-        } satisfies Plan),
+        } satisfies Plan<StepRequirements>),
     });
     if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
       yield* emitNoOpOutcome("rules.install", {

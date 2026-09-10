@@ -15,8 +15,8 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
 import { extensionName, writeWorkspaceFiles } from "../../../test-stubs.js";
 import {
   expectAppliedPlanResult,

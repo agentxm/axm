@@ -6,7 +6,7 @@ import {
   extensionConstraintFactText,
   type ExtensionConstraintInvariantFact,
   type PackDependencyReachability,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
 import type { PublicationPackResult } from "@agentxm/registry-protocol/unstable/registry";
 import type { RegistryClient, RegistryClientFailure } from "@agentxm/registry-client";
 import { PublishFailed } from "./errors.js";

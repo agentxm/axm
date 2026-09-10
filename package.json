@@ -79,7 +79,7 @@
     "@agentxm/client-e2e-utils": "workspace:*",
     "@agentxm/extension-content": "workspace:*",
     "@agentxm/extension-model": "workspace:*",
-    "@agentxm/extension-workspace": "workspace:*",
+    "@agentxm/extension-resolution": "workspace:^",
     "@agentxm/registry-protocol": "workspace:*",
     "@agentxm/specification-metadata": "workspace:*",
     "@effect/eslint-plugin": "catalog:",

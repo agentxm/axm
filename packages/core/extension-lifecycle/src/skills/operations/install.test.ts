@@ -34,7 +34,7 @@ import {
 } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {
-  TestLifecycleFailureAdapter,
+  TestStepFailureConversion,
   at,
   exactVersion,
   expectRecord,
@@ -42,12 +42,12 @@ import {
   handle,
   makeCodingAgentStub,
 } from "../../test-helpers.js";
+
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-  type CodingAgent,
-  makeAxmSkillCompatibilityPolicyLayer,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/workspace-projection";
+import { type CodingAgent } from "@agentxm/agent-integration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { SkillPathSource } from "@agentxm/workspace-state";
@@ -55,6 +55,7 @@ import type { InstallSkillOperation } from "./install.js";
 import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
 import { sanitizeName } from "@agentxm/workspace-state";
 import type { InstallResult } from "./install-result.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
 
 /** Creates a workspace mock that writes lockfile + settings to disk. */
 const makeWorkspaceMock = (
@@ -262,7 +263,7 @@ const makeServices = (
     layer: Layer.mergeAll(
       Layer.merge(NodeServices.layer, FetchHttpClient.layer),
       WorkspaceMutations.layer(mockWs),
-      TestLifecycleFailureAdapter,
+      TestStepFailureConversion,
       Layer.succeed(SourceHostProviders, sourceProviders),
       Layer.succeed(CodingAgentRepository, defaultAgentRepo),
     ),

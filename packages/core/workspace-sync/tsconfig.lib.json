@@ -18,13 +18,16 @@
   ],
   "references": [
     {
+      "path": "../workspace-transactions/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-state/tsconfig.lib.json"
     },
     {
-      "path": "../workspace-operations/tsconfig.lib.json"
+      "path": "../workspace-projection/tsconfig.lib.json"
     },
     {
-      "path": "../extension-workspace/tsconfig.lib.json"
+      "path": "../workspace-operations/tsconfig.lib.json"
     },
     {
       "path": "../extension-resolution/tsconfig.lib.json"
@@ -33,7 +36,10 @@
       "path": "../extension-model/tsconfig.lib.json"
     },
     {
-      "path": "../workspace-transactions/tsconfig.lib.json"
+      "path": "../extension-materialization/tsconfig.lib.json"
+    },
+    {
+      "path": "../../supporting/agent-integration/tsconfig.lib.json"
     }
   ]
 }

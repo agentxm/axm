@@ -1,16 +1,16 @@
 import * as Effect from "effect/Effect";
+import type { StepRequirements } from "../shared/step-requirements.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
-import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError } from "../../app-error/index.js";
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { installMcpServer } from "@agentxm/extension-lifecycle";
-import { buildAuthoredExtensionStep } from "@agentxm/extension-workspace";
+import { materializeAuthoredMcpServer } from "@agentxm/extension-lifecycle";
+import { buildAuthoredExtensionStep } from "@agentxm/extension-materialization";
 import {
   extensionTypeToPlural,
   formatFqn,
@@ -27,7 +27,6 @@ import { WorkspaceMutations, resolveWorkspaceExtensionRef } from "@agentxm/works
 import { protectCreatedAncestors } from "@agentxm/workspace-transactions";
 
 import { emitOperationResolution } from "../../operation-output.js";
-import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
@@ -39,7 +38,6 @@ import {
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import {
-  CodingAgentRepository,
   HookManager,
   KnowledgeManager,
   McpServerManager,
@@ -47,7 +45,7 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-workspace";
+} from "@agentxm/extension-materialization";
 
 const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
   const ws = yield* WorkspaceMutations;
@@ -202,36 +200,12 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
         target: { type: "skill", name: parsed.name },
       });
     case "mcp-server": {
-      const agentRepo = yield* CodingAgentRepository;
-      const httpClient = yield* HttpClient.HttpClient;
       const nonInteractive = yield* isNonInteractiveOptional;
       return buildAuthoredExtensionStep(yield* McpServerManager, {
         toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "mcp-server", name: parsed.name },
-        materializeInstall: (ref) =>
-          installMcpServer({
-            name: "install-mcp-server",
-            args: {
-              ref,
-              nonInteractive,
-              force: false,
-              allowWorkspaceSourceTransition: true,
-              versionRange: Option.none(),
-              skipSettings: Option.none(),
-              skipStateWrites: true,
-              env: Option.none(),
-            },
-          }).pipe(
-            Effect.asVoid,
-            Effect.mapError(toAppError),
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-            Effect.provideService(WorkspaceMutations, ws),
-            Effect.provideService(CodingAgentRepository, agentRepo),
-            Effect.provideService(HttpClient.HttpClient, httpClient),
-            provideLifecycleFailureAdapter,
-          ),
+        materializeInstall: (ref) => materializeAuthoredMcpServer({ ref, nonInteractive }),
       });
     }
     case "subagent":
@@ -284,7 +258,7 @@ export const handleAdopt = (args: AdoptHandlerArgs) =>
 
 const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerArgs) {
   const step = yield* adoptStep(args.fqn);
-  const plan: Plan = {
+  const plan: Plan<StepRequirements> = {
     _tag: "Plan",
     name: "Adopt workspace extension",
     description: Option.some(

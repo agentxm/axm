@@ -188,7 +188,14 @@ const copyWorkspaceSnapshot = (workspaceRoot: string, snapshotRoot: string): voi
         recursive: stat.isDirectory(),
       });
   }
-  const packageManifests = runText("git", ["ls-files", "-z", "**/package.json"], workspaceRoot)
+  // Untracked manifests count: a workspace package added but not yet committed still
+  // has an installed `node_modules` the snapshot's builds resolve through, and the
+  // snapshot mirrors the working-tree view, not the index.
+  const packageManifests = runText(
+    "git",
+    ["ls-files", "-co", "--exclude-standard", "-z", "**/package.json"],
+    workspaceRoot,
+  )
     .split("\0")
     .filter((path) => path.length > 0);
   for (const path of ["package.json", ...packageManifests]) {

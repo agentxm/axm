@@ -1,6 +1,6 @@
 import { makeAppError } from "../../app-error/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { enabledConfiguredEntries } from "@agentxm/extension-workspace";
+import { enabledConfiguredEntries } from "@agentxm/workspace-state";
 import type { IdentifierResourceType } from "@agentxm/extension-sources";
 import type { ContainerType, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";

@@ -195,7 +195,7 @@ const handlePacksRemoveBody = Effect.fn("PacksRemove.handle")(function* (
     },
   } satisfies RemoveFromPackOperation;
 
-  // Build Plan directly with inline run closure
+  // Build Plan<StepRequirements> directly with inline run closure
   const provideServices = <A, E>(
     effect: Effect.Effect<
       A,

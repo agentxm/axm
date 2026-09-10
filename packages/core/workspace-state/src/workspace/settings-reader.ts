@@ -22,11 +22,11 @@ import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/exte
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { ScopedReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions/release-age";
-import { DEFAULT_MINIMUM_RELEASE_AGE } from "@agentxm/extension-resolution";
 import {
   resolveKnowledgeDiscoveryConfig,
   type ResolvedKnowledgeDiscoveryConfig,
 } from "../knowledge/discovery-config.js";
+import { DEFAULT_MINIMUM_RELEASE_AGE } from "../settings/index.js";
 import type {
   InstructionsConfigValue,
   MinimumReleaseAge,

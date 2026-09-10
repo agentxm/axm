@@ -8,7 +8,7 @@ import {
   decodeVersionSync,
   type Version,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { handle, TestInspectionFailureAdapter, WorkspaceCatalogTestLive } from "../test-helpers.js";
+import { handle, WorkspaceCatalogTestLive } from "../test-helpers.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -28,7 +28,6 @@ const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
   const wsLayer = Layer.succeed(WorkspaceMutations, ws);
   return Layer.mergeAll(
     wsLayer,
-    TestInspectionFailureAdapter,
     WorkspaceCatalogTestLive.pipe(
       Layer.provide(wsLayer),
       Layer.provide(CodingAgentRepositoryLive),

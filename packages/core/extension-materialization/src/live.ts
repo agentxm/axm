@@ -16,3 +16,4 @@ export { McpServerManagerLive } from "./mcps/manager.js";
 export { PackManagerLive } from "./packs/manager.js";
 export { KnowledgeManagerLive } from "./knowledge/manager.js";
 export { ProjectionParticipantsLive } from "./projection-participants-live.js";
+export { ExtensionManagersLive } from "./manager-registry-live.js";

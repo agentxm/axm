@@ -1,15 +1,6 @@
-import * as FileSystem from "effect/FileSystem";
-import type { StepRequirements } from "../shared/step-requirements.js";
-import * as Path from "effect/Path";
 import * as Option from "effect/Option";
-import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "../../app-error/index.js";
-import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { buildNewExtensionStep } from "@agentxm/extension-materialization";
-import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
-import { type WorkspaceHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+
 import {
   decodeExtensionNameSync,
   type ExtensionName,
@@ -18,34 +9,17 @@ import type {
   HookEvent,
   HookRuntime,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import { newHook, preflightCreateOnly, type NewHookOperation } from "@agentxm/extension-authoring";
-import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
-import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import type { HookLockEntry } from "@agentxm/workspace-state";
-import type {
-  JobStepArtifact,
-  JobStepArtifactTarget,
-  JobStepResult,
-  Plan,
-  PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { operationPresentation } from "@agentxm/workspace-operations";
-import { emitOperationResolution } from "../../operation-output.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { joinDisplayPath } from "../shared/display-path.js";
-import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
-import { isValidScaffoldName, scaffoldNameValidationSuggestion } from "../shared/scaffold-name.js";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { HookManager } from "@agentxm/extension-materialization";
+import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
+
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
 const HOOK_EVENTS = [
   "tool.pre",
@@ -57,39 +31,6 @@ const HOOK_EVENTS = [
   "compaction.pre",
 ] as const satisfies readonly HookEvent[];
 
-const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
-
-const hookNewArtifact = (args: {
-  readonly lockEntry: HookLockEntry;
-  readonly targets: ReadonlyArray<JobStepArtifactTarget>;
-  readonly canonicalPath: string;
-  readonly workspaceRoot: string;
-  readonly scope: JobStepArtifact["scope"];
-  readonly pathService: Path.Path;
-}): JobStepArtifact => {
-  const version = hookLockEntryVersion(args.lockEntry);
-
-  return {
-    path: args.pathService.relative(args.workspaceRoot, args.canonicalPath),
-    scope: args.scope,
-    ...(version === undefined ? {} : { version }),
-    change: "created",
-    ...(args.targets.length === 0 ? {} : { fileCount: args.targets.length, targets: args.targets }),
-  };
-};
-
-const entrypointFilename = (runtime: HookRuntime): string => {
-  switch (runtime) {
-    case "bash":
-      return "hook.sh";
-    case "node":
-      return "hook.js";
-    case "python":
-      return "hook.py";
-  }
-};
-
 export interface HooksNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<string>;
@@ -99,200 +40,22 @@ export interface HooksNewHandlerArgs {
   readonly preview: boolean;
 }
 
-const toJobStepResult = (result: {
-  readonly result: string;
-  readonly message: string;
-  readonly error?: import("@agentxm/workspace-operations").StepFailure;
-}): JobStepResult =>
-  result.result === "error" && result.error != null
-    ? { result: "error", message: result.message, error: result.error }
-    : { result: "success", message: result.message };
-
 export const handleHooksNew = (args: HooksNewHandlerArgs) =>
-  withOperationLifecycle(
-    {
-      command: "hooks.new",
-      mode: args.preview ? "preview" : "apply",
-      planName: "New hook",
-    },
-    handleHooksNewBody(args),
-  );
-
-const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNewHandlerArgs) {
-  // 1. Resolve owner
-  const { owner, establish } = yield* resolveAuthoringOwner(
-    { subject: "hook", command: "hooks new", name: args.name },
-    args.owner,
-  );
-
-  // 2. Validate name
-  if (!isValidScaffoldName(args.name)) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: `Invalid hook name: "${args.name}"`,
-      suggestions: [{ description: scaffoldNameValidationSuggestion }],
-    });
-  }
-
-  // 3. Check the hook isn't already configured
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const ws = yield* WorkspaceMutations;
-  const manager = yield* HookManager;
-
-  const configuredHooks = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
-
-  // 4. Apply matcher default for tool-scoped events
-  const matcher = Option.isSome(args.matcher)
-    ? args.matcher.value
-    : args.event === "tool.pre" || args.event === "tool.post"
-      ? "Write|Edit"
-      : undefined;
-
-  // 5. Build operation
-  const op = {
-    name: "new-hook",
-    args: {
+  runCreateExtensionCommand({
+    command: "hooks.new",
+    preview: args.preview,
+    request: {
+      type: "hook",
       name: args.name,
-      owner,
+      owner: args.owner,
       runtime: args.runtime,
       event: args.event,
-      matcher,
+      matcher: args.matcher,
     },
-  } satisfies NewHookOperation;
-
-  // 6. Build plan with inline run closure
-  const fqn = `${owner}/hooks/${args.name}`;
-  const targetDir = path.join(workspaceAuthoredRoot(path, ws, "hook", owner), args.name);
-  const authoredPath = path.relative(ws.baseDir, targetDir);
-  yield* preflightCreateOnly({
-    subject: "Hook",
-    name: args.name,
-    configured: Object.hasOwn(configuredHooks, args.name),
-    destinations: [targetDir],
-  });
-  const ref: WorkspaceHookRef = {
-    type: "hook",
-    refType: "workspace",
-    source: { type: "workspace", owner, extensionType: "hook", name: args.name },
-    scope: ws.scope,
-    owner,
-    name: args.name,
-    version: decodeVersionSync("0.1.0"),
-    sourceHash: computeSourceHash("scaffold"),
-    location: targetDir,
-    hook: { name: args.name },
-  };
-  const entrypoint = entrypointFilename(args.runtime);
-  const plannedArtifact: JobStepArtifact = {
-    path: path.relative(ws.baseDir, targetDir),
-    scope: ws.scope,
-    version: ref.version,
-    change: "created",
-    fileCount: 2,
-    targets: [
-      {
-        path: path.relative(ws.baseDir, path.join(targetDir, HOOK_MANIFEST_FILENAME)),
-        change: "created",
-      },
-      {
-        path: path.relative(ws.baseDir, path.join(targetDir, "src", entrypoint)),
-        change: "created",
-      },
-      { path: workspaceSettingsPath(ws.scope), change: "created" },
+    suggestions: (candidate) => [
+      { description: `Edit \`${candidate.entryPath}\` to implement the hook` },
     ],
-  };
-
-  const step: PlannedJobStep<StepRequirements> = buildNewExtensionStep(manager, {
-    toStepFailure: failureToStepFailure,
-    ref,
-    target: { type: "hook", name: args.name },
-    versionRange: Option.none(),
-    label: fqn,
-    message: `Created hook ${fqn}`,
-    plannedArtifact,
-    preflight: Effect.gen(function* () {
-      const current = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
-      yield* preflightCreateOnly({
-        subject: "Hook",
-        name: args.name,
-        configured: Object.hasOwn(current, args.name),
-        destinations: [targetDir],
-      }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
-    }),
-    buildArtifact: () =>
-      Effect.gen(function* () {
-        const currentLockEntry = yield* ws
-          .getLockedHookEntry(args.name)
-          .pipe(Effect.mapError(toAppError))
-          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-        const materialization = yield* manager.aggregateProjectionObservation;
-        if (Option.isNone(currentLockEntry)) {
-          const targets = materialization.targets.map((target) => ({
-            ...target,
-            change: "created" as const,
-          }));
-          return {
-            path: path.relative(ws.baseDir, targetDir),
-            scope: ws.scope,
-            version: ref.version,
-            change: "created",
-            ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
-          } satisfies JobStepArtifact;
-        }
-
-        return hookNewArtifact({
-          lockEntry: currentLockEntry.value,
-          targets: materialization.targets.map((target) => ({
-            ...target,
-            change: "created",
-          })),
-          canonicalPath: targetDir,
-          workspaceRoot: ws.baseDir,
-          scope: ws.scope,
-          pathService: path,
-        });
-      }),
-    markAuthored: establish.pipe(
-      Effect.andThen(
-        ws
-          .setHookEntry(args.name, {
-            source: "workspace",
-            enabled: true,
-          })
-          .pipe(Effect.mapError(toAppError)),
-      ),
-    ),
-    scaffold: newHook(op).pipe(
-      provideAuthoringFailureAdapter,
-      Effect.map(toJobStepResult),
-      Effect.mapError(toAppError),
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-      Effect.provideService(WorkspaceMutations, ws),
-    ),
   });
-
-  const plan: Plan<StepRequirements> = {
-    _tag: "Plan",
-    name: "New hook",
-    description: Option.some(`Create ${fqn}`),
-    presentation: operationPresentation(
-      { imperative: "create", past: "Created", gerund: "Creating" },
-      "hook",
-    ),
-    jobs: [{ concurrency: 1 as const, steps: [step] }],
-  };
-
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
-
-  const suggestions = [
-    {
-      description: `Edit \`${joinDisplayPath(path, authoredPath, "src", entrypoint)}\` to implement the hook`,
-    },
-  ];
-  yield* emitOperationResolution("hooks.new", resolution, { suggestions });
-});
 
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the hook (without owner)")),

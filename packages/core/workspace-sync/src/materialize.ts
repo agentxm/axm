@@ -83,7 +83,7 @@ import {
   buildInlineMcpServerSyncOperation,
   type SyncStepRequirements,
 } from "./plan.js";
-import type { SyncFailureAdapter } from "./failure-adapter.js";
+import type { SyncFailureAdapter, SyncPolicyFailure } from "./failure-adapter.js";
 
 export interface SyncSelection {
   readonly target: Option.Option<string>;
@@ -294,6 +294,33 @@ export type ResolvedDesiredRef =
  */
 type MaterializeStepRequirements = SyncStepRequirements | ProjectionParticipantRequirements;
 
+/**
+ * What one materialize collection reports to the plan assembler: the steps it
+ * built, the names the cleanup sweep must treat as expected, and the
+ * release-age evidence the plan carries.
+ */
+export interface CollectedMaterializeSteps<R> {
+  /** Whether the desired graph was complete enough for cleanup to run. */
+  readonly cleanupSafe: boolean;
+  readonly knowledgeMayChange: boolean;
+  readonly serialMaterialization: boolean;
+  readonly expectedSkillNames: ReadonlySet<string>;
+  readonly expectedSubagentNames: ReadonlySet<string>;
+  readonly expectedMcpServerNames: ReadonlySet<string>;
+  readonly expectedHookNames: ReadonlySet<string>;
+  readonly releaseAge: ReleaseAgeOperationEvidence;
+  readonly steps: ReadonlyArray<PlannedJobStep<R | SyncStepRequirements>>;
+}
+
+/**
+ * Collect the per-extension materialize steps for one sync.
+ *
+ * The signature is declared rather than inferred. An inferred one publishes
+ * the assembled object literal's structure and expands the sync policy failure
+ * union into every package that contributes a failure to it — including
+ * packages this one does not declare, whose `.d.ts` references then resolve to
+ * `any` under `skipLibCheck` and collapse the whole channel.
+ */
 export const collectMaterializeSteps = <
   E = never,
   R = MaterializeStepRequirements,
@@ -314,7 +341,21 @@ export const collectMaterializeSteps = <
   ) => Effect.Effect<ResolvedDesiredRef, E, RResolve>;
   readonly runMcpServerInstall: RunMcpServerInstall<R>;
   readonly adapter: SyncFailureAdapter;
-}) =>
+}): Effect.Effect<
+  CollectedMaterializeSteps<R>,
+  SyncPolicyFailure | E,
+  | CodingAgentRepository
+  | WorkspaceMutations
+  | FileSystem.FileSystem
+  | Path.Path
+  | HookManager
+  | KnowledgeManager
+  | RuleManager
+  | SkillManager
+  | SubagentManager
+  | ProjectionParticipantRequirements
+  | RResolve
+> =>
   Effect.gen(function* () {
     const skillManager = yield* SkillManager;
     const subagentManager = yield* SubagentManager;

@@ -12,6 +12,7 @@ import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer, logsByTag } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
+import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { RegistryAuthFailed } from "@agentxm/registry-auth";
 import { expectRecord, property } from "../../test-helpers.js";
 import { handleLogout } from "./logout.js";
@@ -70,6 +71,7 @@ const makeLayers = (opts?: {
     TestFlagsLayer(),
     credStoreLayer,
     authClientLayer,
+    Layer.provide(AuthLoginPresenterLive, rendererLayer),
     registryUrlLayer,
   );
 

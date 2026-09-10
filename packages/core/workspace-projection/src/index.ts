@@ -244,6 +244,11 @@ export {
   type KnowledgeInstructionEntryReason,
   type KnowledgeInstructionEntryResolution,
 } from "./knowledge/instruction-entry.js";
+export {
+  InstalledKnowledgeUnavailable,
+  selectInstalledKnowledgeBundles,
+  type InstalledKnowledgeBundle,
+} from "./knowledge/installed-bundles.js";
 
 // MCP projection facts
 export type { McpInspectionError } from "./mcps/errors.js";

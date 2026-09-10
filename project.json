@@ -76,7 +76,7 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["build-test-reporting", "^build"],
+      "dependsOn": ["build-test-reporting", "^build", { "projects": "*", "target": "build" }],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "outputs": ["{workspaceRoot}/test-results/scripts"],
       "options": {

@@ -11,6 +11,9 @@
   "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts", "src/**/*.e2e.test.ts"],
   "references": [
     {
+      "path": "../../tools/specification-metadata/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/core/workspace-transactions/tsconfig.lib.json"
     },
     {

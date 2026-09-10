@@ -11,7 +11,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { AuthoringFailed } from "../errors.js";
-import { AuthoringFailureAdapter, withAdaptedStepFailures } from "../failure-adapter.js";
+import { authoringStepFailure } from "../step-failure.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
@@ -69,11 +69,7 @@ export type RemoveFromPackOperation = Operation<"remove-from-pack", RemoveFromPa
  */
 export const removeFromPack: OperationHandler<
   RemoveFromPackOperation,
-  | FileSystem.FileSystem
-  | Path.Path
-  | WorkspaceMutations
-  | WorkspaceTransactionScope
-  | AuthoringFailureAdapter
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | WorkspaceTransactionScope
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -238,4 +234,4 @@ export const removeFromPack: OperationHandler<
         fileCount: 1,
       }),
     } satisfies JobStepResult;
-  }).pipe(withAdaptedStepFailures);
+  }).pipe(Effect.mapError(authoringStepFailure));

@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
-import { normalizePerTypePublishSelection } from "axm.sh/specification-harness";
+import { normalizeTypePublishSelection } from "axm.sh/specification-harness";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makePublicationSpecContext } from "../support/publication-evidence-harness.js";
 import {
@@ -219,7 +219,7 @@ describe("Type-specific publication selection", () => {
             for (const name of ["review", "redwood", "unrelated"]) {
               type.write(context.workspace.root, { name });
             }
-            const selection = yield* normalizePerTypePublishSelection({
+            const selection = yield* normalizeTypePublishSelection({
               type: type.type,
               selectors: scenario.selectors,
               owners: scenario.owners,
@@ -249,7 +249,7 @@ describe("Type-specific publication selection", () => {
     it.effect(`${type.route} publish never widens to a foreign-type fully qualified selector`, () =>
       Effect.gen(function* () {
         const foreign = type.route === "skills" ? "rules" : "skills";
-        const result = yield* normalizePerTypePublishSelection({
+        const result = yield* normalizeTypePublishSelection({
           type: type.type,
           selectors: [`@acme/${foreign}/review`],
           owners: [],

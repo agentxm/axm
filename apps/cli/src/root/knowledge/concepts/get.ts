@@ -1,79 +1,39 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ExitCode, makeAppError } from "../../../app-error/index.js";
+import { KnowledgeConceptGetOutputSchema, KnowledgeDiscovery } from "@agentxm/knowledge-query";
+
+import { ExitCode } from "../../../app-error/index.js";
 import { Screen, errorDoc, rawDoc } from "../../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
   withCommandCapabilities,
 } from "../../shared/command-capabilities.js";
-import { getKnowledgeIndexConcept } from "@agentxm/knowledge-query";
-import {
-  KnowledgeRevisionSchema,
-  parseConceptRef,
-} from "@agentxm/extension-model/unstable/knowledge";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";
-import { captureInstalledKnowledgeIndex } from "../inspect.js";
-import { KnowledgeConceptGetOutputSchema, type KnowledgeConceptGetOutput } from "./schemas.js";
+import { knowledgeConceptFailures } from "../knowledge-errors.js";
 import { failKnowledgeCorpusChanging } from "./failures.js";
 import { sanitizeKnowledgeTerminalText } from "./terminal-text.js";
-
-const decodeRevision = Schema.decodeUnknownResult(KnowledgeRevisionSchema);
 
 export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(function* (
   reference: string,
   options?: { readonly ifRevision?: string; readonly raw?: boolean },
 ) {
-  const parsed = parseConceptRef(reference);
-  if (!Result.isSuccess(parsed)) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "Expected a concept reference in @owner/knowledge/name#concept-id form",
-    });
-  }
-  const expectedRevision =
-    options?.ifRevision === undefined ? undefined : decodeRevision(options.ifRevision);
-  if (expectedRevision !== undefined && !Result.isSuccess(expectedRevision)) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "--if-revision must be an opaque sha256: revision",
-    });
-  }
-
   const screen = yield* Screen;
-  const captured = yield* captureInstalledKnowledgeIndex();
-  if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
-  const { snapshot } = captured;
-  const indexed = getKnowledgeIndexConcept(
-    snapshot,
-    parsed.success.bundle,
-    parsed.success.conceptId,
+  const result = yield* Effect.catchTags(
+    KnowledgeDiscovery.get({
+      reference,
+      ...(options?.ifRevision === undefined ? {} : { ifRevision: options.ifRevision }),
+      ...(options?.raw === undefined ? {} : { raw: options.raw }),
+    }),
+    knowledgeConceptFailures,
   );
-  if (indexed === undefined) {
-    return yield* makeAppError({
-      code: "not_found",
-      detail: `Knowledge concept "${reference}" was not found in the selected installed corpus`,
-    });
-  }
-  if (
-    expectedRevision !== undefined &&
-    Result.isSuccess(expectedRevision) &&
-    expectedRevision.success !== indexed.ref.contentRevision
-  ) {
-    const output: KnowledgeConceptGetOutput = {
-      outcome: "failed",
-      reason: "revision-changed",
-      ref: indexed.ref,
-      expectedRevision: expectedRevision.success,
-      currentRevision: indexed.ref.contentRevision,
-    };
-    const machine = yield* screen.document(output, KnowledgeConceptGetOutputSchema, {
+  if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
+  if (result.outcome === "revision-changed") {
+    const machine = yield* screen.document(result.document, KnowledgeConceptGetOutputSchema, {
       ok: false,
     });
     if (!machine) {
@@ -83,33 +43,9 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
     }
     return yield* Effect.die(effectCliExit(ExitCode.Conflict));
   }
-
-  const source = indexed.source;
-  const concept = {
-    ref: indexed.ref,
-    projectionRevision: indexed.projectionRevision,
-    kind: source.kind,
-    ...(source.authoredTitle === undefined ? {} : { title: source.authoredTitle }),
-    ...(source.type === undefined ? {} : { type: source.type }),
-    ...(source.description === undefined ? {} : { description: source.description }),
-    ...(source.tags === undefined ? {} : { tags: source.tags }),
-    ...(source.resource === undefined ? {} : { resource: source.resource }),
-    ...(source.status === undefined ? {} : { status: source.status }),
-    ...(source.staleAfter === undefined ? {} : { staleAfter: source.staleAfter }),
-    ...(source.generated === undefined ? {} : { generated: source.generated }),
-    ...(source.verified === undefined ? {} : { verified: source.verified }),
-    ...(source.trust === undefined ? {} : { trust: source.trust }),
-    ...(source.frontmatter === undefined ? {} : { frontmatter: source.frontmatter }),
-    relativePath: source.relativePath,
-    body: source.body,
-    ...(options?.raw === true ? { raw: new TextDecoder().decode(indexed.sourceBytes) } : {}),
-  };
-  const output: KnowledgeConceptGetOutput = {
-    outcome: "found",
-    concept,
-  };
-  if (yield* screen.document(output, KnowledgeConceptGetOutputSchema)) return;
-  const content = options?.raw === true ? (concept.raw ?? "") : concept.body;
+  if (yield* screen.document(result.document, KnowledgeConceptGetOutputSchema)) return;
+  const concept = result.document.concept;
+  const content = (options?.raw === true ? concept?.raw : concept?.body) ?? "";
   yield* screen.result(
     rawDoc(`${sanitizeKnowledgeTerminalText(content)}${content.endsWith("\n") ? "" : "\n"}`),
   );

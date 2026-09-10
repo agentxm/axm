@@ -365,6 +365,9 @@ export default [
           // Loaded through a computed dynamic-import specifier the static
           // graph cannot see (credential-store keychain tier).
           ignoredDependencies: ["@napi-rs/keyring"],
+          // Test-support modules are excluded from every package's build; what
+          // they import is a devDependency, not a published one.
+          ignoredFiles: ["{projectRoot}/src/**/test-support/**/*.ts"],
         },
       ],
     },
@@ -599,6 +602,15 @@ export default [
       // Published specification adapter exposes real services to boundary tests.
       "apps/cli/src/specification-harness.ts",
       "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
+      // Composes the real workspace an authoring specification observes.
+      "packages/core/extension-authoring/src/test-support/authoring-workspace.ts",
+      // Composes the real workspace and Registry an inspection specification
+      // installs into before observing what `show` reports.
+      "packages/core/workspace-inspection/src/test-support/installed-workspace.ts",
+      // Published deterministic fixtures: each composes the real services its
+      // package's specifications observe.
+      "packages/core/knowledge-query/src/testing.ts",
+      "packages/core/workspace-inspection/src/testing.ts",
       "**/*.test.ts",
       "**/*.spec.ts",
     ],
@@ -643,6 +655,13 @@ export default [
     files: [
       "{apps,packages,tools}/**/src/testing.ts",
       "{apps,packages,tools}/**/src/testing/**/*.ts",
+    ],
+    // These two fixtures exist to bind their package's specifications to the
+    // real workspace services over a throwaway workspace, so they compose the
+    // same `./live` layers the composition root does.
+    ignores: [
+      "packages/core/knowledge-query/src/testing.ts",
+      "packages/core/workspace-inspection/src/testing.ts",
     ],
     rules: {
       "no-restricted-imports": [

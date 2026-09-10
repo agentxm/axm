@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { handleUnyank, PlanResolutionDocumentSchema } from "axm.sh/specification-harness";
+import { RegistryTransitionSchema, handleUnyank } from "axm.sh/specification-harness";
 import {
   makeRegistryManagementContext,
   registryTarget,
@@ -38,12 +38,16 @@ describe("Exact restoration", () => {
       expect(context.requests[0]?.method).toBe("DELETE");
       expect(context.requests[0]?.url.pathname).toBe(`${registryTargetPath}/1.2.3/yank`);
       expect(context.rendererState.results).toHaveLength(1);
-      const output = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+      const output = yield* Schema.decodeUnknownEffect(RegistryTransitionSchema)(
         context.rendererState.results[0]?.data,
       );
-      expect(output.result.units).toEqual([
-        expect.objectContaining({ id: registryVersion, state: "committed" }),
-      ]);
+      expect(output).toMatchObject({
+        action: "unyank",
+        target: registryVersion,
+        version: "1.2.3",
+        disposition: "changed",
+        restorable: false,
+      });
     }),
   );
 

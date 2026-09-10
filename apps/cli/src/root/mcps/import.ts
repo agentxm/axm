@@ -29,7 +29,7 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-materialization";
-import { preflightCreateOnly } from "@agentxm/extension-authoring";
+import { preflightCreateOnly, requireAuthoredOwner } from "@agentxm/extension-authoring";
 import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   fqnInvalidErrorToAppError,
@@ -45,7 +45,6 @@ import type {
 import { operationPresentation, type OperationResolution } from "@agentxm/workspace-operations";
 import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
@@ -178,7 +177,9 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
       detail: `MCP package import target must use the mcps type: ${args.targetInput}`,
     });
   }
-  yield* requireAuthoredOwner(target.owner);
+  yield* requireAuthoredOwner(target.owner, { subject: "MCP server", command: "mcps import" }).pipe(
+    Effect.mapError(toAppError),
+  );
   if (args.preflight.conflicts.length > 0) {
     return yield* makeAppError({
       code: "conflict",

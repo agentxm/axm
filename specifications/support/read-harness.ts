@@ -73,9 +73,28 @@ export const makePublicReadSpecContext = (
 };
 
 export const makeReadSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
-  const workspace = makeSpecWorkspace({ machine: true, userSettings: {}, ...options });
   const requests: Array<ObservedRequest> = [];
   const firstRequest = Deferred.makeUnsafe<void>();
+  // The workspace's Registry client factory binds its transport when the layer
+  // is built, so the port is installed with the workspace and each
+  // `withRegistry` call only decides how that one port answers.
+  let respondWith: ((request: ObservedRequest) => ResponseFixture) | undefined;
+  const port = registryPort(
+    requests,
+    (request) => {
+      if (respondWith === undefined) {
+        throw new Error("No Registry response fixture is active for this specification.");
+      }
+      return respondWith(request);
+    },
+    firstRequest,
+  );
+  const workspace = makeSpecWorkspace({
+    machine: true,
+    userSettings: {},
+    httpClient: port,
+    ...options,
+  });
   const writeJson = (relativePath: string, value: unknown) => {
     const file = path.join(workspace.root, relativePath);
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -84,13 +103,15 @@ export const makeReadSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   const withRegistry = <A, E, R>(
     program: Effect.Effect<A, E, R>,
     respond: (request: ObservedRequest) => ResponseFixture,
-  ) =>
-    program.pipe(
-      Effect.provideService(HttpClient.HttpClient, registryPort(requests, respond, firstRequest)),
+  ) => {
+    respondWith = respond;
+    return program.pipe(
+      Effect.provideService(HttpClient.HttpClient, port),
       Effect.provideService(RegistryUrl, readRegistry),
       Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(workspace.root) }),
       workspace.provide,
     );
+  };
   return {
     ...workspace,
     requests,

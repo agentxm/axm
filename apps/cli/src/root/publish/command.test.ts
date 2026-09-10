@@ -35,8 +35,8 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError } from "../../app-error/index.js";
 import { RegistryAuthFailed } from "@agentxm/registry-auth";
+import { RegistryProblem } from "@agentxm/registry-client";
 import { GitDirectoryComparisonLive } from "@agentxm/extension-sources/live";
 
 import {
@@ -49,7 +49,12 @@ import {
   property,
 } from "../../test-helpers.js";
 import { exactVersion, extensionName, handle, versionRange } from "../../test-stubs.js";
-import { emitPublishResult, type PublishResultItem } from "./result.js";
+import { emitPublishResult } from "./result.js";
+import {
+  normalizePublishResult,
+  publishCause,
+  type PublishResultItem,
+} from "@agentxm/extension-publish";
 import {
   buildPublishJobs,
   exactPublishUploadBinding,
@@ -62,11 +67,8 @@ import {
   PUBLISHABLE_TYPES,
 } from "@agentxm/extension-publish";
 import {
-  aggregatePublishFailure,
   handleRootPublish,
   makeExactPublishRecovery,
-  publicPublishCause,
-  unconfirmedPublishOutcomes,
   type RootPublishHandlerArgs,
 } from "./command.js";
 
@@ -703,23 +705,26 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* emitPublishResult("publish", {
-            mode: "apply",
-            results: [
-              {
-                id: "@acme/skills/review",
-                owner: handle("@acme"),
-                type: "skill",
-                name: extensionName("review"),
-                version: exactVersion("1.0.0"),
-                action: "publish",
-                phase: "upload_execution",
-                status: "success",
-                reason: "selected",
-                links: { html: "https://agentxm.ai/acme/skills/review" },
-              },
-            ],
-          });
+          yield* emitPublishResult(
+            "publish",
+            normalizePublishResult({
+              mode: "apply",
+              results: [
+                {
+                  id: "@acme/skills/review",
+                  owner: handle("@acme"),
+                  type: "skill",
+                  name: extensionName("review"),
+                  version: exactVersion("1.0.0"),
+                  action: "publish",
+                  phase: "upload_execution",
+                  status: "success",
+                  reason: "selected",
+                  links: { html: "https://agentxm.ai/acme/skills/review" },
+                },
+              ],
+            }),
+          );
 
           expect(logs.success).toContain(
             "Published @acme/skills/review@1.0.0\nhttps://agentxm.ai/acme/skills/review",
@@ -734,10 +739,11 @@ describe("root publish", () => {
 
     it.effect("renders retryable upload evidence and an exact continuation", () => {
       const { provide, logs, rendererState } = makeContext(false);
-      const retryableCause = publicPublishCause(
-        makeAppError({
-          code: "unavailable",
+      const retryableCause = publishCause(
+        new RegistryProblem({
+          category: "unavailable",
           detail: "Registry upload is temporarily unavailable.",
+          cause: new Error("registry upload unavailable"),
           metadata: {
             response: { status: 503, requestId: "req_retry" },
             requestPolicy: {
@@ -754,30 +760,33 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* emitPublishResult("publish", {
-            mode: "apply",
-            results: [
-              {
-                id: "@acme/skills/review",
-                owner: handle("@acme"),
-                type: "skill",
-                name: extensionName("review"),
-                version: exactVersion("1.0.0"),
-                action: "error",
-                phase: "upload_execution",
-                status: "failed",
-                reason: "upload_failed",
-                message: "Registry upload is temporarily unavailable.",
-                cause: retryableCause,
+          yield* emitPublishResult(
+            "publish",
+            normalizePublishResult({
+              mode: "apply",
+              results: [
+                {
+                  id: "@acme/skills/review",
+                  owner: handle("@acme"),
+                  type: "skill",
+                  name: extensionName("review"),
+                  version: exactVersion("1.0.0"),
+                  action: "error",
+                  phase: "upload_execution",
+                  status: "failed",
+                  reason: "upload_failed",
+                  message: "Registry upload is temporarily unavailable.",
+                  cause: retryableCause,
+                },
+              ],
+              recovery: {
+                description: "Continue the failed items and their blocked dependents",
+                cmd: "axm publish --on-existing verify @acme/skills/review",
+                remainingItems: ["@acme/skills/review"],
+                blockedDependents: [],
               },
-            ],
-            recovery: {
-              description: "Continue the failed items and their blocked dependents",
-              cmd: "axm publish --on-existing verify @acme/skills/review",
-              remainingItems: ["@acme/skills/review"],
-              blockedDependents: [],
-            },
-          });
+            }),
+          );
 
           expect(logs.error).toContain("Publish failed for @acme/skills/review@1.0.0");
           expect(logs.info.join("\n")).toContain("retryable; attempts exhausted: 1/1");
@@ -810,16 +819,19 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* emitPublishResult("publish", {
-            mode: "apply",
-            results: [unknownItem("review"), unknownItem("triage")],
-            recovery: {
-              description: "Continue the failed items and their blocked dependents",
-              cmd: "axm publish --on-existing verify @acme/skills/review",
-              remainingItems: ["@acme/skills/review", "@acme/skills/triage"],
-              blockedDependents: [],
-            },
-          });
+          yield* emitPublishResult(
+            "publish",
+            normalizePublishResult({
+              mode: "apply",
+              results: [unknownItem("review"), unknownItem("triage")],
+              recovery: {
+                description: "Continue the failed items and their blocked dependents",
+                cmd: "axm publish --on-existing verify @acme/skills/review",
+                remainingItems: ["@acme/skills/review", "@acme/skills/triage"],
+                blockedDependents: [],
+              },
+            }),
+          );
 
           expect(logs.error).toContain("Publish did not confirm 2 extensions");
           const details = logs.info.join("\n");
@@ -838,23 +850,26 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* emitPublishResult("publish", {
-            mode: "apply",
-            results: [
-              {
-                id: "@acme/skills/review",
-                owner: handle("@acme"),
-                type: "skill",
-                name: extensionName("review"),
-                version: exactVersion("1.0.0"),
-                action: "publish",
-                phase: "upload_execution",
-                status: "unknown",
-                reason: "settlement_unresolved",
-                settlement: "unresolved",
-              },
-            ],
-          });
+          yield* emitPublishResult(
+            "publish",
+            normalizePublishResult({
+              mode: "apply",
+              results: [
+                {
+                  id: "@acme/skills/review",
+                  owner: handle("@acme"),
+                  type: "skill",
+                  name: extensionName("review"),
+                  version: exactVersion("1.0.0"),
+                  action: "publish",
+                  phase: "upload_execution",
+                  status: "unknown",
+                  reason: "settlement_unresolved",
+                  settlement: "unresolved",
+                },
+              ],
+            }),
+          );
 
           expect(logs.error).toContain("Publish did not confirm @acme/skills/review@1.0.0");
           expect(logs.success).not.toContain("No extensions published — 0 extensions skipped");
@@ -1130,23 +1145,26 @@ describe("root publish", () => {
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            emitPublishResult("publish", {
-              mode: "apply",
-              results: [
-                {
-                  id: "@acme/skills/review",
-                  owner: handle("@acme"),
-                  type: "skill",
-                  name: extensionName("review"),
-                  version: exactVersion("1.0.0"),
-                  action: "publish",
-                  phase: "upload_execution",
-                  status: "unknown",
-                  reason: "settlement_unresolved",
-                  settlement: "unresolved",
-                },
-              ],
-            }),
+            emitPublishResult(
+              "publish",
+              normalizePublishResult({
+                mode: "apply",
+                results: [
+                  {
+                    id: "@acme/skills/review",
+                    owner: handle("@acme"),
+                    type: "skill",
+                    name: extensionName("review"),
+                    version: exactVersion("1.0.0"),
+                    action: "publish",
+                    phase: "upload_execution",
+                    status: "unknown",
+                    reason: "settlement_unresolved",
+                    settlement: "unresolved",
+                  },
+                ],
+              }),
+            ),
           );
 
           expect(properties["cli.outcome"]).not.toBe("no-op");
@@ -1180,90 +1198,6 @@ describe("root publish", () => {
         }),
       );
     });
-  });
-});
-
-describe("aggregatePublishFailure", () => {
-  it("preserves auth classification when every publish fails auth", () => {
-    const error = aggregatePublishFailure(2, [
-      makeAppError({ code: "auth", detail: "Invalid or expired token." }),
-      makeAppError({ code: "auth", detail: "Invalid or expired token." }),
-    ]);
-
-    expect(error.code).toBe("auth");
-    expect(error.detail).toContain("Invalid or expired token.");
-  });
-
-  it("uses internal classification for mixed publish failures", () => {
-    const error = aggregatePublishFailure(2, [
-      makeAppError({ code: "auth", detail: "Invalid or expired token." }),
-      makeAppError({ code: "network", detail: "Registry unavailable." }),
-    ]);
-
-    expect(error.code).toBe("internal");
-  });
-
-  it("preserves an external classification for mixed retryable Registry failures", () => {
-    const retryableMetadata = {
-      requestPolicy: {
-        retryable: true,
-        attemptCount: 1,
-        maxAttempts: 1,
-        exhausted: true,
-        stoppedBy: "replay-unsafe" as const,
-        replaySafety: "mutation" as const,
-      },
-    };
-    const error = aggregatePublishFailure(2, [
-      makeAppError({ code: "network", metadata: retryableMetadata }),
-      makeAppError({ code: "unavailable", metadata: retryableMetadata }),
-    ]);
-
-    expect(error.code).toBe("network");
-  });
-});
-
-describe("unconfirmedPublishOutcomes", () => {
-  const base: Pick<PublishResultItem, "id" | "owner" | "type" | "name" | "phase"> = {
-    id: "@acme/skills/review",
-    owner: handle("@acme"),
-    type: "skill",
-    name: extensionName("review"),
-    phase: "upload_execution",
-  };
-  const unknown: PublishResultItem = {
-    ...base,
-    action: "publish",
-    status: "unknown",
-    reason: "settlement_unresolved",
-  };
-  const pending: PublishResultItem = {
-    ...base,
-    id: "@acme/skills/triage",
-    name: extensionName("triage"),
-    action: "publish",
-    status: "pending",
-    reason: "selected",
-  };
-  const published: PublishResultItem = {
-    ...base,
-    id: "@acme/skills/audit",
-    name: extensionName("audit"),
-    action: "publish",
-    status: "success",
-    reason: "selected",
-  };
-
-  it("reports every unsettled outcome when an executed apply confirmed nothing", () => {
-    expect(unconfirmedPublishOutcomes([unknown, pending], true)).toEqual([unknown, pending]);
-  });
-
-  it("reports nothing once a publication settled", () => {
-    expect(unconfirmedPublishOutcomes([published, unknown], true)).toEqual([]);
-  });
-
-  it("reports nothing when the apply never executed", () => {
-    expect(unconfirmedPublishOutcomes([unknown, pending], false)).toEqual([]);
   });
 });
 
@@ -1346,60 +1280,6 @@ describe("publish recovery", () => {
       "axm publish --registry private --on-existing verify @acme/skills/review @acme/packs/toolkit",
     );
   });
-
-  it.each([
-    ["timeout", "deadline"],
-    ["network", "replay-unsafe"],
-    ["rate_limit", "replay-unsafe"],
-    ["unavailable", "replay-unsafe"],
-  ] as const)("projects exhausted %s failures as retryable publish causes", (code, stoppedBy) => {
-    const cause = publicPublishCause(
-      makeAppError({
-        code,
-        detail: "Transient Registry failure",
-        metadata: {
-          response: {
-            status: code === "rate_limit" ? 429 : 503,
-            requestId: "req_public",
-            problemCode: "service_unavailable",
-            body: { detail: "private upstream detail", secret: "must-not-leak" },
-          },
-          requestPolicy: {
-            retryable: true,
-            attemptCount: 1,
-            maxAttempts: 1,
-            exhausted: true,
-            stoppedBy,
-            replaySafety: "mutation",
-          },
-        },
-      }),
-    );
-
-    expect(cause).toMatchObject({
-      code,
-      class: "external",
-      retryable: true,
-      attemptCount: 1,
-      maxAttempts: 1,
-      attemptsExhausted: true,
-      retryStoppedBy: stoppedBy,
-      requestId: "req_public",
-      responseStatus: code === "rate_limit" ? 429 : 503,
-      problemCode: "service_unavailable",
-    });
-    expect(cause).not.toHaveProperty("body");
-  });
-
-  it.each(["auth", "validation", "conflict", "internal"] as const)(
-    "projects deterministic %s failures as terminal publish causes",
-    (code) => {
-      expect(publicPublishCause(makeAppError({ code }))).toMatchObject({
-        code,
-        retryable: false,
-      });
-    },
-  );
 });
 
 describe("root publish dependency planning", () => {

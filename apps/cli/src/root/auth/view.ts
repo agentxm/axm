@@ -22,8 +22,78 @@ export const authProgressLabel = (progress: AuthLoginProgress): string => {
       return `browser authorization on ${progress.registryHost} (expires in ${String(progress.timeoutMinutes)} minutes)`;
     case "CompletingSignIn":
       return `sign-in to ${progress.registryHost}`;
+    case "CheckingRegistrySession":
+    case "RevokingRegistrySession":
+      return `registry session on ${progress.registryHost}`;
+    case "ListingRegistryTokens":
+      return "registry tokens";
+    case "RunningVerifiedWrite":
+    case "RetryingVerifiedWrite":
+    case "WaitingForHumanVerification":
+      return progress.operation;
   }
 };
+
+/**
+ * Lifecycle unit id for one sign-in or verification phase. Ids name the work,
+ * not the progress tag, so a retry reads as a distinct unit.
+ */
+export const authProgressUnitId = (progress: AuthLoginProgress): string => {
+  switch (progress._tag) {
+    case "CheckingRegistrySession":
+      return "session";
+    case "RevokingRegistrySession":
+      return "revoke";
+    case "ListingRegistryTokens":
+      return "tokens";
+    case "RunningVerifiedWrite":
+      return "operation";
+    case "RetryingVerifiedWrite":
+      return "operation-retry";
+    case "WaitingForHumanVerification":
+      return "step-up-verification";
+    default:
+      return progress._tag;
+  }
+};
+
+/** The guidance a person needs while one step-up verification is pending. */
+export const stepUpChallengeView = (challenge: {
+  readonly action: string;
+  readonly target: string;
+  readonly verificationUrl: string;
+  readonly expiresAt: string;
+  readonly browserOpened: boolean;
+}): ReadonlyArray<AuthViewEntry> =>
+  [
+    `Action: ${challenge.action}`,
+    `Target: ${challenge.target}`,
+    `Verify at: ${challenge.verificationUrl}`,
+    `Verification expires at: ${challenge.expiresAt}`,
+    challenge.browserOpened
+      ? "A browser was opened. This command will retry once after verification."
+      : "Open the verification URL in a browser. This command will retry once after verification.",
+  ].map((instruction) => ({ doc: paragraphDoc(instruction), persistent: true }));
+
+/** The one question a session that is still valid raises. */
+export const existingSessionNote = (handle: string): AuthViewEntry => ({
+  doc: headlineDoc("info", `Already logged in as ${handle}.`),
+});
+
+export const rejectedStoredCredentialsNote: AuthViewEntry = {
+  doc: headlineDoc("info", "Your saved credentials are no longer valid. Starting a new sign-in…"),
+};
+
+export const deviceCodeFallbackNote = (
+  reason: "remote-or-headless" | "loopback-bind-failed",
+): AuthViewEntry => ({
+  doc: paragraphDoc(
+    reason === "remote-or-headless"
+      ? "This environment appears to be remote or headless; using device-code sign-in."
+      : "Could not start a local callback server; using device-code sign-in instead.",
+  ),
+  persistent: true,
+});
 
 export const pendingDeviceSuggestions = (
   result: DeviceLoginPendingResult,

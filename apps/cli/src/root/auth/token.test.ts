@@ -20,14 +20,10 @@ import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
+import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { expectNoPlanEnvelope, expectRecord, property } from "../../test-helpers.js";
-import {
-  handleCreateToken,
-  handleListTokens,
-  handleRevokeToken,
-  handleToken,
-  parseExpiresInSeconds,
-} from "./token.js";
+import { parseExpiresInSeconds } from "@agentxm/registry-auth";
+import { handleCreateToken, handleListTokens, handleRevokeToken, handleToken } from "./token.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ALICE = normalizeHandle("@alice");
@@ -79,6 +75,7 @@ const makeLayers = (opts?: {
     credStoreLayer,
     AuthClientTest(opts?.authOverrides),
     interaction.layer,
+    Layer.provide(AuthLoginPresenterLive, rendererLayer),
     registryUrlLayer,
   );
 

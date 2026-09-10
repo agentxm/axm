@@ -14,6 +14,7 @@
     "src/**/*.type-test.ts",
     "src/**/test-helpers.ts",
     "src/**/test-stubs.ts",
+    "src/**/test-support/**",
     "src/**/__tests__/**",
     "src/**/__fixtures__/**/*.md"
   ],
@@ -35,6 +36,27 @@
     },
     {
       "path": "../extension-model/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-content/tsconfig.lib.json"
+    },
+    {
+      "path": "../workspace-operations/tsconfig.lib.json"
+    },
+    {
+      "path": "../../../tools/specification-metadata/tsconfig.lib.json"
+    },
+    {
+      "path": "../../supporting/registry-auth/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-resolution/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-materialization/tsconfig.lib.json"
+    },
+    {
+      "path": "../../supporting/agent-integration/tsconfig.lib.json"
     }
   ]
 }

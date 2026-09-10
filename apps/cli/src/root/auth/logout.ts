@@ -1,12 +1,10 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { Command } from "effect/unstable/cli";
 
-import { AuthClient, CredentialStore } from "@agentxm/registry-auth";
+import { logout } from "@agentxm/registry-auth";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { Screen, successDoc } from "../../screen/index.js";
-import { observeUnit } from "@agentxm/workspace-operations";
 import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -38,73 +36,42 @@ const logoutSuggestions = (status: LogoutStatus): ReadonlyArray<SuggestedAction>
 
 export const handleLogout = Effect.fn("AuthLogout.handle")(
   function* () {
-    const authClient = yield* AuthClient;
-    const credStore = yield* CredentialStore;
     const screen = yield* Screen;
     const registryUrl = yield* RegistryUrl;
     const registryHost = new URL(registryUrl).host;
 
-    // Step 1: Load credentials
-    const existing = yield* credStore.load(registryUrl);
-
-    if (Option.isNone(existing)) {
-      const status: LogoutStatus = "not-logged-in";
-      const suggestions = logoutSuggestions(status);
-      const result = {
-        status,
-        registryHost,
-      };
-      if (yield* screen.document({ result }, LogoutDocumentSchema, { suggestions })) {
-        return;
-      }
-      yield* screen.result(successDoc(`Not logged in to ${registryHost}.`, { suggestions }));
-      return;
-    }
-
-    const handle = existing.value.handle;
-    // The anonymous sentinel is normalizeHandle("@unknown") — including the "@".
-    const identity = handle === "@unknown" ? "" : ` as ${handle}`;
-    const optionalHandle = handle !== "@unknown" ? { handle } : {};
-
-    // Step 2: Attempt remote revoke (tolerate failure)
-    const revokeResult = yield* withLiveOperation(
+    const outcome = yield* withLiveOperation(
       { command: "auth.logout", name: `Sign out of ${registryHost}`, mode: "apply" },
-      observeUnit(
-        { id: "revoke", label: `registry session on ${registryHost}` },
-        authClient.revokeToken(existing.value.refresh_token).pipe(Effect.option),
-      ),
+      logout(registryUrl),
     );
 
-    // Step 3: Clear local credentials
-    yield* credStore.clear(registryUrl);
-
-    // Step 4: Build result and render
-    const status: LogoutStatus = Option.isSome(revokeResult)
-      ? "logged-out"
-      : "logged-out-local-only";
-    const result = {
+    const status: LogoutStatus =
+      outcome._tag === "NotSignedIn"
+        ? "not-logged-in"
+        : outcome.revokedRemotely
+          ? "logged-out"
+          : "logged-out-local-only";
+    const result: LogoutResult = {
       status,
-      registryHost,
-      ...optionalHandle,
+      registryHost: outcome.registryHost,
+      ...(outcome._tag === "SignedOut" && outcome.handle !== undefined
+        ? { handle: outcome.handle }
+        : {}),
     };
     const suggestions = logoutSuggestions(status);
+    if (yield* screen.document({ result }, LogoutDocumentSchema, { suggestions })) return;
 
-    if (yield* screen.document({ result }, LogoutDocumentSchema, { suggestions })) {
-      return;
-    }
-
-    if (Option.isSome(revokeResult)) {
-      yield* screen.result(
-        successDoc(`Logged out of ${registryHost}${identity}.`, { suggestions }),
-      );
-    } else {
-      yield* screen.result(
-        successDoc(
-          `Logged out of ${registryHost}${identity} locally. Remote revocation failed — token will expire automatically.`,
-          { suggestions },
-        ),
-      );
-    }
+    const identity = result.handle === undefined ? "" : ` as ${result.handle}`;
+    yield* screen.result(
+      successDoc(
+        status === "not-logged-in"
+          ? `Not logged in to ${result.registryHost}.`
+          : status === "logged-out"
+            ? `Logged out of ${result.registryHost}${identity}.`
+            : `Logged out of ${result.registryHost}${identity} locally. Remote revocation failed — token will expire automatically.`,
+        { suggestions },
+      ),
+    );
   },
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,

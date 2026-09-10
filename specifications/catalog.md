@@ -511,28 +511,30 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 ##### Creating a hook records editable workspace content
 
 - Requirement: `cli/hooks/new/creates-enabled-workspace-content`
-- Owner: `specifications`
-- Statement: When a person creates a hook, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Owner: `extension-authoring`
+- Statement: When a person creates a hook, AXM shall create its manifest and a runnable starter entrypoint for the requested runtime in the workspace authoring directory, bind it to the requested event with a matcher only where the event is tool-scoped, register it as enabled workspace-authored content, and project it into the agent hook configurations.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
+- Boundary rationale: The manifest, the entrypoint, the declaration, and the agent hook configuration are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example, decision-table
-- Derived from: `apps/cli/src/root/hooks/new.test.ts`
-- Source: [`specifications/cli/hooks/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/hooks/new/creates-enabled-workspace-content.spec.ts)
+- Derived from: `packages/core/extension-authoring/src/create/scaffolds/hook.ts`
+- Source: [`packages/core/extension-authoring/src/hooks/new/creates-enabled-workspace-content.spec.ts`](../packages/core/extension-authoring/src/hooks/new/creates-enabled-workspace-content.spec.ts)
 
 ##### Creating a knowledge bundle records editable workspace content
 
 - Requirement: `cli/knowledge/new/creates-enabled-workspace-content`
-- Owner: `specifications`
-- Statement: When a person creates a knowledge bundle, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Owner: `extension-authoring`
+- Statement: When a person creates a knowledge bundle, AXM shall create its manifest declaring the Open Knowledge Format and its bundle root, create a starter bundle index under that root, carry a supplied description into the manifest, and register the bundle as enabled workspace-authored content.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
+- Boundary rationale: The manifest, the bundle index, and the declaration are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
-- Derived from: `apps/cli/src/root/knowledge/new.ts`
-- Source: [`specifications/cli/knowledge/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/knowledge/new/creates-enabled-workspace-content.spec.ts)
+- Derived from: `packages/core/extension-authoring/src/create/scaffolds/knowledge.ts`
+- Source: [`packages/core/extension-authoring/src/knowledge/creates-enabled-workspace-content.spec.ts`](../packages/core/extension-authoring/src/knowledge/creates-enabled-workspace-content.spec.ts)
 
 ##### A native MCP server can become an authored package
 
@@ -621,17 +623,18 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 ##### Creating a pack records workspace authorship with an empty dependency graph
 
 - Requirement: `cli/packs/new/records-workspace-authorship`
-- Owner: `specifications`
-- Statement: When a person creates a workspace-authored pack, AXM shall record it in axm.json as workspace authored, write its manifest with an empty dependency graph, and shall not record an accepted resolution for it.
+- Owner: `extension-authoring`
+- Statement: When a person creates a workspace-authored pack, AXM shall record it in workspace settings as workspace authored, write its manifest with an empty dependency graph, and shall not record an accepted resolution for it.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
+- Boundary rationale: Authorship is settings-authoritative: the declaration, the manifest, and the absence of an accepted resolution are all decided by the creation use case over the workspace-state services.
 - Methods: example
 - Derived from: `cli/packs/authored-packs-expand-membership`
 - Supersedes: `cli/packs/authored-packs-expand-membership`
 - Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
-- Source: [`specifications/cli/packs/new/records-workspace-authorship.spec.ts`](../specifications/cli/packs/new/records-workspace-authorship.spec.ts)
+- Source: [`packages/core/extension-authoring/src/packs/new-pack-records-workspace-authorship.spec.ts`](../packages/core/extension-authoring/src/packs/new-pack-records-workspace-authorship.spec.ts)
 
 ##### Pack remove changes only the selected dependency declarations
 
@@ -675,44 +678,46 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 ##### Creating a rule records editable workspace content
 
 - Requirement: `cli/rules/new/creates-enabled-workspace-content`
-- Owner: `specifications`
-- Statement: When a person creates a rule, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
+- Owner: `extension-authoring`
+- Statement: When a person creates a rule, AXM shall create its manifest and starter body in the workspace authoring directory, carry the requested title into both, register it as enabled workspace-authored content, and project it into the shared instruction surface agents read.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
+- Boundary rationale: The manifest, the body, the declaration, and the instruction projection are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
-- Derived from: `apps/cli/src/root/rules/new.ts`
-- Source: [`specifications/cli/rules/new/creates-enabled-workspace-content.spec.ts`](../specifications/cli/rules/new/creates-enabled-workspace-content.spec.ts)
+- Derived from: `packages/core/extension-authoring/src/create/scaffolds/rule.ts`
+- Source: [`packages/core/extension-authoring/src/rules/new/creates-enabled-workspace-content.spec.ts`](../packages/core/extension-authoring/src/rules/new/creates-enabled-workspace-content.spec.ts)
 
 ##### A new skill is scaffolded for the universal location and every configured agent
 
 - Requirement: `cli/skills/new/scaffolds-for-every-configured-agent`
-- Owner: `specifications`
-- Statement: When a skill is created, AXM shall create its manifest, content, and enabled settings entry together, shall materialize it for the universal location and every configured agent that can represent it, shall list the same targets in preview and apply, and a following reconciliation shall report no change.
+- Owner: `extension-authoring`
+- Statement: When a skill is created, AXM shall create its manifest, content, and enabled settings entry together, shall materialize it for the universal location and every configured agent that can represent it, and shall list the same locations in preview and apply.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
 - Boundary: memory; selection: per-change
+- Boundary rationale: Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the files an author would see without running the built CLI.
 - Methods: example
-- Derived from: `cli/sync/realizes-desired-state`, `cli/install/preview-is-pure`, `apps/cli/src/root/skills/new.test.ts`, `apps/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
+- Derived from: `packages/core/extension-authoring/src/create/create-extension.ts`, `apps/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
-- Source: [`specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/skills/new/scaffolds-for-every-configured-agent.spec.ts)
+- Source: [`packages/core/extension-authoring/src/skills/new/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/extension-authoring/src/skills/new/scaffolds-for-every-configured-agent.spec.ts)
 
 ##### A new subagent is scaffolded and rendered for every configured agent
 
 - Requirement: `cli/subagents/new/scaffolds-for-every-configured-agent`
-- Owner: `specifications`
-- Statement: When a subagent is created, AXM shall create its manifest, content, and enabled settings entry together, shall render it for every configured agent that can represent it, shall list the same targets in preview and apply, and a following reconciliation shall report no change.
+- Owner: `extension-authoring`
+- Statement: When a subagent is created, AXM shall create its manifest, content, and enabled settings entry together, shall render it for every configured agent that can represent it, and shall report the same package and declaration targets in preview and apply.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
 - Boundary: memory; selection: per-change
+- Boundary rationale: Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the renderings an author would see without running the built CLI.
 - Methods: example
-- Derived from: `cli/sync/realizes-desired-state`, `cli/install/preview-is-pure`, `apps/cli/src/root/subagents/new/handler.test.ts`
-- Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.
-- Open questions: Whether the creation result should list each agent's rendered file as a target, as skill creation lists agent locations, is unresolved; this specification requires only that preview and apply agree and that every configured agent receives its rendering.
-- Source: [`specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts`](../specifications/cli/subagents/new/scaffolds-for-every-configured-agent.spec.ts)
+- Derived from: `packages/core/extension-authoring/src/create/create-extension.ts`, `cli/skills/new/scaffolds-for-every-configured-agent`
+- Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.; A subagent's rendered agent files are not listed as creation targets; the created package, its content, and its declaration are. Preview and apply therefore compare that set.
+- Source: [`packages/core/extension-authoring/src/subagents/new/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/extension-authoring/src/subagents/new/scaffolds-for-every-configured-agent.spec.ts)
 
 ##### Version argument errors offer a command that corrects the request
 
@@ -763,7 +768,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 ##### Discover identifies local recommendations when Registry lookup fails
 
 - Requirement: `cli/discover/identifies-local-only-recommendations`
-- Owner: `specifications`
+- Owner: `extension-discovery`
 - Statement: When the Registry cannot supply companion recommendations, AXM shall retain valid package-declared recommendations and explicitly report that Registry results are unavailable.
 - Class: functional
 - Role: experience
@@ -772,20 +777,20 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example
 - Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/extension-discovery/src/discover.ts`
 - Open questions: How should local-only recommendations represent unresolved Registry identity and install version? The current fallback supplies resolved true and a synthetic 0.0.0 version; this requirement does not accept those values as verified Registry facts.
-- Source: [`specifications/cli/discover/identifies-local-only-recommendations.spec.ts`](../specifications/cli/discover/identifies-local-only-recommendations.spec.ts)
+- Source: [`packages/core/extension-discovery/src/discover/identifies-local-only-recommendations.spec.ts`](../packages/core/extension-discovery/src/discover/identifies-local-only-recommendations.spec.ts)
 
 ##### Discover reports companions for actual project dependencies
 
 - Requirement: `cli/discover/reports-companions-for-detected-dependencies`
-- Owner: `specifications`
+- Owner: `extension-discovery`
 - Statement: When discovering companion extensions, AXM shall report Registry recommendations only for dependencies detected in the selected project, including their observed package versions and the Registry-provided attestation information.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/help/topics/getting-started.md`, `apps/cli/src/root/discover/handler.test.ts`, `packages/core/extension-discovery/src/discover.test.ts`
-- Source: [`specifications/cli/discover/reports-companions-for-detected-dependencies.spec.ts`](../specifications/cli/discover/reports-companions-for-detected-dependencies.spec.ts)
+- Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/extension-discovery/src/discover.test.ts`
+- Source: [`packages/core/extension-discovery/src/discover/reports-companions-for-detected-dependencies.spec.ts`](../packages/core/extension-discovery/src/discover/reports-companions-for-detected-dependencies.spec.ts)
 
 ##### Root install and the type command express the same durable intent
 
@@ -919,54 +924,54 @@ People and agents can find, install, update, and remove reusable extensions acro
 ##### Public metadata can be viewed without management access
 
 - Requirement: `cli/view/public-metadata-requires-no-management-access`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When viewing public extension metadata through the default Registry, AXM shall complete the read without a workspace, credentials, or a protected visibility-management request.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/view/handler.test.ts`, `apps/cli/src/root/view/handler.ts`
-- Source: [`specifications/cli/view/public-metadata-requires-no-management-access.spec.ts`](../specifications/cli/view/public-metadata-requires-no-management-access.spec.ts)
+- Derived from: `apps/cli/src/root/view/handler.test.ts`, `packages/core/workspace-inspection/src/view/view-extension.ts`
+- Source: [`packages/core/workspace-inspection/src/view/public-metadata-requires-no-management-access.spec.ts`](../packages/core/workspace-inspection/src/view/public-metadata-requires-no-management-access.spec.ts)
 
 ##### View retrieves metadata from the selected Registry
 
 - Requirement: `cli/view/reads-the-selected-registry`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When viewing an extension, AXM shall retrieve its metadata from the explicitly named Registry or the configured default Registry when no name is supplied.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/view/handler.test.ts`, `apps/cli/src/root/view/handler.ts`
-- Source: [`specifications/cli/view/reads-the-selected-registry.spec.ts`](../specifications/cli/view/reads-the-selected-registry.spec.ts)
+- Derived from: `apps/cli/src/root/view/handler.test.ts`, `packages/core/workspace-inspection/src/view/view-extension.ts`
+- Source: [`packages/core/workspace-inspection/src/view/reads-the-selected-registry.spec.ts`](../packages/core/workspace-inspection/src/view/reads-the-selected-registry.spec.ts)
 
 ##### View reports deprecation and replacement availability
 
 - Requirement: `cli/view/reports-deprecation-and-replacement-availability`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When viewing a deprecated extension, AXM shall report its deprecation guidance while identifying an unavailable replacement without inventing a replacement identity.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/view/handler.test.ts`, `apps/cli/src/root/view/handler.ts`
-- Source: [`specifications/cli/view/reports-deprecation-and-replacement-availability.spec.ts`](../specifications/cli/view/reports-deprecation-and-replacement-availability.spec.ts)
+- Derived from: `apps/cli/src/root/view/handler.test.ts`, `packages/core/workspace-inspection/src/view/view-extension.ts`
+- Source: [`packages/core/workspace-inspection/src/view/reports-deprecation-and-replacement-availability.spec.ts`](../packages/core/workspace-inspection/src/view/reports-deprecation-and-replacement-availability.spec.ts)
 
 ##### View reports missing metadata without a success result
 
 - Requirement: `cli/view/reports-missing-targets-and-fields`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When an extension or requested metadata field is unavailable, AXM shall report the missing target or field without emitting a successful metadata result.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/view/handler.test.ts`, `apps/cli/src/root/view/handler.ts`
-- Source: [`specifications/cli/view/reports-missing-targets-and-fields.spec.ts`](../specifications/cli/view/reports-missing-targets-and-fields.spec.ts)
+- Derived from: `apps/cli/src/root/view/handler.test.ts`, `packages/core/workspace-inspection/src/view/view-extension.ts`
+- Source: [`packages/core/workspace-inspection/src/view/reports-missing-targets-and-fields.spec.ts`](../packages/core/workspace-inspection/src/view/reports-missing-targets-and-fields.spec.ts)
 
 ### Goal: knowledge-access
 
@@ -992,7 +997,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 ##### Continuation cursors preserve query and corpus identity
 
 - Requirement: `cli/knowledge/concepts/cursors-bind-query-and-corpus`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When continuing a Knowledge query, AXM shall return the next page without repeating prior concepts only while the cursor is well formed, no more than twenty-four hours old, and bound to the same query and selected corpus, otherwise requiring the caller to restart.
 - Class: functional
 - Role: experience
@@ -1001,12 +1006,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/knowledge-query/src/knowledge-index.test.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/cursors-bind-query-and-corpus.spec.ts`](../specifications/cli/knowledge/concepts/cursors-bind-query-and-corpus.spec.ts)
+- Source: [`packages/core/knowledge-query/src/index/cursors-bind-query-and-corpus.spec.ts`](../packages/core/knowledge-query/src/index/cursors-bind-query-and-corpus.spec.ts)
 
 ##### Conditional retrieval detects source changes
 
 - Requirement: `cli/knowledge/concepts/get/rejects-changed-revision`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When a caller supplies a previously observed content revision for Knowledge retrieval, AXM shall return the concept only if its current source revision matches and otherwise report a revision conflict with the current revision.
 - Class: functional
 - Role: experience
@@ -1015,12 +1020,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/get/rejects-changed-revision.spec.ts`](../specifications/cli/knowledge/concepts/get/rejects-changed-revision.spec.ts)
+- Source: [`packages/core/knowledge-query/src/get/rejects-changed-revision.spec.ts`](../packages/core/knowledge-query/src/get/rejects-changed-revision.spec.ts)
 
 ##### Query evidence respects requested bounds
 
 - Requirement: `cli/knowledge/concepts/query/bounds-concept-evidence`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When a Knowledge query matches a concept through several fields or passages, AXM shall return one concept result with matching-field and source-location evidence within the caller-selected passage-count and passage-length bounds.
 - Class: functional
 - Role: experience
@@ -1030,12 +1035,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/knowledge-query/src/knowledge-index.test.ts`
 - Open questions: What explanatory information should query --explain promise about why concepts matched and their ordering? The current strategy and numeric ranking weights are implementation evidence, not accepted output obligations.
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/query/bounds-concept-evidence.spec.ts`](../specifications/cli/knowledge/concepts/query/bounds-concept-evidence.spec.ts)
+- Source: [`packages/core/knowledge-query/src/index/bounds-concept-evidence.spec.ts`](../packages/core/knowledge-query/src/index/bounds-concept-evidence.spec.ts)
 
 ##### Query filters jointly select matching concepts
 
 - Requirement: `cli/knowledge/concepts/query/combines-typed-filters`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When a Knowledge query supplies text, field, property, metadata, lifecycle, tag, or bundle filters, AXM shall return only concepts satisfying every supplied filter with the selected operator.
 - Class: functional
 - Role: experience
@@ -1044,12 +1049,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/knowledge-query/src/knowledge-index.test.ts`, `apps/cli/src/root/knowledge/concepts/query.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/query/combines-typed-filters.spec.ts`](../specifications/cli/knowledge/concepts/query/combines-typed-filters.spec.ts)
+- Source: [`packages/core/knowledge-query/src/query/combines-typed-filters.spec.ts`](../packages/core/knowledge-query/src/query/combines-typed-filters.spec.ts)
 
 ##### Enumeration selects ordinary current concepts by default
 
 - Requirement: `cli/knowledge/concepts/query/enumerates-selected-document-kinds`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When a Knowledge query has no text expression, AXM shall enumerate nondeprecated ordinary concepts in stable bundle and concept order unless the caller explicitly selects another document kind or lifecycle status.
 - Class: functional
 - Role: experience
@@ -1058,12 +1063,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/knowledge-query/src/knowledge-index.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/query/enumerates-selected-document-kinds.spec.ts`](../specifications/cli/knowledge/concepts/query/enumerates-selected-document-kinds.spec.ts)
+- Source: [`packages/core/knowledge-query/src/index/enumerates-selected-document-kinds.spec.ts`](../packages/core/knowledge-query/src/index/enumerates-selected-document-kinds.spec.ts)
 
 ##### Invalid query filters fail validation
 
 - Requirement: `cli/knowledge/concepts/query/rejects-invalid-filters`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When a Knowledge query contains an unknown field, malformed property pointer, unsupported operator, or empty filter value, AXM shall reject the query as a validation failure.
 - Class: functional
 - Role: experience
@@ -1071,40 +1076,40 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli/src/root/knowledge/concepts/query.ts`
-- Source: [`specifications/cli/knowledge/concepts/query/rejects-invalid-filters.spec.ts`](../specifications/cli/knowledge/concepts/query/rejects-invalid-filters.spec.ts)
+- Source: [`packages/core/knowledge-query/src/query/rejects-invalid-filters.spec.ts`](../packages/core/knowledge-query/src/query/rejects-invalid-filters.spec.ts)
 
 ##### Discovery reads only enabled bundles in the selected workspace
 
 - Requirement: `cli/knowledge/concepts/reads-only-enabled-selected-corpus`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When discovering Knowledge, AXM shall read the enabled bundles in the selected workspace regardless of instruction-entry visibility and reflect current source content without changing workspace state.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: process; selection: per-change
-- Boundary rationale: Populated project and user workspaces with the same Knowledge identity establish real scope composition, process argument selection, and preservation of both authoritative workspaces and native files.
+- Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli/src/root/knowledge/inspect.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
+- Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-projection/src/knowledge/installed-bundles.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
+- Limitation: This evidence observes the selection rule in a project workspace only. Which workspace a scope argument routes to, and that the unselected scope is neither read into the corpus nor written, are not observed here. Retires when: A user-scope Knowledge discovery example exists in apps/cli-e2e/src/knowledge.e2e.test.ts, or cli/installed-state-stays-in-selected-scope is revised to name Knowledge discovery reads.
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/reads-only-enabled-selected-corpus.spec.ts`](../specifications/cli/knowledge/concepts/reads-only-enabled-selected-corpus.spec.ts)
+- Source: [`packages/core/knowledge-query/src/corpus/reads-only-enabled-selected-corpus.spec.ts`](../packages/core/knowledge-query/src/corpus/reads-only-enabled-selected-corpus.spec.ts)
 
 ##### Discovery refuses an unstable source view
 
 - Requirement: `cli/knowledge/concepts/refuses-changing-corpus`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When Knowledge source bytes continue changing during capture, AXM shall report a corpus-changing conflict instead of returning results from an inconsistent source view.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/core/knowledge-query/src/knowledge-capture.test.ts`, `packages/core/knowledge-query/src/knowledge-revision.test.ts`, `apps/cli/src/root/knowledge/concepts/failures.ts`
-- Source: [`specifications/cli/knowledge/concepts/refuses-changing-corpus.spec.ts`](../specifications/cli/knowledge/concepts/refuses-changing-corpus.spec.ts)
+- Derived from: `packages/core/knowledge-query/src/knowledge-capture.test.ts`, `packages/core/knowledge-query/src/knowledge-revision.test.ts`, `packages/core/knowledge-query/src/corpus/installed-corpus.ts`
+- Source: [`packages/core/knowledge-query/src/corpus/refuses-changing-corpus.spec.ts`](../packages/core/knowledge-query/src/corpus/refuses-changing-corpus.spec.ts)
 
 ##### Related concepts follow authored links with evidence
 
 - Requirement: `cli/knowledge/concepts/related/traverses-authored-links`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When exploring related Knowledge concepts, AXM shall return outgoing links and backlinks within the requested depth with authored-link evidence, suppressing the starting concept, repeated visits, and index backlinks unless requested.
 - Class: functional
 - Role: experience
@@ -1113,7 +1118,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/knowledge-query/src/knowledge-graph.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts`](../specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts)
+- Source: [`packages/core/knowledge-query/src/graph/traverses-authored-links.spec.ts`](../packages/core/knowledge-query/src/graph/traverses-authored-links.spec.ts)
 
 ##### Human discovery output preserves text without terminal control
 
@@ -1131,7 +1136,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 ##### Exact retrieval does not substitute another concept
 
 - Requirement: `cli/knowledge/concepts/reports-unavailable-exact-references`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When an exact Knowledge reference is absent from the selected corpus, AXM shall report not found without substituting a similarly named concept.
 - Class: functional
 - Role: experience
@@ -1139,12 +1144,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/src/root/knowledge/concepts/get.ts`, `apps/cli/src/root/knowledge/concepts/resolve.ts`, `apps/cli/src/root/knowledge/concepts/related.ts`
-- Source: [`specifications/cli/knowledge/concepts/reports-unavailable-exact-references.spec.ts`](../specifications/cli/knowledge/concepts/reports-unavailable-exact-references.spec.ts)
+- Source: [`packages/core/knowledge-query/src/index/reports-unavailable-exact-references.spec.ts`](../packages/core/knowledge-query/src/index/reports-unavailable-exact-references.spec.ts)
 
 ##### Fuzzy resolution requires opt-in and exposes ambiguity
 
 - Requirement: `cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When resolving text that is not an exact Knowledge reference, AXM shall require explicit fuzzy resolution and return at most ten deterministic candidates without choosing among ambiguous matches.
 - Class: functional
 - Role: experience
@@ -1153,12 +1158,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/knowledge-query/src/knowledge-graph.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts`](../specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts)
+- Source: [`packages/core/knowledge-query/src/graph/requires-explicit-fuzzy-resolution.spec.ts`](../packages/core/knowledge-query/src/graph/requires-explicit-fuzzy-resolution.spec.ts)
 
 ##### Exact concept references resolve to installed identity
 
 - Requirement: `cli/knowledge/concepts/resolve/resolves-exact-reference`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When given a compact or canonical HTTPS reference to an installed Knowledge concept, AXM shall resolve the exact concept to its installed bundle version and source revision.
 - Class: functional
 - Role: experience
@@ -1167,12 +1172,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/knowledge-query/src/knowledge-graph.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts`](../specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts)
+- Source: [`packages/core/knowledge-query/src/graph/resolves-exact-reference.spec.ts`](../packages/core/knowledge-query/src/graph/resolves-exact-reference.spec.ts)
 
 ##### Search matches the requested lexical expression
 
 - Requirement: `cli/knowledge/concepts/search/matches-lexical-query`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When searching installed Knowledge, AXM shall match all normalized whole-token terms across searchable fields, contiguous phrases within one field, and exact literals within one field.
 - Class: functional
 - Role: experience
@@ -1181,12 +1186,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/search/matches-lexical-query.spec.ts`](../specifications/cli/knowledge/concepts/search/matches-lexical-query.spec.ts)
+- Source: [`packages/core/knowledge-query/src/index/matches-lexical-query.spec.ts`](../packages/core/knowledge-query/src/index/matches-lexical-query.spec.ts)
 
 ##### Invalid search expressions fail validation
 
 - Requirement: `cli/knowledge/concepts/search/rejects-invalid-query`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When a Knowledge search expression is empty, has no searchable tokens, or contains an invalid phrase or literal, AXM shall reject it as a validation failure.
 - Class: functional
 - Role: experience
@@ -1195,27 +1200,27 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/search/rejects-invalid-query.spec.ts`](../specifications/cli/knowledge/concepts/search/rejects-invalid-query.spec.ts)
+- Source: [`packages/core/knowledge-query/src/query/rejects-invalid-query.spec.ts`](../packages/core/knowledge-query/src/query/rejects-invalid-query.spec.ts)
 
 ##### Status distinguishes a ready corpus from unstable and unavailable sources
 
 - Requirement: `cli/knowledge/concepts/status/reports-current-corpus-health`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When reporting Knowledge discovery status, AXM shall distinguish a ready captured corpus, source bytes that keep changing, and stable capture failures, with current counts and identity for readiness or an actionable diagnostic for failure.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/knowledge/concepts/status.ts`, `apps/cli/src/root/knowledge/concepts/schemas.ts`, `apps/cli/src/root/knowledge/json-output.test.ts`
+- Derived from: `packages/core/knowledge-query/src/corpus/corpus-status.ts`, `apps/cli/src/root/knowledge/json-output.test.ts`
 - Open questions: When source capture succeeds but OKF inspection contains error findings, should discovery report a ready but unhealthy corpus or refuse that corpus as unavailable?
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/status/reports-current-corpus-health.spec.ts`](../specifications/cli/knowledge/concepts/status/reports-current-corpus-health.spec.ts)
+- Source: [`packages/core/knowledge-query/src/corpus/reports-current-corpus-health.spec.ts`](../packages/core/knowledge-query/src/corpus/reports-current-corpus-health.spec.ts)
 
 ##### Knowledge lint reports source findings without changing content
 
 - Requirement: `cli/knowledge/lint/reports-validation-without-mutation`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When validating installed or explicitly selected authored Knowledge, AXM shall report source-located findings without changing workspace content, returning failure for errors and success for warnings alone.
 - Class: functional
 - Role: experience
@@ -1224,34 +1229,34 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/src/root/knowledge/json-output.test.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`, `cli/lint/catalog-is-complete`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/lint/reports-validation-without-mutation.spec.ts`](../specifications/cli/knowledge/lint/reports-validation-without-mutation.spec.ts)
+- Source: [`packages/core/knowledge-query/src/lint/reports-validation-without-mutation.spec.ts`](../packages/core/knowledge-query/src/lint/reports-validation-without-mutation.spec.ts)
 
 ##### Knowledge list explains instruction entry inclusion
 
 - Requirement: `cli/knowledge/list/explains-instruction-entry-inclusion`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When listing an installed or explicitly disabled Knowledge bundle, AXM shall report whether its entry is included in agent instructions and the effective reason for that decision.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/knowledge/list.ts`, `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-projection/src/knowledge/instruction-entry.test.ts`
+- Derived from: `packages/core/workspace-inspection/src/knowledge/list-knowledge.ts`, `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-projection/src/knowledge/instruction-entry.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/list/explains-instruction-entry-inclusion.spec.ts`](../specifications/cli/knowledge/list/explains-instruction-entry-inclusion.spec.ts)
+- Source: [`packages/core/workspace-inspection/src/knowledge/explains-instruction-entry-inclusion.spec.ts`](../packages/core/workspace-inspection/src/knowledge/explains-instruction-entry-inclusion.spec.ts)
 
-##### Knowledge list reports the inspected bundle content
+##### Knowledge inventory counts every inspected document from current source
 
 - Requirement: `cli/knowledge/list/reports-bundle-inspection`
-- Owner: `specifications`
-- Statement: When listing Knowledge bundles, AXM shall identify locally available bundles with their source paths, inspected concept counts, and diagnostic counts.
+- Owner: `workspace-inspection`
+- Statement: When listing Knowledge bundles, AXM shall count every inspected document in the bundle, including its reserved index, and shall re-inspect current source on each listing so concept and diagnostic counts follow repairs.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/knowledge/list.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
-- Source: [`specifications/cli/knowledge/list/reports-bundle-inspection.spec.ts`](../specifications/cli/knowledge/list/reports-bundle-inspection.spec.ts)
+- Derived from: `packages/core/workspace-inspection/src/knowledge/list-knowledge.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
+- Source: [`packages/core/workspace-inspection/src/knowledge/reports-bundle-inspection.spec.ts`](../packages/core/workspace-inspection/src/knowledge/reports-bundle-inspection.spec.ts)
 
 #### Constraints
 
@@ -1589,7 +1594,7 @@ Observation of product use stays within the documented data boundary and under t
 - Product goals: `privacy-and-consent`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `AgentXM Registry API 0.1.0`, `apps/cli/src/root/step-up.ts`, `apps/cli/src/root/lifecycle/command.test.ts`
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/supporting/registry-auth/src/step-up.ts`, `apps/cli/src/root/lifecycle/command.test.ts`
 - Source: [`specifications/cli/registry-writes-complete-required-verification.spec.ts`](../specifications/cli/registry-writes-complete-required-verification.spec.ts)
 
 ##### Telemetry collection follows only the operator's environment consent
@@ -1678,32 +1683,33 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/agents/remove/removes-membership-and-owned-outputs`
 - Source: [`specifications/cli/agents/remove/preview-is-pure.spec.ts`](../specifications/cli/agents/remove/preview-is-pure.spec.ts)
 
-##### Cache pruning enforces the reported retention limits
+##### The archive cache reports its limits and enforces exactly those
 
 - Requirement: `cli/cache/prune/enforces-reported-retention-limits`
-- Owner: `specifications`
-- Statement: The cache prune command shall remove expired archives and enough excess archive storage to satisfy the reported 2 GiB limit, preserve unrelated files, and report the removed and remaining entry and byte totals.
+- Owner: `registry-client`
+- Statement: The archive cache shall report its entry count, byte total, and effective size and age limits, and pruning shall remove expired archives and enough excess archive storage to satisfy exactly those reported limits, preserve unrelated files, and report the removed and remaining entry and byte totals.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `apps/cli/src/root/cache/command.ts`, `packages/supporting/registry-client/src/archive-cache.ts`
+- Derived from: `packages/supporting/registry-client/src/archive-cache.ts`
+- Supersedes: `cli/cache/status/reports-usage-and-effective-limits`
 - Open questions: Should removal of the oldest archives first and the exact expiration boundary be product guarantees? The current implementation chooses both; this requirement establishes the externally reported limits without fixing those choices.
-- Source: [`specifications/cli/cache/prune/enforces-reported-retention-limits.spec.ts`](../specifications/cli/cache/prune/enforces-reported-retention-limits.spec.ts)
+- Source: [`packages/supporting/registry-client/src/archive-cache/enforces-reported-retention-limits.spec.ts`](../packages/supporting/registry-client/src/archive-cache/enforces-reported-retention-limits.spec.ts)
 
 ##### Cache verification removes corrupt archives and preserves valid content
 
 - Requirement: `cli/cache/verify/removes-only-corrupt-archives`
-- Owner: `specifications`
+- Owner: `registry-client`
 - Statement: The cache verify command shall compare every cached archive with its recorded integrity, remove entries whose integrity is invalid or mismatched, retain matching entries and unrelated files, and report the checked, valid, and removed counts.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `apps/cli/src/root/cache/command.ts`, `packages/supporting/registry-client/src/archive-cache.ts`
-- Source: [`specifications/cli/cache/verify/removes-only-corrupt-archives.spec.ts`](../specifications/cli/cache/verify/removes-only-corrupt-archives.spec.ts)
+- Derived from: `packages/supporting/registry-client/src/archive-cache.ts`
+- Source: [`packages/supporting/registry-client/src/archive-cache/removes-only-corrupt-archives.spec.ts`](../packages/supporting/registry-client/src/archive-cache/removes-only-corrupt-archives.spec.ts)
 
 ##### Concurrent changes to one workspace never interleave
 
@@ -1807,18 +1813,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/install/preview-is-pure`
 - Source: [`specifications/cli/hooks/install/preview-is-pure.spec.ts`](../specifications/cli/hooks/install/preview-is-pure.spec.ts)
 
-##### New hook preview describes the scaffold without changing any state
+##### Hook creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/hooks/new/preview-is-pure`
-- Owner: `specifications`
-- Statement: When hooks new runs in preview mode for a name that is not yet authored, it shall report the package it would create with a previewed outcome and shall not change settings, the authored source root, or agent hook configuration.
+- Owner: `extension-authoring`
+- Statement: When hook creation is previewed for an owner the workspace authors, it shall report the manifest, entrypoint, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent hook configurations; a previewed creation the workspace refuses shall likewise change nothing.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
 - Boundary: memory; selection: per-change
+- Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
-- Derived from: `apps/cli/src/root/hooks/new.test.ts`
-- Source: [`specifications/cli/hooks/new/preview-is-pure.spec.ts`](../specifications/cli/hooks/new/preview-is-pure.spec.ts)
+- Derived from: `cli/hooks/new/creates-enabled-workspace-content`
+- Source: [`packages/core/extension-authoring/src/hooks/new/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/hooks/new/preview-is-pure.spec.ts)
 
 ##### Hook publish preview reports the admitted hooks without distributing anything
 
@@ -1977,18 +1984,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/install/preview-is-pure`
 - Source: [`specifications/cli/knowledge/install/preview-is-pure.spec.ts`](../specifications/cli/knowledge/install/preview-is-pure.spec.ts)
 
-##### Knowledge new preview describes the scaffold without creating any state
+##### Knowledge bundle creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/knowledge/new/preview-is-pure`
-- Owner: `specifications`
-- Statement: When knowledge new runs in preview mode for a bundle name the workspace does not yet author, it shall report the bundle it would create with a previewed outcome and shall not write the authored package, settings, or any other workspace state.
+- Owner: `extension-authoring`
+- Statement: When knowledge bundle creation is previewed, it shall report the manifest, bundle index, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, or canonical content; a previewed creation refused because the name is already authored shall likewise change nothing.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
 - Boundary: memory; selection: per-change
+- Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
-- Derived from: `cli/skills/new/scaffolds-for-every-configured-agent`
-- Source: [`specifications/cli/knowledge/new/preview-is-pure.spec.ts`](../specifications/cli/knowledge/new/preview-is-pure.spec.ts)
+- Derived from: `cli/knowledge/new/creates-enabled-workspace-content`
+- Source: [`packages/core/extension-authoring/src/knowledge/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/knowledge/preview-is-pure.spec.ts)
 
 ##### Knowledge publish preview reports the admitted bundles without distributing anything
 
@@ -2237,18 +2245,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/install/preview-is-pure`
 - Source: [`specifications/cli/packs/install/preview-is-pure.spec.ts`](../specifications/cli/packs/install/preview-is-pure.spec.ts)
 
-##### Pack new preview describes the scaffold without creating any state
+##### Pack creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/packs/new/preview-is-pure`
-- Owner: `specifications`
-- Statement: When packs new runs in preview mode for a pack name the workspace does not yet author, it shall report the pack it would create with a previewed outcome and shall not write the authored package, settings, or any other workspace state.
+- Owner: `extension-authoring`
+- Statement: When pack creation is previewed, it shall report the manifest and settings entry it would create with a previewed outcome and shall not create the authored package or record the pack; a previewed creation refused because the pack is already authored shall likewise change nothing.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
 - Boundary: memory; selection: per-change
+- Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/new/records-workspace-authorship`
-- Source: [`specifications/cli/packs/new/preview-is-pure.spec.ts`](../specifications/cli/packs/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/extension-authoring/src/packs/new-pack-preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/packs/new-pack-preview-is-pure.spec.ts)
 
 ##### Pack publish preview reports the admitted packs without distributing anything
 
@@ -2396,18 +2405,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/install/preview-is-pure`
 - Source: [`specifications/cli/rules/install/preview-is-pure.spec.ts`](../specifications/cli/rules/install/preview-is-pure.spec.ts)
 
-##### New rule preview describes the scaffold without changing any state
+##### Rule creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/rules/new/preview-is-pure`
-- Owner: `specifications`
-- Statement: When rules new runs in preview mode for a name that is not yet authored, it shall report the package it would create with a previewed outcome and shall not change settings, the authored source root, or agent instruction files.
+- Owner: `extension-authoring`
+- Statement: When rule creation is previewed for an owner the workspace authors, it shall report the manifest, body, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or the shared instruction surface; a previewed creation the workspace refuses shall likewise change nothing.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
 - Boundary: memory; selection: per-change
+- Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
-- Derived from: `cli/hooks/new/preview-is-pure`
-- Source: [`specifications/cli/rules/new/preview-is-pure.spec.ts`](../specifications/cli/rules/new/preview-is-pure.spec.ts)
+- Derived from: `cli/rules/new/creates-enabled-workspace-content`
+- Source: [`packages/core/extension-authoring/src/rules/new/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/rules/new/preview-is-pure.spec.ts)
 
 ##### Rule publish preview reports the admitted rules without distributing anything
 
@@ -2515,15 +2525,16 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Skill creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/skills/new/preview-is-pure`
-- Owner: `specifications`
-- Statement: When skills new runs in preview mode with an owner the workspace authors, it shall report the manifest, content, settings entry, and agent locations it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections.
+- Owner: `extension-authoring`
+- Statement: When skill creation is previewed for an owner the workspace authors, it shall report the manifest, content, settings entry, and agent locations it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections; a previewed creation the workspace refuses shall likewise change nothing.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
 - Boundary: memory; selection: per-change
+- Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/skills/new/scaffolds-for-every-configured-agent`
-- Source: [`specifications/cli/skills/new/preview-is-pure.spec.ts`](../specifications/cli/skills/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/extension-authoring/src/skills/new/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/skills/new/preview-is-pure.spec.ts)
 
 ##### Skill publish preview reports the admitted skills without distributing anything
 
@@ -2619,15 +2630,16 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Subagent creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/subagents/new/preview-is-pure`
-- Owner: `specifications`
-- Statement: When subagents new runs in preview mode with an owner the workspace authors, it shall report the manifest, content, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections.
+- Owner: `extension-authoring`
+- Statement: When subagent creation is previewed for an owner the workspace authors, it shall report the manifest, content, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections; a previewed creation the workspace refuses shall likewise change nothing.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
 - Boundary: memory; selection: per-change
+- Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/subagents/new/scaffolds-for-every-configured-agent`
-- Source: [`specifications/cli/subagents/new/preview-is-pure.spec.ts`](../specifications/cli/subagents/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/extension-authoring/src/subagents/new/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/subagents/new/preview-is-pure.spec.ts)
 
 ##### Subagent publish preview reports the admitted subagents without distributing anything
 
@@ -3450,16 +3462,16 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Local inventories can run before setup
 
 - Requirement: `cli/inventories-can-run-before-setup`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When listing local extensions before workspace setup, AXM shall report detected entries or an empty inventory without requiring or creating workspace settings and resolution state.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/skills/list.test.ts`, `apps/cli/src/root/list/command.ts`, `apps/cli/src/root/knowledge/list.ts`
+- Derived from: `apps/cli/src/root/skills/list.test.ts`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`, `packages/core/workspace-inspection/src/type-list/type-lists.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
-- Source: [`specifications/cli/inventories-can-run-before-setup.spec.ts`](../specifications/cli/inventories-can-run-before-setup.spec.ts)
+- Source: [`packages/core/workspace-inspection/src/inventories-can-run-before-setup.spec.ts`](../packages/core/workspace-inspection/src/inventories-can-run-before-setup.spec.ts)
 
 ##### Lint holds a declared official AXM skill to compatibility
 
@@ -3494,42 +3506,55 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Update listings use each installation’s recorded Registry
 
 - Requirement: `cli/list/assesses-updates-through-recorded-registry`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When listing outdated extensions, AXM shall assess installed extensions, including disabled installations, against their recorded Registry source and return those with a newer version that satisfies the recorded version constraint.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/list/command.test.ts`, `apps/cli/src/root/list/command.ts`
+- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`
 - Open questions: Should Git update assessment treat a changed commit with an unchanged extension tree as an available update? Current code compares both identities; Registry version eligibility is the accepted scope of this requirement.
-- Source: [`specifications/cli/list/assesses-updates-through-recorded-registry.spec.ts`](../specifications/cli/list/assesses-updates-through-recorded-registry.spec.ts)
+- Source: [`packages/core/workspace-inspection/src/extension-list/assesses-updates-through-recorded-registry.spec.ts`](../packages/core/workspace-inspection/src/extension-list/assesses-updates-through-recorded-registry.spec.ts)
 
 ##### List exposes failed Registry assessment
 
 - Requirement: `cli/list/fails-when-registry-assessment-fails`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When a requested Registry assessment fails, AXM shall fail the list command without presenting a successful empty or current assessment.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-inspection/src/extension-list.ts`
-- Source: [`specifications/cli/list/fails-when-registry-assessment-fails.spec.ts`](../specifications/cli/list/fails-when-registry-assessment-fails.spec.ts)
+- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`
+- Source: [`packages/core/workspace-inspection/src/extension-list/fails-when-registry-assessment-fails.spec.ts`](../packages/core/workspace-inspection/src/extension-list/fails-when-registry-assessment-fails.spec.ts)
 
-##### Ordinary listings identify deprecated installations
+##### Human inventories point readers at the deprecation guidance command
+
+- Requirement: `cli/list/human-inventory-points-to-deprecation-guidance`
+- Owner: `cli`
+- Statement: When an ordinary inventory rendered for a person includes a deprecated installation, AXM shall name the command that reports that extension's full deprecation guidance.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/list/ordinary-inventory-identifies-deprecation`, `apps/cli/src/root/list/command.ts`
+- Source: [`apps/cli/src/root/list/human-inventory-points-to-deprecation-guidance.spec.ts`](../apps/cli/src/root/list/human-inventory-points-to-deprecation-guidance.spec.ts)
+
+##### Ordinary listings identify deprecation without its detail
 
 - Requirement: `cli/list/ordinary-inventory-identifies-deprecation`
-- Owner: `specifications`
-- Statement: When an ordinary inventory includes a deprecated installation, AXM shall identify its deprecation status and direct human readers to the command for full guidance.
+- Owner: `workspace-inspection`
+- Statement: When an ordinary inventory includes a deprecated installation, AXM shall identify its deprecation status and shall not carry the deprecation detail that the deprecation listing reports.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/list/command.test.ts`, `apps/cli/src/root/list/command.ts`
-- Source: [`specifications/cli/list/ordinary-inventory-identifies-deprecation.spec.ts`](../specifications/cli/list/ordinary-inventory-identifies-deprecation.spec.ts)
+- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`
+- Source: [`packages/core/workspace-inspection/src/extension-list/ordinary-inventory-identifies-deprecation.spec.ts`](../packages/core/workspace-inspection/src/extension-list/ordinary-inventory-identifies-deprecation.spec.ts)
 
 ##### List rejects incompatible remote filters
 
@@ -3547,41 +3572,41 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Deprecation listings report available replacement guidance
 
 - Requirement: `cli/list/reports-deprecation-guidance`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When listing deprecated installations, AXM shall return the Registry’s deprecation message and replacement availability for each matching installation.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-inspection/src/extension-list.ts`
-- Source: [`specifications/cli/list/reports-deprecation-guidance.spec.ts`](../specifications/cli/list/reports-deprecation-guidance.spec.ts)
+- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`
+- Source: [`packages/core/workspace-inspection/src/extension-list/reports-deprecation-guidance.spec.ts`](../packages/core/workspace-inspection/src/extension-list/reports-deprecation-guidance.spec.ts)
 
 ##### List reports incomplete Registry assessment
 
 - Requirement: `cli/list/reports-incomplete-assessment`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When an installation’s recorded Registry source is not configured or its extension index is not found, AXM shall mark that assessment as unknown in coverage instead of treating it as a confirmed current installation.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-inspection/src/extension-list.ts`
-- Source: [`specifications/cli/list/reports-incomplete-assessment.spec.ts`](../specifications/cli/list/reports-incomplete-assessment.spec.ts)
+- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`
+- Source: [`packages/core/workspace-inspection/src/extension-list/reports-incomplete-assessment.spec.ts`](../packages/core/workspace-inspection/src/extension-list/reports-incomplete-assessment.spec.ts)
 
 ##### List reports the current inventory across extension types
 
 - Requirement: `cli/list/reports-the-cross-type-inventory`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When listing extensions, AXM shall report the current local inventory across all extension types or only the explicitly selected type, including configured extensions that are disabled or missing.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/list/command.test.ts`, `apps/cli/src/root/list/command.ts`
-- Source: [`specifications/cli/list/reports-the-cross-type-inventory.spec.ts`](../specifications/cli/list/reports-the-cross-type-inventory.spec.ts)
+- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`
+- Source: [`packages/core/workspace-inspection/src/extension-list/reports-the-cross-type-inventory.spec.ts`](../packages/core/workspace-inspection/src/extension-list/reports-the-cross-type-inventory.spec.ts)
 
 ##### A lockfile row alone never makes an extension desired or retained
 
@@ -3703,29 +3728,29 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Pack inspection refuses mismatched and unavailable targets
 
 - Requirement: `cli/packs/show/rejects-mismatched-and-unavailable-packs`
-- Owner: `specifications`
-- Statement: When a requested pack identity conflicts with the configured pack or its canonical manifest is unavailable or invalid, AXM shall fail the inspection without presenting a pack-state result.
+- Owner: `workspace-inspection`
+- Statement: When the requested target is not a configured pack, is not a pack identity, names another owner's pack, or its canonical manifest is unavailable or malformed, AXM shall refuse the inspection and produce no pack state.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/packs/show.ts`
-- Source: [`specifications/cli/packs/show/rejects-mismatched-and-unavailable-packs.spec.ts`](../specifications/cli/packs/show/rejects-mismatched-and-unavailable-packs.spec.ts)
+- Derived from: `packages/core/workspace-inspection/src/packs/show-pack.ts`
+- Source: [`packages/core/workspace-inspection/src/packs/show-rejects-mismatched-and-unavailable-packs.spec.ts`](../packages/core/workspace-inspection/src/packs/show-rejects-mismatched-and-unavailable-packs.spec.ts)
 
 ##### Pack inspection reports declared members and observed state
 
 - Requirement: `cli/packs/show/reports-authored-membership-and-observed-state`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When inspecting a configured pack, AXM shall report the pack’s source authority, canonical manifest, declared member constraints, and desired dependency reachability.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/packs/show.ts`, `apps/cli-e2e/src/scope-consistency.e2e.test.ts`
+- Derived from: `packages/core/workspace-inspection/src/packs/show-pack.ts`, `apps/cli-e2e/src/scope-consistency.e2e.test.ts`
 - Open questions: The current pack result reports member version as null and derives reachability from desired graph presence. Should future inspection distinguish desired membership from verified installed member resolution and exclusions?
-- Source: [`specifications/cli/packs/show/reports-authored-membership-and-observed-state.spec.ts`](../specifications/cli/packs/show/reports-authored-membership-and-observed-state.spec.ts)
+- Source: [`packages/core/workspace-inspection/src/packs/show-reports-authored-membership-and-observed-state.spec.ts`](../packages/core/workspace-inspection/src/packs/show-reports-authored-membership-and-observed-state.spec.ts)
 
 ##### The one-shot release-age override reaches every command the gate can block
 
@@ -3907,7 +3932,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Agent filters match any selected agent
 
 - Requirement: `cli/type-list-agent-filters-match-any-selected-agent`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When filtering skill or subagent inventories by agents, AXM shall include entries observed by any selected agent and exclude entries observed by none of them.
 - Class: functional
 - Role: experience
@@ -3915,7 +3940,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/src/root/skills/list.test.ts`, `apps/cli/src/root/subagents/list/handler.test.ts`
-- Source: [`specifications/cli/type-list-agent-filters-match-any-selected-agent.spec.ts`](../specifications/cli/type-list-agent-filters-match-any-selected-agent.spec.ts)
+- Source: [`packages/core/workspace-inspection/src/type-list-agent-filters-match-any-selected-agent.spec.ts`](../packages/core/workspace-inspection/src/type-list-agent-filters-match-any-selected-agent.spec.ts)
 
 ##### Type inspection identifies missing entries
 
@@ -4091,19 +4116,19 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 ##### A companion package names an ecosystem package identity, never a pinned version
 
 - Requirement: `package-identity/companion-packages-are-identities-not-pins`
-- Owner: `specifications`
+- Owner: `extension-model`
 - Statement: A companion package shall be declared by a versionless package identity, and a declaration that pins a version shall be refused with guidance toward the compatibility range.
 - Class: functional
 - Role: interface
 - Product goals: `authoring-and-creation`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Source: [`specifications/package-identity/companion-packages-are-identities-not-pins.spec.ts`](../specifications/package-identity/companion-packages-are-identities-not-pins.spec.ts)
+- Source: [`packages/core/extension-model/src/unstable/package-urls/companion-packages-are-identities-not-pins.spec.ts`](../packages/core/extension-model/src/unstable/package-urls/companion-packages-are-identities-not-pins.spec.ts)
 
 ##### Companion packages and their compatibility ranges name a supported package ecosystem
 
 - Requirement: `package-identity/companion-packages-use-a-supported-ecosystem`
-- Owner: `specifications`
+- Owner: `extension-model`
 - Statement: A companion package identity and its compatibility range shall each name a supported concrete package ecosystem, and a declaration naming a generic version scheme or an ecosystem the product does not support shall be refused with guidance naming that ecosystem.
 - Class: functional
 - Role: interface
@@ -4111,12 +4136,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `package-identity/companion-packages-are-identities-not-pins`, `package-identity/compatibility-ranges-match-the-package-ecosystem`
-- Source: [`specifications/package-identity/companion-packages-use-a-supported-ecosystem.spec.ts`](../specifications/package-identity/companion-packages-use-a-supported-ecosystem.spec.ts)
+- Source: [`packages/core/extension-model/src/unstable/package-urls/companion-packages-use-a-supported-ecosystem.spec.ts`](../packages/core/extension-model/src/unstable/package-urls/companion-packages-use-a-supported-ecosystem.spec.ts)
 
 ##### A companion compatibility range is a well-formed vers range with at least one plain constraint
 
 - Requirement: `package-identity/compatibility-ranges-are-well-formed`
-- Owner: `specifications`
+- Owner: `extension-model`
 - Statement: A companion compatibility range shall be a vers range with the vers prefix, an ecosystem scheme, and at least one plain constraint, and a range that omits the prefix, carries no constraint, is wildcard-only, or percent-encodes its constraints shall be refused with guidance naming the flaw.
 - Class: functional
 - Role: interface
@@ -4124,19 +4149,19 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `package-identity/compatibility-ranges-match-the-package-ecosystem`
-- Source: [`specifications/package-identity/compatibility-ranges-are-well-formed.spec.ts`](../specifications/package-identity/compatibility-ranges-are-well-formed.spec.ts)
+- Source: [`packages/core/extension-model/src/unstable/package-urls/compatibility-ranges-are-well-formed.spec.ts`](../packages/core/extension-model/src/unstable/package-urls/compatibility-ranges-are-well-formed.spec.ts)
 
 ##### A companion compatibility range names the same ecosystem as its package identity
 
 - Requirement: `package-identity/compatibility-ranges-match-the-package-ecosystem`
-- Owner: `specifications`
+- Owner: `extension-model`
 - Statement: A companion declaration that carries a compatibility range shall be accepted only when the range names the same package ecosystem as the package identity, and a mismatched pair shall be refused with guidance naming both ecosystems.
 - Class: functional
 - Role: interface
 - Product goals: `authoring-and-creation`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Source: [`specifications/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts`](../specifications/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts)
+- Source: [`packages/core/extension-model/src/unstable/package-urls/compatibility-ranges-match-the-package-ecosystem.spec.ts`](../packages/core/extension-model/src/unstable/package-urls/compatibility-ranges-match-the-package-ecosystem.spec.ts)
 
 ### Goal: extension-adoption
 
@@ -4174,19 +4199,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 ##### A canonical extension name always parses back to the identity that produced it
 
 - Requirement: `extension-identity/canonical-names-round-trip`
-- Owner: `specifications`
+- Owner: `extension-model`
 - Statement: A fully qualified name or owner handle produced from an extension identity shall parse back to exactly that identity.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: property, example
-- Source: [`specifications/extension-identity/canonical-names-round-trip.spec.ts`](../specifications/extension-identity/canonical-names-round-trip.spec.ts)
+- Source: [`packages/core/extension-model/src/unstable/extensions/canonical-names-round-trip.spec.ts`](../packages/core/extension-model/src/unstable/extensions/canonical-names-round-trip.spec.ts)
 
 ##### Owner input that differs only by whitespace or letter case normalizes to the canonical handle
 
 - Requirement: `extension-identity/owner-input-normalizes-to-the-canonical-handle`
-- Owner: `specifications`
+- Owner: `extension-model`
 - Statement: Owner input that differs from a canonical owner handle only by surrounding whitespace or letter case shall normalize to that canonical lower-case handle.
 - Class: functional
 - Role: interface
@@ -4194,12 +4219,12 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Boundary: memory; selection: per-change
 - Methods: property, example
 - Derived from: `extension-identity/canonical-names-round-trip`
-- Source: [`specifications/extension-identity/owner-input-normalizes-to-the-canonical-handle.spec.ts`](../specifications/extension-identity/owner-input-normalizes-to-the-canonical-handle.spec.ts)
+- Source: [`packages/core/extension-model/src/unstable/extensions/owner-input-normalizes-to-the-canonical-handle.spec.ts`](../packages/core/extension-model/src/unstable/extensions/owner-input-normalizes-to-the-canonical-handle.spec.ts)
 
 ##### An extension reference is a fully qualified name with an optional version constraint
 
 - Requirement: `extension-identity/references-are-a-name-with-an-optional-constraint`
-- Owner: `specifications`
+- Owner: `extension-model`
 - Statement: An extension reference shall identify exactly the extension its fully qualified name identifies regardless of any appended version constraint, and a reference whose appended constraint is not a valid version constraint shall be rejected with guidance naming the version constraint.
 - Class: functional
 - Role: interface
@@ -4207,7 +4232,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Boundary: memory; selection: per-change
 - Methods: property, example
 - Derived from: `extension-identity/canonical-names-round-trip`, `extension-identity/malformed-names-are-rejected`
-- Source: [`specifications/extension-identity/references-are-a-name-with-an-optional-constraint.spec.ts`](../specifications/extension-identity/references-are-a-name-with-an-optional-constraint.spec.ts)
+- Source: [`packages/core/extension-model/src/unstable/extensions/references-are-a-name-with-an-optional-constraint.spec.ts`](../packages/core/extension-model/src/unstable/extensions/references-are-a-name-with-an-optional-constraint.spec.ts)
 
 ##### Source locators resolve through a stable grammar and configured hosts
 
@@ -4255,21 +4280,20 @@ People and agents can discover concepts, commands, and contracts from the surfac
 ##### Query and search accept the published result limits
 
 - Requirement: `cli/knowledge/concepts/enforces-published-result-limits`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When a Knowledge query or search selects a result limit, AXM shall accept only whole-number limits from 1 through 100 and return no more than that many concepts on a page.
 - Class: functional
 - Role: interface
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: process; selection: per-change
-- Boundary rationale: The built command parser establishes whole-number input rejection; production handlers over an inspected corpus establish advertised range validation and page size.
+- Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli/src/root/knowledge/concepts/query.ts`, `apps/cli/src/root/knowledge/concepts/search.ts`
-- Source: [`specifications/cli/knowledge/concepts/enforces-published-result-limits.spec.ts`](../specifications/cli/knowledge/concepts/enforces-published-result-limits.spec.ts)
+- Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/knowledge-query/src/query/request.ts`
+- Source: [`packages/core/knowledge-query/src/query/enforces-published-result-limits.spec.ts`](../packages/core/knowledge-query/src/query/enforces-published-result-limits.spec.ts)
 
 ##### Get preserves source content and revision identity
 
 - Requirement: `cli/knowledge/concepts/get/returns-source-backed-document`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When retrieving an installed Knowledge concept, AXM shall return its complete frontmatter and body with source-backed bundle, content, and projection revision identity, including the exact source document when raw output is requested.
 - Class: functional
 - Role: interface
@@ -4278,12 +4302,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli-e2e/src/knowledge.e2e.test.ts`, `packages/core/knowledge-query/src/knowledge-index.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/get/returns-source-backed-document.spec.ts`](../specifications/cli/knowledge/concepts/get/returns-source-backed-document.spec.ts)
+- Source: [`packages/core/knowledge-query/src/get/returns-source-backed-document.spec.ts`](../packages/core/knowledge-query/src/get/returns-source-backed-document.spec.ts)
 
 ##### Query passage bounds follow the published discovery limits
 
 - Requirement: `cli/knowledge/concepts/query/enforces-published-query-bounds`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When a Knowledge query selects passage bounds, AXM shall accept only whole-number passage limits from 0 through 10 and passage lengths from 1 through 2000.
 - Class: functional
 - Role: interface
@@ -4291,12 +4315,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/core/knowledge-query/src/knowledge-capabilities.ts`, `apps/cli/help/topics/knowledge.md`
-- Source: [`specifications/cli/knowledge/concepts/query/enforces-published-query-bounds.spec.ts`](../specifications/cli/knowledge/concepts/query/enforces-published-query-bounds.spec.ts)
+- Source: [`packages/core/knowledge-query/src/query/enforces-published-query-bounds.spec.ts`](../packages/core/knowledge-query/src/query/enforces-published-query-bounds.spec.ts)
 
 ##### Related traversal validates its depth limit
 
 - Requirement: `cli/knowledge/concepts/related/enforces-published-depth-bounds`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When a caller selects a Knowledge relationship traversal depth, AXM shall accept only whole-number depths from one through three.
 - Class: functional
 - Role: interface
@@ -4304,12 +4328,12 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/core/knowledge-query/src/knowledge-capabilities.ts`, `apps/cli/src/root/knowledge/concepts/related.ts`
-- Source: [`specifications/cli/knowledge/concepts/related/enforces-published-depth-bounds.spec.ts`](../specifications/cli/knowledge/concepts/related/enforces-published-depth-bounds.spec.ts)
+- Source: [`packages/core/knowledge-query/src/graph/enforces-published-depth-bounds.spec.ts`](../packages/core/knowledge-query/src/graph/enforces-published-depth-bounds.spec.ts)
 
 ##### Discovery status describes the supported query contract
 
 - Requirement: `cli/knowledge/concepts/status/publishes-discovery-capabilities`
-- Owner: `specifications`
+- Owner: `knowledge-query`
 - Statement: When reporting Knowledge discovery capabilities, AXM shall identify its query grammar, supported operations and fields, output contract, cursor validity, and output limits consistently with the discovery commands.
 - Class: functional
 - Role: interface
@@ -4318,7 +4342,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `packages/core/knowledge-query/src/knowledge-capabilities.ts`, `apps/cli/help/topics/knowledge.md`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
-- Source: [`specifications/cli/knowledge/concepts/status/publishes-discovery-capabilities.spec.ts`](../specifications/cli/knowledge/concepts/status/publishes-discovery-capabilities.spec.ts)
+- Source: [`packages/core/knowledge-query/src/capabilities/publishes-discovery-capabilities.spec.ts`](../packages/core/knowledge-query/src/capabilities/publishes-discovery-capabilities.spec.ts)
 
 ### Goal: machine-automation
 
@@ -4340,20 +4364,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `apps/cli/help/topics/environment.md`
 - Limitation: These examples compare one successful result and one expected failure; they do not claim every command, lifecycle-progress event, or runtime formatter is covered. Retires when: Add a distinct command or event example when source review identifies a display-symbol input reaching an uncovered machine producer.
 - Source: [`specifications/cli/ascii-controls-preserve-machine-output.spec.ts`](../specifications/cli/ascii-controls-preserve-machine-output.spec.ts)
-
-##### Cache status reports archive usage and effective limits
-
-- Requirement: `cli/cache/status/reports-usage-and-effective-limits`
-- Owner: `specifications`
-- Statement: The cache status command shall report the number and total bytes of cached archives together with the effective size and age limits in its machine result.
-- Class: functional
-- Role: interface
-- Product goals: `machine-automation`
-- Boundary: memory; selection: per-change
-- Methods: example, contract
-- Derived from: `apps/cli/src/root/cache/command.ts`, `apps/cli/src/root/cache/command.test.ts`
-- Open questions: Is the current 90-day age limit a product commitment or an implementation default that may change?
-- Source: [`specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts`](../specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts)
 
 ##### The environment can disable the startup update check
 
@@ -4832,14 +4842,15 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### The machine MCP inventory distinguishes local connection identity from source resolution
 
 - Requirement: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
-- Owner: `specifications`
+- Owner: `workspace-inspection`
 - Statement: When MCP servers are listed in machine output, AXM shall report each connection's local name, its source, and its accepted resolution as distinct fields, so that connections sharing one source remain individually identifiable.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Source: [`specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts`](../specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts)
+- Derived from: `packages/core/workspace-inspection/src/type-list/mcp-servers.ts`
+- Source: [`packages/core/workspace-inspection/src/mcps/local-name-source-and-resolution-are-distinct.spec.ts`](../packages/core/workspace-inspection/src/mcps/local-name-source-and-resolution-are-distinct.spec.ts)
 
 ##### A sync check reports whether managed output needs updating
 
@@ -4858,29 +4869,29 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Type inventories report local extension state
 
 - Requirement: `cli/type-lists-report-local-state`
-- Owner: `specifications`
-- Statement: When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation.
+- Owner: `workspace-inspection`
+- Statement: When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation, including configured entries that are disabled or absent.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/skills/list.test.ts`, `apps/cli/src/root/subagents/list/handler.test.ts`, `apps/cli/src/root/packs/list.test.ts`, `apps/cli/src/root/hooks/list.ts`, `apps/cli/src/root/rules/list.ts`
+- Derived from: `apps/cli/src/root/skills/list.test.ts`, `cli/list/reports-the-cross-type-inventory`, `packages/core/workspace-inspection/src/type-list/type-lists.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
-- Source: [`specifications/cli/type-lists-report-local-state.spec.ts`](../specifications/cli/type-lists-report-local-state.spec.ts)
+- Source: [`packages/core/workspace-inspection/src/type-lists-report-local-state.spec.ts`](../packages/core/workspace-inspection/src/type-lists-report-local-state.spec.ts)
 
 ##### Type inspection distinguishes source and observed version
 
 - Requirement: `cli/type-shows-report-source-and-version`
-- Owner: `specifications`
-- Statement: When emitting machine output from skills show, mcps show, subagents show, rules show, hooks show, or knowledge show for a configured extension, AXM shall report its local identity, activation, source, and version from the accepted resolution or the matching authored manifest when no resolution exists.
+- Owner: `workspace-inspection`
+- Statement: When inspecting one configured skill, MCP server, subagent, rule, hook, or Knowledge bundle, AXM shall report its local identity, activation, source, and version from the accepted resolution, or from the matching authored manifest when no resolution exists.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/shared/extension-show.test.ts`, `apps/cli/src/root/shared/extension-show.ts`
-- Source: [`specifications/cli/type-shows-report-source-and-version.spec.ts`](../specifications/cli/type-shows-report-source-and-version.spec.ts)
+- Derived from: `apps/cli/src/root/shared/extension-show.test.ts`, `packages/core/workspace-inspection/src/show/show-extension.ts`
+- Source: [`packages/core/workspace-inspection/src/type-shows-report-source-and-version.spec.ts`](../packages/core/workspace-inspection/src/type-shows-report-source-and-version.spec.ts)
 
 ##### Visibility status supplies repository intent and reports the Registry evaluation
 
@@ -4898,14 +4909,14 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### A malformed extension name is rejected with a typed failure naming the input
 
 - Requirement: `extension-identity/malformed-names-are-rejected`
-- Owner: `specifications`
+- Owner: `extension-model`
 - Statement: A reference that does not match the extension name grammar, including any bare name, shall be rejected with a typed failure that preserves the offending input.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, property, example
-- Source: [`specifications/extension-identity/malformed-names-are-rejected.spec.ts`](../specifications/extension-identity/malformed-names-are-rejected.spec.ts)
+- Source: [`packages/core/extension-model/src/unstable/extensions/malformed-names-are-rejected.spec.ts`](../packages/core/extension-model/src/unstable/extensions/malformed-names-are-rejected.spec.ts)
 
 ##### An accepted settings document re-encodes exactly as it was authored
 

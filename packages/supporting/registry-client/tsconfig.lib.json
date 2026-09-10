@@ -17,10 +17,13 @@
   ],
   "references": [
     {
+      "path": "../../core/registry-protocol/tsconfig.lib.json"
+    },
+    {
       "path": "../../core/extension-model/tsconfig.lib.json"
     },
     {
-      "path": "../../core/registry-protocol/tsconfig.lib.json"
+      "path": "../../../tools/specification-metadata/tsconfig.lib.json"
     }
   ]
 }

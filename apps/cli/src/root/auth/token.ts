@@ -1,15 +1,19 @@
 import { humanVerificationFlags, withHumanVerificationOptions } from "../../cli-flags/index.js";
 import * as DateTime from "effect/DateTime";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { AuthClient, authLoginRequired, resolveRequiredToken } from "@agentxm/registry-auth";
+import {
+  createToken,
+  currentToken,
+  listTokens,
+  revokeToken,
+  type CreateTokenRequest,
+} from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { makeAppError, type AppError } from "../../app-error/index.js";
-import { jsonFlag } from "../../cli-flags/index.js";
+import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
   Screen,
@@ -22,14 +26,12 @@ import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
-import { runWithStepUp } from "../step-up.js";
 import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import {
   directWriteCapabilities,
   readOnlyCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { observeUnit } from "@agentxm/workspace-operations";
 
 export const TokenDataSchema = Schema.Struct({
   token: Schema.String,
@@ -141,51 +143,15 @@ export interface CreateTokenHandlerArgs {
   readonly bypassMfa: boolean;
 }
 
-const MAX_EXPIRES_IN_SECONDS = 31_536_000;
-const MIN_EXPIRES_IN_SECONDS = 3_600;
-
-export const parseExpiresInSeconds = (raw: string): Effect.Effect<number, AppError> => {
-  const trimmed = raw.trim();
-  const relative = /^(\d+)([hdy])$/.exec(trimmed);
-  if (relative) {
-    const amount = Number(relative[1]);
-    const unit = relative[2];
-    const multiplier = unit === "h" ? 3_600 : unit === "d" ? 86_400 : 31_536_000;
-    return Effect.succeed(amount * multiplier);
-  }
-
-  return Option.match(DateTime.make(trimmed), {
-    onNone: () =>
-      Effect.fail(
-        makeAppError({
-          code: "validation",
-          detail: "Invalid --expires value. Use 7d, 30d, 1y, or an ISO timestamp.",
-        }),
-      ),
-    onSome: (expiry) =>
-      Effect.map(DateTime.now, (now) =>
-        Math.floor(Duration.toSeconds(DateTime.distance(now, expiry))),
-      ),
-  });
-};
-
-const validateExpiresInSeconds = (expiresIn: number) =>
-  expiresIn < MIN_EXPIRES_IN_SECONDS || expiresIn > MAX_EXPIRES_IN_SECONDS
-    ? Effect.fail(
-        makeAppError({
-          code: "validation",
-          detail: "Token expiry must be between 1 hour and 365 days.",
-        }),
-      )
-    : Effect.succeed(expiresIn);
-
-const compactPermissions = (args: CreateTokenHandlerArgs) => ({
-  ...(args.owners.length > 0 ? { owners: args.owners } : {}),
-  ...(args.extensions.length > 0 ? { extensions: args.extensions } : {}),
-  ...(Option.isSome(args.permission) ? { permission: args.permission.value } : {}),
-  ...(Option.isSome(args.orgPermission) ? { org_permission: args.orgPermission.value } : {}),
-  ...(args.cidr.length > 0 ? { cidr: args.cidr } : {}),
-  ...(args.bypassMfa ? { bypass_mfa: true } : {}),
+/** The invocation's human-verification inputs, as the capability reads them. */
+const verificationOptions = Effect.gen(function* () {
+  const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
+  const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
+  return {
+    ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
+    ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),
+    unattended,
+  };
 });
 
 export const handleToken = Effect.fn("AuthToken.handle")(
@@ -194,16 +160,12 @@ export const handleToken = Effect.fn("AuthToken.handle")(
     const screen = yield* Screen;
     const json = Option.getOrElse(yield* jsonFlag, () => false);
 
-    // Step 1: Resolve token
-    const token = yield* resolveRequiredToken(registryUrl, {
-      missingTokenError: authLoginRequired("No token available"),
-    });
+    const token = yield* currentToken(registryUrl);
 
-    // Step 2: Output raw token to stdout, unless --json was explicitly requested
-    if (json && (yield* screen.document({ data: { token: token.token } }, TokenDocumentSchema)))
-      return;
+    // Raw token to stdout, unless --json was explicitly requested
+    if (json && (yield* screen.document({ data: { token } }, TokenDocumentSchema))) return;
 
-    yield* screen.result([{ _tag: "raw", content: token.token + "\n" }]);
+    yield* screen.result([{ _tag: "raw", content: token + "\n" }]);
   },
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,
@@ -212,34 +174,27 @@ export const handleToken = Effect.fn("AuthToken.handle")(
 export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
   function* (args: CreateTokenHandlerArgs) {
     const registryUrl = yield* RegistryUrl;
-    const authClient = yield* AuthClient;
     const screen = yield* Screen;
-    const token = yield* resolveRequiredToken(registryUrl, {
-      missingTokenError: authLoginRequired("Not authenticated"),
-    });
-
-    const expiresIn = yield* parseExpiresInSeconds(args.expires).pipe(
-      Effect.flatMap(validateExpiresInSeconds),
-    );
-
-    const createResult = yield* runWithStepUp(
-      (stepUpRequestId) =>
-        authClient.createToken(
-          token.token,
-          {
-            name: args.name,
-            expiresIn,
-            permissions: compactPermissions(args),
-          },
-          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        ),
+    const request: CreateTokenRequest = {
+      name: args.name,
+      expires: args.expires,
+      owners: args.owners,
+      extensions: args.extensions,
+      permission: args.permission,
+      orgPermission: args.orgPermission,
+      cidr: args.cidr,
+      bypassMfa: args.bypassMfa,
+      verification: yield* verificationOptions,
+    };
+    const createResult = yield* withLiveOperation(
       {
         command: "auth.token.create",
         name: `Create registry token "${args.name}"`,
-        waiting: `verification to create registry token "${args.name}"`,
+        mode: "apply",
       },
+      createToken(request, registryUrl),
     );
-    const created = createResult.value;
+    const created = createResult.token;
     const suggestions = createTokenSuggestions(created.id);
 
     if (
@@ -287,15 +242,11 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
 export const handleListTokens = Effect.fn("AuthTokenList.handle")(
   function* () {
     const registryUrl = yield* RegistryUrl;
-    const authClient = yield* AuthClient;
     const screen = yield* Screen;
-    const token = yield* resolveRequiredToken(registryUrl, {
-      missingTokenError: authLoginRequired("Not authenticated"),
-    });
 
     const result = yield* withLiveOperation(
       { command: "auth.token.list", name: "List registry tokens", mode: "preview" },
-      observeUnit({ id: "tokens", label: "registry tokens" }, authClient.listTokens(token.token)),
+      listTokens(registryUrl),
     );
 
     if (
@@ -355,24 +306,10 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
 export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   function* (tokenId: string) {
     const registryUrl = yield* RegistryUrl;
-    const authClient = yield* AuthClient;
     const screen = yield* Screen;
-    const token = yield* resolveRequiredToken(registryUrl, {
-      missingTokenError: authLoginRequired("Not authenticated"),
-    });
-
-    const revokeResult = yield* runWithStepUp(
-      (stepUpRequestId) =>
-        authClient.deleteToken(
-          token.token,
-          tokenId,
-          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        ),
-      {
-        command: "auth.token.revoke",
-        name: `Revoke registry token ${tokenId}`,
-        waiting: `verification to revoke token ${tokenId}`,
-      },
+    const revokeResult = yield* withLiveOperation(
+      { command: "auth.token.revoke", name: `Revoke registry token ${tokenId}`, mode: "apply" },
+      revokeToken(tokenId, yield* verificationOptions, registryUrl),
     );
 
     if (

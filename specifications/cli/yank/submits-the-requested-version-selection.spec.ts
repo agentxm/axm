@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { handleYank, PlanResolutionDocumentSchema } from "axm.sh/specification-harness";
+import { RegistryTransitionSchema, handleYank } from "axm.sh/specification-harness";
 import {
   jsonRegistryResponse,
   makeRegistryManagementContext,
@@ -50,13 +50,18 @@ describe("Yank selection", () => {
       });
       expect(context.requests[0]?.url.pathname).toBe(`${registryTargetPath}/1.2.3/yank`);
       expect(context.rendererState.results).toHaveLength(1);
-      const output = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+      const output = yield* Schema.decodeUnknownEffect(RegistryTransitionSchema)(
         context.rendererState.results[0]?.data,
       );
-      expect(output.result.units).toEqual([
-        expect.objectContaining({ id: registryVersion, state: "committed" }),
-      ]);
-      expect(output.result.units[0]?.message).toContain("Exact installs remain available");
+      expect(output).toMatchObject({
+        action: "yank",
+        target: registryVersion,
+        version: "1.2.3",
+        disposition: "changed",
+        // A Registry write is not restorable; the outcome never claims it is.
+        restorable: false,
+      });
+      expect(output.message).toContain("Exact installs remain available");
     }),
   );
 
@@ -83,11 +88,12 @@ describe("Yank selection", () => {
         method: "POST",
         body: { selection: "all-available" },
       });
-      const output = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+      const output = yield* Schema.decodeUnknownEffect(RegistryTransitionSchema)(
         context.rendererState.results[0]?.data,
       );
-      expect(output.result.units[0]?.message).toContain("2 available versions");
-      expect(output.result.units[0]?.message).toContain("Future versions are unaffected");
+      expect(output.affectedVersions).toEqual(["1.0.0", "1.2.3"]);
+      expect(output.message).toContain("2 available versions");
+      expect(output.message).toContain("Future versions are unaffected");
     }),
   );
 

@@ -1,11 +1,8 @@
 import { humanVerificationFlags, withHumanVerificationOptions } from "../../cli-flags/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError, type AppError } from "../../app-error/index.js";
 import { Screen, headlineDoc, successDoc } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -13,218 +10,82 @@ import {
   withCommandCapabilities,
   type CommandCapabilities,
 } from "../shared/command-capabilities.js";
+import type { YankCategory } from "@agentxm/registry-client";
 import {
-  ExtensionFqnSchema,
-  formatFqn,
-  parseFqn,
-  toExtensionTypePlural,
-} from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError, toAppError } from "../../app-error/conversions.js";
-import {
-  deprecateExtension,
-  getExtensionDeprecation,
-  undeprecateExtension,
-  unyankExtensionVersion,
-  yankAvailableExtensionVersions,
-  yankExtensionVersion,
-  type RegistryExtensionReference,
-  type RegistryExtensionVersionReference,
-  type YankCategory,
-} from "@agentxm/registry-client";
+  DeprecatePublishedExtension,
+  RegistryTransitionSchema,
+  RetirePublishedVersion,
+  type RegistryTransition,
+} from "@agentxm/extension-publish";
 import {
   DeprecationTransitionSchema,
-  type DeprecationReplacementIntent,
   type DeprecationTransition,
 } from "@agentxm/registry-protocol/unstable/registry";
-import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
-
-import { makeOperationResolution, observeUnit } from "@agentxm/workspace-operations";
+import { publishFailureToAppError } from "../../feature-errors.js";
 
 import { withRuntime } from "../../runtime.js";
-import { emitOperationResolution } from "../../operation-output.js";
-import { runWithStepUp } from "../step-up.js";
-import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 
 const categoryValues = ["broken", "security", "accidental", "other"] as const;
-const decodeVersion = Schema.decodeUnknownResult(VersionSchema);
 
 export const LifecycleTransitionOutputSchema = DeprecationTransitionSchema.annotate({
   identifier: "LifecycleTransitionOutput",
 });
 
-const parseExtensionReference = (
-  input: string,
-): Effect.Effect<RegistryExtensionReference, AppError> =>
+/** The invocation's human-verification inputs, as the capability reads them. */
+const verificationOptions = Effect.gen(function* () {
+  const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
+  const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
+  return {
+    ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
+    ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),
+    unattended,
+  };
+});
+
+/**
+ * Render one Registry transition. It is a remote effect: the document says so
+ * rather than claiming an atomicity or a rollback the CLI cannot deliver.
+ */
+const emitRegistryTransition = (transition: RegistryTransition) =>
   Effect.gen(function* () {
-    const parsed = yield* Effect.fromResult(
-      Result.mapError(parseFqn(input), fqnInvalidErrorToAppError),
-    );
-    return {
-      owner: parsed.owner,
-      type: toExtensionTypePlural(parsed.type),
-      name: parsed.name,
-    };
+    const screen = yield* Screen;
+    if (yield* screen.document(transition, RegistryTransitionSchema)) return;
+    yield* screen.result(successDoc(transition.message));
   });
 
-const parseExtensionFqn = (input: string) =>
-  Effect.gen(function* () {
-    const parsed = yield* Effect.fromResult(
-      Result.mapError(parseFqn(input), fqnInvalidErrorToAppError),
-    );
-    return yield* Schema.decodeUnknownEffect(ExtensionFqnSchema)(formatFqn(parsed)).pipe(
-      Effect.mapError(() =>
-        makeAppError({ code: "validation", detail: `Invalid fully qualified name: ${input}` }),
-      ),
-    );
-  });
-
-const parseExactVersionReference = (
-  input: string,
-): Effect.Effect<RegistryExtensionVersionReference, AppError> =>
-  Effect.gen(function* () {
-    const lastSlash = input.lastIndexOf("/");
-    const versionAt = lastSlash < 0 ? -1 : input.indexOf("@", lastSlash + 1);
-    if (versionAt < 0) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Expected an exact version in ${input}`,
-        suggestions: [{ description: "Use @owner/<plural-type>/name@1.2.3." }],
-      });
-    }
-
-    const ref = yield* parseExtensionReference(input.slice(0, versionAt));
-    const decodedVersion = decodeVersion(input.slice(versionAt + 1));
-    if (Result.isFailure(decodedVersion)) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Expected an exact semantic version in ${input}`,
-        cause: decodedVersion.failure,
-      });
-    }
-    return { ...ref, version: decodedVersion.success };
-  });
-
-const emitLifecycleOutput = (input: {
-  readonly command: "yank" | "unyank" | "deprecate" | "undeprecate";
-  readonly planName: string;
-  readonly extension: string;
-  readonly message: string;
-  readonly warnings?: ReadonlyArray<string>;
-  readonly version?: string;
-}) =>
-  emitOperationResolution(
-    input.command,
-    makeOperationResolution({
-      name: input.planName,
-      description: Option.none(),
-      mode: "apply",
-      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
-      units: [
-        {
-          id: input.extension,
-          label: input.extension,
-          state: "committed",
-          message: input.message,
-          ...(input.warnings === undefined ? {} : { warnings: input.warnings }),
-          artifact: {
-            path: input.extension,
-            scope: "user",
-            change: "updated",
-            ...(input.version === undefined ? {} : { version: input.version }),
-          },
-        },
-      ],
-    }),
-    { message: input.message },
-  );
-
-export const handleYank = (input: {
-  readonly ref: string;
-  readonly allVersions: boolean;
-  readonly category: Option.Option<YankCategory>;
-  readonly notice: Option.Option<string>;
-}) =>
-  Effect.gen(function* () {
+export const handleYank = Effect.fn("Yank.handle")(
+  function* (input: {
+    readonly ref: string;
+    readonly allVersions: boolean;
+    readonly category: Option.Option<YankCategory>;
+    readonly notice: Option.Option<string>;
+  }) {
     const category = Option.getOrUndefined(input.category);
     const notice = Option.getOrUndefined(input.notice);
-
-    if (input.allVersions) {
-      const ref = yield* parseExtensionReference(input.ref);
-      const result = yield* runWithStepUp(
-        (stepUpRequestId) =>
-          yankAvailableExtensionVersions(
-            ref,
-            {
-              ...(category === undefined ? {} : { category }),
-              ...(notice === undefined ? {} : { notice }),
-            },
-            stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-          ).pipe(Effect.mapError(toAppError)),
-        {
-          command: "yank",
-          name: `Yank ${input.ref}`,
-          waiting: `verification to update ${input.ref}`,
-        },
-      );
-      const extension = `${ref.owner}/${ref.type}/${ref.name}`;
-      yield* emitLifecycleOutput({
-        command: "yank",
-        planName: "Yank available extension versions",
-        extension,
-        message: `Yanked ${result.value.affectedVersions.length} available version${result.value.affectedVersions.length === 1 ? "" : "s"} of ${extension}. Future versions are unaffected.`,
-      });
-      return;
-    }
-
-    const ref = yield* parseExactVersionReference(input.ref);
-    yield* runWithStepUp(
-      (stepUpRequestId) =>
-        yankExtensionVersion(
-          ref,
-          {
-            ...(category === undefined ? {} : { category }),
-            ...(notice === undefined ? {} : { notice }),
-          },
-          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        ).pipe(Effect.mapError(toAppError)),
-      {
-        command: "yank",
-        name: `Yank ${input.ref}`,
-        waiting: `verification to update ${input.ref}`,
-      },
+    yield* emitRegistryTransition(
+      yield* RetirePublishedVersion.yank({
+        ref: input.ref,
+        allVersions: input.allVersions,
+        ...(category === undefined ? {} : { category }),
+        ...(notice === undefined ? {} : { notice }),
+        verification: yield* verificationOptions,
+      }),
     );
-    yield* emitLifecycleOutput({
-      command: "yank",
-      planName: "Yank extension version",
-      extension: input.ref,
-      version: ref.version,
-      message: `Yanked ${input.ref}. Exact installs remain available with a warning.`,
-    });
-  });
+  },
+  Effect.mapError(publishFailureToAppError),
+  Effect.asVoid,
+);
 
-export const handleUnyank = (input: string) =>
-  Effect.gen(function* () {
-    const ref = yield* parseExactVersionReference(input);
-    yield* runWithStepUp(
-      (stepUpRequestId) =>
-        unyankExtensionVersion(
-          ref,
-          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        ).pipe(Effect.mapError(toAppError)),
-      {
-        command: "unyank",
-        name: `Un-yank ${input}`,
-        waiting: `verification to update ${input}`,
-      },
+export const handleUnyank = Effect.fn("Unyank.handle")(
+  function* (ref: string) {
+    yield* emitRegistryTransition(
+      yield* RetirePublishedVersion.unyank(ref, yield* verificationOptions),
     );
-    yield* emitLifecycleOutput({
-      command: "unyank",
-      planName: "Un-yank extension version",
-      extension: input,
-      version: ref.version,
-      message: `Restored ${input} to fresh resolution.`,
-    });
-  });
+  },
+  Effect.mapError(publishFailureToAppError),
+  Effect.asVoid,
+);
 
 const emitDeprecationTransition = (transition: DeprecationTransition) =>
   Effect.gen(function* () {
@@ -259,92 +120,29 @@ const emitDeprecationTransition = (transition: DeprecationTransition) =>
     }
   });
 
-export const handleDeprecate = (input: {
-  readonly ref: string;
-  readonly message: Option.Option<string>;
-  readonly replacement: Option.Option<string>;
-  readonly clearMessage: boolean;
-  readonly clearReplacement: boolean;
-}) =>
-  Effect.gen(function* () {
-    const ref = yield* parseExtensionReference(input.ref);
-    if (Option.isSome(input.message) && input.clearMessage) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: "--message and --clear-message cannot be combined.",
-      });
-    }
-    if (Option.isSome(input.replacement) && input.clearReplacement) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: "--replacement and --clear-replacement cannot be combined.",
-      });
-    }
-    const current = yield* withLiveOperation(
-      { command: "deprecate", name: `Read deprecation for ${input.ref}`, mode: "preview" },
-      observeUnit(
-        { id: "deprecation", label: `deprecation for ${input.ref}` },
-        getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
-      ),
-    );
-    const suppliedMessage = Option.getOrUndefined(input.message)?.trim();
-    const message = input.clearMessage
-      ? null
-      : suppliedMessage === undefined
-        ? (current.deprecation?.message ?? null)
-        : suppliedMessage.length === 0
-          ? null
-          : suppliedMessage;
-    const replacement: DeprecationReplacementIntent = input.clearReplacement
-      ? { kind: "clear" }
-      : Option.isSome(input.replacement)
-        ? { kind: "set", fqn: yield* parseExtensionFqn(input.replacement.value) }
-        : current.deprecation?.replacement === undefined
-          ? { kind: "clear" }
-          : current.deprecation.replacement.status === "available"
-            ? { kind: "set", fqn: current.deprecation.replacement.fqn }
-            : { kind: "preserve" };
-    if (message === null && replacement.kind === "clear") {
-      return yield* makeAppError({
-        code: "validation",
-        detail: "A deprecation requires a message, a replacement, or both.",
-        suggestions: [
-          {
-            description: "Supply --message or --replacement, or remove the deprecation instead.",
-          },
-        ],
-      });
-    }
-    const transition = yield* withLiveOperation(
-      { command: "deprecate", name: `Deprecate ${input.ref}`, mode: "apply" },
-      observeUnit(
-        { id: "transition", label: `deprecation of ${input.ref}` },
-        deprecateExtension(ref, { revision: current.revision, message, replacement }).pipe(
-          Effect.mapError(toAppError),
-        ),
-      ),
-    );
-    yield* emitDeprecationTransition(transition);
-  });
+export const handleDeprecate = Effect.fn("Deprecate.handle")(
+  function* (input: {
+    readonly ref: string;
+    readonly message: Option.Option<string>;
+    readonly replacement: Option.Option<string>;
+    readonly clearMessage: boolean;
+    readonly clearReplacement: boolean;
+  }) {
+    const written = yield* DeprecatePublishedExtension.deprecate(input);
+    yield* emitDeprecationTransition(written.transition);
+  },
+  Effect.mapError(publishFailureToAppError),
+  Effect.asVoid,
+);
 
-export const handleUndeprecate = (input: string) =>
-  Effect.gen(function* () {
-    const ref = yield* parseExtensionReference(input);
-    const transition = yield* withLiveOperation(
-      { command: "undeprecate", name: `Remove deprecation from ${input}`, mode: "apply" },
-      Effect.gen(function* () {
-        const current = yield* observeUnit(
-          { id: "deprecation", label: `deprecation for ${input}` },
-          getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
-        );
-        return yield* observeUnit(
-          { id: "transition", label: `deprecation removal from ${input}` },
-          undeprecateExtension(ref, current.revision).pipe(Effect.mapError(toAppError)),
-        );
-      }),
-    );
-    yield* emitDeprecationTransition(transition);
-  });
+export const handleUndeprecate = Effect.fn("Undeprecate.handle")(
+  function* (ref: string) {
+    const written = yield* DeprecatePublishedExtension.undeprecate(ref);
+    yield* emitDeprecationTransition(written.transition);
+  },
+  Effect.mapError(publishFailureToAppError),
+  Effect.asVoid,
+);
 
 const yankConfig = {
   ...humanVerificationFlags,

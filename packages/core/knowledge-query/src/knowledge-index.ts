@@ -382,6 +382,28 @@ const fieldWeight = (field: KnowledgeSearchableField): number => {
   }
 };
 
+/** One ranking factor of the lexical strategy, derived from the same weights the ranker uses. */
+export interface KnowledgeRankFactor {
+  readonly field: string;
+  readonly weight: number;
+}
+
+/**
+ * The published ranking explanation: the fields the lexical strategy weights,
+ * highest first, and the catch-all weight every other field carries. Derived
+ * from `fieldWeight`, so an explanation can never drift from the ranking.
+ */
+export const KNOWLEDGE_RANK_FACTORS: ReadonlyArray<KnowledgeRankFactor> = [
+  ...(["title", "conceptId", "tag", "description", "type", "body"] as const).map((field) => ({
+    field,
+    weight: fieldWeight(field),
+  })),
+  { field: "other", weight: fieldWeight("bundle") },
+];
+
+/** How the lexical strategy orders results that rank equally. */
+export const KNOWLEDGE_RANK_TIE_BREAK = "bundle FQN, then concept ID";
+
 interface LocatedToken {
   readonly start: number;
   readonly end: number;

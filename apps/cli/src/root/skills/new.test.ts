@@ -16,7 +16,6 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-import { SkillManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
@@ -24,6 +23,7 @@ import {
   expectDefined,
   expectRecord,
   getAppError,
+  AllExtensionManagersLive,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
@@ -91,7 +91,7 @@ describe("skills-new.handler", () => {
       sourceLayer,
       CodingAgentRepositoryLive,
     );
-    const fullLayer = Layer.provideMerge(SkillManagerLive, workspaceServiceLayer);
+    const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);
     return {
       ...ctx,
       fullLayer,

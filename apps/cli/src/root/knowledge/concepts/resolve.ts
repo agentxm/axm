@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
+import { KnowledgeConceptResolveOutputSchema, KnowledgeDiscovery } from "@agentxm/knowledge-query";
+
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
 import { Screen, rawDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
@@ -8,12 +10,10 @@ import {
   readOnlyCapabilities,
   withCommandCapabilities,
 } from "../../shared/command-capabilities.js";
-import { resolveKnowledgeConcept } from "@agentxm/knowledge-query";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";
-import { captureInstalledKnowledgeIndex } from "../inspect.js";
-import { KnowledgeConceptResolveOutputSchema } from "./schemas.js";
+import { knowledgeFailureToAppError } from "../knowledge-errors.js";
 import { failKnowledgeCorpusChanging } from "./failures.js";
 import { sanitizeKnowledgeTerminalText } from "./terminal-text.js";
 
@@ -36,31 +36,31 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
   fuzzy = false,
 ) {
   const screen = yield* Screen;
-  const captured = yield* captureInstalledKnowledgeIndex();
-  if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
-  const resolved = resolveKnowledgeConcept(captured.snapshot, input, 10, fuzzy);
+  const resolved = yield* Effect.catchTag(
+    KnowledgeDiscovery.resolve({ input, fuzzy }),
+    "KnowledgeCorpusUnavailable",
+    (failure) => Effect.fail(knowledgeFailureToAppError(failure)),
+  );
+  if (resolved.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   if (resolved.outcome === "not-found") {
     return yield* makeAppError({
       code: "not_found",
       detail: "No installed Knowledge concept matched the supplied reference",
     });
   }
-  const output =
-    resolved.outcome === "ambiguous"
-      ? { ...resolved, reason: "ambiguous-reference" as const }
-      : resolved;
-  const success = resolved.outcome === "resolved";
+  const output = resolved.document;
+  const success = output.outcome === "resolved";
   const machine = yield* screen.document(output, KnowledgeConceptResolveOutputSchema, {
     ok: success,
   });
   if (!machine) {
-    if (output.outcome === "resolved") {
+    if (output.outcome === "resolved" && output.candidate !== undefined) {
       yield* screen.result(
         rawDoc(
           `${sanitizeKnowledgeTerminalText(`${output.candidate.ref.bundle}#${output.candidate.ref.conceptId}`)}\n`,
         ),
       );
-    } else if (output.outcome === "ambiguous") {
+    } else if (output.outcome === "ambiguous" && output.candidates !== undefined) {
       yield* screen.result(
         tableViewDoc(
           output.candidates.map(({ ref, title, reason }) => ({

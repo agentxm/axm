@@ -44,7 +44,7 @@ import type {
 import { isSourcedDesiredExtension } from "@agentxm/workspace-state";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
-import { InspectionFailureAdapter } from "../failure-adapter.js";
+import { describeInspectionFailure } from "../describe-failure.js";
 
 // Registry currency reads share the same four-request transport cap used by
 // publishing. Git source probes stay serial because each provider may allocate
@@ -300,7 +300,6 @@ const collectSourceFreshness = (args: { readonly extensionType: ExtensionType })
   Effect.gen(function* () {
     const providers = yield* SourceHostProviders;
     const ws = yield* WorkspaceMutations;
-    const adapter = yield* InspectionFailureAdapter;
     const { extensionType } = args;
     const graph = yield* ws.getDesiredStateGraph();
     if (!graph.complete) {
@@ -341,7 +340,7 @@ const collectSourceFreshness = (args: { readonly extensionType: ExtensionType })
 
           const sourceResult = yield* resolveSource(node.source).pipe(Effect.result);
           if (sourceResult._tag === "Failure") {
-            return unresolved(adapter.describeFailure(sourceResult.failure));
+            return unresolved(describeInspectionFailure(sourceResult.failure));
           }
 
           const refsResult = yield* providers
@@ -354,7 +353,7 @@ const collectSourceFreshness = (args: { readonly extensionType: ExtensionType })
             .pipe(Effect.result);
 
           if (refsResult._tag === "Failure") {
-            return unresolved(adapter.describeFailure(refsResult.failure));
+            return unresolved(describeInspectionFailure(refsResult.failure));
           }
 
           return freshnessEntry({

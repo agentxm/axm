@@ -14,10 +14,11 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
-import { PackManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { extensionName, handle, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
+  AllExtensionManagersLive,
   expectAppliedPlanResult,
   expectDefined,
   expectRecord,
@@ -84,8 +85,12 @@ describe("packs-new.handler", () => {
   }) => {
     const ctx = makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
     const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
-    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, sourceLayer);
-    const fullLayer = Layer.provideMerge(PackManagerLive, workspaceServiceLayer);
+    const workspaceServiceLayer = Layer.mergeAll(
+      ctx.fullLayer,
+      sourceLayer,
+      CodingAgentRepositoryLive,
+    );
+    const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);
     return {
       ...ctx,
       fullLayer,

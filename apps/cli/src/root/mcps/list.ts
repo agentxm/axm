@@ -2,236 +2,39 @@ import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
-  inspectMcpServerAcrossAgents,
-  type AgentMcpServerInspection,
-} from "@agentxm/workspace-projection";
-import type { McpServerEntry } from "@agentxm/workspace-state";
-import {
-  type ConfiguredAgentOutcome,
-  ExtensionInventoryRowSchema,
-  WorkspaceMutations,
-} from "@agentxm/workspace-state";
-import * as Schema from "effect/Schema";
+  listMcpServers,
+  mcpServerListDocument,
+  McpServerListQueryResultSchema,
+  type McpServerListRow,
+} from "@agentxm/workspace-inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
-import {
-  augmentInventory,
-  inventoryState,
-  inventoryAgentOutcomes,
-  inventorySummary,
-} from "../inventory-view.js";
-
-interface McpServerListItem {
-  readonly localName: string;
-  readonly source: string;
-  readonly state: string;
-  readonly version: string;
-  readonly transport: string;
-  readonly status: string;
-  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
-}
+import { inventoryAgentOutcomes, inventoryLifecycle, inventorySummary } from "../inventory-view.js";
 
 const McpServerListColumns = [
-  { header: "Local name", priority: "required", value: (row: McpServerListItem) => row.localName },
-  { header: "Source", value: (row: McpServerListItem) => row.source },
-  { header: "State", value: (row: McpServerListItem) => row.state },
-  { header: "Version", priority: "optional", value: (row: McpServerListItem) => row.version },
-  { header: "Transport", value: (row: McpServerListItem) => row.transport },
-  { header: "Status", value: (row: McpServerListItem) => row.status },
+  { header: "Local name", priority: "required", value: (row: McpServerListRow) => row.localName },
+  { header: "Source", value: (row: McpServerListRow) => row.source },
+  { header: "State", value: (row: McpServerListRow) => inventoryLifecycle(row) },
+  { header: "Version", priority: "optional", value: (row: McpServerListRow) => row.version },
+  { header: "Transport", value: (row: McpServerListRow) => row.transport },
+  { header: "Status", value: (row: McpServerListRow) => row.status },
   {
     header: "Agent outcomes",
     priority: "optional",
-    value: (row: McpServerListItem) => inventoryAgentOutcomes(row.agentOutcomes),
+    value: (row: McpServerListRow) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-] satisfies ReadonlyArray<ViewColumn<McpServerListItem>>;
-
-const McpServerSourceSchema = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("inline") }),
-  Schema.Struct({
-    kind: Schema.Literal("registry"),
-    locator: Schema.String,
-    identity: Schema.String,
-  }),
-  Schema.Struct({ kind: Schema.Literal("unmanaged") }),
-]);
-
-const McpServerResolutionSchema = Schema.NullOr(
-  Schema.Struct({
-    kind: Schema.Literal("registry"),
-    version: Schema.String,
-    integrity: Schema.String,
-  }),
-);
-
-export const McpServerListQueryResultSchema = Schema.Struct({
-  items: Schema.Array(
-    Schema.Struct({
-      ...ExtensionInventoryRowSchema.fields,
-      localName: Schema.String,
-      source: McpServerSourceSchema,
-      resolution: McpServerResolutionSchema,
-    }),
-  ),
-  count: Schema.Number,
-  configuredCount: Schema.Number,
-  implicitCount: Schema.Number,
-  installedCount: Schema.Number,
-  unmanagedCount: Schema.Number,
-});
-
-const driftStatus = (inspections: ReadonlyArray<AgentMcpServerInspection>): string => {
-  if (inspections.some((inspection) => inspection.status === "drift")) return "drift";
-  if (inspections.some((inspection) => inspection.status === "unmanaged")) return "drift";
-  if (inspections.some((inspection) => inspection.status === "absent")) return "missing";
-  return "enabled";
-};
-
-const configuredStatus = (args: {
-  readonly enabled: boolean;
-  readonly configuredEntry: McpServerEntry | undefined;
-  readonly inspections: ReadonlyArray<AgentMcpServerInspection>;
-}): string => {
-  if (!args.enabled) return "disabled";
-  if (args.configuredEntry === undefined) return "enabled";
-  return driftStatus(args.inspections);
-};
-
-const inspectionOutcome = (
-  name: string,
-  inspection: AgentMcpServerInspection,
-): ConfiguredAgentOutcome => ({
-  extensionType: "mcp-server",
-  name,
-  agentId: inspection.agentId,
-  outcome:
-    inspection.status === "match"
-      ? "current"
-      : inspection.status === "unsupported"
-        ? "unsupported"
-        : "failed",
-  reasonCode:
-    inspection.status === "absent"
-      ? "projection-missing"
-      : inspection.status === "drift"
-        ? "stale-projection"
-        : `mcp-${inspection.status}`,
-  reason:
-    inspection.reason ??
-    (inspection.status === "absent"
-      ? `The expected ${inspection.agentId} projection is missing.`
-      : inspection.status === "drift"
-        ? `The expected ${inspection.agentId} projection is stale.`
-        : `MCP projection status is ${inspection.status}.`),
-  path: inspection.path,
-});
+] satisfies ReadonlyArray<ViewColumn<McpServerListRow>>;
 
 export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* () {
   const screen = yield* Screen;
-  const ws = yield* WorkspaceMutations;
-  const inventory = yield* ws.records.getExtensionInventory("mcp-server", {});
-  const configuredEntries = yield* ws.getConfiguredMcpServerEntries();
-  const configuredAgents = yield* ws.getConfiguredAgents();
-  const graph = yield* ws.getDesiredStateGraph();
-
-  const items = yield* Effect.forEach(
-    inventory.items,
-    (row) =>
-      Effect.gen(function* () {
-        const locked = yield* ws.getLockedMcpServerForConnection(row.name);
-        const configuredEntry = configuredEntries[row.name];
-        const desiredNode = graph.nodes.find(
-          (node) => node.type === "mcp-server" && node.name === row.name,
-        );
-        const inspections =
-          row.enabled !== false &&
-          row.classification.lifecycle !== "unmanaged" &&
-          configuredEntry !== undefined
-            ? yield* inspectMcpServerAcrossAgents({
-                workspaceRoot: ws.baseDir,
-                scope: ws.scope,
-                agentIds: configuredAgents,
-                serverName: row.name,
-                entry: configuredEntry,
-              })
-            : [];
-        const status =
-          row.classification.lifecycle === "unmanaged"
-            ? "unmanaged"
-            : configuredStatus({
-                enabled: row.enabled !== false,
-                configuredEntry,
-                inspections,
-              });
-        return {
-          localName: row.name,
-          source:
-            configuredEntry?.kind === "inline"
-              ? "inline"
-              : configuredEntry?.kind === "sourced"
-                ? configuredEntry.source
-                : (desiredNode?.source ?? "unmanaged"),
-          machineSource:
-            configuredEntry?.kind === "inline"
-              ? ({ kind: "inline" } as const)
-              : desiredNode !== undefined && desiredNode.authority !== "inline"
-                ? ({
-                    kind: "registry",
-                    locator: configuredEntry?.source ?? desiredNode.source,
-                    identity: desiredNode.identity,
-                  } as const)
-                : ({ kind: "unmanaged" } as const),
-          resolution:
-            locked._tag === "Some" && locked.value.type === "registry"
-              ? ({
-                  kind: "registry",
-                  version: locked.value.resolvedVersion,
-                  integrity: locked.value.integrity,
-                } as const)
-              : null,
-          state: inventoryState(row),
-          version:
-            locked._tag === "Some" && locked.value.type === "registry"
-              ? locked.value.resolvedVersion
-              : "n/a",
-          transport: row.origins.some((origin) => origin.includes("config")) ? "config" : "auto",
-          status,
-          agentOutcomes:
-            inspections.length === 0
-              ? row.agentOutcomes
-              : inspections.map((inspection) => inspectionOutcome(row.name, inspection)),
-        };
-      }),
-    { concurrency: "unbounded" },
-  );
-  const details = new Map(items.map((item) => [item.localName, item]));
-  const augmented = augmentInventory(inventory, (row) => {
-    const item = details.get(row.name);
-    return {
-      version: item?.version ?? "n/a",
-      transport: item?.transport ?? "auto",
-      status: item?.status ?? "n/a",
-      agentOutcomes: item?.agentOutcomes ?? row.agentOutcomes,
-    };
-  });
-  const output = {
-    ...augmented,
-    items: augmented.items.map((row) => {
-      const detail = details.get(row.name);
-      return {
-        ...row,
-        localName: row.name,
-        source: detail?.machineSource ?? ({ kind: "unmanaged" } as const),
-        resolution: detail?.resolution ?? null,
-      };
-    }),
-  };
-
+  const { inventory, rows } = yield* listMcpServers();
+  const output = mcpServerListDocument({ inventory, rows });
   if (yield* screen.document(output, McpServerListQueryResultSchema)) return;
   yield* screen.result(
     inventoryDoc({
-      rows: items,
+      rows,
       columns: McpServerListColumns,
       summary: inventorySummary(inventory, "MCP server"),
       empty: "No MCP servers found",

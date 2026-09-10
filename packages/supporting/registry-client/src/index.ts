@@ -137,6 +137,12 @@ export { stripFileProtocol } from "./fs-helpers.js";
 export { formatDeprecationWarning } from "./deprecation-warning.js";
 
 export { RegistryUrl } from "./registry-url.js";
+export {
+  makeRegistryClientFactory,
+  RegistryClientFactory,
+  RegistryClientFactoryLive,
+  type RegistryClientFactoryService,
+} from "./registry-client-factory.js";
 
 // Package metadata schemas
 export {
@@ -149,3 +155,6 @@ export { purlIdentityMatch, purlMatch } from "./purl-match.js";
 
 // Generated OpenAPI transport (consumed by the registry-auth feature)
 export * as GeneratedRegistryClient from "./__generated__/registry-client.js";
+
+// Credential-shape redaction for registry-supplied text
+export { redactRegistryText } from "./redaction.js";

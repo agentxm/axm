@@ -18,6 +18,7 @@ import {
   PREVIEW_ROUTES,
   formatRoute,
 } from "../../support/command-routes.js";
+import { specificationFileFor } from "../../support/specification-index.js";
 
 export const specification = defineSpecification({
   requirement: "system/architecture/every-command-declares-interaction-capabilities",
@@ -119,13 +120,16 @@ describe("Command interaction capability declarations", () => {
     }),
   );
 
-  it("every assessment route owns a preview-purity specification under its command folder", () => {
+  it("every assessment route owns a preview-purity specification", () => {
     const missing: Array<string> = [];
     for (const route of PREVIEW_ROUTES) {
       const identity = ["cli", ...route.path, "preview-is-pure"].join("/");
-      const source = path.join(specificationsRoot, `${identity}.spec.ts`);
-      if (!fs.existsSync(source)) {
-        missing.push(`${formatRoute(route.path)}: ${identity}.spec.ts is absent`);
+      // The obligation is that the identity exists and is declared exactly
+      // once; a specification is authored beside the source it binds, so the
+      // file may live under `specifications/` or in its owning package.
+      const source = specificationFileFor(identity);
+      if (source === undefined) {
+        missing.push(`${formatRoute(route.path)}: no specification declares ${identity}`);
         continue;
       }
       const declared = REQUIREMENT_LITERAL.exec(fs.readFileSync(source, "utf8"))?.[1];

@@ -1,22 +1,19 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "../../../app-error/index.js";
+import { KnowledgeConceptRelatedOutputSchema, KnowledgeDiscovery } from "@agentxm/knowledge-query";
+
 import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
   withCommandCapabilities,
 } from "../../shared/command-capabilities.js";
-import { getKnowledgeIndexConcept, relatedKnowledgeConcepts } from "@agentxm/knowledge-query";
-import { parseConceptRef } from "@agentxm/extension-model/unstable/knowledge";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";
-import { captureInstalledKnowledgeIndex } from "../inspect.js";
-import { KnowledgeConceptRelatedOutputSchema } from "./schemas.js";
+import { knowledgeConceptFailures } from "../knowledge-errors.js";
 import { failKnowledgeCorpusChanging } from "./failures.js";
 import { sanitizeKnowledgeTerminalText } from "./terminal-text.js";
 
@@ -41,53 +38,28 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
   maximumDepth = 1,
   includeIndexBacklinks = false,
 ) {
-  const parsed = parseConceptRef(reference);
-  if (!Result.isSuccess(parsed)) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "Expected a concept reference in @owner/knowledge/name#concept-id form",
-    });
-  }
-  if (!Number.isSafeInteger(maximumDepth) || maximumDepth < 1 || maximumDepth > 3) {
-    return yield* makeAppError({ code: "validation", detail: "Depth must be between 1 and 3" });
-  }
   const screen = yield* Screen;
-  const captured = yield* captureInstalledKnowledgeIndex();
-  if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
-  const { snapshot } = captured;
-  const root = getKnowledgeIndexConcept(snapshot, parsed.success.bundle, parsed.success.conceptId);
-  if (root === undefined) {
-    return yield* makeAppError({
-      code: "not_found",
-      detail: `Knowledge concept "${reference}" was not found in the selected installed corpus`,
-    });
-  }
-  const items = relatedKnowledgeConcepts(snapshot, parsed.success, maximumDepth, {
-    includeIndexBacklinks,
-  });
-  const output = {
-    ref: root.ref,
-    maximumDepth,
-    includesIndexBacklinks: includeIndexBacklinks,
-    items,
-    count: items.length,
-    corpusFingerprint: snapshot.fingerprint,
-  };
+  const result = yield* Effect.catchTags(
+    KnowledgeDiscovery.related({ reference, maximumDepth, includeIndexBacklinks }),
+    knowledgeConceptFailures,
+  );
+  if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
+  const output = result.document;
   if (yield* screen.document(output, KnowledgeConceptRelatedOutputSchema)) return;
-  if (items.length === 0) {
+  if (output.items.length === 0) {
     yield* screen.note(headlineDoc("info", "No related installed knowledge concepts were found"));
     return;
   }
   yield* screen.result(
     tableViewDoc(
-      items.map(({ depth, relation, ref, title }) => ({
+      output.items.map(({ depth, relation, ref, title }) => ({
         depth,
         relation,
         concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
         title: sanitizeKnowledgeTerminalText(title ?? "—"),
       })),
       RelatedTable,
-      `${items.length} related concept${items.length === 1 ? "" : "s"}`,
+      `${output.items.length} related concept${output.items.length === 1 ? "" : "s"}`,
     ),
   );
 });

@@ -1,3 +1,5 @@
+import { redactRegistryText } from "@agentxm/registry-client";
+
 import type { AppErrorMetadata } from "./app-error.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
@@ -42,19 +44,7 @@ export const redactSensitiveText = (
   input: string,
   options: { readonly secrets?: ReadonlyArray<string> } = {},
 ): string => {
-  let output = input
-    .replaceAll(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, `$1 ${REDACTED}`)
-    .replaceAll(
-      /([?&](?:access_token|refresh_token|token|api_key|apikey|key|secret|password|code|initiator_proof|code_verifier|device_code)=)[^&#\s]*/gi,
-      `$1${REDACTED}`,
-    )
-    .replaceAll(
-      /((?:access_token|refresh_token|step_up_token|token|api_key|apikey|client_secret|secret|password|authorization|initiator_?proof|code_?verifier|device_?code)["']?\s*[:=]\s*["']?)[^"',\s&}]+/gi,
-      `$1${REDACTED}`,
-    )
-    .replaceAll(/\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, REDACTED)
-    .replaceAll(/\b(?:sk|npm)_[A-Za-z0-9_-]{16,}\b/g, REDACTED)
-    .replaceAll(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, REDACTED);
+  let output = redactRegistryText(input);
 
   for (const secret of options.secrets ?? []) {
     output = redactKnownSecret(output, secret);

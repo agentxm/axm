@@ -1,0 +1,8 @@
+[
+  {
+    "requirement": "cli/cache/status/reports-usage-and-effective-limits",
+    "disposition": "superseded-by",
+    "successor": "cli/cache/prune/enforces-reported-retention-limits",
+    "basis": "The reporting clause folded into the retention rule, which already reads the reported policy before pruning; the empty and populated usage observations are supporting coverage in that file, and the CLI machine-output shape stays an ordinary apps/cli test."
+  }
+]

@@ -1,12 +1,6 @@
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
-import * as Option from "effect/Option";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "../../app-error/index.js";
 import {
   Screen,
   detailViewDoc,
@@ -16,66 +10,13 @@ import {
 } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
-import {
-  CatalogExtensionTypeSchema,
-  type CatalogExtensionType,
-} from "@agentxm/extension-model/unstable/extension-types";
-import {
-  extensionTypeSentenceLabels,
-  toExtensionTypePlural,
-} from "@agentxm/extension-model/unstable/extensions";
-import { HookManager } from "@agentxm/extension-materialization";
-import { inspectMcpServerAcrossAgents } from "@agentxm/workspace-projection";
-import { ManifestIdentitySchema, manifestFilenameForType } from "@agentxm/extension-content";
-import {
-  WorkspaceMutations,
-  configuredRowsByName,
-  getLockedEntries,
-  lockEntryVersion,
-} from "@agentxm/workspace-state";
+import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types";
+import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
+import { ExtensionShowResultSchema, ShowExtension } from "@agentxm/workspace-inspection";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { commandForScope } from "./scoped-command.js";
-
-/**
- * Per-agent placement row. `mcp-server` fills every field from its live config
- * inspection; the other per-agent types report the agents the read model
- * observed. Workspace-placement types emit an empty array.
- */
-const ShowAgentSchema = Schema.Struct({
-  agent: Schema.String,
-  status: Schema.String,
-  reasonCode: Schema.String,
-  path: Schema.optionalKey(Schema.String),
-  fields: Schema.Array(Schema.String),
-  warnings: Schema.Array(Schema.String),
-  reason: Schema.optionalKey(Schema.String),
-});
-
-/**
- * Installed-state detail for one extension. Identical field set for every
- * catalog type — the per-type variation lives in the sibling `agents` array,
- * never in `item`.
- */
-const ShowItemSchema = Schema.Struct({
-  type: CatalogExtensionTypeSchema,
-  name: Schema.String,
-  enabled: Schema.NullOr(Schema.Boolean),
-  source: Schema.String,
-  version: Schema.NullOr(Schema.String),
-  scope: Schema.Literals(["project", "user"]),
-  locked: Schema.Boolean,
-});
-
-export const ExtensionShowResultSchema = Schema.Struct({
-  item: ShowItemSchema,
-  agents: Schema.Array(ShowAgentSchema),
-});
-export type ExtensionShowResult = typeof ExtensionShowResultSchema.Type;
-
-/** Field order of `item`, pinned so every `<type> show` stays uniform. */
-export const EXTENSION_SHOW_ITEM_FIELDS = Object.keys(ShowItemSchema.fields);
+import { extensionNotInstalledToAppError } from "../inspection-errors.js";
 
 interface ShowDetailRow {
   readonly type: string;
@@ -115,166 +56,19 @@ const AgentTable = {
   },
 } as const satisfies TableView<ShowAgentRow>;
 
-type ShowAgent = typeof ShowAgentSchema.Type;
-
 const yesNo = (value: boolean): string => (value ? "yes" : "no");
-
-const canonicalManifestVersion = Effect.fn("ExtensionShow.canonicalManifestVersion")(
-  function* (args: {
-    readonly baseDir: string;
-    readonly type: CatalogExtensionType;
-    readonly name: string;
-    readonly paths: ReadonlyArray<string>;
-  }) {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const manifestFilename = manifestFilenameForType(args.type);
-    const versions = yield* Effect.forEach(
-      args.paths,
-      (root) =>
-        fs.readFileString(path.resolve(args.baseDir, root, manifestFilename)).pipe(
-          Effect.flatMap((content) =>
-            Effect.try({
-              try: () => JSON.parse(content),
-              catch: () => null,
-            }),
-          ),
-          Effect.map((value) => Schema.decodeUnknownResult(ManifestIdentitySchema)(value)),
-          Effect.map((decoded) =>
-            Result.isSuccess(decoded) &&
-            decoded.success.type === args.type &&
-            decoded.success.name === args.name
-              ? decoded.success.version
-              : null,
-          ),
-          Effect.orElseSucceed(() => null),
-        ),
-      { concurrency: 4 },
-    );
-    return versions.find((version) => version !== null) ?? null;
-  },
-);
 
 export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (args: {
   readonly type: CatalogExtensionType;
   readonly name: string;
 }) {
   const screen = yield* Screen;
-  const ws = yield* WorkspaceMutations;
-  const label = extensionTypeSentenceLabels[args.type];
-
-  const [configured, locked, inventory] = yield* Effect.all(
-    [
-      ws.records.rows(args.type).pipe(Effect.map(configuredRowsByName)),
-      getLockedEntries(ws, args.type),
-      ws.records.getExtensionInventory(args.type, {}),
-    ],
-    { concurrency: "unbounded" },
+  const result = yield* Effect.catchTag(
+    ShowExtension.query(args),
+    "ExtensionNotInstalled",
+    (failure) => Effect.fail(extensionNotInstalledToAppError(failure)),
   );
-
-  const configuredEntry = configured[args.name];
-  const lockEntry = locked[args.name];
-  const inventoryRow = inventory.items.find((row) => row.name === args.name);
-
-  if (configuredEntry === undefined && lockEntry === undefined && inventoryRow === undefined) {
-    return yield* makeAppError({
-      code: "not_found",
-      detail: `${label} "${args.name}" is not installed`,
-      suggestions: [
-        {
-          description: `Inspect installed ${label} entries`,
-          cmd: commandForScope(`axm ${toExtensionTypePlural(args.type)} list`, ws.scope),
-        },
-      ],
-    });
-  }
-
-  const source =
-    configuredEntry?.source ??
-    inventoryRow?.source ??
-    inventoryRow?.origins.join(", ") ??
-    "unknown";
-  const enabled = configuredEntry?.enabled ?? inventoryRow?.enabled ?? null;
-  const observedManifestVersion =
-    lockEntry === undefined && inventoryRow !== undefined
-      ? yield* canonicalManifestVersion({
-          baseDir: ws.baseDir,
-          type: args.type,
-          name: args.name,
-          paths: inventoryRow.paths,
-        })
-      : null;
-
-  let agents: ReadonlyArray<ShowAgent> = (inventoryRow?.agentOutcomes ?? []).map((outcome) => ({
-    agent: outcome.agentId,
-    status: outcome.outcome,
-    reasonCode: outcome.reasonCode,
-    ...(outcome.path === undefined ? {} : { path: outcome.path }),
-    fields: [],
-    warnings: [],
-    reason:
-      outcome.mechanism === undefined ? outcome.reason : `${outcome.mechanism}: ${outcome.reason}`,
-  }));
-
-  if (args.type === "mcp-server") {
-    const configuredServers = yield* ws.getConfiguredMcpServerEntries();
-    const entry = configuredServers[args.name];
-    if (entry !== undefined) {
-      const agentIds = yield* ws.getConfiguredAgents();
-      const inspections = yield* inspectMcpServerAcrossAgents({
-        workspaceRoot: ws.baseDir,
-        scope: ws.scope,
-        agentIds,
-        serverName: args.name,
-        entry,
-      });
-      agents = inspections.map((inspection) => ({
-        agent: inspection.agentId,
-        status:
-          inspection.status === "match"
-            ? "current"
-            : inspection.status === "unsupported"
-              ? "unsupported"
-              : "failed",
-        reasonCode: `mcp-${inspection.status}`,
-        path: inspection.path,
-        fields: [...inspection.fields],
-        warnings: [...inspection.warnings],
-        ...(inspection.reason === undefined ? {} : { reason: inspection.reason }),
-      }));
-    }
-  }
-
-  if (args.type === "hook" && enabled !== false && inventoryRow !== undefined) {
-    const manager = yield* Effect.serviceOption(HookManager);
-    if (Option.isSome(manager) && manager.value.configuredAgentOutcomes !== undefined) {
-      const outcomes = (yield* manager.value.configuredAgentOutcomes("current")).filter(
-        ({ name }) => name === args.name,
-      );
-      agents = outcomes.map(({ agentId, outcome, reasonCode, mechanism, path, reason }) => ({
-        agent: agentId,
-        status: outcome,
-        reasonCode,
-        ...(path === undefined ? {} : { path }),
-        fields: [],
-        warnings: [],
-        reason: mechanism === undefined ? reason : `${mechanism}: ${reason}`,
-      }));
-    }
-  }
-
-  const result = {
-    item: {
-      type: args.type,
-      name: args.name,
-      enabled,
-      source,
-      version: lockEntry === undefined ? observedManifestVersion : lockEntryVersion(lockEntry),
-      scope: ws.scope,
-      locked: lockEntry !== undefined,
-    },
-    agents,
-  };
+  const label = extensionTypeSentenceLabels[args.type];
 
   if (yield* screen.document(result, ExtensionShowResultSchema)) return;
 
@@ -283,10 +77,10 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
       {
         type: args.type,
         name: args.name,
-        enabled: enabled === null ? "n/a" : yesNo(enabled),
-        source,
+        enabled: result.item.enabled === null ? "n/a" : yesNo(result.item.enabled),
+        source: result.item.source,
         version: result.item.version ?? "n/a",
-        scope: ws.scope,
+        scope: result.item.scope,
         locked: yesNo(result.item.locked),
       },
       ShowDetail,
@@ -294,10 +88,10 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
     ),
   );
 
-  if (agents.length > 0) {
+  if (result.agents.length > 0) {
     yield* screen.result(
       tableViewDoc(
-        agents.map((agent) => ({
+        result.agents.map((agent) => ({
           agent: agent.agent,
           status: agent.status,
           path: agent.path ?? "",

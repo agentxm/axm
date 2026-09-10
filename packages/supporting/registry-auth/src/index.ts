@@ -21,11 +21,13 @@ export {
   PublishAuthorizationPending,
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
+  AuthInteractionAbandoned,
   isAuthError,
   isRegistryAuthFailure,
   REGISTRY_AUTH_ERROR_CATEGORIES,
   RegistryAuthFailed,
   StepUpRequired,
+  StepUpVerificationPending,
   type AuthError,
   type RegistryAuthErrorCategory,
   type RegistryAuthFailure,
@@ -138,6 +140,48 @@ export type {
   DeviceFlowPresentation,
 } from "./login-presenter.js";
 export { AuthLoginPresenter } from "./login-presenter.js";
+export type {
+  DeviceCodeFallbackReason,
+  SessionReplacementDecision,
+  StepUpChallengePresentation,
+} from "./login-presenter.js";
+
+// Step-up verification protocol
+export {
+  runWithStepUp,
+  type StepUpOptions,
+  type StepUpPresentation,
+  type VerifiedWrite,
+} from "./step-up.js";
+
+// Sign-in, sign-out, identity, and token policy use cases
+export {
+  classifyLoopbackFailure,
+  deviceLoginOptions,
+  login,
+  resumeLoginOptions,
+  type LoginOutcome,
+  type LoginRequest,
+} from "./login.js";
+export { logout, type LogoutOutcome } from "./logout.js";
+export { currentIdentity, currentToken, type RegistryIdentity } from "./identity.js";
+export {
+  createToken,
+  listTokens,
+  parseExpiresInSeconds,
+  revokeToken,
+  tokenPermissions,
+  validateExpiresInSeconds,
+  MAX_TOKEN_LIFETIME_SECONDS,
+  MIN_TOKEN_LIFETIME_SECONDS,
+  type CreateTokenRequest,
+  type CreatedToken,
+  type TokenAuthorityRequest,
+} from "./tokens.js";
+export { hasCredentialsForAll } from "./login-suggestion.js";
+
+// Environment source for auth policy decisions (default: the process environment)
+export { AuthEnvironment } from "./internal/environment.js";
 export {
   runPublishAuthorization,
   type PublishAuthorizationInput,

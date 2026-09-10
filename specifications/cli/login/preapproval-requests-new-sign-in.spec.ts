@@ -74,18 +74,11 @@ describe("Login preapproval over a valid session", () => {
   });
   it.effect("an interactive session with preapproval signs in again without asking", () =>
     Effect.gen(function* () {
-      const context = makeLoginSpecContext({ validSession: true });
-      const prompts: Array<string> = [];
+      const context = makeLoginSpecContext({ validSession: true, sessionReplacement: "replace" });
 
-      yield* handleLogin(deviceLogin(true), {
-        confirmRelogin: (message) =>
-          Effect.sync(() => {
-            prompts.push(message);
-            return true;
-          }),
-      }).pipe(Effect.provide(context.layer));
+      yield* handleLogin(deviceLogin(true)).pipe(Effect.provide(context.layer));
 
-      expect(prompts).toEqual([]);
+      expect(context.sessionReplacementPrompts).toEqual([]);
       expect(context.deviceFlowStarts).toHaveLength(1);
       expect(yield* context.storedAccessToken).toBe(NEW_ACCESS_TOKEN);
       expect(context.rendererState.logs).toContainEqual({
@@ -161,18 +154,12 @@ describe("Login preapproval over a valid session", () => {
           machine: true,
           flags: { nonInteractive: false, json: true },
           validSession: true,
+          sessionReplacement: "replace",
         });
-        const prompts: Array<string> = [];
 
-        yield* handleLogin(deviceLogin(false), {
-          confirmRelogin: (message) =>
-            Effect.sync(() => {
-              prompts.push(message);
-              return true;
-            }),
-        }).pipe(Effect.provide(context.layer));
+        yield* handleLogin(deviceLogin(false)).pipe(Effect.provide(context.layer));
 
-        expect(prompts).toEqual([]);
+        expect(context.sessionReplacementPrompts).toEqual([]);
         expect(context.deviceFlowStarts).toEqual([]);
         expect(context.rendererState.results.at(-1)?.data).toEqual({ result: alreadyLoggedIn });
         expect(context.rendererState.suggestions).toContainEqual(signInAgain);
@@ -181,18 +168,11 @@ describe("Login preapproval over a valid session", () => {
 
   it.effect("an interactive session without preapproval asks before replacing the session", () =>
     Effect.gen(function* () {
-      const context = makeLoginSpecContext({ validSession: true });
-      const prompts: Array<string> = [];
+      const context = makeLoginSpecContext({ validSession: true, sessionReplacement: "keep" });
 
-      yield* handleLogin(deviceLogin(false), {
-        confirmRelogin: (message) =>
-          Effect.sync(() => {
-            prompts.push(message);
-            return false;
-          }),
-      }).pipe(Effect.provide(context.layer));
+      yield* handleLogin(deviceLogin(false)).pipe(Effect.provide(context.layer));
 
-      expect(prompts).toEqual(["Log in with a different account?"]);
+      expect(context.sessionReplacementPrompts).toEqual(["Log in with a different account?"]);
       expect(context.deviceFlowStarts).toEqual([]);
       expect(yield* context.storedAccessToken).toBe(EXISTING_ACCESS_TOKEN);
       expect(context.rendererState.logs).toContainEqual({

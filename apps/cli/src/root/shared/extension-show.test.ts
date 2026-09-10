@@ -8,7 +8,8 @@ import { afterEach, beforeEach } from "vitest";
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
-import { EXTENSION_SHOW_ITEM_FIELDS, handleExtensionShow } from "./extension-show.js";
+import { EXTENSION_SHOW_ITEM_FIELDS } from "@agentxm/workspace-inspection";
+import { handleExtensionShow } from "./extension-show.js";
 
 const configured = { source: "@acme/skills/thing", enabled: true };
 

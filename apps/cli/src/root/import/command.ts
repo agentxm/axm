@@ -21,7 +21,11 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-materialization";
-import { importNativeExtensionPackage, preflightCreateOnly } from "@agentxm/extension-authoring";
+import {
+  importNativeExtensionPackage,
+  preflightCreateOnly,
+  requireAuthoredOwner,
+} from "@agentxm/extension-authoring";
 import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   extensionTypeToPlural,
@@ -45,7 +49,6 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { SkillManager, SubagentManager } from "@agentxm/extension-materialization";
@@ -85,7 +88,9 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
       detail: `Expected a ${extensionTypeToPlural[args.type]} target FQN, got ${args.target}`,
     });
   }
-  yield* requireAuthoredOwner(target.owner);
+  yield* requireAuthoredOwner(target.owner, { subject: "package", command: "import" }).pipe(
+    Effect.mapError(toAppError),
+  );
   const group = extensionTypeToPlural[args.type];
   const ws = yield* WorkspaceMutations;
   if (ws.layout.scope !== "project") {

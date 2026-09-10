@@ -32,7 +32,11 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-materialization";
-import { forkExtensionPackage, preflightCreateOnly } from "@agentxm/extension-authoring";
+import {
+  forkExtensionPackage,
+  preflightCreateOnly,
+  requireAuthoredOwner,
+} from "@agentxm/extension-authoring";
 import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   extensionTypeFromPlural,
@@ -67,7 +71,6 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
@@ -140,7 +143,9 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
   const target = yield* Effect.fromResult(
     Result.mapError(parseFqn(args.target), fqnInvalidErrorToAppError),
   );
-  yield* requireAuthoredOwner(target.owner);
+  yield* requireAuthoredOwner(target.owner, { subject: "package", command: "fork" }).pipe(
+    Effect.mapError(toAppError),
+  );
   const ws = yield* WorkspaceMutations;
   if (ws.layout.scope !== "project") {
     return yield* makeAppError({ code: "usage", detail: "Fork requires project scope" });

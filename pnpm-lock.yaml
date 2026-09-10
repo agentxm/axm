@@ -413,9 +413,18 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
+      '@agentxm/registry-auth':
+        specifier: workspace:^
+        version: link:../../supporting/registry-auth
+      '@agentxm/registry-client':
+        specifier: workspace:^
+        version: link:../../supporting/registry-client
       '@agentxm/workspace-operations':
         specifier: workspace:^
         version: link:../workspace-operations
+      '@agentxm/workspace-projection':
+        specifier: workspace:^
+        version: link:../workspace-projection
       '@agentxm/workspace-state':
         specifier: workspace:^
         version: link:../workspace-state
@@ -429,6 +438,18 @@ importers:
         specifier: 'catalog:'
         version: 2.9.0
     devDependencies:
+      '@agentxm/agent-integration':
+        specifier: workspace:^
+        version: link:../../supporting/agent-integration
+      '@agentxm/extension-resolution':
+        specifier: workspace:^
+        version: link:../extension-resolution
+      '@agentxm/extension-sources':
+        specifier: workspace:^
+        version: link:../../supporting/extension-sources
+      '@agentxm/specification-metadata':
+        specifier: workspace:^
+        version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -500,6 +521,9 @@ importers:
         specifier: 'catalog:'
         version: 2.9.0
     devDependencies:
+      '@agentxm/specification-metadata':
+        specifier: workspace:*
+        version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -689,6 +713,9 @@ importers:
       '@agentxm/extension-sources':
         specifier: workspace:^
         version: link:../../supporting/extension-sources
+      '@agentxm/registry-auth':
+        specifier: workspace:^
+        version: link:../../supporting/registry-auth
       '@agentxm/registry-client':
         specifier: workspace:^
         version: link:../../supporting/registry-client
@@ -701,12 +728,21 @@ importers:
       '@agentxm/workspace-projection':
         specifier: workspace:^
         version: link:../workspace-projection
+      '@agentxm/workspace-state':
+        specifier: workspace:^
+        version: link:../workspace-state
+      '@agentxm/workspace-transactions':
+        specifier: workspace:^
+        version: link:../workspace-transactions
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -717,6 +753,9 @@ importers:
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.7.1
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
@@ -778,10 +817,19 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
+      '@agentxm/workspace-projection':
+        specifier: workspace:^
+        version: link:../workspace-projection
+      '@agentxm/workspace-state':
+        specifier: workspace:^
+        version: link:../workspace-state
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
     devDependencies:
+      '@agentxm/specification-metadata':
+        specifier: workspace:*
+        version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -880,6 +928,9 @@ importers:
 
   packages/core/workspace-inspection:
     dependencies:
+      '@agentxm/extension-content':
+        specifier: workspace:^
+        version: link:../extension-content
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
@@ -905,6 +956,24 @@ importers:
         specifier: 'catalog:'
         version: 7.8.5
     devDependencies:
+      '@agentxm/agent-integration':
+        specifier: workspace:^
+        version: link:../../supporting/agent-integration
+      '@agentxm/extension-materialization':
+        specifier: workspace:^
+        version: link:../extension-materialization
+      '@agentxm/extension-resolution':
+        specifier: workspace:^
+        version: link:../extension-resolution
+      '@agentxm/registry-auth':
+        specifier: workspace:^
+        version: link:../../supporting/registry-auth
+      '@agentxm/specification-metadata':
+        specifier: workspace:*
+        version: link:../../../tools/specification-metadata
+      '@agentxm/workspace-operations':
+        specifier: workspace:^
+        version: link:../workspace-operations
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -920,6 +989,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
+      fflate:
+        specifier: 'catalog:'
+        version: 0.8.3
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'
@@ -1332,6 +1404,9 @@ importers:
         specifier: 'catalog:'
         version: 0.8.3
     devDependencies:
+      '@agentxm/specification-metadata':
+        specifier: workspace:*
+        version: link:../../../tools/specification-metadata
       '@effect/openapi-generator':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1))(effect@4.0.0-rc.112)

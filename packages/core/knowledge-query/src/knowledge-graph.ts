@@ -10,6 +10,7 @@ import {
   type KnowledgeIndexedConcept,
 } from "./knowledge-index.js";
 import { tokenizeKnowledgeSearchText } from "@agentxm/extension-content/knowledge";
+import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "./knowledge-capabilities.js";
 
 export type KnowledgeRelation = "outgoing" | "backlink";
 
@@ -43,7 +44,10 @@ export const relatedKnowledgeConcepts = (
 ): ReadonlyArray<KnowledgeRelatedConcept> => {
   const root = getKnowledgeIndexConcept(snapshot, start.bundle, start.conceptId);
   if (root === undefined) return [];
-  const depthLimit = Math.max(1, Math.min(3, maximumDepth));
+  const depthLimit = Math.max(
+    1,
+    Math.min(KNOWLEDGE_DISCOVERY_CAPABILITIES.limits.maximumTraversalDepth, maximumDepth),
+  );
   const visited = new Set([compactKey(start)]);
   const queue: TraversalEntry[] = [{ concept: root, depth: 0 }];
   const results: KnowledgeRelatedConcept[] = [];
@@ -155,7 +159,7 @@ const candidate = (
 export const resolveKnowledgeConcept = (
   snapshot: KnowledgeIndexSnapshot,
   input: string,
-  maximumCandidates = 10,
+  maximumCandidates = KNOWLEDGE_DISCOVERY_CAPABILITIES.limits.maximumFuzzyCandidates,
   fuzzy = false,
 ): KnowledgeResolveResult => {
   const parsed = parseConceptRef(input);
@@ -197,7 +201,7 @@ export const resolveKnowledgeConcept = (
       (left, right) =>
         right.score - left.score || left.orderingKey.localeCompare(right.orderingKey),
     )
-    .slice(0, Math.max(1, Math.min(10, maximumCandidates)));
+    .slice(0, Math.max(1, maximumCandidates));
   if (candidates.length === 0) return { outcome: "not-found", candidates: [] };
   if (candidates.length === 1) {
     const first = candidates[0];

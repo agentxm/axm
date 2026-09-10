@@ -38,7 +38,7 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "AgentXM Registry API 0.1.0",
-    "apps/cli/src/root/step-up.ts",
+    "packages/supporting/registry-auth/src/step-up.ts",
     "apps/cli/src/root/lifecycle/command.test.ts",
   ],
   supersedes: [],

@@ -13,6 +13,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
@@ -35,6 +36,7 @@ import {
 import {
   pruneManagedMcpServersForAgent,
   syncInlineMcpServerToAgents,
+  type NativeWriteAuthority,
 } from "@agentxm/agent-integration";
 import type { ManagerRequirements, RecipeRequirements } from "@agentxm/extension-materialization";
 import {
@@ -47,8 +49,14 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import type { ReleaseAgeOperationEvidence } from "@agentxm/extension-resolution";
-import { WorkspaceMutations, type McpServerEntry } from "@agentxm/workspace-state";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+import {
+  WorkspaceMutations,
+  type McpServerEntry,
+  type WorkspaceSettingsReadFailure,
+} from "@agentxm/workspace-state";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
+import type { WorkspaceSyncCleanupFailure } from "./errors.js";
 import type { SyncFailureAdapter } from "./failure-adapter.js";
 
 export const SYNC_RECOVERY_IDS = {
@@ -264,11 +272,24 @@ export const buildMcpServerPruneOperation = ({
 // Aggregate-unit reconciliation steps
 // -----------------------------------------------------------------------------
 
-export const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* (args: {
+/**
+ * The Knowledge discovery reconciliation step, or nothing when discovery is
+ * already current.
+ *
+ * The signature is declared rather than inferred: the step this returns is a
+ * `PlannedJobStep`, and letting the emitter infer it would publish the object
+ * literal's structure and expand the manager failure union into every package
+ * that contributes to it — including packages this one does not declare.
+ */
+export const collectKnowledgeStep: (args: {
   readonly adapter: SyncFailureAdapter;
   readonly deferPreview?: boolean;
   readonly facts?: ReadonlyArray<ProjectionInvariantFact>;
-}) {
+}) => Effect.Effect<
+  Option.Option<PlannedJobStep<SyncStepRequirements>>,
+  WorkspaceSettingsReadFailure,
+  WorkspaceMutations | ManagerRequirements | WorkspaceTransactionScope | KnowledgeManager
+> = Effect.fn("Sync.collectKnowledgeStep")(function* (args) {
   const manager = yield* KnowledgeManager;
   const ws = yield* WorkspaceMutations;
   const instructions = yield* ws.getInstructionsConfig();
@@ -342,13 +363,26 @@ export const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(funct
   } satisfies PlannedJobStep<SyncStepRequirements>);
 });
 
-export const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function* (args: {
+/**
+ * The stale-managed-projection cleanup step, or nothing when the sweep found
+ * no owned residue. The failure channel is named: the cleanup sweep's own
+ * union, not the expansion of every family that feeds it.
+ */
+export const collectCleanupStep: (args: {
   readonly expectedSkillNames: ReadonlySet<string>;
   readonly expectedSubagentNames: ReadonlySet<string>;
   readonly expectedMcpServerNames: ReadonlySet<string>;
   readonly expectedHookNames: ReadonlySet<string>;
   readonly adapter: SyncFailureAdapter;
-}) {
+}) => Effect.Effect<
+  Option.Option<PlannedJobStep<SyncStepRequirements>>,
+  WorkspaceSyncCleanupFailure,
+  | CodingAgentRepository
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | NativeWriteAuthority
+> = Effect.fn("Sync.collectCleanupStep")(function* (args) {
   const ws = yield* WorkspaceMutations;
   const agentRepo = yield* CodingAgentRepository;
   const desiredAgentIds = new Set(

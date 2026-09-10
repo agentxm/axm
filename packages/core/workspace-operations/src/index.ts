@@ -156,6 +156,17 @@ export {
   type ResolveExecutionCandidateOptions,
 } from "./plan/resolve-plan.js";
 
+// Conversions from the kernel families a step can surface into the
+// serialized step vocabulary, so a producer serializes them identically
+// wherever the step was assembled.
+export {
+  candidateFingerprintFailedToStepFailure,
+  configuredAgentOutcomesUnavailableToStepFailure,
+  restorationIncompleteToStepFailure,
+  workspaceStateReadFailureToStepFailure,
+  workspaceTransactionFailureToStepFailure,
+} from "./plan/step-failure-conversions.js";
+
 // Interaction port for preview/apply presentation, progress, and confirmation.
 // The CLI runtime provides the Live implementation.
 export {

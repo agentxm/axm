@@ -106,6 +106,9 @@ import {
   SubagentInstallStateMissing,
 } from "@agentxm/extension-materialization";
 import {
+  AuthoringOwnerMismatch,
+  AuthoringOwnerRequired,
+  AuthoringScopeUnsupported,
   CreateDestinationInspectionFailed,
   CreateNameConfigured,
   ForkPackageConflict,
@@ -115,6 +118,19 @@ import {
   NativeImportFailed,
   NativeImportInvalid,
   NativeImportUnsupported,
+  PackGraphInvalid,
+  PackManifestUnavailable,
+  PackMemberAmbiguous,
+  PackMemberNotDeclared,
+  PackMemberNotFound,
+  PackMemberUnmanaged,
+  PackNotAuthored,
+  PackNotConfigured,
+  PackOwnerUnconfigured,
+  PackSelectorAmbiguous,
+  PackSelectorNotAPack,
+  PackSourceMissing,
+  ScaffoldNameInvalid,
 } from "@agentxm/extension-authoring";
 import { CreateDestinationExists } from "@agentxm/extension-materialization";
 import {
@@ -196,6 +212,9 @@ import {
   transientBackupFailedToAppError,
 } from "./conversions/agent-integration.js";
 import {
+  authoringOwnerMismatchToAppError,
+  authoringOwnerRequiredToAppError,
+  authoringScopeUnsupportedToAppError,
   createDestinationInspectionFailedToAppError,
   createNameConfiguredToAppError,
   forkPackageConflictToAppError,
@@ -205,6 +224,19 @@ import {
   nativeImportFailedToAppError,
   nativeImportInvalidToAppError,
   nativeImportUnsupportedToAppError,
+  packGraphInvalidToAppError,
+  packManifestUnavailableToAppError,
+  packMemberAmbiguousToAppError,
+  packMemberNotDeclaredToAppError,
+  packMemberNotFoundToAppError,
+  packMemberUnmanagedToAppError,
+  packNotAuthoredToAppError,
+  packNotConfiguredToAppError,
+  packOwnerUnconfiguredToAppError,
+  packSelectorAmbiguousToAppError,
+  packSelectorNotAPackToAppError,
+  packSourceMissingToAppError,
+  scaffoldNameInvalidToAppError,
 } from "./conversions/extension-authoring.js";
 import {
   archiveIntegrityMismatchToAppError,
@@ -1031,6 +1063,22 @@ export type KnownFailure =
   | CreateDestinationExists
   | CreateNameConfigured
   | CreateDestinationInspectionFailed
+  | AuthoringOwnerRequired
+  | AuthoringOwnerMismatch
+  | ScaffoldNameInvalid
+  | AuthoringScopeUnsupported
+  | PackSelectorNotAPack
+  | PackNotConfigured
+  | PackSelectorAmbiguous
+  | PackSourceMissing
+  | PackNotAuthored
+  | PackOwnerUnconfigured
+  | PackManifestUnavailable
+  | PackGraphInvalid
+  | PackMemberAmbiguous
+  | PackMemberUnmanaged
+  | PackMemberNotFound
+  | PackMemberNotDeclared
   | PathTraversalDetected
   | ForkPackageInvalid
   | ForkPackageConflict
@@ -1164,6 +1212,22 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof CreateDestinationExists ||
   error instanceof CreateNameConfigured ||
   error instanceof CreateDestinationInspectionFailed ||
+  error instanceof AuthoringOwnerRequired ||
+  error instanceof AuthoringOwnerMismatch ||
+  error instanceof ScaffoldNameInvalid ||
+  error instanceof AuthoringScopeUnsupported ||
+  error instanceof PackSelectorNotAPack ||
+  error instanceof PackNotConfigured ||
+  error instanceof PackSelectorAmbiguous ||
+  error instanceof PackSourceMissing ||
+  error instanceof PackNotAuthored ||
+  error instanceof PackOwnerUnconfigured ||
+  error instanceof PackManifestUnavailable ||
+  error instanceof PackGraphInvalid ||
+  error instanceof PackMemberAmbiguous ||
+  error instanceof PackMemberUnmanaged ||
+  error instanceof PackMemberNotFound ||
+  error instanceof PackMemberNotDeclared ||
   error instanceof PathTraversalDetected ||
   error instanceof ForkPackageInvalid ||
   error instanceof ForkPackageConflict ||
@@ -1358,6 +1422,38 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return createNameConfiguredToAppError(error);
     case "CreateDestinationInspectionFailed":
       return createDestinationInspectionFailedToAppError(error);
+    case "AuthoringOwnerRequired":
+      return authoringOwnerRequiredToAppError(error);
+    case "AuthoringOwnerMismatch":
+      return authoringOwnerMismatchToAppError(error);
+    case "ScaffoldNameInvalid":
+      return scaffoldNameInvalidToAppError(error);
+    case "AuthoringScopeUnsupported":
+      return authoringScopeUnsupportedToAppError(error);
+    case "PackSelectorNotAPack":
+      return packSelectorNotAPackToAppError(error);
+    case "PackNotConfigured":
+      return packNotConfiguredToAppError(error);
+    case "PackSelectorAmbiguous":
+      return packSelectorAmbiguousToAppError(error);
+    case "PackSourceMissing":
+      return packSourceMissingToAppError(error);
+    case "PackNotAuthored":
+      return packNotAuthoredToAppError(error);
+    case "PackOwnerUnconfigured":
+      return packOwnerUnconfiguredToAppError(error);
+    case "PackManifestUnavailable":
+      return packManifestUnavailableToAppError(error);
+    case "PackGraphInvalid":
+      return packGraphInvalidToAppError(error);
+    case "PackMemberAmbiguous":
+      return packMemberAmbiguousToAppError(error);
+    case "PackMemberUnmanaged":
+      return packMemberUnmanagedToAppError(error);
+    case "PackMemberNotFound":
+      return packMemberNotFoundToAppError(error);
+    case "PackMemberNotDeclared":
+      return packMemberNotDeclaredToAppError(error);
     case "PathTraversalDetected":
       return pathTraversalDetectedToAppError(error);
     case "ForkPackageInvalid":

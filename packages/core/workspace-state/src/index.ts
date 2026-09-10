@@ -295,6 +295,7 @@ export type {
 export { WorkspaceLocation, type WorkspaceLocationService } from "./workspace/location.js";
 export { SettingsReader, type SettingsReaderService } from "./workspace/settings-reader.js";
 export { LockfileReader, type LockfileReaderService } from "./workspace/lockfile-reader.js";
+export { readOtherScopeState, type OtherScopeState } from "./workspace/other-scope-reader.js";
 export {
   DesiredStateReader,
   type DesiredStateReaderService,

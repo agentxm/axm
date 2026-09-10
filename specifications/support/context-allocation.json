@@ -146,17 +146,17 @@
       "projection": "installerAvailability.state"
     },
     "knowledge-readiness": {
-      "path": "apps/cli/src/root/knowledge/concepts/schemas.ts",
+      "path": "packages/core/knowledge-query/src/documents.ts",
       "symbol": "KnowledgeConceptStatusOutputSchema",
       "projection": "readiness"
     },
     "knowledge-health": {
-      "path": "apps/cli/src/root/knowledge/concepts/schemas.ts",
+      "path": "packages/core/knowledge-query/src/documents.ts",
       "symbol": "KnowledgeConceptStatusOutputSchema",
       "projection": "health.status"
     },
     "knowledge-collisions": {
-      "path": "apps/cli/src/root/knowledge/concepts/schemas.ts",
+      "path": "packages/core/knowledge-query/src/documents.ts",
       "symbol": "KnowledgeConceptStatusOutputSchema",
       "projection": "scopeCollisions.state"
     }

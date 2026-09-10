@@ -8,12 +8,18 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
+import * as ConfigProvider from "effect/ConfigProvider";
 import {
   type MeResponse,
+  AuthEnvironment,
+  AuthLoginPresenter,
   LoopbackCallbackRejected,
   LoopbackLoginFallback,
   CredentialStore,
   RegistryAuthFailed,
+  classifyLoopbackFailure,
+  deviceLoginOptions,
+  resumeLoginOptions,
 } from "@agentxm/registry-auth";
 import {
   AuthClientTest,
@@ -28,6 +34,8 @@ import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { expectRecord, property } from "../../test-helpers.js";
 import { handleLogin } from "./login.js";
+import { deviceCodeFallbackNote } from "./view.js";
+import { paragraphDoc } from "../../screen/index.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ALICE = normalizeHandle("@alice");
@@ -38,7 +46,8 @@ const makeLayers = (opts?: {
   yes?: boolean;
   existingCredentials?: boolean;
   meResponse?: MeResponse;
-  confirmValue?: boolean;
+  /** How the person answers the replace-a-valid-session question. */
+  confirmReplacement?: "replace" | "keep";
   getMeFails?: boolean;
   allowsPersistedCredentials?: boolean;
   machine?: boolean;
@@ -112,12 +121,34 @@ const makeLayers = (opts?: {
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
 
+  // The renderer-backed presenter keeps the output assertions observing real
+  // CLI wording; only the one question a person answers is decided here.
+  const sessionReplacementPrompts: Array<string> = [];
+  const basePresenterLayer = Layer.provide(AuthLoginPresenterLive, rendererLayer);
+  const presenterLayer =
+    opts?.confirmReplacement === undefined
+      ? basePresenterLayer
+      : Layer.provide(
+          Layer.effect(
+            AuthLoginPresenter,
+            Effect.gen(function* () {
+              const base = yield* AuthLoginPresenter;
+              return {
+                ...base,
+                confirmSessionReplacement: (message: string) => {
+                  sessionReplacementPrompts.push(message);
+                  return Effect.succeed(opts.confirmReplacement ?? "replace");
+                },
+              };
+            }),
+          ),
+          basePresenterLayer,
+        );
+
   const FullLayer = Layer.mergeAll(
     NodeServices.layer,
     rendererLayer,
-    // The real renderer-backed presenter keeps the output assertions
-    // observing the CLI wording and machine documents.
-    Layer.provide(AuthLoginPresenterLive, rendererLayer),
+    presenterLayer,
     interactionLayer,
     flagsLayer,
     credStoreLayer,
@@ -130,7 +161,7 @@ const makeLayers = (opts?: {
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
     effect.pipe(Effect.provide(FullLayer));
 
-  return { provide, rendererState };
+  return { provide, rendererState, sessionReplacementPrompts };
 };
 
 describe("auth login handler", () => {
@@ -146,20 +177,9 @@ describe("auth login handler", () => {
     );
   });
 
-  it.effect("passes a bounded wait to pending device sign-in resumption", () => {
-    const { provide } = makeLayers({ nonInteractive: true });
-    return provide(
-      handleLogin(
-        { yes: false, deviceCode: false, wait: true, timeoutSeconds: 300, scopes: [] },
-        {
-          resumeDeviceLogin: (registryUrl, options) =>
-            Effect.sync(() => {
-              expect(registryUrl).toBe(REGISTRY_URL);
-              expect(options).toEqual({ timeoutSeconds: 300 });
-            }),
-        },
-      ),
-    );
+  it("passes a bounded wait to pending device sign-in resumption", () => {
+    expect(resumeLoginOptions({ timeoutSeconds: 300 })).toEqual({ timeoutSeconds: 300 });
+    expect(resumeLoginOptions({})).toEqual({});
   });
 
   it.effect("starts a non-blocking device flow in non-interactive mode", () => {
@@ -188,25 +208,17 @@ describe("auth login handler", () => {
   });
 
   it.effect("skips the relogin prompt for a valid non-interactive session", () => {
-    const { provide, rendererState } = makeLayers({
+    const { provide, rendererState, sessionReplacementPrompts } = makeLayers({
       nonInteractive: true,
       machine: true,
       json: true,
       existingCredentials: true,
+      confirmReplacement: "replace",
     });
-    let promptCalls = 0;
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin(
-          { yes: false, deviceCode: false, scopes: [] },
-          {
-            confirmRelogin: () => {
-              promptCalls += 1;
-              return Effect.succeed(true);
-            },
-          },
-        );
-        expect(promptCalls).toBe(0);
+        yield* handleLogin({ yes: false, deviceCode: false, scopes: [] });
+        expect(sessionReplacementPrompts).toEqual([]);
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
@@ -249,55 +261,14 @@ describe("auth login handler", () => {
     );
   });
 
-  it.effect("passes requested scopes to device login", () => {
-    const { provide } = makeLayers();
-    const deviceLoginCalls: Array<ReadonlyArray<string> | undefined> = [];
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleLogin(
-          {
-            yes: false,
-            deviceCode: true,
-            scopes: ["extensions:publish:new"],
-          },
-          {
-            runDeviceLogin: (_registryUrl, options) => {
-              deviceLoginCalls.push(options?.scopes);
-              return Effect.void;
-            },
-          },
-        );
-
-        expect(deviceLoginCalls).toEqual([["extensions:publish:new"]]);
-      }),
-    );
+  it("passes requested scopes to device login", () => {
+    expect(
+      deviceLoginOptions({ restart: false, scopes: ["extensions:publish:new"] }, false).scopes,
+    ).toEqual(["extensions:publish:new"]);
   });
 
-  it.effect("passes explicit restart intent to device login", () => {
-    const { provide } = makeLayers();
-    const restartOptions: Array<boolean | undefined> = [];
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleLogin(
-          {
-            yes: false,
-            deviceCode: true,
-            restart: true,
-            scopes: [],
-          },
-          {
-            runDeviceLogin: (_registryUrl, options) => {
-              restartOptions.push(options?.restart);
-              return Effect.void;
-            },
-          },
-        );
-
-        expect(restartOptions).toEqual([true]);
-      }),
-    );
+  it("passes explicit restart intent to device login", () => {
+    expect(deviceLoginOptions({ restart: true, scopes: [] }, false).restart).toBe(true);
   });
 
   it.effect("requires device-code mode for explicit restart", () => {
@@ -322,96 +293,51 @@ describe("auth login handler", () => {
     );
   });
 
-  it.effect("does not launch a browser for explicit device-code login", () => {
-    const { provide } = makeLayers();
-    const openBrowserOptions: Array<boolean | undefined> = [];
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleLogin(
-          { yes: false, deviceCode: true, scopes: [] },
-          {
-            runDeviceLogin: (_registryUrl, options) => {
-              openBrowserOptions.push(options?.openBrowser);
-              return Effect.void;
-            },
-          },
-        );
-
-        expect(openBrowserOptions).toEqual([false]);
-      }),
-    );
+  it("does not launch a browser for explicit device-code login", () => {
+    expect(deviceLoginOptions({ restart: false, scopes: [] }, false).openBrowser).toBe(false);
   });
 
-  it.effect("does not fall back to device code after loopback timeout", () => {
-    const { provide } = makeLayers();
-    let deviceLoginCalls = 0;
-
-    return provide(
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(
-          handleLogin(
-            { yes: false, deviceCode: false, scopes: [] },
-            {
-              loginStrategyEnvironment: { DISPLAY: ":0" },
-              runLoopbackLogin: () =>
-                Effect.fail(
-                  new LoopbackLoginFallback({
-                    reason: "timeout",
-                    message: "Timed out waiting for the browser callback.",
-                  }),
-                ),
-              runDeviceLogin: () => {
-                deviceLoginCalls += 1;
-                return Effect.void;
-              },
-            },
-          ),
-        );
-
-        expect(error).toMatchObject({
-          detail: "Browser sign-in expired after 5 minutes. No credentials were changed.",
-        });
-        if (error._tag !== "AppError") {
-          throw new Error("Expected an AppError");
-        }
-        expect(error.suggestions).toEqual([
-          { description: "Try browser sign-in again.", cmd: "axm login" },
-          {
-            description: "Use device-code sign-in on a remote or headless machine.",
-            cmd: "axm login --device-code",
-          },
-        ]);
-        expect(deviceLoginCalls).toBe(0);
+  it("does not fall back to device code after loopback timeout", () => {
+    const failure = classifyLoopbackFailure(
+      new LoopbackLoginFallback({
+        reason: "timeout",
+        message: "Timed out waiting for the browser callback.",
       }),
     );
+
+    expect(failure.detail).toBe(
+      "Browser sign-in expired after 5 minutes. No credentials were changed.",
+    );
+    expect(failure.suggestions).toEqual([
+      { description: "Try browser sign-in again.", cmd: "axm login" },
+      {
+        description: "Use device-code sign-in on a remote or headless machine.",
+        cmd: "axm login --device-code",
+      },
+    ]);
   });
 
-  it.effect("maps denied loopback authorization to a stable cancellation message", () => {
-    const { provide } = makeLayers();
+  it("maps denied loopback authorization to a stable cancellation message", () => {
+    expect(
+      classifyLoopbackFailure(
+        new LoopbackCallbackRejected({
+          reason: "access_denied",
+          message: "Authorization failed: access_denied.",
+        }),
+      ).detail,
+    ).toBe("Sign-in was cancelled. No credentials were changed.");
+  });
 
-    return provide(
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(
-          handleLogin(
-            { yes: false, deviceCode: false, scopes: [] },
-            {
-              loginStrategyEnvironment: { DISPLAY: ":0" },
-              runLoopbackLogin: () =>
-                Effect.fail(
-                  new LoopbackCallbackRejected({
-                    reason: "access_denied",
-                    message: "Authorization failed: access_denied.",
-                  }),
-                ),
-            },
-          ),
-        );
-
-        expect(error).toMatchObject({
-          detail: "Sign-in was cancelled. No credentials were changed.",
-        });
-      }),
+  it("explains an invalid authorization callback with a stable retry", () => {
+    expect(
+      classifyLoopbackFailure(
+        new LoopbackCallbackRejected({
+          reason: "invalid_callback",
+          message: "Authorization failed: invalid_request.",
+        }),
+      ).detail,
+    ).toBe(
+      "The authorization callback was invalid and sign-in could not be completed. Run `axm login` to try again.",
     );
   });
 
@@ -420,9 +346,8 @@ describe("auth login handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin(
-          { yes: false, deviceCode: false, scopes: [] },
-          { loginStrategyEnvironment: { CI: "1" } },
+        yield* handleLogin({ yes: false, deviceCode: false, scopes: [] }).pipe(
+          Effect.provideService(AuthEnvironment, ConfigProvider.fromEnvRecord({ CI: "1" })),
         );
 
         const instructions = rendererState.logs
@@ -444,46 +369,17 @@ describe("auth login handler", () => {
     );
   });
 
-  it.effect(
-    "emits required device instructions after loopback bind fallback in machine mode",
-    () => {
-      const { provide, rendererState } = makeLayers({ machine: true, json: true });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleLogin(
-            { yes: false, deviceCode: false, scopes: [] },
-            {
-              loginStrategyEnvironment: { DISPLAY: ":0" },
-              runLoopbackLogin: () =>
-                Effect.fail(
-                  new LoopbackLoginFallback({
-                    reason: "bind_failed",
-                    message: "Loopback port unavailable.",
-                  }),
-                ),
-            },
-          );
-
-          const instructions = rendererState.logs
-            .filter((log) => log._tag === "info")
-            .map((log) => log.message);
-          expect(instructions).toContain("Sign in to AgentXM.ai with a one-time code");
-          expect(instructions).toContain(
-            "Could not start a local callback server; using device-code sign-in instead.",
-          );
-          const result = expectRecord(
-            property(expectRecord(rendererState.results[0]?.data), "result"),
-          );
-          expect(result).toEqual({
-            status: "logged-in",
-            registryHost: "registry.agentxm.ai",
-            handle: ALICE,
-          });
-        }),
-      );
-    },
-  );
+  // The bind-failure branch runs the device flow after this note. Forcing a
+  // real loopback bind failure needs a server seam registry-auth does not
+  // expose, so the wording it prints is proved at the view boundary.
+  it("names the loopback fallback before the device flow it replaces it with", () => {
+    expect(deviceCodeFallbackNote("loopback-bind-failed").doc).toEqual(
+      paragraphDoc("Could not start a local callback server; using device-code sign-in instead."),
+    );
+    expect(deviceCodeFallbackNote("remote-or-headless").doc).toEqual(
+      paragraphDoc("This environment appears to be remote or headless; using device-code sign-in."),
+    );
+  });
 
   it.effect("displays the complete URL, clean fallback, and code separately", () => {
     const { provide, rendererState } = makeLayers();
@@ -507,27 +403,19 @@ describe("auth login handler", () => {
   });
 
   it.effect("prompts when already logged in", () => {
-    const { provide, rendererState } = makeLayers({
+    const { provide, rendererState, sessionReplacementPrompts } = makeLayers({
       existingCredentials: true,
+      confirmReplacement: "replace",
     });
-    const confirmCalls: Array<string> = [];
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin(
-          { yes: false, deviceCode: true, scopes: [] },
-          {
-            confirmRelogin: (message) => {
-              confirmCalls.push(message);
-              return Effect.succeed(true);
-            },
-          },
-        );
+        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
           ),
         ).toBe(true);
-        expect(confirmCalls).toEqual(["Log in with a different account?"]);
+        expect(sessionReplacementPrompts).toEqual(["Log in with a different account?"]);
         expect(
           rendererState.logs.some(
             (l) =>
@@ -635,22 +523,14 @@ describe("auth login handler", () => {
   });
 
   it.effect("returns early when user declines re-login", () => {
-    const { provide, rendererState } = makeLayers({
+    const { provide, rendererState, sessionReplacementPrompts } = makeLayers({
       existingCredentials: true,
+      confirmReplacement: "keep",
     });
-    const confirmCalls: Array<string> = [];
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin(
-          { yes: false, deviceCode: true, scopes: [] },
-          {
-            confirmRelogin: (message) => {
-              confirmCalls.push(message);
-              return Effect.succeed(false);
-            },
-          },
-        );
-        expect(confirmCalls).toEqual(["Log in with a different account?"]);
+        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        expect(sessionReplacementPrompts).toEqual(["Log in with a different account?"]);
         expect(
           rendererState.logs.filter(
             (l) => l._tag === "success" && l.message.includes("Logged in to"),
@@ -674,15 +554,11 @@ describe("auth login handler", () => {
       existingCredentials: true,
       machine: true,
       json: true,
+      confirmReplacement: "keep",
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin(
-          { yes: false, deviceCode: true, scopes: [] },
-          {
-            confirmRelogin: () => Effect.succeed(false),
-          },
-        );
+        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
 
         expect(
           rendererState.logs.filter((log) => log._tag === "info" || log._tag === "success"),

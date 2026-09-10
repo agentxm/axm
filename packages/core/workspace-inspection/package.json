@@ -20,6 +20,11 @@
       "types": "./dist/src/index.d.ts",
       "axm-source": "./src/index.ts",
       "default": "./dist/src/index.js"
+    },
+    "./testing": {
+      "types": "./dist/src/testing.d.ts",
+      "axm-source": "./src/testing.ts",
+      "default": "./dist/src/testing.js"
     }
   },
   "files": [
@@ -36,6 +41,7 @@
     "includedScripts": []
   },
   "dependencies": {
+    "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
@@ -46,11 +52,18 @@
     "semver": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/agent-integration": "workspace:^",
+    "@agentxm/extension-materialization": "workspace:^",
+    "@agentxm/extension-resolution": "workspace:^",
+    "@agentxm/registry-auth": "workspace:^",
+    "@agentxm/specification-metadata": "workspace:*",
+    "@agentxm/workspace-operations": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
+    "fflate": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

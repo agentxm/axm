@@ -1,58 +1,20 @@
-import * as FileSystem from "effect/FileSystem";
-import type { StepRequirements } from "../shared/step-requirements.js";
-import * as Path from "effect/Path";
 import * as Option from "effect/Option";
-import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "../../app-error/index.js";
-import { buildNewExtensionStep } from "@agentxm/extension-materialization";
-import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
-import { type WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+
 import {
   decodeExtensionNameSync,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { InstallableSkillTarget } from "@agentxm/extension-materialization";
-import {
-  newSkill,
-  preflightCreateOnly,
-  type NewSkillOperation,
-} from "@agentxm/extension-authoring";
-import {
-  artifactAgentIdsFromTargets,
-  artifactTargetAgentIds,
-  groupInstallTargetsByDirectory,
-} from "@agentxm/extension-materialization";
-import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import { SkillManager } from "@agentxm/extension-materialization";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
-import { operationPresentation } from "@agentxm/workspace-operations";
-import { emitOperationResolution } from "../../operation-output.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { joinDisplayPath } from "../shared/display-path.js";
-import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
-import {
-  workspaceAuthoredPath,
-  workspaceAuthoredRoot,
-  workspaceSettingsPath,
-} from "../shared/workspace-display-paths.js";
-import { SKILL_NAME_RULES } from "../suggested-actions.js";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
-
-const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
-const MAX_NAME_LENGTH = 64;
+import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
 
 export interface SkillsNewHandlerArgs {
   readonly name: ExtensionName;
@@ -61,238 +23,14 @@ export interface SkillsNewHandlerArgs {
 }
 
 export const handleSkillsNew = (args: SkillsNewHandlerArgs) =>
-  withOperationLifecycle(
-    {
-      command: "skills.new",
-      mode: args.preview ? "preview" : "apply",
-      planName: "New skill",
-    },
-    handleSkillsNewBody(args),
-  );
-
-const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: SkillsNewHandlerArgs) {
-  const ws = yield* WorkspaceMutations;
-  const manager = yield* SkillManager;
-  const agentRepo = yield* CodingAgentRepository;
-
-  // 1. Resolve owner
-  const { owner, establish } = yield* resolveAuthoringOwner(
-    { subject: "skill", command: "skills new", name: args.name },
-    args.owner,
-  );
-
-  // 2. Validate name
-  if (
-    args.name.length === 0 ||
-    args.name.length > MAX_NAME_LENGTH ||
-    !NAME_PATTERN.test(args.name)
-  ) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: `Invalid skill name: "${args.name}"`,
-      recover: SKILL_NAME_RULES,
-    });
-  }
-
-  const configuredSkills = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
-
-  // 5. Capture services for run closure
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const canonicalPath = path.join(workspaceAuthoredRoot(path, ws, "skill", owner), args.name);
-  const authoredPath = workspaceAuthoredPath(path, ws, "skill", args.name);
-  yield* preflightCreateOnly({
-    subject: "Skill",
-    name: args.name,
-    configured: Object.hasOwn(configuredSkills, args.name),
-    destinations: [canonicalPath],
-  });
-
-  // 6. Build operation
-  const op = {
-    name: "new-skill",
-    args: { name: args.name, owner },
-  } satisfies NewSkillOperation;
-
-  // 7. Build plan with inline run closure
-  const fqn = `${owner}/skills/${args.name}`;
-  const version = decodeVersionSync("0.0.1");
-  const ref: WorkspaceSkillRef = {
-    type: "skill",
-    refType: "workspace",
-    source: { type: "workspace", owner, extensionType: "skill", name: args.name },
-    scope: ws.scope,
-    owner,
-    name: args.name,
-    version,
-    sourceHash: computeSourceHash("scaffold"),
-    location: canonicalPath,
-    skill: {
-      name: args.name,
-      description: Option.none(),
-      metadata: Option.none(),
-    },
-  };
-  const previewAgents = yield* agentRepo
-    .getMaterializationAgents()
-    .pipe(Effect.provideService(WorkspaceMutations, ws));
-  const previewResolvedAgents = yield* Effect.forEach(
-    previewAgents,
-    (agent) =>
-      agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
-        .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
-    { concurrency: "unbounded" },
-  );
-  const previewInstallableTargets: Array<InstallableSkillTarget> = [];
-  for (const { agentId, outcome } of previewResolvedAgents) {
-    if (outcome._tag === "supported") {
-      previewInstallableTargets.push({ agentId, targetDir: path.normalize(outcome.dir) });
-    }
-  }
-  const previewTargetLocations = yield* groupInstallTargetsByDirectory(
-    previewInstallableTargets,
-    ws.baseDir,
-  );
-  const previewArtifact: JobStepArtifact = {
-    path: authoredPath,
-    scope: ws.scope,
-    version: "0.0.1",
-    change: "created",
-    fileCount: 2,
-    targets: [
-      {
-        path: path.relative(ws.baseDir, path.join(canonicalPath, MANIFEST_FILENAME)),
-        change: "created",
-      },
-      {
-        path: path.relative(ws.baseDir, path.join(canonicalPath, "src", "SKILL.md")),
-        change: "created",
-      },
-      { path: workspaceSettingsPath(ws.scope), change: "created" },
-      ...previewTargetLocations.map((location) => {
-        const agentIds = artifactTargetAgentIds(location.agentIds);
-        return {
-          path: path.relative(ws.baseDir, path.join(location.targetDir, args.name)),
-          change: "created" as const,
-          ...(agentIds.length > 0 ? { agentIds } : {}),
-        };
-      }),
+  runCreateExtensionCommand({
+    command: "skills.new",
+    preview: args.preview,
+    request: { type: "skill", name: args.name, owner: args.owner },
+    suggestions: (candidate) => [
+      { description: `Edit \`${candidate.entryPath}\` to fill in instructions` },
     ],
-  };
-
-  const step = buildNewExtensionStep(manager, {
-    toStepFailure: failureToStepFailure,
-    ref,
-    target: { type: "skill", name: args.name },
-    versionRange: Option.none(),
-    label: fqn,
-    message: `Created skill ${fqn}`,
-    plannedArtifact: previewArtifact,
-    preflight: Effect.gen(function* () {
-      const current = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
-      yield* preflightCreateOnly({
-        subject: "Skill",
-        name: args.name,
-        configured: Object.hasOwn(current, args.name),
-        destinations: [canonicalPath],
-      }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
-    }),
-    markAuthored: establish.pipe(
-      Effect.andThen(
-        ws
-          .setSkillEntry(args.name, {
-            source: "workspace",
-            enabled: true,
-          })
-          .pipe(Effect.mapError(toAppError)),
-      ),
-    ),
-    scaffold: newSkill(op).pipe(
-      provideAuthoringFailureAdapter,
-      Effect.mapError(toAppError),
-      Effect.provideService(WorkspaceMutations, ws),
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    ),
-    buildArtifact: ({ installedBefore }) =>
-      Effect.gen(function* () {
-        const configuredAgents = yield* agentRepo
-          .getMaterializationAgents()
-          .pipe(Effect.provideService(WorkspaceMutations, ws));
-        const resolvedAgents = yield* Effect.forEach(
-          configuredAgents,
-          (agent) =>
-            agent
-              .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
-              .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
-          { concurrency: "unbounded" },
-        );
-        const installableTargets: Array<InstallableSkillTarget> = [];
-        for (const { agentId, outcome } of resolvedAgents) {
-          if (outcome._tag === "supported") {
-            installableTargets.push({ agentId, targetDir: path.normalize(outcome.dir) });
-          }
-        }
-        const targetLocations = yield* groupInstallTargetsByDirectory(
-          installableTargets,
-          ws.baseDir,
-        );
-        const change = installedBefore ? "updated" : "created";
-        const sourceTarget: JobStepArtifactTarget = {
-          path: authoredPath,
-          change,
-        };
-        const configTarget: JobStepArtifactTarget = {
-          path: workspaceSettingsPath(ws.scope),
-          change,
-        };
-        const materializedTargets: Array<JobStepArtifactTarget> = targetLocations.map(
-          (location) => {
-            const agentIds = artifactTargetAgentIds(location.agentIds);
-            return {
-              path: path.relative(ws.baseDir, path.join(location.targetDir, args.name)),
-              change,
-              ...(agentIds.length > 0 ? { agentIds } : {}),
-            };
-          },
-        );
-        const agents = artifactAgentIdsFromTargets(installableTargets);
-        return {
-          path: sourceTarget.path,
-          scope: ws.scope,
-          ...(agents.length > 0 ? { agents } : {}),
-          version: "0.0.1",
-          change,
-          targets: [sourceTarget, configTarget, ...materializedTargets],
-        } satisfies JobStepArtifact;
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-        Effect.provideService(WorkspaceMutations, ws),
-      ),
   });
-
-  const plan: Plan<StepRequirements> = {
-    _tag: "Plan",
-    name: "New skill",
-    description: Option.some(`Create ${fqn}`),
-    presentation: operationPresentation(
-      { imperative: "create", past: "Created", gerund: "Creating" },
-      "skill",
-    ),
-    jobs: [{ concurrency: 1 as const, steps: [step] }],
-  };
-
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
-
-  const suggestions = [
-    {
-      description: `Edit \`${joinDisplayPath(path, authoredPath, "src", "SKILL.md")}\` to fill in instructions`,
-    },
-  ];
-  yield* emitOperationResolution("skills.new", resolution, { suggestions });
-});
 
 const newConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the skill (without owner)")),

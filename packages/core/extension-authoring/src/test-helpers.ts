@@ -1,9 +1,8 @@
 /**
  * Shared helpers for extension-authoring internal tests: decode shortcuts
- * and a structural failure adapter for operation tests.
+ * and a structural serialization of a failure for operation tests.
  */
 
-import * as Layer from "effect/Layer";
 import {
   decodeExtensionNameSync,
   type ExtensionName,
@@ -16,7 +15,6 @@ import {
 import { CreateDestinationExists } from "@agentxm/extension-materialization";
 import { StepFailure } from "@agentxm/workspace-operations";
 import { AuthoringFailed } from "./errors.js";
-import { AuthoringFailureAdapter } from "./failure-adapter.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
 
@@ -40,11 +38,10 @@ export const describeTestFailure = (failure: unknown): string => {
 };
 
 /**
- * Structural stand-in for the application's failure adapter: the feature's
- * own failure maps 1:1, the create-preflight kernel family keeps its
- * boundary category, and anything else keeps its detail sentence under an
- * `internal` category. Assertions in this package bind to this mapping, not
- * to the application boundary's wording.
+ * Structural serialization used where a test asserts on a step result rather
+ * than on the feature's own wording: the feature's failure maps 1:1, the
+ * create-preflight family keeps its category, and anything else keeps its
+ * detail sentence under an `internal` category.
  */
 export const testFailureToStepFailure = (failure: unknown): StepFailure => {
   if (failure instanceof AuthoringFailed) {
@@ -75,7 +72,3 @@ export const testFailureToStepFailure = (failure: unknown): StepFailure => {
     cause: failure,
   });
 };
-
-export const TestAuthoringFailureAdapter = Layer.succeed(AuthoringFailureAdapter, {
-  toStepFailure: testFailureToStepFailure,
-});

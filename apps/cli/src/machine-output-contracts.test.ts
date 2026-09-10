@@ -6,6 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { JsonHelpDocSchema, JsonVersionDocSchema } from "./cli-runtime/index.js";
 import { LoginDocumentSchema } from "@agentxm/registry-auth";
+import { PublishResultSchema } from "@agentxm/extension-publish";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
@@ -18,7 +19,6 @@ import {
   collectHelpFiles,
 } from "./command-tree-test-helpers.js";
 import { makeAxmFormatter } from "./formatter.js";
-import { PublishResultSchema } from "./root/publish/result.js";
 import { PlanResolutionDocumentSchema } from "./operation-output.js";
 import {
   FORMATTER_VERSION_CONTRACT,
@@ -40,10 +40,8 @@ import {
   CacheStatusOutputSchema,
   CacheVerifyOutputSchema,
 } from "./root/cache/command.js";
-import { DiscoverOutputSchema } from "./root/discover/handler.js";
+import { DiscoverOutputSchema } from "@agentxm/extension-discovery";
 import { HelpIndexResultSchema, HelpTopicResultSchema } from "./root/help/command.js";
-import { KnowledgeLintQueryResultSchema } from "./root/knowledge/lint.js";
-import { KnowledgeListQueryResultSchema } from "./root/knowledge/list.js";
 import {
   KnowledgeConceptGetOutputSchema,
   KnowledgeConceptCorpusChangingFailureSchema,
@@ -52,16 +50,22 @@ import {
   KnowledgeConceptRelatedOutputSchema,
   KnowledgeConceptResolveOutputSchema,
   KnowledgeConceptStatusOutputSchema,
-} from "./root/knowledge/concepts/schemas.js";
+  KnowledgeLintQueryResultSchema,
+} from "@agentxm/knowledge-query";
 import { LintResultDocumentSchema } from "./root/lint/handler.js";
 import { LifecycleTransitionOutputSchema } from "./root/lifecycle/command.js";
-import { ExtensionListDocumentSchema } from "./root/list/command.js";
-import { PackShowResultSchema } from "./root/packs/show.js";
+
 import { InstructionsStatusOutputSchema } from "./root/instructions.js";
 import { SetupDocumentSchema } from "./root/setup.js";
-import { ExtensionShowResultSchema } from "./root/shared/extension-show.js";
+import {
+  ExtensionListDocumentSchema,
+  ExtensionShowResultSchema,
+  KnowledgeListQueryResultSchema,
+  PackShowResultSchema,
+  ViewDocumentSchema,
+  ViewFieldValueSchema,
+} from "@agentxm/workspace-inspection";
 import { UpgradeDocumentSchema } from "./root/upgrade/handler.js";
-import { ViewDocumentSchema, ViewFieldValueSchema } from "./root/view/handler.js";
 
 const sorted = (values: Iterable<string>): ReadonlyArray<string> => [...values].sort();
 

@@ -1,45 +1,21 @@
-import * as Effect from "effect/Effect";
-import type { StepRequirements } from "../shared/step-requirements.js";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "../../app-error/index.js";
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import {
-  buildNewExtensionStep,
-  createCanonicalDirectory,
-  recoverCanonicalDirectory,
-} from "@agentxm/extension-materialization";
-import { preflightCreateOnly } from "@agentxm/extension-authoring";
-import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
-import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   KNOWLEDGE_MANIFEST_FILENAME,
-  KNOWLEDGE_MANIFEST_SCHEMA_URL,
   KNOWLEDGE_SOURCE_DIR,
-  type KnowledgeManifest,
 } from "@agentxm/extension-model/unstable/knowledge";
-import type { Plan } from "@agentxm/workspace-operations";
-import { operationPresentation } from "@agentxm/workspace-operations";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
-import { emitOperationResolution } from "../../operation-output.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { joinDisplayPath } from "../shared/display-path.js";
-import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
-import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { KnowledgeManager } from "@agentxm/extension-materialization";
+import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
+
 export interface KnowledgeNewHandlerArgs {
   readonly name: string;
   readonly owner: Option.Option<string>;
@@ -48,193 +24,29 @@ export interface KnowledgeNewHandlerArgs {
 }
 
 export const handleKnowledgeNew = (args: KnowledgeNewHandlerArgs) =>
-  withOperationLifecycle(
-    {
-      command: "knowledge.new",
-      mode: args.preview ? "preview" : "apply",
-      planName: "New knowledge",
+  runCreateExtensionCommand({
+    command: "knowledge.new",
+    preview: args.preview,
+    request: {
+      type: "knowledge",
+      name: args.name,
+      owner: args.owner,
+      description: args.description,
     },
-    handleKnowledgeNewBody(args),
-  );
-
-const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (
-  args: KnowledgeNewHandlerArgs,
-) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const ws = yield* WorkspaceMutations;
-  const manager = yield* KnowledgeManager;
-  const { owner, establish } = yield* resolveAuthoringOwner(
-    { subject: "knowledge bundle", command: "knowledge new", name: args.name },
-    args.owner,
-  );
-  const name = decodeExtensionNameSync(args.name);
-  const version = decodeVersionSync("0.1.0");
-  const fqn = formatFqn({ owner, type: "knowledge", name });
-  const targetDir = path.join(workspaceAuthoredRoot(path, ws, "knowledge", owner), name);
-  const configuredKnowledge = yield* ws
-    .getConfiguredKnowledgeEntries()
-    .pipe(Effect.mapError(toAppError));
-  yield* preflightCreateOnly({
-    subject: "Knowledge bundle",
-    name,
-    configured: Object.hasOwn(configuredKnowledge, name),
-    destinations: [],
-  });
-
-  const manifest: KnowledgeManifest = {
-    $schema: KNOWLEDGE_MANIFEST_SCHEMA_URL,
-    owner,
-    name,
-    version,
-    type: "knowledge",
-    format: { name: "okf", version: "0.2" },
-    bundleRoot: KNOWLEDGE_SOURCE_DIR,
-    ...(Option.isSome(args.description) ? { description: args.description.value } : {}),
-  };
-  const manifestPath = path.join(targetDir, KNOWLEDGE_MANIFEST_FILENAME);
-  const indexPath = path.join(targetDir, KNOWLEDGE_SOURCE_DIR, "index.md");
-  const artifact = {
-    path: path.relative(ws.baseDir, targetDir),
-    scope: ws.scope,
-    version,
-    change: "created" as const,
-    fileCount: 2,
-    targets: [
-      { path: path.relative(ws.baseDir, manifestPath), change: "created" as const },
-      { path: path.relative(ws.baseDir, indexPath), change: "created" as const },
-      { path: workspaceSettingsPath(ws.scope), change: "created" as const },
-    ],
-  };
-  const scaffold = createCanonicalDirectory({
-    baseDir: ws.baseDir,
-    canonicalPath: targetDir,
-    subject: "Knowledge bundle",
-    requiredFiles: [KNOWLEDGE_MANIFEST_FILENAME, `${KNOWLEDGE_SOURCE_DIR}/index.md`],
-    populate: (stagingPath) => {
-      const stagedManifestPath = path.join(stagingPath, KNOWLEDGE_MANIFEST_FILENAME);
-      const stagedIndexPath = path.join(stagingPath, KNOWLEDGE_SOURCE_DIR, "index.md");
-      return Effect.gen(function* () {
-        yield* fs.makeDirectory(path.dirname(stagedIndexPath), { recursive: true }).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to create knowledge bundle directory: ${stagingPath}`,
-              cause,
-            }),
-          ),
-        );
-        yield* fs.writeFileString(stagedManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-        yield* fs.writeFileString(
-          stagedIndexPath,
-          `---\nokf_version: "0.2"\n---\n# ${name}\n\n<!-- Discovery map: describe this bundle's scope, then group and annotate links to its concepts. -->\n`,
-        );
-      }).pipe(
-        Effect.mapError((cause) =>
-          cause._tag === "AppError"
-            ? cause
-            : makeAppError({ code: "internal", detail: `Failed to scaffold ${fqn}`, cause }),
-        ),
-      );
-    },
-  }).pipe(
-    Effect.asVoid,
-    Effect.provideService(FileSystem.FileSystem, fs),
-    Effect.provideService(Path.Path, path),
-  );
-  const plan: Plan<StepRequirements> = {
-    _tag: "Plan",
-    name: "New knowledge",
-    presentation: operationPresentation(
-      { imperative: "create", past: "Created", gerund: "Creating" },
-      "knowledge",
-    ),
-    description: Option.some(
-      Option.isSome(args.description)
-        ? `Create ${fqn}: ${args.description.value}`
-        : `Create ${fqn}`,
-    ),
-    jobs: [
-      {
-        concurrency: 1,
-        steps: [
-          buildNewExtensionStep(manager, {
-            toStepFailure: failureToStepFailure,
-            target: { type: "knowledge", name },
-            ref: {
-              type: "knowledge",
-              refType: "workspace",
-              source: {
-                type: "workspace",
-                owner,
-                extensionType: "knowledge",
-                name,
-              },
-              scope: ws.scope,
-              owner,
-              name,
-              version,
-              sourceHash: computeSourceHash("scaffold"),
-              location: targetDir,
-              knowledge: { name },
+    suggestions: (candidate) => [
+      ...(Option.isNone(args.description)
+        ? [
+            {
+              description: `Add a concise bundle description to \`${candidate.authoredPath}/${KNOWLEDGE_MANIFEST_FILENAME}\``,
             },
-            versionRange: Option.none(),
-            label: fqn,
-            message: `Created knowledge bundle ${fqn}`,
-            plannedArtifact: artifact,
-            preflight: Effect.gen(function* () {
-              const current = yield* ws
-                .getConfiguredKnowledgeEntries()
-                .pipe(Effect.mapError(toAppError));
-              yield* recoverCanonicalDirectory({
-                baseDir: ws.baseDir,
-                canonicalPath: targetDir,
-              }).pipe(
-                Effect.provideService(FileSystem.FileSystem, fs),
-                Effect.provideService(Path.Path, path),
-              );
-              yield* preflightCreateOnly({
-                subject: "Knowledge bundle",
-                name,
-                configured: Object.hasOwn(current, name),
-                destinations: [targetDir],
-              }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
-            }),
-            scaffold,
-            markAuthored: establish.pipe(
-              Effect.andThen(
-                ws
-                  .setKnowledgeEntry(name, {
-                    source: "workspace",
-                    enabled: true,
-                  })
-                  .pipe(Effect.mapError(toAppError)),
-              ),
-            ),
-            buildArtifact: () => Effect.succeed(artifact),
-          }),
-        ],
+          ]
+        : []),
+      {
+        description: `Add typed Markdown concepts below \`${candidate.authoredPath}/${KNOWLEDGE_SOURCE_DIR}\``,
       },
+      { description: "Replace the root index placeholder with grouped, annotated concept links" },
     ],
-  };
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
-  const suggestions = [
-    ...(Option.isNone(args.description)
-      ? [
-          {
-            description: `Add a concise bundle description to \`${joinDisplayPath(path, path.relative(ws.baseDir, manifestPath))}\``,
-          },
-        ]
-      : []),
-    {
-      description: `Add typed Markdown concepts below \`${joinDisplayPath(path, path.relative(ws.baseDir, targetDir), KNOWLEDGE_SOURCE_DIR)}\``,
-    },
-    {
-      description: `Replace the root index placeholder with grouped, annotated concept links`,
-    },
-  ];
-  yield* emitOperationResolution("knowledge.new", resolution, { suggestions });
-});
+  });
 
 const newConfig = {
   name: Argument.string("name").pipe(

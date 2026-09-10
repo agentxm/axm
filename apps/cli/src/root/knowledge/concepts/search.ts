@@ -1,31 +1,23 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "../../../app-error/index.js";
+import { KnowledgeConceptQueryPageSchema, KnowledgeDiscovery } from "@agentxm/knowledge-query";
+import { observeUnit } from "@agentxm/workspace-operations";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+
 import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
   withCommandCapabilities,
 } from "../../shared/command-capabilities.js";
-import {
-  KnowledgeIndex,
-  type KnowledgeQueryClause,
-  makeKnowledgeQuery,
-} from "@agentxm/knowledge-query";
-import { parseKnowledgeSearchQuery } from "@agentxm/extension-content/knowledge";
-import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-
 import { withRuntime, withWorkspace } from "../../../runtime.js";
-import { observeUnit } from "@agentxm/workspace-operations";
 import { withLiveOperation } from "../../shared/operation-lifecycle.js";
 import { scopeConfig } from "../flags.js";
-import { captureInstalledKnowledgeIndex } from "../inspect.js";
-import { KnowledgeConceptQueryPageSchema, type KnowledgeConceptQueryPage } from "./schemas.js";
-import { sanitizeKnowledgeTerminalText } from "./terminal-text.js";
+import { knowledgeCorpusFailures } from "../knowledge-errors.js";
 import { failKnowledgeCorpusChanging, failKnowledgeCursorExpired } from "./failures.js";
+import { sanitizeKnowledgeTerminalText } from "./terminal-text.js";
 
 interface ConceptRow {
   readonly bundle: string;
@@ -43,62 +35,31 @@ const ConceptTable = {
   },
 } as const satisfies TableView<ConceptRow>;
 
-const queryClauses = (
-  parsed: Extract<ReturnType<typeof parseKnowledgeSearchQuery>, { readonly ok: true }>,
-): ReadonlyArray<KnowledgeQueryClause> =>
-  parsed.query.clauses.map((clause) => {
-    switch (clause.kind) {
-      case "term":
-        return { kind: "term", value: clause.token };
-      case "phrase":
-        return { kind: "phrase", value: clause.tokens.join(" ") };
-      case "literal":
-        return { kind: "literal", value: clause.value };
-      default:
-        return clause satisfies never;
-    }
-  });
-
 export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search")(function* (
   queryText: string,
   scope: WorkspaceScope,
   options?: { readonly resultLimit?: number; readonly cursor?: string },
 ) {
-  const parsed = parseKnowledgeSearchQuery(queryText);
-  if (!parsed.ok) {
-    return yield* makeAppError({ code: "validation", detail: parsed.detail });
-  }
-  if (
-    options?.resultLimit !== undefined &&
-    (options.resultLimit < 1 || options.resultLimit > 100)
-  ) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: "Result limit must be between 1 and 100",
-    });
-  }
-
   const screen = yield* Screen;
-  const index = yield* KnowledgeIndex;
-  const captured = yield* withLiveOperation(
+  const result = yield* withLiveOperation(
     { command: "knowledge.concepts.search", name: "Search installed knowledge", mode: "preview" },
-    observeUnit({ id: "index", label: "installed knowledge" }, captureInstalledKnowledgeIndex()),
+    observeUnit(
+      { id: "index", label: "installed knowledge" },
+      Effect.catchTags(
+        KnowledgeDiscovery.search({
+          scope,
+          expression: queryText,
+          ...(options?.resultLimit === undefined ? {} : { resultLimit: options.resultLimit }),
+          ...(options?.cursor === undefined ? {} : { cursor: options.cursor }),
+        }),
+        knowledgeCorpusFailures,
+      ),
+    ),
   );
-  if (captured.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
-  const { snapshot } = captured;
-  const query = makeKnowledgeQuery(scope, queryClauses(parsed), {
-    ...(options?.resultLimit === undefined ? {} : { resultLimit: options.resultLimit }),
-    ...(options?.cursor === undefined ? {} : { cursor: options.cursor }),
-  });
-  const pageResult = yield* Effect.result(index.query(snapshot, query));
-  if (!Result.isSuccess(pageResult)) return yield* failKnowledgeCursorExpired();
-  const page = pageResult.success;
-  const output: KnowledgeConceptQueryPage = {
-    query,
-    corpusFingerprint: snapshot.fingerprint,
-    ...page,
-  };
-  if (yield* screen.document(output, KnowledgeConceptQueryPageSchema)) return;
+  if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
+  if (result.outcome === "cursor-expired") return yield* failKnowledgeCursorExpired();
+  const page = result.page;
+  if (yield* screen.document(page, KnowledgeConceptQueryPageSchema)) return;
 
   const rows = page.items.map(({ ref, title, kind }) => ({
     bundle: sanitizeKnowledgeTerminalText(ref.bundle),

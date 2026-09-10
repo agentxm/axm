@@ -53,6 +53,8 @@ export {
   getKnowledgeIndexConcept,
   KnowledgeCursorInvalidError,
   KnowledgeIndex,
+  KNOWLEDGE_RANK_FACTORS,
+  KNOWLEDGE_RANK_TIE_BREAK,
   makeKnowledgeIndexSnapshot,
   queryKnowledgeIndex,
   queryKnowledgeIndexResult,
@@ -71,3 +73,49 @@ export {
   KnowledgeCapturedSourceMissingError,
   type KnowledgeBundleCaptureDescriptor,
 } from "./knowledge-capture.js";
+
+// Typed failures, outcome documents, and the read-only application API.
+export {
+  KnowledgeConceptNotFound,
+  KnowledgeCorpusUnavailable,
+  KnowledgeRequestInvalid,
+} from "./errors.js";
+export {
+  FrontmatterDocumentSchema,
+  KnowledgeConceptCorpusChangingFailureSchema,
+  KnowledgeConceptCursorFailureSchema,
+  KnowledgeConceptGetOutputSchema,
+  KnowledgeConceptQueryPageSchema,
+  KnowledgeConceptRelatedOutputSchema,
+  KnowledgeConceptResolveOutputSchema,
+  KnowledgeConceptResultSchema,
+  KnowledgeConceptStatusOutputSchema,
+  KnowledgeLintQueryResultSchema,
+  type KnowledgeConceptGetOutput,
+  type KnowledgeConceptQueryPage,
+  type KnowledgeConceptRelatedOutput,
+  type KnowledgeConceptResolveOutput,
+  type KnowledgeConceptStatusOutput,
+  type KnowledgeLintQueryResult,
+} from "./documents.js";
+export {
+  captureInstalledKnowledgeCorpus,
+  type CapturedInstalledBundle,
+  type InstalledKnowledgeCorpus,
+} from "./corpus/installed-corpus.js";
+export { reportKnowledgeCorpusStatus } from "./corpus/corpus-status.js";
+export {
+  lintKnowledge,
+  type LintKnowledgeRequest,
+  type LintKnowledgeResult,
+} from "./lint/lint-knowledge.js";
+export {
+  checkTraversalDepth,
+  explainKnowledgeQuery,
+  makeKnowledgeQueryRequest,
+  makeKnowledgeSearchRequest,
+  type KnowledgeQueryExplanation,
+  type KnowledgeQueryRequest,
+  type KnowledgeSearchRequest,
+} from "./query/request.js";
+export { KnowledgeDiscovery } from "./knowledge-discovery.js";

@@ -16,6 +16,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { makeMemoryFileSystem, type MemoryFileStore, withoutNativeIo } from "@agentxm/test-support";
@@ -39,8 +40,8 @@ import {
   makeAxmSkillCompatibilityPolicyLayer,
   SourceHostProvidersLive,
   workspaceInvariantFactsLive,
+  ExtensionManagersLive,
   HookManagerLive,
-  InspectionFailureAdapterLive,
   KnowledgeManagerLive,
   LifecycleStepFailureConversionLive,
   McpServerManagerLive,
@@ -102,6 +103,13 @@ export interface SpecWorkspaceOptions {
    * observe how project scope and user scope combine.
    */
   readonly userSettings?: Parameters<typeof writeWorkspaceFiles>[1];
+  /**
+   * The transport the workspace's Registry client factory binds. The factory
+   * captures its transport when the layer is built, so a specification that
+   * controls Registry responses supplies the port here rather than providing
+   * an HTTP client to the program afterwards.
+   */
+  readonly httpClient?: HttpClient.HttpClient;
 }
 
 export type SpecFileStore = MemoryFileStore;
@@ -216,6 +224,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
         );
   const context = makeWorkspaceHandlerTestContext({
     ...(options.machine !== undefined ? { machine: options.machine } : {}),
+    ...(options.httpClient === undefined ? {} : { httpClient: options.httpClient }),
     ...(screenLayer === undefined ? {} : { screenLayer }),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
     ...(fileSystemLayer === undefined ? {} : { fileSystemLayer }),
@@ -232,7 +241,6 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
       SourceHostProvidersLive,
       CodingAgentRepositoryLive,
       NativeWriteAuthorityLive,
-      InspectionFailureAdapterLive,
       LifecycleStepFailureConversionLive,
       makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
     ),
@@ -248,7 +256,10 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     KnowledgeIndexLive,
   );
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
-  const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
+  // The use cases resolve a manager by extension type through the registry,
+  // exactly as the runtime composes it over the per-type managers.
+  const managedExtensionsLayer = Layer.provideMerge(ExtensionManagersLive, extensionsLayer);
+  const fullLayer = Layer.provideMerge(managedExtensionsLayer, workspaceServiceLayer);
   const invariantFactsLayer = Layer.provide(workspaceInvariantFactsLive, fullLayer);
   const composed = Layer.mergeAll(
     fullLayer,

@@ -38,6 +38,7 @@ export {
   normalizedIdentity,
   recoverableExternalPackName,
   scopedProblems,
+  type CollectedMaterializeSteps,
   type ConfiguredPackRecovery,
   type ResolvedDesiredRef,
   type RunMcpServerInstall,

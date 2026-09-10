@@ -25,7 +25,7 @@ import { AppError } from "./app-error/index.js";
 import { isKnownFailure, toAppError } from "./app-error/conversions.js";
 import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "./cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer, logsByTag, type Screen } from "./screen/index.js";
 import { presentPlan } from "./operation-view.js";
@@ -59,7 +59,8 @@ export {
 export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 export { KnowledgeIndexLive };
 export { HookConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
-export {
+import {
+  ExtensionManagersLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpServerManagerLive,
@@ -68,11 +69,18 @@ export {
   SkillManagerLive,
   SubagentManagerLive,
 } from "@agentxm/extension-materialization/live";
-import {
-  InspectionFailureAdapterLive,
-  LifecycleStepFailureConversionLive,
-} from "./feature-errors.js";
-export { InspectionFailureAdapterLive, LifecycleStepFailureConversionLive };
+export {
+  ExtensionManagersLive,
+  HookManagerLive,
+  KnowledgeManagerLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+};
+import { LifecycleStepFailureConversionLive } from "./feature-errors.js";
+export { LifecycleStepFailureConversionLive };
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { ExecutionDirectory } from "./execution-directory.js";
 import { ReleaseAgePosture } from "@agentxm/extension-resolution";
@@ -574,9 +582,18 @@ export const makeCliTestContext = (opts?: {
           recordingFileSystemLayer(opts.onFileSystemWrite),
           fileSystemPlatformLayer,
         );
+  const registryClientFactoryLayer = Layer.provide(
+    RegistryClientFactoryLive,
+    Layer.mergeAll(
+      platformLayer,
+      Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
+      Layer.succeed(RegistryUrl, "https://registry.example.com"),
+    ),
+  );
   const baseLayer = Layer.mergeAll(
     platformLayer,
     Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
+    registryClientFactoryLayer,
     rendererLayer,
     resolvePlanTest.layer,
     authLoginPresenterTest.layer,
@@ -718,6 +735,25 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     provide: makeEffectProvide(fullLayer),
   };
 };
+
+/**
+ * Every per-type manager and the registry a use case resolves them through,
+ * composed the way the runtime composes them. A handler test that drives a
+ * use case which decides its extension type at runtime provides this over its
+ * workspace layer instead of naming one manager.
+ */
+export const AllExtensionManagersLive = Layer.provideMerge(
+  ExtensionManagersLive,
+  Layer.mergeAll(
+    SkillManagerLive,
+    SubagentManagerLive,
+    RuleManagerLive,
+    HookManagerLive,
+    KnowledgeManagerLive,
+    McpServerManagerLive,
+    PackManagerLive,
+  ),
+);
 
 export const makeEffectProvide = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper hides layer variance

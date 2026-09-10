@@ -8,6 +8,9 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import { RegistryClientFactory } from "@agentxm/registry-client";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
+import { makeStubRegistryClient } from "./version-currency/test-stubs.js";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -26,7 +29,6 @@ import {
 } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { WorkspaceInspectionFailed } from "./errors.js";
-import { InspectionFailureAdapter } from "./failure-adapter.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
 
@@ -52,10 +54,6 @@ export const describeTestFailure = (failure: unknown): string => {
  * this package bind to this mapping, not to the application boundary's
  * wording.
  */
-export const TestInspectionFailureAdapter = Layer.succeed(InspectionFailureAdapter, {
-  describeFailure: describeTestFailure,
-});
-
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> => {
   const copy = [...names];
   copy.sort((a, b) => a.localeCompare(b));
@@ -165,3 +163,19 @@ export const WorkspaceCatalogTestLive = Layer.effect(
     };
   }),
 );
+
+/**
+ * The composition root's Registry client factory, answering from a fixed set
+ * of extension indices. An assessment that reaches no registry gets an empty
+ * set and never observes a client.
+ */
+export const RegistryClientFactoryTestLive = (
+  indices: ReadonlyArray<ExtensionIndex> = [],
+): Layer.Layer<RegistryClientFactory> =>
+  Layer.sync(RegistryClientFactory, () => {
+    const client = makeStubRegistryClient(indices);
+    return {
+      forLocation: () => Effect.succeed(client),
+      forDefaultRegistry: Effect.succeed(client),
+    };
+  });

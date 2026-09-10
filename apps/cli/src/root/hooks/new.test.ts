@@ -9,10 +9,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
+  AllExtensionManagersLive,
   expectAppliedPlanResult,
   expectDefined,
   expectRecord,
@@ -66,8 +67,12 @@ describe("hooks-new.handler", () => {
   const makeLayers = (opts?: { readonly machine?: boolean }) => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: opts?.machine });
     const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
-    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, sourceLayer);
-    const fullLayer = Layer.provideMerge(HookManagerLive, workspaceServiceLayer);
+    const workspaceServiceLayer = Layer.mergeAll(
+      ctx.fullLayer,
+      sourceLayer,
+      CodingAgentRepositoryLive,
+    );
+    const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);
     return {
       ...ctx,
       fullLayer,

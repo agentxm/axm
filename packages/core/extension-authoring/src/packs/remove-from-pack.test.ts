@@ -15,7 +15,7 @@ import {
   MockWorkspaceTransactionScope,
   rowsFor,
 } from "@agentxm/workspace-state/testing";
-import { handle, TestAuthoringFailureAdapter } from "../test-helpers.js";
+import { handle } from "../test-helpers.js";
 import type { RemoveFromPackOperation } from "./remove-from-pack.js";
 import { removeFromPack } from "./remove-from-pack.js";
 
@@ -64,7 +64,6 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
     NodeServices.layer,
     WorkspaceMutations.layer(mockWs),
     MockWorkspaceTransactionScope(axmDir),
-    TestAuthoringFailureAdapter,
   );
 };
 

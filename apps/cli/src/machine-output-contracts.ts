@@ -255,7 +255,9 @@ const cacheStatusFamily = defineResultFamily({
   requiredTopLevelKeys: ["entries", "bytes", "maxBytes", "maxAgeDays"],
   scenarios: ["populated cache", "empty cache"],
   rationale: "Cache status is a read query.",
-  commandCoverage: ["specifications/cli/cache/status/reports-usage-and-effective-limits.spec.ts"],
+  commandCoverage: [
+    "packages/supporting/registry-client/src/archive-cache/enforces-reported-retention-limits.spec.ts",
+  ],
 });
 
 const cacheVerifyFamily = defineResultFamily({
@@ -264,7 +266,9 @@ const cacheVerifyFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["valid", "invalid entries"],
   rationale: "Cache verification returns a purpose-built verification result.",
-  commandCoverage: ["specifications/cli/cache/verify/removes-only-corrupt-archives.spec.ts"],
+  commandCoverage: [
+    "packages/supporting/registry-client/src/archive-cache/removes-only-corrupt-archives.spec.ts",
+  ],
 });
 
 const cachePruneFamily = defineResultFamily({
@@ -274,7 +278,9 @@ const cachePruneFamily = defineResultFamily({
   scenarios: ["pruned", "no-op"],
   rationale: "Cache pruning reports cache-specific byte and entry counts.",
   humanOutputKind: "mutation",
-  commandCoverage: ["specifications/cli/cache/prune/enforces-reported-retention-limits.spec.ts"],
+  commandCoverage: [
+    "packages/supporting/registry-client/src/archive-cache/enforces-reported-retention-limits.spec.ts",
+  ],
 });
 
 const discoverFamily = defineResultFamily({
@@ -283,7 +289,10 @@ const discoverFamily = defineResultFamily({
   requiredTopLevelKeys: ["items", "count", "totalDetected", "registryAvailable"],
   scenarios: ["matches", "no matches", "registry unavailable"],
   rationale: "Discovery is a read query with registry availability metadata.",
-  commandCoverage: ["apps/cli/src/root/discover/handler.test.ts"],
+  commandCoverage: [
+    "apps/cli/src/root/discover/handler.test.ts",
+    "packages/core/extension-discovery/src/discover/reports-companions-for-detected-dependencies.spec.ts",
+  ],
 });
 
 const inventoryFamily = defineResultFamily({
@@ -404,8 +413,8 @@ const knowledgeConceptResolveFamily = defineResultFamily({
   scenarios: ["resolved", "ambiguous", "not found", "corpus changing"],
   rationale: "Concept resolution returns one identity or bounded candidates.",
   commandCoverage: [
-    "specifications/cli/knowledge/concepts/resolve/resolves-exact-reference.spec.ts",
-    "specifications/cli/knowledge/concepts/resolve/requires-explicit-fuzzy-resolution.spec.ts",
+    "packages/core/knowledge-query/src/graph/resolves-exact-reference.spec.ts",
+    "packages/core/knowledge-query/src/graph/requires-explicit-fuzzy-resolution.spec.ts",
   ],
 });
 
@@ -428,9 +437,7 @@ const knowledgeConceptRelatedFamily = defineResultFamily({
   ],
   scenarios: ["related concepts", "empty", "missing root", "corpus changing"],
   rationale: "Related traversal returns bounded graph results and corpus identity.",
-  commandCoverage: [
-    "specifications/cli/knowledge/concepts/related/traverses-authored-links.spec.ts",
-  ],
+  commandCoverage: ["packages/core/knowledge-query/src/graph/traverses-authored-links.spec.ts"],
 });
 
 const knowledgeConceptStatusFamily = defineResultFamily({

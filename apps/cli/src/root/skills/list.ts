@@ -1,21 +1,17 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
-import {
-  ExtensionInventorySchema,
-  WorkspaceMutations,
-  type ConfiguredAgentOutcome,
-} from "@agentxm/workspace-state";
+import { ExtensionInventorySchema } from "@agentxm/workspace-state";
+import { listSkills, type SkillListRow } from "@agentxm/workspace-inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { agentFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
-  augmentInventory,
   inventoryActivation,
   inventoryAgentOutcomes,
-  inventoryState,
+  inventoryLifecycle,
   inventorySummary,
 } from "../inventory-view.js";
 
@@ -23,54 +19,29 @@ export interface ListHandlerArgs {
   readonly agents: readonly string[];
 }
 
-interface SkillListItem {
-  readonly name: string;
-  readonly type: string;
-  readonly state: string;
-  readonly activation: string;
-  readonly agents: ReadonlyArray<string>;
-  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
-}
-
 const SkillListColumns = [
-  { header: "Name", priority: "required", value: (row: SkillListItem) => row.name },
-  { header: "State", value: (row: SkillListItem) => row.state },
-  { header: "Activation", value: (row: SkillListItem) => row.activation },
-  { header: "Type", priority: "optional", value: (row: SkillListItem) => row.type },
+  { header: "Name", priority: "required", value: (row: SkillListRow) => row.name },
+  { header: "State", value: (row: SkillListRow) => inventoryLifecycle(row) },
+  { header: "Activation", value: (row: SkillListRow) => inventoryActivation(row) },
+  { header: "Type", priority: "optional", value: (row: SkillListRow) => row.sourceType },
   {
     header: "Agents",
-    value: (row: SkillListItem) => (row.agents.length === 0 ? "none" : row.agents.join(", ")),
+    value: (row: SkillListRow) => (row.agents.length === 0 ? "none" : row.agents.join(", ")),
   },
   {
     header: "Agent outcomes",
     priority: "optional",
-    value: (row: SkillListItem) => inventoryAgentOutcomes(row.agentOutcomes),
+    value: (row: SkillListRow) => inventoryAgentOutcomes(row.agentOutcomes),
   },
-] satisfies ReadonlyArray<ViewColumn<SkillListItem>>;
+] satisfies ReadonlyArray<ViewColumn<SkillListRow>>;
 
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
   const screen = yield* Screen;
-  const ws = yield* WorkspaceMutations;
-  const inventory = yield* ws.records.getExtensionInventory("skill", {
-    agents: args.agents,
-  });
-  const locked = yield* ws.getLockedSkills();
-  const items = inventory.items.map((row) => ({
-    name: row.name,
-    type: locked[row.name]?.type ?? "detected",
-    state: inventoryState(row),
-    activation: inventoryActivation(row),
-    agents: row.agents,
-    agentOutcomes: row.agentOutcomes,
-  }));
-  const output = augmentInventory(inventory, (row) => ({
-    sourceType: locked[row.name]?.type ?? "detected",
-  }));
-
-  if (yield* screen.document(output, ExtensionInventorySchema)) return;
+  const { inventory, rows } = yield* listSkills({ agents: args.agents });
+  if (yield* screen.document(inventory, ExtensionInventorySchema)) return;
   yield* screen.result(
     inventoryDoc({
-      rows: items,
+      rows,
       columns: SkillListColumns,
       summary: inventorySummary(inventory, "skill"),
       empty:

@@ -16,9 +16,10 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../../test-stubs.js";
 import {
+  AllExtensionManagersLive,
   expectAppliedPlanResult,
   expectDefined,
   expectRecord,
@@ -81,8 +82,13 @@ describe("subagents-new.handler", () => {
 
   const makeLayers = (opts?: { readonly machine?: boolean }) => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: opts?.machine });
-    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive);
-    const fullLayer = Layer.provideMerge(SubagentManagerLive, workspaceServiceLayer);
+    const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
+    const workspaceServiceLayer = Layer.mergeAll(
+      ctx.fullLayer,
+      sourceLayer,
+      CodingAgentRepositoryLive,
+    );
+    const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);
     return {
       ...ctx,
       fullLayer,

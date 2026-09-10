@@ -1,6 +1,5 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
@@ -9,77 +8,20 @@ import { observeUnit } from "@agentxm/workspace-operations";
 import { withLiveOperation } from "../shared/operation-lifecycle.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
-  assessExtensionListItems,
-  collectExtensionListItems,
-  type ExtensionListFilter,
-  type ExtensionListItem,
+  ExtensionListDocumentSchema,
+  ListExtensions,
+  type ExtensionListDocument,
 } from "@agentxm/workspace-inspection";
-import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import type { ExtensionListItem } from "@agentxm/workspace-inspection";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-
-const ListFilterSchema = Schema.Literals(["all", "outdated", "deprecated"] as const);
-type ListFilter = typeof ListFilterSchema.Type;
-
-const AssessmentStateSchema = Schema.Literals([
-  "not-checked",
-  "current",
-  "available",
-  "changed",
-  "active",
-  "deprecated",
-  "unknown",
-  "not-applicable",
-] as const);
-
-const ExtensionAssessmentSchema = Schema.Struct({
-  state: AssessmentStateSchema,
-  reason: Schema.optional(Schema.String),
-  installedVersion: Schema.optional(Schema.String),
-  constraint: Schema.optional(Schema.String),
-  latestMatching: Schema.optional(Schema.String),
-  latestAvailable: Schema.optional(Schema.String),
-  installedRevision: Schema.optional(Schema.String),
-  currentRevision: Schema.optional(Schema.String),
-  deprecation: Schema.optional(DeprecationViewSchema),
-});
-
-const ExtensionListItemSchema = Schema.Struct({
-  ref: Schema.String,
-  type: ExtensionTypeSchema,
-  name: Schema.String,
-  management: Schema.Literals(["configured", "implicit", "unmanaged"] as const),
-  installed: Schema.Boolean,
-  enabled: Schema.NullOr(Schema.Boolean),
-  version: Schema.optional(Schema.String),
-  source: Schema.optional(Schema.String),
-  sourceName: Schema.optional(Schema.String),
-  assessment: ExtensionAssessmentSchema,
-});
-
-const CoverageSchema = Schema.Struct({
-  eligible: Schema.Number,
-  checked: Schema.Number,
-  unknown: Schema.Number,
-  notApplicable: Schema.Number,
-});
-
-export const ExtensionListDocumentSchema = Schema.Struct({
-  filter: ListFilterSchema,
-  items: Schema.Array(ExtensionListItemSchema),
-  count: Schema.Number,
-  totalCount: Schema.Number,
-  coverage: Schema.optional(CoverageSchema),
-});
-export type ExtensionListDocument = typeof ExtensionListDocumentSchema.Type;
 
 interface ListTableRow {
   readonly extension: string;
@@ -103,26 +45,6 @@ const ExtensionListColumns = [
   { header: "Guidance", priority: "optional", value: (row: ListTableRow) => row.guidance },
 ] satisfies ReadonlyArray<ViewColumn<ListTableRow>>;
 
-const matchesFilter = (item: ExtensionListItem, filter: ListFilter): boolean =>
-  filter === "all" ||
-  (filter === "outdated"
-    ? item.assessment.state === "available" || item.assessment.state === "changed"
-    : item.assessment.state === "deprecated");
-
-const coverageFor = (items: ReadonlyArray<ExtensionListItem>) => ({
-  eligible: items.filter((item) => item.installed).length,
-  checked: items.filter((item) =>
-    ["current", "available", "changed", "active", "deprecated"].includes(item.assessment.state),
-  ).length,
-  unknown: items.filter((item) => item.assessment.state === "unknown").length,
-  notApplicable: items.filter((item) => item.assessment.state === "not-applicable").length,
-});
-
-const summarizeLifecycle = (item: ExtensionListItem): ExtensionListItem => {
-  const { deprecation: _deprecation, ...assessment } = item.assessment;
-  return { ...item, assessment };
-};
-
 export interface ListHandlerArgs {
   readonly type: Option.Option<InstallableExtensionType>;
   readonly outdated: boolean;
@@ -137,37 +59,18 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     });
   }
   const screen = yield* Screen;
-  const localItems = yield* collectExtensionListItems(Option.getOrUndefined(args.type)).pipe(
-    Effect.mapError(inspectionFailureToAppError),
-  );
-  const filter: ExtensionListFilter = args.outdated
-    ? "outdated"
-    : args.deprecated
-      ? "deprecated"
-      : "all";
-  const assessmentFilter = filter === "outdated" ? "outdated" : "deprecated";
-  const assessed = yield* withLiveOperation(
+  const filter = args.outdated ? "outdated" : args.deprecated ? "deprecated" : "all";
+  const result = yield* withLiveOperation(
     { command: "list", name: "List extensions", mode: "preview" },
     observeUnit(
-      {
-        id: "assessment",
-        label: `${assessmentFilter === "outdated" ? "update" : "deprecation"} status`,
-      },
-      Effect.scoped(assessExtensionListItems(localItems, assessmentFilter)).pipe(
-        Effect.mapError(inspectionFailureToAppError),
-      ),
+      { id: "assessment", label: `${filter === "outdated" ? "update" : "deprecation"} status` },
+      ListExtensions.query({
+        ...(Option.isSome(args.type) ? { type: args.type.value } : {}),
+        filter,
+      }).pipe(Effect.mapError(inspectionFailureToAppError)),
     ),
   );
-  const items = assessed
-    .filter((item) => matchesFilter(item, filter))
-    .map((item) => (filter === "all" ? summarizeLifecycle(item) : item));
-  const document: ExtensionListDocument = {
-    filter,
-    items,
-    count: items.length,
-    totalCount: localItems.length,
-    ...(filter === "all" ? {} : { coverage: coverageFor(assessed) }),
-  };
+  const document: ExtensionListDocument = result.document;
   if (yield* screen.document(document, ExtensionListDocumentSchema)) return;
   const guidanceFor = (item: ExtensionListItem): string => {
     if (filter === "all") {
@@ -189,7 +92,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
       .filter((value): value is string => value !== undefined)
       .join("; ");
   };
-  const tableRows = items.map((item): ListTableRow => ({
+  const tableRows = result.items.map((item): ListTableRow => ({
     extension: item.ref,
     type: item.type,
     management: item.management,
@@ -200,10 +103,11 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     guidance: guidanceFor(item),
   }));
   const coverage = document.coverage;
+  const count = document.count;
   const summary =
     coverage === undefined
-      ? `${items.length} extension${items.length === 1 ? "" : "s"}`
-      : `${items.length} ${filter} extension${items.length === 1 ? "" : "s"}; checked ${coverage.checked}/${coverage.eligible}, ${coverage.unknown} unknown`;
+      ? `${count} extension${count === 1 ? "" : "s"}`
+      : `${count} ${filter} extension${count === 1 ? "" : "s"}; checked ${coverage.checked}/${coverage.eligible}, ${coverage.unknown} unknown`;
   yield* screen.result(
     inventoryDoc({
       rows: tableRows,

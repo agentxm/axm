@@ -23,11 +23,7 @@ import {
   type LifecycleFailure,
   type StepFailureConversionService,
 } from "@agentxm/extension-lifecycle";
-import {
-  AuthoringFailed,
-  AuthoringFailureAdapter,
-  type AuthoringFailureAdapterService,
-} from "@agentxm/extension-authoring";
+import { AuthoringFailed } from "@agentxm/extension-authoring";
 import { PublishFailed } from "@agentxm/extension-publish";
 import type { ExpectedCliError } from "./cli-runtime/index.js";
 import {
@@ -48,11 +44,7 @@ import {
   WorkspaceConfigurationFailed,
   WorkspaceInitializationCancelled,
 } from "@agentxm/workspace-configuration";
-import {
-  InspectionFailureAdapter,
-  WorkspaceInspectionFailed,
-  type InspectionFailureAdapterService,
-} from "@agentxm/workspace-inspection";
+import { WorkspaceInspectionFailed } from "@agentxm/workspace-inspection";
 import {
   WorkspaceSyncFailed,
   type SyncFailureAdapter,
@@ -114,12 +106,19 @@ export const publishFailedToAppError = (error: PublishFailed): AppError =>
   });
 
 /**
- * Convert any failure a publish use case can surface — the feature's own
- * typed failure, a known kernel or integration failure, or an envelope that
- * travelled through a still-coupled channel — into the CLI-facing `AppError`.
+ * Convert any failure a publish or registry-lifecycle use case can surface —
+ * the feature's own typed failure, the registry-auth failures a challenged
+ * remote write settles with, a known kernel or integration failure, or an
+ * envelope that travelled through a still-coupled channel — into the
+ * CLI-facing `AppError`.
+ *
+ * Remote writes are authorized and may be challenged, so the auth family is
+ * part of this channel: a pending verification has to keep its
+ * `pending-human` status and resume action rather than degrade to `internal`.
  */
 export const publishFailureToAppError = (failure: unknown): AppError => {
   if (failure instanceof PublishFailed) return publishFailedToAppError(failure);
+  if (isRegistryAuthFailure(failure)) return registryAuthFailureToAppError(failure);
   if (failure instanceof AppError) return failure;
   if (isKnownFailure(failure)) return toAppError(failure);
   return makeAppError({ code: "internal", detail: String(failure), cause: failure });
@@ -150,35 +149,6 @@ export const authoringFailureToAppError = (failure: unknown): AppError => {
   if (isKnownFailure(failure)) return toAppError(failure);
   return makeAppError({ code: "internal", detail: String(failure), cause: failure });
 };
-
-/** Serialize any authoring failure into the plan-step vocabulary. */
-export const authoringFailureToStepFailure = (failure: unknown) =>
-  appErrorToStepFailure(authoringFailureToAppError(failure));
-
-/**
- * The authoring feature's failure adapter: step categories and details reuse
- * the boundary's own conversions so plan data and machine output stay
- * byte-identical with rendered errors.
- */
-export const authoringFailureAdapter: AuthoringFailureAdapterService = {
-  toStepFailure: authoringFailureToStepFailure,
-};
-
-/** Layer wiring the boundary's failure conversions into authoring operations. */
-export const AuthoringFailureAdapterLive = Layer.succeed(
-  AuthoringFailureAdapter,
-  authoringFailureAdapter,
-);
-
-/**
- * Supply the boundary's failure adapter to one authoring operation invoked
- * outside the shared runtime layer (handlers that build their own local
- * service environment).
- */
-export const provideAuthoringFailureAdapter = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, Exclude<R, AuthoringFailureAdapter>> =>
-  Effect.provideService(effect, AuthoringFailureAdapter, authoringFailureAdapter);
 
 /**
  * Translate a lifecycle policy failure: the implementation chose the
@@ -398,6 +368,18 @@ export const registryAuthFailureToAppError = (failure: RegistryAuthFailure): App
         action: failure.action,
         recover: failure.action.resume,
       });
+    case "StepUpVerificationPending":
+      return makeAppError({
+        code: failure.timedOut ? "timeout" : "auth_required",
+        detail: "Human verification is pending. No challenged write has completed.",
+        status: "pending-human",
+        retryable: true,
+        blockedOn: "human",
+        action: failure.action,
+        recover: failure.action.resume,
+      });
+    case "AuthInteractionAbandoned":
+      return makeAppError({ code: "usage", detail: failure.message });
     case "DeviceAuthorizationPending":
       return deviceAuthorizationPendingToAppError(failure);
     case "StepUpRequired":
@@ -503,18 +485,3 @@ export const inspectionFailureToAppError = (failure: unknown): AppError => {
   if (isKnownFailure(failure)) return toAppError(failure);
   return makeAppError({ code: "internal", detail: String(failure), cause: failure });
 };
-
-/**
- * The inspection feature's failure adapter: assessment reasons reuse the
- * boundary's own conversions so diagnostic sentences inside inspection
- * results stay byte-identical with rendered errors.
- */
-export const inspectionFailureAdapter: InspectionFailureAdapterService = {
-  describeFailure: (failure) => inspectionFailureToAppError(failure).detail,
-};
-
-/** Layer wiring the boundary's failure conversions into inspection queries. */
-export const InspectionFailureAdapterLive = Layer.succeed(
-  InspectionFailureAdapter,
-  inspectionFailureAdapter,
-);

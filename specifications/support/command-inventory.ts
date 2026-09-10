@@ -1,9 +1,9 @@
 /** Navigation metadata; requirement files retain authority for their statements. */
 import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import * as Schema from "effect/Schema";
+
+import { specificationFileFor } from "./specification-index.js";
 
 const strings = Schema.Array(Schema.String);
 const bindingFields = {
@@ -85,8 +85,6 @@ export const readCommandInventory = () => {
   return Schema.decodeUnknownEffect(CommandInventorySchema, { onExcessProperty: "error" })(value);
 };
 
-const specificationsRoot = fileURLToPath(new URL("..", import.meta.url));
-
 /** Static identity extraction does not import or execute a specification file. */
 const declaredIdentity = (source: ts.SourceFile): string | undefined => {
   for (const statement of source.statements) {
@@ -120,7 +118,12 @@ export const makeCanonicalRequirementValidator = () => {
     if (!/^[a-z0-9-]+(?:\/[a-z0-9-]+)+$/u.test(identity)) {
       throw new Error(`Invalid requirement identity: ${identity}`);
     }
-    const filename = path.join(specificationsRoot, `${identity}.spec.ts`);
+    // A specification is authored beside the source it binds, so the
+    // canonical file is the one that declares this identity wherever it lives.
+    const filename = specificationFileFor(identity);
+    if (filename === undefined) {
+      throw new Error(`No specification declares the requirement identity: ${identity}`);
+    }
     const source = ts.createSourceFile(
       filename,
       fs.readFileSync(filename, "utf8"),

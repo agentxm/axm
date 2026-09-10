@@ -22,6 +22,7 @@ import {
 } from "@agentxm/registry-auth/testing";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import {
+  AuthLoginPresenter,
   AuthLoginPresenterLive,
   CredentialStore,
   RegistryUrl,
@@ -48,6 +49,11 @@ export interface LoginSpecContextOptions {
   };
   /** Whether a session the registry still accepts is already stored. */
   readonly validSession?: boolean;
+  /**
+   * How the person answers the one question a still-valid session raises.
+   * Omit it when the specification asserts that nothing was asked.
+   */
+  readonly sessionReplacement?: "replace" | "keep";
 }
 
 export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
@@ -100,10 +106,34 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
         })
       : CredentialStoreTest("restricted-file");
 
+  // The renderer-backed presenter keeps every wording assertion observing the
+  // real CLI output; only the one question a person answers is decided here.
+  const sessionReplacementPrompts: Array<string> = [];
+  const basePresenter = Layer.provide(AuthLoginPresenterLive, renderer.layer);
+  const presenter =
+    options.sessionReplacement === undefined
+      ? basePresenter
+      : Layer.provide(
+          Layer.effect(
+            AuthLoginPresenter,
+            Effect.gen(function* () {
+              const base = yield* AuthLoginPresenter;
+              return {
+                ...base,
+                confirmSessionReplacement: (message: string) => {
+                  sessionReplacementPrompts.push(message);
+                  return Effect.succeed(options.sessionReplacement ?? "replace");
+                },
+              };
+            }),
+          ),
+          basePresenter,
+        );
+
   const layer = Layer.mergeAll(
     NodeServices.layer,
     renderer.layer,
-    Layer.provide(AuthLoginPresenterLive, renderer.layer),
+    presenter,
     AuthLoginInteractionTest().layer,
     TestFlagsLayer({
       nonInteractive: options.flags?.nonInteractive ?? false,
@@ -121,6 +151,8 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
     rendererState: renderer.state,
     /** The scope sets of every device sign-in the command asked the registry to start. */
     deviceFlowStarts,
+    /** Every replace-a-valid-session question the command actually asked. */
+    sessionReplacementPrompts,
     /** The access token the store holds for the registry after the command ran. */
     storedAccessToken: Effect.gen(function* () {
       const store = yield* CredentialStore;

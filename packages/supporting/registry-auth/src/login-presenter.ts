@@ -15,6 +15,7 @@ import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 
 import type { DeviceLoginPendingResult } from "./device-login.js";
+import type { AuthInteractionAbandoned } from "./errors.js";
 import type { LoginResult } from "./login-output.js";
 
 export type AuthLoginProgress =
@@ -26,7 +27,31 @@ export type AuthLoginProgress =
       readonly registryHost: string;
       readonly timeoutMinutes: number;
     }
-  | { readonly _tag: "CompletingSignIn"; readonly registryHost: string };
+  | { readonly _tag: "CompletingSignIn"; readonly registryHost: string }
+  | { readonly _tag: "CheckingRegistrySession"; readonly registryHost: string }
+  | { readonly _tag: "RevokingRegistrySession"; readonly registryHost: string }
+  | { readonly _tag: "ListingRegistryTokens" }
+  /** A Registry write that the Registry may challenge for human verification. */
+  | { readonly _tag: "RunningVerifiedWrite"; readonly operation: string }
+  /** The bounded wait while a person completes verification. */
+  | { readonly _tag: "WaitingForHumanVerification"; readonly operation: string }
+  /** The one retry of the challenged write, after verification. */
+  | { readonly _tag: "RetryingVerifiedWrite"; readonly operation: string };
+
+/** What a person decided about replacing a session that is still valid. */
+export type SessionReplacementDecision = "replace" | "keep";
+
+/** Why sign-in fell back to the device-code flow. */
+export type DeviceCodeFallbackReason = "remote-or-headless" | "loopback-bind-failed";
+
+/** One step-up challenge, as a person needs to see it. */
+export interface StepUpChallengePresentation {
+  readonly action: string;
+  readonly target: string;
+  readonly verificationUrl: string;
+  readonly expiresAt: string;
+  readonly browserOpened: boolean;
+}
 
 export interface DeviceFlowPresentation {
   readonly verificationUri: string;
@@ -65,6 +90,21 @@ export interface AuthLoginPresenterService {
     readonly candidateCount: number;
     readonly authorizationUrl: string;
   }) => Effect.Effect<void>;
+  /** A still-valid session was found for the selected Registry. */
+  readonly noteExistingSession: (handle: string) => Effect.Effect<void>;
+  /** Stored credentials were rejected, so a new sign-in starts. */
+  readonly noteRejectedStoredCredentials: Effect.Effect<void>;
+  /** Sign-in fell back to the device-code flow for the carried reason. */
+  readonly noteDeviceCodeFallback: (reason: DeviceCodeFallbackReason) => Effect.Effect<void>;
+  /**
+   * Ask whether to replace a session that is still valid. Abandoning the
+   * question fails with `AuthInteractionAbandoned`; declining returns "keep".
+   */
+  readonly confirmSessionReplacement: (
+    message: string,
+  ) => Effect.Effect<SessionReplacementDecision, AuthInteractionAbandoned>;
+  /** Guidance for one pending step-up verification. */
+  readonly presentStepUpChallenge: (challenge: StepUpChallengePresentation) => Effect.Effect<void>;
 }
 
 export class AuthLoginPresenter extends ServiceMap.Service<
@@ -85,10 +125,18 @@ export interface AuthLoginPresenterTestState {
     readonly candidateCount: number;
     readonly authorizationUrl: string;
   }>;
+  readonly existingSessions: Array<string>;
+  readonly rejectedStoredCredentials: Array<true>;
+  readonly deviceCodeFallbacks: Array<DeviceCodeFallbackReason>;
+  readonly sessionReplacementPrompts: Array<string>;
+  readonly stepUpChallenges: Array<StepUpChallengePresentation>;
 }
 
 export const AuthLoginPresenterTest = (overrides?: {
   readonly tryEmitPendingDeviceLogin?: (result: DeviceLoginPendingResult) => Effect.Effect<boolean>;
+  readonly confirmSessionReplacement?: (
+    message: string,
+  ) => Effect.Effect<SessionReplacementDecision, AuthInteractionAbandoned>;
 }) => {
   const state: AuthLoginPresenterTestState = {
     progress: [],
@@ -99,6 +147,11 @@ export const AuthLoginPresenterTest = (overrides?: {
     loopbackStarts: [],
     loopbackBrowserOutcomes: [],
     publishReviews: [],
+    existingSessions: [],
+    rejectedStoredCredentials: [],
+    deviceCodeFallbacks: [],
+    sessionReplacementPrompts: [],
+    stepUpChallenges: [],
   };
 
   const layer = Layer.succeed(AuthLoginPresenter, {
@@ -135,6 +188,27 @@ export const AuthLoginPresenterTest = (overrides?: {
     notePublishReview: (review) =>
       Effect.sync(() => {
         state.publishReviews.push(review);
+      }),
+    noteExistingSession: (handle) =>
+      Effect.sync(() => {
+        state.existingSessions.push(handle);
+      }),
+    noteRejectedStoredCredentials: Effect.sync(() => {
+      state.rejectedStoredCredentials.push(true);
+    }),
+    noteDeviceCodeFallback: (reason) =>
+      Effect.sync(() => {
+        state.deviceCodeFallbacks.push(reason);
+      }),
+    confirmSessionReplacement: (message) =>
+      Effect.gen(function* () {
+        state.sessionReplacementPrompts.push(message);
+        return yield* overrides?.confirmSessionReplacement?.(message) ??
+          Effect.succeed<SessionReplacementDecision>("replace");
+      }),
+    presentStepUpChallenge: (challenge) =>
+      Effect.sync(() => {
+        state.stepUpChallenges.push(challenge);
       }),
   } satisfies AuthLoginPresenterService);
 

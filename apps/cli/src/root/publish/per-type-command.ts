@@ -1,13 +1,11 @@
 import * as Effect from "effect/Effect";
-import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "../../app-error/index.js";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
-import type { PublishableType } from "@agentxm/extension-publish";
+import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
+import { normalizeTypePublishSelection, type PublishableType } from "@agentxm/extension-publish";
+import { publishFailureToAppError } from "../../feature-errors.js";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -24,43 +22,6 @@ const publishCapabilities = previewableCapabilities("registry", {
 });
 
 type PerTypePublishType = PublishableType;
-
-const normalizeSelector = (type: PerTypePublishType, selector: string) =>
-  Effect.gen(function* () {
-    if (!selector.startsWith("@")) return `${extensionTypeToPlural[type]}/${selector}`;
-    const parsed = yield* Effect.fromResult(
-      Result.mapError(parseFqn(selector), fqnInvalidErrorToAppError),
-    );
-    if (parsed.type !== type) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Expected a ${extensionTypeToPlural[type]} selector, got ${selector}`,
-      });
-    }
-    return selector;
-  });
-
-/** Normalize the type-specific adapter inputs consumed by root publication. */
-export const normalizePerTypePublishSelection = (args: {
-  readonly type: PerTypePublishType;
-  readonly selectors: ReadonlyArray<string>;
-  readonly owners: ReadonlyArray<string>;
-  readonly excludes: ReadonlyArray<string>;
-}) =>
-  Effect.gen(function* () {
-    const selectors = yield* Effect.forEach(args.selectors, (selector) =>
-      normalizeSelector(args.type, selector),
-    );
-    const excludes = yield* Effect.forEach(args.excludes, (selector) =>
-      normalizeSelector(args.type, selector),
-    );
-    return {
-      selectors,
-      owners: [...args.owners],
-      types: selectors.length === 0 ? [args.type] : [],
-      excludes,
-    };
-  });
 
 export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   const plural = extensionTypeToPlural[type];
@@ -113,12 +74,12 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     } as const;
     return Command.make("publish", config, (parsed) =>
       Effect.gen(function* () {
-        const selection = yield* normalizePerTypePublishSelection({
+        const selection = yield* normalizeTypePublishSelection({
           type,
           selectors: parsed.extensions,
           owners: parsed.owner,
           excludes: parsed.exclude,
-        });
+        }).pipe(Effect.mapError(publishFailureToAppError));
         yield* handleRootPublish({
           ...selection,
           registry: parsed.registry,
@@ -146,12 +107,12 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   const config = commonConfig;
   return Command.make("publish", config, (parsed) =>
     Effect.gen(function* () {
-      const selection = yield* normalizePerTypePublishSelection({
+      const selection = yield* normalizeTypePublishSelection({
         type,
         selectors: parsed.extensions,
         owners: parsed.owner,
         excludes: parsed.exclude,
-      });
+      }).pipe(Effect.mapError(publishFailureToAppError));
       yield* handleRootPublish({
         ...selection,
         registry: parsed.registry,

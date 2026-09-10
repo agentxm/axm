@@ -52,15 +52,14 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "@agentxm/extension-materialization/live";
-import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
+import {
+  ExtensionManagersLive,
+  ProjectionParticipantsLive,
+} from "@agentxm/extension-materialization/live";
 import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
-import {
-  AuthoringFailureAdapterLive,
-  InspectionFailureAdapterLive,
-  LifecycleStepFailureConversionLive,
-} from "./feature-errors.js";
+import { LifecycleStepFailureConversionLive } from "./feature-errors.js";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import {
   GitDirectoryComparisonLive,
@@ -79,7 +78,7 @@ import {
   PendingDeviceLoginStoreLive,
   PendingPublishAuthorizationStoreLive,
 } from "@agentxm/registry-auth/live";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "./telemetry/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -198,6 +197,10 @@ const AxmHttpClientLayer = Layer.provide(
 
 const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
 const RegistryRuntimeLayer = Layer.mergeAll(PlatformLayer, RegistryUrlLayer);
+
+// Registry clients are constructed here, once, from the transport services and
+// the configured default registry; features keep the factory in `R`.
+const RegistryClientFactoryLayer = Layer.provide(RegistryClientFactoryLive, RegistryRuntimeLayer);
 
 const CredentialStoreLayer = Layer.provide(
   CredentialStoreSessionLive,
@@ -353,8 +356,6 @@ const makeWorkspaceProgramLayer = (
     sourceProvidersLayer,
     gitDirectoryComparisonLayer,
     CodingAgentRepositoryLive,
-    AuthoringFailureAdapterLive,
-    InspectionFailureAdapterLive,
     LifecycleStepFailureConversionLive,
   );
 
@@ -369,7 +370,8 @@ const makeWorkspaceProgramLayer = (
     KnowledgeIndexLive,
   );
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
-  const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
+  const managedExtensionsLayer = Layer.provideMerge(ExtensionManagersLive, extensionsLayer);
+  const fullLayer = Layer.provideMerge(managedExtensionsLayer, workspaceServiceLayer);
   const participantsLayer = Layer.provide(ProjectionParticipantsLive, fullLayer);
   const invariantFactsLayer = Layer.provide(
     WorkspaceInvariantFactsLive,
@@ -524,7 +526,7 @@ export const withRuntime =
           telemetryConfig: config.telemetryConfig,
         },
       ).pipe(Effect.provide(appLayer), Effect.scoped);
-    }).pipe(Effect.provide(RegistryRuntimeLayer));
+    }).pipe(Effect.provide(Layer.mergeAll(RegistryRuntimeLayer, RegistryClientFactoryLayer)));
 
 // Machine-output decoding surface for JavaScript and TypeScript automation.
 // The machine-output help topic points consumers here, so the published

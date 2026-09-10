@@ -1,13 +1,13 @@
 import * as Effect from "effect/Effect";
 
-import { ExitCode } from "../../../app-error/index.js";
-import { Screen, errorDoc } from "../../../screen/index.js";
-import { effectCliExit } from "../../../cli-runtime/index.js";
-
 import {
   KnowledgeConceptCorpusChangingFailureSchema,
   KnowledgeConceptCursorFailureSchema,
-} from "./schemas.js";
+} from "@agentxm/knowledge-query";
+
+import { ExitCode } from "../../../app-error/index.js";
+import { Screen, errorDoc } from "../../../screen/index.js";
+import { effectCliExit } from "../../../cli-runtime/index.js";
 
 const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(function* (output: {
   readonly outcome: "failed";

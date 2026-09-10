@@ -677,7 +677,7 @@
     "cache status": {
       "flags": [],
       "arguments": [],
-      "relatedRequirements": ["cli/cache/status/reports-usage-and-effective-limits"],
+      "relatedRequirements": ["cli/cache/prune/enforces-reported-retention-limits"],
       "parameterBindings": []
     },
     "cache verify": {

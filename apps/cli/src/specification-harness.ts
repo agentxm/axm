@@ -64,6 +64,7 @@ export { handleLogin, LoginNoOpDocumentSchema } from "./root/auth/login.js";
 // observe; specs may not import the auth root directly.
 export {
   AuthClient,
+  AuthLoginPresenter,
   CredentialStore,
   type MeResponse,
   type CreatePublishAuthorizationRequestParams,
@@ -108,7 +109,26 @@ export {
 } from "./root/shared/command-capabilities.js";
 export { handleSync } from "./root/sync/handler.js";
 export { handleUpdate } from "./root/update/handler.js";
-export { ExtensionListDocumentSchema, handleList } from "./root/list/command.js";
+export { handleList } from "./root/list/command.js";
+// Typed outcome documents specifications still bound centrally decode. These
+// belong to the owning features; the harness only re-exposes them while their
+// specifications live in this tree.
+export {
+  ExtensionListDocumentSchema,
+  ExtensionShowResultSchema,
+  KnowledgeListQueryResultSchema,
+  PackShowResultSchema,
+  ViewDocumentSchema,
+  ViewFieldValueSchema,
+} from "@agentxm/workspace-inspection";
+export {
+  KnowledgeConceptGetOutputSchema,
+  KnowledgeConceptQueryPageSchema,
+  KnowledgeConceptRelatedOutputSchema,
+  KnowledgeConceptResolveOutputSchema,
+  KnowledgeConceptStatusOutputSchema,
+  KnowledgeLintQueryResultSchema,
+} from "@agentxm/knowledge-query";
 export { handleView } from "./root/view/handler.js";
 export { SetupDocumentSchema, handleSetup } from "./root/setup.js";
 export { LintResultDocumentSchema, handleLint } from "./root/lint/handler.js";
@@ -157,10 +177,11 @@ export { handleUninstallPack } from "./root/packs/uninstall/handler.js";
 export { handlePackActivation } from "./root/packs/activation.js";
 export { handlePacksUpdate } from "./root/packs/update.js";
 export { handleRootPublish } from "./root/publish/command.js";
-export { normalizePerTypePublishSelection } from "./root/publish/per-type-command.js";
-// The published publish-result contract, so interface specifications can
-// decode the rendered document against the schema machine consumers read.
-export { PublishResultSchema } from "./root/publish/result.js";
+export { normalizeTypePublishSelection } from "@agentxm/extension-publish";
+// The published publish-result and registry-transition contracts, so
+// interface specifications can decode a rendered document against the schema
+// machine consumers read.
+export { PublishResultSchema, RegistryTransitionSchema } from "@agentxm/extension-publish";
 export { makeAxmFormatter } from "./formatter.js";
 export { ExecutionDirectory, type ExecutionDirectoryService } from "./execution-directory.js";
 export {
@@ -295,9 +316,9 @@ export {
   resolveTelemetryMode,
 } from "./telemetry/index.js";
 export {
+  ExtensionManagersLive,
   HookConfiguredAgentOutcomesProviderLive,
   HookManagerLive,
-  InspectionFailureAdapterLive,
   KnowledgeIndexLive,
   KnowledgeManagerLive,
   LifecycleStepFailureConversionLive,
@@ -353,14 +374,7 @@ export { handleKnowledgeConceptGet } from "./root/knowledge/concepts/get.js";
 export { handleKnowledgeConceptResolve } from "./root/knowledge/concepts/resolve.js";
 export { handleKnowledgeConceptRelated } from "./root/knowledge/concepts/related.js";
 export { handleKnowledgeConceptStatus } from "./root/knowledge/concepts/status.js";
-export {
-  KnowledgeConceptQueryPageSchema,
-  KnowledgeConceptGetOutputSchema,
-  KnowledgeConceptResolveOutputSchema,
-  KnowledgeConceptRelatedOutputSchema,
-  KnowledgeConceptStatusOutputSchema,
-} from "./root/knowledge/concepts/schemas.js";
-export { handleKnowledgeLint, KnowledgeLintQueryResultSchema } from "./root/knowledge/lint.js";
+export { handleKnowledgeLint } from "./root/knowledge/lint.js";
 export {
   handleYank,
   handleUnyank,
@@ -373,26 +387,12 @@ export {
   handleVisibilitySet,
   handleVisibilityReconcile,
 } from "./root/visibility/handler.js";
-export {
-  handleCacheStatus,
-  handleCacheVerify,
-  handleCachePrune,
-  CacheStatusOutputSchema,
-  CacheVerifyOutputSchema,
-  CachePruneOutputSchema,
-} from "./root/cache/command.js";
-
-export { resolveAxmCacheRoot } from "@agentxm/registry-client";
-
-export { handleDiscover, DiscoverOutputSchema } from "./root/discover/handler.js";
-export { ViewDocumentSchema, ViewFieldValueSchema } from "./root/view/handler.js";
-export { handleExtensionShow, ExtensionShowResultSchema } from "./root/shared/extension-show.js";
+export { handleExtensionShow } from "./root/shared/extension-show.js";
 export { handleListHook } from "./root/hooks/list.js";
 export { handleListRule } from "./root/rules/list.js";
-export { handleKnowledgeList, KnowledgeListQueryResultSchema } from "./root/knowledge/list.js";
+export { handleKnowledgeList } from "./root/knowledge/list.js";
 export { handleList as handlePacksList } from "./root/packs/list.js";
 export { handleListSubagents } from "./root/subagents/list/handler.js";
-export { PackShowResultSchema } from "./root/packs/show.js";
 export { ExtensionInventorySchema } from "@agentxm/workspace-state";
 export {
   handleAgentsCapabilities,

@@ -8,6 +8,8 @@
 
 import * as Schema from "effect/Schema";
 
+import { OperationErrorCategorySchema } from "@agentxm/workspace-operations";
+
 const CarriedSuggestedActionSchema = Schema.Struct({
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
@@ -21,7 +23,7 @@ const CarriedSuggestedActionSchema = Schema.Struct({
  * `suggestions`, and `cause` carry over verbatim.
  */
 export class PublishFailed extends Schema.TaggedError<PublishFailed>()("PublishFailed", {
-  category: Schema.Literals(["conflict", "internal", "not_found", "usage", "validation"]),
+  category: OperationErrorCategorySchema,
   detail: Schema.String,
   recover: Schema.optional(Schema.String),
   cmd: Schema.optional(Schema.String),

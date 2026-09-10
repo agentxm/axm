@@ -22,6 +22,8 @@ export const REGISTRY_AUTH_ERROR_CATEGORIES = [
   "conflict",
   "internal",
   "not_found",
+  "timeout",
+  "usage",
   "validation",
 ] as const;
 
@@ -131,6 +133,24 @@ export class PublishAuthorizationPending extends Data.TaggedError("PublishAuthor
   readonly timedOut: boolean;
 }> {}
 
+/**
+ * A challenged Registry write is waiting on human verification. No challenged
+ * write has completed: the operation is retried exactly once, after the
+ * verification the carried handoff describes.
+ */
+export class StepUpVerificationPending extends Data.TaggedError("StepUpVerificationPending")<{
+  readonly action: HumanHandoffAction;
+  readonly timedOut: boolean;
+}> {}
+
+/**
+ * A person abandoned an auth interaction the capability asked the application
+ * to run (declining is not abandoning: it returns a decision).
+ */
+export class AuthInteractionAbandoned extends Data.TaggedError("AuthInteractionAbandoned")<{
+  readonly message: string;
+}> {}
+
 /** Every typed failure the registry-auth feature constructs. */
 export type RegistryAuthFailure =
   | RegistryAuthFailed
@@ -140,6 +160,8 @@ export type RegistryAuthFailure =
   | DeviceLoginCodeExpired
   | DeviceAuthorizationPending
   | PublishAuthorizationPending
+  | StepUpVerificationPending
+  | AuthInteractionAbandoned
   | StepUpRequired
   | AuthExchangeFailed;
 
@@ -151,6 +173,8 @@ export const isRegistryAuthFailure = (error: unknown): error is RegistryAuthFail
   error instanceof DeviceLoginCodeExpired ||
   error instanceof DeviceAuthorizationPending ||
   error instanceof PublishAuthorizationPending ||
+  error instanceof StepUpVerificationPending ||
+  error instanceof AuthInteractionAbandoned ||
   error instanceof StepUpRequired ||
   error instanceof AuthExchangeFailed;
 

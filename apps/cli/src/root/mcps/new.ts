@@ -10,7 +10,11 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-materialization";
-import { preflightCreateOnly } from "@agentxm/extension-authoring";
+import {
+  isValidScaffoldName,
+  preflightCreateOnly,
+  resolveAuthoringOwner,
+} from "@agentxm/extension-authoring";
 import {
   decodeExtensionNameSync,
   formatFqn,
@@ -58,8 +62,6 @@ import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
-import { resolveAuthoringOwner } from "../shared/resolve-owner.js";
-import { isValidScaffoldName } from "../shared/scaffold-name.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
@@ -93,10 +95,11 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
   const screen = yield* Screen;
   const agentRepo = yield* CodingAgentRepository;
   const httpClient = yield* HttpClient.HttpClient;
-  const { owner, establish } = yield* resolveAuthoringOwner(
+  const { owner, establish: establishOwner } = yield* resolveAuthoringOwner(
     { subject: "MCP server", command: "mcps new", name: args.name },
     args.owner,
-  );
+  ).pipe(Effect.mapError(toAppError));
+  const establish = establishOwner.pipe(Effect.mapError(toAppError));
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "mcp-server", name: args.name });
 

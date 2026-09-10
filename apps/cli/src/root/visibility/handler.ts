@@ -1,12 +1,11 @@
-import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
+/**
+ * Rendering for whole-extension Registry visibility. Intent resolution, the
+ * revision precondition, the authority kind, and human verification belong to
+ * `@agentxm/extension-publish`; this module parses inputs and renders.
+ */
 
-import { RegistryUrl } from "@agentxm/registry-client";
-import { makeAppError } from "../../app-error/index.js";
-import { toAppError } from "../../app-error/conversions.js";
+import * as Effect from "effect/Effect";
+
 import {
   Screen,
   paragraphDoc,
@@ -15,27 +14,14 @@ import {
   type TableView,
 } from "../../screen/index.js";
 import {
-  ExtensionFqnSchema,
-  ExtensionVisibilitySchema,
-  parseExtensionFqnParts,
-} from "@agentxm/extension-model/unstable/extensions";
-import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
-  resolveVisibilityIntent,
-  type VisibilityIntent,
 } from "@agentxm/registry-protocol/unstable/publish";
-import { createRegistryClient, type ExtensionVisibility } from "@agentxm/registry-client";
-import { manifestFilenameForType } from "@agentxm/extension-content";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-
-import { runWithStepUp } from "../step-up.js";
-
-const ManifestVisibilitySchema = Schema.Struct({
-  publish: Schema.optional(
-    Schema.Struct({ visibility: Schema.optional(ExtensionVisibilitySchema) }),
-  ),
-});
+import { ManagePublishedVisibility } from "@agentxm/extension-publish";
+import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
+import { publishFailureToAppError } from "../../feature-errors.js";
+import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
+import * as Option from "effect/Option";
 
 interface VisibilityRow {
   readonly field: string;
@@ -49,107 +35,16 @@ const VisibilityTable = {
   },
 } as const satisfies TableView<VisibilityRow>;
 
-const parseTarget = (input: string) =>
-  Effect.gen(function* () {
-    const parts = parseExtensionFqnParts(input);
-    if (parts === undefined) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `Invalid extension target: ${input}`,
-        suggestions: [
-          { description: "Use @owner/<plural-type>/name, for example @acme/skills/review." },
-        ],
-      });
-    }
-    const target = yield* Schema.decodeUnknownEffect(ExtensionFqnSchema)(input).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({ code: "validation", detail: `Invalid extension target: ${input}`, cause }),
-      ),
-    );
-    return { parts, target };
-  });
-
-const repositoryIntent = (parts: NonNullable<ReturnType<typeof parseExtensionFqnParts>>) =>
-  Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    if (workspace.layout.scope !== "project") {
-      return yield* makeAppError({
-        code: "validation",
-        detail: "Repository visibility intent requires project scope.",
-      });
-    }
-    const manifestPath = path.join(
-      workspace.layout.authoredRoot(parts.type),
-      parts.name,
-      manifestFilenameForType(parts.type),
-    );
-    const manifest = yield* fs.exists(manifestPath).pipe(
-      Effect.flatMap((exists) =>
-        exists
-          ? fs
-              .readFileString(manifestPath)
-              .pipe(
-                Effect.flatMap(
-                  Schema.decodeUnknownEffect(Schema.fromJsonString(ManifestVisibilitySchema)),
-                ),
-                Effect.map(Option.some),
-              )
-          : Effect.succeed(Option.none()),
-      ),
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Unable to read visibility intent from ${manifestPath}.`,
-          cause,
-        }),
-      ),
-    );
-    const workspaceDefault = yield* workspace.getPublishDefaultVisibility().pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: "Unable to read workspace publication visibility.",
-          cause,
-        }),
-      ),
-    );
-    return resolveVisibilityIntent({
-      ...Option.match(manifest, {
-        onNone: () => ({}),
-        onSome: (value) =>
-          value.publish?.visibility === undefined
-            ? {}
-            : {
-                manifest: {
-                  value: value.publish.visibility,
-                  material: JSON.stringify({ publish: { visibility: value.publish.visibility } }),
-                },
-              },
-      }),
-      ...Option.match(workspaceDefault, {
-        onNone: () => ({}),
-        onSome: (value) => ({
-          workspace: {
-            value,
-            material: JSON.stringify({ publish: { defaultVisibility: value } }),
-          },
-        }),
-      }),
-    });
-  });
-
-const getEvaluation = (target: string, intent: VisibilityIntent | null) =>
-  Effect.gen(function* () {
-    const parsed = yield* parseTarget(target);
-    const registryUrl = yield* RegistryUrl;
-    const client = yield* createRegistryClient(registryUrl);
-    const evaluation = yield* client
-      .getExtensionVisibility({ ...parsed.parts, intent })
-      .pipe(Effect.mapError(toAppError));
-    return { client, evaluation, parsed };
-  });
+/** The invocation's human-verification inputs, as the capability reads them. */
+const verificationOptions = Effect.gen(function* () {
+  const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
+  const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
+  return {
+    ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
+    ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),
+    unattended,
+  };
+});
 
 const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
   Effect.gen(function* () {
@@ -172,19 +67,6 @@ const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
     }
   });
 
-export const handleVisibilityStatus = (target: string) =>
-  Effect.gen(function* () {
-    const parsed = yield* parseTarget(target);
-    const intent = yield* repositoryIntent(parsed.parts);
-    const registryUrl = yield* RegistryUrl;
-    const client = yield* createRegistryClient(registryUrl);
-    yield* emitEvaluation(
-      yield* client
-        .getExtensionVisibility({ ...parsed.parts, intent })
-        .pipe(Effect.mapError(toAppError)),
-    );
-  });
-
 const emitMutation = (result: typeof VisibilityMutationResultSchema.Type) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
@@ -198,78 +80,35 @@ const emitMutation = (result: typeof VisibilityMutationResultSchema.Type) =>
     );
   });
 
-export const handleVisibilitySet = (target: string, visibility: ExtensionVisibility) =>
-  Effect.gen(function* () {
-    const { client, evaluation, parsed } = yield* getEvaluation(target, null);
-    if (evaluation.actual === null) {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: `${target} has no established Registry visibility.`,
-      });
-    }
-    const actual = evaluation.actual;
-    const mutation = yield* runWithStepUp(
-      (verification) =>
-        client
-          .updateExtensionVisibility({
-            target: parsed.target,
-            visibility,
-            revision: actual.revision,
-            authority: { kind: "operator" },
-            ...(verification === undefined ? {} : { verification }),
-          })
-          .pipe(Effect.mapError(toAppError)),
-      {
-        command: "visibility.set",
-        name: `Update ${target}`,
-        waiting: `verification to update ${target}`,
-      },
-    );
-    yield* emitMutation(mutation.value);
-  });
+export const handleVisibilityStatus = Effect.fn("Visibility.status")(
+  function* (target: string) {
+    yield* emitEvaluation(yield* ManagePublishedVisibility.status(target));
+  },
+  Effect.mapError(publishFailureToAppError),
+  Effect.asVoid,
+);
 
-export const handleVisibilityReconcile = (target: string) =>
-  Effect.gen(function* () {
-    const parsed = yield* parseTarget(target);
-    const intent = yield* repositoryIntent(parsed.parts);
-    if (intent === null) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `${target} has no manifest or workspace visibility intent to reconcile.`,
-      });
-    }
-    const registryUrl = yield* RegistryUrl;
-    const client = yield* createRegistryClient(registryUrl);
-    const evaluation = yield* client
-      .getExtensionVisibility({ ...parsed.parts, intent })
-      .pipe(Effect.mapError(toAppError));
-    if (evaluation.actual === null) {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: `${target} has no established Registry visibility.`,
-      });
-    }
-    const actual = evaluation.actual;
-    const mutation = yield* runWithStepUp(
-      (verification) =>
-        client
-          .updateExtensionVisibility({
-            target: parsed.target,
-            visibility: intent.value,
-            revision: actual.revision,
-            authority: {
-              kind: "repository",
-              source: intent.source,
-              fingerprint: intent.fingerprint,
-            },
-            ...(verification === undefined ? {} : { verification }),
-          })
-          .pipe(Effect.mapError(toAppError)),
-      {
-        command: "visibility.reconcile",
-        name: `Reconcile ${target}`,
-        waiting: `verification to reconcile ${target}`,
-      },
-    );
-    yield* emitMutation(mutation.value);
-  });
+export const handleVisibilitySet = Effect.fn("Visibility.set")(
+  function* (target: string, visibility: ExtensionVisibility) {
+    const written = yield* ManagePublishedVisibility.set({
+      target,
+      visibility,
+      verification: yield* verificationOptions,
+    });
+    yield* emitMutation(written.mutation);
+  },
+  Effect.mapError(publishFailureToAppError),
+  Effect.asVoid,
+);
+
+export const handleVisibilityReconcile = Effect.fn("Visibility.reconcile")(
+  function* (target: string) {
+    const written = yield* ManagePublishedVisibility.reconcile({
+      target,
+      verification: yield* verificationOptions,
+    });
+    yield* emitMutation(written.mutation);
+  },
+  Effect.mapError(publishFailureToAppError),
+  Effect.asVoid,
+);

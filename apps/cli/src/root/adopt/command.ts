@@ -16,6 +16,7 @@ import {
   formatFqn,
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
+import { requireAuthoredOwner } from "@agentxm/extension-authoring";
 import {
   failureToStepFailure,
   fqnInvalidErrorToAppError,
@@ -28,7 +29,6 @@ import { protectCreatedAncestors } from "@agentxm/workspace-transactions";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
@@ -60,7 +60,9 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
       detail: "Adopt is project-workspace only",
     });
   }
-  yield* requireAuthoredOwner(parsed.owner);
+  yield* requireAuthoredOwner(parsed.owner, { subject: "package", command: "adopt" }).pipe(
+    Effect.mapError(toAppError),
+  );
   const fqn = formatFqn(parsed);
   const sourceDir = path.join(
     ws.layout.acquiredRoot,

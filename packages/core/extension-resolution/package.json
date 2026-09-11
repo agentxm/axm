@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/extension-resolution",
-  "version": "0.28.12",
-  "description": "AXM extension resolution policy: what a configured or requested extension resolves to and whether that resolution may be accepted \u2014 release-age policy, version selection, configured-entry and Pack dependency resolution, workspace source authority, publisher-binding trust, and official AXM skill compatibility. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "version": "0.28.13",
+  "description": "AXM extension resolution policy: what a configured or requested extension resolves to and whether that resolution may be accepted — release-age policy, version selection, configured-entry and Pack dependency resolution, workspace source authority, publisher-binding trust, and official AXM skill compatibility. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",

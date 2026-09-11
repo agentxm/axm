@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/agent-integration",
-  "version": "0.28.12",
-  "description": "AXM agent integration: effectful detection of installed AI coding agents plus the native-format mechanics AXM writes into them \u2014 coding-agent adapters, subagent rendering, MCP entry projection and config writing, hook-group editing, and the ownership marker grammar. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "version": "0.28.13",
+  "description": "AXM agent integration: effectful detection of installed AI coding agents plus the native-format mechanics AXM writes into them — coding-agent adapters, subagent rendering, MCP entry projection and config writing, hook-group editing, and the ownership marker grammar. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",

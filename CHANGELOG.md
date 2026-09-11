@@ -1,3 +1,14 @@
+## 0.28.13 (2026-09-11)
+
+### 🩹 Fixes
+
+- Memoize per-session credential reads with Effect Cache, and stop an interrupted credential read from wedging later reads of the same registry. ([9c3130b19](https://github.com/agentxm/axm/commit/9c3130b19))
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Test @osintorg
+
 ## 0.28.12 (2026-09-08)
 
 ### 🩹 Fixes

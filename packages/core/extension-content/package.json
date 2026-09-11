@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/extension-content",
-  "version": "0.28.13",
+  "version": "0.29.0",
   "description": "AXM extension content behavior: skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation shared by the axm CLI and the AgentXM Registry. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

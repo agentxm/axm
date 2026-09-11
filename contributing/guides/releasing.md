@@ -54,7 +54,9 @@ state in the [specification catalog](../../specifications/catalog.md).
 
    This records the intended semver bump and changelog entry. CI enforces the
    presence of a version plan for touched release projects with
-   `pnpm release:plan:check`.
+   `pnpm release:plan:check`. While the cohort remains below `1.0.0`, Nx's
+   configured zero-major adjustment maps a `major` plan to the next minor
+   version and a `minor` plan to the next patch version.
 
 2. Prepare the release from a clean checkout whose `HEAD` exactly matches
    `origin/main`. The checkout may be attached to any local branch or detached;

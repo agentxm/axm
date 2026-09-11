@@ -24,6 +24,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { run, tryCapture } from "./release-command.js";
+import { derivePreviewVersion } from "./release-preview-version.js";
 import {
   RELEASE_PACKAGES,
   RELEASE_PACKAGE_JSON_PATHS,
@@ -31,7 +32,6 @@ import {
   git,
   requireMatchingReleasePackageVersions,
   runNx,
-  validateReleaseVersion,
 } from "./release-shared.js";
 
 const PACK_DESTINATION = "release-packages-local";
@@ -44,8 +44,8 @@ const showHelp = () => {
       "Usage: pnpm release:publish:local [-- --dry-run] [--tag=<dist-tag>] [--no-build]",
       "",
       "Builds, packs, and `npm publish`es the fixed release-group packages",
-      "under a dist-tag (default: preview). The default `latest` tag is never",
-      "touched, so stable consumers are unaffected.",
+      "under a dist-tag (default: preview). The preview version sorts below",
+      "the current stable version, so stable consumers are unaffected.",
       "",
       "Install the published preview:",
       "  npm install -g axm.sh@<dist-tag>",
@@ -81,25 +81,6 @@ const unknownFlags = args.filter((arg) => {
 if (unknownFlags.length > 0) {
   fail(`Unknown flag(s): ${unknownFlags.join(", ")}`);
 }
-
-const derivePreviewVersion = (base: string): string => {
-  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(base);
-  if (match == null) {
-    return fail(`Base version is not valid semver: ${base}`);
-  }
-
-  const major = match[1] ?? fail(`Unreachable: missing major in ${base}`);
-  const minor = match[2] ?? fail(`Unreachable: missing minor in ${base}`);
-  const patchString = match[3] ?? fail(`Unreachable: missing patch in ${base}`);
-  const nextPatch = Number(patchString) + 1;
-
-  const shortSha = git("rev-parse", "--short", "HEAD");
-  const dirty = git("status", "--porcelain").length > 0;
-  const tail = dirty ? `${shortSha}.dirty` : shortSha;
-  const seconds = Math.floor(Date.now() / 1000);
-
-  return validateReleaseVersion(`${major}.${minor}.${nextPatch}-preview.${seconds}.${tail}`);
-};
 
 const stampVersion = (originalContent: string, version: string, source: string): string => {
   const updated = originalContent.replace(/^(\s*"version":\s*")[^"]+(")/m, `$1${version}$2`);
@@ -168,7 +149,12 @@ const publishReleasePackages = (packDestAbsolute: string, version: string) => {
 
 const main = () => {
   const baseVersion = requireMatchingReleasePackageVersions();
-  const previewVersion = derivePreviewVersion(baseVersion);
+  const previewVersion = derivePreviewVersion({
+    base: baseVersion,
+    dirty: git("status", "--porcelain").length > 0,
+    seconds: Math.floor(Date.now() / 1000),
+    shortSha: git("rev-parse", "--short", "HEAD"),
+  });
   const packDestAbsolute = resolve(PACK_DESTINATION);
 
   console.log("==> Local preview publish");

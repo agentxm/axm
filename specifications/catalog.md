@@ -4648,6 +4648,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 #### Process
 
+##### Release previews preserve the canonical candidate
+
+- Requirement: `system/process/release-preview-preserves-canonical-candidate`
+- Owner: `axm`
+- Statement: The local npm cohort preview workflow shall derive every preview version below the current stable cohort version so a first preview publication cannot cause canonical publication of that stable version to be treated as superseded.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `system/process/release-publication-preserves-newer-versions`
+- Source: [`scripts/release-preview-version-preserves-candidate.spec.ts`](../scripts/release-preview-version-preserves-candidate.spec.ts)
+
 ##### Release promotion checks public validators before conditional updates
 
 - Requirement: `system/process/release-promotion-validates-public-validators`

@@ -63,22 +63,19 @@ describe("workspace transition lock", () => {
             const contention = yield* lock.acquire({
               workspaceDir,
               holder: { command: "install", pid: process.pid },
-              // Match the production refresh cadence so a saturated parallel
-              // test worker cannot run the first callback while holder metadata
-              // is still being recorded.
-              timingMillis: { stale: 30_000, update: 5000 },
+              timingMillis: { stale: 2000, update: 1000 },
             });
             expect(Option.isNone(contention)).toBe(true);
             const held = Option.getOrUndefined(yield* lock.held(path.resolve(workspaceDir)));
             expect(held).toBeDefined();
-            yield* Effect.sleep("5500 millis");
+            yield* Effect.sleep("1500 millis");
             if (held?.isCompromised()) {
               return yield* held.compromised;
             }
           }),
         );
       }).pipe(Effect.provide(services)),
-    { timeout: 10_000 },
+    { timeout: 5000 },
   );
 
   it.live(

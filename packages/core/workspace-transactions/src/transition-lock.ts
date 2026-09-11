@@ -123,17 +123,47 @@ export const transitionLockPath = (path: Path.Path, workspaceDir: string): strin
 
 /**
  * The filesystem handed to `proper-lockfile`. Identical to the platform fs
- * except that removing a transition-lock directory first clears the tool's
- * own holder metadata inside it. The library reclaims a stale lock and
- * releases a held one with a non-recursive `rmdir`; without this, a lock
- * directory left by a crashed process — which always still contains
- * `holder.json` — could never be reclaimed, and every later mutation would
- * wait out its bound and report a false contention. Removal stays
- * non-recursive past that one owned name, so foreign content keeps blocking
- * removal the way it always did.
+ * except for the transition-lock directory itself:
+ *
+ * - acquisition creates an empty holder file before `proper-lockfile` probes
+ *   and records the directory mtime;
+ * - removal clears that owned holder file before the library's non-recursive
+ *   `rmdir`.
+ *
+ * Recording holder metadata therefore overwrites an existing file instead of
+ * adding a directory entry, so it cannot change the lock directory mtime and
+ * compromise the first heartbeat. The empty placeholder is also safe during
+ * the narrow acquisition window: it is unreadable as holder metadata, so an
+ * old finalizer can never mistake a successor's acquisition for its own.
+ * Stale reclamation can remove crashed holders, while foreign content still
+ * blocks removal as it always did.
  */
 const lockDirectoryFs = {
   ...nodeFs,
+  mkdir: (target: nodeFs.PathLike, callback: nodeFs.NoParamCallback): void => {
+    if (typeof target !== "string" || !target.endsWith(TRANSITION_LOCK_FILENAME)) {
+      nodeFs.mkdir(target, callback);
+      return;
+    }
+    nodeFs.mkdir(target, (directoryError) => {
+      if (directoryError !== null) {
+        callback(directoryError);
+        return;
+      }
+      const holderPath = `${target}/holder.json`;
+      nodeFs.writeFile(holderPath, "", { flag: "wx" }, (holderError) => {
+        if (holderError === null) {
+          callback(null);
+          return;
+        }
+        // Surface the original placeholder failure after best-effort cleanup;
+        // leaving a half-created directory would turn it into false contention.
+        nodeFs.unlink(holderPath, () => {
+          nodeFs.rmdir(target, () => callback(holderError));
+        });
+      });
+    });
+  },
   rmdir: (target: nodeFs.PathLike, callback: nodeFs.NoParamCallback): void => {
     if (typeof target === "string" && target.endsWith(TRANSITION_LOCK_FILENAME)) {
       nodeFs.unlink(`${target}/holder.json`, () => {
@@ -333,36 +363,9 @@ const acquireWorkspaceTransitionLock = (
           }
           const release = granted.success;
           const token = randomBytes(16).toString("hex");
-          const holderStamped = yield* Effect.gen(function* () {
-            const lockInfo = yield* fs
-              .stat(lockPath)
-              .pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new TransitionLockError({ path: lockPath, step: "inspect-timestamp", cause }),
-                ),
-              );
-            const lockMtime = yield* Option.match(lockInfo.mtime, {
-              onNone: () =>
-                Effect.fail(new TransitionLockError({ path: lockPath, step: "missing-timestamp" })),
-              onSome: Effect.succeed,
-            });
-            yield* writeHolder(fs, path, lockPath, {
-              ...args.holder,
-              token,
-            });
-            // proper-lockfile proves ownership by comparing the directory's
-            // mtime with the timestamp it recorded at acquisition. Writing
-            // holder.json changes that directory mtime, so restore the exact
-            // acquired value before the first refresh observes it.
-            yield* fs
-              .utimes(lockPath, lockMtime, lockMtime)
-              .pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new TransitionLockError({ path: lockPath, step: "preserve-timestamp", cause }),
-                ),
-              );
+          const holderStamped = yield* writeHolder(fs, path, lockPath, {
+            ...args.holder,
+            token,
           }).pipe(Effect.result);
           if (holderStamped._tag === "Failure") {
             // The holder metadata is the only ownership evidence this

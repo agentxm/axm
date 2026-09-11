@@ -1,6 +1,3 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
-
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -50,9 +47,11 @@ describe("Coding-agent membership", () => {
     // Workstation evidence with no project evidence is the case that makes the
     // sources overlap: the agent is detected on the workstation and is also
     // named by the catalog suggestion the empty project falls back to.
-    const fixture = makeSetupFixture({ selectAgents: ["claude-code"] });
+    const fixture = makeSetupFixture({
+      selectAgents: ["claude-code"],
+      installedExecutables: ["claude"],
+    });
     cleanups.push(fixture.cleanup);
-    fs.mkdirSync(path.join(fixture.home, ".claude"), { recursive: true });
 
     return fixture
       .provide(

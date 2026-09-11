@@ -11,22 +11,22 @@ import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command
 import { handleDefaultRegistryFqnView, handleView } from "./handler.js";
 
 const viewConfig = {
-  handle: Argument.string("extension").pipe(
+  handle: Argument.String("extension").pipe(
     Argument.withDescription("Fully-qualified extension handle (@owner/skills/name)"),
   ),
-  field: Argument.string("field").pipe(
+  field: Argument.String("field").pipe(
     Argument.withDescription(
       "Optional field: version, versions, latest, description, owner, type, visibility",
     ),
     Argument.optional,
   ),
-  registry: Flag.string("registry").pipe(
+  registry: Flag.String("registry").pipe(
     Flag.withDescription("Target a specific named registry instead of the default"),
     Flag.optional,
   ),
   // Pack is excluded by the identifier resolver because containers have no
   // per-type installed-name map. Fully qualified pack identities still work.
-  type: Flag.choice("type", [...CATALOG_EXTENSION_TYPES]).pipe(
+  type: Flag.Literals("type", [...CATALOG_EXTENSION_TYPES]).pipe(
     Flag.withDescription("Non-container extension type for bare-name lookup"),
     Flag.optional,
   ),

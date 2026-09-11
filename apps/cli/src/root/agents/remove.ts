@@ -158,7 +158,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
 });
 
 const removeConfig = {
-  ids: Argument.string("id").pipe(
+  ids: Argument.String("id").pipe(
     Argument.withDescription("Configured coding-agent IDs to remove"),
     Argument.atLeast(1),
   ),

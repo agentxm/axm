@@ -112,6 +112,7 @@
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
+    "@fast-check/vitest": "catalog:",
     "fflate": "catalog:",
     "semver": "catalog:",
     "swagger2openapi": "catalog:",

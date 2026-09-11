@@ -70,11 +70,11 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
 });
 
 const config = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("Local or Git native extension source"),
   ),
-  target: Argument.string("extension").pipe(Argument.withDescription("New managed target FQN")),
-  enable: Flag.boolean("enable").pipe(
+  target: Argument.String("extension").pipe(Argument.withDescription("New managed target FQN")),
+  enable: Flag.Boolean("enable").pipe(
     Flag.withDescription("Enable and materialize a newly imported extension"),
     Flag.withDefault(false),
   ),

@@ -739,7 +739,7 @@ export const createRemoteRegistryClient = (
 
       // Step 3: Download archive, streaming the body so the caller observes
       // progress as bytes arrive; the transport never decides how often.
-      const archivePath = `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${resolvedEntry.value.version}/archive`;
+      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${pluralizeType(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(resolvedEntry.value.version)}/archive`;
       const archive = yield* executeRemoteRequest(
         downloadArchive(
           args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient,

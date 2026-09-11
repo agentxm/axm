@@ -11,7 +11,7 @@ import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const unpackConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Pack name to unpack")),
+  name: Argument.String("name").pipe(Argument.withDescription("Pack name to unpack")),
   scope: scopeFlag.pipe(Flag.withDescription("Unpack project (default) or user-level pack state")),
   preview: previewCapabilityFlag("Show what would change in settings without modifying them"),
 } as const;

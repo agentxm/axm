@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 
 import {
   decodeVersionRangeSync,
@@ -62,36 +62,25 @@ const decodeRange = Schema.decodeUnknownEffect(VersionRangeSchema);
 const decodeVersion = Schema.decodeUnknownEffect(VersionSchema);
 
 describe("Version constraint satisfaction", () => {
-  it.effect.prop(
+  fastCheckIt.prop({ candidate: tripleArbitrary, base: tripleArbitrary }, { numRuns: 300 })(
     "a caret constraint accepts exactly the versions that keep the leftmost non-zero part",
-    { candidate: tripleArbitrary, base: tripleArbitrary },
-    ({ candidate, base }) =>
-      Effect.sync(() => {
-        expect(satisfies(render(candidate), `^${render(base)}`)).toBe(
-          caretAccepts(candidate, base),
-        );
-      }),
-    { fastCheck: { numRuns: 300 } },
+    ({ candidate, base }) => {
+      expect(satisfies(render(candidate), `^${render(base)}`)).toBe(caretAccepts(candidate, base));
+    },
   );
 
-  it.effect.prop(
+  fastCheckIt.prop({ candidate: tripleArbitrary, base: tripleArbitrary }, { numRuns: 150 })(
     "an exact constraint accepts exactly its own version",
-    { candidate: tripleArbitrary, base: tripleArbitrary },
-    ({ candidate, base }) =>
-      Effect.sync(() => {
-        expect(satisfies(render(candidate), render(base))).toBe(compare(candidate, base) === 0);
-      }),
-    { fastCheck: { numRuns: 150 } },
+    ({ candidate, base }) => {
+      expect(satisfies(render(candidate), render(base))).toBe(compare(candidate, base) === 0);
+    },
   );
 
-  it.effect.prop(
+  fastCheckIt.prop({ candidate: tripleArbitrary }, { numRuns: 50 })(
     "the wildcard constraint accepts every version",
-    { candidate: tripleArbitrary },
-    ({ candidate }) =>
-      Effect.sync(() => {
-        expect(satisfies(render(candidate), "*")).toBe(true);
-      }),
-    { fastCheck: { numRuns: 50 } },
+    ({ candidate }) => {
+      expect(satisfies(render(candidate), "*")).toBe(true);
+    },
   );
 
   it.effect(

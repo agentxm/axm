@@ -14,8 +14,8 @@ import { isCI } from "../utils/environment.js";
  * as the source of truth for interactivity — it combines this flag with
  * environment detection (CI, TTY).
  */
-export const nonInteractiveFlag = GlobalFlag.setting("axm-non-interactive")({
-  flag: Flag.boolean("non-interactive").pipe(
+export const nonInteractiveFlag = GlobalFlag.Setting("axm-non-interactive")({
+  flag: Flag.Boolean("non-interactive").pipe(
     Flag.optional,
     Flag.withDescription("Never prompt; fail with guidance when input is required"),
   ),

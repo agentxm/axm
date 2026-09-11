@@ -28,7 +28,7 @@ const FrontmatterWireSchema = Schema.Record(Schema.String, Schema.Json);
 export const FrontmatterDocumentSchema = FrontmatterWireSchema.pipe(
   Schema.decodeTo(
     Schema.toType(Schema.Record(Schema.String, Schema.Unknown)),
-    SchemaTransformation.transformOrFail<Readonly<Record<string, unknown>>, Schema.JsonObject>({
+    SchemaTransformation.transformEffect<Readonly<Record<string, unknown>>, Schema.JsonObject>({
       decode: (frontmatter) => Effect.succeed(frontmatter),
       encode: (frontmatter) => SchemaParser.decodeUnknownEffect(FrontmatterWireSchema)(frontmatter),
     }),

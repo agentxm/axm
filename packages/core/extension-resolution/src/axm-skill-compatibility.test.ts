@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
@@ -48,19 +48,17 @@ describe("validateAxmSkillCliVersionRange", () => {
     expect(validateAxmSkillCliVersionRange(range).valid).toBe(valid);
   });
 
-  it.prop(
-    "accepts every generated exact semantic version",
+  fastCheckIt.prop(
     {
       major: FastCheck.integer({ min: 0, max: 100 }),
       minor: FastCheck.integer({ min: 0, max: 100 }),
       patch: FastCheck.integer({ min: 0, max: 100 }),
     },
-    ({ major, minor, patch }) => {
-      const version = `${major}.${minor}.${patch}`;
-      expect(validateAxmSkillCliVersionRange(version)).toEqual({ valid: true });
-    },
-    { fastCheck: { numRuns: 250, seed: 0x41584d } },
-  );
+    { numRuns: 250, seed: 0x41584d },
+  )("accepts every generated exact semantic version", ({ major, minor, patch }) => {
+    const version = `${major}.${minor}.${patch}`;
+    expect(validateAxmSkillCliVersionRange(version)).toEqual({ valid: true });
+  });
 });
 
 describe("evaluateAxmSkillCompatibility", () => {

@@ -49,16 +49,16 @@ export const handleKnowledgeNew = (args: KnowledgeNewHandlerArgs) =>
   });
 
 const newConfig = {
-  name: Argument.string("name").pipe(
+  name: Argument.String("name").pipe(
     Argument.withDescription("Name of the knowledge bundle (without owner)"),
   ),
-  owner: Flag.string("owner").pipe(
+  owner: Flag.String("owner").pipe(
     Flag.withDescription(
       "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
     ),
     Flag.optional,
   ),
-  description: Flag.string("description").pipe(
+  description: Flag.String("description").pipe(
     Flag.withDescription("Concise bundle-level discovery summary"),
     Flag.optional,
   ),

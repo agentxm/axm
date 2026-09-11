@@ -32,7 +32,7 @@ export const handleDisable = (args: DisableHandlerArgs) =>
   );
 
 const disableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the skill to disable")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the skill to disable")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),

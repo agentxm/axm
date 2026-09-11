@@ -200,7 +200,7 @@ export const formatRegistrySourceRef = (value: RegistrySourceRefParts): string =
 export const RegistrySourcePatternSchema = Schema.String.pipe(
   Schema.decodeTo(
     Schema.toType(RegistrySourcePatternPartsSchema),
-    SchemaTransformation.transformOrFail({
+    SchemaTransformation.transformEffect({
       decode: (input: string) => {
         const parsed = parseRegistrySourcePatternParts(input);
         return parsed === undefined
@@ -217,7 +217,7 @@ export const RegistrySourcePatternSchema = Schema.String.pipe(
 export const RegistrySourceRefSchema = Schema.String.pipe(
   Schema.decodeTo(
     Schema.toType(RegistrySourceRefPartsSchema),
-    SchemaTransformation.transformOrFail({
+    SchemaTransformation.transformEffect({
       decode: (input: string) => {
         const parsed = parseRegistrySourceRef(input);
         return parsed === undefined

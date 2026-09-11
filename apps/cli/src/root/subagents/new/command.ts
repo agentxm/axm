@@ -11,10 +11,10 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleSubagentsNew } from "./handler.js";
 
 const newConfig = {
-  name: Argument.string("name").pipe(
+  name: Argument.String("name").pipe(
     Argument.withDescription("Name of the subagent (without owner)"),
   ),
-  owner: Flag.string("owner").pipe(
+  owner: Flag.String("owner").pipe(
     Flag.withDescription(
       "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
     ),

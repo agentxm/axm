@@ -47,7 +47,7 @@ export const ResolvePlanInteractionLive = Layer.effect(
       confirmApplyChanges: (recovery) =>
         screen
           .prompt(
-            requireInteractive(Prompt.confirm({ message: confirmApplyChangesMessage }), {
+            requireInteractive(Prompt.Confirm({ message: confirmApplyChangesMessage }), {
               message: confirmApplyChangesMessage,
               suggestions: confirmationRecoverySuggestions(recovery, "interactive"),
             }).pipe(Effect.provide(promptEnvironment)),

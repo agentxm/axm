@@ -58,22 +58,22 @@ export const handleHooksNew = (args: HooksNewHandlerArgs) =>
   });
 
 const newConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the hook (without owner)")),
-  owner: Flag.string("owner").pipe(
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the hook (without owner)")),
+  owner: Flag.String("owner").pipe(
     Flag.withDescription(
       "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
     ),
     Flag.optional,
   ),
-  runtime: Flag.choice("runtime", HOOK_RUNTIMES).pipe(
+  runtime: Flag.Literals("runtime", HOOK_RUNTIMES).pipe(
     Flag.withDescription("Interpreter family for the entrypoint"),
     Flag.withDefault("bash" as const),
   ),
-  event: Flag.choice("event", HOOK_EVENTS).pipe(
+  event: Flag.Literals("event", HOOK_EVENTS).pipe(
     Flag.withDescription("Canonical hook event to bind to"),
     Flag.withDefault("tool.pre" as const),
   ),
-  matcher: Flag.string("matcher").pipe(
+  matcher: Flag.String("matcher").pipe(
     Flag.withDescription("Raw native matcher for tool.pre/tool.post (e.g., Write|Edit)"),
     Flag.optional,
   ),

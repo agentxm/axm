@@ -63,6 +63,7 @@
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@typescript/native": "catalog:",
+    "@fast-check/vitest": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"

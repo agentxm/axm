@@ -12,13 +12,13 @@ export class HumanVerificationOptions extends Context.Service<
   HumanVerificationOptionsService
 >()("axm.sh/cli-flags/HumanVerificationOptions") {}
 
-export const waitForHumanOption = Flag.integer("wait-for-human").pipe(
+export const waitForHumanOption = Flag.Int("wait-for-human").pipe(
   Flag.withDescription("Wait at most this many seconds for human verification of this write"),
   Flag.optional,
 );
 
 export const humanVerificationFlags = {
-  stepUpRequest: Flag.string("step-up-request").pipe(
+  stepUpRequest: Flag.String("step-up-request").pipe(
     Flag.withDescription("Resume this write using its step-up request URL and unchanged inputs"),
     Flag.optional,
   ),

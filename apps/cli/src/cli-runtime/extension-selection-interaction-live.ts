@@ -49,7 +49,7 @@ const askForSelection = <T>(
       Layer.succeed(Terminal.Terminal, terminal),
     );
     return yield* screen.prompt(
-      requireInteractive(Prompt.multiSelect({ message, choices, min: 1 }), {
+      requireInteractive(Prompt.MultiSelect({ message, choices, min: 1 }), {
         message,
         guidance,
       }).pipe(Effect.provide(promptEnvironment)),

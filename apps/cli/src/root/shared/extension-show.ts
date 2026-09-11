@@ -122,7 +122,7 @@ export const makeExtensionShowCommand = (args: {
 }) => {
   const label = extensionTypeSentenceLabels[args.type];
   const showConfig = {
-    name: Argument.string("name").pipe(Argument.withDescription(`Name of the ${label} to inspect`)),
+    name: Argument.String("name").pipe(Argument.withDescription(`Name of the ${label} to inspect`)),
     scope: scopeFlag.pipe(
       Flag.withDescription("Inspect project (default) or user-level configuration"),
     ),

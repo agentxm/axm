@@ -74,15 +74,15 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
 });
 
 const config = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("Registry, workspace, local, or Git AXM package source"),
   ),
-  target: Argument.string("extension").pipe(Argument.withDescription("New target FQN")),
-  from: Flag.string("from").pipe(
+  target: Argument.String("extension").pipe(Argument.withDescription("New target FQN")),
+  from: Flag.String("from").pipe(
     Flag.withDescription("Source package FQN when the source contains multiple packages"),
     Flag.optional,
   ),
-  enable: Flag.boolean("enable").pipe(
+  enable: Flag.Boolean("enable").pipe(
     Flag.withDescription("Enable and materialize a newly forked extension"),
     Flag.withDefault(false),
   ),

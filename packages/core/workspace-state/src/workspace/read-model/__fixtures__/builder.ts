@@ -28,6 +28,7 @@
  *   Phase 5 it falls back to a `Layer.fail` placeholder.
  */
 
+import * as ByteSize from "effect/ByteSize";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -319,7 +320,7 @@ const makeInMemoryFs = (files: ReadonlyMap<string, string>): FileSystem.FileSyst
           uid: Option.none(),
           gid: Option.none(),
           rdev: Option.none(),
-          size: FileSystem.Size(0),
+          size: ByteSize.bytes(0),
           blksize: Option.none(),
           blocks: Option.none(),
         } satisfies FileSystem.File.Info);
@@ -337,7 +338,7 @@ const makeInMemoryFs = (files: ReadonlyMap<string, string>): FileSystem.FileSyst
           uid: Option.none(),
           gid: Option.none(),
           rdev: Option.none(),
-          size: FileSystem.Size(0),
+          size: ByteSize.bytes(0),
           blksize: Option.none(),
           blocks: Option.none(),
         } satisfies FileSystem.File.Info);

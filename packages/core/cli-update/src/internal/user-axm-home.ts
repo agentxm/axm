@@ -18,7 +18,7 @@ import * as Path from "effect/Path";
 /** Directory name of the AXM application home inside a user's home directory. */
 export const AXM_DIR_NAME = ".axm";
 
-const axmUserHomeConfig = Config.option(Config.string("AXM_USER_HOME"));
+const axmUserHomeConfig = Config.option(Config.String("AXM_USER_HOME"));
 
 export const resolveUserAxmHomePure = (
   pathJoin: (...segments: ReadonlyArray<string>) => string,

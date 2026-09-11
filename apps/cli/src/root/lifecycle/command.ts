@@ -146,18 +146,18 @@ export const handleUndeprecate = Effect.fn("Undeprecate.handle")(
 
 const yankConfig = {
   ...humanVerificationFlags,
-  ref: Argument.string("extension").pipe(
+  ref: Argument.String("extension").pipe(
     Argument.withDescription("Exact version ref, or an extension FQN with --all-versions"),
   ),
-  allVersions: Flag.boolean("all-versions").pipe(
+  allVersions: Flag.Boolean("all-versions").pipe(
     Flag.withDescription("Atomically yank all versions currently available"),
     Flag.withDefault(false),
   ),
-  category: Flag.choice("category", categoryValues).pipe(
+  category: Flag.Literals("category", categoryValues).pipe(
     Flag.withDescription("Public yank category"),
     Flag.optional,
   ),
-  notice: Flag.string("notice").pipe(
+  notice: Flag.String("notice").pipe(
     Flag.withDescription("Safe public yank notice (maximum 500 characters)"),
     Flag.optional,
   ),
@@ -165,35 +165,35 @@ const yankConfig = {
 
 const exactRefConfig = {
   ...humanVerificationFlags,
-  ref: Argument.string("extension").pipe(
+  ref: Argument.String("extension").pipe(
     Argument.withDescription("Exact extension version ref (@owner/<plural-type>/name@1.2.3)"),
   ),
 } as const;
 
 const deprecateConfig = {
-  ref: Argument.string("extension").pipe(
+  ref: Argument.String("extension").pipe(
     Argument.withDescription("Extension FQN (@owner/<plural-type>/name)"),
   ),
-  message: Flag.string("message").pipe(
+  message: Flag.String("message").pipe(
     Flag.withDescription("Concise publisher migration guidance (maximum 500 characters)"),
     Flag.optional,
   ),
-  replacement: Flag.string("replacement").pipe(
+  replacement: Flag.String("replacement").pipe(
     Flag.withDescription("Replacement extension FQN"),
     Flag.optional,
   ),
-  clearMessage: Flag.boolean("clear-message").pipe(
+  clearMessage: Flag.Boolean("clear-message").pipe(
     Flag.withDescription("Remove the current publisher message"),
     Flag.withDefault(false),
   ),
-  clearReplacement: Flag.boolean("clear-replacement").pipe(
+  clearReplacement: Flag.Boolean("clear-replacement").pipe(
     Flag.withDescription("Remove the current replacement relationship"),
     Flag.withDefault(false),
   ),
 } as const;
 
 const extensionRefConfig = {
-  ref: Argument.string("extension").pipe(
+  ref: Argument.String("extension").pipe(
     Argument.withDescription("Extension FQN (@owner/<plural-type>/name)"),
   ),
 } as const;

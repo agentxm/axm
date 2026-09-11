@@ -77,7 +77,7 @@ describe("Recorded Registry update assessment", () => {
             // Every request went to the recorded Registry source, never elsewhere.
             expect(fixture.requests.length).toBeGreaterThan(0);
             for (const request of fixture.requests)
-              expect(request.url).toContain("/v1/extensions/@acme/skills/review");
+              expect(request.url).toContain("/v1/extensions/%40acme/skills/review");
           }),
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));

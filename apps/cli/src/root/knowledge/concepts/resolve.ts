@@ -80,10 +80,10 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
 });
 
 const resolveConfig = {
-  input: Argument.string("input").pipe(
+  input: Argument.String("input").pipe(
     Argument.withDescription("Compact or canonical HTTPS concept reference"),
   ),
-  fuzzy: Flag.boolean("fuzzy").pipe(
+  fuzzy: Flag.Boolean("fuzzy").pipe(
     Flag.withDescription("Opt into bounded concept ID and title candidate matching"),
     Flag.withDefault(false),
   ),

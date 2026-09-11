@@ -250,7 +250,7 @@ export type TelemetryBreadcrumb = {
   readonly message?: string;
   readonly timestamp?: string;
   readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
-  readonly data?: { readonly [x: string]: never };
+  readonly data?: { readonly [x: string]: Schema.Json };
 };
 export const TelemetryBreadcrumb = Schema.Struct({
   type: Schema.optionalKey(Schema.String),
@@ -263,7 +263,9 @@ export const TelemetryBreadcrumb = Schema.Struct({
       description: "Severity level associated with an error report or breadcrumb.",
     }),
   ),
-  data: Schema.optionalKey(Schema.Record(Schema.String, Schema.Never)),
+  data: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
+  ),
 }).annotate({
   title: "Telemetry Breadcrumb",
   description: "Lightweight diagnostic breadcrumb attached to an error report.",
@@ -765,7 +767,7 @@ export const make = (
   return {
     httpClient,
     MetaGet: (options) =>
-      HttpClientRequest.get(`/v1`).pipe(
+      HttpClientRequest.get("/v1").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(MetaGet200),
@@ -775,7 +777,7 @@ export const make = (
         ),
       ),
     HealthGetShallowHealth: (options) =>
-      HttpClientRequest.get(`/v1/health`).pipe(
+      HttpClientRequest.get("/v1/health").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetShallowHealth200),
@@ -785,7 +787,7 @@ export const make = (
         ),
       ),
     HealthGetDeepHealth: (options) =>
-      HttpClientRequest.get(`/v1/health/dependencies`).pipe(
+      HttpClientRequest.get("/v1/health/dependencies").pipe(
         HttpClientRequest.setHeaders({
           "x-health-key": options?.params?.["x-health-key"] ?? undefined,
         }),
@@ -798,7 +800,7 @@ export const make = (
         ),
       ),
     HealthGetObservabilityVerification: (options) =>
-      HttpClientRequest.get(`/v1/debug/observability`).pipe(
+      HttpClientRequest.get("/v1/debug/observability").pipe(
         HttpClientRequest.setUrlParams({
           level: options?.params?.["level"] as any,
           scenario: options?.params?.["scenario"] as any,
@@ -819,7 +821,7 @@ export const make = (
         ),
       ),
     EventsIngest: (options) =>
-      HttpClientRequest.post(`/v1/events`).pipe(
+      HttpClientRequest.post("/v1/events").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -831,7 +833,7 @@ export const make = (
         ),
       ),
     ErrorsIngest: (options) =>
-      HttpClientRequest.post(`/v1/errors`).pipe(
+      HttpClientRequest.post("/v1/errors").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({

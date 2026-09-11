@@ -118,7 +118,7 @@ export const AuthLoginPresenterLive = Layer.effect(
               new AuthInteractionAbandoned({ message: `Interactive prompt required: ${message}` }),
             ),
           onSome: (environment) =>
-            screen.prompt(requireInteractive(Prompt.confirm({ message }), { message })).pipe(
+            screen.prompt(requireInteractive(Prompt.Confirm({ message }), { message })).pipe(
               Effect.map((replace): SessionReplacementDecision => (replace ? "replace" : "keep")),
               Effect.catchTag("PromptCancelled", (cancelled) =>
                 Effect.fail(new AuthInteractionAbandoned({ message: cancelled.message })),

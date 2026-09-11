@@ -13,7 +13,7 @@ import { handleUpdate } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const updateConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("Filter to skills from a specific source (owner/repo, path, or URL)"),
     Argument.optional,
   ),

@@ -88,14 +88,14 @@ export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")
 });
 
 const optionalString = (name: string, description: string) =>
-  Flag.string(name).pipe(Flag.withDescription(description), Flag.optional);
+  Flag.String(name).pipe(Flag.withDescription(description), Flag.optional);
 const repeatedString = (name: string, description: string) =>
-  Flag.string(name).pipe(Flag.withDescription(description), Flag.atLeast(0));
+  Flag.String(name).pipe(Flag.withDescription(description), Flag.atLeast(0));
 const optionalInteger = (name: string, description: string) =>
-  Flag.integer(name).pipe(Flag.withDescription(description), Flag.optional);
+  Flag.Int(name).pipe(Flag.withDescription(description), Flag.optional);
 
 const queryConfig = {
-  expression: Argument.string("expression").pipe(
+  expression: Argument.String("expression").pipe(
     Argument.withDescription("Optional text expression using terms, phrases, and literals"),
     Argument.optional,
   ),
@@ -114,7 +114,7 @@ const queryConfig = {
   ),
   tag: repeatedString("tag", "Require an exact tag; repeatable"),
   bundle: optionalString("bundle", "Require an exact Knowledge bundle FQN"),
-  kind: Flag.choice("kind", ["concept", "index", "log"] as const).pipe(
+  kind: Flag.Literals("kind", ["concept", "index", "log"] as const).pipe(
     Flag.withDescription("Select ordinary, index, or log documents"),
     Flag.optional,
   ),
@@ -126,7 +126,7 @@ const queryConfig = {
     "Maximum characters per evidence passage (1-2000)",
   ),
   cursor: optionalString("cursor", "Continue from a previous opaque cursor"),
-  explain: Flag.boolean("explain").pipe(
+  explain: Flag.Boolean("explain").pipe(
     Flag.withDescription("Include deterministic ranking rules in machine output"),
     Flag.withDefault(false),
   ),

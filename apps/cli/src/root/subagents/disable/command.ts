@@ -11,7 +11,7 @@ import {
 import { handleDisableSubagent } from "./handler.js";
 
 const disableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the subagent to disable")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the subagent to disable")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),

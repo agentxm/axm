@@ -12,7 +12,7 @@ import { handleInstallMcpServer } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("Registry MCP server reference (@owner/mcps/name or bare name)"),
     Argument.optional,
   ),
@@ -21,12 +21,12 @@ const installConfig = {
   ),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall an MCP server that already exists")),
   preview: previewCapabilityFlag("Show what would be installed without making changes"),
-  env: Flag.string("env").pipe(
+  env: Flag.String("env").pipe(
     Flag.withAlias("e"),
     Flag.withDescription("Provide an MCP input value as KEY=VALUE; repeatable"),
     Flag.atLeast(0),
   ),
-  as: Flag.string("as").pipe(Flag.withDescription("Install using this local name"), Flag.optional),
+  as: Flag.String("as").pipe(Flag.withDescription("Install using this local name"), Flag.optional),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 

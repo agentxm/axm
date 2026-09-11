@@ -362,7 +362,7 @@ describe("root publish", () => {
     const httpClient = HttpClient.make((request) =>
       Effect.sync(() => {
         const url = new URL(request.url);
-        if (request.method === "GET" && url.pathname === "/v1/owners/@acme") {
+        if (request.method === "GET" && url.pathname === "/v1/owners/%40acme") {
           return HttpClientResponse.fromWeb(
             request,
             new Response(JSON.stringify({ displayName: "Acme" }), {
@@ -445,7 +445,7 @@ describe("root publish", () => {
     const httpClient = HttpClient.make((request) =>
       Effect.sync(() => {
         const url = new URL(request.url);
-        if (request.method === "GET" && url.pathname === "/v1/owners/@acme") {
+        if (request.method === "GET" && url.pathname === "/v1/owners/%40acme") {
           return HttpClientResponse.fromWeb(
             request,
             new Response(JSON.stringify({ displayName: "Acme" }), {

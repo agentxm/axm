@@ -61,7 +61,7 @@ describe("Anonymous public view", () => {
       expect(registry.requests).toHaveLength(1);
       expect(registry.requests[0]).toMatchObject({
         method: "GET",
-        url: `${inspectionRegistryUrl}/v1/extensions/@acme/skills/review`,
+        url: `${inspectionRegistryUrl}/v1/extensions/%40acme/skills/review`,
         hasAuthorization: false,
       });
     }).pipe(

@@ -313,7 +313,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
 }, Effect.asVoid);
 
 const setupConfig = {
-  scope: Flag.choice("scope", ["project", "user"] as const).pipe(
+  scope: Flag.Literals("scope", ["project", "user"] as const).pipe(
     Flag.withDescription("Configuration scope: project or user (required for unattended apply)"),
     Flag.optional,
   ),

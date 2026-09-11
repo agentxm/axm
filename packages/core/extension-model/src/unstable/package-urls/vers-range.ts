@@ -183,7 +183,7 @@ const parseVersRangeEffect = (value: string) => {
 export const VersRangeSchema = Schema.NonEmptyString.pipe(
   Schema.decodeTo(
     Schema.toType(VersRangeDecodedSchema),
-    SchemaTransformation.transformOrFail({
+    SchemaTransformation.transformEffect({
       decode: parseVersRangeEffect,
       encode: (value) => Effect.succeed(value.raw),
     }),

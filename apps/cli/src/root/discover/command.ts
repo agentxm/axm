@@ -10,7 +10,7 @@ import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command
 import { handleDiscover } from "./handler.js";
 
 const discoverConfig = {
-  path: Flag.string("path").pipe(
+  path: Flag.String("path").pipe(
     Flag.optional,
     Flag.withDescription("Scan a different directory instead of the current working directory"),
   ),

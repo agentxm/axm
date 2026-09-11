@@ -99,7 +99,7 @@ export const PackageUrlSchema = Schema.String.pipe(
   ),
   Schema.decodeTo(
     Schema.toType(PackageUrlPartsSchema),
-    SchemaTransformation.transformOrFail({
+    SchemaTransformation.transformEffect({
       decode: (input: string) => {
         try {
           const parsed = PackageURL.fromString(input);

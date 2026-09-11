@@ -17,7 +17,7 @@ import {
   handleVisibilityStatus,
 } from "./handler.js";
 
-const targetArgument = Argument.string("extension").pipe(
+const targetArgument = Argument.String("extension").pipe(
   Argument.withDescription("Exact extension FQN (@owner/<plural-type>/name)"),
 );
 
@@ -44,7 +44,7 @@ const statusCommandWithExamples = statusCommand.pipe(
 const setConfig = {
   ...humanVerificationFlags,
   fqn: targetArgument,
-  visibility: Argument.choice("visibility", ["public", "private"] as const),
+  visibility: Argument.Literals("visibility", ["public", "private"] as const),
 } as const;
 const setCommand = Command.make("set", setConfig, ({ fqn, visibility }) =>
   handleVisibilitySet(fqn, visibility).pipe(withRuntime("visibility set")),

@@ -1572,14 +1572,14 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
     describe("RemoteRegistryClient", () => {
       const stubHttpClient = HttpClient.make((request) =>
         Effect.sync(() => {
-          if (request.url.endsWith("/v1/owners/@test")) {
+          if (request.url.endsWith("/v1/owners/%40test")) {
             return HttpClientResponse.fromWeb(
               request,
               new Response(JSON.stringify({ displayName: "Test Owner" }), { status: 200 }),
             );
           }
 
-          if (request.url.endsWith("/v1/extensions/@test")) {
+          if (request.url.endsWith("/v1/extensions/%40test")) {
             return HttpClientResponse.fromWeb(
               request,
               new Response(
@@ -1600,7 +1600,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
             );
           }
 
-          if (request.url.endsWith("/v1/extensions/@test/skills")) {
+          if (request.url.endsWith("/v1/extensions/%40test/skills")) {
             return HttpClientResponse.fromWeb(
               request,
               new Response(
@@ -1621,7 +1621,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
             );
           }
 
-          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
+          if (request.url.endsWith("/v1/extensions/%40test/skills/my-skill")) {
             // HEAD requests for extensionExists
             if (request.method === "HEAD") {
               return HttpClientResponse.fromWeb(request, new Response(null, { status: 200 }));
@@ -1648,7 +1648,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
             );
           }
 
-          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill/1.0.0/archive")) {
+          if (request.url.endsWith("/v1/extensions/%40test/skills/my-skill/1.0.0/archive")) {
             return HttpClientResponse.fromWeb(
               request,
               new Response(new Uint8Array([0x50, 0x4b]), { status: 200 }),

@@ -19,11 +19,13 @@ import * as crypto from "node:crypto";
 import * as http from "node:http";
 import { unzipSync, zipSync } from "fflate";
 
-const PUBLISH_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)$/;
+const PUBLISH_PATH = /^\/v1\/extensions\/([^/]+)\/([^/]+)\/([^/]+)\/([^/]+)$/;
 const VERSION_PATH = PUBLISH_PATH;
-const ARCHIVE_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)\/archive$/;
-const INDEX_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)$/;
-const OWNER_PATH = /^\/v1\/owners\/(@[^/]+)$/;
+const ARCHIVE_PATH = /^\/v1\/extensions\/([^/]+)\/([^/]+)\/([^/]+)\/([^/]+)\/archive$/;
+const INDEX_PATH = /^\/v1\/extensions\/([^/]+)\/([^/]+)\/([^/]+)$/;
+const OWNER_PATH = /^\/v1\/owners\/([^/]+)$/;
+
+const decodePathSegment = (segment: string): string => decodeURIComponent(segment);
 const STEP_UP_REQUEST_ID = "step_01h455vb4pexka56gq5w2r7cpc";
 const TEST_OWNER = "@test";
 
@@ -576,7 +578,12 @@ export const startHttpRegistry = async (
           sendProblem(response, 404, `No publish route for ${pathname}`);
           return;
         }
-        const [, owner = "", plural = "", name = "", version = ""] = match;
+        const [, encodedOwner = "", encodedPlural = "", encodedName = "", encodedVersion = ""] =
+          match;
+        const owner = decodePathSegment(encodedOwner);
+        const plural = decodePathSegment(encodedPlural);
+        const name = decodePathSegment(encodedName);
+        const version = decodePathSegment(encodedVersion);
         const type = TYPE_BY_PLURAL[plural];
         if (type === undefined) {
           sendProblem(response, 404, `Unknown extension type segment "${plural}"`);
@@ -712,7 +719,8 @@ export const startHttpRegistry = async (
 
       const ownerMatch = OWNER_PATH.exec(pathname);
       if (ownerMatch !== null) {
-        const [, owner = ""] = ownerMatch;
+        const [, encodedOwner = ""] = ownerMatch;
+        const owner = decodePathSegment(encodedOwner);
         if (owner !== TEST_OWNER) {
           sendProblem(response, 404, `No owner ${owner}`);
           return;
@@ -732,7 +740,12 @@ export const startHttpRegistry = async (
 
       const archiveMatch = ARCHIVE_PATH.exec(pathname);
       if (archiveMatch !== null) {
-        const [, owner = "", plural = "", name = "", version = ""] = archiveMatch;
+        const [, encodedOwner = "", encodedPlural = "", encodedName = "", encodedVersion = ""] =
+          archiveMatch;
+        const owner = decodePathSegment(encodedOwner);
+        const plural = decodePathSegment(encodedPlural);
+        const name = decodePathSegment(encodedName);
+        const version = decodePathSegment(encodedVersion);
         const stored = extensions
           .get(key(owner, plural, name))
           ?.find((entry) => entry.version === version);
@@ -756,7 +769,12 @@ export const startHttpRegistry = async (
 
       const versionMatch = VERSION_PATH.exec(pathname);
       if (versionMatch !== null) {
-        const [, owner = "", plural = "", name = "", version = ""] = versionMatch;
+        const [, encodedOwner = "", encodedPlural = "", encodedName = "", encodedVersion = ""] =
+          versionMatch;
+        const owner = decodePathSegment(encodedOwner);
+        const plural = decodePathSegment(encodedPlural);
+        const name = decodePathSegment(encodedName);
+        const version = decodePathSegment(encodedVersion);
         const type = TYPE_BY_PLURAL[plural];
         const stored = extensions
           .get(key(owner, plural, name))
@@ -780,7 +798,10 @@ export const startHttpRegistry = async (
 
       const indexMatch = INDEX_PATH.exec(pathname);
       if (indexMatch !== null) {
-        const [, owner = "", plural = "", name = ""] = indexMatch;
+        const [, encodedOwner = "", encodedPlural = "", encodedName = ""] = indexMatch;
+        const owner = decodePathSegment(encodedOwner);
+        const plural = decodePathSegment(encodedPlural);
+        const name = decodePathSegment(encodedName);
         const type = TYPE_BY_PLURAL[plural];
         const versions = extensions.get(key(owner, plural, name));
         if (

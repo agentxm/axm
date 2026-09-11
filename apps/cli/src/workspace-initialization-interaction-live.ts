@@ -123,7 +123,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
         screen
           .prompt(
             requireInteractive(
-              Prompt.confirm({ message: confirmInstructionSyncMessage, initial: enabled }),
+              Prompt.Confirm({ message: confirmInstructionSyncMessage, initial: enabled }),
               { message: confirmInstructionSyncMessage },
             ),
           )
@@ -137,7 +137,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
           yield* screen.note([{ _tag: "blank" }]);
           const selected = yield* screen.prompt(
             requireInteractive(
-              Prompt.select({
+              Prompt.Select({
                 message: selectInstructionSourceMessage,
                 choices: [
                   ...choices.map((choice) => {
@@ -167,7 +167,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
           if (selected !== CUSTOM_SOURCE_FILE) return selected;
           yield* screen.note([{ _tag: "blank" }]);
           return yield* screen.prompt(
-            requireInteractive(Prompt.text({ message: customInstructionSourceMessage }), {
+            requireInteractive(Prompt.String({ message: customInstructionSourceMessage }), {
               message: customInstructionSourceMessage,
             }).pipe(Effect.provide(promptEnvironment)),
           );
@@ -179,7 +179,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
         screen
           .prompt(
             requireInteractive(
-              Prompt.confirm({ message: confirmSetupPlanMessage, initial: true }),
+              Prompt.Confirm({ message: confirmSetupPlanMessage, initial: true }),
               {
                 message: confirmSetupPlanMessage,
               },

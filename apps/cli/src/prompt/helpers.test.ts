@@ -123,7 +123,7 @@ describe("requireInteractive", () => {
       const harness = yield* makeHarness;
       yield* Queue.end(harness.queue);
 
-      const exit = yield* requireInteractive(Prompt.text({ message: "Pet name:" }), {
+      const exit = yield* requireInteractive(Prompt.String({ message: "Pet name:" }), {
         message: "Pet name:",
       }).pipe(
         Effect.flip,

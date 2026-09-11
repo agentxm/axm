@@ -65,19 +65,19 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
 });
 
 const addConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Inline MCP server name")),
+  name: Argument.String("name").pipe(Argument.withDescription("Inline MCP server name")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Add to project (default) or user-level configuration"),
   ),
-  command: Flag.optional(Flag.string("command")).pipe(
+  command: Flag.optional(Flag.String("command")).pipe(
     Flag.withDescription('Inline stdio command, such as "npx -y linear-mcp-server"'),
   ),
-  url: Flag.optional(Flag.string("url")).pipe(Flag.withDescription("Inline remote MCP server URL")),
-  env: Flag.string("env").pipe(
+  url: Flag.optional(Flag.String("url")).pipe(Flag.withDescription("Inline remote MCP server URL")),
+  env: Flag.String("env").pipe(
     Flag.withDescription("Environment variable name or KEY=VALUE; repeatable"),
     Flag.atLeast(0),
   ),
-  header: Flag.string("header").pipe(
+  header: Flag.String("header").pipe(
     Flag.withDescription("Remote header as Name:Value; repeatable"),
     Flag.atLeast(0),
   ),

@@ -26,7 +26,7 @@ export const handleDisableHook = (args: { readonly name: string; readonly previe
   );
 
 const disableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the hooks package")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the hooks package")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),

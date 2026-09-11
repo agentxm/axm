@@ -606,7 +606,7 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
       if (request.method === "GET" && url.pathname.startsWith("/v1/owners/")) {
         return HttpClientResponse.fromWeb(
           request,
-          options.ownerResponse?.(url.pathname.slice("/v1/owners/".length)) ??
+          options.ownerResponse?.(decodeURIComponent(url.pathname.slice("/v1/owners/".length))) ??
             jsonRegistryResponse({ displayName: "Acme" }),
         );
       }
@@ -669,7 +669,7 @@ export const remoteRequest = (overrides: Partial<PublishRequest> = {}): PublishR
 /** The published extension a lifecycle example addresses. */
 export const registryTarget = "@acme/skills/review";
 /** The Registry path that extension's guidance lives under. */
-export const registryTargetPath = `/v1/extensions/${registryTarget}`;
+export const registryTargetPath = `/v1/extensions/${registryTarget.replace("@", "%40")}`;
 /** The revision a guidance read observes and the following write is conditioned on. */
 export const observedRevision = "opaque-observed-revision";
 

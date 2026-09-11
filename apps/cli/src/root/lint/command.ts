@@ -19,7 +19,7 @@ import { handleLint } from "./handler.js";
 import { lintFailureToAppError } from "../../feature-errors.js";
 
 const lintConfig = {
-  path: Argument.string("path").pipe(
+  path: Argument.String("path").pipe(
     Argument.withDescription(
       "Workspace directory to lint (defaults to the current working directory).",
     ),
@@ -30,21 +30,21 @@ const lintConfig = {
       "Scope of the lint run: project (default) or user (lints the .axm/workspace workspace under the selected home).",
     ),
   ),
-  strict: Flag.boolean("strict").pipe(
+  strict: Flag.Boolean("strict").pipe(
     Flag.withDescription("Treat warnings as failing for exit code."),
     Flag.withDefault(false),
   ),
-  details: Flag.boolean("details").pipe(
+  details: Flag.Boolean("details").pipe(
     Flag.withDescription("Show the full human report instead of the grouped summary."),
     Flag.withDefault(false),
   ),
-  fix: Flag.boolean("fix").pipe(
+  fix: Flag.Boolean("fix").pipe(
     Flag.withDescription(
       "Apply repairs whose desired state is already determined, then report what remains.",
     ),
     Flag.withDefault(false),
   ),
-  view: Flag.choice("view", ["workspace", "git-index"] as const).pipe(
+  view: Flag.Literals("view", ["workspace", "git-index"] as const).pipe(
     Flag.withDescription("Filesystem view to lint: workspace (default) or the complete Git index."),
     Flag.withDefault("workspace"),
   ),

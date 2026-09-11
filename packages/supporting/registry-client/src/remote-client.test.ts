@@ -228,8 +228,8 @@ describe("getExtensionIndex", () => {
 
       expect(Option.isSome(result)).toBe(true);
       expect(requestedUrls).toEqual([
-        `${BASE_URL}/v1/extensions/@acme/skills/test-skill`,
-        `${BASE_URL}/v1/extensions/@acme/skills/test-skill`,
+        `${BASE_URL}/v1/extensions/%40acme/skills/test-skill`,
+        `${BASE_URL}/v1/extensions/%40acme/skills/test-skill`,
       ]);
     }),
   );
@@ -463,7 +463,7 @@ describe("ownerExists", () => {
       const result = yield* client.ownerExists(registryOwner);
 
       expect(result.exists).toBe(true);
-      expect(requestedUrl).toBe(`${BASE_URL}/v1/owners/@acme`);
+      expect(requestedUrl).toBe(`${BASE_URL}/v1/owners/%40acme`);
     }),
   );
 
@@ -548,7 +548,7 @@ describe("getExtensionPackage", () => {
       });
 
       expect(Array.from(result.archive)).toEqual(Array.from(cachedArchive));
-      expect(requestedUrls).toEqual([`${BASE_URL}/v1/extensions/@acme/skills/test-skill`]);
+      expect(requestedUrls).toEqual([`${BASE_URL}/v1/extensions/%40acme/skills/test-skill`]);
       expect(usagePurposes).toEqual([undefined]);
     }),
   );

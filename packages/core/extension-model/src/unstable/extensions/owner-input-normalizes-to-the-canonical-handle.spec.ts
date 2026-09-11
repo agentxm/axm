@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 
 import { normalizeHandle } from "./handle.js";
 
@@ -27,14 +27,14 @@ const slugArbitrary = FastCheck.stringMatching(/^[a-z0-9_](?:[a-z0-9_-]{0,18}[a-
 const paddingArbitrary = FastCheck.stringMatching(/^[ \t]{0,3}$/);
 
 describe("Owner input normalization", () => {
-  it.effect.prop(
-    "upper-cased and padded input always normalizes to the canonical handle",
+  fastCheckIt.prop(
     { slug: slugArbitrary, before: paddingArbitrary, after: paddingArbitrary },
-    ({ slug, before, after }) =>
-      Effect.sync(() => {
-        expect(normalizeHandle(`${before}@${slug.toUpperCase()}${after}`)).toBe(`@${slug}`);
-      }),
-    { fastCheck: { numRuns: 100 } },
+    { numRuns: 100 },
+  )(
+    "upper-cased and padded input always normalizes to the canonical handle",
+    ({ slug, before, after }) => {
+      expect(normalizeHandle(`${before}@${slug.toUpperCase()}${after}`)).toBe(`@${slug}`);
+    },
   );
 
   it.effect("padded or upper-cased owner input normalizes to the canonical handle", () =>

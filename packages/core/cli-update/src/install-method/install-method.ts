@@ -369,11 +369,11 @@ const parseUserAgent = (
 };
 
 const detectionEnvironmentConfig = Config.all({
-  axmUserHome: Config.option(Config.string("AXM_USER_HOME")),
-  home: Config.option(Config.string("HOME")),
-  userProfile: Config.option(Config.string("USERPROFILE")),
-  homePath: Config.option(Config.string("HOMEPATH")),
-  userAgent: Config.option(Config.string("npm_config_user_agent")),
+  axmUserHome: Config.option(Config.String("AXM_USER_HOME")),
+  home: Config.option(Config.String("HOME")),
+  userProfile: Config.option(Config.String("USERPROFILE")),
+  homePath: Config.option(Config.String("HOMEPATH")),
+  userAgent: Config.option(Config.String("npm_config_user_agent")),
 });
 
 export const InstallMethodLive = Layer.effect(

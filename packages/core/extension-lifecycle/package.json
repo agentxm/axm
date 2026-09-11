@@ -68,6 +68,7 @@
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
     "@typescript/native": "catalog:",
+    "@fast-check/vitest": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"

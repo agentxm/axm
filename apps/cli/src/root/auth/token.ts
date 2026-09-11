@@ -344,32 +344,32 @@ const orgPermissionValues = ["read", "write", "admin"] as const;
 
 const createTokenConfig = {
   ...humanVerificationFlags,
-  name: Flag.string("name").pipe(Flag.withDescription("Human-readable token name")),
-  expires: Flag.string("expires").pipe(
+  name: Flag.String("name").pipe(Flag.withDescription("Human-readable token name")),
+  expires: Flag.String("expires").pipe(
     Flag.withDescription("Token lifetime: 7d, 30d, 1y, or an ISO timestamp"),
     Flag.withDefault("30d"),
   ),
-  owner: Flag.string("owner").pipe(
+  owner: Flag.String("owner").pipe(
     Flag.withDescription('Owner selector; repeatable. Use "all" for full surface.'),
     Flag.atLeast(0),
   ),
-  extension: Flag.string("extension").pipe(
+  extension: Flag.String("extension").pipe(
     Flag.withDescription("Extension selector in @handle/<type>/<name> form; repeatable"),
     Flag.atLeast(0),
   ),
-  permission: Flag.choice("permission", permissionValues).pipe(
+  permission: Flag.Literals("permission", permissionValues).pipe(
     Flag.withDescription("Extension permission level"),
     Flag.optional,
   ),
-  orgPermission: Flag.choice("org-permission", orgPermissionValues).pipe(
+  orgPermission: Flag.Literals("org-permission", orgPermissionValues).pipe(
     Flag.withDescription("Organization permission level"),
     Flag.optional,
   ),
-  cidr: Flag.string("cidr").pipe(
+  cidr: Flag.String("cidr").pipe(
     Flag.withDescription("CIDR allowlist entry; repeatable"),
     Flag.atLeast(0),
   ),
-  bypassMfa: Flag.boolean("bypass-mfa").pipe(
+  bypassMfa: Flag.Boolean("bypass-mfa").pipe(
     Flag.withDescription("Allow this automation token to bypass step-up MFA"),
     Flag.withDefault(false),
   ),
@@ -421,7 +421,7 @@ const listTokenCommand = Command.make("list", listTokenConfig, () =>
 
 const revokeTokenConfig = {
   ...humanVerificationFlags,
-  id: Argument.string("id").pipe(Argument.withDescription("Token id to revoke")),
+  id: Argument.String("id").pipe(Argument.withDescription("Token id to revoke")),
 } as const;
 
 const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>

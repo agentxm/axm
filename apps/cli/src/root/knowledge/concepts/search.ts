@@ -81,16 +81,16 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
 });
 
 const searchConfig = {
-  query: Argument.string("query").pipe(
+  query: Argument.String("query").pipe(
     Argument.withDescription(
       'All terms to find; use "phrase" for contiguous tokens or literal:"text" for exact punctuation',
     ),
   ),
-  limit: Flag.integer("limit").pipe(
+  limit: Flag.Int("limit").pipe(
     Flag.withDescription("Maximum concepts to return (1-100; default 25)"),
     Flag.optional,
   ),
-  cursor: Flag.string("cursor").pipe(
+  cursor: Flag.String("cursor").pipe(
     Flag.withDescription("Continue from an opaque cursor returned by the previous page"),
     Flag.optional,
   ),

@@ -8,7 +8,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -617,34 +617,42 @@ describe("Source locator grammar", () => {
   const segment = FastCheck.stringMatching(/^[a-z0-9][a-z0-9-]{0,12}$/);
   const slashFreeRef = FastCheck.stringMatching(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,12}$/);
 
-  it.effect.prop(
+  fastCheckIt.prop(
+    { owner: segment, repo: segment, first: segment, second: segment, ref: slashFreeRef },
+    { numRuns: 25 },
+  )(
     "every well-formed provider shorthand resolves to exactly its stated coordinates",
-    [segment, segment, segment, segment, slashFreeRef],
-    ([owner, repo, first, second, ref]) =>
-      Effect.gen(function* () {
-        const resolved = yield* resolveWith(`github:${owner}/${repo}//${first}/${second}@${ref}`);
-        expect(describeSource(resolved)).toEqual({
-          kind: "github",
-          sourceName: "github",
-          host: "github.com",
-          owner,
-          repo,
-          ref,
-          subPath: `${first}/${second}`,
-        });
-      }),
-    { fastCheck: { numRuns: 25 } },
+    ({ owner, repo, first, second, ref }) =>
+      // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const resolved = yield* resolveWith(`github:${owner}/${repo}//${first}/${second}@${ref}`);
+          expect(describeSource(resolved)).toEqual({
+            kind: "github",
+            sourceName: "github",
+            host: "github.com",
+            owner,
+            repo,
+            ref,
+            subPath: `${first}/${second}`,
+          });
+        }),
+      ),
   );
 
-  it.effect.prop(
+  fastCheckIt.prop(
+    { prefix: FastCheck.constantFrom("./", "../", "/"), first: segment, second: segment },
+    { numRuns: 25 },
+  )(
     "every path-prefixed input stays a local source with its path preserved",
-    [FastCheck.constantFrom("./", "../", "/"), segment, segment],
-    ([prefix, first, second]) =>
-      Effect.gen(function* () {
-        const input = `${prefix}${first}/${second}`;
-        const resolved = yield* resolveWith(input);
-        expect(describeSource(resolved)).toEqual({ kind: "local", path: input });
-      }),
-    { fastCheck: { numRuns: 25 } },
+    ({ prefix, first, second }) =>
+      // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const input = `${prefix}${first}/${second}`;
+          const resolved = yield* resolveWith(input);
+          expect(describeSource(resolved)).toEqual({ kind: "local", path: input });
+        }),
+      ),
   );
 });

@@ -1,4 +1,5 @@
 import { Volume } from "memfs";
+import * as ByteSize from "effect/ByteSize";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -112,8 +113,8 @@ export const makeMemoryFileSystem = (): MemoryFileSystem => {
       uid: Option.some(Number(stat.uid)),
       gid: Option.some(Number(stat.gid)),
       rdev: Option.some(Number(stat.rdev)),
-      size: FileSystem.Size(stat.size),
-      blksize: Option.some(FileSystem.Size(stat.blksize)),
+      size: ByteSize.bytes(stat.size),
+      blksize: Option.some(ByteSize.bytes(stat.blksize)),
       blocks: Option.some(Number(stat.blocks)),
     };
   };

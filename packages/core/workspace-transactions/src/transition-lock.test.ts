@@ -52,25 +52,30 @@ describe("workspace transition lock", () => {
     }).pipe(Effect.provide(services)),
   );
 
-  it.live("C-20: holder metadata preserves ownership through the first refresh", () =>
-    Effect.gen(function* () {
-      const workspaceDir = path.join(tempDir, ".axm");
-      const lock = yield* makeWorkspaceTransitionLock;
-      yield* Effect.scoped(
-        Effect.gen(function* () {
-          const contention = yield* lock.acquire({
-            workspaceDir,
-            holder: { command: "install", pid: process.pid },
-            timingMillis: { stale: 2000, update: 1000 },
-          });
-          expect(Option.isNone(contention)).toBe(true);
-          const held = Option.getOrUndefined(yield* lock.held(path.resolve(workspaceDir)));
-          expect(held).toBeDefined();
-          yield* Effect.sleep("1500 millis");
-          expect(held?.isCompromised()).toBe(false);
-        }),
-      );
-    }).pipe(Effect.provide(services)),
+  it.live(
+    "C-20: holder metadata preserves ownership through the first refresh",
+    () =>
+      Effect.gen(function* () {
+        const workspaceDir = path.join(tempDir, ".axm");
+        const lock = yield* makeWorkspaceTransitionLock;
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const contention = yield* lock.acquire({
+              workspaceDir,
+              holder: { command: "install", pid: process.pid },
+              timingMillis: { stale: 2000, update: 1000 },
+            });
+            expect(Option.isNone(contention)).toBe(true);
+            const held = Option.getOrUndefined(yield* lock.held(path.resolve(workspaceDir)));
+            expect(held).toBeDefined();
+            yield* Effect.sleep("1500 millis");
+            if (held?.isCompromised()) {
+              return yield* held.compromised;
+            }
+          }),
+        );
+      }).pipe(Effect.provide(services)),
+    { timeout: 5000 },
   );
 
   it.live(

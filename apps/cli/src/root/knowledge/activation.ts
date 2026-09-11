@@ -5,7 +5,7 @@ import { handleSetActivation } from "../activation-handler.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
 
 export const activationConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Configured knowledge bundle name")),
+  name: Argument.String("name").pipe(Argument.withDescription("Configured knowledge bundle name")),
   ...scopeConfig,
   preview: mutationFlags.preview,
   ignoreReleaseAge: ignoreReleaseAgeFlag,

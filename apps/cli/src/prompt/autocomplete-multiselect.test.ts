@@ -199,7 +199,7 @@ describe("autocompleteMultiselect", () => {
       expect(activeFrame).toContain("enter confirm");
 
       const submittedFrame = frames.find((line) => line.includes("Selected 0 pets")) ?? "";
-      expect(submittedFrame).toBe("✓ Selected 0 pets\n\n");
+      expect(submittedFrame.replaceAll("\r", "")).toBe("✓ Selected 0 pets\n\n");
       expect(submittedFrame).not.toContain("Pick pets");
       expect(submittedFrame).not.toContain("space toggle");
     }),

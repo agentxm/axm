@@ -11,7 +11,7 @@ import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
-  name: Argument.string("name").pipe(
+  name: Argument.String("name").pipe(
     Argument.withDescription("Name or glob pattern of the pack to uninstall"),
   ),
   scope: scopeFlag.pipe(

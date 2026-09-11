@@ -13,7 +13,7 @@ import { handleInstall, validateInstallArgsBeforeWorkspace } from "./handler.js"
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription(
       "Registry reference (@owner/skills/name), GitHub shorthand (owner/repo), local path, or URL",
     ),
@@ -22,17 +22,17 @@ const installConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
-  skill: Flag.string("skill").pipe(
+  skill: Flag.String("skill").pipe(
     Flag.withDescription("Cherry-pick specific skills from a multi-skill source"),
     Flag.atLeast(0),
   ),
-  all: Flag.boolean("all").pipe(
+  all: Flag.Boolean("all").pipe(
     Flag.withDescription("Install every skill found in the source without prompting"),
     Flag.withDefault(false),
   ),
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall a skill that already exists")),
   preview: previewCapabilityFlag("Show what would be installed without making changes"),
-  bundled: Flag.boolean("bundled").pipe(
+  bundled: Flag.Boolean("bundled").pipe(
     Flag.withDescription("Install the embedded official AXM skill without Registry access"),
     Flag.withDefault(false),
   ),

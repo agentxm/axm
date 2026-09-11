@@ -222,43 +222,43 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
 );
 
 const publishConfig = {
-  authorizationRequest: Flag.string("authorization-request").pipe(
+  authorizationRequest: Flag.String("authorization-request").pipe(
     Flag.withDescription(
       "Resume this exact publication request using its URL and unchanged inputs",
     ),
     Flag.optional,
   ),
   waitForHuman: waitForHumanOption,
-  selectors: Argument.string("extension").pipe(
+  selectors: Argument.String("extension").pipe(
     Argument.withDescription("FQNs or type-qualified extension selectors"),
     Argument.atLeast(0),
   ),
-  owner: Flag.string("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
-  type: Flag.choice("type", selectableTypes).pipe(
+  owner: Flag.String("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
+  type: Flag.Literals("type", selectableTypes).pipe(
     Flag.withDescription("Filter by extension type"),
     Flag.atLeast(0),
   ),
-  exclude: Flag.string("exclude").pipe(
+  exclude: Flag.String("exclude").pipe(
     Flag.withDescription("Exclude a matching selector"),
     Flag.atLeast(0),
   ),
-  registry: Flag.string("registry").pipe(
+  registry: Flag.String("registry").pipe(
     Flag.withDescription("Target a specific named registry"),
     Flag.optional,
   ),
-  registryUrl: Flag.string("registry-url").pipe(
+  registryUrl: Flag.String("registry-url").pipe(
     Flag.withDescription("Override the target registry URL for automation"),
     Flag.optional,
   ),
   onExisting: onExistingFlag,
   backfill: backfillFlag,
   acceptWarnings: acceptWarningsFlag,
-  visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
+  visibility: Flag.Literals("visibility", ["public", "private"] as const).pipe(
     Flag.withDescription("Initial visibility for every new extension in the selection"),
     Flag.optional,
   ),
   preview: previewCapabilityFlag("Preflight without uploading"),
-  includeDependencies: Flag.boolean("include-dependencies").pipe(
+  includeDependencies: Flag.Boolean("include-dependencies").pipe(
     Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
     Flag.withDefault(false),
   ),

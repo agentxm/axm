@@ -4,8 +4,8 @@ import * as nodePath from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 
 import {
   composerDetector,
@@ -54,10 +54,12 @@ const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
 
 describe("package detectors", () => {
-  it.effect.prop(
-    "never defect on arbitrary manifest content",
+  fastCheckIt.prop(
     { content: FastCheck.string({ maxLength: 300 }) },
-    ({ content }) =>
+    { numRuns: 50, seed: 0x41584d },
+  )("never defect on arbitrary manifest content", ({ content }) =>
+    // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
+    Effect.runPromise(
       withNode(
         Effect.gen(function* () {
           const dir = mkdtempSync(nodePath.join(tmpdir(), "package-detectors-property-"));
@@ -74,7 +76,7 @@ describe("package detectors", () => {
           }
         }),
       ),
-    { fastCheck: { numRuns: 50, seed: 0x41584d } },
+    ),
   );
 
   it.effect("ignores empty package identities across affected ecosystems", () =>

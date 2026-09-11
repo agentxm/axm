@@ -32,7 +32,7 @@ export const handleEnable = (args: EnableHandlerArgs) =>
   );
 
 const enableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the skill to enable")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the skill to enable")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),

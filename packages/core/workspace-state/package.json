@@ -62,6 +62,7 @@
     "@effect/vitest": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
+    "@fast-check/vitest": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

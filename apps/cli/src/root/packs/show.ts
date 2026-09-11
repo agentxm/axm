@@ -57,7 +57,7 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
 });
 
 const showConfig = {
-  target: Argument.string("extension").pipe(
+  target: Argument.String("extension").pipe(
     Argument.withDescription("Configured pack name or fully qualified identity"),
   ),
   scope: scopeFlag.pipe(Flag.withDescription("Inspect project (default) or user-level pack state")),

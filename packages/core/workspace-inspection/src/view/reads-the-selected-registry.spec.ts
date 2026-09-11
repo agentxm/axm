@@ -75,7 +75,7 @@ describe("Registry-selected extension view", () => {
               type: "skill",
             });
             expect(fixture.requests.map((request) => request.url)).toEqual([
-              `${named ? companyRegistry : inspectionRegistryUrl}/v1/extensions/@acme/skills/review`,
+              `${named ? companyRegistry : inspectionRegistryUrl}/v1/extensions/%40acme/skills/review`,
             ]);
           }),
         )

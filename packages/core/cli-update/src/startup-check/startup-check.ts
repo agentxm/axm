@@ -29,7 +29,7 @@ import {
 
 const REFRESH_TIMEOUT = "3 seconds";
 
-const noUpdateCheckConfig = Config.option(Config.string("AXM_NO_UPDATE_CHECK"));
+const noUpdateCheckConfig = Config.option(Config.String("AXM_NO_UPDATE_CHECK"));
 
 /** Whether `AXM_NO_UPDATE_CHECK=1` suppresses the check for this invocation. */
 export const noUpdateCheckEnvironment: Effect.Effect<boolean> = Effect.map(

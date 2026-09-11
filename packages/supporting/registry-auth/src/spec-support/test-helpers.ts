@@ -16,7 +16,11 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/ha
 import { RegistryProblem } from "@agentxm/registry-client";
 
 import { AuthClientTest, type AuthClientService } from "../auth-client.js";
-import { CredentialStoreTest } from "../credential-store.js";
+import {
+  CredentialStore,
+  CredentialStoreSessionLive,
+  CredentialStoreTest,
+} from "../credential-store.js";
 import { DeviceLoginInteractionTest } from "../device-login.js";
 import { RegistryAuthFailed, StepUpRequired, type StepUpRequest } from "../errors.js";
 import { AuthEnvironment } from "../internal/environment.js";
@@ -66,6 +70,8 @@ export const authCredentialFile: CredentialFile = {
 export interface AuthPortsOptions {
   readonly credentials?: CredentialFile;
   readonly allowsPersistedCredentials?: boolean;
+  /** Observe a backing-store read after its snapshot is captured. */
+  readonly afterCredentialRead?: (registryUrl: string) => Effect.Effect<void>;
   readonly pending?: PendingDeviceLogin;
   readonly auth?: Partial<AuthClientService>;
   /**
@@ -120,12 +126,34 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
     ...options.auth,
   });
 
+  const credentialStore = Layer.effect(
+    CredentialStore,
+    Effect.gen(function* () {
+      const store = yield* CredentialStore;
+      return {
+        ...store,
+        load: (registryUrl: string) =>
+          store
+            .load(registryUrl)
+            .pipe(Effect.tap(() => options.afterCredentialRead?.(registryUrl) ?? Effect.void)),
+      };
+    }),
+  ).pipe(
+    Layer.provide(
+      CredentialStoreTest(
+        "restricted-file",
+        options.credentials,
+        options.allowsPersistedCredentials,
+      ),
+    ),
+  );
+
   const layer = Layer.mergeAll(
     presenter.layer,
     interaction.layer,
     deviceInteraction.layer,
     auth,
-    CredentialStoreTest("restricted-file", options.credentials, options.allowsPersistedCredentials),
+    Layer.provide(CredentialStoreSessionLive, credentialStore),
     PendingDeviceLoginStoreTest(options.pending),
     Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord(options.environment ?? {})),
   );

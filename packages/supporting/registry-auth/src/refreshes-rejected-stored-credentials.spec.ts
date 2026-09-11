@@ -1,14 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import { RegistryProblem } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { CredentialStore } from "./credential-store.js";
-import { AuthLoginRequired } from "./errors.js";
-import { currentIdentity } from "./identity.js";
+import { CredentialStore, AuthLoginRequired, currentIdentity } from "./index.js";
 import { makeAuthPorts } from "./spec-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -122,4 +122,72 @@ describe("Stored session recovery", () => {
       }).pipe(Effect.provide(layer));
     });
   }
+
+  it.effect("a concurrent credential read cannot restore the rejected token after refresh", () =>
+    Effect.gen(function* () {
+      const readStarted = yield* Deferred.make<void>();
+      const presented: Array<string> = [];
+      const refreshed: Array<string> = [];
+      const { layer } = makeAuthPorts({
+        credentials: {
+          version: 1,
+          registries: {
+            [registry]: {
+              accounts: {
+                [handle]: {
+                  access_token: "expired-access",
+                  refresh_token: "stored-refresh",
+                  expires_at: expiry,
+                  active: true,
+                },
+              },
+            },
+          },
+        },
+        afterCredentialRead: () => Deferred.succeed(readStarted, undefined).pipe(Effect.asVoid),
+        auth: {
+          getMe: (token) =>
+            Effect.suspend(() => {
+              presented.push(token);
+              return token === "replacement-access"
+                ? Effect.succeed({
+                    userHandle: handle,
+                    tokenType: "session",
+                    scopes: ["account:read"],
+                    resourceRestrictions: { extensions: null },
+                    expiresAt: expiry,
+                  })
+                : Effect.fail(
+                    new RegistryProblem({
+                      category: "auth",
+                      metadata: { response: { status: 401 } },
+                      cause: undefined,
+                    }),
+                  );
+            }),
+          refreshToken: (token) =>
+            Effect.sync(() => {
+              refreshed.push(token);
+              return {
+                access_token: "replacement-access",
+                refresh_token: "replacement-refresh",
+                expires_at: expiry,
+              };
+            }),
+        },
+      });
+      yield* Effect.gen(function* () {
+        const store = yield* CredentialStore;
+        const reader = yield* Effect.forkChild(store.load(registry));
+        yield* Deferred.await(readStarted);
+
+        yield* currentIdentity(registry);
+        yield* Fiber.join(reader);
+        yield* currentIdentity(registry);
+
+        expect(presented).toEqual(["expired-access", "replacement-access", "replacement-access"]);
+        expect(refreshed).toEqual(["stored-refresh"]);
+      }).pipe(Effect.provide(layer));
+    }),
+  );
 });

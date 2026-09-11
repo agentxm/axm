@@ -359,6 +359,51 @@ describe("CredentialStore", () => {
       }).pipe(Effect.provide(backing.layer));
     });
 
+    for (const operation of ["save", "clear"] as const) {
+      for (const timing of ["during lookup startup", "after lookup insertion"] as const) {
+        it.effect(`${operation} invalidation survives ${timing}`, () => {
+          const backing = makeRecordingStore();
+          backing.seed(originA, "axm_ses_old");
+          backing.seed(originB, "axm_ses_other");
+          return Effect.gen(function* () {
+            const store = yield* CredentialStore;
+            yield* store.load(originB);
+            const started = yield* Deferred.make<void>();
+            const release = yield* Deferred.make<void>();
+            backing.overrideLoad(() =>
+              Effect.gen(function* () {
+                yield* Deferred.succeed(started, undefined);
+                yield* Deferred.await(release);
+                return Option.some({
+                  handle: normalizeHandle("@alice"),
+                  ...credentialsFor("axm_ses_old"),
+                });
+              }),
+            );
+            const reader = yield* Effect.forkChild(store.load(originA));
+            yield* Deferred.await(started);
+            // Deferred wakes this waiting fiber synchronously from the lookup.
+            // Yielding lets Cache.get insert its pending entry before the write.
+            if (timing === "after lookup insertion") yield* Effect.yieldNow;
+            if (operation === "save") {
+              yield* store.save(originA, normalizeHandle("@alice"), credentialsFor("axm_ses_new"));
+            } else {
+              yield* store.clear(originA);
+            }
+            backing.restoreLoad();
+            const expected = operation === "save" ? Option.some("axm_ses_new") : Option.none();
+            expect(accessToken(yield* store.load(originA))).toEqual(expected);
+            yield* Deferred.succeed(release, undefined);
+            expect(accessToken(yield* Fiber.join(reader))).toEqual(Option.some("axm_ses_old"));
+            expect(accessToken(yield* store.load(originA))).toEqual(expected);
+            expect(backing.loadCount(originA)).toBe(2);
+            expect(accessToken(yield* store.load(originB))).toEqual(Option.some("axm_ses_other"));
+            expect(backing.loadCount(originB)).toBe(1);
+          }).pipe(Effect.provide(backing.layer));
+        });
+      }
+    }
+
     it.effect("an interrupted read leaves the memo reusable", () => {
       const backing = makeRecordingStore();
       return Effect.gen(function* () {

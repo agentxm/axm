@@ -1,12 +1,17 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { CredentialStore } from "./credential-store.js";
-import { AuthLoginRequired, RegistryAuthFailed } from "./errors.js";
-import { currentToken } from "./identity.js";
-import { logout } from "./logout.js";
+import {
+  CredentialStore,
+  AuthLoginRequired,
+  RegistryAuthFailed,
+  currentToken,
+  logout,
+} from "./index.js";
 import {
   authCredentialFile,
   authRegistry,
@@ -31,6 +36,33 @@ export const specification = defineSpecification({
 });
 
 describe("Local sign-out", () => {
+  it.effect("a concurrent credential read cannot restore the signed-out session", () =>
+    Effect.gen(function* () {
+      const readStarted = yield* Deferred.make<void>();
+      const { layer } = makeAuthPorts({
+        credentials: authCredentialFile,
+        afterCredentialRead: (registryUrl) =>
+          registryUrl === authRegistry
+            ? Deferred.succeed(readStarted, undefined).pipe(Effect.asVoid)
+            : Effect.void,
+      });
+      yield* Effect.gen(function* () {
+        const store = yield* CredentialStore;
+        const otherBefore = yield* store.load(otherAuthRegistry);
+        const reader = yield* Effect.forkChild(store.load(authRegistry));
+        yield* Deferred.await(readStarted);
+
+        expect(yield* logout(authRegistry)).toMatchObject({ _tag: "SignedOut" });
+        yield* Fiber.join(reader);
+
+        expect(yield* currentToken(authRegistry).pipe(Effect.flip)).toBeInstanceOf(
+          AuthLoginRequired,
+        );
+        expect(yield* store.load(otherAuthRegistry)).toEqual(otherBefore);
+      }).pipe(Effect.provide(layer));
+    }),
+  );
+
   for (const remoteRevoke of ["succeeds", "fails"] as const) {
     it.effect(remoteRevoke, () => {
       const revoked: Array<string> = [];

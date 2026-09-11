@@ -583,29 +583,29 @@ export const CredentialStoreLive = Layer.effect(
  * a failing origin retried serially. Sharing is safe here because each auth
  * path issues a single load and none of them depends on serial retry.
  *
- * `Effect.onInterrupt` is load-path scaffolding, not decoration. `Cache.get`
- * runs its lookup on a detached daemon fiber and leaves the pending entry in
- * the map when the only caller is interrupted, so without this guard the next
- * read of that origin would await an abandoned lookup forever. Invalidating on
- * interrupt restores the pre-cache behavior, where an interrupted read left
- * nothing behind and the next read simply ran again.
+ * Caller interruption invalidates the affected origin so later reads can
+ * retry. Cache owns the lookup fiber's cancellation when its last waiter
+ * leaves.
  *
- * Known limitation, unchanged by this layer's move to `Cache` and not fixed by
- * it: a `save` or `clear` whose invalidation lands while a read of the same
- * origin is still in flight can be overwritten when that read populates the
- * memo, leaving the pre-write value cached for the rest of the session. The
- * previous value-map-and-semaphore memo lost the same invalidation through its
- * own write-after-invalidate window.
+ * Effect Cache starts a lookup before inserting its pending entry. Yielding
+ * before invoking the backing store lets that insertion finish before a read
+ * can synchronously resume a writer. Successful save/clear invalidation then
+ * removes the pending entry; its eventual result cannot restore stale state.
+ * An overlapping reader can still receive its earlier snapshot, while reads
+ * started after the write completes observe the updated store.
  */
 export const CredentialStoreSessionLive = Layer.effect(
   CredentialStore,
   Effect.gen(function* () {
     const store = yield* CredentialStore;
-    const cache = yield* Cache.makeWith((registryUrl: string) => store.load(registryUrl), {
-      capacity: Number.POSITIVE_INFINITY,
-      timeToLive: (exit: Exit.Exit<Option.Option<StoredCredentials>, RegistryAuthFailed>) =>
-        Exit.isSuccess(exit) ? Duration.infinity : Duration.zero,
-    });
+    const cache = yield* Cache.makeWith(
+      (registryUrl: string) => Effect.andThen(Effect.yieldNow, () => store.load(registryUrl)),
+      {
+        capacity: Number.POSITIVE_INFINITY,
+        timeToLive: (exit: Exit.Exit<Option.Option<StoredCredentials>, RegistryAuthFailed>) =>
+          Exit.isSuccess(exit) ? Duration.infinity : Duration.zero,
+      },
+    );
 
     return {
       tier: store.tier,

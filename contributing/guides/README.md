@@ -16,13 +16,10 @@ commands or executable sources.
 - [Effect layers](effect-layers.md) — CLI runtime composition
 - [Authentication](authentication.md) — login scope policy and device-flow contracts
 
-## Delivery
+## Engineering and operations
 
-- [Development environment](development-environment.md) — native development
-  and containerized CI verification
-- [Automated pull-request review](automated-pull-request-review.md) — review
-  operation and maintainer controls
-- [Releasing](releasing.md) — release procedure
+- [DevOps documentation](../../devops/index.md) — environments, tools, provider
+  relationships, release procedures, and automated review
 
 Add a guide only for a repeated AXM-specific procedure that is not clearer in
 code, tests, configuration, commands, or the

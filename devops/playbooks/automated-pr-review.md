@@ -1,14 +1,42 @@
 ---
-status: active
-last-reviewed: 2026-07-15
-version: 0.1.0
-description: How AXM uses advisory Codex and Claude pull-request review without executing proposed code.
-depends-on:
-  - ../../AGENTS.md
-  - ../../CONTRIBUTING.md
+type: Playbook
+title: "Automated AXM pull-request review"
+description: "Select and assess advisory PR review, including provider failures and maintainer fallback, while preserving required CI and human approval."
+status: draft
+applies-to:
+  - ../repositories/axm.md
+sources:
+  - id: migration-source
+    resource: https://github.com/agentxm/axm/blob/42ed192e796a413246266f871da31bddfd70de10/contributing/guides/automated-pull-request-review.md
+    title: Pre-migration repository guidance
+generated:
+  by: codex/gpt-6
+  at: 2026-09-11T16:07:00Z
 ---
 
-# Automated Pull Request Review
+# Automated AXM pull-request review
+
+## Entry, assessment, and completion
+
+Use this playbook when selecting advisory PR review, interpreting a material
+finding, or recovering from provider failure. The outcome is a review decision
+supported by deterministic CI and maintainer judgment. Prerequisites are an
+identified PR and the repository access appropriate to the selected operation;
+enabling integrations, posting reviews, and managing secrets require separate
+operating authority.
+
+First identify the PR/base revision, applicable required checks, finding
+severity, and available provider result. Act on an introduced P0/P1 defect when
+the changed location, trigger, and failure are evidenced. If evidence is
+inconclusive, request maintainer investigation; do not invent a finding or
+broaden provider access. Use native automatic review when configured, the
+manual fallback when an authorized maintainer selects it, and ordinary human
+review during provider outages. Reassess after a follow-up push or accepted fix.
+
+Resolution means the maintainer has disposed of material findings and applicable
+required checks are satisfied for the reviewed change. Unresolved defects or
+provider-configuration questions return to the repository maintainer through
+the PR; they do not acquire merge authority from an AI result.
 
 AXM uses automated semantic review as an advisory safety pass. Deterministic CI
 and maintainer approval remain authoritative; an AI review cannot approve,
@@ -16,7 +44,7 @@ merge, or replace a required check.
 
 Those obligations are repository policy, declared in `.github/CODEOWNERS`
 and the `required` job in `.github/workflows/ci.yml` and pinned by
-`scripts/codeowners.test.ts` and `scripts/ci-workflow.test.ts`. This guide
+`scripts/codeowners.test.ts` and `scripts/ci-workflow.test.ts`. This playbook
 owns their current automated-review implementation and operating procedure.
 
 > [Review guidelines](../../AGENTS.md#review-guidelines) - the repository's
@@ -104,9 +132,24 @@ the simpler topology is insufficient.
 
 ## See Also
 
-- [Development Environment](./development-environment.md) - execution and
+- [Linux CI environment](../environments/linux-ci.md) - execution and
   runner trust boundaries
 - [Codex code review in GitHub](https://learn.chatgpt.com/docs/third-party/github) -
   provider setup and automatic review
 - [Claude Code Action security](https://github.com/anthropics/claude-code-action/blob/main/docs/security.md) -
   action threat model and hardening guidance
+
+## Accountability, gaps, and maintenance
+
+Documentation maintainer: [@craigsmitham](https://github.com/craigsmitham), under
+the [adoption declaration](../README.md). Repository owners administer integrations and maintainers disposition findings via the PR, as described in CONTRIBUTING. The current integration administrator roster and exercise records remain unverified.
+
+Review this record when review integrations, permissions, triggers, model behavior, required checks, or measured review quality changes.
+
+Exercise history is unknown: this migration inspected repository sources on
+2026-09-11 and did not execute the procedure. Document status does not establish
+execution authority or operational readiness.
+
+Migration source: [pre-migration repository guidance][migration-source].
+
+[migration-source]: https://github.com/agentxm/axm/blob/42ed192e796a413246266f871da31bddfd70de10/contributing/guides/automated-pull-request-review.md

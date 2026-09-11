@@ -12,6 +12,8 @@ Shared product language and naming live in the
 The repository tree, package manifests, and configuration own the current tool
 and package inventory.
 
+See [devops/index.md](devops/index.md) for engineering and operations documentation on providers, services, teams, tools, environments, organizations, repositories, playbooks, runbooks, and measures.
+
 ## Commands
 
 Nx targets are the units of work; `pnpm` scripts name workflows. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm install` is the explicit dependency-preparation step; commands fail instead of installing implicitly. `pnpm axm` runs the Bun entrypoint and its internal workspace packages from source through the `axm-source` export condition; it does not build first.
@@ -88,7 +90,7 @@ reports the plain package version and is otherwise indistinguishable from a
 release in telemetry. `pnpm` runs it from the repository root, so always select
 the workspace with `-C <dir>`. To run this checkout's CLI from outside the
 checkout, use the absolute-path forms in
-[Development Environment](contributing/guides/development-environment.md#run-the-source-cli-against-another-workspace).
+[Source CLI runbook](devops/runbooks/run-source-cli.md#run-the-source-cli-against-another-workspace).
 
 For testing install, lint, and other default-source behavior, set
 `AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
@@ -106,7 +108,7 @@ is read as a requirement identity.
 
 ### Releasing
 
-For a new version release, follow `contributing/guides/releasing.md` exactly. Do not invent or restate a separate release flow here.
+For a new version release, follow `devops/runbooks/release-cli.md` exactly. Do not invent or restate a separate release flow here.
 
 ## Requirements and executable specifications
 
@@ -196,19 +198,19 @@ launch.
 Use `contributing/guides` for implementation and contributor guidance. If a
 guide goes deeper than the summary here, follow the guide.
 
-| Guide                                                                                 | When to consult                                                                                |
-| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **Docs & process**                                                                    |                                                                                                |
-| [Guides README](contributing/guides/README.md)                                        | Before adding a guide, read the repository-specific inclusion threshold                        |
-| [Executable Specifications](contributing/guides/executable-specifications.md)         | Before adding, moving, or retiring a `*.spec.ts`, read placement, binding, and admission       |
-| **Delivery**                                                                          |                                                                                                |
-| [Releasing Guide](contributing/guides/releasing.md)                                   | Before planning or publishing a release, read the release flow                                 |
-| [Development Environment](contributing/guides/development-environment.md)             | Before changing or using shared container development or CI                                    |
-| [Automated Pull Request Review](contributing/guides/automated-pull-request-review.md) | Before configuring, operating, or interpreting automated PR review                             |
-| **Implementation**                                                                    |                                                                                                |
-| [Effect Guide](contributing/guides/effect.md)                                         | Before writing Effect code, route portable topics to installed skills and apply AXM policy     |
-| [Effect Errors Guide](contributing/guides/effect-errors.md)                           | Before handling CLI failures, read for AppError, Registry translation, and cancellation policy |
-| [Effect Layers Guide](contributing/guides/effect-layers.md)                           | Before wiring the CLI runtime, read for AXM entry-point and command-provision policy           |
+| Guide                                                                                                           | When to consult                                                                                |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Docs & process**                                                                                              |                                                                                                |
+| [Guides README](contributing/guides/README.md)                                                                  | Before adding a guide, read the repository-specific inclusion threshold                        |
+| [Executable Specifications](contributing/guides/executable-specifications.md)                                   | Before adding, moving, or retiring a `*.spec.ts`, read placement, binding, and admission       |
+| **Delivery**                                                                                                    |                                                                                                |
+| [Releasing Guide](devops/runbooks/release-cli.md)                                                               | Before planning or publishing a release, read the release flow                                 |
+| [Native development](devops/environments/native-development.md) and [Linux CI](devops/environments/linux-ci.md) | Before changing or using shared container development or CI                                    |
+| [Automated Pull Request Review](devops/playbooks/automated-pr-review.md)                                        | Before configuring, operating, or interpreting automated PR review                             |
+| **Implementation**                                                                                              |                                                                                                |
+| [Effect Guide](contributing/guides/effect.md)                                                                   | Before writing Effect code, route portable topics to installed skills and apply AXM policy     |
+| [Effect Errors Guide](contributing/guides/effect-errors.md)                                                     | Before handling CLI failures, read for AppError, Registry translation, and cancellation policy |
+| [Effect Layers Guide](contributing/guides/effect-layers.md)                                                     | Before wiring the CLI runtime, read for AXM entry-point and command-provision policy           |
 
 ## Code Organization
 

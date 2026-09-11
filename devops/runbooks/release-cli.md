@@ -1,4 +1,24 @@
-# Releasing Guide
+---
+type: Runbook
+title: "Release the AXM CLI"
+description: "Prepare, publish, inspect, and recover an authorized CLI release using exact-commit CI artifacts and the canonical publish workflow."
+status: draft
+applies-to:
+  - ../repositories/axm.md
+  - ../providers/github.md
+  - ../providers/npm.md
+uses-tool:
+  - ../tools/nx.md
+sources:
+  - id: migration-source
+    resource: https://github.com/agentxm/axm/blob/42ed192e796a413246266f871da31bddfd70de10/contributing/guides/releasing.md
+    title: Pre-migration repository guidance
+generated:
+  by: codex/gpt-6
+  at: 2026-09-11T16:07:00Z
+---
+
+# Release the AXM CLI
 
 How `axm` releases are versioned, prepared, published, and checked. Use this
 guide when planning a release, cutting the release commit, or checking whether a
@@ -15,6 +35,22 @@ prepared release is ready to publish.
   path
 
 ---
+
+## Applicability, authority, and completion evidence
+
+This procedure is for an authorized release maintainer with the required GitHub,
+Registry, npm, and tap permissions. It documents operations that commit, push,
+publish, and change channels; a documentation task does not authorize them.
+Use the exact release commit/tag as input and the canonical workflow as the
+operation authority. Stop on a failed identity, authentication, integrity, or
+CI gate; the recovery branches above determine the next permitted operation.
+
+Completion is the canonical workflow's required distribution and verification
+gates plus confirmed promotion for the exact candidate. Preserve its workflow
+run, commit, tag, artifact identities, and final summary as evidence. A
+superseded candidate is a separate terminal outcome, not promotion success.
+An incomplete or uncertain publication returns to the release maintainer; do
+not substitute manual writes or infer atomic rollback.
 
 ## Release Model
 
@@ -226,46 +262,9 @@ script:
    This is the strongest final check because it enforces the same preconditions
    as the real publish command.
 
----
-
 ## Local Preview Publish
 
-`pnpm release:publish:local` publishes every `release:cli` npm package directly
-from the working tree under a non-default dist-tag (default: `preview`). It is
-for fast iteration only. It is not a substitute for the canonical CI release:
-it skips cross-platform binaries, npm provenance, Homebrew, installer
-verification, and the version-plan changelog flow.
-
-```bash
-pnpm release:publish:local -- --dry-run
-pnpm release:publish:local
-```
-
-The script derives a unique prerelease of the current cohort version from the
-working tree (`{version}-preview.{unix}.{short-sha}[.dirty]`), builds the release
-group, stamps the version into every release manifest, packs each package with
-`pnpm pack`, then publishes each tarball in dependency order under the chosen
-dist-tag. Because npm also assigns `latest` on a package's first publication,
-keeping the preview below the current stable version lets the canonical release
-supersede that bootstrap state. Manifests are restored in a `finally` block.
-
-Install the published preview globally:
-
-```bash
-npm install -g axm.sh@preview
-```
-
-Optional flags:
-
-- `--tag=<dist-tag>` - override the dist-tag (default `preview`; `latest` is
-  refused).
-- `--no-build` - skip the Nx build step when iterating on packaging only.
-- `--dry-run` - run `npm publish --dry-run` against each tarball.
-
-Login: requires `npm login` (no provenance is attached because OIDC is only
-available from GitHub Actions).
-
----
+For a working-tree package preview, follow [Publish a local preview](publish-local-preview.md).
 
 ## Notes
 
@@ -286,3 +285,18 @@ available from GitHub Actions).
   bearer token is a workflow-bound principal with only `releases.promote`; the
   Cloudflare Access service token admits the workflow to the private Control
   surface.
+
+## Accountability, gaps, and maintenance
+
+Documentation maintainer: [@craigsmitham](https://github.com/craigsmitham), under
+the [adoption declaration](../README.md). The authorized release maintainer performs the workflow; current publisher and incident-escalation assignments require confirmation from repository administrators.
+
+Review this record when release entrypoints, cohort rules, publication gates, credentials, distribution channels, or recovery semantics change.
+
+Exercise history is unknown: this migration inspected repository sources on
+2026-09-11 and did not execute the procedure. Document status does not establish
+execution authority or operational readiness.
+
+Migration source: [pre-migration repository guidance][migration-source].
+
+[migration-source]: https://github.com/agentxm/axm/blob/42ed192e796a413246266f871da31bddfd70de10/contributing/guides/releasing.md

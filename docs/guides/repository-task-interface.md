@@ -58,7 +58,7 @@ entry point.
   install-verification targets selected by the host workflow.
 - Source-CLI invocation from another workspace is an external-workspace
   launcher and uses the absolute forms documented in
-  [Development environment](../../contributing/guides/development-environment.md#run-the-source-cli-against-another-workspace).
+  [Development environment](../../devops/runbooks/run-source-cli.md#run-the-source-cli-against-another-workspace).
 
 ## Intent and ownership
 

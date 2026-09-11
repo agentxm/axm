@@ -95,7 +95,12 @@ describe("repository task interface", () => {
       "CONTRIBUTING.md",
       ".github/workflows/ci.yml",
       "docs/index.md",
-      "contributing/guides/development-environment.md",
+      "devops/environments/native-development.md",
+      "devops/environments/linux-ci.md",
+      "devops/environments/native-platform-ci.md",
+      "devops/runbooks/run-source-cli.md",
+      "devops/runbooks/reproduce-linux-ci.md",
+      "devops/runbooks/upgrade-ci-image.md",
       "scripts/lint-bundled-skill.ts",
     ]) {
       expect(read(path), path).not.toContain("command-execution-policy.md");

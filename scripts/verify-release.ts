@@ -4,7 +4,7 @@
  * Usage:
  *   bun verify-release.ts --candidate cli-vX.Y.Z
  *
- * The release policy in contributing/guides/releasing.md owns the selection
+ * The release policy in devops/runbooks/release-cli.md owns the selection
  * and acceptance criteria; this gate applies it to the named candidate and
  * fails clearly when no exact candidate is identified. It composes existing
  * evidence targets rather than owning duplicate test outcomes.

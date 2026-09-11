@@ -144,7 +144,7 @@ requirement.
 
 `verify:release` composes evidence for one exact release candidate named by
 its `cli-v*` tag and fails when no candidate is identified; it applies the
-release policy in `contributing/guides/releasing.md` rather than owning
+release policy in `devops/runbooks/release-cli.md` rather than owning
 criteria. `verify:artifact` requires an identified binary artifact and runs
 artifact verification against it. `verify:deployment` requires an identified
 install endpoint and runs the installed-product verification the publish

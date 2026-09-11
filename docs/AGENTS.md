@@ -17,7 +17,7 @@ field profile, and the points where it departs from the skill.
 
 - Applies to every `.md` file under `docs/`, including this one.
 - The bundle root is `docs/`, and `docs/index.md` carries `okf_version: "0.2"`.
-- Does **not** apply to `contributing/guides/`, `README.md`, `CONTRIBUTING.md`,
+- Does **not** apply to `devops/`, `contributing/guides/`, `README.md`, `CONTRIBUTING.md`,
   `CHANGELOG.md`, or acquired Knowledge bundles under `agent_extensions/**`. Each follows
   the contract of its actual consumer.
 - Published site content lives in `apps/cli/site-content/docs/` and belongs

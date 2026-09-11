@@ -20,11 +20,13 @@ pnpm build               # build all packages
 pnpm test                # run tests
 ```
 
-The native development environment, repository-owned CI image, and
-platform-specific boundaries are documented in the
-[Development Environment Guide](contributing/guides/development-environment.md).
+Start with [native development](devops/environments/native-development.md),
+[Linux CI](devops/environments/linux-ci.md), and
+[native platform CI](devops/environments/native-platform-ci.md) for execution boundaries.
+[Engineering and operations](devops/index.md) also covers tools, providers,
+release procedures, and engineering measures.
 Automated review behavior and maintainer controls are documented in the
-[Automated Pull Request Review Guide](contributing/guides/automated-pull-request-review.md).
+[Automated Pull Request Review Guide](devops/playbooks/automated-pr-review.md).
 
 ### Useful Commands
 
@@ -142,7 +144,7 @@ private coordination and private PR links in the internal system.
 
 ## Releasing
 
-See the [Releasing Guide](contributing/guides/releasing.md) for versioning, the release flow, and how to inspect release and CI state.
+See the [Releasing Guide](devops/runbooks/release-cli.md) for versioning, the release flow, and how to inspect release and CI state.
 
 Releases are published from GitHub Actions. `pnpm release:prepare` is the only supported way to cut a release commit locally.
 

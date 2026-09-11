@@ -220,11 +220,16 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       workspace.layout.scope === "project"
         ? [workspace.layout.acquiredRoot, workspace.layout.authoredRoot("skill")]
         : [workspace.layout.acquiredRoot];
+    const authoredSkills = {
+      layout: workspace.layout,
+      entries: Option.isSome(settings) ? (settings.value.skills ?? {}) : {},
+    };
     const ownership = yield* observeWorkspaceOwnershipIssues({
       workspaceRoot: workspace.baseDir,
       scope: workspace.scope,
       configuredAgentIds: new Set(configuredAgents),
       skillOwnershipRoots,
+      authoredSkills,
     });
     const desiredGraph = yield* workspace.getDesiredStateGraph();
     const materializationAgentIds = new Set(
@@ -236,6 +241,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       desiredAgentIds: materializationAgentIds,
       expectedNames: expectedProjectionNames(desiredGraph),
       skillOwnershipRoots,
+      authoredSkills,
     });
     const canonicalObservations: Effect.Effect<
       ReadonlyArray<{

@@ -129,6 +129,44 @@ describe("axm lint (e2e, Phase 7)", () => {
     });
   });
 
+  it("keeps a freshly scaffolded skill clean in strict workspace and git-index lint", async () => {
+    const temp = createTempDir("axm-authored-lint-");
+    try {
+      const env = { HOME: temp.path, AXM_USER_HOME: temp.path, DO_NOT_TRACK: "1" };
+      writeJson(path.join(temp.path, "axm.json"), { owner: "@test", agents: ["claude-code"] });
+      const scaffold = await runCli(["skills", "new", "review", "--non-interactive"], {
+        cwd: temp.path,
+        env,
+      });
+      expect(scaffold.exitCode, `${scaffold.stderr}\n${scaffold.stdout}`).toBe(0);
+      const sourceFiles = ["skills/review/skill.json", "skills/review/src/SKILL.md"];
+      const before = sourceFiles.map((file) => fs.readFileSync(path.join(temp.path, file), "utf8"));
+      initializeGit(temp.path);
+      git(temp.path, ["add", "."]);
+      const indexBefore = git(temp.path, ["ls-files", "--stage"]);
+      for (const view of ["workspace", "git-index"]) {
+        const lint = await runCli(["lint", "--view", view, "--strict", "--json"], {
+          cwd: temp.path,
+          env,
+        });
+        expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
+        const document = JSON.parse(lint.stdout);
+        expect(document.ok).toBe(true);
+        expect(document.result.findings).not.toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ ruleId: "workspace/managed-file-unowned" }),
+          ]),
+        );
+      }
+      expect(
+        sourceFiles.map((file) => fs.readFileSync(path.join(temp.path, file), "utf8")),
+      ).toEqual(before);
+      expect(git(temp.path, ["ls-files", "--stage"])).toBe(indexBefore);
+    } finally {
+      temp.cleanup();
+    }
+  });
+
   describe("workspace-authored canonical changes", () => {
     it("treats unpublished edits as non-blocking and recommends publish", async () => {
       const temp = createTempDir();

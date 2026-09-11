@@ -7,6 +7,7 @@ import "./cli-commands/lint/command.e2e.js";
  */
 export const executionBinding = {
   requirements: [
+    "cli/lint/authored-skills-are-not-agent-output",
     "cli/lint/reports-facts-without-mutation",
     "cli/lint/findings-name-the-violated-invariant",
     "cli/lint/honors-configured-rule-severities",

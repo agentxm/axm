@@ -12,6 +12,7 @@ import type { CodingAgentRepositoryService } from "@agentxm/workspace-projection
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { reconcileAgentOutputs } from "./index.js";
+import { applySync, previewSync, makeSyncFixture } from "./test-helpers.js";
 
 const AXM_MANAGED_MARKER =
   "<!-- axm:file v=1 ext=@acme/subagents/test src=agent_extensions/@acme/subagents/test -->";
@@ -487,6 +488,54 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
     }),
+  );
+});
+
+describe("authored skill cleanup exclusion", () => {
+  it.effect.each([false, true])(
+    "preserves authored source through preview and repeated sync with enabled=%s",
+    (enabled) =>
+      Effect.gen(function* () {
+        const manifest = JSON.stringify({
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          version: "1.0.0",
+        });
+        const content = "---\nname: review\ndescription: Review code\n---\nReview the code.\n";
+        const workspace = makeSyncFixture({
+          settings: {
+            owner: "@acme",
+            agents: ["claude-code"],
+            skills: { review: { source: "workspace", enabled } },
+          },
+          files: { "skills/review/skill.json": manifest, "skills/review/src/SKILL.md": content },
+        });
+        try {
+          yield* workspace.provide(
+            Effect.gen(function* () {
+              const before = workspace.snapshot();
+              const cleanup = yield* reconcileAgentOutputs({
+                desiredAgentIds: new Set(["claude-code"]),
+                expectedNames: expectedNames({ skill: enabled ? ["review"] : [] }),
+                dryRun: true,
+              });
+              expect(cleanup).toEqual({ removedPaths: [], preservedPaths: [] });
+              yield* previewSync();
+              expect(workspace.snapshot()).toEqual(before);
+              yield* applySync();
+              expect(workspace.readFile("skills/review/skill.json")).toBe(manifest);
+              expect(workspace.readFile("skills/review/src/SKILL.md")).toBe(content);
+              const settled = workspace.snapshot();
+              yield* previewSync();
+              yield* applySync();
+              expect(workspace.snapshot()).toEqual(settled);
+            }),
+          );
+        } finally {
+          workspace.cleanup();
+        }
+      }).pipe(Effect.provide(NodeServices.layer)),
   );
 });
 

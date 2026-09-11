@@ -121,6 +121,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Open questions: Which target takes precedence when a single word names both a topic and a command? These examples do not establish that collision policy.
 - Source: [`apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts`](../apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts)
 
+##### Authored skills are excluded from unowned agent output findings
+
+- Requirement: `cli/lint/authored-skills-are-not-agent-output`
+- Owner: `workspace-lint`
+- Statement: When a declared workspace skill has a valid manifest matching its declared identity at its authored package path, lint shall exclude that package from unowned agent output findings regardless of activation or configured agents, while continuing to report unowned native content and undeclared or invalid package lookalikes.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Boundary rationale: A real workspace holds the source package and overlapping native agent directory; production lint observes its ownership and normal/strict outcomes without mutating it.
+- Methods: example, decision-table
+- Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
+- Source: [`packages/core/workspace-lint/src/catalog/workspace/authored-skills-are-not-agent-output.spec.ts`](../packages/core/workspace-lint/src/catalog/workspace/authored-skills-are-not-agent-output.spec.ts)
+
 ##### Lint fix requires known ownership and unambiguous content
 
 - Requirement: `cli/lint/fix-repairs-only-determined-state`

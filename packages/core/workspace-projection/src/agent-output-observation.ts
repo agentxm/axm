@@ -11,6 +11,12 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Option from "effect/Option";
+import {
+  resolveWorkspaceExtensionRef,
+  type SkillEntry,
+  type WorkspaceLayout,
+} from "@agentxm/workspace-state";
 import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -51,6 +57,11 @@ export interface ObserveAgentOutputsArgs {
   readonly desiredAgentIds: ReadonlySet<string>;
   readonly expectedNames: Readonly<Record<PerAgentType, ReadonlySet<string>>>;
   readonly skillOwnershipRoots: ReadonlyArray<string>;
+  /** Local declarations, including disabled skills; independent of graph resolution. */
+  readonly authoredSkills: {
+    readonly layout: WorkspaceLayout;
+    readonly entries: Readonly<Record<string, SkillEntry>>;
+  };
 }
 
 interface ResolvedContainer {
@@ -82,6 +93,35 @@ const containerIsDesired = (
   claimantAgentIds: ReadonlyArray<string>,
   desiredAgentIds: ReadonlySet<string>,
 ): boolean => claimantAgentIds.some((agentId) => desiredAgentIds.has(agentId));
+
+/** A declared source package is not an agent output eligible for retirement. */
+const isAuthoredSkillPackage = (
+  args: ObserveAgentOutputsArgs["authoredSkills"],
+  artifactPath: string,
+  name: string,
+) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const entry = args.entries[name];
+    if (
+      args.layout.scope !== "project" ||
+      entry?.source !== "workspace" ||
+      entry.origin === "bundled" ||
+      artifactPath !== path.join(args.layout.authoredRoot("skill"), name)
+    )
+      return false;
+
+    // Failed validation supplies no exclusion: the output remains visible to
+    // ownership diagnostics and the package's own canonical-content diagnostics.
+    const source = yield* resolveWorkspaceExtensionRef({
+      settingsName: name,
+      source: entry.source,
+      expectedType: "skill",
+      layout: args.layout,
+      scope: args.layout.scope,
+    }).pipe(Effect.option);
+    return Option.isSome(source);
+  });
 
 /** Observe every known agent output without writing to the workspace. */
 export const observeAgentOutputs = (
@@ -129,6 +169,7 @@ export const observeAgentOutputs = (
         } else {
           const stat = yield* fs.stat(artifactPath).pipe(Effect.option);
           if (stat._tag === "Some" && stat.value.type === "Directory") {
+            if (yield* isAuthoredSkillPackage(args.authoredSkills, artifactPath, entry)) continue;
             const content = yield* safeReadFileString(fs, path.join(artifactPath, "SKILL.md"));
             if (hasAxmManagedMarker(content)) proof = "managed-banner";
           }
@@ -299,6 +340,7 @@ export const observeWorkspaceOwnershipIssues = (args: {
   readonly scope: WorkspaceScope;
   readonly configuredAgentIds: ReadonlySet<string>;
   readonly skillOwnershipRoots: ReadonlyArray<string>;
+  readonly authoredSkills: ObserveAgentOutputsArgs["authoredSkills"];
 }): Effect.Effect<
   ReadonlyArray<WorkspaceOwnershipIssue>,
   never,
@@ -315,6 +357,7 @@ export const observeWorkspaceOwnershipIssues = (args: {
       hook: new Set<string>(),
     },
     skillOwnershipRoots: args.skillOwnershipRoots,
+    authoredSkills: args.authoredSkills,
   }).pipe(
     Effect.map((observed) =>
       observed.unownedFootprints.map((output) => ({

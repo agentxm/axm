@@ -41,7 +41,7 @@ const inventory = (
   args: ReconcileAgentOutputsArgs,
 ): Effect.Effect<
   AgentOutputInventory,
-  never,
+  WorkspaceSyncFailed,
   | CodingAgentRepository
   | FileSystem.FileSystem
   | Path.Path
@@ -55,6 +55,16 @@ const inventory = (
       scope: ws.scope,
       desiredAgentIds: args.desiredAgentIds,
       expectedNames: args.expectedNames,
+      authoredSkills: {
+        layout: ws.layout,
+        entries: yield* ws
+          .getConfiguredSkillEntries()
+          .pipe(
+            Effect.mapError((cause) =>
+              cleanupFailure("Failed to read authored skill declarations", cause),
+            ),
+          ),
+      },
       skillOwnershipRoots:
         ws.layout.scope === "project"
           ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]

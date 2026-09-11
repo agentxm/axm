@@ -433,16 +433,16 @@ for (const source of [workspaceVerification, affectedVerification]) {
   }
 }
 
-// Test worker count is a shared vitest profile, not a per-script flag: a hosted
+// Test worker count is a shared Vitest profile, not a per-script flag: a hosted
 // runner and a developer workstation need different values from one contract.
+// Vitest 5 removed the experimental filesystem module-cache option, so the
+// profile owns only the worker policy now.
 const testExecutionProfile = read("vitest.execution.ts");
-for (const text of ['process.env["CI"] ? 2 :', "fsModuleCache: false"]) {
-  requireText(
-    testExecutionProfile,
-    text,
-    `vitest.execution.ts must retain the shared test execution profile for ${text}`,
-  );
-}
+requireText(
+  testExecutionProfile,
+  'process.env["CI"] ? 2 :',
+  "vitest.execution.ts must retain the shared test execution worker profile",
+);
 
 for (const [name, source] of [
   ["verify:workspace", workspaceVerification],

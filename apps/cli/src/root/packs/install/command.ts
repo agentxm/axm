@@ -12,7 +12,7 @@ import { handleInstallPack } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription(
       "Registry pack reference (@owner/packs/name, @owner/packs/name@version, or bare pack-name)",
     ),

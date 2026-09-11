@@ -17,7 +17,7 @@ const PLAN_NAME = "Update hooks";
 const PLAN_DESCRIPTION = "Update configured hooks packages";
 
 const updateConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("Filter to hooks packages matching a name or source"),
     Argument.optional,
   ),

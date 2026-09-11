@@ -10,7 +10,7 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleUninstallHook } from "./handler.js";
 
 const uninstallConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the hooks package")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the hooks package")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),

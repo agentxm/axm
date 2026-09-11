@@ -5,8 +5,8 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import * as FastCheck from "effect/testing/FastCheck";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import { extensionName, handle } from "../test-helpers.js";
 import { ExtensionNameSchema, ExtensionTypeSchema } from "./common.js";
 import { formatFqn, parseFqn } from "./fqn.js";
@@ -129,18 +129,16 @@ describe("formatFqn", () => {
 });
 
 describe("round-trip", () => {
-  it.prop(
-    "parses every generated canonical FQN after formatting",
+  fastCheckIt.prop(
     { owner: handleArbitrary, type: typeArbitrary, name: nameArbitrary },
-    ({ owner, type, name }) => {
-      const parts = { owner, type, name };
-      const formatted = formatFqn(parts);
-      const parsed = parseFqn(formatted);
-      expect(Result.isSuccess(parsed)).toBe(true);
-      if (Result.isSuccess(parsed)) expect(parsed.success).toEqual(parts);
-    },
-    { fastCheck: { numRuns: 500, seed: 0x41584d } },
-  );
+    { numRuns: 500, seed: 0x41584d },
+  )("parses every generated canonical FQN after formatting", ({ owner, type, name }) => {
+    const parts = { owner, type, name };
+    const formatted = formatFqn(parts);
+    const parsed = parseFqn(formatted);
+    expect(Result.isSuccess(parsed)).toBe(true);
+    if (Result.isSuccess(parsed)) expect(parsed.success).toEqual(parts);
+  });
 
   [
     "@acme/skills/code-review",

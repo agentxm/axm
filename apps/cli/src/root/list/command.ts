@@ -123,15 +123,15 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
 
 const listConfig = {
   scope: scopeFlag.pipe(Flag.withDescription("List project (default) or user-level extensions")),
-  type: Flag.choice("type", [...installableExtensionTypes]).pipe(
+  type: Flag.Literals("type", [...installableExtensionTypes]).pipe(
     Flag.withDescription("Only list a specific extension type"),
     Flag.optional,
   ),
-  outdated: Flag.boolean("outdated").pipe(
+  outdated: Flag.Boolean("outdated").pipe(
     Flag.withDescription("Only list installed extensions with available updates"),
     Flag.withDefault(false),
   ),
-  deprecated: Flag.boolean("deprecated").pipe(
+  deprecated: Flag.Boolean("deprecated").pipe(
     Flag.withDescription("Only list installed extensions deprecated by their registry"),
     Flag.withDefault(false),
   ),

@@ -11,7 +11,7 @@ import {
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
-  skill: Argument.string("name").pipe(Argument.withDescription("Name of the skill to uninstall")),
+  skill: Argument.String("name").pipe(Argument.withDescription("Name of the skill to uninstall")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),

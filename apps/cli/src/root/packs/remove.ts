@@ -24,10 +24,10 @@ export const handlePacksRemove = (args: PacksRemoveHandlerArgs) =>
   });
 
 const removeConfig = {
-  pack: Argument.string("name").pipe(
+  pack: Argument.String("name").pipe(
     Argument.withDescription("Configured pack name or unique configured pack FQN"),
   ),
-  extension: Argument.string("extension").pipe(
+  extension: Argument.String("extension").pipe(
     Argument.withDescription("Extension name or glob pattern"),
   ),
   preview: previewCapabilityFlag("Show what would change in the manifest without modifying it"),

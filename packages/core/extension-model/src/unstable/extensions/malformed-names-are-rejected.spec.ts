@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 import * as Result from "effect/Result";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 
 import { parseFqn } from "./fqn.js";
 
@@ -56,13 +56,10 @@ describe("Malformed extension names", () => {
     }),
   );
 
-  it.effect.prop(
+  fastCheckIt.prop({ name: bareNameArbitrary }, { numRuns: 100 })(
     "no bare name is ever mistaken for a fully qualified name",
-    { name: bareNameArbitrary },
-    ({ name }) =>
-      Effect.sync(() => {
-        expect(Result.isFailure(parseFqn(name))).toBe(true);
-      }),
-    { fastCheck: { numRuns: 100 } },
+    ({ name }) => {
+      expect(Result.isFailure(parseFqn(name))).toBe(true);
+    },
   );
 });

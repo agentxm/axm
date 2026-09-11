@@ -13,20 +13,20 @@ import {
 import { handleSync } from "./handler.js";
 
 const syncConfig = {
-  target: Argument.string("extension").pipe(
+  target: Argument.String("extension").pipe(
     Argument.withDescription("Optional extension or pack root to reconcile"),
     Argument.optional,
   ),
   // Pack is a container, not a directly materialized extension. Explicit pack
   // roots expand to their member closure; type-filtered sync dispatches only
   // the non-container types derived from the canonical capability table.
-  type: Flag.choice("type", [...CATALOG_EXTENSION_TYPES]).pipe(
+  type: Flag.Literals("type", [...CATALOG_EXTENSION_TYPES]).pipe(
     Flag.withDescription("Reconcile only one directly materialized extension type"),
     Flag.optional,
   ),
   scope: scopeFlag.pipe(Flag.withDescription("Sync project (default) or user-level configuration")),
   preview: previewCapabilityFlag("Preview the materialization plan without applying it"),
-  failOnChange: Flag.boolean("fail-on-change").pipe(
+  failOnChange: Flag.Boolean("fail-on-change").pipe(
     Flag.withDescription("Exit 1 when preview finds reconciliation work"),
     Flag.withDefault(false),
   ),

@@ -26,27 +26,27 @@ type PerTypePublishType = PublishableType;
 export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   const plural = extensionTypeToPlural[type];
   const commonConfig = {
-    extensions: Argument.string("name").pipe(
+    extensions: Argument.String("name").pipe(
       Argument.withDescription("Bare names, globs, or fully-qualified extension names"),
       Argument.atLeast(0),
     ),
-    owner: Flag.string("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
-    exclude: Flag.string("exclude").pipe(
+    owner: Flag.String("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
+    exclude: Flag.String("exclude").pipe(
       Flag.withDescription("Exclude a matching name, glob, or FQN"),
       Flag.atLeast(0),
     ),
-    registry: Flag.string("registry").pipe(
+    registry: Flag.String("registry").pipe(
       Flag.withDescription("Target a specific named registry"),
       Flag.optional,
     ),
-    registryUrl: Flag.string("registry-url").pipe(
+    registryUrl: Flag.String("registry-url").pipe(
       Flag.withDescription("Override the target registry URL for automation"),
       Flag.optional,
     ),
     onExisting: onExistingFlag,
     backfill: backfillFlag,
     acceptWarnings: acceptWarningsFlag,
-    visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
+    visibility: Flag.Literals("visibility", ["public", "private"] as const).pipe(
       Flag.withDescription("Initial visibility for every new extension in the selection"),
       Flag.optional,
     ),
@@ -67,7 +67,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   if (type === "pack") {
     const config = {
       ...commonConfig,
-      includeDependencies: Flag.boolean("include-dependencies").pipe(
+      includeDependencies: Flag.Boolean("include-dependencies").pipe(
         Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
         Flag.withDefault(false),
       ),

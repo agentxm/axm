@@ -85,8 +85,8 @@ describe("Publication outcome evidence", () => {
 
         expect(outcome.disposition._tag).toBe("Failed");
         expect(remote.uploads.map((request) => new URL(request.url).pathname).sort()).toEqual([
-          "/v1/extensions/@acme/skills/format/1.0.0",
-          "/v1/extensions/@acme/skills/review/1.0.0",
+          "/v1/extensions/%40acme/skills/format/1.0.0",
+          "/v1/extensions/%40acme/skills/review/1.0.0",
         ]);
         const document = publishDocument(outcome);
         expect(document.execution.status).toBe("partial");
@@ -195,8 +195,8 @@ describe("Publication outcome evidence", () => {
         expect(
           [...new Set(remote.uploads.map((request) => new URL(request.url).pathname))].sort(),
         ).toEqual([
-          "/v1/extensions/@acme/skills/format/1.0.0",
-          "/v1/extensions/@acme/skills/review/1.0.0",
+          "/v1/extensions/%40acme/skills/format/1.0.0",
+          "/v1/extensions/%40acme/skills/review/1.0.0",
         ]);
         // A run that confirms nothing resolves as reported problems, never as a
         // success: the category the application maps to its exit status.

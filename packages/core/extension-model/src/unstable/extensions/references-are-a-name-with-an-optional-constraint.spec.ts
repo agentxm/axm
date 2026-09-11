@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 
 import {
   decodeExtensionNameSync,
@@ -56,22 +56,22 @@ const constraintArbitrary = FastCheck.constantFrom(
 const decodeReference = Schema.decodeUnknownEffect(ExtensionSpecSchema);
 
 describe("Extension references", () => {
-  it.effect.prop(
-    "appending any version constraint to a name never changes which extension it identifies",
+  fastCheckIt.prop(
     {
       owner: ownerArbitrary,
       type: typeArbitrary,
       name: nameArbitrary,
       constraint: constraintArbitrary,
     },
-    ({ owner, type, name, constraint }) =>
-      Effect.sync(() => {
-        const fqn = formatFqn({ owner, type, name });
-        const plain = parseExtensionFqnParts(fqn);
-        expect(plain).toBeDefined();
-        expect(parseExtensionSpecParts(`${fqn}@${constraint}`)).toEqual(plain);
-      }),
-    { fastCheck: { numRuns: 150 } },
+    { numRuns: 150 },
+  )(
+    "appending any version constraint to a name never changes which extension it identifies",
+    ({ owner, type, name, constraint }) => {
+      const fqn = formatFqn({ owner, type, name });
+      const plain = parseExtensionFqnParts(fqn);
+      expect(plain).toBeDefined();
+      expect(parseExtensionSpecParts(`${fqn}@${constraint}`)).toEqual(plain);
+    },
   );
 
   it.effect("a version-constrained reference identifies the same extension as its plain name", () =>

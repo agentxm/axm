@@ -13,7 +13,7 @@ import {
 import { handleUpdate } from "./handler.js";
 
 const updateConfig = {
-  source: Argument.string("extension[@version]").pipe(
+  source: Argument.String("extension[@version]").pipe(
     Argument.withDescription("Registry FQN (@owner/<plural-type>/<name>[@version])"),
     Argument.optional,
   ),

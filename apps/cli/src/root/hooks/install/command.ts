@@ -13,7 +13,7 @@ import { handleWorkspaceInstall } from "../../install/workspace-install-handler.
 import { handleInstallHook } from "./handler.js";
 
 const installConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription(
       "hooks package source (@owner/hooks/name, path, URL, or git shorthand)",
     ),

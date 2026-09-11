@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -35,33 +35,34 @@ describe("Non-installable install sources", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect.prop(
+  fastCheckIt.prop({ name: bareName }, { numRuns: 25 })(
     "any bare name fails as usage guidance and leaves the workspace untouched",
-    [bareName],
-    ([name]) => {
+    ({ name }) => {
       const { workspace, cleanup } = makeInstallWorld();
       cleanups.push(cleanup);
       const settingsBefore = JSON.stringify(readSettings(workspace));
       const lockBefore = workspace.readFile("axm-lock.yaml");
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            const failure = yield* applyInstall(
-              installRequest({ subject: { kind: "source", source: name } }),
-            ).pipe(Effect.flip);
+      // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
+      return Effect.runPromise(
+        workspace
+          .provide(
+            Effect.gen(function* () {
+              const failure = yield* applyInstall(
+                installRequest({ subject: { kind: "source", source: name } }),
+              ).pipe(Effect.flip);
 
-            expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-            if (failure instanceof ExtensionLifecycleFailed) {
-              expect(failure.category).toBe("usage");
-            }
-            expect(JSON.stringify(readSettings(workspace))).toBe(settingsBefore);
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
-            expect(workspace.exists("agent_extensions")).toBe(false);
-          }),
-        )
-        .pipe(Effect.provide(NodeServices.layer));
+              expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+              if (failure instanceof ExtensionLifecycleFailed) {
+                expect(failure.category).toBe("usage");
+              }
+              expect(JSON.stringify(readSettings(workspace))).toBe(settingsBefore);
+              expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+              expect(workspace.exists("agent_extensions")).toBe(false);
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+      );
     },
-    { fastCheck: { numRuns: 25 } },
   );
 
   it.effect("an unknown plural type in a registry name is rejected without mutation", () => {

@@ -11,7 +11,7 @@ import {
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const uninstallConfig = {
-  subagent: Argument.string("name").pipe(
+  subagent: Argument.String("name").pipe(
     Argument.withDescription("Name of the subagent to uninstall"),
   ),
   scope: scopeFlag.pipe(

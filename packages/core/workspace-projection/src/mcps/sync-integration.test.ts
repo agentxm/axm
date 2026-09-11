@@ -4,8 +4,8 @@ import * as nodePath from "node:path";
 import * as FileSystem from "effect/FileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   CONFIGURABLE_AGENT_IDS,
@@ -151,8 +151,7 @@ describe("mcp-sync helpers", () => {
       ),
   );
 
-  it.effect.prop(
-    "preserves write-inspect agreement for arbitrary canonical server names",
+  fastCheckIt.prop(
     {
       testCase: FastCheck.constantFrom(...configurableMcpCases),
       serverName: FastCheck.tuple(
@@ -162,40 +161,45 @@ describe("mcp-sync helpers", () => {
         }),
       ).map(([first, rest]) => `${first}${rest.join("")}`),
     },
+    { numRuns: 100, seed: 0x41584d },
+  )(
+    "preserves write-inspect agreement for arbitrary canonical server names",
     ({ testCase, serverName }) =>
-      withNode(
-        Effect.gen(function* () {
-          const workspaceRoot = mkdtempSync(
-            nodePath.join(tmpdir(), `axm-mcp-${testCase.agentId}-`),
-          );
-          try {
-            const entry = entryForTransports(testCase.transports);
-            yield* withHome(
-              workspaceRoot,
-              Effect.gen(function* () {
-                const outcome = yield* syncInlineMcpServerToAgent(testCase.agentId, {
-                  workspaceRoot,
-                  serverName,
-                  scope: testCase.scope,
-                  entry,
-                });
-                expect(outcome._tag).toBe("success");
-                const inspections = yield* inspectMcpServerAcrossAgents({
-                  workspaceRoot,
-                  scope: testCase.scope,
-                  agentIds: [testCase.agentId],
-                  serverName,
-                  entry,
-                });
-                expect(inspections[0]?.status).toBe("match");
-              }),
+      // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
+      Effect.runPromise(
+        withNode(
+          Effect.gen(function* () {
+            const workspaceRoot = mkdtempSync(
+              nodePath.join(tmpdir(), `axm-mcp-${testCase.agentId}-`),
             );
-          } finally {
-            rmSync(workspaceRoot, { recursive: true, force: true });
-          }
-        }),
+            try {
+              const entry = entryForTransports(testCase.transports);
+              yield* withHome(
+                workspaceRoot,
+                Effect.gen(function* () {
+                  const outcome = yield* syncInlineMcpServerToAgent(testCase.agentId, {
+                    workspaceRoot,
+                    serverName,
+                    scope: testCase.scope,
+                    entry,
+                  });
+                  expect(outcome._tag).toBe("success");
+                  const inspections = yield* inspectMcpServerAcrossAgents({
+                    workspaceRoot,
+                    scope: testCase.scope,
+                    agentIds: [testCase.agentId],
+                    serverName,
+                    entry,
+                  });
+                  expect(inspections[0]?.status).toBe("match");
+                }),
+              );
+            } finally {
+              rmSync(workspaceRoot, { recursive: true, force: true });
+            }
+          }),
+        ),
       ),
-    { fastCheck: { numRuns: 100, seed: 0x41584d } },
   );
 
   it.effect("captures output and redacts secrets from CLI output", () =>

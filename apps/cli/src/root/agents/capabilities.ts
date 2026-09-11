@@ -124,7 +124,7 @@ export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(functio
 });
 
 const capabilitiesConfig = {
-  id: Argument.string("id").pipe(
+  id: Argument.String("id").pipe(
     Argument.withDescription("Coding-agent ID, such as claude-code or cursor"),
   ),
 } as const;

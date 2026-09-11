@@ -12,7 +12,7 @@ import { handleInstall } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription(
       "Registry reference (@owner/subagents/name), GitHub shorthand (owner/repo), local path, or URL",
     ),
@@ -21,11 +21,11 @@ const installConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
-  subagent: Flag.string("subagent").pipe(
+  subagent: Flag.String("subagent").pipe(
     Flag.withDescription("Cherry-pick specific subagents from a multi-subagent source"),
     Flag.atLeast(0),
   ),
-  all: Flag.boolean("all").pipe(
+  all: Flag.Boolean("all").pipe(
     Flag.withDescription("Install every subagent found in the source without prompting"),
     Flag.withDefault(false),
   ),

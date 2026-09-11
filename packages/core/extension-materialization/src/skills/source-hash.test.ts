@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 import { computeSkillSourceHash } from "./source-hash.js";
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -32,17 +32,22 @@ describe("computeSkillSourceHash", () => {
     ),
   );
 
-  it.effect.prop(
-    "changes when arbitrary file content changes",
+  fastCheckIt.prop(
     {
       contents: FastCheck.uniqueArray(FastCheck.string(), { minLength: 2, maxLength: 2 }),
     },
-    ({ contents }) => {
-      const [firstContent, secondContent] = contents;
-      if (firstContent === undefined || secondContent === undefined) {
-        return Effect.die(new Error("property generator must produce two contents"));
-      }
-      return withNode(
+    { numRuns: 100, seed: 0x41584d },
+  )("changes when arbitrary file content changes", ({ contents }) => {
+    const [firstContent, secondContent] = contents;
+    if (firstContent === undefined || secondContent === undefined) {
+      // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
+      return Effect.runPromise(
+        Effect.die(new Error("property generator must produce two contents")),
+      );
+    }
+    // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
+    return Effect.runPromise(
+      withNode(
         Effect.gen(function* () {
           const dir = mkdtempSync(nodePath.join(tmpdir(), "skill-hash-property-"));
           try {
@@ -55,10 +60,9 @@ describe("computeSkillSourceHash", () => {
             rmSync(dir, { recursive: true, force: true });
           }
         }),
-      );
-    },
-    { fastCheck: { numRuns: 100, seed: 0x41584d } },
-  );
+      ),
+    );
+  });
 
   it.effect("changes when a nested subdirectory file changes", () =>
     withNode(

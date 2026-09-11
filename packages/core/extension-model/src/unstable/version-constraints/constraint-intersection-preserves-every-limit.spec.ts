@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 
 import {
   decodeVersionRangeSync,
@@ -61,27 +61,25 @@ const satisfies = (version: string, range: string): boolean =>
   versionSatisfiesRange(decodeVersionSync(version), decodeVersionRangeSync(range));
 
 describe("Version constraint intersection", () => {
-  it.effect.prop(
-    "a version is inside the combined constraint exactly when it is inside every contributor",
+  fastCheckIt.prop(
     {
       contributors: FastCheck.array(contributorArbitrary, { minLength: 1, maxLength: 3 }),
       probes: FastCheck.array(tripleArbitrary, { minLength: 8, maxLength: 8 }),
     },
-    ({ contributors, probes }) =>
-      Effect.sync(() => {
-        const combined = intersectVersionConstraints(contributors);
-        for (const probe of probes) {
-          for (const suffix of ["", "-alpha", "-alpha.1", "-beta", "-rc.0"]) {
-            const version = `${render(probe)}${suffix}`;
-            const insideEvery = contributors.every((contributor) =>
-              satisfies(version, contributor),
-            );
-            const insideCombined = combined !== undefined && satisfies(version, combined);
-            expect(insideCombined).toBe(insideEvery);
-          }
+    { numRuns: 200 },
+  )(
+    "a version is inside the combined constraint exactly when it is inside every contributor",
+    ({ contributors, probes }) => {
+      const combined = intersectVersionConstraints(contributors);
+      for (const probe of probes) {
+        for (const suffix of ["", "-alpha", "-alpha.1", "-beta", "-rc.0"]) {
+          const version = `${render(probe)}${suffix}`;
+          const insideEvery = contributors.every((contributor) => satisfies(version, contributor));
+          const insideCombined = combined !== undefined && satisfies(version, combined);
+          expect(insideCombined).toBe(insideEvery);
         }
-      }),
-    { fastCheck: { numRuns: 200 } },
+      }
+    },
   );
 
   it.effect("unrestricted contributors produce a valid range accepting every stable version", () =>

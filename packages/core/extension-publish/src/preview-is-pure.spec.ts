@@ -63,7 +63,7 @@ const readOnlyRegistry = HttpClient.make((request) => {
   if (request.method !== "GET") {
     return Effect.die(new Error("Preview must not create authority or upload"));
   }
-  const ownerRead = new URL(request.url).pathname === "/v1/owners/@acme";
+  const ownerRead = new URL(request.url).pathname === "/v1/owners/%40acme";
   return Effect.succeed(
     HttpClientResponse.fromWeb(
       request,

@@ -35,7 +35,7 @@ export const handlePackActivation = (args: PackActivationArgs) =>
   );
 
 const activationConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the pack")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the pack")),
   scope: scopeFlag.pipe(Flag.withDescription("Use project (default) or user-level configuration")),
   preview: previewCapabilityFlag("Show what would change without applying"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,

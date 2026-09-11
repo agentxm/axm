@@ -28,7 +28,7 @@ import {
 import { HELP_TOPIC_DESCRIPTIONS } from "./help-topic-descriptions.js";
 
 const helpConfig = {
-  path: Argument.string("topic-or-command").pipe(
+  path: Argument.String("topic-or-command").pipe(
     Argument.withDescription(
       "Help topic or command path, such as basic-usage, skills install, or agents add",
     ),

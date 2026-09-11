@@ -12,7 +12,7 @@ import {
 import { handleUninstall } from "./handler.js";
 
 const uninstallConfig = {
-  source: Argument.string("extension[@version]").pipe(
+  source: Argument.String("extension[@version]").pipe(
     Argument.withDescription("Registry FQN (@owner/<plural-type>/<name>[@version])"),
   ),
   scope: scopeFlag.pipe(

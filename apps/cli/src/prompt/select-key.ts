@@ -57,7 +57,7 @@ const renderError = (state: SelectKeyState): string =>
   });
 
 export const selectKey = <A>(options: SelectKeyOptions<A>) =>
-  Prompt.custom({ error: Option.none<string>() } satisfies SelectKeyState, {
+  Prompt.Custom({ error: Option.none<string>() } satisfies SelectKeyState, {
     render: (state) =>
       Effect.succeed(`${options.message}\n${renderChoices(options)}${renderError(state)}`),
     process: (input, state) => {

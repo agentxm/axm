@@ -23,31 +23,31 @@ import { nonInteractiveFlag } from "./non-interactive.js";
 export { jsonFlag } from "./json-flag.js";
 import { jsonFlag } from "./json-flag.js";
 
-export const verboseFlag = GlobalFlag.setting("axm-verbose")({
-  flag: Flag.boolean("verbose").pipe(
+export const verboseFlag = GlobalFlag.Setting("axm-verbose")({
+  flag: Flag.Boolean("verbose").pipe(
     Flag.withAlias("v"),
     Flag.withDescription("Show additional redacted diagnostic details for errors"),
     Flag.withDefault(false),
   ),
 });
 
-export const debugFlag = GlobalFlag.setting("axm-debug")({
-  flag: Flag.boolean("debug").pipe(
+export const debugFlag = GlobalFlag.Setting("axm-debug")({
+  flag: Flag.Boolean("debug").pipe(
     Flag.withDescription("Show redacted cause and stack details (implies --verbose)"),
     Flag.withDefault(false),
   ),
 });
 
-export const quietFlag = GlobalFlag.setting("axm-quiet")({
-  flag: Flag.boolean("quiet").pipe(
+export const quietFlag = GlobalFlag.Setting("axm-quiet")({
+  flag: Flag.Boolean("quiet").pipe(
     Flag.withAlias("q"),
     Flag.withDescription("Show only final outcomes, errors, and required actions"),
     Flag.withDefault(false),
   ),
 });
 
-export const directoryFlag = GlobalFlag.setting("axm-directory")({
-  flag: Flag.directory("directory", { mustExist: true }).pipe(
+export const directoryFlag = GlobalFlag.Setting("axm-directory")({
+  flag: Flag.Directory("directory", { mustExist: true }).pipe(
     Flag.withAlias("C"),
     Flag.withDescription(
       "Run as if AXM was started in this directory (relative paths resolve from there)",
@@ -89,7 +89,7 @@ export { whenDebug, whenNotQuiet, whenVerbose } from "./verbosity-helpers.js";
  * it registers it with a description naming that confirmation; see
  * `root/shared/command-capabilities.ts`.
  */
-export const yesFlag = Flag.boolean("yes").pipe(
+export const yesFlag = Flag.Boolean("yes").pipe(
   Flag.withAlias("y"),
   Flag.withDescription("Approve the documented confirmation in advance"),
   Flag.withDefault(false),
@@ -138,7 +138,7 @@ export const NAMED_OVERRIDE_POLICIES: Readonly<Record<string, string>> = Object.
 );
 
 const makeOverrideFlag = (name: OverrideFlagName) =>
-  Flag.boolean(name).pipe(
+  Flag.Boolean(name).pipe(
     Flag.withDescription(OVERRIDE_FLAG_DECLARATIONS[name].description),
     Flag.withDefault(false),
   );
@@ -163,7 +163,7 @@ export const acceptWarningsFlag = makeOverrideFlag("accept-warnings");
  * without applying it registers exactly this flag; no command spells the
  * assessment any other way.
  */
-export const previewFlag = Flag.boolean("preview").pipe(
+export const previewFlag = Flag.Boolean("preview").pipe(
   Flag.withDescription("Display plan without applying"),
   Flag.withDefault(false),
 );

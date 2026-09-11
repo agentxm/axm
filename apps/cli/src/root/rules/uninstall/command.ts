@@ -10,7 +10,7 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleUninstallRule } from "./handler.js";
 
 const uninstallConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the rule")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the rule")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),

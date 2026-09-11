@@ -17,7 +17,7 @@ const PLAN_NAME = "Update rules";
 const PLAN_DESCRIPTION = "Update configured rules";
 
 const updateConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("Filter to rules matching a name or source"),
     Argument.optional,
   ),

@@ -45,12 +45,12 @@ export const handleMcpServersNew = (args: McpServersNewHandlerArgs) =>
   });
 
 const newConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the MCP server")),
-  description: Flag.string("description").pipe(
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the MCP server")),
+  description: Flag.String("description").pipe(
     Flag.withDescription("Description for the MCP server"),
     Flag.withDefault(""),
   ),
-  owner: Flag.string("owner").pipe(
+  owner: Flag.String("owner").pipe(
     Flag.withDescription(
       "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
     ),

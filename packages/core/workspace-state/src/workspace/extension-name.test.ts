@@ -1,24 +1,17 @@
 import { describe, expect, it } from "@effect/vitest";
-import * as Schema from "effect/Schema";
-import * as FastCheck from "effect/testing/FastCheck";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import { sanitizeName } from "./extension-name.js";
 
-const PROPERTY_OPTIONS = { fastCheck: { numRuns: 250, seed: 0x41584d } };
+const PROPERTY_OPTIONS = { numRuns: 250, seed: 0x41584d };
 
 describe("sanitizeName", () => {
-  it.prop(
-    "is idempotent",
-    [Schema.toArbitrary(Schema.String)(FastCheck)],
-    ([name]) => {
-      const sanitized = sanitizeName(name);
-      expect(sanitizeName(sanitized)).toBe(sanitized);
-      expect(sanitized.length).toBeLessThanOrEqual(255);
-    },
-    PROPERTY_OPTIONS,
-  );
+  fastCheckIt.prop({ name: FastCheck.string() }, PROPERTY_OPTIONS)("is idempotent", ({ name }) => {
+    const sanitized = sanitizeName(name);
+    expect(sanitizeName(sanitized)).toBe(sanitized);
+    expect(sanitized.length).toBeLessThanOrEqual(255);
+  });
 
-  it.prop(
-    "disambiguates distinct display names with the same readable slug",
+  fastCheckIt.prop(
     {
       left: FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789"),
       right: FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789"),
@@ -27,13 +20,15 @@ describe("sanitizeName", () => {
         maxLength: 2,
       }),
     },
+    PROPERTY_OPTIONS,
+  )(
+    "disambiguates distinct display names with the same readable slug",
     ({ left, right, separators }) => {
       const first = `${left}${separators[0]}${right}`;
       const second = `${left}${separators[1]}${right}`;
       expect(first).not.toBe(second);
       expect(sanitizeName(first)).not.toBe(sanitizeName(second));
     },
-    PROPERTY_OPTIONS,
   );
 
   it("preserves canonical extension names", () => {

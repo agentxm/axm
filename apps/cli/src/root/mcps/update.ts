@@ -17,7 +17,7 @@ const PLAN_NAME = "Update configured MCP servers";
 const PLAN_DESCRIPTION = "Update configured MCP servers";
 
 const updateConfig = {
-  source: Flag.string("source").pipe(
+  source: Flag.String("source").pipe(
     Flag.withDescription("Update every local connection from this exact MCP source"),
     Flag.optional,
   ),

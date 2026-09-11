@@ -33,8 +33,8 @@ export const handlePacksNew = (args: PacksNewHandlerArgs) =>
   });
 
 const newConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the pack (without owner)")),
-  owner: Flag.string("owner").pipe(
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the pack (without owner)")),
+  owner: Flag.String("owner").pipe(
     Flag.withDescription(
       "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
     ),

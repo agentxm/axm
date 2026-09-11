@@ -1,8 +1,8 @@
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as FastCheck from "effect/testing/FastCheck";
 import * as semver from "semver";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import { exactVersion, versionRange } from "../test-helpers.js";
 
 import type { VersionEntryLike } from "./version-constraints.js";
@@ -38,7 +38,7 @@ const makeVersionEntryLike = (version: string): VersionEntryLike => ({
   version: exactVersion(version),
 });
 
-const PROPERTY_OPTIONS = { fastCheck: { numRuns: 250, seed: 0x41584d } };
+const PROPERTY_OPTIONS = { numRuns: 250, seed: 0x41584d };
 const versionArbitrary = FastCheck.record({
   major: FastCheck.integer({ min: 0, max: 8 }),
   minor: FastCheck.integer({ min: 0, max: 12 }),
@@ -59,16 +59,14 @@ describe("VersionRangeSchema", () => {
     expect(decode("1.0.0+build.1")).toBe("1.0.0+build.1");
   });
 
-  it.prop(
-    "accepts valid versions with build metadata",
+  fastCheckIt.prop(
     { version: versionArbitrary, build: FastCheck.integer({ min: 0, max: 1_000_000 }) },
-    ({ version, build }) => {
-      const candidate = `${version}+build.${build}`;
-      expect(semver.validRange(candidate)).not.toBeNull();
-      expect(decode(candidate)).toBe(candidate);
-    },
     PROPERTY_OPTIONS,
-  );
+  )("accepts valid versions with build metadata", ({ version, build }) => {
+    const candidate = `${version}+build.${build}`;
+    expect(semver.validRange(candidate)).not.toBeNull();
+    expect(decode(candidate)).toBe(candidate);
+  });
 
   it("rejects invalid constraints", () => {
     expect(() => decode("latest")).toThrow();
@@ -211,8 +209,7 @@ describe("resolveVersionInRange", () => {
     expect(Option.getOrThrow(reverse).version).toBe("1.0.0+build.2");
   });
 
-  it.prop(
-    "agrees with semver.maxSatisfying regardless of publication order",
+  fastCheckIt.prop(
     {
       versions: FastCheck.uniqueArray(versionArbitrary, {
         minLength: 1,
@@ -221,6 +218,9 @@ describe("resolveVersionInRange", () => {
       }),
       range: FastCheck.constantFrom("*", "^1.0.0", "^2.0.0", ">=1.0.0 <5.0.0", "~3.2.0"),
     },
+    PROPERTY_OPTIONS,
+  )(
+    "agrees with semver.maxSatisfying regardless of publication order",
     ({ versions: generatedVersions, range }) => {
       const expected = semver.maxSatisfying(generatedVersions, range);
       const actual = resolveVersionInRange(
@@ -229,6 +229,5 @@ describe("resolveVersionInRange", () => {
       );
       expect(Option.getOrNull(actual)?.version ?? null).toBe(expected);
     },
-    PROPERTY_OPTIONS,
   );
 });

@@ -5,9 +5,9 @@ import { extractParamKinds, serializeArgv } from "./command-argv.js";
 describe("extractParamKinds", () => {
   it("identifies arguments and flags from a config object", () => {
     const config = {
-      source: Argument.string("source"),
-      scope: Flag.string("scope"),
-      yes: Flag.boolean("yes"),
+      source: Argument.String("source"),
+      scope: Flag.String("scope"),
+      yes: Flag.Boolean("yes"),
     };
 
     expect(extractParamKinds(config)).toEqual({
@@ -19,7 +19,7 @@ describe("extractParamKinds", () => {
 
   it("skips non-Param values", () => {
     const config = {
-      source: Argument.string("source"),
+      source: Argument.String("source"),
       notAParam: "some-string",
       alsoNot: 42,
     };

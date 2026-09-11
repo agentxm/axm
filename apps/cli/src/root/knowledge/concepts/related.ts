@@ -65,14 +65,14 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
 });
 
 const relatedConfig = {
-  reference: Argument.string("reference").pipe(
+  reference: Argument.String("reference").pipe(
     Argument.withDescription("Concept reference: @owner/knowledge/name#concept-id"),
   ),
-  depth: Flag.integer("depth").pipe(
+  depth: Flag.Int("depth").pipe(
     Flag.withDescription("Maximum traversal depth (1-3; default 1)"),
     Flag.optional,
   ),
-  includeIndexBacklinks: Flag.boolean("include-index-backlinks").pipe(
+  includeIndexBacklinks: Flag.Boolean("include-index-backlinks").pipe(
     Flag.withDescription("Include backlinks authored by reserved index documents"),
     Flag.withDefault(false),
   ),

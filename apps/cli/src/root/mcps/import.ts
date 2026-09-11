@@ -159,11 +159,11 @@ const importConfig = {
     Flag.withDescription("Import to project (default) or user-level configuration"),
   ),
   preview: previewCapabilityFlag("Show what would change without applying"),
-  as: Flag.string("as").pipe(
+  as: Flag.String("as").pipe(
     Flag.withDescription("Create one managed MCP package at the target FQN"),
     Flag.optional,
   ),
-  enable: Flag.boolean("enable").pipe(
+  enable: Flag.Boolean("enable").pipe(
     Flag.withDescription("Enable a package created with --as"),
     Flag.withDefault(false),
   ),

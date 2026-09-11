@@ -45,7 +45,7 @@ describe("Registry service origin over the built CLI", () => {
           expect(document).toMatchObject({
             result: { description: "Selected environment service" },
           });
-          expect(requests).toEqual(["/v1/extensions/@acme/skills/review"]);
+          expect(requests).toEqual(["/v1/extensions/%40acme/skills/review"]);
         },
       );
     } finally {

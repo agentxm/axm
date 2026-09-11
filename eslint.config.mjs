@@ -257,6 +257,7 @@ const moduleBoundaryConstraints = ({ production }) => [
       "vitest",
       "vitest/**",
       "@effect/vitest",
+      "@fast-check/vitest",
     ],
   },
   {

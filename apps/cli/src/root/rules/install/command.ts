@@ -13,7 +13,7 @@ import { handleWorkspaceInstall } from "../../install/workspace-install-handler.
 import { handleInstallRule } from "./handler.js";
 
 const installConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("rule source (@owner/rules/name, path, URL, or git shorthand)"),
     Argument.optional,
   ),

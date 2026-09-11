@@ -113,25 +113,25 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
 
 const loginConfig = {
   yes: preapprovalCapabilityFlag(loginCapabilities),
-  deviceCode: Flag.boolean("device-code").pipe(
+  deviceCode: Flag.Boolean("device-code").pipe(
     Flag.withDescription(
       "Use OAuth device-code sign-in; recommended for SSH and headless environments",
     ),
     Flag.withDefault(false),
   ),
-  wait: Flag.boolean("wait").pipe(
+  wait: Flag.Boolean("wait").pipe(
     Flag.withDescription("Resume and wait for a pending device sign-in"),
     Flag.withDefault(false),
   ),
-  restart: Flag.boolean("restart").pipe(
+  restart: Flag.Boolean("restart").pipe(
     Flag.withDescription("Replace an existing pending device sign-in intentionally"),
     Flag.withDefault(false),
   ),
-  timeout: Flag.integer("timeout").pipe(
+  timeout: Flag.Int("timeout").pipe(
     Flag.withDescription("Maximum seconds to wait for device approval; requires --wait"),
     Flag.optional,
   ),
-  scope: Flag.string("scope").pipe(
+  scope: Flag.String("scope").pipe(
     Flag.withDescription("Registry scope to request; repeatable"),
     Flag.atLeast(0),
   ),

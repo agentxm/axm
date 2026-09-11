@@ -26,7 +26,7 @@ export const handleEnableHook = (args: { readonly name: string; readonly preview
   );
 
 const enableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the hooks package")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the hooks package")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),

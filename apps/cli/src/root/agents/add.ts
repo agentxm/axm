@@ -98,14 +98,14 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
 });
 
 const addConfig = {
-  ids: Argument.string("id").pipe(
+  ids: Argument.String("id").pipe(
     Argument.withDescription("Coding-agent IDs to configure, such as claude-code or cursor"),
     Argument.atLeast(0),
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Add agents to project (default) or user-level configuration"),
   ),
-  detected: Flag.boolean("detected").pipe(
+  detected: Flag.Boolean("detected").pipe(
     Flag.withDescription("Add detected agents"),
     Flag.withDefault(false),
   ),

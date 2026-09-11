@@ -95,7 +95,7 @@ describe("Typed local-name lookup", () => {
                 name: "review",
               });
             expect(fixture.requests.map((request) => request.url)).toEqual([
-              `${inspectionRegistryUrl}/v1/extensions/@acme/${row.plural}/review`,
+              `${inspectionRegistryUrl}/v1/extensions/%40acme/${row.plural}/review`,
             ]);
           }),
         )
@@ -152,7 +152,7 @@ describe("Typed local-name lookup", () => {
               name: "review",
             });
           expect(fixture.requests.map((request) => request.url)).toEqual([
-            `${inspectionRegistryUrl}/v1/extensions/@acme/skills/review`,
+            `${inspectionRegistryUrl}/v1/extensions/%40acme/skills/review`,
           ]);
         }),
       )

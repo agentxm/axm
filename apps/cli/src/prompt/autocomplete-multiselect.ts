@@ -330,7 +330,7 @@ export const autocompleteMultiselect = <const A>(
     error: Option.none(),
   };
 
-  return Prompt.custom(initialState, {
+  return Prompt.Custom(initialState, {
     render: (state, action) =>
       Effect.succeed(renderPrompt(state, options, action._tag === "Submit")),
     process: (input, state): Effect.Effect<AutocompleteMultiselectAction<A>> => {

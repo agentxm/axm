@@ -184,7 +184,9 @@ const exposeExactLintRuleProperties = (node: unknown): unknown => {
 };
 
 const toDraft07SchemaFile = (schema: Schema.Top) => {
-  const document = JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(schema));
+  const document = JsonSchema.toDocumentDraft07(
+    Schema.toJsonSchemaDocument(schema, { onExcessProperty: "error" }),
+  );
 
   // These schemas are hosted at axm.sh and embedded in CLI help output. Keep
   // generation details in this script instead of emitting `$comment` into the

@@ -48,7 +48,7 @@ const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerA
 });
 
 const config = {
-  fqn: Argument.string("extension").pipe(
+  fqn: Argument.String("extension").pipe(
     Argument.withDescription("Canonical extension FQN (@owner/<plural-type>/name)"),
   ),
   preview: previewCapabilityFlag(),

@@ -9,7 +9,7 @@ import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents
  * their own meaning. No command narrows a single extension to a subset of
  * configured agents.
  */
-export const agentFlag = Flag.choice("agent", CONFIGURABLE_AGENT_IDS).pipe(
+export const agentFlag = Flag.Literals("agent", CONFIGURABLE_AGENT_IDS).pipe(
   Flag.atLeast(0),
   Flag.withDescription("Coding agent identifier from the supported catalog; repeatable"),
 );

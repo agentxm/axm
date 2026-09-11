@@ -27,7 +27,7 @@ export interface LocatedWorkspace {
   readonly acquiredRoot: AbsolutePath;
 }
 
-const axmUserHomeConfig = Config.option(Config.string("AXM_USER_HOME"));
+const axmUserHomeConfig = Config.option(Config.String("AXM_USER_HOME"));
 
 export const resolveUserHomePure = (configuredHome: string | undefined): string =>
   configuredHome ?? os.homedir();

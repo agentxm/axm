@@ -16,7 +16,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..");
 const cliPath = path.join(repoRoot, "apps", "cli", "dist", "src", "main.js");
@@ -59,12 +59,14 @@ const timeToFirstOutput = (args: ReadonlyArray<string>): Promise<number> =>
 
 const options = { iterations: 10, warmupIterations: 2 } as const;
 
-describe("time to first output", () => {
-  bench("axm --version", async () => void (await timeToFirstOutput(["--version"])), options);
-  bench("axm skills list", async () => void (await timeToFirstOutput(["skills", "list"])), options);
-  bench(
-    "axm skills list --json",
-    async () => void (await timeToFirstOutput(["skills", "list", "--json"])),
+test("time to first output", async ({ bench }) => {
+  await bench.compare(
+    bench("axm --version", async () => void (await timeToFirstOutput(["--version"]))),
+    bench("axm skills list", async () => void (await timeToFirstOutput(["skills", "list"]))),
+    bench(
+      "axm skills list --json",
+      async () => void (await timeToFirstOutput(["skills", "list", "--json"])),
+    ),
     options,
   );
 });

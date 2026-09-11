@@ -42,9 +42,9 @@ export const resolveAxmCacheRootPure = (
 };
 
 const cacheEnvironmentConfig = Config.all({
-  axmUserHome: Config.option(Config.string("AXM_USER_HOME")),
-  localAppData: Config.option(Config.string("LOCALAPPDATA")),
-  xdgCacheHome: Config.option(Config.string("XDG_CACHE_HOME")),
+  axmUserHome: Config.option(Config.String("AXM_USER_HOME")),
+  localAppData: Config.option(Config.String("LOCALAPPDATA")),
+  xdgCacheHome: Config.option(Config.String("XDG_CACHE_HOME")),
 });
 
 export const resolveAxmCacheRoot = (): Effect.Effect<string, never, Path.Path> =>

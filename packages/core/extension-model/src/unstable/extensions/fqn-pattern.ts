@@ -65,7 +65,7 @@ const formatReleaseAgeExcludePattern = (pattern: ReleaseAgeExcludePattern): stri
 export const ReleaseAgeExcludePatternSchema = Schema.String.pipe(
   Schema.decodeTo(
     Schema.toType(ReleaseAgeExcludePatternPartsSchema),
-    SchemaTransformation.transformOrFail({
+    SchemaTransformation.transformEffect({
       decode: (input: string) => {
         const parsed = parseReleaseAgeExcludePattern(input);
         return parsed === undefined

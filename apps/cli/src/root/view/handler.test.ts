@@ -172,7 +172,7 @@ describe("view handler", () => {
           });
 
           expect(requests).toEqual([
-            "https://registry.example.com/v1/extensions/@test/skills/code-review",
+            "https://registry.example.com/v1/extensions/%40test/skills/code-review",
           ]);
           if (testCase.machine) {
             expect(ctx.rendererState.results[0]?.data).toMatchObject({

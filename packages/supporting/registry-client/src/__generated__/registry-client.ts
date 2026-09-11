@@ -2548,7 +2548,7 @@ export type ExtensionsGetVersion200 = {
   readonly authors?: ReadonlyArray<Author> | null;
   readonly dependencies?: { readonly [x: string]: VersionRange } | null;
   readonly packages?: ReadonlyArray<CompanionPackage> | null;
-  readonly metadata?: { readonly [x: string]: never } | null;
+  readonly metadata?: { readonly [x: string]: Schema.Json } | null;
   readonly yanked_at?: IsoDateTimeString | null;
   readonly yank_category?: string | null;
   readonly yank_notice?: string | null;
@@ -2573,7 +2573,7 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   packages: Schema.optionalKey(Schema.Union([Schema.Array(CompanionPackage), Schema.Null])),
   metadata: Schema.optionalKey(
     Schema.Union([
-      Schema.Record(Schema.String, Schema.Never).annotate({
+      Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })).annotate({
         title: "Extension Metadata",
         description:
           "Opaque consumer-defined JSON metadata. The compact UTF-8 JSON representation is limited to 65,536 bytes and container depth 16.",
@@ -3410,6 +3410,45 @@ export const make = (
             )
         : (request) => Effect.flatMap(httpClient.execute(request), withOptionalResponse);
     };
+  const __encodePathParam = encodeURIComponent;
+  const __makePathRequest = (
+    method: (url: string) => HttpClientRequest.HttpClientRequest,
+    parameters: ReadonlyArray<string>,
+    getPath: () => string,
+  ) =>
+    Effect.suspend(() => {
+      const fail = (description: string, cause?: unknown) =>
+        Effect.fail(
+          new HttpClientError.HttpClientError({
+            reason: new HttpClientError.InvalidUrlError({
+              request: method(""),
+              cause,
+              description,
+            }),
+          }),
+        );
+      if (parameters.some((value) => value === "" || /^(?:\.|%2e){1,2}$/i.test(value))) {
+        return fail("Path parameters must be non-empty and cannot be dot segments");
+      }
+      let path: string;
+      try {
+        path = getPath();
+      } catch (cause) {
+        return fail("Failed to encode path parameter", cause);
+      }
+      if (path.split("/").some((segment) => /^(?:\.|%2e){1,2}$/i.test(segment))) {
+        return fail("Request paths cannot contain dot segments");
+      }
+      return Effect.succeed(method(path));
+    });
+  const executeStreamRequest = (request: HttpClientRequest.HttpClientRequest) =>
+    Effect.suspend(() =>
+      options.transformClient
+        ? Effect.flatMap(options.transformClient(httpClient), (client) =>
+            HttpClient.filterStatusOk(client).execute(request),
+          )
+        : HttpClient.filterStatusOk(httpClient).execute(request),
+    );
   const sseEventRequest =
     <S extends Sse.EventCodec>(schema: S) =>
     (
@@ -3419,25 +3458,21 @@ export const make = (
       HttpClientError.HttpClientError | SchemaError | Sse.Retry | Sse.SseError,
       S["DecodingServices"]
     > =>
-      HttpClient.filterStatusOk(httpClient)
-        .execute(request)
-        .pipe(
-          Effect.map((response) => response.stream),
-          Stream.unwrap,
-          Stream.decodeText(),
-          Stream.pipeThroughChannel(Sse.decodeSchema(schema)),
-        );
+      executeStreamRequest(request).pipe(
+        Effect.map((response) => response.stream),
+        Stream.unwrap,
+        Stream.decodeText(),
+        Stream.pipeThroughChannel(Sse.decodeSchema(schema)),
+      );
   const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
     Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer));
   const binaryRequest = (
     request: HttpClientRequest.HttpClientRequest,
   ): Stream.Stream<Uint8Array, HttpClientError.HttpClientError> =>
-    HttpClient.filterStatusOk(httpClient)
-      .execute(request)
-      .pipe(
-        Effect.map((response) => response.stream),
-        Stream.unwrap,
-      );
+    executeStreamRequest(request).pipe(
+      Effect.map((response) => response.stream),
+      Stream.unwrap,
+    );
   const decodeVoidError =
     <const Tag extends string>(tag: Tag) =>
     (response: HttpClientResponse.HttpClientResponse) =>
@@ -3455,7 +3490,7 @@ export const make = (
   return {
     httpClient,
     MetaGet: (options) =>
-      HttpClientRequest.get(`/v1`).pipe(
+      HttpClientRequest.get("/v1").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(MetaGet200),
@@ -3465,7 +3500,7 @@ export const make = (
         ),
       ),
     AuthIssueDeviceCode: (options) =>
-      HttpClientRequest.post(`/v1/auth/device/code`).pipe(
+      HttpClientRequest.post("/v1/auth/device/code").pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -3477,7 +3512,7 @@ export const make = (
         ),
       ),
     AuthExchangeToken: (options) =>
-      HttpClientRequest.post(`/v1/auth/token`).pipe(
+      HttpClientRequest.post("/v1/auth/token").pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -3489,7 +3524,7 @@ export const make = (
         ),
       ),
     AuthRevokeOAuthToken: (options) =>
-      HttpClientRequest.post(`/v1/auth/revoke`).pipe(
+      HttpClientRequest.post("/v1/auth/revoke").pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -3501,7 +3536,7 @@ export const make = (
         ),
       ),
     AuthGetMe: (options) =>
-      HttpClientRequest.get(`/v1/auth/me`).pipe(
+      HttpClientRequest.get("/v1/auth/me").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthGetMe200),
@@ -3513,21 +3548,29 @@ export const make = (
         ),
       ),
     AuthGetStepUpRequest: (requestId, options) =>
-      HttpClientRequest.get(`/v1/auth/step-up/requests/${requestId}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(AuthGetStepUpRequest200),
-            "400": decodeError("AuthGetStepUpRequest400", AuthGetStepUpRequest400),
-            "401": decodeError("AuthGetStepUpRequest401", AuthGetStepUpRequest401),
-            "403": decodeError("AuthGetStepUpRequest403", AuthGetStepUpRequest403),
-            "404": decodeError("AuthGetStepUpRequest404", AuthGetStepUpRequest404),
-            "500": decodeError("AuthGetStepUpRequest500", AuthGetStepUpRequest500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [requestId],
+        () => "/v1/auth/step-up/requests/" + __encodePathParam(requestId) + "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(AuthGetStepUpRequest200),
+                "400": decodeError("AuthGetStepUpRequest400", AuthGetStepUpRequest400),
+                "401": decodeError("AuthGetStepUpRequest401", AuthGetStepUpRequest401),
+                "403": decodeError("AuthGetStepUpRequest403", AuthGetStepUpRequest403),
+                "404": decodeError("AuthGetStepUpRequest404", AuthGetStepUpRequest404),
+                "500": decodeError("AuthGetStepUpRequest500", AuthGetStepUpRequest500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     AuthCreatePublishAuthorizationRequest: (options) =>
-      HttpClientRequest.post(`/v1/auth/publish-requests`).pipe(
+      HttpClientRequest.post("/v1/auth/publish-requests").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -3541,40 +3584,59 @@ export const make = (
         ),
       ),
     AuthPollPublishAuthorization: (requestId, options) =>
-      HttpClientRequest.post(`/v1/auth/publish-requests/${requestId}/status`).pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(AuthPollPublishAuthorization200),
-            "400": decodeError("AuthPollPublishAuthorization400", AuthPollPublishAuthorization400),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.post,
+        [requestId],
+        () => "/v1/auth/publish-requests/" + __encodePathParam(requestId) + "/status",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.bodyJsonUnsafe(options.payload),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(AuthPollPublishAuthorization200),
+                "400": decodeError(
+                  "AuthPollPublishAuthorization400",
+                  AuthPollPublishAuthorization400,
+                ),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     AuthExchangePublishAuthorization: (requestId, options) =>
-      HttpClientRequest.post(`/v1/auth/publish-requests/${requestId}/exchange`).pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(AuthExchangePublishAuthorization200),
-            "400": decodeError(
-              "AuthExchangePublishAuthorization400",
-              AuthExchangePublishAuthorization400,
+      __makePathRequest(
+        HttpClientRequest.post,
+        [requestId],
+        () => "/v1/auth/publish-requests/" + __encodePathParam(requestId) + "/exchange",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.bodyJsonUnsafe(options.payload),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(AuthExchangePublishAuthorization200),
+                "400": decodeError(
+                  "AuthExchangePublishAuthorization400",
+                  AuthExchangePublishAuthorization400,
+                ),
+                "409": decodeError(
+                  "AuthExchangePublishAuthorization409",
+                  AuthExchangePublishAuthorization409,
+                ),
+                "410": decodeError(
+                  "AuthExchangePublishAuthorization410",
+                  AuthExchangePublishAuthorization410,
+                ),
+                orElse: unexpectedStatus,
+              }),
             ),
-            "409": decodeError(
-              "AuthExchangePublishAuthorization409",
-              AuthExchangePublishAuthorization409,
-            ),
-            "410": decodeError(
-              "AuthExchangePublishAuthorization410",
-              AuthExchangePublishAuthorization410,
-            ),
-            orElse: unexpectedStatus,
-          }),
+          ),
         ),
       ),
     TokensList: (options) =>
-      HttpClientRequest.get(`/v1/tokens`).pipe(
+      HttpClientRequest.get("/v1/tokens").pipe(
         HttpClientRequest.setUrlParams({
           cursor: options?.params?.["cursor"] as any,
           limit: options?.params?.["limit"] as any,
@@ -3591,7 +3653,7 @@ export const make = (
         ),
       ),
     TokensCreate: (options) =>
-      HttpClientRequest.post(`/v1/tokens`).pipe(
+      HttpClientRequest.post("/v1/tokens").pipe(
         HttpClientRequest.setHeaders({
           "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
         }),
@@ -3612,386 +3674,727 @@ export const make = (
         ),
       ),
     TokensDelete: (tokenId, options) =>
-      HttpClientRequest.delete(`/v1/tokens/${tokenId}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "400": decodeError("TokensDelete400", TokensDelete400),
-            "401": decodeError("TokensDelete401", TokensDelete401),
-            "403": decodeError("TokensDelete403", TokensDelete403),
-            "500": decodeError("TokensDelete500", TokensDelete500),
-            "204": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.delete,
+        [tokenId],
+        () => "/v1/tokens/" + __encodePathParam(tokenId) + "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "400": decodeError("TokensDelete400", TokensDelete400),
+                "401": decodeError("TokensDelete401", TokensDelete401),
+                "403": decodeError("TokensDelete403", TokensDelete403),
+                "500": decodeError("TokensDelete500", TokensDelete500),
+                "204": () => Effect.void,
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     OwnersGetOwner: (handle, options) =>
-      HttpClientRequest.get(`/v1/owners/${handle}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(OwnersGetOwner200),
-            "400": decodeError("OwnersGetOwner400", OwnersGetOwner400),
-            "404": decodeError("OwnersGetOwner404", OwnersGetOwner404),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [handle],
+        () => "/v1/owners/" + __encodePathParam(handle) + "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(OwnersGetOwner200),
+                "400": decodeError("OwnersGetOwner400", OwnersGetOwner400),
+                "404": decodeError("OwnersGetOwner404", OwnersGetOwner404),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsListByOwner: (owner, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsListByOwner200),
-            "400": decodeError("ExtensionsListByOwner400", ExtensionsListByOwner400),
-            "500": decodeError("ExtensionsListByOwner500", ExtensionsListByOwner500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner],
+        () => "/v1/extensions/" + __encodePathParam(owner) + "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsListByOwner200),
+                "400": decodeError("ExtensionsListByOwner400", ExtensionsListByOwner400),
+                "500": decodeError("ExtensionsListByOwner500", ExtensionsListByOwner500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsListByType: (owner, type, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}`).pipe(
-        HttpClientRequest.setUrlParams({
-          limit: options?.params?.["limit"] as any,
-          offset: options?.params?.["offset"] as any,
-        }),
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsListByType200),
-            "400": decodeError("ExtensionsListByType400", ExtensionsListByType400),
-            "500": decodeError("ExtensionsListByType500", ExtensionsListByType500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, type],
+        () => "/v1/extensions/" + __encodePathParam(owner) + "/" + __encodePathParam(type) + "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setUrlParams({
+              limit: options?.params?.["limit"] as any,
+              offset: options?.params?.["offset"] as any,
+            }),
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsListByType200),
+                "400": decodeError("ExtensionsListByType400", ExtensionsListByType400),
+                "500": decodeError("ExtensionsListByType500", ExtensionsListByType500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsGet: (owner, type, name, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "200": decodeSuccess(ExtensionsGet200),
-            "400": decodeError("ExtensionsGet400", ExtensionsGet400),
-            "404": decodeError("ExtensionsGet404", ExtensionsGet404),
-            "500": decodeError("ExtensionsGet500", ExtensionsGet500),
-            "304": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "200": decodeSuccess(ExtensionsGet200),
+                "400": decodeError("ExtensionsGet400", ExtensionsGet400),
+                "404": decodeError("ExtensionsGet404", ExtensionsGet404),
+                "500": decodeError("ExtensionsGet500", ExtensionsGet500),
+                "304": () => Effect.void,
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsDeleteExtension: (owner, type, name, options) =>
-      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}`).pipe(
-        HttpClientRequest.setHeaders({
-          "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
-        }),
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsDeleteExtension202),
-            "400": decodeError("ExtensionsDeleteExtension400", ExtensionsDeleteExtension400),
-            "401": decodeError("ExtensionsDeleteExtension401", ExtensionsDeleteExtension401),
-            "403": decodeError("ExtensionsDeleteExtension403", ExtensionsDeleteExtension403),
-            "404": decodeError("ExtensionsDeleteExtension404", ExtensionsDeleteExtension404),
-            "409": decodeError("ExtensionsDeleteExtension409", ExtensionsDeleteExtension409),
-            "410": decodeError("ExtensionsDeleteExtension410", ExtensionsDeleteExtension410),
-            "500": decodeError("ExtensionsDeleteExtension500", ExtensionsDeleteExtension500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.delete,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setHeaders({
+              "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
+            }),
+            HttpClientRequest.bodyJsonUnsafe(options.payload),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsDeleteExtension202),
+                "400": decodeError("ExtensionsDeleteExtension400", ExtensionsDeleteExtension400),
+                "401": decodeError("ExtensionsDeleteExtension401", ExtensionsDeleteExtension401),
+                "403": decodeError("ExtensionsDeleteExtension403", ExtensionsDeleteExtension403),
+                "404": decodeError("ExtensionsDeleteExtension404", ExtensionsDeleteExtension404),
+                "409": decodeError("ExtensionsDeleteExtension409", ExtensionsDeleteExtension409),
+                "410": decodeError("ExtensionsDeleteExtension410", ExtensionsDeleteExtension410),
+                "500": decodeError("ExtensionsDeleteExtension500", ExtensionsDeleteExtension500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsHead: (owner, type, name, options) =>
-      HttpClientRequest.head(`/v1/extensions/${owner}/${type}/${name}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "200": () => Effect.void,
-            "400": decodeVoidError("400"),
-            "404": decodeVoidError("404"),
-            "500": decodeVoidError("500"),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.head,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "200": () => Effect.void,
+                "400": decodeVoidError("400"),
+                "404": decodeVoidError("404"),
+                "500": decodeVoidError("500"),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsUpdateVisibility: (owner, type, name, options) =>
-      HttpClientRequest.patch(`/v1/extensions/${owner}/${type}/${name}`).pipe(
-        HttpClientRequest.setHeaders({
-          "x-axm-step-up-request": options.params["x-axm-step-up-request"] ?? undefined,
-          "if-match": options.params["if-match"] ?? undefined,
-        }),
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsUpdateVisibility200),
-            "400": decodeError("ExtensionsUpdateVisibility400", ExtensionsUpdateVisibility400),
-            "401": decodeError("ExtensionsUpdateVisibility401", ExtensionsUpdateVisibility401),
-            "403": decodeError("ExtensionsUpdateVisibility403", ExtensionsUpdateVisibility403),
-            "404": decodeError("ExtensionsUpdateVisibility404", ExtensionsUpdateVisibility404),
-            "409": decodeError("ExtensionsUpdateVisibility409", ExtensionsUpdateVisibility409),
-            "410": decodeError("ExtensionsUpdateVisibility410", ExtensionsUpdateVisibility410),
-            "412": decodeError("ExtensionsUpdateVisibility412", ExtensionsUpdateVisibility412),
-            "500": decodeError("ExtensionsUpdateVisibility500", ExtensionsUpdateVisibility500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.patch,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setHeaders({
+              "x-axm-step-up-request": options.params["x-axm-step-up-request"] ?? undefined,
+              "if-match": options.params["if-match"] ?? undefined,
+            }),
+            HttpClientRequest.bodyJsonUnsafe(options.payload),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsUpdateVisibility200),
+                "400": decodeError("ExtensionsUpdateVisibility400", ExtensionsUpdateVisibility400),
+                "401": decodeError("ExtensionsUpdateVisibility401", ExtensionsUpdateVisibility401),
+                "403": decodeError("ExtensionsUpdateVisibility403", ExtensionsUpdateVisibility403),
+                "404": decodeError("ExtensionsUpdateVisibility404", ExtensionsUpdateVisibility404),
+                "409": decodeError("ExtensionsUpdateVisibility409", ExtensionsUpdateVisibility409),
+                "410": decodeError("ExtensionsUpdateVisibility410", ExtensionsUpdateVisibility410),
+                "412": decodeError("ExtensionsUpdateVisibility412", ExtensionsUpdateVisibility412),
+                "500": decodeError("ExtensionsUpdateVisibility500", ExtensionsUpdateVisibility500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsGetVersion: (owner, type, name, version, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/${version}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsGetVersion200),
-            "400": decodeError("ExtensionsGetVersion400", ExtensionsGetVersion400),
-            "404": decodeError("ExtensionsGetVersion404", ExtensionsGetVersion404),
-            "410": decodeError("ExtensionsGetVersion410", ExtensionsGetVersion410),
-            "500": decodeError("ExtensionsGetVersion500", ExtensionsGetVersion500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, type, name, version],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/" +
+          __encodePathParam(version) +
+          "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsGetVersion200),
+                "400": decodeError("ExtensionsGetVersion400", ExtensionsGetVersion400),
+                "404": decodeError("ExtensionsGetVersion404", ExtensionsGetVersion404),
+                "410": decodeError("ExtensionsGetVersion410", ExtensionsGetVersion410),
+                "500": decodeError("ExtensionsGetVersion500", ExtensionsGetVersion500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsPublishVersion: (owner, type, name, version, options) =>
-      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/${version}`).pipe(
-        HttpClientRequest.setUrlParams({ visibility: options.params["visibility"] as any }),
-        HttpClientRequest.setHeaders({
-          "if-match": options.params["if-match"] ?? undefined,
-          "x-axm-publication-set-digest":
-            options.params["x-axm-publication-set-digest"] ?? undefined,
-          "x-axm-publication-descriptor-digest":
-            options.params["x-axm-publication-descriptor-digest"] ?? undefined,
-          "x-axm-visibility-input": options.params["x-axm-visibility-input"] ?? undefined,
-        }),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "200": decodeSuccess(ExtensionsPublishVersion200),
-            "201": decodeSuccess(ExtensionsPublishVersion201),
-            "400": decodeError("ExtensionsPublishVersion400", ExtensionsPublishVersion400),
-            "401": decodeError("ExtensionsPublishVersion401", ExtensionsPublishVersion401),
-            "403": decodeError("ExtensionsPublishVersion403", ExtensionsPublishVersion403),
-            "404": decodeError("ExtensionsPublishVersion404", ExtensionsPublishVersion404),
-            "409": decodeError("ExtensionsPublishVersion409", ExtensionsPublishVersion409),
-            "412": decodeError("ExtensionsPublishVersion412", ExtensionsPublishVersion412),
-            "413": decodeError("ExtensionsPublishVersion413", ExtensionsPublishVersion413),
-            "415": decodeError("ExtensionsPublishVersion415", ExtensionsPublishVersion415),
-            "422": decodeError("ExtensionsPublishVersion422", ExtensionsPublishVersion422),
-            "500": decodeError("ExtensionsPublishVersion500", ExtensionsPublishVersion500),
-            "503": decodeError("ExtensionsPublishVersion503", ExtensionsPublishVersion503),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.put,
+        [owner, type, name, version],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/" +
+          __encodePathParam(version) +
+          "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setUrlParams({ visibility: options.params["visibility"] as any }),
+            HttpClientRequest.setHeaders({
+              "if-match": options.params["if-match"] ?? undefined,
+              "x-axm-publication-set-digest":
+                options.params["x-axm-publication-set-digest"] ?? undefined,
+              "x-axm-publication-descriptor-digest":
+                options.params["x-axm-publication-descriptor-digest"] ?? undefined,
+              "x-axm-visibility-input": options.params["x-axm-visibility-input"] ?? undefined,
+            }),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "200": decodeSuccess(ExtensionsPublishVersion200),
+                "201": decodeSuccess(ExtensionsPublishVersion201),
+                "400": decodeError("ExtensionsPublishVersion400", ExtensionsPublishVersion400),
+                "401": decodeError("ExtensionsPublishVersion401", ExtensionsPublishVersion401),
+                "403": decodeError("ExtensionsPublishVersion403", ExtensionsPublishVersion403),
+                "404": decodeError("ExtensionsPublishVersion404", ExtensionsPublishVersion404),
+                "409": decodeError("ExtensionsPublishVersion409", ExtensionsPublishVersion409),
+                "412": decodeError("ExtensionsPublishVersion412", ExtensionsPublishVersion412),
+                "413": decodeError("ExtensionsPublishVersion413", ExtensionsPublishVersion413),
+                "415": decodeError("ExtensionsPublishVersion415", ExtensionsPublishVersion415),
+                "422": decodeError("ExtensionsPublishVersion422", ExtensionsPublishVersion422),
+                "500": decodeError("ExtensionsPublishVersion500", ExtensionsPublishVersion500),
+                "503": decodeError("ExtensionsPublishVersion503", ExtensionsPublishVersion503),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsGetDeletionOperation: (operationId, options) =>
-      HttpClientRequest.get(`/v1/extensions/deletions/${operationId}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsGetDeletionOperation200),
-            "400": decodeError(
-              "ExtensionsGetDeletionOperation400",
-              ExtensionsGetDeletionOperation400,
+      __makePathRequest(
+        HttpClientRequest.get,
+        [operationId],
+        () => "/v1/extensions/deletions/" + __encodePathParam(operationId) + "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsGetDeletionOperation200),
+                "400": decodeError(
+                  "ExtensionsGetDeletionOperation400",
+                  ExtensionsGetDeletionOperation400,
+                ),
+                "401": decodeError(
+                  "ExtensionsGetDeletionOperation401",
+                  ExtensionsGetDeletionOperation401,
+                ),
+                "403": decodeError(
+                  "ExtensionsGetDeletionOperation403",
+                  ExtensionsGetDeletionOperation403,
+                ),
+                "404": decodeError(
+                  "ExtensionsGetDeletionOperation404",
+                  ExtensionsGetDeletionOperation404,
+                ),
+                "500": decodeError(
+                  "ExtensionsGetDeletionOperation500",
+                  ExtensionsGetDeletionOperation500,
+                ),
+                orElse: unexpectedStatus,
+              }),
             ),
-            "401": decodeError(
-              "ExtensionsGetDeletionOperation401",
-              ExtensionsGetDeletionOperation401,
-            ),
-            "403": decodeError(
-              "ExtensionsGetDeletionOperation403",
-              ExtensionsGetDeletionOperation403,
-            ),
-            "404": decodeError(
-              "ExtensionsGetDeletionOperation404",
-              ExtensionsGetDeletionOperation404,
-            ),
-            "500": decodeError(
-              "ExtensionsGetDeletionOperation500",
-              ExtensionsGetDeletionOperation500,
-            ),
-            orElse: unexpectedStatus,
-          }),
+          ),
         ),
       ),
     ExtensionsDownloadArchive: (owner, type, name, version, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/${version}/archive`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeBinary,
-            "400": decodeError("ExtensionsDownloadArchive400", ExtensionsDownloadArchive400),
-            "404": decodeError("ExtensionsDownloadArchive404", ExtensionsDownloadArchive404),
-            "500": decodeError("ExtensionsDownloadArchive500", ExtensionsDownloadArchive500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, type, name, version],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/" +
+          __encodePathParam(version) +
+          "/archive",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeBinary,
+                "400": decodeError("ExtensionsDownloadArchive400", ExtensionsDownloadArchive400),
+                "404": decodeError("ExtensionsDownloadArchive404", ExtensionsDownloadArchive404),
+                "500": decodeError("ExtensionsDownloadArchive500", ExtensionsDownloadArchive500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsDownloadArchiveStream: (owner, type, name, version) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/${version}/archive`).pipe(
-        binaryRequest,
+      Stream.unwrap(
+        __makePathRequest(
+          HttpClientRequest.get,
+          [owner, type, name, version],
+          () =>
+            "/v1/extensions/" +
+            __encodePathParam(owner) +
+            "/" +
+            __encodePathParam(type) +
+            "/" +
+            __encodePathParam(name) +
+            "/" +
+            __encodePathParam(version) +
+            "/archive",
+        ).pipe(Effect.map((request) => request.pipe(binaryRequest))),
       ),
     ExtensionsHeadArchive: (owner, type, name, version, options) =>
-      HttpClientRequest.head(`/v1/extensions/${owner}/${type}/${name}/${version}/archive`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "200": () => Effect.void,
-            "400": decodeVoidError("400"),
-            "404": decodeVoidError("404"),
-            "500": decodeVoidError("500"),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.head,
+        [owner, type, name, version],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/" +
+          __encodePathParam(version) +
+          "/archive",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "200": () => Effect.void,
+                "400": decodeVoidError("400"),
+                "404": decodeVoidError("404"),
+                "500": decodeVoidError("500"),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsGetVisibility: (owner, type, name, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/visibility`).pipe(
-        HttpClientRequest.setUrlParams({
-          intent_visibility: options?.params?.["intent_visibility"] as any,
-          intent_source: options?.params?.["intent_source"] as any,
-          intent_fingerprint: options?.params?.["intent_fingerprint"] as any,
-        }),
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsGetVisibility200),
-            "400": decodeError("ExtensionsGetVisibility400", ExtensionsGetVisibility400),
-            "401": decodeError("ExtensionsGetVisibility401", ExtensionsGetVisibility401),
-            "403": decodeError("ExtensionsGetVisibility403", ExtensionsGetVisibility403),
-            "404": decodeError("ExtensionsGetVisibility404", ExtensionsGetVisibility404),
-            "500": decodeError("ExtensionsGetVisibility500", ExtensionsGetVisibility500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/visibility",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setUrlParams({
+              intent_visibility: options?.params?.["intent_visibility"] as any,
+              intent_source: options?.params?.["intent_source"] as any,
+              intent_fingerprint: options?.params?.["intent_fingerprint"] as any,
+            }),
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsGetVisibility200),
+                "400": decodeError("ExtensionsGetVisibility400", ExtensionsGetVisibility400),
+                "401": decodeError("ExtensionsGetVisibility401", ExtensionsGetVisibility401),
+                "403": decodeError("ExtensionsGetVisibility403", ExtensionsGetVisibility403),
+                "404": decodeError("ExtensionsGetVisibility404", ExtensionsGetVisibility404),
+                "500": decodeError("ExtensionsGetVisibility500", ExtensionsGetVisibility500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsGetDeprecation: (owner, type, name, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/deprecation`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsGetDeprecation200),
-            "400": decodeError("ExtensionsGetDeprecation400", ExtensionsGetDeprecation400),
-            "401": decodeError("ExtensionsGetDeprecation401", ExtensionsGetDeprecation401),
-            "403": decodeError("ExtensionsGetDeprecation403", ExtensionsGetDeprecation403),
-            "404": decodeError("ExtensionsGetDeprecation404", ExtensionsGetDeprecation404),
-            "500": decodeError("ExtensionsGetDeprecation500", ExtensionsGetDeprecation500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/deprecation",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsGetDeprecation200),
+                "400": decodeError("ExtensionsGetDeprecation400", ExtensionsGetDeprecation400),
+                "401": decodeError("ExtensionsGetDeprecation401", ExtensionsGetDeprecation401),
+                "403": decodeError("ExtensionsGetDeprecation403", ExtensionsGetDeprecation403),
+                "404": decodeError("ExtensionsGetDeprecation404", ExtensionsGetDeprecation404),
+                "500": decodeError("ExtensionsGetDeprecation500", ExtensionsGetDeprecation500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsPutDeprecation: (owner, type, name, options) =>
-      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/deprecation`).pipe(
-        HttpClientRequest.setHeaders({ "if-match": options.params["if-match"] ?? undefined }),
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsPutDeprecation200),
-            "400": decodeError("ExtensionsPutDeprecation400", ExtensionsPutDeprecation400),
-            "401": decodeError("ExtensionsPutDeprecation401", ExtensionsPutDeprecation401),
-            "403": decodeError("ExtensionsPutDeprecation403", ExtensionsPutDeprecation403),
-            "404": decodeError("ExtensionsPutDeprecation404", ExtensionsPutDeprecation404),
-            "409": decodeError("ExtensionsPutDeprecation409", ExtensionsPutDeprecation409),
-            "412": decodeError("ExtensionsPutDeprecation412", ExtensionsPutDeprecation412),
-            "500": decodeError("ExtensionsPutDeprecation500", ExtensionsPutDeprecation500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.put,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/deprecation",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setHeaders({ "if-match": options.params["if-match"] ?? undefined }),
+            HttpClientRequest.bodyJsonUnsafe(options.payload),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsPutDeprecation200),
+                "400": decodeError("ExtensionsPutDeprecation400", ExtensionsPutDeprecation400),
+                "401": decodeError("ExtensionsPutDeprecation401", ExtensionsPutDeprecation401),
+                "403": decodeError("ExtensionsPutDeprecation403", ExtensionsPutDeprecation403),
+                "404": decodeError("ExtensionsPutDeprecation404", ExtensionsPutDeprecation404),
+                "409": decodeError("ExtensionsPutDeprecation409", ExtensionsPutDeprecation409),
+                "412": decodeError("ExtensionsPutDeprecation412", ExtensionsPutDeprecation412),
+                "500": decodeError("ExtensionsPutDeprecation500", ExtensionsPutDeprecation500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsDeleteDeprecation: (owner, type, name, options) =>
-      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/deprecation`).pipe(
-        HttpClientRequest.setHeaders({ "if-match": options.params["if-match"] ?? undefined }),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsDeleteDeprecation200),
-            "400": decodeError("ExtensionsDeleteDeprecation400", ExtensionsDeleteDeprecation400),
-            "401": decodeError("ExtensionsDeleteDeprecation401", ExtensionsDeleteDeprecation401),
-            "403": decodeError("ExtensionsDeleteDeprecation403", ExtensionsDeleteDeprecation403),
-            "404": decodeError("ExtensionsDeleteDeprecation404", ExtensionsDeleteDeprecation404),
-            "409": decodeError("ExtensionsDeleteDeprecation409", ExtensionsDeleteDeprecation409),
-            "412": decodeError("ExtensionsDeleteDeprecation412", ExtensionsDeleteDeprecation412),
-            "500": decodeError("ExtensionsDeleteDeprecation500", ExtensionsDeleteDeprecation500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.delete,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/deprecation",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setHeaders({ "if-match": options.params["if-match"] ?? undefined }),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsDeleteDeprecation200),
+                "400": decodeError(
+                  "ExtensionsDeleteDeprecation400",
+                  ExtensionsDeleteDeprecation400,
+                ),
+                "401": decodeError(
+                  "ExtensionsDeleteDeprecation401",
+                  ExtensionsDeleteDeprecation401,
+                ),
+                "403": decodeError(
+                  "ExtensionsDeleteDeprecation403",
+                  ExtensionsDeleteDeprecation403,
+                ),
+                "404": decodeError(
+                  "ExtensionsDeleteDeprecation404",
+                  ExtensionsDeleteDeprecation404,
+                ),
+                "409": decodeError(
+                  "ExtensionsDeleteDeprecation409",
+                  ExtensionsDeleteDeprecation409,
+                ),
+                "412": decodeError(
+                  "ExtensionsDeleteDeprecation412",
+                  ExtensionsDeleteDeprecation412,
+                ),
+                "500": decodeError(
+                  "ExtensionsDeleteDeprecation500",
+                  ExtensionsDeleteDeprecation500,
+                ),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsYankVersion: (owner, type, name, version, options) =>
-      HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/${version}/yank`).pipe(
-        HttpClientRequest.setHeaders({
-          "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
-        }),
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsYankVersion200),
-            "400": decodeError("ExtensionsYankVersion400", ExtensionsYankVersion400),
-            "401": decodeError("ExtensionsYankVersion401", ExtensionsYankVersion401),
-            "403": decodeError("ExtensionsYankVersion403", ExtensionsYankVersion403),
-            "404": decodeError("ExtensionsYankVersion404", ExtensionsYankVersion404),
-            "409": decodeError("ExtensionsYankVersion409", ExtensionsYankVersion409),
-            "410": decodeError("ExtensionsYankVersion410", ExtensionsYankVersion410),
-            "500": decodeError("ExtensionsYankVersion500", ExtensionsYankVersion500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.post,
+        [owner, type, name, version],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/" +
+          __encodePathParam(version) +
+          "/yank",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setHeaders({
+              "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
+            }),
+            HttpClientRequest.bodyJsonUnsafe(options.payload),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsYankVersion200),
+                "400": decodeError("ExtensionsYankVersion400", ExtensionsYankVersion400),
+                "401": decodeError("ExtensionsYankVersion401", ExtensionsYankVersion401),
+                "403": decodeError("ExtensionsYankVersion403", ExtensionsYankVersion403),
+                "404": decodeError("ExtensionsYankVersion404", ExtensionsYankVersion404),
+                "409": decodeError("ExtensionsYankVersion409", ExtensionsYankVersion409),
+                "410": decodeError("ExtensionsYankVersion410", ExtensionsYankVersion410),
+                "500": decodeError("ExtensionsYankVersion500", ExtensionsYankVersion500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsUnyankVersion: (owner, type, name, version, options) =>
-      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/${version}/yank`).pipe(
-        HttpClientRequest.setHeaders({
-          "x-axm-step-up-request": options?.params?.["x-axm-step-up-request"] ?? undefined,
-        }),
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsUnyankVersion200),
-            "400": decodeError("ExtensionsUnyankVersion400", ExtensionsUnyankVersion400),
-            "401": decodeError("ExtensionsUnyankVersion401", ExtensionsUnyankVersion401),
-            "403": decodeError("ExtensionsUnyankVersion403", ExtensionsUnyankVersion403),
-            "404": decodeError("ExtensionsUnyankVersion404", ExtensionsUnyankVersion404),
-            "409": decodeError("ExtensionsUnyankVersion409", ExtensionsUnyankVersion409),
-            "410": decodeError("ExtensionsUnyankVersion410", ExtensionsUnyankVersion410),
-            "500": decodeError("ExtensionsUnyankVersion500", ExtensionsUnyankVersion500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.delete,
+        [owner, type, name, version],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/" +
+          __encodePathParam(version) +
+          "/yank",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setHeaders({
+              "x-axm-step-up-request": options?.params?.["x-axm-step-up-request"] ?? undefined,
+            }),
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsUnyankVersion200),
+                "400": decodeError("ExtensionsUnyankVersion400", ExtensionsUnyankVersion400),
+                "401": decodeError("ExtensionsUnyankVersion401", ExtensionsUnyankVersion401),
+                "403": decodeError("ExtensionsUnyankVersion403", ExtensionsUnyankVersion403),
+                "404": decodeError("ExtensionsUnyankVersion404", ExtensionsUnyankVersion404),
+                "409": decodeError("ExtensionsUnyankVersion409", ExtensionsUnyankVersion409),
+                "410": decodeError("ExtensionsUnyankVersion410", ExtensionsUnyankVersion410),
+                "500": decodeError("ExtensionsUnyankVersion500", ExtensionsUnyankVersion500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     ExtensionsYankAvailableVersions: (owner, type, name, options) =>
-      HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/versions/yank`).pipe(
-        HttpClientRequest.setHeaders({
-          "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
-        }),
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsYankAvailableVersions200),
-            "400": decodeError(
-              "ExtensionsYankAvailableVersions400",
-              ExtensionsYankAvailableVersions400,
+      __makePathRequest(
+        HttpClientRequest.post,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/versions/yank",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setHeaders({
+              "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
+            }),
+            HttpClientRequest.bodyJsonUnsafe(options.payload),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsYankAvailableVersions200),
+                "400": decodeError(
+                  "ExtensionsYankAvailableVersions400",
+                  ExtensionsYankAvailableVersions400,
+                ),
+                "401": decodeError(
+                  "ExtensionsYankAvailableVersions401",
+                  ExtensionsYankAvailableVersions401,
+                ),
+                "403": decodeError(
+                  "ExtensionsYankAvailableVersions403",
+                  ExtensionsYankAvailableVersions403,
+                ),
+                "404": decodeError(
+                  "ExtensionsYankAvailableVersions404",
+                  ExtensionsYankAvailableVersions404,
+                ),
+                "409": decodeError(
+                  "ExtensionsYankAvailableVersions409",
+                  ExtensionsYankAvailableVersions409,
+                ),
+                "410": decodeError(
+                  "ExtensionsYankAvailableVersions410",
+                  ExtensionsYankAvailableVersions410,
+                ),
+                "500": decodeError(
+                  "ExtensionsYankAvailableVersions500",
+                  ExtensionsYankAvailableVersions500,
+                ),
+                orElse: unexpectedStatus,
+              }),
             ),
-            "401": decodeError(
-              "ExtensionsYankAvailableVersions401",
-              ExtensionsYankAvailableVersions401,
-            ),
-            "403": decodeError(
-              "ExtensionsYankAvailableVersions403",
-              ExtensionsYankAvailableVersions403,
-            ),
-            "404": decodeError(
-              "ExtensionsYankAvailableVersions404",
-              ExtensionsYankAvailableVersions404,
-            ),
-            "409": decodeError(
-              "ExtensionsYankAvailableVersions409",
-              ExtensionsYankAvailableVersions409,
-            ),
-            "410": decodeError(
-              "ExtensionsYankAvailableVersions410",
-              ExtensionsYankAvailableVersions410,
-            ),
-            "500": decodeError(
-              "ExtensionsYankAvailableVersions500",
-              ExtensionsYankAvailableVersions500,
-            ),
-            orElse: unexpectedStatus,
-          }),
+          ),
         ),
       ),
     ExtensionsGetDeletionPreview: (owner, type, name, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/deletion`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsGetDeletionPreview200),
-            "400": decodeError("ExtensionsGetDeletionPreview400", ExtensionsGetDeletionPreview400),
-            "401": decodeError("ExtensionsGetDeletionPreview401", ExtensionsGetDeletionPreview401),
-            "403": decodeError("ExtensionsGetDeletionPreview403", ExtensionsGetDeletionPreview403),
-            "404": decodeError("ExtensionsGetDeletionPreview404", ExtensionsGetDeletionPreview404),
-            "500": decodeError("ExtensionsGetDeletionPreview500", ExtensionsGetDeletionPreview500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/deletion",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsGetDeletionPreview200),
+                "400": decodeError(
+                  "ExtensionsGetDeletionPreview400",
+                  ExtensionsGetDeletionPreview400,
+                ),
+                "401": decodeError(
+                  "ExtensionsGetDeletionPreview401",
+                  ExtensionsGetDeletionPreview401,
+                ),
+                "403": decodeError(
+                  "ExtensionsGetDeletionPreview403",
+                  ExtensionsGetDeletionPreview403,
+                ),
+                "404": decodeError(
+                  "ExtensionsGetDeletionPreview404",
+                  ExtensionsGetDeletionPreview404,
+                ),
+                "500": decodeError(
+                  "ExtensionsGetDeletionPreview500",
+                  ExtensionsGetDeletionPreview500,
+                ),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     PublishPreviewsPreviewExtensionPublishes: (options) =>
-      HttpClientRequest.post(`/v1/publish-previews`).pipe(
+      HttpClientRequest.post("/v1/publish-previews").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -4025,57 +4428,94 @@ export const make = (
         ),
       ),
     LibrariesListLibraries: (owner, options) =>
-      HttpClientRequest.get(`/v1/libraries/${owner}`).pipe(
-        HttpClientRequest.setUrlParams({
-          limit: options?.params?.["limit"] as any,
-          offset: options?.params?.["offset"] as any,
-          q: options?.params?.["q"] as any,
-          "filter[visibility]": options?.params?.["filter[visibility]"] as any,
-        }),
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(LibrariesListLibraries200),
-            "400": decodeError("LibrariesListLibraries400", LibrariesListLibraries400),
-            "404": decodeError("LibrariesListLibraries404", LibrariesListLibraries404),
-            "500": decodeError("LibrariesListLibraries500", LibrariesListLibraries500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner],
+        () => "/v1/libraries/" + __encodePathParam(owner) + "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setUrlParams({
+              limit: options?.params?.["limit"] as any,
+              offset: options?.params?.["offset"] as any,
+              q: options?.params?.["q"] as any,
+              "filter[visibility]": options?.params?.["filter[visibility]"] as any,
+            }),
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(LibrariesListLibraries200),
+                "400": decodeError("LibrariesListLibraries400", LibrariesListLibraries400),
+                "404": decodeError("LibrariesListLibraries404", LibrariesListLibraries404),
+                "500": decodeError("LibrariesListLibraries500", LibrariesListLibraries500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     LibrariesGetLibrary: (owner, name, options) =>
-      HttpClientRequest.get(`/v1/libraries/${owner}/${name}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(LibrariesGetLibrary200),
-            "400": decodeError("LibrariesGetLibrary400", LibrariesGetLibrary400),
-            "404": decodeError("LibrariesGetLibrary404", LibrariesGetLibrary404),
-            "422": decodeError("LibrariesGetLibrary422", LibrariesGetLibrary422),
-            "500": decodeError("LibrariesGetLibrary500", LibrariesGetLibrary500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, name],
+        () => "/v1/libraries/" + __encodePathParam(owner) + "/" + __encodePathParam(name) + "",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(LibrariesGetLibrary200),
+                "400": decodeError("LibrariesGetLibrary400", LibrariesGetLibrary400),
+                "404": decodeError("LibrariesGetLibrary404", LibrariesGetLibrary404),
+                "422": decodeError("LibrariesGetLibrary422", LibrariesGetLibrary422),
+                "500": decodeError("LibrariesGetLibrary500", LibrariesGetLibrary500),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     LibrariesListLibraryMembers: (owner, name, options) =>
-      HttpClientRequest.get(`/v1/libraries/${owner}/${name}/members`).pipe(
-        HttpClientRequest.setUrlParams({
-          limit: options?.params?.["limit"] as any,
-          offset: options?.params?.["offset"] as any,
-          q: options?.params?.["q"] as any,
-          "filter[type]": options?.params?.["filter[type]"] as any,
-        }),
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(LibrariesListLibraryMembers200),
-            "400": decodeError("LibrariesListLibraryMembers400", LibrariesListLibraryMembers400),
-            "404": decodeError("LibrariesListLibraryMembers404", LibrariesListLibraryMembers404),
-            "422": decodeError("LibrariesListLibraryMembers422", LibrariesListLibraryMembers422),
-            "500": decodeError("LibrariesListLibraryMembers500", LibrariesListLibraryMembers500),
-            orElse: unexpectedStatus,
-          }),
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, name],
+        () =>
+          "/v1/libraries/" + __encodePathParam(owner) + "/" + __encodePathParam(name) + "/members",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setUrlParams({
+              limit: options?.params?.["limit"] as any,
+              offset: options?.params?.["offset"] as any,
+              q: options?.params?.["q"] as any,
+              "filter[type]": options?.params?.["filter[type]"] as any,
+            }),
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(LibrariesListLibraryMembers200),
+                "400": decodeError(
+                  "LibrariesListLibraryMembers400",
+                  LibrariesListLibraryMembers400,
+                ),
+                "404": decodeError(
+                  "LibrariesListLibraryMembers404",
+                  LibrariesListLibraryMembers404,
+                ),
+                "422": decodeError(
+                  "LibrariesListLibraryMembers422",
+                  LibrariesListLibraryMembers422,
+                ),
+                "500": decodeError(
+                  "LibrariesListLibraryMembers500",
+                  LibrariesListLibraryMembers500,
+                ),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
         ),
       ),
     DiscoveryPostDiscovery: (options) =>
-      HttpClientRequest.post(`/v1/discovery`).pipe(
+      HttpClientRequest.post("/v1/discovery").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -4087,7 +4527,7 @@ export const make = (
         ),
       ),
     HealthGetShallowHealth: (options) =>
-      HttpClientRequest.get(`/v1/health`).pipe(
+      HttpClientRequest.get("/v1/health").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetShallowHealth200),
@@ -4097,7 +4537,7 @@ export const make = (
         ),
       ),
     HealthGetDeepHealth: (options) =>
-      HttpClientRequest.get(`/v1/health/dependencies`).pipe(
+      HttpClientRequest.get("/v1/health/dependencies").pipe(
         HttpClientRequest.setHeaders({
           "x-health-key": options?.params?.["x-health-key"] ?? undefined,
         }),
@@ -4110,7 +4550,7 @@ export const make = (
         ),
       ),
     SearchSearchExtensions: (options) =>
-      HttpClientRequest.get(`/v1/search`).pipe(
+      HttpClientRequest.get("/v1/search").pipe(
         HttpClientRequest.setUrlParams({
           q: options.params["q"] as any,
           cursor: options.params["cursor"] as any,
@@ -4133,7 +4573,7 @@ export const make = (
         ),
       ),
     DebugDebugStream: (options) =>
-      HttpClientRequest.get(`/v1/debug/stream`).pipe(
+      HttpClientRequest.get("/v1/debug/stream").pipe(
         HttpClientRequest.setUrlParams({
           count: options?.params?.["count"] as any,
           failAfter: options?.params?.["failAfter"] as any,
@@ -4146,7 +4586,7 @@ export const make = (
         ),
       ),
     DebugDebugStreamSse: (options) =>
-      HttpClientRequest.get(`/v1/debug/stream`).pipe(
+      HttpClientRequest.get("/v1/debug/stream").pipe(
         HttpClientRequest.setUrlParams({
           count: options?.params?.["count"] as any,
           failAfter: options?.params?.["failAfter"] as any,

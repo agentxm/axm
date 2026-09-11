@@ -179,8 +179,8 @@ export const resolveRegistryTargetSelection = (input: {
 };
 
 const RegistryUrlConfig = Config.all({
-  registryLocation: Config.option(Config.string("AXM_REGISTRY_LOCATION")),
-  registryUrl: Config.option(Config.string("AXM_REGISTRY_URL")),
+  registryLocation: Config.option(Config.String("AXM_REGISTRY_LOCATION")),
+  registryUrl: Config.option(Config.String("AXM_REGISTRY_URL")),
 }).pipe(
   Config.map(({ registryLocation, registryUrl }) => {
     const selection = resolveRegistryTargetSelection({
@@ -243,8 +243,8 @@ export const runtimeBaseLayer = Layer.mergeAll(
   Logger.layer([], { mergeWithExisting: false }),
 );
 
-const versionGlobalFlag = GlobalFlag.action({
-  flag: Flag.boolean("version").pipe(
+const versionGlobalFlag = GlobalFlag.Action({
+  flag: Flag.Boolean("version").pipe(
     Flag.withDescription("Show version information"),
     Flag.withDefault(false),
   ),

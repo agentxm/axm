@@ -337,6 +337,7 @@
     "@types/semver": "catalog:",
     "@types/spdx-expression-parse": "4.0.0",
     "@typescript/native": "catalog:",
+    "@fast-check/vitest": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

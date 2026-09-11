@@ -79,10 +79,10 @@ const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: DemoteHandl
 });
 
 const config = {
-  fqn: Argument.string("extension").pipe(
+  fqn: Argument.String("extension").pipe(
     Argument.withDescription("Workspace extension FQN (@owner/<plural-type>/name)"),
   ),
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("Replacement registry, git, or local source"),
   ),
   yes: preapprovalCapabilityFlag(demoteCapabilities),

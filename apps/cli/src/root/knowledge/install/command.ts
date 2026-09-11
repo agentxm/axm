@@ -58,7 +58,7 @@ export const handleKnowledgeInstall = (args: KnowledgeInstallHandlerArgs) =>
   });
 
 const installConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("Knowledge source (@owner/knowledge/name, path, URL, or git locator)"),
     Argument.optional,
   ),

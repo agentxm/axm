@@ -11,11 +11,11 @@ import {
 import { handleUpgrade } from "./handler.js";
 
 const upgradeConfig = {
-  version: Argument.string("version").pipe(
+  version: Argument.String("version").pipe(
     Argument.withDescription("Exact stable version; omit to use the promoted stable channel"),
     Argument.optional,
   ),
-  reinstall: Flag.boolean("reinstall").pipe(
+  reinstall: Flag.Boolean("reinstall").pipe(
     Flag.withDescription("Reinstall an equal version; never permits a downgrade"),
     Flag.withDefault(false),
   ),

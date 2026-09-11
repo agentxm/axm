@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
-import * as FastCheck from "effect/testing/FastCheck";
+import * as Result from "effect/Result";
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 
 import { decodeExtensionNameSync, extensionTypes } from "./common.js";
 import { formatFqn, parseFqn } from "./fqn.js";
@@ -39,27 +40,24 @@ const slugArbitrary = FastCheck.stringMatching(/^[a-z0-9_](?:[a-z0-9_-]{0,18}[a-
 );
 
 describe("Canonical extension names round-trip", () => {
-  it.effect.prop(
-    "every identity formats to a fully qualified name that parses back to the same identity",
+  fastCheckIt.prop(
     { owner: ownerArbitrary, type: typeArbitrary, name: nameArbitrary },
-    ({ owner, type, name }) =>
-      Effect.gen(function* () {
-        const parsed = yield* Effect.fromResult(parseFqn(formatFqn({ owner, type, name })));
-        expect(parsed).toEqual({ owner, type, name });
-      }),
-    { fastCheck: { numRuns: 250 } },
+    { numRuns: 250 },
+  )(
+    "every identity formats to a fully qualified name that parses back to the same identity",
+    ({ owner, type, name }) => {
+      const parsed = parseFqn(formatFqn({ owner, type, name }));
+      expect(parsed).toEqual(Result.succeed({ owner, type, name }));
+    },
   );
 
-  it.effect.prop(
+  fastCheckIt.prop({ slug: slugArbitrary }, { numRuns: 100 })(
     "an owner handle and its bare slug always convert into each other",
-    { slug: slugArbitrary },
-    ({ slug }) =>
-      Effect.sync(() => {
-        const handle = handleFromSlug(slug);
-        expect(handle).toBe(`@${slug}`);
-        expect(slugFromHandle(handle)).toBe(slug);
-      }),
-    { fastCheck: { numRuns: 100 } },
+    ({ slug }) => {
+      const handle = handleFromSlug(slug);
+      expect(handle).toBe(`@${slug}`);
+      expect(slugFromHandle(handle)).toBe(slug);
+    },
   );
 
   it.effect.each([

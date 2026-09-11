@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
-import * as FastCheck from "effect/testing/FastCheck";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 
 import { expandGlob, expandGlobs, isGlobPattern } from "./glob.js";
 
-const PROPERTY_OPTIONS = { fastCheck: { numRuns: 500, seed: 0x41584d } };
+const PROPERTY_OPTIONS = { numRuns: 500, seed: 0x41584d };
 
 const referenceMatches = (pattern: string, name: string): boolean => {
   const memo = new Map<string, boolean>();
@@ -104,19 +104,17 @@ describe("expandGlob", () => {
     expect(expandGlob("", ["", "anything"])).toEqual([""]);
   });
 
-  it.prop(
-    "agrees with a dynamic-programming wildcard oracle",
+  fastCheckIt.prop(
     {
       pattern: FastCheck.string({ maxLength: 20 }),
       names: FastCheck.array(FastCheck.string({ maxLength: 30 }), { maxLength: 20 }),
     },
-    ({ pattern, names }) => {
-      expect(expandGlob(pattern, names)).toEqual(
-        names.filter((name) => referenceMatches(pattern, name)),
-      );
-    },
     PROPERTY_OPTIONS,
-  );
+  )("agrees with a dynamic-programming wildcard oracle", ({ pattern, names }) => {
+    expect(expandGlob(pattern, names)).toEqual(
+      names.filter((name) => referenceMatches(pattern, name)),
+    );
+  });
 
   it("handles adversarial wildcard patterns without regex backtracking", () => {
     const pattern = `${"a*".repeat(14)}b`;

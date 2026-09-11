@@ -350,7 +350,7 @@ export const groupMultiselect = <A>(
     error: Option.none(),
   };
 
-  return Prompt.custom(initialState, {
+  return Prompt.Custom(initialState, {
     render: (state, action) =>
       Effect.succeed(action._tag === "Beep" ? "\x07" : renderFrame(state, model, options)),
     process: (input, state): Effect.Effect<GroupMultiselectAction<A>> => {

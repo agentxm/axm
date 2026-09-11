@@ -64,7 +64,7 @@ describe("Publication owner validation", () => {
           },
         ]);
         expect(world.requests.map((request) => new URL(request.url).pathname).sort()).toEqual([
-          "/v1/owners/@acme",
+          "/v1/owners/%40acme",
         ]);
         expect(world.uploads).toEqual([]);
         expect(world.authorizationCount()).toBe(0);

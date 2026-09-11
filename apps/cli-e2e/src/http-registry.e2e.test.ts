@@ -317,7 +317,7 @@ describe("HTTP registry transport", () => {
       expect(registry.requests).toContainEqual(
         expect.objectContaining({
           method: "GET",
-          path: `/v1/owners/${OWNER}`,
+          path: `/v1/owners/${encodeURIComponent(OWNER)}`,
           status: 200,
         }),
       );
@@ -334,7 +334,7 @@ describe("HTTP registry transport", () => {
       expect(registry.requests).toContainEqual(
         expect.objectContaining({
           method: "PUT",
-          path: `/v1/extensions/${OWNER}/${row.plural}/${name}/${record?.version ?? ""}`,
+          path: `/v1/extensions/${encodeURIComponent(OWNER)}/${row.plural}/${name}/${record?.version ?? ""}`,
           status: 201,
         }),
       );
@@ -969,7 +969,7 @@ describe("HTTP registry transport", () => {
       expect(latest.exitCode, latest.stderr).toBe(0);
       expect(registry.requests.slice(latestRequestOffset)).toContainEqual(
         expect.objectContaining({
-          path: `/v1/extensions/${OWNER}/skills/${name}/2.0.0/archive`,
+          path: `/v1/extensions/${encodeURIComponent(OWNER)}/skills/${name}/2.0.0/archive`,
           status: 200,
           authorization: `Bearer ${TOKEN}`,
           userAgent: expect.stringMatching(/^axm-cli\//),
@@ -984,7 +984,7 @@ describe("HTTP registry transport", () => {
       expect(exact.exitCode, exact.stderr).toBe(0);
       expect(registry.requests.slice(exactRequestOffset)).toContainEqual(
         expect.objectContaining({
-          path: `/v1/extensions/${OWNER}/skills/${name}/${firstVersion}/archive`,
+          path: `/v1/extensions/${encodeURIComponent(OWNER)}/skills/${name}/${firstVersion}/archive`,
           status: 200,
         }),
       );

@@ -62,7 +62,7 @@ const remoteHttpLayer = Layer.succeed(
         return HttpClientResponse.fromWeb(request, new Response(null, { status: 200 }));
       }
 
-      if (request.method === "GET" && url.pathname.startsWith("/v1/extensions/@")) {
+      if (request.method === "GET" && url.pathname.startsWith("/v1/extensions/%40")) {
         return HttpClientResponse.fromWeb(
           request,
           new Response(makeRegistryCollectionResponse(), {

@@ -68,11 +68,11 @@ const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List agents from project (default) or user-level configuration"),
   ),
-  detected: Flag.boolean("detected").pipe(
+  detected: Flag.Boolean("detected").pipe(
     Flag.withDescription("Show detected agents only"),
     Flag.withDefault(false),
   ),
-  available: Flag.boolean("available").pipe(
+  available: Flag.Boolean("available").pipe(
     Flag.withDescription("Show all supported agent IDs"),
     Flag.withDefault(false),
   ),

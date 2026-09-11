@@ -11,7 +11,7 @@ import {
 import { handleEnableSubagent } from "./handler.js";
 
 const enableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the subagent to enable")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the subagent to enable")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),

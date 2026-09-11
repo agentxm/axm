@@ -26,7 +26,7 @@ export const handleDisableRule = (args: { readonly name: string; readonly previe
   );
 
 const disableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the rule")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the rule")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),

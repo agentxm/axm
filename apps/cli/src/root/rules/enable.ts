@@ -26,7 +26,7 @@ export const handleEnableRule = (args: { readonly name: string; readonly preview
   );
 
 const enableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the rule")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the rule")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),

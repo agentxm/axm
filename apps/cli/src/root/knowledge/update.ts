@@ -42,7 +42,7 @@ export const handleKnowledgeUpdate = Effect.fn("KnowledgeUpdate.handle")(functio
 });
 
 const updateConfig = {
-  source: Argument.string("source").pipe(
+  source: Argument.String("source").pipe(
     Argument.withDescription("Filter to Knowledge bundles matching a name or source"),
     Argument.optional,
   ),

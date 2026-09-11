@@ -181,13 +181,13 @@ const supportedTypePluralPattern = versionableTypes
   .join("|");
 
 const rootVersionConfig = {
-  handle: Argument.string("extension").pipe(
+  handle: Argument.String("extension").pipe(
     Argument.withDescription(
       `Fully-qualified extension handle (@owner/<${supportedTypePluralPattern}>/name)`,
     ),
   ),
-  bump: Argument.string("bump").pipe(Argument.withDescription("Version bump rule or set")),
-  targetVersion: Argument.string("version").pipe(
+  bump: Argument.String("bump").pipe(Argument.withDescription("Version bump rule or set")),
+  targetVersion: Argument.String("version").pipe(
     Argument.withDescription("Exact semver version for set"),
     Argument.optional,
   ),

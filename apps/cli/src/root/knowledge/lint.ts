@@ -64,11 +64,11 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
 });
 
 const lintConfig = {
-  bundle: Argument.string("bundle").pipe(
+  bundle: Argument.String("bundle").pipe(
     Argument.withDescription("Optional installed bundle name"),
     Argument.optional,
   ),
-  path: Flag.string("path").pipe(
+  path: Flag.String("path").pipe(
     Flag.withDescription("Validate a locally authored Knowledge package directory"),
     Flag.optional,
   ),

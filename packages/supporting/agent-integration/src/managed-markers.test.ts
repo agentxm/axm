@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
+import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Option from "effect/Option";
-import * as FastCheck from "effect/testing/FastCheck";
 
 import {
   commentStyleForTarget,
@@ -37,13 +37,15 @@ const markerArbitrary = FastCheck.oneof(
 );
 
 describe("projection managed-region markers", () => {
-  it.prop(
-    "round-trips region identities and options containing whitespace",
+  fastCheckIt.prop(
     {
       owner: FastCheck.string({ minLength: 1, maxLength: 80 }),
       kind: FastCheck.constantFrom("axm:start", "axm:end"),
       prefix: FastCheck.constantFrom("#", "//"),
     },
+    { numRuns: 250, seed: 0x41584d },
+  )(
+    "round-trips region identities and options containing whitespace",
     ({ owner, kind, prefix }) => {
       const style: FileCommentStyle = { kind: "line", prefix };
       const marker: ManagedMarker = {
@@ -56,11 +58,9 @@ describe("projection managed-region markers", () => {
       expect(parsed.state).toBe("complete");
       if (parsed.state === "complete") expect(parsed.marker).toEqual(marker);
     },
-    { fastCheck: { numRuns: 250, seed: 0x41584d } },
   );
 
-  it.prop(
-    "round-trips every valid marker canonically across every comment style",
+  fastCheckIt.prop(
     {
       marker: markerArbitrary,
       style: FastCheck.constantFrom<FileCommentStyle>(
@@ -70,6 +70,9 @@ describe("projection managed-region markers", () => {
         { kind: "block", open: "/*", close: "*/" },
       ),
     },
+    { numRuns: 250, seed: 0x41584d },
+  )(
+    "round-trips every valid marker canonically across every comment style",
     ({ marker, style }) => {
       const first = serializeMarker(marker, style);
       const parsed = parseMarker(first, style);
@@ -79,7 +82,6 @@ describe("projection managed-region markers", () => {
         expect(serializeMarker(parsed.marker, style)).toBe(first);
       }
     },
-    { fastCheck: { numRuns: 250, seed: 0x41584d } },
   );
 
   it("round-trips whitespace in a named region", () => {
@@ -138,8 +140,7 @@ describe("projection managed-region markers", () => {
     expect(updated).not.toContain("ext=@acme/rules/old");
   });
 
-  it.prop(
-    "treats every non-boundary generated body as opaque when ownership and generation match",
+  fastCheckIt.prop(
     {
       body: FastCheck.array(FastCheck.string({ maxLength: 80 }), { maxLength: 12 })
         .filter((lines) =>
@@ -147,6 +148,9 @@ describe("projection managed-region markers", () => {
         )
         .map((lines) => lines.join("\n")),
     },
+    { numRuns: 250, seed: 0x41584d },
+  )(
+    "treats every non-boundary generated body as opaque when ownership and generation match",
     ({ body }) => {
       const style: FileCommentStyle = { kind: "block", open: "<!--", close: "-->" };
       const content = [
@@ -169,7 +173,6 @@ describe("projection managed-region markers", () => {
         }),
       ).toBe(content);
     },
-    { fastCheck: { numRuns: 250, seed: 0x41584d } },
   );
 
   it("regenerates when generation provenance changes", () => {

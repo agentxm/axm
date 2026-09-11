@@ -52,14 +52,14 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
 });
 
 const getConfig = {
-  reference: Argument.string("reference").pipe(
+  reference: Argument.String("reference").pipe(
     Argument.withDescription("Concept reference: @owner/knowledge/name#concept-id"),
   ),
-  ifRevision: Flag.string("if-revision").pipe(
+  ifRevision: Flag.String("if-revision").pipe(
     Flag.withDescription("Fail if the current content revision differs"),
     Flag.optional,
   ),
-  raw: Flag.boolean("raw").pipe(
+  raw: Flag.Boolean("raw").pipe(
     Flag.withDescription("Include the exact source document in machine output"),
     Flag.withDefault(false),
   ),

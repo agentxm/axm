@@ -146,11 +146,11 @@ const instructionsEnableConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable project (default) or user-level configuration"),
   ),
-  fileName: Flag.string("file").pipe(
+  fileName: Flag.String("file").pipe(
     Flag.withDescription("Source-of-truth instruction file"),
     Flag.withDefault("AGENTS.md"),
   ),
-  gitignore: Flag.boolean("gitignore").pipe(
+  gitignore: Flag.Boolean("gitignore").pipe(
     Flag.withDescription("Manage propagated alias files in .gitignore"),
     Flag.withDefault(true),
   ),

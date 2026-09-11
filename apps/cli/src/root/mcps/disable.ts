@@ -29,7 +29,7 @@ export const handleDisableMcpServer = (args: {
   );
 
 const disableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the MCP server to disable")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the MCP server to disable")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),

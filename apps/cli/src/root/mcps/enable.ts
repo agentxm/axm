@@ -26,7 +26,7 @@ export const handleEnableMcpServer = (args: { readonly name: string; readonly pr
   );
 
 const enableConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Name of the MCP server to enable")),
+  name: Argument.String("name").pipe(Argument.withDescription("Name of the MCP server to enable")),
   scope: scopeFlag.pipe(
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),

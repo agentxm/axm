@@ -34,7 +34,7 @@ export const handleKnowledgeUninstall = (args: KnowledgeUninstallHandlerArgs) =>
   });
 
 const uninstallConfig = {
-  name: Argument.string("name").pipe(Argument.withDescription("Configured Knowledge bundle name")),
+  name: Argument.String("name").pipe(Argument.withDescription("Configured Knowledge bundle name")),
   ...scopeConfig,
   ...mutationFlags,
 } as const;

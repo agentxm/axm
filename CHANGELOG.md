@@ -1,3 +1,14 @@
+## 0.29.0 (2026-09-11)
+
+### ⚠️ Breaking Changes
+
+- Add opt-in, privacy-preserving product activity telemetry for the AXM CLI and ([e307fab5b](https://github.com/agentxm/axm/commit/e307fab5b))
+  keep local preview versions below their stable release candidate.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.28.13 (2026-09-11)
 
 ### 🩹 Fixes

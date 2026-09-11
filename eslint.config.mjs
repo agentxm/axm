@@ -376,9 +376,14 @@ export default [
           checkMissingDependencies: true,
           checkObsoleteDependencies: true,
           checkVersionMismatches: true,
-          // Loaded through a computed dynamic-import specifier the static
-          // graph cannot see (credential-store keychain tier).
-          ignoredDependencies: ["@napi-rs/keyring"],
+          ignoredDependencies: [
+            // Loaded through a computed dynamic-import specifier the static
+            // graph cannot see (credential-store keychain tier).
+            "@napi-rs/keyring",
+            // The published CLI pins this transitive runtime directly because
+            // platform-node's prerelease range can otherwise cross cohorts.
+            "@effect/platform-node-shared",
+          ],
           // Test-support modules are excluded from every package's build; what
           // they import is a devDependency, not a published one.
           ignoredFiles: [

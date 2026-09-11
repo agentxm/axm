@@ -181,7 +181,12 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
   function* (args: RootPublishHandlerArgs) {
     const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
     yield* withLiveOperation(
-      { command: "publish", name: "Publish extensions", mode: args.preview ? "preview" : "apply" },
+      {
+        command: "publish",
+        name: "Publish extensions",
+        mode: args.preview ? "preview" : "apply",
+        productActivity: { activity: "publish", activationEligible: false },
+      },
       // An external termination must reach the run and still leave a reported
       // outcome behind: the feature settles the interruption into a publish
       // outcome, so reporting it stays inside the mask while selection,

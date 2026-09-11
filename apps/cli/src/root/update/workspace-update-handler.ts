@@ -69,6 +69,7 @@ export const handleWorkspaceUpdate = (args: WorkspaceUpdateHandlerArgs) =>
       command: args.command,
       mode: args.flags.preview ? "preview" : "apply",
       planName: args.planName,
+      productActivity: { activity: "update", activationEligible: false },
       declaredAtomicity: WORKSPACE_UPDATE_ATOMICITY,
       presentation: operationPresentation(
         { imperative: "update", past: "Updated", gerund: "Updating" },

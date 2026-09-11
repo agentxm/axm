@@ -84,8 +84,13 @@ export {
   observeLifecycleForTelemetry,
   CommandSemanticProperties,
   CommandSemanticPropertiesLive,
+  ProductActivity,
+  ProductActivityLive,
+  startProductActivity,
   type CliCommandTelemetryOptions,
   type CliCommandCompletedOptions,
+  type ProductActivityIntent,
+  type ProductActivityKind,
 } from "./telemetry.js";
 export {
   OperationExit,

@@ -37,6 +37,7 @@ export const handleSync = (args: HandleSyncArgs) =>
       command: "sync",
       mode: args.preview === true ? "preview" : "apply",
       planName: "Sync workspace",
+      productActivity: { activity: "restore", activationEligible: false },
       presentation: SYNC_PRESENTATION,
     },
     handleSyncBody(args),

@@ -14,8 +14,10 @@ import {
   trackCliCommandCompleted,
   CommandSemanticProperties,
   CommandSemanticPropertiesLive,
+  ProductActivityLive,
   setCommandSemanticProperties,
   getCommandSemanticProperties,
+  startProductActivity,
 } from "./telemetry.js";
 
 interface Capture {
@@ -276,6 +278,95 @@ describe("cli telemetry helpers", () => {
       expect(props?.["cli.command"]).toBe("skills install");
       expect(props?.["cli.result"]).toBe("success");
       expect(props?.["cli.duration_ms"]).toBe(500);
+    }),
+  );
+});
+
+describe("purposeful product lifecycle", () => {
+  it.effect("links an eligible install start to a genuine usable completion", () =>
+    Effect.gen(function* () {
+      const [captureLayer, capture] = makeCaptureLayer();
+      const layer = Layer.mergeAll(captureLayer, ProductActivityLive);
+
+      yield* Effect.gen(function* () {
+        yield* startProductActivity({ activity: "install", activationEligible: true });
+        yield* trackCliCommandCompleted({
+          command: "skills install",
+          result: "success",
+          durationMs: 250,
+          semanticProperties: { "cli.outcome": "applied", "cli.applied_count": 1 },
+        });
+      }).pipe(Effect.provide(layer));
+
+      expect(capture.events.map(({ event }) => event)).toEqual([
+        "product_activity_started",
+        "product_activity_finished",
+      ]);
+      const started = capture.events[0]?.properties;
+      const finished = capture.events[1]?.properties;
+      expect(started?.["product.contract_version"]).toBe(1);
+      expect(started?.["product.activity"]).toBe("install");
+      expect(started?.["product.activation_eligible"]).toBe(true);
+      expect(typeof started?.["product.activity_id"]).toBe("string");
+      expect(finished?.["product.activity_id"]).toBe(started?.["product.activity_id"]);
+      expect(finished?.["product.value_completed"]).toBe(true);
+      expect(finished?.["product.activation_completed"]).toBe(true);
+    }),
+  );
+
+  it.effect("does not relabel no-op, cancellation, or failure as value", () =>
+    Effect.forEach(
+      [
+        { result: "success", outcome: "no-op", appliedCount: 0 },
+        { result: "cancelled", outcome: "cancelled", appliedCount: 0 },
+        { result: "error", outcome: "failed", appliedCount: 0 },
+      ] satisfies ReadonlyArray<{
+        readonly result: "success" | "cancelled" | "error";
+        readonly outcome: "no-op" | "cancelled" | "failed";
+        readonly appliedCount: number;
+      }>,
+      ({ result, outcome, appliedCount }) =>
+        Effect.gen(function* () {
+          const [captureLayer, capture] = makeCaptureLayer();
+          yield* Effect.gen(function* () {
+            yield* startProductActivity({ activity: "configure", activationEligible: true });
+            yield* trackCliCommandCompleted({
+              command: "skills enable",
+              result,
+              durationMs: 25,
+              semanticProperties: {
+                "cli.outcome": outcome,
+                "cli.applied_count": appliedCount,
+              },
+            });
+          }).pipe(Effect.provide(Layer.mergeAll(captureLayer, ProductActivityLive)));
+
+          const finished = capture.events[1]?.properties;
+          expect(finished?.["product.value_completed"]).toBe(false);
+          expect(finished?.["product.activation_completed"]).toBe(false);
+        }),
+      { concurrency: 1 },
+    ),
+  );
+
+  it.effect("keeps publication as value without treating it as consumer activation", () =>
+    Effect.gen(function* () {
+      const [captureLayer, capture] = makeCaptureLayer();
+      yield* Effect.gen(function* () {
+        yield* startProductActivity({ activity: "publish", activationEligible: false });
+        yield* startProductActivity({ activity: "install", activationEligible: true });
+        yield* trackCliCommandCompleted({
+          command: "publish",
+          result: "success",
+          durationMs: 100,
+          semanticProperties: { "cli.outcome": "applied", "cli.applied_count": 2 },
+        });
+      }).pipe(Effect.provide(Layer.mergeAll(captureLayer, ProductActivityLive)));
+
+      expect(capture.events).toHaveLength(2);
+      expect(capture.events[0]?.properties?.["product.activity"]).toBe("publish");
+      expect(capture.events[1]?.properties?.["product.value_completed"]).toBe(true);
+      expect(capture.events[1]?.properties?.["product.activation_completed"]).toBe(false);
     }),
   );
 });

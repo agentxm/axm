@@ -137,6 +137,7 @@ export const runInstallCommand = (args: InstallCommandArgs) =>
       command: args.command,
       mode: args.preview ? "preview" : "apply",
       planName: args.request.planName,
+      productActivity: { activity: "install", activationEligible: true },
       presentation: operationPresentation(
         { imperative: "install", past: "Installed", gerund: "Installing" },
         Option.getOrUndefined(args.request.type),

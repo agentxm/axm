@@ -3742,6 +3742,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/src/runtime.test.ts`
 - Source: [`apps/cli-e2e/src/environment-selects-built-in-extension-source.spec.ts`](../apps/cli-e2e/src/environment-selects-built-in-extension-source.spec.ts)
 
+##### Product activity events represent usable outcomes
+
+- Requirement: `cli/telemetry/product-activity-events-represent-usable-outcomes`
+- Owner: `cli`
+- Statement: When an operator opts in to usage telemetry, an eligible applied product activity shall emit one linked start and finish lifecycle, shall mark activation only after a real usable install or enabling configuration changed durable state, shall exclude preview, no-op, cancellation, failure, and publication from consumer activation, and shall not let a retry reset the cohort boundary.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `privacy-and-consent`
+- Boundary: memory; selection: per-change
+- Methods: contract, decision-table, example
+- Derived from: `system/security/telemetry-consent-and-precedence`
+- Source: [`apps/cli/src/cli-runtime/product-activity-telemetry.spec.ts`](../apps/cli/src/cli-runtime/product-activity-telemetry.spec.ts)
+
 ##### View can return one selected metadata field
 
 - Requirement: `cli/view/returns-the-selected-field`

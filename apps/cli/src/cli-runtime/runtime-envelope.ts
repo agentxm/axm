@@ -44,6 +44,7 @@ import {
   trackCliCommandCompleted,
   getCommandSemanticProperties,
   CommandSemanticPropertiesLive,
+  ProductActivityLive,
 } from "./telemetry.js";
 import { CommandArgv, serializeArgv } from "./command-argv.js";
 import {
@@ -459,7 +460,12 @@ export const withCliErrorHandling = <A, R>(
 
   return enrichedProgram.pipe(
     Effect.provide(
-      Layer.mergeAll(telemetryLayer, CommandSemanticPropertiesLive, OperationExitLive),
+      Layer.mergeAll(
+        telemetryLayer,
+        CommandSemanticPropertiesLive,
+        ProductActivityLive,
+        OperationExitLive,
+      ),
     ),
   );
 };

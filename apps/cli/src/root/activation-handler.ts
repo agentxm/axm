@@ -39,6 +39,7 @@ export const handleSetActivation = (
       command: presentation.command,
       mode: args.preview ? "preview" : "apply",
       planName: presentation.planName,
+      productActivity: { activity: "configure", activationEligible: args.enabled },
     },
     handleSetActivationBody(args, presentation),
   );

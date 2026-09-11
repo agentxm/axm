@@ -184,6 +184,7 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
       command: "update",
       mode: args.preview ? "preview" : "apply",
       planName: "Update configured extensions",
+      productActivity: { activity: "update", activationEligible: false },
       presentation: operationPresentation({
         imperative: "update",
         past: "Updated",

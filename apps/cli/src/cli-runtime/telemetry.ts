@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
@@ -46,6 +47,68 @@ export const trackCliCommand = ({
   }).pipe(Effect.catchCause(() => Effect.void));
 
 // ---------------------------------------------------------------------------
+// Purposeful product lifecycle
+// ---------------------------------------------------------------------------
+
+export type ProductActivityKind = "configure" | "install" | "publish" | "restore" | "update";
+
+export interface ProductActivityIntent {
+  readonly activity: ProductActivityKind;
+  /** Whether a successful usable completion can activate a consumer cohort. */
+  readonly activationEligible: boolean;
+}
+
+interface ProductActivityAttempt extends ProductActivityIntent {
+  readonly activityId: string;
+}
+
+export class ProductActivity extends ServiceMap.Service<
+  ProductActivity,
+  { readonly ref: Ref.Ref<Option.Option<ProductActivityAttempt>> }
+>()("axm.sh/cli-runtime/telemetry/ProductActivity") {}
+
+export const ProductActivityLive: Layer.Layer<ProductActivity> = Layer.effect(
+  ProductActivity,
+  Ref.make(Option.none<ProductActivityAttempt>()).pipe(Effect.map((ref) => ({ ref }))),
+);
+
+const productActivityProperties = (attempt: ProductActivityAttempt): TelemetryProperties => ({
+  "product.contract_version": 1,
+  "product.activity_id": attempt.activityId,
+  "product.activity": attempt.activity,
+  "product.activation_eligible": attempt.activationEligible,
+});
+
+/**
+ * Register and publish the first eligible product activity in this invocation.
+ * Nested command adapters are intentionally idempotent and retain the outer
+ * activity identity.
+ */
+export const startProductActivity = (intent: ProductActivityIntent): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const service = yield* Effect.serviceOption(ProductActivity);
+    if (Option.isNone(service) || Option.isSome(yield* Ref.get(service.value.ref))) return;
+
+    const attempt = { ...intent, activityId: randomUUID() } satisfies ProductActivityAttempt;
+    yield* Ref.set(service.value.ref, Option.some(attempt));
+    const telemetry = yield* Effect.serviceOption(TelemetryClient);
+    if (Option.isSome(telemetry)) {
+      yield* telemetry.value.trackEvent(
+        "product_activity_started",
+        productActivityProperties(attempt),
+        { bounded: true },
+      );
+    }
+  }).pipe(Effect.catchCause(() => Effect.void));
+
+const currentProductActivity = Effect.gen(function* () {
+  const service = yield* Effect.serviceOption(ProductActivity);
+  return Option.isNone(service)
+    ? Option.none<ProductActivityAttempt>()
+    : yield* Ref.get(service.value.ref);
+});
+
+// ---------------------------------------------------------------------------
 // command_completed
 // ---------------------------------------------------------------------------
 
@@ -63,8 +126,26 @@ export const trackCliCommandCompleted = (
 ): Effect.Effect<void, never, TelemetryClient> =>
   Effect.gen(function* () {
     const telemetry = yield* TelemetryClient;
+    const productActivity = yield* currentProductActivity;
+    const outcome = options.semanticProperties?.["cli.outcome"];
+    const appliedCount = options.semanticProperties?.["cli.applied_count"];
+    const valueCompleted =
+      (outcome === "applied" || outcome === "partial") &&
+      typeof appliedCount === "number" &&
+      appliedCount > 0;
+    const event = Option.isSome(productActivity)
+      ? "product_activity_finished"
+      : "command_completed";
+    const productProperties = Option.isSome(productActivity)
+      ? {
+          ...productActivityProperties(productActivity.value),
+          "product.value_completed": valueCompleted,
+          "product.activation_completed":
+            productActivity.value.activationEligible && valueCompleted,
+        }
+      : {};
     yield* telemetry.trackEvent(
-      "command_completed",
+      event,
       {
         "cli.command": options.command,
         "cli.result": options.result,
@@ -72,6 +153,7 @@ export const trackCliCommandCompleted = (
         ...(options.errorCode !== undefined && { "cli.error_code": options.errorCode }),
         ...(options.errorCategory !== undefined && { "cli.error_category": options.errorCategory }),
         ...(options.semanticProperties ?? {}),
+        ...productProperties,
       },
       // The completion event orders before process exit on every termination
       // path, bounded by the client's event timeout.

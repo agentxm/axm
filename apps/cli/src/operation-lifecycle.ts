@@ -24,6 +24,8 @@ import {
   observeLifecycleForTelemetry,
   recordCommandCompletion,
   requestedInterruptionSignal,
+  startProductActivity,
+  type ProductActivityIntent,
 } from "./cli-runtime/index.js";
 import {
   OperationJournal,
@@ -59,6 +61,7 @@ export interface OperationLifecycleArgs {
    */
   readonly declaredAtomicity?: AtomicityClass;
   readonly presentation?: OperationPresentation;
+  readonly productActivity?: ProductActivityIntent;
 }
 
 const replayCommand = (command: string): string => `axm ${command.split(".").join(" ")}`;
@@ -71,6 +74,7 @@ export interface LiveOperationArgs {
   readonly mode: OperationMode;
   /** Outcome a successful body settles with; `completed` for non-plan operations. */
   readonly successOutcome?: SettledOutcome;
+  readonly productActivity?: ProductActivityIntent;
 }
 
 const settledOutcomeForExit = (
@@ -95,6 +99,9 @@ export const withLiveOperation = <A, E, R>(
   Effect.scoped(
     Effect.gen(function* () {
       const screen = yield* Screen;
+      if (args.mode === "apply" && args.productActivity !== undefined) {
+        yield* startProductActivity(args.productActivity);
+      }
       const lifecycle = yield* makeOperationLifecycle({ name: args.name, mode: args.mode });
       yield* screen.observe(lifecycle);
       yield* observeLifecycleForTelemetry(lifecycle);
@@ -141,7 +148,14 @@ export const withOperationLifecycle = <A, E, R>(
         const path = yield* Path.Path;
         return yield* restore(
           withLiveOperation(
-            { command: args.command, name: args.planName, mode: args.mode },
+            {
+              command: args.command,
+              name: args.planName,
+              mode: args.mode,
+              ...(args.productActivity === undefined
+                ? {}
+                : { productActivity: args.productActivity }),
+            },
             body.pipe(
               Effect.provideService(OperationJournal, journal),
               Effect.provideService(FootprintRecorder, footprint),

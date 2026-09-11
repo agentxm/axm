@@ -140,13 +140,17 @@ describe("Telemetry data boundary", () => {
             Effect.gen(function* () {
               const result = yield* operation.run({ client: captured.client });
               expect(result.exit._tag).toBe("Success");
-              expect(captured.requests.length).toBeGreaterThanOrEqual(2);
+              expect(captured.requests.length).toBeGreaterThanOrEqual(3);
               const payloads = JSON.stringify(captured.requests);
               for (const secret of sensitiveSentinels) expect(payloads).not.toContain(secret);
               for (const request of captured.requests) {
                 const decoded = yield* decodeEventsRequest(request.body);
                 for (const event of decoded.events) {
-                  expect(["command_invoked", "command_completed"]).toContain(event.event);
+                  expect([
+                    "command_invoked",
+                    "product_activity_started",
+                    "product_activity_finished",
+                  ]).toContain(event.event);
                 }
               }
               expect(payloads).toContain("cli.arg.source");

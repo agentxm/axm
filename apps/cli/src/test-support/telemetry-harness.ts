@@ -74,6 +74,7 @@ export const makeTelemetryOperation = () => {
     readonly client: HttpClient.HttpClient;
     readonly mode?: "all" | "off";
     readonly fail?: boolean;
+    readonly preview?: boolean;
     readonly collectionFailure?: boolean;
     readonly host?: TelemetryHostObservation;
   }) =>
@@ -92,7 +93,7 @@ export const makeTelemetryOperation = () => {
         handleInstall({
           source: Option.some(options.fail === true ? `${source}/missing` : source),
           force: false,
-          preview: false,
+          preview: options.preview === true,
         }),
         {
           command: "install",

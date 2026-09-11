@@ -1,3 +1,13 @@
+## 0.29.1 (2026-09-11)
+
+### 🚀 Features
+
+- Pin the Effect Node runtime prerelease cohort to restore clean package installations. ([#263](https://github.com/agentxm/axm/pull/263))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.29.0 (2026-09-11)
 
 ### ⚠️ Breaking Changes

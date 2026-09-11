@@ -28,6 +28,7 @@ import {
 } from "./cli-runtime/index.js";
 import {
   ArtifactMechanismSchema,
+  PackMembershipDeltaSchema,
   AtomicityClassSchema,
   BlockingClassSchema,
   OperationOutcomeSchema,
@@ -124,6 +125,7 @@ const StepArtifactSchema = Schema.Struct({
   agentOutcomes: Schema.optional(Schema.Array(ConfiguredAgentOutcomeSchema)),
   source: Schema.optional(StepArtifactSourceSchema),
   managedRegions: Schema.optional(Schema.Array(StepManagedRegionSchema)),
+  packMembership: Schema.optional(PackMembershipDeltaSchema),
   registryLifecycle: Schema.optional(
     Schema.Struct({
       deprecation: DeprecationViewSchema,

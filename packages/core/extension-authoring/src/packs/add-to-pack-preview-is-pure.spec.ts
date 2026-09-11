@@ -12,7 +12,7 @@ import {
   type AuthoringWorkspace,
 } from "../test-support/authoring-workspace.js";
 import { makePackWorkspace } from "../test-support/pack-membership.js";
-import { ChangePackMembership } from "./change-pack-membership.js";
+import { ChangePackMembership } from "../index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/packs/add/preview-is-pure",
@@ -78,7 +78,17 @@ describe("Pack add preview purity", () => {
 
       if (resolution._tag === "NoChange") throw new Error("Expected a membership change");
       expect(deriveOperationOutcome(resolution)).toBe("previewed");
-      expect(resolution.units).toEqual([expect.objectContaining({ state: "ready" })]);
+      expect(resolution.units).toMatchObject([
+        {
+          state: "ready",
+          artifact: {
+            packMembership: {
+              pack: "@acme/packs/toolkit",
+              members: [{ member: "@acme/skills/member-skill", before: null, after: ">=1.0.0" }],
+            },
+          },
+        },
+      ]);
       expect(created.snapshot()).toEqual(before);
       expect(environment.interaction.confirmApplyChangesCalls).toEqual([]);
     }),

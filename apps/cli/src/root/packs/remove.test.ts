@@ -185,7 +185,7 @@ describe("packs-remove.handler", () => {
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
           expect(rendererState.summaries).toContain(
-            "frontend-tools   updated   1 file   packs/frontend-tools/pack.json",
+            "@acme/packs/frontend-tools   updated   1 file   packs/frontend-tools/pack.json",
           );
           expect(rendererState.suggestions).toEqual([
             { description: "Inspect installed packs", cmd: "axm packs list" },
@@ -212,7 +212,7 @@ describe("packs-remove.handler", () => {
 
   describe("preview mode", () => {
     it.effect("performs no writes when preview mode is active", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
@@ -240,6 +240,8 @@ describe("packs-remove.handler", () => {
 
           // Preview outcome should appear
           expect(logs.info.some((m) => m.includes("Would remove 1 pack"))).toBe(true);
+          expect(rendererState.summaries.join("\n")).toContain("@acme/skills/code-review");
+          expect(rendererState.summaries.join("\n")).toContain("^1.2.0");
         }),
       );
     });

@@ -37,6 +37,7 @@ import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
+  type PackMembershipDelta,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
@@ -236,29 +237,61 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
     return unchanged;
   }
 
+  const packMembership: PackMembershipDelta = {
+    pack: formatFqn({ owner: packOwner, type: "pack", name: decodeExtensionNameSync(pack) }),
+    members: members
+      .map((member) =>
+        request.change === "add"
+          ? {
+              member: member.fqn,
+              before: manifest.dependencies[member.fqn] ?? null,
+              after: member.range,
+            }
+          : { member: member.fqn, before: member.range, after: null },
+      )
+      .sort((a, b) => (a.member < b.member ? -1 : a.member > b.member ? 1 : 0)),
+  };
+  const run =
+    request.change === "add"
+      ? addToPack({
+          name: "add-to-pack",
+          args: {
+            packName: pack,
+            packOwner,
+            additions: Object.fromEntries(
+              packMembership.members.flatMap((member) =>
+                member.after === null ? [] : [[member.member, member.after]],
+              ),
+            ),
+            manifestHash,
+          },
+        })
+      : removeFromPack({
+          name: "remove-from-pack",
+          args: {
+            packName: pack,
+            packOwner,
+            removals: packMembership.members.map((member) => member.member),
+            manifestHash,
+          },
+        });
   const step: PlannedJobStep<PackMembershipRequirements> = {
     readiness: "ready",
     label: pack,
-    run:
-      request.change === "add"
-        ? addToPack({
-            name: "add-to-pack",
-            args: {
-              packName: pack,
-              packOwner,
-              additions: Object.fromEntries(members.map((member) => [member.fqn, member.range])),
-              manifestHash,
-            },
-          })
-        : removeFromPack({
-            name: "remove-from-pack",
-            args: {
-              packName: pack,
-              packOwner,
-              removals: members.map((member) => member.fqn),
-              manifestHash,
-            },
-          }),
+    artifact: {
+      path: manifestPath,
+      scope: ws.scope,
+      change: "updated",
+      fileCount: 1,
+      packMembership,
+    },
+    run: run.pipe(
+      Effect.map((result) =>
+        result.result === "success" && result.artifact !== undefined
+          ? { ...result, artifact: { ...result.artifact, packMembership } }
+          : result,
+      ),
+    ),
   };
 
   const memberCount = members.length;
@@ -283,7 +316,7 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
     _tag: "Change",
     change: request.change,
     pack,
-    members: members.map((member) => member.fqn),
+    members: packMembership.members.map((member) => member.member),
     execution: yield* prepareExecutionCandidate(plan),
   };
   return change;
@@ -363,19 +396,16 @@ const removals = Effect.fn("ChangePackMembership.removals")(function* (args: {
   readonly request: PackMembershipRequest;
   readonly pattern: boolean;
 }) {
-  const declared = Object.keys(args.manifest.dependencies);
-  const matched = args.pattern
-    ? declared.filter((fqn) => selectorMatches(args.request.selector, fqn))
-    : declared.includes(args.request.selector)
-      ? [args.request.selector]
-      : [];
+  const matched = Object.entries(args.manifest.dependencies).filter(([fqn]) =>
+    args.pattern ? selectorMatches(args.request.selector, fqn) : fqn === args.request.selector,
+  );
   if (matched.length === 0) {
     return yield* new PackMemberNotDeclared({
       selector: args.request.selector,
       pattern: args.pattern,
     });
   }
-  return matched.map((fqn) => ({ fqn, range: "" }) satisfies ResolvedMember);
+  return matched.map(([fqn, range]) => ({ fqn, range }) satisfies ResolvedMember);
 });
 
 /** The plan a membership change of this direction resolves. */

@@ -44,20 +44,47 @@ const artifactCells = (artifact: JobStepArtifact | undefined): ReadonlyArray<str
   ].filter((value): value is string => value !== undefined && value.length > 0);
 };
 
+const membershipChildren = (artifact: JobStepArtifact | undefined): Doc => {
+  if (artifact?.packMembership === undefined) return [];
+  return [
+    {
+      _tag: "rows",
+      rows: artifact.packMembership.members.map((member) => ({
+        _tag: "row",
+        change: member.before === null ? "create" : member.after === null ? "remove" : "update",
+        cells: [
+          member.member,
+          member.before === null
+            ? member.after
+            : member.after === null
+              ? member.before
+              : `${member.before} to ${member.after}`,
+        ],
+      })),
+    },
+  ];
+};
+
 const outcomeChildren = (unit: ResolvedUnit<unknown>): Doc => {
   const outcomes = unit.agentOutcomes ?? unit.artifact?.agentOutcomes ?? [];
-  return outcomes.map((outcome) => ({
-    _tag: "paragraph",
-    tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
-    text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`} — ${outcome.reason}`,
-  }));
+  return [
+    ...membershipChildren(unit.artifact),
+    ...outcomes.map(
+      (outcome) =>
+        ({
+          _tag: "paragraph",
+          tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
+          text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`} — ${outcome.reason}`,
+        }) as const,
+    ),
+  ];
 };
 
 const resolutionRow = (unit: ResolvedUnit<unknown>): RowNode => ({
   _tag: "row",
   change: unitStateChange(unit.state),
   cells: [
-    unit.label,
+    unit.artifact?.packMembership?.pack ?? unit.label,
     ...artifactCells(unit.artifact),
     ...(unit.artifact === undefined ? [unitState(unit.state)] : []),
     ...(unit.artifact !== undefined ||
@@ -230,16 +257,22 @@ export const operationDoc = (
 
 const plannedRow = (step: PlannedJobStep<unknown, unknown>): RowNode => {
   const outcomes = step.agentOutcomes ?? step.artifact?.agentOutcomes ?? [];
-  const children: Doc = outcomes.map((outcome) => ({
-    _tag: "paragraph",
-    tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
-    text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)} — ${outcome.reason}`,
-  }));
+  const children: Doc = [
+    ...membershipChildren(step.artifact),
+    ...outcomes.map(
+      (outcome) =>
+        ({
+          _tag: "paragraph",
+          tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
+          text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)} — ${outcome.reason}`,
+        }) as const,
+    ),
+  ];
   return {
     _tag: "row",
     change: step.readiness === "error" ? "blocked" : "create",
     cells: [
-      step.label,
+      step.artifact?.packMembership?.pack ?? step.label,
       ...artifactCells(step.artifact),
       ...(step.readiness === "warn" ? [step.warnMessage] : []),
       ...(step.readiness === "error" ? [step.errorMessage] : []),

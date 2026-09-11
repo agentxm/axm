@@ -119,6 +119,19 @@ export interface Operation<TName extends string, TArgs> {
 export const ArtifactMechanismSchema = Schema.Literals(["symlink", "copy"] as const);
 export type ArtifactMechanism = typeof ArtifactMechanismSchema.Type;
 
+/** Resolved manifest changes; null denotes an absent dependency. */
+export const PackMembershipDeltaSchema = Schema.Struct({
+  pack: Schema.String,
+  members: Schema.Array(
+    Schema.Union([
+      Schema.Struct({ member: Schema.String, before: Schema.Null, after: Schema.String }),
+      Schema.Struct({ member: Schema.String, before: Schema.String, after: Schema.Null }),
+      Schema.Struct({ member: Schema.String, before: Schema.String, after: Schema.String }),
+    ]),
+  ),
+});
+export type PackMembershipDelta = typeof PackMembershipDeltaSchema.Type;
+
 export interface JobStepArtifact {
   readonly path: string;
   readonly scope: "project" | "user";
@@ -132,6 +145,7 @@ export interface JobStepArtifact {
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly source?: JobStepArtifactSource;
   readonly managedRegions?: ReadonlyArray<JobStepManagedRegion>;
+  readonly packMembership?: PackMembershipDelta;
   /** Registry lifecycle evidence captured when the candidate was resolved. */
   readonly registryLifecycle?: { readonly deprecation: DeprecationView };
 }

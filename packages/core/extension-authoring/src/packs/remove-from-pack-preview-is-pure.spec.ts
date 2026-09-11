@@ -13,7 +13,7 @@ import {
   type AuthoringWorkspace,
 } from "../test-support/authoring-workspace.js";
 import { makePackWorkspace } from "../test-support/pack-membership.js";
-import { ChangePackMembership } from "./change-pack-membership.js";
+import { ChangePackMembership } from "../index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/packs/remove/preview-is-pure",
@@ -86,7 +86,17 @@ describe("Pack remove preview purity", () => {
       const resolution = yield* run;
 
       expect(deriveOperationOutcome(resolution)).toBe("previewed");
-      expect(resolution.units).toEqual([expect.objectContaining({ state: "ready" })]);
+      expect(resolution.units).toMatchObject([
+        {
+          state: "ready",
+          artifact: {
+            packMembership: {
+              pack: "@acme/packs/toolkit",
+              members: [{ member: "@acme/skills/member-skill", before: ">=1.0.0", after: null }],
+            },
+          },
+        },
+      ]);
       expect(created.snapshot()).toEqual(before);
       expect(environment.interaction.confirmApplyChangesCalls).toEqual([]);
     }),

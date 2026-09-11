@@ -60,6 +60,34 @@ describe("toPlanResolutionResult", () => {
     expect(result.outcome).toBe("applied");
   });
 
+  it.each(["preview", "apply"] as const)("preserves pack membership facts in %s JSON", (mode) => {
+    const packMembership = {
+      pack: "@acme/packs/toolkit",
+      members: [
+        { member: "@acme/skills/added", before: null, after: ">=1.0.0" },
+        { member: "@acme/skills/removed", before: ">=2.0.0", after: null },
+        { member: "@acme/skills/updated", before: ">=1.0.0", after: ">=2.0.0" },
+      ],
+    };
+    const value = resolution({
+      mode,
+      units: [
+        unit("toolkit", mode === "preview" ? "ready" : "committed", {
+          artifact: {
+            path: "packs/toolkit/pack.json",
+            scope: "project",
+            change: "updated",
+            packMembership,
+          },
+        }),
+      ],
+    });
+    const result = Schema.decodeUnknownSync(PlanResolutionResultSchema)(
+      JSON.parse(JSON.stringify(toPlanResolutionResult(value))),
+    );
+    expect(result.units[0]?.artifact?.packMembership).toEqual(packMembership);
+  });
+
   it("C-13: a fully unchanged resolution projects no-op with unchanged covering the total", () => {
     const value = resolution({ units: [unit("a", "unchanged"), unit("b", "unchanged")] });
 

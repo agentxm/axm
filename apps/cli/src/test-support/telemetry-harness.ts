@@ -49,11 +49,8 @@ export const captureTelemetry = () => {
   return { requests, client };
 };
 
-/** Host identity that cannot be observed, so the failure is a port failure. */
+/** Host facts that cannot be observed, so the failure is a port failure. */
 export const unobservableHost: TelemetryHostObservation = {
-  hostname: () => {
-    throw new Error("synthetic host observation failure");
-  },
   osRelease: () => {
     throw new Error("synthetic host observation failure");
   },
@@ -106,6 +103,8 @@ export const makeTelemetryOperation = () => {
             // The repository's own test run suppresses delivery; a telemetry
             // specification observes it, so it asks for delivery explicitly.
             deliverInTest: true,
+            installationId: "00000000-0000-4000-8000-000000000001",
+            eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
             ...(options.host === undefined ? {} : { host: options.host }),
           },
         },

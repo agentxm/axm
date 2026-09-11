@@ -37,6 +37,9 @@ const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(file
 const readLockfile = (filePath: string) =>
   Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(fs.readFileSync(filePath, "utf-8")));
 const telemetrySuggestion = {
+  description: "Telemetry is off; environment help explains the opt-in controls",
+};
+const enabledTelemetrySuggestion = {
   description: "Disable telemetry with AXM_TELEMETRY=0; environment help lists all controls",
 };
 const projectSetupSuggestions = [
@@ -343,7 +346,7 @@ describe("setup.handler", () => {
                 ],
               }),
             ]),
-            telemetryEnabled: true,
+            telemetryEnabled: false,
           });
           expect(rendererState.suggestions).toEqual([
             ...projectSetupSuggestions,
@@ -1482,7 +1485,25 @@ describe("setup.handler", () => {
   });
 
   describe("telemetry notice", () => {
-    it.effect("displays telemetry guidance after setup", () => {
+    it.effect("displays opt-in telemetry guidance after setup", () => {
+      const { handleSetup, provide, rendererState } = makeSetupTestContext();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project" });
+
+          const infoMessages = rendererState.logs
+            .filter((entry) => entry._tag === "info")
+            .map((entry) => entry.message);
+          expect(infoMessages).toContain("Telemetry is off unless you explicitly opt in.");
+          expect(rendererState.suggestions).toContainEqual(telemetrySuggestion);
+        }),
+      );
+    });
+
+    it.effect("displays enabled telemetry guidance when AXM_TELEMETRY=1", () => {
+      const previousTelemetry = process.env["AXM_TELEMETRY"];
+      process.env["AXM_TELEMETRY"] = "1";
       const { handleSetup, provide, rendererState } = makeSetupTestContext();
 
       return provide(
@@ -1493,28 +1514,7 @@ describe("setup.handler", () => {
             .filter((entry) => entry._tag === "info")
             .map((entry) => entry.message);
           expect(infoMessages).toContain("Telemetry is enabled to help improve AXM.");
-          expect(infoMessages).not.toContain(
-            "  Disable telemetry with AXM_TELEMETRY=0; environment help lists all controls",
-          );
-          expect(rendererState.suggestions).toContainEqual(telemetrySuggestion);
-        }),
-      );
-    });
-
-    it.effect("suppresses telemetry guidance when AXM_TELEMETRY=0", () => {
-      const previousTelemetry = process.env["AXM_TELEMETRY"];
-      process.env["AXM_TELEMETRY"] = "0";
-      const { handleSetup, provide, rendererState } = makeSetupTestContext();
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleSetup({ scope: "project" });
-
-          const infoMessages = rendererState.logs
-            .filter((entry) => entry._tag === "info")
-            .map((entry) => entry.message);
-          expect(infoMessages).not.toContain("Telemetry is enabled to help improve AXM.");
-          expect(rendererState.suggestions).not.toContainEqual(telemetrySuggestion);
+          expect(rendererState.suggestions).toContainEqual(enabledTelemetrySuggestion);
         }).pipe(
           Effect.ensuring(
             Effect.sync(() => {

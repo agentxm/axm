@@ -1,10 +1,14 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — telemetry is a best-effort boundary over generated opaque transport failures
-import { createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import * as os from "node:os";
+import { resolveUserAxmHome } from "@agentxm/workspace-state";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import { isCI } from "../utils/environment.js";
@@ -41,12 +45,10 @@ export interface TelemetryClientService {
  * to the command — which is only demonstrable when the failure can be stated.
  */
 export interface TelemetryHostObservation {
-  readonly hostname: () => string;
   readonly osRelease: () => string;
 }
 
 export const nodeTelemetryHost: TelemetryHostObservation = {
-  hostname: () => os.hostname(),
   osRelease: () => os.release(),
 };
 
@@ -63,8 +65,12 @@ export interface TelemetryClientOptions {
    * specification that observes delivery asks for it explicitly here.
    */
   readonly deliverInTest?: boolean;
-  /** Where host identity comes from. Defaults to this machine. */
+  /** Where non-identifying operating-system facts come from. */
   readonly host?: TelemetryHostObservation;
+  /** Deterministic test seam; production persists a random installation ID. */
+  readonly installationId?: string;
+  /** Deterministic test seam; production assigns a fresh event ID per event. */
+  readonly eventIdFactory?: () => string;
 }
 
 export class TelemetryClient extends ServiceMap.Service<TelemetryClient, TelemetryClientService>()(
@@ -107,9 +113,43 @@ const readRuntime = (): { readonly name: string; readonly version: string } => (
   version: process.versions["bun"] ?? "unknown",
 });
 
+const INSTALLATION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+
+const readInstallationId = (fs: FileSystem.FileSystem, filePath: string) =>
+  fs.readFileString(filePath).pipe(
+    Effect.map((value) => value.trim()),
+    Effect.filterOrFail((value) => INSTALLATION_ID_PATTERN.test(value)),
+  );
+
+const loadOrCreateInstallationId = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const axmHome = yield* resolveUserAxmHome();
+  const directory = path.join(axmHome, "telemetry");
+  const filePath = path.join(directory, "installation-id");
+  const existing = yield* readInstallationId(fs, filePath).pipe(Effect.option);
+  if (Option.isSome(existing)) return existing.value;
+
+  yield* fs.makeDirectory(directory, { recursive: true, mode: 0o700 });
+  const candidate = randomUUID();
+  const created = yield* fs
+    .writeFileString(filePath, `${candidate}\n`, { flag: "wx", mode: 0o600 })
+    .pipe(Effect.result);
+  if (created._tag === "Success") return candidate;
+  if (created.failure.reason._tag === "AlreadyExists") {
+    return yield* readInstallationId(fs, filePath);
+  }
+  return yield* Effect.fail(created.failure);
+});
+
 export const makeTelemetryClient = (
   options: TelemetryClientOptions,
-): Effect.Effect<TelemetryClientService, never, HttpClient.HttpClient> =>
+): Effect.Effect<
+  TelemetryClientService,
+  never,
+  HttpClient.HttpClient | FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const inTest = yield* isTest(options);
     if (options.mode === "off" || inTest) {
@@ -128,7 +168,8 @@ export const makeTelemetryClient = (
       ci,
     };
 
-    const distinctId = createHash("sha256").update(host.hostname()).digest("hex");
+    const distinctId = options.installationId ?? (yield* loadOrCreateInstallationId);
+    const eventIdFactory = options.eventIdFactory ?? randomUUID;
     const baseUrl = yield* readBaseUrl;
 
     const client = GeneratedTelemetryClient.make(
@@ -143,10 +184,12 @@ export const makeTelemetryClient = (
         const payload = {
           events: [
             {
+              eventId: eventIdFactory(),
               event,
               distinctId,
               timestamp: now,
               properties: properties ?? {},
+              anonymous: true,
             },
           ],
           sentAt: now,
@@ -206,5 +249,5 @@ export const makeTelemetryClient = (
 
 export const TelemetryClientLive = (
   options: TelemetryClientOptions,
-): Layer.Layer<TelemetryClient, never, HttpClient.HttpClient> =>
+): Layer.Layer<TelemetryClient, never, HttpClient.HttpClient | FileSystem.FileSystem | Path.Path> =>
   Layer.effect(TelemetryClient, makeTelemetryClient(options));

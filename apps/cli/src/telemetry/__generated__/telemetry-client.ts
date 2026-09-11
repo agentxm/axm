@@ -35,7 +35,7 @@ export const TelemetryMetaResponse = Schema.Struct({
     "Service metadata and documentation entrypoints exposed by the telemetry root endpoint. Documentation URLs are null when docs are disabled for the environment.",
   identifier: "TelemetryMetaResponse",
 });
-export type DecodeErrorResponse = {
+export type DecodeErrorResponseEncoded = {
   readonly kind: "DecodeErrorResponse";
   readonly type: string;
   readonly title: string;
@@ -44,7 +44,7 @@ export type DecodeErrorResponse = {
   readonly instance?: string;
   readonly code: string;
 };
-export const DecodeErrorResponse = Schema.Struct({
+export const DecodeErrorResponseEncoded = Schema.Struct({
   kind: Schema.Literal("DecodeErrorResponse"),
   type: Schema.String,
   title: Schema.String,
@@ -52,21 +52,42 @@ export const DecodeErrorResponse = Schema.Struct({
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
-}).annotate({ identifier: "DecodeErrorResponse" });
+}).annotate({ identifier: "DecodeErrorResponseEncoded" });
+export type IsoDateTimeString = string;
+export const IsoDateTimeString = Schema.String.annotate({
+  title: "ISO Date-Time String",
+  description: "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+  format: "date-time",
+  identifier: "IsoDateTimeString",
+});
 export type TelemetryEvent = {
+  readonly eventId: string;
   readonly event: string;
   readonly distinctId: string;
   readonly timestamp: string;
-  readonly properties?: { readonly [x: string]: Schema.Json };
+  readonly properties?: {
+    readonly [x: string]:
+      string | number | boolean | null | ReadonlyArray<string | number | boolean | null>;
+  };
   readonly userProperties?: {
-    readonly set?: { readonly [x: string]: Schema.Json };
-    readonly setOnce?: { readonly [x: string]: Schema.Json };
+    readonly set?: {
+      readonly [x: string]:
+        string | number | boolean | null | ReadonlyArray<string | number | boolean | null>;
+    };
+    readonly setOnce?: {
+      readonly [x: string]:
+        string | number | boolean | null | ReadonlyArray<string | number | boolean | null>;
+    };
   };
   readonly groups?: { readonly [x: string]: string };
   readonly sessionId?: string;
   readonly anonymous?: boolean;
 };
 export const TelemetryEvent = Schema.Struct({
+  eventId: Schema.String.annotate({
+    description:
+      "Producer-assigned event identity retained across delivery retries for downstream deduplication.",
+  }).check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" })),
   event: Schema.String.check(
     Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
   ),
@@ -80,15 +101,81 @@ export const TelemetryEvent = Schema.Struct({
     }),
   ),
   properties: Schema.optionalKey(
-    Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
+    Schema.Record(
+      Schema.String,
+      Schema.Union([
+        Schema.Union([
+          Schema.String,
+          Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
+          Schema.Boolean,
+          Schema.Null,
+        ]),
+        Schema.Array(
+          Schema.Union([
+            Schema.String,
+            Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
+            Schema.Boolean,
+            Schema.Null,
+          ]),
+        ),
+      ]).annotate({
+        title: "User Property Value",
+        description:
+          "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives.",
+      }),
+    ),
   ),
   userProperties: Schema.optionalKey(
     Schema.Struct({
       set: Schema.optionalKey(
-        Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
+        Schema.Record(
+          Schema.String,
+          Schema.Union([
+            Schema.Union([
+              Schema.String,
+              Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
+              Schema.Boolean,
+              Schema.Null,
+            ]),
+            Schema.Array(
+              Schema.Union([
+                Schema.String,
+                Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
+                Schema.Boolean,
+                Schema.Null,
+              ]),
+            ),
+          ]).annotate({
+            title: "User Property Value",
+            description:
+              "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives.",
+          }),
+        ),
       ),
       setOnce: Schema.optionalKey(
-        Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
+        Schema.Record(
+          Schema.String,
+          Schema.Union([
+            Schema.Union([
+              Schema.String,
+              Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
+              Schema.Boolean,
+              Schema.Null,
+            ]),
+            Schema.Array(
+              Schema.Union([
+                Schema.String,
+                Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
+                Schema.Boolean,
+                Schema.Null,
+              ]),
+            ),
+          ]).annotate({
+            title: "User Property Value",
+            description:
+              "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives.",
+          }),
+        ),
       ),
     }),
   ),
@@ -113,8 +200,8 @@ export const TelemetryClientContext = Schema.Struct({
   description: "Identifies the client emitting telemetry, including its name and version.",
   identifier: "TelemetryClientContext",
 });
-export type PayloadTooLargeError = {
-  readonly kind: "PayloadTooLargeError";
+export type TelemetryPayloadTooLargeErrorEncoded = {
+  readonly kind: "TelemetryPayloadTooLargeError";
   readonly type: string;
   readonly title: string;
   readonly status: number;
@@ -122,15 +209,15 @@ export type PayloadTooLargeError = {
   readonly instance?: string;
   readonly code: string;
 };
-export const PayloadTooLargeError = Schema.Struct({
-  kind: Schema.Literal("PayloadTooLargeError"),
+export const TelemetryPayloadTooLargeErrorEncoded = Schema.Struct({
+  kind: Schema.Literal("TelemetryPayloadTooLargeError"),
   type: Schema.String,
   title: Schema.String,
   status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
-}).annotate({ identifier: "PayloadTooLargeError" });
+}).annotate({ identifier: "TelemetryPayloadTooLargeErrorEncoded" });
 export type TelemetryStackFrame = {
   readonly filename?: string;
   readonly function?: string;
@@ -163,7 +250,7 @@ export type TelemetryBreadcrumb = {
   readonly message?: string;
   readonly timestamp?: string;
   readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
-  readonly data?: { readonly [x: string]: Schema.Json };
+  readonly data?: { readonly [x: string]: never };
 };
 export const TelemetryBreadcrumb = Schema.Struct({
   type: Schema.optionalKey(Schema.String),
@@ -176,9 +263,7 @@ export const TelemetryBreadcrumb = Schema.Struct({
       description: "Severity level associated with an error report or breadcrumb.",
     }),
   ),
-  data: Schema.optionalKey(
-    Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
-  ),
+  data: Schema.optionalKey(Schema.Record(Schema.String, Schema.Never)),
 }).annotate({
   title: "Telemetry Breadcrumb",
   description: "Lightweight diagnostic breadcrumb attached to an error report.",
@@ -432,14 +517,14 @@ export const TelemetryErrorsRequest = Schema.Struct({
 // schemas
 export type MetaGet200 = TelemetryMetaResponse;
 export const MetaGet200 = TelemetryMetaResponse;
-export type MetaGet400 = DecodeErrorResponse;
-export const MetaGet400 = DecodeErrorResponse;
+export type MetaGet400 = DecodeErrorResponseEncoded;
+export const MetaGet400 = DecodeErrorResponseEncoded;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
 });
-export type HealthGetShallowHealth400 = DecodeErrorResponse;
-export const HealthGetShallowHealth400 = DecodeErrorResponse;
+export type HealthGetShallowHealth400 = DecodeErrorResponseEncoded;
+export const HealthGetShallowHealth400 = DecodeErrorResponseEncoded;
 export type HealthGetDeepHealthParams = { readonly "x-health-key"?: string | null };
 export const HealthGetDeepHealthParams = Schema.Struct({
   "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -450,7 +535,6 @@ export type HealthGetDeepHealth200 = {
   readonly version?: string | null;
   readonly releaseId?: string | null;
   readonly commit?: string | null;
-  readonly deployedAt?: string | null;
   readonly environment?: string | null;
   readonly region?: string | null;
   readonly checks?: {
@@ -461,7 +545,8 @@ export type HealthGetDeepHealth200 = {
       readonly status: "pass" | "warn" | "fail";
       readonly observedValue: number;
       readonly observedUnit: string;
-      readonly time: string;
+      readonly time: IsoDateTimeString;
+      readonly output?: string | null;
     }>;
   } | null;
   readonly output?: string | null;
@@ -472,7 +557,6 @@ export const HealthGetDeepHealth200 = Schema.Struct({
   version: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   releaseId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   commit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  deployedAt: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   environment: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   region: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   checks: Schema.optionalKey(
@@ -489,7 +573,8 @@ export const HealthGetDeepHealth200 = Schema.Struct({
               Schema.isFinite().annotate({ expected: "a finite number" }),
             ),
             observedUnit: Schema.String,
-            time: Schema.String,
+            time: IsoDateTimeString,
+            output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
           }),
         ),
       ),
@@ -498,8 +583,8 @@ export const HealthGetDeepHealth200 = Schema.Struct({
   ),
   output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
-export type HealthGetDeepHealth400 = DecodeErrorResponse;
-export const HealthGetDeepHealth400 = DecodeErrorResponse;
+export type HealthGetDeepHealth400 = DecodeErrorResponseEncoded;
+export const HealthGetDeepHealth400 = DecodeErrorResponseEncoded;
 export type HealthGetObservabilityVerificationParams = {
   readonly "x-health-key"?: string | null;
   readonly level?: string | null;
@@ -516,7 +601,7 @@ export const HealthGetObservabilityVerificationParams = Schema.Struct({
 });
 export type HealthGetObservabilityVerification200 = {
   readonly status: "ok" | "warn" | "error";
-  readonly timestamp: string;
+  readonly timestamp: IsoDateTimeString;
   readonly serviceId: string;
   readonly level: "basic" | "standard" | "full";
   readonly checks: {
@@ -527,6 +612,7 @@ export type HealthGetObservabilityVerification200 = {
     readonly tracing?: {
       readonly status: "ok" | "warn" | "error";
       readonly traceId?: string | null;
+      readonly message?: string | null;
     } | null;
     readonly metrics?: {
       readonly status: "ok" | "warn" | "error";
@@ -542,7 +628,7 @@ export type HealthGetObservabilityVerification200 = {
 };
 export const HealthGetObservabilityVerification200 = Schema.Struct({
   status: Schema.Literals(["ok", "warn", "error"]),
-  timestamp: Schema.String,
+  timestamp: IsoDateTimeString,
   serviceId: Schema.String,
   level: Schema.Literals(["basic", "standard", "full"]),
   checks: Schema.Struct({
@@ -560,6 +646,7 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
         Schema.Struct({
           status: Schema.Literals(["ok", "warn", "error"]),
           traceId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+          message: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
         }),
         Schema.Null,
       ]),
@@ -585,18 +672,18 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
     ),
   }),
 });
-export type HealthGetObservabilityVerification400 = DecodeErrorResponse;
-export const HealthGetObservabilityVerification400 = DecodeErrorResponse;
+export type HealthGetObservabilityVerification400 = DecodeErrorResponseEncoded;
+export const HealthGetObservabilityVerification400 = DecodeErrorResponseEncoded;
 export type EventsIngestRequestJson = TelemetryEventsRequest;
 export const EventsIngestRequestJson = TelemetryEventsRequest;
-export type EventsIngest400 = DecodeErrorResponse;
-export const EventsIngest400 = DecodeErrorResponse;
-export type EventsIngest413 = PayloadTooLargeError;
-export const EventsIngest413 = PayloadTooLargeError;
+export type EventsIngest400 = DecodeErrorResponseEncoded;
+export const EventsIngest400 = DecodeErrorResponseEncoded;
+export type EventsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
+export const EventsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
 export type ErrorsIngestRequestJson = TelemetryErrorsRequest;
 export const ErrorsIngestRequestJson = TelemetryErrorsRequest;
-export type ErrorsIngest400 = DecodeErrorResponse;
-export const ErrorsIngest400 = DecodeErrorResponse;
+export type ErrorsIngest400 = DecodeErrorResponseEncoded;
+export const ErrorsIngest400 = DecodeErrorResponseEncoded;
 
 export interface OperationConfig {
   /**

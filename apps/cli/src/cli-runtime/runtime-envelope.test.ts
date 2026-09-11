@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Screen } from "../screen/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag, jsonFlag } from "../cli-flags/index.js";
@@ -454,6 +455,7 @@ describe("withCliErrorHandling cancellation", () => {
           testLayer("text"),
           Layer.succeed(jsonFlag, Option.none()),
           Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+          NodeServices.layer,
         ),
       ),
     ),

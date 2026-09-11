@@ -67,8 +67,10 @@ export interface CliTelemetryConfig {
   readonly client: TelemetryClientOptions["client"];
   /** Deliver while the repository's own test run executes. Off by default. */
   readonly deliverInTest?: TelemetryClientOptions["deliverInTest"];
-  /** Where host identity comes from. Defaults to this machine. */
+  /** Where non-identifying operating-system facts come from. */
   readonly host?: TelemetryClientOptions["host"];
+  readonly installationId?: TelemetryClientOptions["installationId"];
+  readonly eventIdFactory?: TelemetryClientOptions["eventIdFactory"];
 }
 
 const defectMessage = (cause: Cause.Cause<unknown>): string => {
@@ -294,6 +296,12 @@ export const withCliErrorHandling = <A, R>(
       ? {}
       : { deliverInTest: options.telemetryConfig.deliverInTest }),
     ...(options.telemetryConfig.host === undefined ? {} : { host: options.telemetryConfig.host }),
+    ...(options.telemetryConfig.installationId === undefined
+      ? {}
+      : { installationId: options.telemetryConfig.installationId }),
+    ...(options.telemetryConfig.eventIdFactory === undefined
+      ? {}
+      : { eventIdFactory: options.telemetryConfig.eventIdFactory }),
   });
 
   const enrichedProgram = Effect.gen(function* () {

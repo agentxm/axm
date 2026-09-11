@@ -16,7 +16,8 @@ and request data necessarily observed by a Registry service.
 
 AXM discloses that telemetry exists, keeps collection within its documented
 purpose, and gives the person running the CLI deterministic local control.
-`AXM_TELEMETRY` selects full, errors-only, or disabled collection;
+Telemetry remains off unless `AXM_TELEMETRY` explicitly selects full or
+errors-only collection;
 `DO_NOT_TRACK` disables it regardless of the AXM-specific selection.
 
 Telemetry delivery never changes command behavior or success. Collection and
@@ -51,6 +52,12 @@ workspace setting or command merely to persist it. Environment configuration
 may be applied to one invocation, a shell, a user profile, or an automation
 environment without changing repository state.
 
+Enabled telemetry uses a random installation identity persisted beneath the
+selected AXM user home. It is not derived from a hostname, workspace, or
+extension content, and usage events remain anonymous. Producer-assigned event
+identities make retries deduplicable without turning best-effort delivery into
+an authoritative audit record.
+
 No lower-precedence control may override `DO_NOT_TRACK` (the executable
 specification `system/security/telemetry-consent-and-precedence` in the
 [specification catalog](../../../specifications/catalog.md) owns consent and
@@ -72,16 +79,22 @@ without failing the requested command.
   executable specification
   `system/security/telemetry-payloads-respect-data-boundary` owns the
   obligation).
+- Enabled usage telemetry uses an anonymous random installation identity and
+  stable event identities rather than machine-derived identity (the executable
+  specification `system/security/telemetry-uses-anonymous-installation-identity`
+  owns the obligation).
 - Registry request logging and CLI telemetry remain independently disclosed and
   controlled.
 
 ## Specifications
 
-Three executable specifications own telemetry's binding obligations:
+Four executable specifications own telemetry's binding obligations:
 `system/security/telemetry-consent-and-precedence` for consent and precedence,
 `system/security/telemetry-payloads-respect-data-boundary` for the data
-boundary, and `system/reliability/telemetry-failure-never-alters-outcomes` for
-failure isolation. Each lives beside the code it specifies in `apps/cli`; the
+boundary, `system/security/telemetry-uses-anonymous-installation-identity` for
+anonymous installation and event identity, and
+`system/reliability/telemetry-failure-never-alters-outcomes` for failure
+isolation. Each lives beside the code it specifies in `apps/cli`; the
 [specification catalog](../../../specifications/catalog.md) resolves each
 identity to its owning project and file.
 The exact event schema remains an executable contract owned by code and its

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AgentXM Telemetry Ingest API",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Telemetry ingest API for product-analytics events and error reports."
   },
   "paths": {
@@ -25,7 +25,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -60,7 +60,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -95,7 +95,6 @@
                     "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "releaseId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "commit": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "deployedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "environment": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "region": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "checks": {
@@ -116,7 +115,8 @@
                                 "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
                                 "observedValue": { "type": "number" },
                                 "observedUnit": { "type": "string" },
-                                "time": { "type": "string" }
+                                "time": { "$ref": "#/components/schemas/IsoDateTimeString" },
+                                "output": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                               },
                               "required": [
                                 "componentName",
@@ -146,7 +146,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -200,7 +200,7 @@
                   "type": "object",
                   "properties": {
                     "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                    "timestamp": { "type": "string" },
+                    "timestamp": { "$ref": "#/components/schemas/IsoDateTimeString" },
                     "serviceId": { "type": "string" },
                     "level": { "type": "string", "enum": ["basic", "standard", "full"] },
                     "checks": {
@@ -226,7 +226,8 @@
                               "type": "object",
                               "properties": {
                                 "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                                "traceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                                "traceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                                "message": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                               },
                               "required": ["status"],
                               "additionalProperties": false
@@ -292,7 +293,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -313,15 +314,15 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           },
           "413": {
-            "description": "PayloadTooLargeError",
+            "description": "TelemetryPayloadTooLargeError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/PayloadTooLargeError" }
+                "schema": { "$ref": "#/components/schemas/TelemetryPayloadTooLargeErrorEncoded" }
               }
             }
           }
@@ -350,7 +351,7 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
           }
@@ -384,7 +385,7 @@
         "title": "Telemetry Meta Response",
         "description": "Service metadata and documentation entrypoints exposed by the telemetry root endpoint. Documentation URLs are null when docs are disabled for the environment."
       },
-      "DecodeErrorResponse": {
+      "DecodeErrorResponseEncoded": {
         "type": "object",
         "properties": {
           "kind": { "type": "string", "enum": ["DecodeErrorResponse"] },
@@ -398,18 +399,110 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
+      "IsoDateTimeString": {
+        "type": "string",
+        "title": "ISO Date-Time String",
+        "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+        "format": "date-time"
+      },
       "TelemetryEvent": {
         "type": "object",
         "properties": {
-          "event": { "type": "string", "allOf": [{ "minLength": 1 }] },
-          "distinctId": { "type": "string", "allOf": [{ "minLength": 1 }] },
+          "eventId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Producer-assigned event identity retained across delivery retries for downstream deduplication."
+          },
+          "event": { "type": "string", "minLength": 1 },
+          "distinctId": { "type": "string", "minLength": 1 },
           "timestamp": { "type": "string", "allOf": [{ "minLength": 1, "format": "date-time" }] },
-          "properties": { "type": "object", "additionalProperties": true },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    { "type": "string" },
+                    { "type": "number" },
+                    { "type": "boolean" },
+                    { "type": "null" }
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      { "type": "string" },
+                      { "type": "number" },
+                      { "type": "boolean" },
+                      { "type": "null" }
+                    ]
+                  }
+                }
+              ],
+              "title": "User Property Value",
+              "description": "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives."
+            }
+          },
           "userProperties": {
             "type": "object",
             "properties": {
-              "set": { "type": "object", "additionalProperties": true },
-              "setOnce": { "type": "object", "additionalProperties": true }
+              "set": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        { "type": "string" },
+                        { "type": "number" },
+                        { "type": "boolean" },
+                        { "type": "null" }
+                      ]
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          { "type": "string" },
+                          { "type": "number" },
+                          { "type": "boolean" },
+                          { "type": "null" }
+                        ]
+                      }
+                    }
+                  ],
+                  "title": "User Property Value",
+                  "description": "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives."
+                }
+              },
+              "setOnce": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        { "type": "string" },
+                        { "type": "number" },
+                        { "type": "boolean" },
+                        { "type": "null" }
+                      ]
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          { "type": "string" },
+                          { "type": "number" },
+                          { "type": "boolean" },
+                          { "type": "null" }
+                        ]
+                      }
+                    }
+                  ],
+                  "title": "User Property Value",
+                  "description": "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives."
+                }
+              }
             },
             "additionalProperties": false
           },
@@ -417,7 +510,7 @@
           "sessionId": { "type": "string" },
           "anonymous": { "type": "boolean" }
         },
-        "required": ["event", "distinctId", "timestamp"],
+        "required": ["eventId", "event", "distinctId", "timestamp"],
         "additionalProperties": false,
         "title": "Telemetry Event",
         "description": "One analytics event captured by the AgentXM client or integration."
@@ -425,8 +518,8 @@
       "TelemetryClientContext": {
         "type": "object",
         "properties": {
-          "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
-          "version": { "type": "string", "allOf": [{ "minLength": 1 }] }
+          "name": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "minLength": 1 }
         },
         "required": ["name", "version"],
         "additionalProperties": false,
@@ -440,7 +533,7 @@
           "os": {
             "type": "object",
             "properties": {
-              "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
+              "name": { "type": "string", "minLength": 1 },
               "version": { "type": "string" }
             },
             "required": ["name"],
@@ -451,8 +544,8 @@
           "runtime": {
             "type": "object",
             "properties": {
-              "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
-              "version": { "type": "string", "allOf": [{ "minLength": 1 }] }
+              "name": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 }
             },
             "required": ["name", "version"],
             "additionalProperties": false,
@@ -461,7 +554,7 @@
           },
           "device": {
             "type": "object",
-            "properties": { "arch": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            "properties": { "arch": { "type": "string", "minLength": 1 } },
             "required": ["arch"],
             "additionalProperties": false,
             "title": "Device Context",
@@ -470,8 +563,8 @@
           "ide": {
             "type": "object",
             "properties": {
-              "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
-              "version": { "type": "string", "allOf": [{ "minLength": 1 }] }
+              "name": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 }
             },
             "required": ["name", "version"],
             "additionalProperties": false,
@@ -498,10 +591,10 @@
         "title": "Telemetry Events Request",
         "description": "Request payload accepted by the telemetry events ingestion endpoint."
       },
-      "PayloadTooLargeError": {
+      "TelemetryPayloadTooLargeErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": { "type": "string", "enum": ["PayloadTooLargeError"] },
+          "kind": { "type": "string", "enum": ["TelemetryPayloadTooLargeError"] },
           "type": { "type": "string" },
           "title": { "type": "string" },
           "status": { "type": "integer" },
@@ -530,19 +623,19 @@
       "TelemetryErrorItem": {
         "type": "object",
         "properties": {
-          "message": { "type": "string", "allOf": [{ "minLength": 1 }] },
-          "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
+          "message": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
           "module": { "type": "string" },
           "stackFrames": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/TelemetryStackFrame" },
-            "allOf": [{ "maxItems": 100 }]
+            "maxItems": 100
           },
           "stack": { "type": "string" },
           "details": {
             "type": "array",
-            "items": { "type": "string", "allOf": [{ "maxLength": 512 }] },
-            "allOf": [{ "maxItems": 16 }]
+            "items": { "type": "string", "maxLength": 512 },
+            "maxItems": 16
           }
         },
         "required": ["message", "name"],
@@ -563,7 +656,7 @@
             "title": "Severity Level",
             "description": "Severity level associated with an error report or breadcrumb."
           },
-          "data": { "type": "object", "additionalProperties": true }
+          "data": { "type": "object" }
         },
         "additionalProperties": false,
         "title": "Telemetry Breadcrumb",
@@ -572,12 +665,12 @@
       "TelemetryErrorContext": {
         "type": "object",
         "properties": {
-          "command": { "type": "string", "allOf": [{ "minLength": 1 }] },
+          "command": { "type": "string", "minLength": 1 },
           "client": { "$ref": "#/components/schemas/TelemetryClientContext" },
           "os": {
             "type": "object",
             "properties": {
-              "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
+              "name": { "type": "string", "minLength": 1 },
               "version": { "type": "string" }
             },
             "required": ["name"],
@@ -588,8 +681,8 @@
           "runtime": {
             "type": "object",
             "properties": {
-              "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
-              "version": { "type": "string", "allOf": [{ "minLength": 1 }] }
+              "name": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 }
             },
             "required": ["name", "version"],
             "additionalProperties": false,
@@ -598,7 +691,7 @@
           },
           "device": {
             "type": "object",
-            "properties": { "arch": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            "properties": { "arch": { "type": "string", "minLength": 1 } },
             "required": ["arch"],
             "additionalProperties": false,
             "title": "Device Context",
@@ -607,8 +700,8 @@
           "ide": {
             "type": "object",
             "properties": {
-              "name": { "type": "string", "allOf": [{ "minLength": 1 }] },
-              "version": { "type": "string", "allOf": [{ "minLength": 1 }] }
+              "name": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 }
             },
             "required": ["name", "version"],
             "additionalProperties": false,
@@ -629,7 +722,8 @@
           "errors": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/TelemetryErrorItem" },
-            "allOf": [{ "minItems": 1 }, { "maxItems": 10 }]
+            "minItems": 1,
+            "maxItems": 10
           },
           "level": {
             "type": "string",
@@ -647,17 +741,13 @@
           "breadcrumbs": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/TelemetryBreadcrumb" },
-            "allOf": [{ "maxItems": 50 }]
+            "maxItems": 50
           },
           "tags": {
             "type": "object",
-            "additionalProperties": { "type": "string", "allOf": [{ "maxLength": 200 }] }
+            "additionalProperties": { "type": "string", "maxLength": 200 }
           },
-          "fingerprint": {
-            "type": "array",
-            "items": { "type": "string" },
-            "allOf": [{ "maxItems": 10 }]
-          },
+          "fingerprint": { "type": "array", "items": { "type": "string" }, "maxItems": 10 },
           "user": {
             "type": "object",
             "properties": { "id": { "type": "string" }, "username": { "type": "string" } },

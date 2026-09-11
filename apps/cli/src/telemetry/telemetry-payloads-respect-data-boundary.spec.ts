@@ -4,6 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -26,7 +27,7 @@ export const specification = defineSpecification({
   requirement: "system/security/telemetry-payloads-respect-data-boundary",
   title: "Telemetry excludes extension content and secrets",
   statement:
-    "Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.1.0 and contain only identity, timing, and command-observation data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.",
+    "Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.2.0 and contain only identity, timing, and command-observation data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.",
   class: "quality",
   characteristic: "privacy",
   role: "interface",
@@ -77,11 +78,13 @@ const telemetryOver = (client: HttpClient.HttpClient) =>
           mode: "all",
           command: "install",
           client: { name: "cli", version: "1.2.3" },
+          installationId: "00000000-0000-4000-8000-000000000001",
+          eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
           // The repository's own test run suppresses delivery; this
           // specification observes what is delivered, so it asks explicitly.
           deliverInTest: true,
         }),
-        Layer.succeed(HttpClient.HttpClient, client),
+        Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, client)),
       ),
     ),
   );

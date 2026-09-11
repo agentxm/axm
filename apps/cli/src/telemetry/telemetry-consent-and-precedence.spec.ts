@@ -11,9 +11,9 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "system/security/telemetry-consent-and-precedence",
-  title: "Telemetry collection follows only the operator's environment consent",
+  title: "Telemetry collection requires the operator's environment consent",
   statement:
-    "Telemetry collection shall follow only the operator's environment, collecting by default, honoring the telemetry control to disable collection or limit it to errors, giving the do-not-track convention precedence over every other control, and reading no telemetry control from committed workspace configuration.",
+    "Telemetry collection shall remain off unless the operator explicitly enables usage or error telemetry through the environment, give the do-not-track convention precedence over every other control, and read no telemetry control from committed workspace configuration.",
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent"],
@@ -32,7 +32,7 @@ interface ConsentCase {
 }
 
 const consentCases: readonly ConsentCase[] = [
-  { label: "no controls collect by default", expected: "all" },
+  { label: "no controls keep collection off", expected: "off" },
   { label: "the operator can turn collection off", telemetry: "0", expected: "off" },
   { label: "the operator can limit collection to errors", telemetry: "errors", expected: "errors" },
   { label: "the operator can opt in fully", telemetry: "true", expected: "all" },
@@ -45,7 +45,7 @@ const consentCases: readonly ConsentCase[] = [
   {
     label: "an unrecognized operator value falls back to the default",
     telemetry: "sometimes",
-    expected: "all",
+    expected: "off",
   },
 ];
 

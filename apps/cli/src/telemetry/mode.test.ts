@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { resolveTelemetryMode } from "./mode.js";
 
 describe("resolveTelemetryMode", () => {
-  it("defaults to all", () => {
-    expect(resolveTelemetryMode({})).toBe("all");
+  it("defaults to off", () => {
+    expect(resolveTelemetryMode({})).toBe("off");
   });
 
   it("disables telemetry when DO_NOT_TRACK is set", () => {
@@ -24,9 +24,9 @@ describe("resolveTelemetryMode", () => {
     expect(resolveTelemetryMode({ telemetry: "true" })).toBe("all");
   });
 
-  it("defaults invalid AXM_TELEMETRY values to all", () => {
-    expect(resolveTelemetryMode({ telemetry: "off" })).toBe("all");
-    expect(resolveTelemetryMode({ telemetry: "TRUE" })).toBe("all");
+  it("defaults invalid AXM_TELEMETRY values to off", () => {
+    expect(resolveTelemetryMode({ telemetry: "off" })).toBe("off");
+    expect(resolveTelemetryMode({ telemetry: "TRUE" })).toBe("off");
   });
 
   it("lets DO_NOT_TRACK override telemetry env", () => {

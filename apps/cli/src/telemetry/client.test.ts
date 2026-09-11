@@ -1,6 +1,7 @@
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -10,6 +11,11 @@ import * as TestClock from "effect/testing/TestClock";
 import { TELEMETRY_EVENT_TIMEOUT, TelemetryClient, TelemetryClientLive } from "./client.js";
 import { TelemetryEventsRequest } from "./__generated__/telemetry-client.js";
 import { at, expectRecord, property } from "../test-support/test-helpers.js";
+
+const testTelemetryIdentity = {
+  installationId: "00000000-0000-4000-8000-000000000001",
+  eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
+};
 
 interface CapturedRequest {
   readonly url: string;
@@ -48,8 +54,9 @@ const getTelemetry = (
       mode,
       command,
       client: { name: "cli", version: "1.2.3" },
+      ...testTelemetryIdentity,
     }),
-    Layer.succeed(HttpClient.HttpClient, mock.client),
+    Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, mock.client)),
   );
 
   return TelemetryClient.pipe(Effect.provide(telemetryLayer));
@@ -87,9 +94,11 @@ describe("TelemetryClientLive", () => {
         if (Array.isArray(events)) {
           expect(events).toHaveLength(1);
           const event = expectRecord(at(events, 0));
+          expect(property(event, "eventId")).toBe("00000000-0000-4000-8000-000000000002");
           expect(property(event, "event")).toBe("command:start");
           expect(property(event, "properties")).toEqual({ command: "skills install" });
-          expect(typeof property(event, "distinctId")).toBe("string");
+          expect(property(event, "distinctId")).toBe("00000000-0000-4000-8000-000000000001");
+          expect(property(event, "anonymous")).toBe(true);
           expect(typeof property(event, "timestamp")).toBe("string");
         }
         expect(typeof property(body, "sentAt")).toBe("string");
@@ -332,8 +341,9 @@ describe("TelemetryClientLive", () => {
             mode: "all",
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
+            ...testTelemetryIdentity,
           }),
-          Layer.succeed(HttpClient.HttpClient, hangingClient),
+          Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, hangingClient)),
         );
         const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
@@ -355,8 +365,9 @@ describe("TelemetryClientLive", () => {
             mode: "all",
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
+            ...testTelemetryIdentity,
           }),
-          Layer.succeed(HttpClient.HttpClient, failingClient),
+          Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, failingClient)),
         );
         const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
@@ -386,8 +397,9 @@ describe("TelemetryClientLive", () => {
             mode: "all",
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
+            ...testTelemetryIdentity,
           }),
-          Layer.succeed(HttpClient.HttpClient, errorClient),
+          Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, errorClient)),
         );
         const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
@@ -422,8 +434,12 @@ describe("TelemetryClientLive", () => {
             mode: "all",
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
+            ...testTelemetryIdentity,
           }),
-          Layer.succeed(HttpClient.HttpClient, transportErrorClient),
+          Layer.mergeAll(
+            NodeServices.layer,
+            Layer.succeed(HttpClient.HttpClient, transportErrorClient),
+          ),
         );
         const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
@@ -466,8 +482,9 @@ describe("TelemetryClientLive", () => {
             mode: "all",
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
+            ...testTelemetryIdentity,
           }),
-          Layer.succeed(HttpClient.HttpClient, error400Client),
+          Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, error400Client)),
         );
         const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
@@ -497,6 +514,7 @@ describe("telemetry ingest contract decoding", () => {
       const widened = {
         events: [
           {
+            eventId: "00000000-0000-4000-8000-000000000002",
             event: "command:start",
             distinctId: "abc",
             timestamp: "2025-01-01T00:00:00.000Z",

@@ -131,11 +131,11 @@ const setupSuggestions = (args: {
     });
   }
 
-  if (args.telemetryEnabled) {
-    suggestions.push({
-      description: "Disable telemetry with AXM_TELEMETRY=0; environment help lists all controls",
-    });
-  }
+  suggestions.push({
+    description: args.telemetryEnabled
+      ? "Disable telemetry with AXM_TELEMETRY=0; environment help lists all controls"
+      : "Telemetry is off; environment help explains the opt-in controls",
+  });
 
   return suggestions;
 };
@@ -295,9 +295,16 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     );
   }
 
-  if (telemetryEnabled && verbosity.level !== "quiet") {
+  if (verbosity.level !== "quiet") {
     yield* screen.note(headlineDoc("info", ""));
-    yield* screen.note(headlineDoc("info", "Telemetry is enabled to help improve AXM."));
+    yield* screen.note(
+      headlineDoc(
+        "info",
+        telemetryEnabled
+          ? "Telemetry is enabled to help improve AXM."
+          : "Telemetry is off unless you explicitly opt in.",
+      ),
+    );
   }
 
   if (verbosity.level !== "quiet") {

@@ -1607,11 +1607,11 @@ Observation of product use stays within the documented data boundary and under t
 - Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`packages/supporting/registry-auth/src/step-up/registry-writes-complete-required-verification.spec.ts`](../packages/supporting/registry-auth/src/step-up/registry-writes-complete-required-verification.spec.ts)
 
-##### Telemetry collection follows only the operator's environment consent
+##### Telemetry collection requires the operator's environment consent
 
 - Requirement: `system/security/telemetry-consent-and-precedence`
 - Owner: `cli`
-- Statement: Telemetry collection shall follow only the operator's environment, collecting by default, honoring the telemetry control to disable collection or limit it to errors, giving the do-not-track convention precedence over every other control, and reading no telemetry control from committed workspace configuration.
+- Statement: Telemetry collection shall remain off unless the operator explicitly enables usage or error telemetry through the environment, give the do-not-track convention precedence over every other control, and read no telemetry control from committed workspace configuration.
 - Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`
@@ -4267,13 +4267,25 @@ Observation of product use stays within the documented data boundary and under t
 
 - Requirement: `system/security/telemetry-payloads-respect-data-boundary`
 - Owner: `cli`
-- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.1.0 and contain only identity, timing, and command-observation data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
+- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.2.0 and contain only identity, timing, and command-observation data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
 - Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`
 - Boundary: memory; selection: per-change
 - Methods: contract, example
 - Source: [`apps/cli/src/telemetry/telemetry-payloads-respect-data-boundary.spec.ts`](../apps/cli/src/telemetry/telemetry-payloads-respect-data-boundary.spec.ts)
+
+##### Enabled telemetry uses anonymous random installation identity
+
+- Requirement: `system/security/telemetry-uses-anonymous-installation-identity`
+- Owner: `cli`
+- Statement: When an operator enables telemetry, AXM shall use a persisted random installation identity rather than a machine-derived identity, mark usage events anonymous, assign each usage event a fresh retry-stable event identity, and create no telemetry identity while collection is disabled.
+- Class: quality (privacy)
+- Role: interface
+- Product goals: `privacy-and-consent`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`apps/cli/src/telemetry/telemetry-uses-anonymous-installation-identity.spec.ts`](../apps/cli/src/telemetry/telemetry-uses-anonymous-installation-identity.spec.ts)
 
 ### Goal: trustworthy-distribution
 

@@ -14,5 +14,5 @@ export const resolveTelemetryMode = (env: TelemetryEnvValues): TelemetryMode => 
     if (env.telemetry === "1" || env.telemetry === "true") return "all";
   }
 
-  return "all";
+  return "off";
 };

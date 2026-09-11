@@ -100,6 +100,7 @@
     "@agentxm/workspace-sync": "workspace:^",
     "@agentxm/workspace-transactions": "workspace:^",
     "@effect/platform-node": "catalog:",
+    "@effect/platform-node-shared": "catalog:",
     "effect": "catalog:",
     "marked": "^18.0.9"
   },

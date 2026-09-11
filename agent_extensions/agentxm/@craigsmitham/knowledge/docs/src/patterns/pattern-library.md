@@ -26,7 +26,7 @@ sources:
   - id: va-maturity
     resource: https://design.va.gov/about/maturity-scale
     title: VA Design System — Maturity scale
-generated: { by: "codex/gpt-5.6", at: 2026-08-15T15:48:17Z }
+generated: { by: "codex/gpt-6", at: 2026-09-11T00:08:06Z }
 ---
 
 # Pattern library
@@ -139,8 +139,10 @@ resulting problems.
 
 ## Related patterns
 
-- [Playbook](playbook.md) — organizes selection among established responses.
-- [Runbook](runbook.md) — hardens one established operational response.
+- [Playbook](playbook.md) — guides assessment, response choices, and coordination
+  for a recurring class of situations.
+- [Runbook](runbook.md) — specifies repeatable execution of a bounded operational
+  task.
 - [Pattern explainer](../explainers/pattern.md) — defines the pattern form and
   its boundaries.
 - [Pattern guide](../guides/pattern.md) — supplies the mining, authoring,

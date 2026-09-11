@@ -1,5 +1,19 @@
 # Documentation craft update log
 
+## 2026-09-10
+
+- **Clarification**: Revised [Playbook](patterns/playbook.md) around assessment,
+  response choice, adaptation, and coordination, and [Runbook](patterns/runbook.md)
+  around repeatable execution of a bounded task. Removed strict linearity and
+  automation exclusions; included routine operational work and independent or
+  shared use of runbooks.
+- **Evidence and examples**: Added claim-specific primary-source citations and
+  paired illustrative checkout-response and deployment-rollback examples.
+  Refreshed both pattern previews and the terminology in
+  [Documentation craft](explainers/documentation-craft.md),
+  [Practice](explainers/practice.md), and
+  [Pattern library](patterns/pattern-library.md).
+
 ## 2026-09-08
 
 - **Explanation craft**: Expanded [Explanation explainer](explainers/explanation.md)

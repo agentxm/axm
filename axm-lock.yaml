@@ -182,6 +182,20 @@ skills:
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:98c1a6127ff6ee3553c190c348dcfe38acc77c91afbd077173b8a3dce2b6ab16
+  devops-docs:
+    type: registry
+    sourceType: registry
+    endpoint: https://registry.agentxm.ai/
+    extensionType: skill
+    workspaceName: devops-docs
+    packageFormat: agentxm
+    owner: "@craigsmitham"
+    name: devops-docs
+    resolvedVersion: 0.5.1
+    integrity: sha512-MQwjv+BmFluMYKQELQh6rIWORRdMpoqRhUHPJS4gqXLeb8I842yOjJD56BwT+VMCQmYY/sSN95RvRoPeXP/HoQ==
+    sourceName: agentxm
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    treeIntegrity: sha256-tree-v1:0609a08c651d23724495d5c6c0f08765eb0368c6c6dd0b0633f132b86ef926a0
 subagents:
   researcher:
     type: registry
@@ -306,11 +320,11 @@ knowledge:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: docs
-    resolvedVersion: 0.13.0
-    integrity: sha512-OlLyDUl1GL03UNn8mWVmybinxVRDEHBYEPIofMKKHvLZitVXslVoIz/8joH/MRpjzLNfjZfEkaqc8Mf3ggdDDw==
+    resolvedVersion: 0.13.1
+    integrity: sha512-1Dd0n5uKelfPecw3v2cC3PuJgXDoX1Gg0yaCyldMZFLHSH0f5NVKGrnQUimRFkzO/gmEbC6YCIto098lf1RT8g==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:54ba714cd1a5f839b1a993693983658aecaec803604748011fce39f7441f8351
+    treeIntegrity: sha256-tree-v1:d194aafe01a44a7fae6a644f222870935d187333eea26b6d0ef2aacc2b6ff90c
   software-engineering:
     type: registry
     sourceType: registry

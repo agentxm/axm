@@ -39,8 +39,8 @@ sources:
     resource: https://martinfowler.com/articles/writingPatterns.html
     title: Martin Fowler — Writing Software Patterns
 generated:
-  by: codex/gpt-5.6
-  at: 2026-08-26T14:02:36Z
+  by: codex/gpt-6
+  at: 2026-09-11T00:08:06Z
 ---
 
 # Documentation craft
@@ -222,10 +222,11 @@ provisions, while separate guides and explanations support implementation and
 understanding.
 
 Patterns may prescribe named artifacts. [Runbook](../patterns/runbook.md)
-solves the problem of executing one established operational response safely;
-[Playbook](../patterns/playbook.md) solves selection among several established
-responses. The produced runbook or playbook is a realization of the pattern,
-not a reason to maintain another competing taxonomy.
+supports repeatable execution of a bounded operational task;
+[Playbook](../patterns/playbook.md) guides assessment and judgment in choosing,
+combining, and adapting responses to a situation. The produced runbook or
+playbook is a realization of the pattern, not a reason to maintain another
+competing taxonomy.
 
 A principle or pattern is not another Diátaxis reader need. Each combines
 reader jobs while making a different reusable claim. [Principle

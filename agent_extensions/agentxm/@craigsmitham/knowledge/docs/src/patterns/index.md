@@ -14,5 +14,5 @@ Read [Pattern explainer](../explainers/pattern.md) to understand the form and
 
 ## Operational documentation patterns
 
-* [Playbook](playbook.md) - For a recurring class of situations requiring judgment among established responses, pair explicit selection criteria with self-contained plays.
-* [Runbook](runbook.md) - For one recognized operational trigger with an established response, provide a linear verified procedure with rollback and escalation conditions.
+* [Playbook](playbook.md) - For a recurring class of situations requiring assessment and judgment, guide practitioners in choosing, combining, and adapting responses with explicit coordination and escalation.
+* [Runbook](runbook.md) - For a bounded operational task with an established procedure, specify repeatable execution with explicit conditions, verification, recovery, and escalation.

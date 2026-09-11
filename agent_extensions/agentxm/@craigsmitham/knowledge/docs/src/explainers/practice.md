@@ -23,7 +23,7 @@ sources:
   - id: odonovan-resolving
     resource: https://newcollege.unsw.edu.au/downloads/File/pdf/Lectures_Summaries/Resolving.pdf
     title: Oliver O'Donovan — Resolving
-generated: { by: "codex/gpt-5.6", at: 2026-08-15T16:18:47Z }
+generated: { by: "codex/gpt-6", at: 2026-09-11T00:08:06Z }
 ---
 
 # Practice
@@ -202,7 +202,8 @@ practice explicit:
 | **Standard** | Establishes a recognized basis for assessing or coordinating a defined field of the practice |
 | **Rule or policy** | Makes a determinate demand within a defined authority and scope |
 | **Pattern** | Makes a recurring contextual problem and adaptable solution transferable |
-| **Playbook or runbook** | Coordinates selection or execution of established responses within an operational practice |
+| **[Playbook](../patterns/playbook.md)** | Guides assessment, response choices, adaptation, and coordination within a practice |
+| **[Runbook](../patterns/runbook.md)** | Specifies repeatable execution of a bounded operational task within a practice |
 
 These artifacts can strengthen a practice by making important knowledge
 available beyond memory and proximity. They can also expose disagreements

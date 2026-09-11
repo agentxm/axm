@@ -1,0 +1,35 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "devops-docs",
+  "version": "0.5.1",
+  "description": "Set up, discover, author, and maintain engineering and operations documentation for software products",
+  "keywords": [
+    "devops",
+    "software-engineering",
+    "development",
+    "operations",
+    "documentation",
+    "services",
+    "providers",
+    "teams",
+    "tools",
+    "environments",
+    "organizations",
+    "repositories",
+    "runbooks",
+    "playbooks",
+    "measures",
+    "ownership",
+    "okf"
+  ],
+  "standalone": true,
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/devops-docs"
+  },
+  "license": "CC-BY-SA-4.0"
+}

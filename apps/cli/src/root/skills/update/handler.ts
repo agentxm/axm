@@ -9,7 +9,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { SelectiveUpdate } from "@agentxm/extension-lifecycle";
+import { SelectiveUpdate, UPDATE_NAME_FILTER_FLAG } from "@agentxm/extension-lifecycle";
 import {
   credentialFreeLocatorRecoveryValue,
   operationPresentation,
@@ -23,8 +23,7 @@ import { extensionLifecycleFailedToAppError } from "../../../feature-errors.js";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
-import { UPDATE_NAME_FILTER_FLAG } from "../../shared/update-targets.js";
+import { withOperationLifecycle } from "../../../operation-lifecycle.js";
 import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";
 
 const COMMAND = "skills.update";

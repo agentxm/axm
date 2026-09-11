@@ -33,7 +33,7 @@ import { emitOperationResolution, operationResolutionSummary } from "../../opera
 import { Screen, headlineDoc } from "../../screen/index.js";
 import { makeInstallPlanExecution } from "./confirmation-recovery.js";
 import { emitNoOpOutcome } from "./no-op-output.js";
-import { withOperationLifecycle } from "./operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface InstallCommandArgs {
   /** Telemetry and machine-output command identity, e.g. `skills.install`. */

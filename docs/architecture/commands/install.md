@@ -52,8 +52,12 @@ express the same durable intent and produce the same underlying plan and result.
 
 ## Specifications
 
-The install specifications under `specifications/cli/install/` own install's
-binding obligations — recorded intent and realized state, pure preview,
-idempotence, preservation of unrelated and unowned state, and parity between
-root and type-specific forms; the
-[specification catalog](../../../specifications/catalog.md) indexes them.
+The `cli/install/*` specifications own install's binding obligations — recorded
+intent and realized state (`cli/install/direct-intent-recorded-and-realized`),
+pure preview (`cli/install/preview-is-pure`), idempotence
+(`cli/install/reinstall-is-idempotent`), preservation of unrelated and unowned
+state (`cli/install/preserves-unrelated-and-unowned-state`), and parity between
+root and type-specific forms
+(`cli/install/root-and-type-forms-express-same-intent`). The
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file.

@@ -28,7 +28,7 @@ import { emitOperationResolution, operationResolutionSummary } from "../../opera
 import { extensionLifecycleFailedToAppError } from "../../feature-errors.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
 
 export interface RootUpdateFlags {

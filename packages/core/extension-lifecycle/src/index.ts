@@ -236,6 +236,12 @@ export {
   type UpdateSubjectType,
 } from "./update/update-extensions.js";
 export {
+  UPDATE_NAME_FILTER_FLAG,
+  type ConfiguredUpdateSelection,
+  type ConfiguredUpdateSelector,
+  type ConfiguredUpdateSelectorType,
+} from "./update/selector.js";
+export {
   resolveRootUpdateIntent,
   rootUpdatableTypeSegments,
   RootUpdatableTypeSegmentSchema,

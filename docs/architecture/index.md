@@ -4,9 +4,10 @@ Navigation for the accepted product and system architecture of AXM.
 
 ## Requirements
 
-- [Specification catalog](../../specifications/catalog.md) — the executable
-  specifications under `specifications/` are the sole local requirements
-  authority; the generated catalog is the reading path
+- [Specification catalog](../../specifications/catalog.md) — executable
+  specifications, each living beside the source it governs, are the sole local
+  requirements authority; the generated catalog is the reading path and
+  addresses every requirement by its stable identity
 - [Decisions](decisions/index.md) — accepted decision records with durable
   consequences; enforceable consequences live as executable specifications,
   never in the records
@@ -15,9 +16,9 @@ Navigation for the accepted product and system architecture of AXM.
 
 - [Overview](overview.md) — AXM's purpose, responsibilities, state model, and
   major system elements
-- [Package architecture](package-architecture.md) — The target package
-  responsibilities, dependency direction, enforcement, and Nx workspace
-  conventions for decomposing extension management.
+- [Package architecture](package-architecture.md) — package responsibilities
+  by strategic domain and technical role, permitted dependencies, public
+  package APIs, and the Nx conventions that enforce them
 - [Glossary](glossary.md) — recurring AXM terms for extension authority,
   manifests, sources, authoritative lock state, workspaces, scopes, canonical
   extension content, ownership units, contributor sets, projections, and

@@ -5,7 +5,7 @@ import { PromoteAuthoredPack } from "@agentxm/extension-lifecycle";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { extensionLifecycleFailedToAppError } from "../../../feature-errors.js";
 import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../../../operation-lifecycle.js";
 
 export interface UnpackHandlerArgs {
   readonly name: string;

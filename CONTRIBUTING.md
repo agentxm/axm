@@ -66,6 +66,22 @@ responsibilities, workspace invariants, and design rationale; the executable
 specifications in the [specification catalog](specifications/catalog.md) own
 required behavior, and code and tests show how the design is implemented.
 
+An executable specification is a `*.spec.ts` file beside the source it
+specifies, inside the project that owns that source, and it runs in that
+project's `test` target. Before adding, moving, or retiring one, read
+[Executable specifications](contributing/guides/executable-specifications.md).
+
+Every pull request ends with the rendered specification verdict:
+
+```bash
+pnpm exec nx run axm:specification-verdict -- --base "$(git merge-base main HEAD)"
+```
+
+It lists added, removed, and revised requirement identities, or renders
+`No requirement contract changes.` Paste the output into the pull request. A
+removed identity needs an entry in `specifications/disposition-ledger.json`;
+an unexplained removal renders as one.
+
 Landing changes through reviewed pull requests with maintainer approval and
 passing aggregate verification before merge is repository policy. Branch
 protection enforces it host-side; the repository-side declarations are
@@ -115,6 +131,13 @@ private coordination and private PR links in the internal system.
   affected-file conveniences only.
 - **ESLint** handles linting and runs in CI.
 - Co-locate tests with the code they test (`feature.ts` + `feature.test.ts` in the same directory).
+- Executable specifications colocate the same way (`feature.spec.ts`) and bind
+  to their subject through the owning package's root export or another
+  package's `./testing` subpath — never a path into another package's `src`.
+- Libraries live in `packages/<domain>/<name>` where `<domain>` is `core`,
+  `supporting`, or `generic`. The directory is the authority: Nx infers the
+  `domain:*` tag from it, and ESLint enforces dependency direction from the
+  inferred domain plus the project's authored `role:*` tag.
 - CLI E2E coverage lives in dedicated `apps/<cli>-e2e/` projects and runs against built artifacts.
 
 ## Releasing

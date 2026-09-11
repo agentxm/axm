@@ -4,8 +4,8 @@ import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import { makeWorkspaceReadModel } from "@agentxm/workspace-state";
 import { WorkspaceReadModelTest } from "@agentxm/workspace-state/testing";
 import type { DesiredExtensionNode } from "@agentxm/workspace-state";
-import { emptyWorkspaceState, type WorkspaceState } from "../workspace-fixtures/interpret-ops.js";
-import { scopeFilesFromWorkspaceState } from "../workspace-fixtures/fixture-state.js";
+import { emptyWorkspaceState, type WorkspaceState } from "../test-support/interpret-ops.js";
+import { scopeFilesFromWorkspaceState } from "../test-support/fixture-state.js";
 import { skillsIntegrityValidRule } from "./skills-integrity-valid.js";
 
 const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;

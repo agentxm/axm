@@ -78,10 +78,12 @@ agent administration tool.
   identically: request and response schemas, publication and deprecation views,
   suggested-action error vocabulary, content parsing, and publish lint rules.
   It depends only on the extension model.
-- The accepted [package architecture](package-architecture.md) decomposed the
-  former `@agentxm/extension-management` transitional boundary into separate
-  shared kernels, integrations, and vertical feature packages; the
-  transitional package is removed without a compatibility façade.
+- The [package architecture](package-architecture.md) divides the rest of the
+  implementation by strategic domain — the distinctive extension-management
+  model under `packages/core/`, undifferentiated adaptation to external systems
+  and native agent surfaces under `packages/supporting/` — and by technical
+  role within each: contracts, integrations, capabilities, and vertical feature
+  packages.
 - `axm.sh` owns command parsing, terminal interaction, rendering, and assembly
   of the executable runtime. It delegates reusable behavior to the libraries
   and publishes the generated site content.
@@ -89,18 +91,18 @@ agent administration tool.
   production dependencies.
 
 Production dependency direction points strictly inward: application toward
-features and runtime composition, features toward kernels, integrations, and
-contracts, and contracts toward the extension model. No library depends on CLI
-interaction or output rendering. Inward dependency direction, acyclicity, feature isolation, and
+features, features toward capabilities, integrations, and contracts, and
+contracts toward the extension model. No library depends on CLI interaction or
+output rendering. Inward dependency direction, acyclicity, feature isolation, and
 application-only composition of concrete implementations are engineering
 policy enforced natively by the `@nx/enforce-module-boundaries` role and
 domain matrices in `eslint.config.mjs`, with
 [`scripts/module-boundaries.test.ts`](../../scripts/module-boundaries.test.ts)
 and
 [`scripts/composition-root-lint-exceptions.test.ts`](../../scripts/composition-root-lint-exceptions.test.ts)
-keeping the declared structure honest and the constraints reachable; the exact
-dependencies present at any migration stage are implementation state derived
-by Nx, not a normative graph.
+keeping the declared structure honest and the constraints reachable. The exact
+set of dependencies present at any moment is implementation state derived by
+Nx, not a normative graph.
 
 AXM is the public side of the AgentXM system. It may depend on published
 service contracts and published OSS-safe code packages. The executable

@@ -36,7 +36,7 @@ export const boundEvidence = defineBoundEvidence([
       "Inspects the resolved promotion target and requires its workspace build prerequisites to follow the project graph, so a fresh candidate checkout does not depend on artifacts left by another job.",
   },
   {
-    gate: "test: specifications:test",
+    gate: "test: axm:test (scripts/stable-promotion-follows-verified-distribution.spec.ts)",
     verifies:
       "Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.",
   },

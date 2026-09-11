@@ -1,18 +1,19 @@
 ---
 type: Decision
 status: stable
-description: Executable specifications under `specifications/` are the sole local authority for accepted AXM requirements; documentation retains explanation without owning obligations.
+description: Executable specifications are the sole local authority for accepted AXM requirements; documentation retains explanation without owning obligations.
 depends-on:
   - ../system-wide/testing-strategy.md
+  - ./colocated-specifications.md
 ---
 
 # Executable specifications own AXM requirements
 
 ## Decision
 
-Executable specification source under `specifications/` is the sole local
-source of truth for every accepted AXM requirement across the shared review
-lens — functional, quality, constraint, external-conformance, human-factors,
+Executable specification source — the `*.spec.ts` files that live beside the
+source they govern — is the sole local source of truth for every accepted AXM
+requirement across the shared review lens — functional, quality, constraint, external-conformance, human-factors,
 and process. Specification execution supplies evidence;
 it never changes the specification. Human review accepts specification
 additions, revisions, and retirements as requirements decisions.
@@ -44,13 +45,18 @@ Each retired authority class has one named destination:
 | Package-oriented functional tests | Product-shaped specifications; remaining tests are classified internal, tooling, or boundary evidence |
 | Execution results                 | CI, JUnit, Allure, and the generated specification catalog                                            |
 
+Where a requirement lives is not part of this decision. A specification is
+located beside the source it governs and addressed by a stable identity
+independent of that path
+([Colocated specifications](colocated-specifications.md)).
+
 ## Consequences
 
 - Changing a normative expectation is a specification change reviewed as a
   requirements decision, not routine test maintenance.
-- Implementation-scoped work treats `specifications/` as read-only; a change
-  touching both specifications and implementation is reviewed as a
-  requirements change.
+- Implementation-scoped work treats `*.spec.ts` files as read-only wherever
+  they live; a change touching both specifications and implementation is
+  reviewed as a requirements change.
 - A failing specification identifies disagreement between required and
   realized behavior; it never weakens the requirement.
 - Completeness is judged against independent product inventories, never

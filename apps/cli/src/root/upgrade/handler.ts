@@ -24,7 +24,7 @@ import { Verbosity } from "../../cli-flags/index.js";
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { Screen } from "../../screen/index.js";
-import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import { loadVersion } from "../../version.js";
 import { upgradeView } from "./view.js";
 

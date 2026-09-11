@@ -98,3 +98,59 @@ describe("composition-root import restriction", () => {
     );
   });
 });
+
+/**
+ * The CLI handler boundary carries its own exception list, for the opposite
+ * reason: not composition of implementations, but command families that own
+ * no feature and so must reach what a handler normally may not. The first
+ * case proves the restriction reports as an error through the repository's
+ * real flat configuration; the second pins the list so it cannot widen
+ * silently.
+ */
+describe("CLI handler boundary exceptions", () => {
+  let restrictedImports: (
+    code: string,
+    filePath: string,
+  ) => Promise<ReadonlyArray<{ readonly severity: number; readonly message: string }>>;
+
+  beforeAll(() => {
+    const eslint = new ESLint({ cwd: repoRoot });
+    restrictedImports = async (code, filePath) => {
+      const [result] = await eslint.lintText(code, { filePath });
+      return (result?.messages ?? [])
+        .filter((message) => message.ruleId === "@typescript-eslint/no-restricted-imports")
+        .map((message) => ({ severity: message.severity, message: message.message }));
+    };
+  });
+
+  it("reports a handler reaching the Registry client as an error, not a warning", async () => {
+    const reported = await restrictedImports(
+      'import { makeUserArchiveCache } from "@agentxm/registry-client";\nvoid makeUserArchiveCache;\n',
+      "apps/cli/src/root/list/command.ts",
+    );
+    expect(reported.map((message) => message.severity)).toEqual([2]);
+  });
+
+  it("permits the exempt command families that own no feature", async () => {
+    expect(
+      await restrictedImports(
+        'import { makeUserArchiveCache } from "@agentxm/registry-client";\nvoid makeUserArchiveCache;\n',
+        "apps/cli/src/root/cache/command.ts",
+      ),
+    ).toEqual([]);
+  });
+
+  it("exempts exactly the named command families", () => {
+    const eslintConfig = fs.readFileSync(path.join(repoRoot, "eslint.config.mjs"), "utf8");
+    const declarationStart = eslintConfig.indexOf("const cliHandlerBoundaryExceptions = [");
+    expect(declarationStart).toBeGreaterThan(-1);
+    const declarationEnd = eslintConfig.indexOf("];", declarationStart);
+    expect(eslintConfig.slice(declarationStart, declarationEnd + 2)).toBe(
+      `const cliHandlerBoundaryExceptions = [
+  // \`cache *\` is a CLI-adapter-only command family: the archive cache is the
+  // Registry client's own on-disk store, and no feature owns it.
+  "apps/cli/src/root/cache/**",
+];`,
+    );
+  });
+});

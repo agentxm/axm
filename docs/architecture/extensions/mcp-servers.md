@@ -78,8 +78,9 @@ that merely looks plausible.
 An inline connection that is valid workspace configuration is not thereby a
 publishable extension package. A new package scaffold can establish editable
 workspace content while its connection definition remains unfinished; the
-[MCP creation specification](../../../specifications/cli/mcps/new/creates-enabled-workspace-content.spec.ts)
-owns the declaration and activation outcome. Publication applies its separate
+executable specification `cli/mcps/new/creates-enabled-workspace-content`, in
+the [specification catalog](../../../specifications/catalog.md), owns the
+declaration and activation outcome. Publication applies its separate
 eligibility checks to the supplied connection identity.
 
 ## Ownership and coexistence

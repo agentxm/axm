@@ -21,7 +21,7 @@ import { toAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface PackMembershipCommandArgs {
   readonly request: PackMembershipRequest;

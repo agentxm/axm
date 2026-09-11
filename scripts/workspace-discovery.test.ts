@@ -125,13 +125,7 @@ describe("discoverSpecifications", () => {
       "apps/cli-e2e/src/process.spec.ts": specification("cli/process/boundary"),
       "tools/support/project.json": project("support", ["role:tooling"]),
       "tools/support/src/tooling.spec.ts": specification("tooling/rule"),
-      "specifications/project.json": project(
-        "specifications",
-        ["type:specification", "role:tooling"],
-        { sourceRoot: "specifications" },
-      ),
-      "specifications/cli/central.spec.ts": specification("cli/central"),
-      "specifications/cli/duplicate.spec.ts": specification("model/area/rule"),
+      "packages/core/model/src/area/sibling.spec.ts": specification("model/area/rule"),
       "scripts/root.spec.ts": specification("scripts/root"),
     });
     const workspace = workspaceFromProjectFiles(root);
@@ -146,7 +140,6 @@ describe("discoverSpecifications", () => {
       ["cli/process/boundary", "cli-e2e", "apps/cli-e2e/src/process.spec.ts"],
       ["model/legacy", "model", "packages/core/model/specifications/legacy.spec.ts"],
       ["model/area/rule", "model", "packages/core/model/src/area/rule.spec.ts"],
-      ["cli/central", "specifications", "specifications/cli/central.spec.ts"],
     ]);
     const messages = discovered.issues.map((issue) => `${issue.source}: ${issue.message}`);
     expect(messages).toEqual([
@@ -154,10 +147,10 @@ describe("discoverSpecifications", () => {
         "packages/core/model/docs/misplaced.spec.ts: specification lives outside",
       ),
       expect.stringContaining(
-        "scripts/root.spec.ts: owner project `axm` (role:tooling) may not own",
+        "packages/core/model/src/area/sibling.spec.ts: duplicate requirement identity `model/area/rule` (also declared in packages/core/model/src/area/rule.spec.ts)",
       ),
       expect.stringContaining(
-        "specifications/cli/duplicate.spec.ts: duplicate requirement identity `model/area/rule` (also declared in packages/core/model/src/area/rule.spec.ts)",
+        "scripts/root.spec.ts: owner project `axm` (role:tooling) may not own",
       ),
       expect.stringContaining("tools/support/src/tooling.spec.ts: owner project `support`"),
     ]);
@@ -197,7 +190,7 @@ describe("discoverSpecifications", () => {
     expect(new Set([entry?.contentDigest, entry?.examplesDigest, entry?.bodyDigest]).size).toBe(3);
   });
 
-  it("sanctions production, application, end-to-end, and the central catalog project only", () => {
+  it("sanctions production, application, end-to-end, and the repository root only", () => {
     const owner = (tags: readonly string[]) => ({
       name: "p",
       root: "x",
@@ -208,9 +201,7 @@ describe("discoverSpecifications", () => {
     expect(isSanctionedSpecificationOwner(owner(["domain:core", "role:capability"]))).toBe(true);
     expect(isSanctionedSpecificationOwner(owner(["role:application"]))).toBe(true);
     expect(isSanctionedSpecificationOwner(owner(["role:e2e"]))).toBe(true);
-    expect(isSanctionedSpecificationOwner(owner(["type:specification", "role:tooling"]))).toBe(
-      true,
-    );
+    expect(isSanctionedSpecificationOwner(owner(["scope:root", "role:tooling"]))).toBe(true);
     expect(isSanctionedSpecificationOwner(owner(["role:tooling"]))).toBe(false);
     expect(isSanctionedSpecificationOwner(owner([]))).toBe(false);
   });
@@ -285,10 +276,10 @@ describe("gitRefWorkspace", () => {
   it("owns files by the nearest project.json in the committed tree", () => {
     const root = fixture({
       "project.json": project("axm", ["role:tooling"], { sourceRoot: "scripts" }),
-      "specifications/project.json": project("specifications", ["type:specification"], {
-        sourceRoot: "specifications",
+      "apps/cli-e2e/project.json": project("cli-e2e", ["role:e2e"], {
+        sourceRoot: "apps/cli-e2e/src",
       }),
-      "specifications/cli/rule.spec.ts": specification("cli/rule"),
+      "apps/cli-e2e/src/rule.spec.ts": specification("cli/rule"),
       "packages/core/model/project.json": project("model", ["role:contract"]),
       "packages/core/model/src/rule.spec.ts": specification("model/rule"),
     });
@@ -309,10 +300,10 @@ describe("gitRefWorkspace", () => {
       "fixture",
     );
     const revision = git("rev-parse", "HEAD");
-    fs.rmSync(path.join(root, "specifications"), { recursive: true });
+    fs.rmSync(path.join(root, "apps"), { recursive: true });
     const workspace = gitRefWorkspace(revision, root);
     expect(workspace.describe).toBe(revision);
-    expect(workspace.ownerOf("specifications/cli/rule.spec.ts")?.name).toBe("specifications");
+    expect(workspace.ownerOf("apps/cli-e2e/src/rule.spec.ts")?.name).toBe("cli-e2e");
     expect(workspace.projects.find((entry) => entry.name === "model")?.tags).toEqual([
       "role:contract",
       "domain:core",
@@ -323,8 +314,8 @@ describe("gitRefWorkspace", () => {
         entry.specification.owner,
       ]),
     ).toEqual([
+      ["cli/rule", "cli-e2e"],
       ["model/rule", "model"],
-      ["cli/rule", "specifications"],
     ]);
   });
 });

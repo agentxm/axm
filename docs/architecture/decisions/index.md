@@ -6,9 +6,8 @@ reconsideration conditions. Enforceable consequences live as executable
 specifications, never in these records.
 
 - [Executable specifications own AXM requirements](executable-specifications-authority.md) —
-  executable specifications under `specifications/` are the sole local
-  authority for accepted AXM requirements; documentation retains explanation
-  without owning obligations
+  executable specifications are the sole local authority for accepted AXM
+  requirements; documentation retains explanation without owning obligations
 - [Colocated specifications](colocated-specifications.md) — specifications
   live beside the source they govern, are discovered per owner project from
   the project graph, keep a stable identity independent of path, are labelled
@@ -19,8 +18,12 @@ specifications, never in these records.
   decisions superseded by colocated specifications, kept for links and history
 - [Shared specification contract](shared-specification-contract.md) — the
   metadata contract, classification lens, vocabularies, and shared product-goal
-  identities live once in `@agentxm/extension-model` and are consumed by every
-  AgentXM specification corpus
+  identities live once in `@agentxm/specification-metadata` and are consumed by
+  every AgentXM specification corpus
+- [Package classification and dependency policy](package-classification-and-dependency-policy.md) —
+  strategic domain comes from placement under `packages/{core,supporting,generic}/`
+  and technical role from an authored tag; the two matrices are enforced
+  independently, with named contract seams and tooling barred from runtime
 - [Dual TypeScript alias toolchain](typescript-dual-alias.md) — type check on
   the native TypeScript 7 compiler while `typescript` resolves to the
   TypeScript 6 compatibility package, exiting at TypeScript 7.1

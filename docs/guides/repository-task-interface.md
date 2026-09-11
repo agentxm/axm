@@ -62,35 +62,43 @@ entry point.
 
 ## Intent and ownership
 
-| Intent                                                                  | Owner                                         |
-| ----------------------------------------------------------------------- | --------------------------------------------- |
-| Build, lint, typecheck, test, generation                                | The project that owns the sources or artifact |
-| CLI compilation                                                         | `cli`                                         |
-| CLI end-to-end and binary/install verification                          | `cli-e2e`                                     |
-| Executable product specifications                                       | `specifications`                              |
-| Repository tooling, release helpers, reports, and cross-project hygiene | `axm`                                         |
-| Published package membership                                            | `nx.json` release configuration               |
+| Intent                                                                          | Owner                                         |
+| ------------------------------------------------------------------------------- | --------------------------------------------- |
+| Build, lint, typecheck, test, generation                                        | The project that owns the sources or artifact |
+| Executable specifications for a subject                                         | The project that owns that subject's source   |
+| CLI compilation                                                                 | `cli`                                         |
+| CLI end-to-end and binary/install verification                                  | `cli-e2e`                                     |
+| The specification metadata contract                                             | `specification-metadata`                      |
+| Specification discovery, catalog, verdict, selection, and cross-project hygiene | `axm`                                         |
+| Repository tooling, release helpers, and reports                                | `axm`                                         |
+| Published package membership                                                    | `nx.json` release configuration               |
 
 Aggregate targets such as `generate`, `e2e`, and `install-verification` are
 lifecycle nodes: they perform no duplicate check and declare the work they
 aggregate through `dependsOn`.
 
-The `specifications:test-memory` target is the source-backed fast lane for
-migrated functional specifications. It deliberately has no build dependency:
-the `axm-source` export condition and its source loader resolve workspace
-packages from TypeScript in a disposable checkout with no `dist` directories.
-It runs the selected specifications in one worker without test-file isolation,
-so they share the cost of loading the application while each scenario owns a
-fresh in-memory filesystem, transition-lock world, and application Layer.
-Shuffled file and test order continually exercises that isolation. The target
-owns only `test-results/specifications-memory` and its inputs include source
-dependencies, reporter configuration, Vitest, and the CI environment.
+Placement infers the rest. `scripts/placement-tags-plugin.ts` derives a
+library's `domain:*` tag from `packages/<domain>/<name>` and rejects a project
+that authors the tag or sits outside the layout. `scripts/typecheck-plugin.ts`
+attaches a `typecheck` target to every `apps/*`, `packages/*/*`, or `tools/*`
+project that has a `tsconfig.spec.json`, and adds a `build` dependency only when
+the project declares one, so placement plus a project's own TypeScript
+configuration — not a hand-maintained list — decides whether it is type-checked
+and against what. The `@nx/vitest` plugin attaches `test` from
+`apps/cli`, `packages/**`, and `tools/**` `vitest.config.ts` files, and
+`e2e-main` from `apps/cli-e2e`. Adding a project therefore means adding its
+configuration files, not registering it in a central target.
 
-`specifications:test` remains the built-runtime lane. Its explicit `^build`
-dependency preserves executions that require compiled workspace artifacts and
-the broader process, native-filesystem, locking, callback-transport, and
-artifact witnesses. The two targets are complementary evidence boundaries;
-the memory lane does not replace the built or host-boundary lane.
+There is no central specification project and no application harness. A
+specification is a `*.spec.ts` beside the source it specifies, so its owner's
+`test` target is the lane that runs it, under the same inputs, cache behavior,
+and `^build` dependency as that project's ordinary tests. Boundary is a property
+of the specification, not of a separate target: a memory-boundary rule runs in a
+library's `test`, and a process, binary, or install-boundary rule lives in
+`apps/cli-e2e` and runs in its `e2e` targets against built artifacts. `axm` owns
+only the cross-project views over that corpus — `generate:specification-catalog`,
+`specification-verdict`, and `verify-source-hygiene` — plus the `test:spec`
+selection wrapper, which resolves identities to owners and delegates.
 
 Dependencies express prerequisite artifacts or lifecycle ordering. Callers do
 not sequence a dependency already owned by a target. Host workflows may order

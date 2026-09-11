@@ -256,11 +256,11 @@ describe("module boundary constraints", () => {
     ]);
   });
 
-  it("warns handlers away from writers, plan constructors, and integrations", async () => {
-    const warn = (violations: ReadonlyArray<{ readonly ruleId: string }>) =>
+  it("keeps handlers away from writers, plan constructors, and integrations", async () => {
+    const rules = (violations: ReadonlyArray<{ readonly ruleId: string }>) =>
       violations.map((violation) => violation.ruleId);
     expect(
-      warn(
+      rules(
         await boundaryViolations(
           'import { WorkspaceMutations } from "@agentxm/workspace-state";',
           HANDLER,
@@ -268,15 +268,15 @@ describe("module boundary constraints", () => {
       ),
     ).toEqual(["@typescript-eslint/no-restricted-imports"]);
     expect(
-      warn(
+      rules(
         await boundaryViolations(
-          'import { previewOrApplyPlan } from "@agentxm/workspace-operations";',
+          'import { prepareExecutionCandidate } from "@agentxm/workspace-operations";',
           HANDLER,
         ),
       ),
     ).toEqual(["@typescript-eslint/no-restricted-imports"]);
     expect(
-      warn(
+      rules(
         await boundaryViolations(
           'import { resolveSource } from "@agentxm/extension-sources";',
           HANDLER,

@@ -5,6 +5,7 @@ description: Executable specifications live beside the source they govern, are d
 depends-on:
   - ./executable-specifications-authority.md
   - ./shared-specification-contract.md
+  - ./package-classification-and-dependency-policy.md
   - ../system-wide/testing-strategy.md
 ---
 
@@ -16,10 +17,10 @@ sections of [Specification infrastructure decisions](specification-infrastructur
 ## Decision
 
 A specification is a `*.spec.ts` file that lives beside the source it
-governs, inside the project that owns that source. The central
-`specifications` project holds only the generated catalog, the local
-product-goal registry, and the specifications not yet moved; it is not a
-required home for any specification.
+governs, inside the project that owns that source. No central specification
+project exists: `specifications/` is a plain directory holding the generated
+catalog, the local product-goal registry, and the disposition ledger, and no
+project owns it.
 
 - **Identity is independent of path.** `requirement` is the stable
   identity, declared in metadata as two or more kebab segments joined by
@@ -31,10 +32,9 @@ required home for any specification.
   `scripts/workspace-discovery.ts` reads the Nx project graph and its file
   map: a project exists because its `project.json` exists, and a file belongs
   to the nearest project root above it. A `*.spec.ts` is accepted only when
-  its owner ships runtime code (`domain:*` or `role:application`), is an
+  its owner ships runtime code (`domain:*` or `role:application`) or is an
   end-to-end project (`role:e2e`, boundary specifications beside their
-  execution bindings), or is the retiring catalog project
-  (`type:specification`); it must sit under the owner's source root or its
+  execution bindings); it must sit under the owner's source root or its
   `specifications/` directory. Nothing is a hand-maintained inventory of
   areas, packages, or directories. A Git ref is read the same way from
   `git ls-tree`, so both sides of a verdict resolve ownership identically

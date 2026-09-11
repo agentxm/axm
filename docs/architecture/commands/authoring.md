@@ -72,16 +72,20 @@ configuration and the relevant adapter, so changing an authoring workflow
 does not add local agent state to the published manifest.
 
 Schemas retain authority over their declared data shapes. CLI help explains
-invocation and supplies examples. Internal tests provide implementation
+invocation and supplies examples. Ordinary tests provide implementation
 evidence. Observable obligations, including defaults, refusal conditions,
-preservation, and output, have one authority under `specifications/`.
+preservation, and output, have exactly one authority: the executable
+specification that carries the requirement identity.
 
 ## Navigation
 
 Use the [specification catalog](../../../specifications/catalog.md) to enter
-`cli/fork`, `cli/adopt`, `cli/demote`, `cli/version`, or a type's `new` command.
-The shared creation and native-import requirements live at `cli/`, their
-nearest common command ancestor. Pack member editing lives under its actual
+the `cli/fork`, `cli/adopt`, `cli/demote`, `cli/version`, or per-type `new`
+identity spaces. The shared creation and native-import requirements —
+`cli/creation-refuses-existing-content`,
+`cli/creation-uses-configured-workspace-ownership`, and
+`cli/native-imports-preserve-content-and-source` — carry whole-surface
+identities because they apply across every authoring route. Pack member editing lives under its actual
 `add`, `remove`, and `unpack` commands.
 
 [Workspace execution](../workspace/execution.md) explains lifecycle coordination

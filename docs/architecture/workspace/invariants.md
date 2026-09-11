@@ -158,11 +158,13 @@ equivalent to the required output.
 
 ## Recovery-conformance verification
 
-The whole-surface workspace specifications at the root of `specifications/cli/`
-own the boundary obligations for invalid-state handling — settings validity gating,
-non-interleaving, closure-atomic mutation, and lock state never creating
-reachability; the [specification catalog](../../../specifications/catalog.md)
-indexes them.
+The whole-surface workspace specifications own the boundary obligations for
+invalid-state handling: `cli/settings-validity-gates-operations`,
+`cli/invalid-workspace-state-gates-operations`,
+`cli/changes-do-not-interleave`, `cli/mutations-are-closure-atomic`, and
+`cli/lock-state-never-creates-reachability`. The
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file.
 
 Exhaustive restoring-transition coverage is internal verification: a test-only
 recovery-conformance registry in `apps/cli/src/root/sync/` is keyed by

@@ -43,40 +43,42 @@ export NX_DEFAULT_OUTPUT_STYLE=static
 export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 ```
 
-| Command                                      | Purpose                                                                                                                        |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm axm`                                   | Run the main CLI from source                                                                                                   |
-| `pnpm axm:local -C <workspace>`              | Run the in-flight CLI against a selected workspace                                                                             |
-| `pnpm exec nx run cli:watch`                 | Rebuild `cli` on changes                                                                                                       |
-| `pnpm build`                                 | Build all packages                                                                                                             |
-| `pnpm build:affected`                        | Build only packages changed since `main`                                                                                       |
-| `pnpm test`                                  | Run every project's `test` target (executable specifications and ordinary tests)                                               |
-| `pnpm test:affected`                         | Run tests only for packages changed since `main`                                                                               |
-| `pnpm test:spec`                             | Run executable specifications; `--requirement <id>`, `--class <lens>`, or `--characteristic <c>`                               |
-| `pnpm exec nx run axm:test`                  | Run repository tooling verification                                                                                            |
-| `pnpm exec nx run axm:lint-bundled-skill`    | Lint the bundled AXM skill (reproduces the CI `extension-lint` job)                                                            |
-| `pnpm exec nx run axm:specification-verdict` | Render the per-change specification verdict against the merge base with `main` (reproduces the CI `specification-verdict` job) |
-| `pnpm test:e2e`                              | Run E2E targets only                                                                                                           |
-| `pnpm test:compatibility`                    | Run quality specifications with the compatibility characteristic                                                               |
-| `pnpm test:performance`                      | Run quality specifications with the performance characteristic                                                                 |
-| `pnpm test:all`                              | Fast suite plus broadly executable slower boundaries                                                                           |
-| `pnpm verify:artifact`                       | Verify one identified binary artifact                                                                                          |
-| `pnpm verify:release`                        | Compose evidence for one exact release candidate                                                                               |
-| `pnpm verify:deployment`                     | Verify an identified install endpoint                                                                                          |
-| `pnpm bench`                                 | Run diagnostic benchmarks (never a behavioral pass)                                                                            |
-| `pnpm typecheck`                             | Type check all projects, including repo `scripts/`                                                                             |
-| `pnpm typecheck:affected`                    | Type check only packages changed since `main`                                                                                  |
-| `pnpm format`                                | Format the whole repo with Prettier                                                                                            |
-| `pnpm format:check`                          | Check whole-repo formatting with Prettier                                                                                      |
-| `pnpm format:affected`                       | Format only Nx-selected changed files                                                                                          |
-| `pnpm format:check:affected`                 | Check only Nx-selected changed files                                                                                           |
-| `pnpm lint`                                  | Lint all projects, including repo `scripts/`                                                                                   |
-| `pnpm lint:affected`                         | Lint only packages changed since `main`                                                                                        |
-| `pnpm lint:fix`                              | Lint and auto-fix                                                                                                              |
-| `pnpm run ci`                                | Run full CI pipeline (lint, typecheck, build, test, e2e)                                                                       |
-| `pnpm run verify:affected`                   | Verify only projects changed from Nx's selected base                                                                           |
-| `pnpm run container:ci`                      | Run full CI in the shared Linux image                                                                                          |
-| `pnpm generate`                              | Run every `generate` target (schemas, clients, generated sources)                                                              |
+| Command                                               | Purpose                                                                                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm axm`                                            | Run the main CLI from source                                                                                                   |
+| `pnpm axm:local -C <workspace>`                       | Run the in-flight CLI against a selected workspace                                                                             |
+| `pnpm exec nx run cli:watch`                          | Rebuild `cli` on changes                                                                                                       |
+| `pnpm build`                                          | Build all packages                                                                                                             |
+| `pnpm build:affected`                                 | Build only packages changed since `main`                                                                                       |
+| `pnpm test`                                           | Run every project's `test` target (executable specifications and ordinary tests)                                               |
+| `pnpm test:affected`                                  | Run tests only for packages changed since `main`                                                                               |
+| `pnpm test:spec`                                      | Run executable specifications; `--requirement <id>`, `--class <lens>`, or `--characteristic <c>`                               |
+| `pnpm exec nx run axm:test`                           | Run repository tooling verification                                                                                            |
+| `pnpm exec nx run axm:generate:specification-catalog` | Rediscover specifications, check conformance, and regenerate `specifications/catalog.md`                                       |
+| `pnpm exec nx run axm:verify-source-hygiene`          | Check specification and test file rules across every authored root                                                             |
+| `pnpm exec nx run axm:lint-bundled-skill`             | Lint the bundled AXM skill (reproduces the CI `extension-lint` job)                                                            |
+| `pnpm exec nx run axm:specification-verdict`          | Render the per-change specification verdict against the merge base with `main` (reproduces the CI `specification-verdict` job) |
+| `pnpm test:e2e`                                       | Run E2E targets only                                                                                                           |
+| `pnpm test:compatibility`                             | Run quality specifications with the compatibility characteristic                                                               |
+| `pnpm test:performance`                               | Run quality specifications with the performance characteristic                                                                 |
+| `pnpm test:all`                                       | Fast suite plus broadly executable slower boundaries                                                                           |
+| `pnpm verify:artifact`                                | Verify one identified binary artifact                                                                                          |
+| `pnpm verify:release`                                 | Compose evidence for one exact release candidate                                                                               |
+| `pnpm verify:deployment`                              | Verify an identified install endpoint                                                                                          |
+| `pnpm bench`                                          | Run diagnostic benchmarks (never a behavioral pass)                                                                            |
+| `pnpm typecheck`                                      | Type check all projects, including repo `scripts/`                                                                             |
+| `pnpm typecheck:affected`                             | Type check only packages changed since `main`                                                                                  |
+| `pnpm format`                                         | Format the whole repo with Prettier                                                                                            |
+| `pnpm format:check`                                   | Check whole-repo formatting with Prettier                                                                                      |
+| `pnpm format:affected`                                | Format only Nx-selected changed files                                                                                          |
+| `pnpm format:check:affected`                          | Check only Nx-selected changed files                                                                                           |
+| `pnpm lint`                                           | Lint all projects, including repo `scripts/`                                                                                   |
+| `pnpm lint:affected`                                  | Lint only packages changed since `main`                                                                                        |
+| `pnpm lint:fix`                                       | Lint and auto-fix                                                                                                              |
+| `pnpm run ci`                                         | Run full CI pipeline (lint, typecheck, build, test, e2e)                                                                       |
+| `pnpm run verify:affected`                            | Verify only projects changed from Nx's selected base                                                                           |
+| `pnpm run container:ci`                               | Run full CI in the shared Linux image                                                                                          |
+| `pnpm generate`                                       | Run every `generate` target (schemas, clients, generated sources)                                                              |
 
 `axm:local` runs the source CLI and holds no opinion about which registry it
 targets: with `AXM_REGISTRY_LOCATION` unset the CLI's own default applies, and
@@ -108,12 +110,16 @@ For a new version release, follow `contributing/guides/releasing.md` exactly. Do
 
 ## Requirements and executable specifications
 
-Executable specifications under `specifications/` are the sole local authority
-for AXM requirements; use the generated
-[specification catalog](specifications/catalog.md) as the reading path. A
-specification on `main` is accepted. Ordinary tests, prose, and implementation
-are witnesses; schemas and contracts keep only their declared interface
-authority; execution produces evidence, never acceptance.
+Executable specifications are the sole local authority for AXM requirements.
+Each one is a `*.spec.ts` beside the source it specifies, inside the project
+that owns that source, and it runs in that project's own test target (`test`,
+or `e2e` in `apps/cli-e2e`). There is no central specifications project and no
+application harness. Use the generated
+[specification catalog](specifications/catalog.md) as the reading path — it
+organizes the corpus by meaning and links each canonical file. A specification
+on `main` is accepted. Ordinary tests, prose, and implementation are witnesses;
+schemas and contracts keep only their declared interface authority; execution
+produces evidence, never acceptance.
 The metadata contract, vocabularies, and shared goal identities live in
 `@agentxm/specification-metadata` and are shared with the
 AgentXM platform; an obligation is allocated to one corpus and never restated
@@ -134,15 +140,20 @@ Implementation-only work preserves specifications and runs
 `pnpm test:spec --requirement <id>`; a bug fix with missing coverage adds or
 strengthens a specification before implementation.
 
+A removed identity is explained in `specifications/disposition-ledger.json`
+(`superseded-by`, `engineering-policy`, `converted-to-test`, `retired`); an
+unexplained removal still renders, visibly, in the verdict.
+
 Every change report and pull request ends with the specification impact
 rendered by `pnpm exec nx run axm:specification-verdict`: added, removed, or
-revised requirement identities, or its "no requirement contract changes" line.
+revised requirement identities, or its `No requirement contract changes.` line.
 
 For requirement elicitation, review, impact analysis, or revision, use the
 requirements-engineering guidance linked below with the repository policy in
-[specifications/AGENTS.md](specifications/AGENTS.md). Design specifications
-from intended observable obligations, not the current implementation; follow
-the
+[Executable specifications](contributing/guides/executable-specifications.md) —
+placement, binding, admission criteria, metadata, and the disposition ledger.
+Design specifications from intended observable obligations, not the current
+implementation; follow the
 [requirements-engineering guidance](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
 and [testing strategy](docs/architecture/system-wide/testing-strategy.md).
 
@@ -189,6 +200,7 @@ guide goes deeper than the summary here, follow the guide.
 | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | **Docs & process**                                                                    |                                                                                                |
 | [Guides README](contributing/guides/README.md)                                        | Before adding a guide, read the repository-specific inclusion threshold                        |
+| [Executable Specifications](contributing/guides/executable-specifications.md)         | Before adding, moving, or retiring a `*.spec.ts`, read placement, binding, and admission       |
 | **Delivery**                                                                          |                                                                                                |
 | [Releasing Guide](contributing/guides/releasing.md)                                   | Before planning or publishing a release, read the release flow                                 |
 | [Development Environment](contributing/guides/development-environment.md)             | Before changing or using shared container development or CI                                    |
@@ -207,16 +219,31 @@ errors, and tests with the feature that owns them.
 - **Shared within feature** → in a dedicated file in that feature folder (e.g., `schema.ts`)
 - **Never** → cross-feature "constants.ts" or "types.ts" at the root
 
-**Library `unstable` namespace** — All library code in `@agentxm/extension-model`
-and `@agentxm/registry-protocol` lives under `src/unstable/` and is exported via
-`<package>/unstable/*`. Never place library code directly under `src/`. Packages
-extracted during the package-architecture migration (`@agentxm/workspace-state`,
-`@agentxm/workspace-transactions`, `@agentxm/workspace-operations`,
-`@agentxm/workspace-projection`, `@agentxm/extension-materialization`,
-`@agentxm/registry-client`, `@agentxm/extension-sources`,
-`@agentxm/agent-integration`) use the successor convention instead: code under
-`src/` with an intentional root export plus at most `./live` and `./testing`
-subpaths — no `unstable/*` namespace and no other deep exports.
+**Package placement** — A library's directory is the authority for its
+strategic domain: `packages/<domain>/<name>` where `<domain>` is `core`,
+`supporting`, or `generic`. The Nx plugin `scripts/placement-tags-plugin.ts`
+infers `domain:*` from that path and fails graph construction if a project
+authors the tag itself or sits anywhere else. Each project authors its
+technical role (`role:contract|capability|feature|integration|application|e2e|tooling`),
+its `scope:*`, and `release:cli` when it ships in the release cohort.
+Applications are `apps/<name>`; engineering-support libraries that never enter
+the runtime are `tools/<name>` and carry no domain. The
+`@nx/enforce-module-boundaries` matrix in `eslint.config.mjs` enforces both
+directions; all applicable constraints must pass.
+
+**Package exports** — Every library exports its intentional root `.` plus at
+most `./live` (the composed Layer) and `./testing` (the seam its consumers'
+specifications and tests are owed). No other deep exports, and never a reach
+into another package's `src`. Two exceptions, both deliberate:
+
+- `@agentxm/extension-model` and `@agentxm/registry-protocol` keep their
+  existing `./unstable/*` subpaths. They are the cross-repository contract
+  seams, so renaming their entry points is a separate, coordinated change.
+- `@agentxm/extension-content` exports `.`, `./knowledge`, `./lint`, and
+  `./testing`, because its knowledge and lint surfaces have separate consumers.
+
+`axm.sh` exports only `./app`, `./runtime`, and its site-content subpaths. No
+project imports the application.
 
 ## TypeScript
 
@@ -296,12 +323,22 @@ See [Effect Guide](contributing/guides/effect.md),
   specifications, `*.test.ts` for ordinary tests colocated with source
   (including repository automation under `scripts/`), and `*.e2e.test.ts` only
   inside e2e projects (source hygiene enforces this)
+- Every test file — specification or not — lives beside the source it exercises,
+  inside the project that owns that source, and runs in that project's own test
+  target (`test`, or `e2e` in `apps/cli-e2e`). There is no central test or
+  specification project
+- A `*.spec.ts` exports exactly one `specification` and binds to its subject
+  through the owning package's root export or another package's `./testing`
+  subpath, never through a private path or an application harness; read
+  [Executable specifications](contributing/guides/executable-specifications.md)
+  before adding, moving, or retiring one
 - Ordinary tests protect non-normative realization detail and may change or
   disappear in a behavior-preserving refactor; they never count toward
-  functional completeness
+  functional completeness. Structural and layout rules are engineering policy —
+  Nx tags, ESLint boundaries, and `scripts/` tests — not specifications
 - Use `@effect/vitest` for Effect tests; consult the installed Effect v4
   `testing.md` Knowledge guide
-- Prefer `pnpm nx run <project>:test --args="..."` over direct `vitest`
+- Prefer `pnpm exec nx run <project>:test --args="..."` over direct `vitest`
 
 ## Review guidelines
 

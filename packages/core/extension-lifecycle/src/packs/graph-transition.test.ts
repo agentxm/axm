@@ -8,7 +8,8 @@ import * as Option from "effect/Option";
 
 import {
   StepFailure,
-  previewOrApplyPlan,
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
   type JobStepResult,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
@@ -187,9 +188,8 @@ describe("atomic pack graph transition", () => {
           undefined,
         );
 
-        const resolution = yield* previewOrApplyPlan(plan, {
-          execution: preapprovedPlanExecution,
-        });
+        const candidate = yield* prepareExecutionCandidate(plan);
+        const resolution = yield* resolveExecutionCandidate(candidate, preapprovedPlanExecution);
         expect(resolution).toMatchObject({
           _tag: "OperationResolution",
           mode: "apply",

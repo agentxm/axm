@@ -14,6 +14,38 @@ export interface CiChangeClassification {
 const isDocumentationPath = (path: string) =>
   path.startsWith("contributing/") || /(?:^|\/)\w[^/]*\.mdx?$/u.test(path);
 
+/**
+ * Trees whose files a project owns. Every project root sits under `apps/`,
+ * `packages/` or `tools/`, so `default` (`{projectRoot}/**\/*`) already claims
+ * the markdown inside them. The remaining prefixes are declared from the
+ * workspace root: `apps/cli/project.json` names `skills/axm/src/**\/*` and
+ * `README.md` among its `generate:*` inputs and outputs, and the root
+ * `project.json` names `specifications/catalog.md` as a `generate:*` output.
+ */
+const workspaceSourcePrefixes: readonly string[] = [
+  "apps/",
+  "packages/",
+  "tools/",
+  "skills/",
+  "specifications/",
+];
+
+const workspaceSourceFiles: readonly string[] = ["README.md"];
+
+const isWorkspaceSourcePath = (path: string) =>
+  workspaceSourcePrefixes.some((prefix) => path.startsWith(prefix)) ||
+  workspaceSourceFiles.includes(path);
+
+/**
+ * Markdown a project claims as build input is code, not documentation:
+ * `pnpm run generate:check` is the only gate that catches a hand edit to a
+ * generated document, and it runs inside the affected-verification lane that
+ * `code` selects. `classify-ci-changes.test.ts` derives the markdown entries
+ * from every project manifest rather than restating them here.
+ */
+const isDocumentationOnlyPath = (path: string) =>
+  isDocumentationPath(path) && !isWorkspaceSourcePath(path);
+
 const isImagePath = (path: string) =>
   path.startsWith("containers/ci/") ||
   path === "scripts/check-ci-image.mjs" ||
@@ -32,7 +64,7 @@ const isReleaseInfrastructurePath = (path: string) =>
 
 export const selectCodeVerificationPaths = (paths: readonly string[]) =>
   paths.filter(
-    (path) => !isDocumentationPath(path) && !path.startsWith(".github/") && !isImagePath(path),
+    (path) => !isDocumentationOnlyPath(path) && !path.startsWith(".github/") && !isImagePath(path),
   );
 
 export const classifyCiChanges = (paths: readonly string[]): CiChangeClassification => {

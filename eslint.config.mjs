@@ -216,7 +216,6 @@ const moduleBoundaryConstraints = ({ production }) => [
     onlyDependOnLibsWithTags: ["type:lib"],
     notDependOnLibsWithTags: productScopeBans,
   },
-  { sourceTag: "type:specification", onlyDependOnLibsWithTags: ["type:lib", "type:app"] },
   {
     sourceTag: "scope:test",
     onlyDependOnLibsWithTags: ["type:lib"],
@@ -273,6 +272,21 @@ const moduleBoundaryConstraints = ({ production }) => [
     sourceTag: "scope:extension-content",
     onlyDependOnLibsWithTags: ["scope:extension-content", "scope:extension-model"],
   },
+];
+
+/**
+ * The CLI handler boundary's only non-test exceptions.
+ *
+ * A handler parses, calls a feature or capability application API, and
+ * renders. A command family that owns no feature — because the thing it
+ * drives has none above it — is named here rather than the restriction being
+ * widened for every handler.
+ * `scripts/composition-root-lint-exceptions.test.ts` pins this list.
+ */
+const cliHandlerBoundaryExceptions = [
+  // `cache *` is a CLI-adapter-only command family: the archive cache is the
+  // Registry client's own on-disk store, and no feature owns it.
+  "apps/cli/src/root/cache/**",
 ];
 
 const testPurposeFiles = [
@@ -743,25 +757,23 @@ export default [
   {
     // CLI handler boundary: handlers parse, call feature and capability
     // application APIs, and render. They do not construct plans, touch
-    // workspace writers, or reach integrations directly; only the composition
-    // root (apps/cli/src/runtime.ts) and the runtime envelope
-    // (apps/cli/src/cli-runtime/**) sit outside this rule, and neither lives
-    // under src/root. Contract *types* stay importable for rendering.
-    //
-    // Registered as "warn" while handlers still import these modules; it flips
-    // to "error" when the handler migration completes.
+    // workspace writers, or reach integrations directly; the composition root
+    // (apps/cli/src/runtime.ts), the runtime envelope
+    // (apps/cli/src/cli-runtime/**) and the operation-lifecycle envelope
+    // (apps/cli/src/operation-lifecycle.ts) sit outside this rule because
+    // none of them lives under src/root. Contract *types* stay importable for
+    // rendering.
     files: ["apps/cli/src/root/**/*.ts"],
-    ignores: testPurposeFiles,
+    ignores: [...cliHandlerBoundaryExceptions, ...testPurposeFiles],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
-        "warn",
+        "error",
         {
           paths: [
             {
               name: "@agentxm/workspace-state",
               importNames: [
                 "WorkspaceMutations",
-                "makeWorkspaceMutations",
                 "SettingsWriter",
                 "AcceptedResolutionWriter",
                 "DesiredStateWriter",
@@ -772,12 +784,7 @@ export default [
             },
             {
               name: "@agentxm/workspace-operations",
-              importNames: [
-                "Plan",
-                "PlannedJobStep",
-                "previewOrApplyPlan",
-                "prepareExecutionCandidate",
-              ],
+              importNames: ["Plan", "PlannedJobStep", "prepareExecutionCandidate"],
               allowTypeImports: true,
               message:
                 "Handlers do not construct or execute plans; call Feature.prepare and Feature.previewOrApply.",

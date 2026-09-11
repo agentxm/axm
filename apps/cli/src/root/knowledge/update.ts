@@ -10,7 +10,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { resolveWorkspaceUpdateSelection, updateNameFilterFlag } from "../shared/update-targets.js";
+import { updateNameFilterFlag } from "../shared/update-targets.js";
 import { handleWorkspaceUpdate } from "../update/workspace-update-handler.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
 
@@ -27,25 +27,17 @@ export interface KnowledgeUpdateHandlerArgs {
 export const handleKnowledgeUpdate = Effect.fn("KnowledgeUpdate.handle")(function* (
   args: KnowledgeUpdateHandlerArgs,
 ) {
-  const selection = yield* resolveWorkspaceUpdateSelection({
-    command: COMMAND,
-    planName: PLAN_NAME,
-    planDescription: PLAN_DESCRIPTION,
-    resourceType: "knowledge",
-    resourceLabel: "knowledge bundle",
-    resourceLabelPlural: "knowledge bundles",
-    source: args.source,
-    nameFilters: args.names,
-  });
-  if (selection.type === "no-op") return;
-
   yield* handleWorkspaceUpdate({
     command: COMMAND,
     type: Option.some("knowledge"),
     planName: PLAN_NAME,
     planDescription: Option.some(PLAN_DESCRIPTION),
     flags: { preview: args.preview },
-    ...(selection.type === "names" ? { names: selection.names } : {}),
+    selector: {
+      resourceType: "knowledge",
+      source: args.source,
+      nameFilters: args.names,
+    },
   });
 });
 

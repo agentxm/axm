@@ -147,11 +147,10 @@ export {
 } from "./plan/errors.js";
 
 // Candidate preparation and interactive preview/apply resolution over the
-// workspace read model. `previewOrApplyPlan` is the transitional composition
-// of both halves, removed when the handler migration completes.
+// workspace read model: preview, confirmation and apply share one candidate,
+// so what a person reads and what is applied are the same decision.
 export {
   prepareExecutionCandidate,
-  previewOrApplyPlan,
   resolveExecutionCandidate,
   type PrepareExecutionCandidateOptions,
   type ResolveExecutionCandidateOptions,

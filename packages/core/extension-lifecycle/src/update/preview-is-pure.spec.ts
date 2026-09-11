@@ -318,7 +318,7 @@ describe("Update preview purity", () => {
             const outcome = yield* previewUpdate(
               configuredUpdateRequest({
                 type: row.type,
-                names: ["absent-selection"],
+                nameFilters: ["absent-selection"],
                 planName: `Update ${row.label}`,
               }),
             );

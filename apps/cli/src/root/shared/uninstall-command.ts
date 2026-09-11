@@ -21,7 +21,7 @@ import { emitOperationResolution, operationResolutionSummary } from "../../opera
 import { Screen, successDoc } from "../../screen/index.js";
 import { makeUninstallPlanExecution } from "./confirmation-recovery.js";
 import { emitNoOpOutcome } from "./no-op-output.js";
-import { withOperationLifecycle } from "./operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface UninstallCommandArgs {
   /** Telemetry and machine-output command identity, e.g. `skills.uninstall`. */

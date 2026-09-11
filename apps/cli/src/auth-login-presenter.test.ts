@@ -16,7 +16,7 @@ import {
   logsByTag,
   startedUnits,
 } from "./test-support/presenter-test.js";
-import { withLiveOperation } from "./root/shared/operation-lifecycle.js";
+import { withLiveOperation } from "./operation-lifecycle.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 
 const pendingResult: DeviceLoginPendingResult = {

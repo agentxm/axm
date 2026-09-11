@@ -20,7 +20,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import { authoringFailureToAppError } from "../../feature-errors.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { makePlanExecution } from "./confirmation-recovery.js";
-import { withOperationLifecycle } from "./operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface CreateExtensionCommandArgs {
   /** Telemetry and machine-output command identity, e.g. `skills.new`. */

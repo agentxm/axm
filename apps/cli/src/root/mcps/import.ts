@@ -27,7 +27,7 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface McpsImportArgs {
   readonly preview: boolean;

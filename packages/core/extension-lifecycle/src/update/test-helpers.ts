@@ -36,14 +36,23 @@ export const targetedUpdateRequest = (args: {
 /** `axm <type> update`: sweep the configured entries, optionally narrowed. */
 export const configuredUpdateRequest = (args: {
   readonly type?: WorkspaceUpdatableType;
-  readonly names?: ReadonlyArray<string>;
+  /** `--name` filters the sweep is narrowed by; requires `type`. */
+  readonly nameFilters?: ReadonlyArray<string>;
   readonly planName?: string;
   readonly planDescription?: string;
   readonly nonInteractive?: boolean;
 }): UpdateRequest => ({
   kind: "configured",
   type: Option.fromUndefinedOr(args.type),
-  ...(args.names === undefined ? {} : { names: args.names }),
+  ...(args.nameFilters === undefined || args.type === undefined
+    ? {}
+    : {
+        selector: {
+          resourceType: args.type,
+          source: Option.none<string>(),
+          nameFilters: args.nameFilters,
+        },
+      }),
   planName: args.planName ?? "Update extensions",
   planDescription: Option.fromUndefinedOr(args.planDescription),
   nonInteractive: args.nonInteractive ?? true,

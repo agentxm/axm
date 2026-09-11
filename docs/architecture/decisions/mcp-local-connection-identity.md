@@ -47,9 +47,8 @@ connections without duplicating or contradicting source state.
 - Credential accounts incorporate workspace scope, local connection, source
   identity, and input name.
 
-The executable specifications under `specifications/cli/mcps/` own these
-accepted behaviors; this record explains the identity choice and its durable
-effects.
+The `cli/mcps/*` executable specifications own these accepted behaviors; this
+record explains the identity choice and its durable effects.
 
 ## Alternatives
 

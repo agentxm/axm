@@ -20,7 +20,7 @@ import {
   type CommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 /**
  * Demote replaces workspace source authority, a confirmable condition a

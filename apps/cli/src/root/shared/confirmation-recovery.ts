@@ -26,7 +26,7 @@ import {
   parseExtensionSpecParts,
   toExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { WorkspaceLocation } from "@agentxm/workspace-state";
 
 export const makeConfirmationRecovery = (
   command: ReadonlyArray<string>,
@@ -42,8 +42,8 @@ const explicitGlobalArguments = Effect.gen(function* () {
   const quiet = Option.getOrElse(yield* Effect.serviceOption(quietFlag), () => false);
   const verbose = Option.getOrElse(yield* Effect.serviceOption(verboseFlag), () => false);
   const debug = Option.getOrElse(yield* Effect.serviceOption(debugFlag), () => false);
-  const workspace = yield* Effect.serviceOption(WorkspaceMutations);
-  const userScope = Option.exists(workspace, (service) => service.scope === "user");
+  const location = yield* Effect.serviceOption(WorkspaceLocation);
+  const userScope = Option.exists(location, ({ scope }) => scope === "user");
   return [
     ...(userScope
       ? [

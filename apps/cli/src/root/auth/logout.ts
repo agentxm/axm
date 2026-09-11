@@ -1,11 +1,10 @@
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { logout } from "@agentxm/registry-auth";
+import { logout, selectedRegistry } from "@agentxm/registry-auth";
 import { coerceAuthFailure } from "../../feature-errors.js";
-import { RegistryUrl } from "@agentxm/registry-client";
 import { Screen, successDoc } from "../../screen/index.js";
-import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import * as Schema from "effect/Schema";
@@ -37,12 +36,11 @@ const logoutSuggestions = (status: LogoutStatus): ReadonlyArray<SuggestedAction>
 export const handleLogout = Effect.fn("AuthLogout.handle")(
   function* () {
     const screen = yield* Screen;
-    const registryUrl = yield* RegistryUrl;
-    const registryHost = new URL(registryUrl).host;
+    const registry = yield* selectedRegistry;
 
     const outcome = yield* withLiveOperation(
-      { command: "auth.logout", name: `Sign out of ${registryHost}`, mode: "apply" },
-      logout(registryUrl),
+      { command: "auth.logout", name: `Sign out of ${registry.host}`, mode: "apply" },
+      logout(registry.url),
     );
 
     const status: LogoutStatus =

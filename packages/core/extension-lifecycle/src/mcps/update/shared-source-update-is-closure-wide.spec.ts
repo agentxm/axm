@@ -62,7 +62,7 @@ describe("Update a shared MCP source closure", () => {
             yield* applyUpdate(
               configuredUpdateRequest({
                 type: "mcp-server",
-                names: [NAMED],
+                nameFilters: [NAMED],
                 planName: "Update configured MCP servers",
                 planDescription: "Update configured MCP servers",
               }),

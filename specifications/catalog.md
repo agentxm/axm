@@ -16,8 +16,8 @@ the requirement identity is stable and independent of that path.
 
 Start from a command or an operating context with these structural maps:
 
-- [Command and parameter inventory](support/command-behavior-allocation.json) — command routes, flags and arguments with their applicable owners or unresolved scope.
-- [Context inventory](support/context-allocation.json) — extension types, sources, scopes and other declared contexts with their applicable owners or named interface authority.
+- [Command and parameter inventory](../apps/cli/src/test-support/command-behavior-allocation.json) — command routes, flags and arguments with their applicable owners or unresolved scope.
+- [Context inventory](../apps/cli/src/test-support/context-allocation.json) — extension types, sources, scopes and other declared contexts with their applicable owners or named interface authority.
 
 These maps support navigation and structural checks. They do not establish
 semantic completeness, correct applicability, or passing behavior.
@@ -4697,7 +4697,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Assumptions: The release coordinate is immutable and each required verifier reports truthful evidence about its named candidate.
 - Limitation: Repository evidence checks the workflow graph; it does not execute the published installer platform matrix. Retires when: An authorized release supplies successful exact-candidate matrix results and promotion readback.
 - Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Inspects the resolved promotion target and requires its workspace build prerequisites to follow the project graph, so a fresh candidate checkout does not depend on artifacts left by another job.
-- Bound evidence: `test: specifications:test` — Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.
+- Bound evidence: `test: axm:test (scripts/stable-promotion-follows-verified-distribution.spec.ts)` — Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.
 - Bound evidence: `test: axm:test (scripts/verify-installed-package.test.ts)` — Runs the published-package verifier through a package-manager launcher with sibling entrypoints from an unrelated directory, including paths with spaces, and rejects wrong installed versions and unexpected stderr; Windows CI executes the batch-launcher cases.
 - Source: [`scripts/stable-promotion-follows-verified-distribution.spec.ts`](../scripts/stable-promotion-follows-verified-distribution.spec.ts)
 

@@ -1,5 +1,4 @@
 import { Command, Flag } from "effect/unstable/cli";
-import * as Effect from "effect/Effect";
 import { ignoreReleaseAgeFlag, refreshFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -9,7 +8,7 @@ import {
 } from "../shared/command-capabilities.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
-import { resolveWorkspaceUpdateSelection, updateNameFilterFlag } from "../shared/update-targets.js";
+import { updateNameFilterFlag } from "../shared/update-targets.js";
 import { handleWorkspaceUpdate } from "../update/workspace-update-handler.js";
 import * as Option from "effect/Option";
 
@@ -37,28 +36,18 @@ export const updateCommand = Command.make(
   "update",
   updateConfig,
   ({ source, scope, name, force, preview, ignoreReleaseAge }) =>
-    Effect.gen(function* () {
-      const selection = yield* resolveWorkspaceUpdateSelection({
-        command: COMMAND,
-        planName: PLAN_NAME,
-        planDescription: PLAN_DESCRIPTION,
+    handleWorkspaceUpdate({
+      command: COMMAND,
+      type: Option.some("mcp-server"),
+      planName: PLAN_NAME,
+      planDescription: Option.some(PLAN_DESCRIPTION),
+      flags: { preview, force },
+      selector: {
         resourceType: "mcp-server",
-        resourceLabel: "MCP server",
-        resourceLabelPlural: "MCP servers",
         source,
         nameFilters: name,
         sourceMayMatchName: false,
-      });
-      if (selection.type === "no-op") return;
-
-      yield* handleWorkspaceUpdate({
-        command: COMMAND,
-        type: Option.some("mcp-server"),
-        planName: PLAN_NAME,
-        planDescription: Option.some(PLAN_DESCRIPTION),
-        flags: { preview, force },
-        ...(selection.type === "names" ? { names: selection.names } : {}),
-      });
+      },
     }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),

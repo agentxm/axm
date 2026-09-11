@@ -158,11 +158,12 @@ invoked type-specific import contract is outside this recovery boundary.
 
 ## Testing strategy
 
-The cross-type lifecycle specifications at the root of `specifications/cli/`
-and the pack specification under `specifications/cli/packs/` own the binding
-cross-type obligations — the shared install and removal lifecycle, activation
-that follows desired state, and authored pack membership; the [specification catalog](../../../specifications/catalog.md)
-indexes them. Exact scenarios and native formats remain executable contracts
+The cross-type lifecycle specifications own the binding cross-type obligations:
+`cli/every-type-completes-the-shared-lifecycle` for the shared install and
+removal lifecycle, `cli/activation-follows-desired-state` for activation, and
+`cli/packs/authored-packs-expand-membership` for authored pack membership. The
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file. Exact scenarios and native formats remain executable contracts
 owned by the implementation's internal tests.
 
 Internal to the implementation, a catalog-driven conformance suite exercises

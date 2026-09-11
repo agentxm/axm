@@ -4,11 +4,10 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { currentIdentity } from "@agentxm/registry-auth";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { currentIdentity, selectedRegistry } from "@agentxm/registry-auth";
 import { Screen, rawDoc } from "../../screen/index.js";
 import { observeUnit } from "@agentxm/workspace-operations";
-import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
@@ -31,14 +30,13 @@ export type WhoamiDocument = typeof WhoamiDocumentSchema.Type;
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(
   function* () {
     const screen = yield* Screen;
-    const registryUrl = yield* RegistryUrl;
-    const registryHost = new URL(registryUrl).host;
+    const registry = yield* selectedRegistry;
 
     const identity = yield* withLiveOperation(
-      { command: "auth.whoami", name: `Check identity on ${registryHost}`, mode: "preview" },
+      { command: "auth.whoami", name: `Check identity on ${registry.host}`, mode: "preview" },
       observeUnit(
-        { id: "identity", label: `identity on ${registryHost}` },
-        currentIdentity(registryUrl),
+        { id: "identity", label: `identity on ${registry.host}` },
+        currentIdentity(registry.url),
       ),
     );
 

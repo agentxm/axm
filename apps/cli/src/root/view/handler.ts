@@ -21,7 +21,7 @@ import type { DeprecationView } from "@agentxm/extension-model/unstable/extensio
 import type { IdentifierResourceType } from "@agentxm/extension-sources";
 
 import { Screen, rawDoc, tableViewDoc, type TableView } from "../../screen/index.js";
-import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import { publishedMetadataUnavailableToAppError } from "../inspection-errors.js";
 
 export interface ViewHandlerArgs {

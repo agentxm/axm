@@ -17,8 +17,9 @@ describe("Plan pipeline primitives available in shared kernel", () => {
     expect(typeof Plan.applyPlan).toBe("function");
   });
 
-  it("exports previewOrApplyPlan from the stable kernel path", () => {
-    expect(typeof Plan.previewOrApplyPlan).toBe("function");
+  it("exports both halves of the preview/apply backbone from the stable kernel path", () => {
+    expect(typeof Plan.prepareExecutionCandidate).toBe("function");
+    expect(typeof Plan.resolveExecutionCandidate).toBe("function");
   });
 
   it("exports Plan type machinery (runtime-visible union discriminants) from the stable kernel path", () => {
@@ -27,6 +28,7 @@ describe("Plan pipeline primitives available in shared kernel", () => {
     // root re-exporting them. This test exercises the bindings used at runtime
     // so the package.json exports map is actually wired.
     expect(Plan).toHaveProperty("applyPlan");
-    expect(Plan).toHaveProperty("previewOrApplyPlan");
+    expect(Plan).toHaveProperty("prepareExecutionCandidate");
+    expect(Plan).toHaveProperty("resolveExecutionCandidate");
   });
 });

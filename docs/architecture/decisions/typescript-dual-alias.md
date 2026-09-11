@@ -99,18 +99,22 @@ Negative:
 - One-off TypeScript 6 CLI checks go through `tsc6` instead of `tsc`.
 
 Binding limitation: the dual alias must not be collapsed to a single
-`typescript` dependency before the exit condition. This record owns the
-choice, rationale, and exit condition;
+`typescript` dependency before the exit condition. This is engineering policy,
+not a product requirement — a toolchain constraint with no standing outside the
+repository and a retirement condition of its own — so no executable
+specification owns it. This record owns the choice, rationale, and exit
+condition, and
 [`scripts/typescript-aliases.test.ts`](../../../scripts/typescript-aliases.test.ts)
-pins the workspace catalog that realizes it.
+is its enforcement: it pins the `@typescript/native` and `typescript` catalog
+entries that realize the split.
 
 ## Supersession and reconsideration
 
 **Exit condition (owned by this record): TypeScript 7.1.** Supersede this
 record when TypeScript 7.1 (or a later release) removes the need for the
 compatibility split, allowing the repository to collapse to a single
-TypeScript dependency; the superseding change retires the companion
-specification through the same reviewed requirement diff.
+TypeScript dependency; the superseding change removes the catalog pin, this
+record, and the tooling test that enforces it together.
 
 Reconsider earlier when any of the following occurs:
 

@@ -4,9 +4,9 @@
  * The workspace-state layers every entry point composes: the resolved
  * location, the narrow reader and writer services over it, the workspace
  * transaction scope anchored to its paths, and — transitionally — the
- * `WorkspaceMutations` facade. Only application composition roots and the
- * specification harness import this module; feature logic keeps the
- * services in its Effect environment.
+ * `WorkspaceMutations` facade. Only application composition roots and named
+ * test-support modules import this module; feature logic keeps the services
+ * in its Effect environment.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -102,8 +102,8 @@ export const WorkspaceStateLive = (
   WorkspaceMutationsError,
   FileSystem.FileSystem | Path.Path
 > =>
-  // TRANSITIONAL: the facade layer is removed when the last handler migrates
-  // to the services.
+  // TRANSITIONAL: the facade layer is removed when the last domain package
+  // reads and writes through the services.
   Layer.provideMerge(
     Layer.effect(WorkspaceMutations, makeWorkspaceMutationsFacade),
     stateServicesOver(WorkspaceLocationLive(options)),

@@ -325,8 +325,9 @@ export type {
   SettingsEntryByType,
 } from "./workspace/entry-accessors.js";
 
-// TRANSITIONAL workspace mutation facade — removed when the last handler
-// migrates to the narrow services above.
+// TRANSITIONAL workspace mutation facade. No CLI handler composes it any
+// more; the domain packages under packages/core still do, and it is removed
+// when the last of them reads and writes through the narrow services above.
 export {
   WorkspaceMutations,
   type WorkspaceMutationsService,

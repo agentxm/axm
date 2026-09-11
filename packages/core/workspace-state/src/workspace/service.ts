@@ -5,9 +5,10 @@
  * `WorkspaceRecords`, `ExtensionPaths`, `SettingsWriter`,
  * `AcceptedResolutionWriter`, or `DesiredStateWriter`; the facade adds no
  * behavior of its own. It exists so callers keep compiling while feature
- * slices migrate to the services, and is removed when the last handler
- * migrates. Its transaction members are gone: callers run
- * `runWorkspaceTransaction` from `@agentxm/workspace-transactions`.
+ * slices migrate to the services, and is removed when the last domain
+ * package reads and writes through them. Its transaction members are gone:
+ * callers run `runWorkspaceTransaction` from
+ * `@agentxm/workspace-transactions`.
  *
  * The facade keeps its members `R = never` by binding the platform of the
  * context it is built in — the one capture this transitional layer allows.

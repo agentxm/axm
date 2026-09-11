@@ -3,8 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { login } from "@agentxm/registry-auth";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { login, selectedRegistry } from "@agentxm/registry-auth";
 import { Screen, successDoc } from "../../screen/index.js";
 import { isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -17,7 +16,7 @@ import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import { PromptCancelled } from "../../prompt/prompt-cancelled.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
-import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 
 export const LoginNoOpResultSchema = Schema.Struct({
   status: Schema.Literal("already-logged-in"),
@@ -62,13 +61,12 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
     readonly scopes: ReadonlyArray<string>;
   }) {
     const screen = yield* Screen;
-    const registryUrl = yield* RegistryUrl;
-    const registryHost = new URL(registryUrl).host;
+    const registry = yield* selectedRegistry;
     const machineOutput = Option.getOrElse(yield* jsonFlag, () => false);
     const nonInteractive = yield* isNonInteractive;
 
     const outcome = yield* withLiveOperation(
-      { command: "auth.login", name: `Sign in to ${registryHost}`, mode: "apply" },
+      { command: "auth.login", name: `Sign in to ${registry.host}`, mode: "apply" },
       login(
         {
           yes: options.yes,
@@ -82,7 +80,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
           nonInteractive,
           machineOutput,
         },
-        registryUrl,
+        registry.url,
       ),
     );
 

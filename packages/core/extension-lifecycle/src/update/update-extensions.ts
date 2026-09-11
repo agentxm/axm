@@ -84,6 +84,7 @@ import {
 } from "@agentxm/workspace-operations";
 import {
   WorkspaceMutations,
+  WorkspaceRecords,
   acceptedResolutionRef,
   usableAcceptedCanonical,
   type AcceptedCanonicalRefError,
@@ -110,6 +111,7 @@ import { planSkillInstall } from "../skills/install/plan.js";
 import { planSubagentInstall } from "../subagents/install/plan.js";
 import { blockerClass, blockerDetail, staleOutputContext } from "./blockers.js";
 import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./configured.js";
+import { resolveConfiguredUpdateSelection, type ConfiguredUpdateSelector } from "./selector.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./root-request.js";
 import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
 
@@ -131,8 +133,12 @@ export interface ConfiguredUpdateRequest {
   readonly kind: "configured";
   /** Restrict the sweep to one extension type. */
   readonly type: Option.Option<WorkspaceUpdatableType>;
-  /** Installed names a selector resolved to; omit to sweep every entry. */
-  readonly names?: ReadonlyArray<string>;
+  /**
+   * A selector to resolve against the type's configured entries; omit to
+   * sweep every entry. Resolving it is part of settling the request, so a
+   * selector that matches nothing settles as nothing to advance.
+   */
+  readonly selector?: ConfiguredUpdateSelector;
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
   readonly nonInteractive: boolean;
@@ -167,6 +173,12 @@ export interface PlannedUpdateCandidate {
   /** The type this advance is about, or `mixed` when a sweep spans types. */
   readonly subjectType: UpdateSubjectType;
   readonly execution: ExecutionCandidate<UpdateRequirements>;
+  /**
+   * The installed names a sweep's selector resolved to; absent when the sweep
+   * was not narrowed. A rerun that must reproduce this exact settlement names
+   * these rather than the selector that found them.
+   */
+  readonly selectedNames?: ReadonlyArray<string>;
   /** Release-age evidence resolution collected before the plan existed. */
   readonly releaseAge?: ReleaseAgeOperationEvidence;
   /** The ownership context a targeted update was classified against. */
@@ -247,6 +259,7 @@ export type PrepareUpdateRequirements =
   | ReleaseAgePosture
   | SourceHostProviders
   | WorkspaceCatalog
+  | WorkspaceRecords
   | WorkspaceTransactionScope;
 
 // -----------------------------------------------------------------------------
@@ -763,21 +776,31 @@ const configuredAgentOperations = (
 const prepareConfigured = Effect.fn("UpdateExtensions.prepareConfigured")(function* (
   request: ConfiguredUpdateRequest,
 ) {
+  const nothingToAdvance = (message: string) =>
+    ({
+      outcome: "nothing-configured",
+      message,
+      subjectType: Option.getOrElse(request.type, (): UpdateSubjectType => "mixed"),
+      planDescription: request.planDescription,
+    }) satisfies NothingConfiguredUpdateCandidate;
+
+  const selection =
+    request.selector === undefined
+      ? ({ _tag: "All" } as const)
+      : yield* resolveConfiguredUpdateSelection(request.selector);
+  if (selection._tag === "NoMatch") return nothingToAdvance(selection.message);
+  const names = selection._tag === "Names" ? selection.names : undefined;
+
   const result = yield* buildWorkspaceUpdatePlan({
     type: request.type,
     planName: request.planName,
     planDescription: request.planDescription,
     nonInteractive: request.nonInteractive,
-    ...(request.names === undefined ? {} : { names: request.names }),
+    ...(names === undefined ? {} : { names }),
   });
 
   if (result._tag === "NoConfiguredExtensions") {
-    return {
-      outcome: "nothing-configured",
-      message: result.message,
-      subjectType: Option.getOrElse(request.type, (): UpdateSubjectType => "mixed"),
-      planDescription: request.planDescription,
-    } satisfies NothingConfiguredUpdateCandidate;
+    return nothingToAdvance(result.message);
   }
 
   // Every Registry acceptance the sweep proposed is classified against the
@@ -788,8 +811,9 @@ const prepareConfigured = Effect.fn("UpdateExtensions.prepareConfigured")(functi
     outcome: "planned",
     subjectType: Option.getOrElse(request.type, (): UpdateSubjectType => "mixed"),
     execution: yield* prepareExecutionCandidate(plan, {
-      configuredAgentOperations: configuredAgentOperations(plan, request.type, request.names),
+      configuredAgentOperations: configuredAgentOperations(plan, request.type, names),
     }),
+    ...(names === undefined ? {} : { selectedNames: names }),
   } satisfies PlannedUpdateCandidate;
 });
 

@@ -300,8 +300,9 @@ export interface SetKnowledgeArgs {
  * (`WorkspaceLocation`, `SettingsReader`, `LockfileReader`,
  * `DesiredStateReader`, `WorkspaceRecords`, `ExtensionPaths`,
  * `SettingsWriter`, `AcceptedResolutionWriter`, `DesiredStateWriter`),
- * removed when the last handler migrates to them. Transactions run through
- * `runWorkspaceTransaction` from `@agentxm/workspace-transactions`.
+ * removed when the last domain package reads and writes through them.
+ * Transactions run through `runWorkspaceTransaction` from
+ * `@agentxm/workspace-transactions`.
  *
  * @experimental This API is unstable and may change without notice.
  */

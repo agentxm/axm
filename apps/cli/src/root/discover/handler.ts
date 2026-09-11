@@ -11,7 +11,7 @@ import {
 import { observeUnit } from "@agentxm/workspace-operations";
 
 import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
-import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import {
   ExecutionDirectory,
   resolveExecutionPath,

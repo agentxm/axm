@@ -14,7 +14,7 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { configurationFailureToAppError } from "../../feature-errors.js";
 
 export interface McpsAddArgs {

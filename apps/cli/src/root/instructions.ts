@@ -16,7 +16,7 @@ import {
   readOnlyCapabilities,
   withCommandCapabilities,
 } from "./shared/command-capabilities.js";
-import { withOperationLifecycle } from "./shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../operation-lifecycle.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
 import { makePlanExecution } from "./shared/confirmation-recovery.js";
 import { configurationFailureToAppError } from "../feature-errors.js";

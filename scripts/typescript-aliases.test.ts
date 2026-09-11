@@ -2,7 +2,7 @@
  * The dual TypeScript alias: `tsc` is native TypeScript 7 and
  * `require("typescript")` resolves to the TypeScript 6 compatibility package,
  * until the exit condition recorded in
- * `docs/architecture/decisions/typescript-7-dual-alias.md` is reached.
+ * `docs/architecture/decisions/typescript-dual-alias.md` is reached.
  *
  * Supersedes the retired specification identity
  * `system/process/dual-typescript-alias-retained`

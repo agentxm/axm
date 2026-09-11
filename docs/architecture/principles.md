@@ -91,10 +91,14 @@ installed bytes or obsolete trust state.
 
 The binding obligation — content changes require established authority over
 the smallest independently changeable unit — is owned by the executable
-specification `cli/install/preserves-unrelated-and-unowned-state` and the
-whole-surface workspace specifications at the root of `specifications/cli/` in the
-[specification catalog](../../specifications/catalog.md). The rest of this
-section elaborates that boundary.
+specification `cli/install/preserves-unrelated-and-unowned-state`, together
+with the whole-surface workspace specifications
+`cli/invalid-ownership-markers-block-reconciliation`,
+`cli/installed-state-stays-in-selected-scope`, and
+`cli/managed-projection-guidance-respects-authority`. The
+[specification catalog](../../specifications/catalog.md) resolves each identity
+to the project and file that own it. The rest of this section elaborates that
+boundary.
 
 AXM preserves unowned content by default. Preservation does not prove that the
 surrounding workspace state is valid or safely reconcilable. Each extension
@@ -167,9 +171,10 @@ interactive-only trust condition, and `--force` does not imply it.
 
 ## Specify the promises of each feature
 
-The executable specifications under `specifications/`, indexed by the
-[specification catalog](../../specifications/catalog.md), own each feature's
-promises. Specifications exercise observable outcomes, significant failure
+Executable specifications own each feature's promises. Each one lives beside
+the source it governs and is addressed by its stable identity; the
+[specification catalog](../../specifications/catalog.md) resolves an identity
+to its owning project and file. Specifications exercise observable outcomes, significant failure
 paths, preserved state, and repeated execution. Implementation tests are
 internal evidence for the code they cover; they do not own promises or make a
 second copy of the implementation.

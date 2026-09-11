@@ -2,8 +2,8 @@
  * Plan-execution fixtures for tests and executable specifications.
  *
  * Production commands convert their parsed intent into a `PlanExecution` at
- * the CLI boundary; these constants let kernel and handler tests drive
- * `previewOrApplyPlan` with an already-decoded approval decision. Production
+ * the CLI boundary; these constants let kernel and handler tests resolve
+ * an execution candidate with an already-decoded approval decision. Production
  * source never imports this module.
  *
  * @experimental This API is unstable and may change without notice.

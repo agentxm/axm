@@ -77,10 +77,12 @@ without failing the requested command.
 
 ## Specifications
 
-The telemetry specifications live beside the code they specify:
-`apps/cli/src/telemetry/` owns consent, precedence, and the data boundary, and
-`apps/cli/src/cli-runtime/telemetry-failure-never-alters-outcomes.spec.ts`
-owns failure isolation; the
-[specification catalog](../../../specifications/catalog.md) indexes them.
+Three executable specifications own telemetry's binding obligations:
+`system/security/telemetry-consent-and-precedence` for consent and precedence,
+`system/security/telemetry-payloads-respect-data-boundary` for the data
+boundary, and `system/reliability/telemetry-failure-never-alters-outcomes` for
+failure isolation. Each lives beside the code it specifies in `apps/cli`; the
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file.
 The exact event schema remains an executable contract owned by code and its
 internal tests.

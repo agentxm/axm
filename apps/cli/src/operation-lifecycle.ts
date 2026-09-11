@@ -24,7 +24,7 @@ import {
   observeLifecycleForTelemetry,
   recordCommandCompletion,
   requestedInterruptionSignal,
-} from "../../cli-runtime/index.js";
+} from "./cli-runtime/index.js";
 import {
   OperationJournal,
   OperationLifecycle,
@@ -37,7 +37,7 @@ import {
   type OperationPresentation,
   type SettledOutcome,
 } from "@agentxm/workspace-operations";
-import { Screen } from "../../screen/index.js";
+import { Screen } from "./screen/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   FootprintRecorder,
@@ -45,7 +45,7 @@ import {
   readFootprint,
 } from "@agentxm/workspace-transactions";
 
-import { emitOperationResolution } from "../../operation-output.js";
+import { emitOperationResolution } from "./operation-output.js";
 
 export interface OperationLifecycleArgs {
   /** Command identity, dot-separated as elsewhere (e.g. "skills.update"). */
@@ -157,13 +157,13 @@ export const withOperationLifecycle = <A, E, R>(
                   const signal = requestedInterruptionSignal() ?? "SIGINT";
                   // The observed footprint travels with the interruption: what
                   // was durably touched before the signal landed.
-                  const wsForFootprint = yield* WorkspaceMutations;
+                  const workspace = yield* WorkspaceMutations;
                   const observed = (yield* readFootprint.pipe(
                     Effect.provideService(FootprintRecorder, footprint),
                   ))
                     .map((entry) => ({
                       path: path.isAbsolute(entry.path)
-                        ? path.relative(wsForFootprint.baseDir, entry.path)
+                        ? path.relative(workspace.baseDir, entry.path)
                         : entry.path,
                       change: entry.change,
                     }))

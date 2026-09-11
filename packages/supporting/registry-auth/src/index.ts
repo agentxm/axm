@@ -154,6 +154,9 @@ export {
   type VerifiedWrite,
 } from "./step-up.js";
 
+// The Registry this invocation authenticates against
+export { selectedRegistry, type SelectedRegistry } from "./selected-registry.js";
+
 // Sign-in, sign-out, identity, and token policy use cases
 export {
   classifyLoopbackFailure,

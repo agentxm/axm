@@ -139,10 +139,13 @@ publishing.
 
 ## Specifications
 
-The lint specifications under `specifications/cli/lint/` own lint's binding
-obligations: honoring configured local severities, reporting facts without
-mutation, and naming the violated invariant with complete diagnostic identity.
-The [specification catalog](../../../specifications/catalog.md) indexes them.
+The `cli/lint/*` specifications own lint's binding obligations: honoring
+configured local severities (`cli/lint/honors-configured-rule-severities`),
+reporting facts without mutation (`cli/lint/reports-facts-without-mutation`),
+and naming the violated invariant with complete diagnostic identity
+(`cli/lint/findings-name-the-violated-invariant`). The
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file.
 
 Verification separates actor-visible capability from individual predicates:
 

@@ -153,10 +153,13 @@ request; it does not resume or roll back the interrupted command.
 
 ## Specifications
 
-The sync specifications under `specifications/cli/sync/` and the whole-surface
-workspace specifications at the root of `specifications/cli/` own sync's binding
-obligations — realizing desired state, preserving configuration and satisfying
-resolutions, non-interleaving, and closure-atomic mutation; the
-[specification catalog](../../../specifications/catalog.md) indexes them.
+The `cli/sync/*` specifications and the whole-surface workspace specifications
+own sync's binding obligations — realizing desired state
+(`cli/sync/realizes-desired-state`), preserving configuration and satisfying
+resolutions (`cli/sync/preserves-configuration-and-resolutions`),
+non-interleaving (`cli/changes-do-not-interleave`), and closure-atomic mutation
+(`cli/mutations-are-closure-atomic`). The
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file.
 Exhaustive blocker restoration is internal verification owned by the
 recovery-conformance registry in `apps/cli/src/root/sync/`.

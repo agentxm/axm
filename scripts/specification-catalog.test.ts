@@ -550,12 +550,38 @@ describe("collectCatalog", () => {
     writeSpec(lifecycle("a"), "cli/install/a", "extension-adoption");
     const markdown = renderCatalogMarkdown(collect());
     expect(markdown).toContain(
-      "[Command and parameter inventory](support/command-behavior-allocation.json)",
+      "[Command and parameter inventory](../apps/cli/src/test-support/command-behavior-allocation.json)",
     );
-    expect(markdown).toContain("[Context inventory](support/context-allocation.json)");
+    expect(markdown).toContain(
+      "[Context inventory](../apps/cli/src/test-support/context-allocation.json)",
+    );
     expect(markdown).toContain(
       "These maps support navigation and structural checks. They do not establish\nsemantic completeness, correct applicability, or passing behavior.",
     );
+  });
+
+  it("points the structural-inventory links at files that exist", () => {
+    writeSpec(lifecycle("a"), "cli/install/a", "extension-adoption");
+    const markdown = renderCatalogMarkdown(collect());
+    const catalogDirectory = path.join(
+      path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."),
+      "specifications",
+    );
+    // The capture group is mandatory, but the matcher's type does not say so.
+    const targets: string[] = [];
+    for (const match of markdown.matchAll(/^- \[[^\]]+\]\(([^)]+)\)/gm)) {
+      const target = match[1];
+      if (target !== undefined) {
+        targets.push(target);
+      }
+    }
+    expect(targets.length).toBeGreaterThan(0);
+    for (const target of targets) {
+      expect(
+        fs.existsSync(path.resolve(catalogDirectory, target)),
+        `catalog link ${target} does not resolve from specifications/`,
+      ).toBe(true);
+    }
   });
 
   it("renders bound evidence beside its owning requirement", () => {

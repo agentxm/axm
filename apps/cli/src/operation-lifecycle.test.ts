@@ -6,13 +6,13 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestRenderer } from "../../test-support/presenter-test.js";
+import { TestFlagsLayer } from "./cli-flags/index.js";
+import { TestRenderer } from "./test-support/presenter-test.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import * as Option from "effect/Option";
 
-import { makeBaseWorkspaceMock } from "../../test-support/test-stubs.js";
+import { makeBaseWorkspaceMock } from "./test-support/test-stubs.js";
 import { withLiveOperation, withOperationLifecycle } from "./operation-lifecycle.js";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";

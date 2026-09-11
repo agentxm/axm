@@ -35,11 +35,13 @@ import {
 } from "@agentxm/workspace-state/testing";
 import { OperationJournal, makeOperationJournal } from "./operation-journal.js";
 import type { Plan } from "./plan.js";
+import type { PlanExecution } from "./plan-execution.js";
+import type { ExecutionCandidate } from "./execution-candidate.js";
 import { StepFailure, type PlanInteractionFailed } from "./errors.js";
 import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
 import { deriveOperationOutcome } from "./operation-resolution.js";
 import { workspaceTransactionFailureToStepFailure } from "./step-failure-conversions.js";
-import { previewOrApplyPlan } from "./resolve-plan.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 import {
   OperationLifecycle,
   makeOperationLifecycle,
@@ -48,6 +50,37 @@ import {
 } from "./operation-events.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
+
+/**
+ * Prepare and resolve in one call.
+ *
+ * Production settles a candidate through its feature's application API and
+ * resolves that same candidate, so no source module composes both halves.
+ * These cases are about the two halves together, so the composition lives
+ * here, in the suite that exercises it.
+ */
+const previewOrApply = <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options: {
+    readonly execution: PlanExecution;
+    readonly beforeApply?: (
+      candidate: ExecutionCandidate<Requirements, Output>,
+    ) => Effect.Effect<void, StepFailure, Requirements>;
+  },
+) =>
+  prepareExecutionCandidate(plan, {
+    ...(options.execution.configuredAgentOperations === undefined
+      ? {}
+      : { configuredAgentOperations: options.execution.configuredAgentOperations }),
+  }).pipe(
+    Effect.flatMap((candidate) =>
+      resolveExecutionCandidate(
+        candidate,
+        options.execution,
+        options.beforeApply === undefined ? undefined : { beforeApply: options.beforeApply },
+      ),
+    ),
+  );
 const releaseAge = {
   evaluatedAt: "2026-08-12T00:00:00.000Z",
   holdbacks: [
@@ -128,7 +161,7 @@ const makeTestContext = (
   };
 };
 
-describe("previewOrApplyPlan", () => {
+describe("previewOrApply", () => {
   it.effect("--preview --yes remains a dry run", () => {
     let appliedCount = 0;
     const context = makeTestContext();
@@ -155,7 +188,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: previewPlanExecution,
       });
 
@@ -194,7 +227,7 @@ describe("previewOrApplyPlan", () => {
       const lifecycle = yield* makeOperationLifecycle({ name: plan.name, mode: "apply" });
       const observed: Array<OperationEvent> = [];
       yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
-      yield* previewOrApplyPlan(plan, {
+      yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provideService(OperationLifecycle, lifecycle));
       yield* lifecycle.settle("applied");
@@ -244,7 +277,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      yield* previewOrApplyPlan(plan, { execution: preapprovedPlanExecution });
+      yield* previewOrApply(plan, { execution: preapprovedPlanExecution });
 
       // The kernel presents unconditionally; the mode-aware wording gate
       // (no planned block without confirmable risk) is the CLI Live's.
@@ -281,7 +314,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: promptablePlanExecution(testRecovery),
       });
 
@@ -320,7 +353,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: interactiveOnlyPlanExecution({ command: ["sync"], arguments: [] }),
       });
 
@@ -360,7 +393,7 @@ describe("previewOrApplyPlan", () => {
       };
 
       return Effect.gen(function* () {
-        const result = yield* previewOrApplyPlan(plan, {
+        const result = yield* previewOrApply(plan, {
           execution: interactiveOnlyPlanExecution({
             command: ["sync"],
             arguments: [{ _tag: "Switch", flag: "--non-interactive", enabled: true }],
@@ -410,7 +443,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: applyPlanExecution({
           approval: "preapproved",
           recovery: {
@@ -469,11 +502,11 @@ describe("previewOrApplyPlan", () => {
       const execution = applyPlanExecution({ approval: "preapproved", recovery: testRecovery });
 
       return Effect.gen(function* () {
-        const declined = yield* previewOrApplyPlan(plan, { execution });
+        const declined = yield* previewOrApply(plan, { execution });
         expect(deriveOperationOutcome(declined)).toBe("cancelled");
         expect(appliedCount).toBe(0);
 
-        const approved = yield* previewOrApplyPlan(plan, { execution });
+        const approved = yield* previewOrApply(plan, { execution });
         expect(deriveOperationOutcome(approved)).toBe("applied");
         expect(appliedCount).toBe(1);
         expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(2);
@@ -505,7 +538,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: applyPlanExecution({
           approval: "preapproved",
           recovery: testRecovery,
@@ -569,7 +602,7 @@ describe("previewOrApplyPlan", () => {
       };
 
       return Effect.gen(function* () {
-        const result = yield* previewOrApplyPlan(plan, {
+        const result = yield* previewOrApply(plan, {
           execution: promptablePlanExecution(testRecovery),
         });
 
@@ -614,7 +647,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
       });
 
@@ -640,7 +673,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: promptablePlanExecution(testRecovery),
       });
 
@@ -732,7 +765,7 @@ describe("previewOrApplyPlan", () => {
       };
 
       return Effect.gen(function* () {
-        const result = yield* previewOrApplyPlan(plan, {
+        const result = yield* previewOrApply(plan, {
           execution: promptablePlanExecution(testRecovery),
         });
 
@@ -779,7 +812,7 @@ describe("previewOrApplyPlan", () => {
     };
 
     return Effect.gen(function* () {
-      const rejected = yield* previewOrApplyPlan(plan, {
+      const rejected = yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
       });
       expect(deriveOperationOutcome(rejected)).toBe("blocked");
@@ -788,7 +821,7 @@ describe("previewOrApplyPlan", () => {
       expect(deriveOperationOutcome(rejected)).toBe("blocked");
       expect(appliedCount).toBe(0);
 
-      const accepted = yield* previewOrApplyPlan(plan, {
+      const accepted = yield* previewOrApply(plan, {
         execution: applyPlanExecution({
           approval: "prompt-if-interactive",
           acceptedPolicies: new Set(["accept-warnings"]),
@@ -839,7 +872,7 @@ describe("previewOrApplyPlan", () => {
         ],
       };
 
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: promptablePlanExecution(testRecovery),
       }).pipe(Effect.provide(context.layer));
       expect(deriveOperationOutcome(result)).toBe("blocked");
@@ -884,7 +917,7 @@ describe("previewOrApplyPlan", () => {
         ],
       };
 
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
         beforeApply: () =>
           fs.writeFileString(material, "changed-after-authorization").pipe(
@@ -973,7 +1006,7 @@ describe("previewOrApplyPlan", () => {
           ],
         };
 
-        const result = yield* previewOrApplyPlan(plan, {
+        const result = yield* previewOrApply(plan, {
           execution: preapprovedPlanExecution,
         }).pipe(Effect.provide(context.layer));
 
@@ -1080,7 +1113,7 @@ describe("previewOrApplyPlan", () => {
         ],
       };
 
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
 
@@ -1174,7 +1207,7 @@ describe("previewOrApplyPlan", () => {
       };
 
       const fiber = yield* Effect.forkChild(
-        previewOrApplyPlan(plan, { execution: preapprovedPlanExecution }).pipe(
+        previewOrApply(plan, { execution: preapprovedPlanExecution }).pipe(
           Effect.provide(context.layer),
         ),
       );
@@ -1247,7 +1280,7 @@ describe("previewOrApplyPlan", () => {
         ],
       };
 
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
 
@@ -1334,7 +1367,7 @@ describe("previewOrApplyPlan", () => {
         ],
       };
 
-      const first = yield* previewOrApplyPlan(failingPlan, {
+      const first = yield* previewOrApply(failingPlan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
       expect(deriveOperationOutcome(first)).toBe("partial");
@@ -1364,7 +1397,7 @@ describe("previewOrApplyPlan", () => {
         ],
       };
 
-      const second = yield* previewOrApplyPlan(followUp, {
+      const second = yield* previewOrApply(followUp, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
 
@@ -1427,7 +1460,7 @@ describe("previewOrApplyPlan", () => {
       };
 
       const { result, heldAfter } = yield* Effect.gen(function* () {
-        const result = yield* previewOrApplyPlan(plan, { execution: preapprovedPlanExecution });
+        const result = yield* previewOrApply(plan, { execution: preapprovedPlanExecution });
         const scope = yield* WorkspaceTransactionScope;
         return { result, heldAfter: Option.isSome(yield* scope.lock.held(resolved)) };
       }).pipe(Effect.provide(context.layer));
@@ -1484,13 +1517,13 @@ describe("previewOrApplyPlan", () => {
         ],
       };
 
-      const previewed = yield* previewOrApplyPlan(plan, {
+      const previewed = yield* previewOrApply(plan, {
         execution: previewPlanExecution,
       }).pipe(Effect.provide(context.layer));
       expect(deriveOperationOutcome(previewed)).toBe("previewed");
       expect(acquisitions).toBe(0);
 
-      const applied = yield* previewOrApplyPlan(plan, {
+      const applied = yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
       expect(deriveOperationOutcome(applied)).toBe("applied");
@@ -1529,7 +1562,7 @@ describe("previewOrApplyPlan", () => {
         ],
       };
 
-      const result = yield* previewOrApplyPlan(plan, {
+      const result = yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
 

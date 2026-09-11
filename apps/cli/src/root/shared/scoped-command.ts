@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { AppErrorSuggestedAction } from "../../app-error/index.js";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { WorkspaceLocation } from "@agentxm/workspace-state";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 export const commandForScope = (command: string, scope: WorkspaceScope): string =>
@@ -23,9 +23,9 @@ export const suggestionsForScope = (
 
 export const suggestionsForCurrentWorkspace = (suggestions: ReadonlyArray<SuggestedAction>) =>
   Effect.gen(function* () {
-    const workspace = yield* Effect.serviceOption(WorkspaceMutations);
-    return Option.match(workspace, {
+    const location = yield* Effect.serviceOption(WorkspaceLocation);
+    return Option.match(location, {
       onNone: () => suggestions,
-      onSome: (ws) => suggestionsForScope(suggestions, ws.scope),
+      onSome: ({ scope }) => suggestionsForScope(suggestions, scope),
     });
   });

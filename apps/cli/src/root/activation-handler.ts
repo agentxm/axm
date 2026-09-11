@@ -15,7 +15,7 @@ import { lifecycleFailureToAppError } from "../feature-errors.js";
 import { emitOperationResolution } from "../operation-output.js";
 import { makePublicPositionalPlanExecution } from "./shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
-import { withOperationLifecycle } from "./shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../operation-lifecycle.js";
 
 export interface ActivationCommandArgs extends SetActivationRequest {
   readonly preview: boolean;

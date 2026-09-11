@@ -14,7 +14,7 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface AdoptHandlerArgs {
   readonly fqn: string;

@@ -1,7 +1,7 @@
 /**
  * Plan-resolution interaction port.
  *
- * `previewOrApplyPlan` presents candidates and obtains the apply confirmation
+ * `resolveExecutionCandidate` presents candidates and obtains the apply confirmation
  * exclusively through this service. The CLI runtime provides the renderer- and
  * prompt-backed implementation; wording and verbosity gating belong to that
  * implementation, never to the kernel. Progress is not an interaction: the

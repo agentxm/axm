@@ -6,6 +6,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
@@ -35,6 +36,8 @@ import {
   type RegistryPackLockEntry,
   type RuleLockEntry,
   type SkillLockEntry,
+  type WorkspaceLayout,
+  type WorkspaceLocationService,
 } from "@agentxm/workspace-state";
 import {
   decodeVersionSync,
@@ -192,6 +195,49 @@ export const readModelRecordStubs = {
  * });
  * ```
  */
+/**
+ * The resolved workspace location a test runs against.
+ *
+ * Modules that only need to know which scope is selected — the suggestion and
+ * confirmation-recovery renderers — read `WorkspaceLocation` rather than the
+ * mutation facade, so a test that exercises them provides this beside (or
+ * instead of) a workspace mock.
+ */
+export const makeWorkspaceLocationMock = (
+  axmDir = "/tmp/axm",
+  overrides?: Partial<WorkspaceLocationService>,
+): Effect.Effect<WorkspaceLocationService> =>
+  Effect.gen(function* () {
+    const baseDir = axmDir.replace(/\/\.axm$/, "") || "/tmp";
+    const absolute = (...segments: ReadonlyArray<string>) =>
+      decodeAbsolutePathSync(path.join(baseDir, ...segments));
+    const layout: WorkspaceLayout = {
+      scope: "project",
+      workspaceRoot: absolute(),
+      projectRoot: absolute(),
+      settingsPath: absolute("axm.json"),
+      lockPath: absolute("axm-lock.yaml"),
+      runtimeDir: decodeAbsolutePathSync(axmDir),
+      acquiredRoot: absolute("agent_extensions"),
+      authoredRoot: (type) => absolute(type === "mcp-server" ? "mcps" : `${type}s`),
+    };
+    const location: WorkspaceLocationService = {
+      scope: "project",
+      baseDir,
+      projectRoot: absolute(),
+      userHome: absolute(),
+      projectRuntimeDir: axmDir,
+      userRuntimeDir: axmDir,
+      runtimeDir: axmDir,
+      settingsPath: path.join(baseDir, "axm.json"),
+      lockPath: path.join(baseDir, "axm-lock.yaml"),
+      layout: yield* Ref.make<WorkspaceLayout>(layout),
+      builtInSources: [],
+      ...overrides,
+    };
+    return location;
+  });
+
 export const makeBaseWorkspaceMock = (
   axmDir = "/tmp/axm",
   overrides?: WorkspaceMockOverrides,

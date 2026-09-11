@@ -1,10 +1,11 @@
 ---
 type: Architecture
 status: stable
-description: The target testing architecture in which executable specifications are the sole local source of truth for AXM requirements and orthogonally classified verification provides complementary evidence.
+description: The testing architecture in which executable specifications are the sole local source of truth for AXM requirements and orthogonally classified verification provides complementary evidence.
 depends-on:
   - ../overview.md
   - ../principles.md
+  - ../decisions/colocated-specifications.md
 ---
 
 # Testing strategy
@@ -57,9 +58,10 @@ ratchet of accidental behavior.
 
 ## Authority
 
-Executable specification source under `specifications/` is the sole local
-source of truth for what AXM is required to do, achieve, preserve, prevent, or
-constrain, across every review lens of the shared contract: functional,
+Executable specification source — the `*.spec.ts` files that live beside the
+source they govern, discovered across every authored project — is the sole
+local source of truth for what AXM is required to do, achieve, preserve,
+prevent, or constrain, across every review lens of the shared contract: functional,
 quality, constraint, external-conformance, human-factors, and process. A
 specification on `main` is accepted; merging the change that adds, revises, or
 removes it is the acceptance decision, and the predecessor it supersedes is
@@ -155,10 +157,13 @@ not automatically a different kind of requirement.
 
 End-to-end is a boundary, not a competing authority. An in-memory scenario and
 an end-to-end scenario may execute the same specification through different
-drivers. A utility test is a specification when it protects a supported public
-contract and an ordinary test otherwise. Release verification is a
-gate that selects evidence for an exact candidate, not a test purpose or source
-tree.
+drivers. A test is a specification when it states a rule someone could have
+decided differently, in language a stakeholder can accept or reject, and
+carries a declared identity and statement. Protecting a supported public
+contract is necessary for that but not sufficient: a contract suite that
+exhaustively exercises an interface is evidence, not an obligation. Release
+verification is a gate that selects evidence for an exact candidate, not a test
+purpose or source tree.
 
 ## Suite responsibilities
 
@@ -218,16 +223,21 @@ observation paths remain independently capable of exposing boundary defects.
 
 ### Architecture verification
 
-Architecture verification checks documented structural relationships and
-design decisions that are not themselves actor-visible functional behavior.
-When a structural constraint is required, its normative statement belongs to
-a constraint-class specification and the architecture check is its runner.
-Other architecture checks are diagnostic evidence and do not create
-requirements. Examples include package dependency direction, entry-point
-composition, ownership-unit registration, generated contract coherence, and
-adapter participation. Constraint-class specifications report with the other
-authoritative specifications; only diagnostic architecture checks report in
-the verification projection.
+Structural relationships and design decisions that are not actor-visible
+behavior are normally engineering policy, enforced natively by the adopted
+tooling and verified by ordinary tests: package dependency direction, feature
+isolation, acyclicity, application-only composition, entry-point composition,
+ownership-unit registration, generated contract coherence, and adapter
+participation are all of that kind. They do not become requirements merely
+because they are checked, and they report in the verification projection.
+
+A structural constraint becomes a constraint-class specification only when it
+carries standing outside the repository — an obligation someone outside
+engineering could accept or reject, such as the public system depending only on
+published contracts, or end-to-end evidence observing only shipped artifacts.
+Those report with the other authoritative specifications, and the static gate
+that verifies one binds its result to the requirement identity rather than
+owning the requirement.
 
 ### Internal verification
 
@@ -332,65 +342,53 @@ requirement itself.
 
 ## Physical organization
 
-Specification source is organized by stable product meaning rather than by the
-packages that currently implement it:
+A specification lives beside the source it governs, inside the project that
+owns that source, and is discovered from the Nx project graph rather than from
+a directory list:
 
 ```text
-specifications/
-  cli/
-    install/
-    uninstall/
-    sync/
-    lint/
-  extension-identity/
-  package-identity/
-  settings-contract/
-  source-resolution/
-  version-constraints/
-  system/
-    installability/
-    compatibility/
-    performance/
-    security/
-    usability/
-    architecture/
-    process/
+packages/{core,supporting}/<package>/src/**/*.spec.ts   package-owned requirements
+apps/cli/src/**/*.spec.ts                               grammar, prompts, rendering, exit codes
+apps/cli-e2e/src/**/*.e2e.test.ts                       process- and binary-boundary evidence
+scripts/**/*.test.ts                                    repository automation
+benchmarks/**/*.bench.ts                                diagnostic measurement
 
-tests/
-  e2e/
-
-verification/
-  artifacts/
-  deployment/
-
-benchmarks/
-
-packages/
-  extension-model/src/**/*.test.ts
-  registry-protocol/src/**/*.test.ts
-  cli/src/**/*.test.ts
-
-scripts/**/*.test.ts
+specifications/catalog.md                               generated reading path
+specifications/product-goals.ts                         local product-goal registry
+specifications/disposition-ledger.json                  explanations for removed identities
 ```
 
-The final Nx project and package boundaries may refine these physical roots,
-but they must preserve the semantic browsing hierarchy. End-to-end source
-mirrors the specification hierarchy where it realizes the same behavior.
-Ordinary tests remain colocated with source.
+Location carries no authority. Identity does: a requirement is named by its
+stable identity, declared in metadata, and a move preserves it. Because
+identity is independent of path, a specification travels with the code it
+governs when a responsibility moves between packages, and the verdict renders
+that as a move rather than a removal and an addition
+([Colocated specifications](../decisions/colocated-specifications.md)).
+
+The generated catalog supplies the semantic browsing hierarchy the directory
+tree no longer does: it organizes requirements by their role in the product
+contract, then by primary product goal, then by review class, and names the
+owning project beside each entry. Ordinary tests are colocated with their
+source the same way, and end-to-end evidence binds to the identity it
+witnesses rather than mirroring a hierarchy.
 
 ## Naming and readability
 
 File names expose purpose:
 
-| Suffix                  | Meaning                                             |
-| ----------------------- | --------------------------------------------------- |
-| `*.spec.ts`             | Authoritative requirement specification             |
-| `*.contract.spec.ts`    | Contract or external-conformance specification      |
-| `*.performance.spec.ts` | Normative performance specification                 |
-| `*.test.ts`             | Non-normative ordinary test colocated with source   |
-| `*.e2e.test.ts`         | End-to-end boundary execution, only in e2e projects |
-| `*.type-test.ts`        | Compile-time assertions                             |
-| `*.bench.ts`            | Non-normative diagnostic benchmark                  |
+| Suffix           | Meaning                                             |
+| ---------------- | --------------------------------------------------- |
+| `*.spec.ts`      | Authoritative requirement specification             |
+| `*.test.ts`      | Non-normative ordinary test colocated with source   |
+| `*.e2e.test.ts`  | End-to-end boundary execution, only in e2e projects |
+| `*.type-test.ts` | Compile-time assertions                             |
+| `*.bench.ts`     | Non-normative diagnostic benchmark                  |
+
+Purpose beyond that comes from metadata and project tags, not from a longer
+suffix. Source hygiene enforces the three rules the table implies: a
+`*.spec.ts` exports exactly one valid `specification` with an identity no other
+file claims, a `*.test.ts` never exports specification metadata, and a
+`*.e2e.test.ts` lives only in an `role:e2e` project.
 
 An installability or compatibility specification remains `*.spec.ts` even when
 it runs against a packed artifact or platform matrix. Boundary, method, and
@@ -422,7 +420,7 @@ assertions.
 
 Specification tests use idiomatic constructs from their native test framework
 and any purpose-fit testing library. The shared metadata contract in
-`@agentxm/extension-model` provides only the cross-method information that
+`@agentxm/specification-metadata` provides only the cross-method information that
 discovery, conformance, and reporting need: a stable requirement identity, a
 human-readable title, the normative statement, class and role, the product
 goals the requirement supports, the observation boundary and its
@@ -454,15 +452,23 @@ Within the fast functional subset, specification tests normally:
   their semantics must agree; and
 - use snapshots only for stable, reviewable exact contracts.
 
-The source-backed memory lane loads the application once per run and gives
-every scenario fresh in-memory adapters and a fresh application Layer. Files,
-transition-lock ownership, configuration, and injected failures belong to the
-scenario rather than the worker. File and test order is shuffled while the
-worker and module graph are deliberately reused, making state leakage visible
-without paying application startup for every file. Shared adapter-contract
-tests compare the in-memory filesystem and transition lock with their live
-counterparts; process, native-lock, atomic-replacement, callback-transport, and
-artifact executions remain separate boundary evidence.
+A specification inherits the production boundary of the project that owns it.
+There is no shared harness: a package's specifications drive that package's own
+application API, and the deterministic implementations they run against are the
+`./testing` exports its dependencies publish — in-memory filesystem, controlled
+clock, identifiers, and transition lock. Files, lock ownership, configuration,
+and injected failures belong to the scenario rather than the worker, and file
+and test order is shuffled to make state leakage visible. Shared
+adapter-contract tests compare each in-memory port with its live counterpart,
+so the substitution is itself evidenced; process, native-lock,
+atomic-replacement, callback-transport, and artifact executions remain separate
+boundary evidence in the end-to-end project.
+
+Because every owner runs specifications and ordinary tests through its own
+`test` target, purpose is labelled per file at execution rather than by suite
+membership: a `.spec.ts` that did not run under specification labelling, or
+whose evidence is missing, stale, skipped, filtered, or partial, is never a
+pass.
 
 Reporter adapters normalize native framework results into the specification
 catalog, Allure, and CI projections. They consume test results without
@@ -495,8 +501,9 @@ diagnostic measure and never substitutes for behavioral completeness.
 The command tree shows the approach in full. An independently enumerated route
 table — every registered command node, groups included — is compared with
 three sources at once: the interaction capabilities each node declares, the
-flags its parser actually accepts, and the per-command purity specifications
-under `specifications/cli/<command>/`. A node without a declaration, a
+flags its parser actually accepts, and the `preview-is-pure` requirement
+identity each preview route resolves to through the catalog. A node without a
+declaration, a
 declared capability with no matching flag, a flag with no declared purpose, or
 a preview route without its purity evidence fails the gate. The declaration
 states expectations, the parsed grammar proves exposure, and the purpose
@@ -517,6 +524,7 @@ Repository commands expose intent rather than only package topology:
 
 ```text
 pnpm test
+pnpm test:all
 pnpm test:spec
 pnpm test:e2e
 pnpm test:compatibility
@@ -525,9 +533,13 @@ pnpm verify:artifact
 pnpm verify:release
 pnpm verify:deployment
 pnpm bench
-pnpm test
-pnpm test:all
 ```
+
+`test` runs every project's own `test` target, so specifications and ordinary
+tests execute together with their source. `test:spec` selects specifications by
+identity, class, or characteristic: it resolves each selection to the projects
+that own the matching files and runs those projects' native targets, so
+selection needs no central test project.
 
 `test:compatibility` and `test:performance` select authoritative
 specifications; they do not own parallel specification trees. `verify:artifact`
@@ -536,11 +548,10 @@ for identified artifacts or environments. `verify:release` composes the
 required evidence for one exact release candidate. `bench` runs diagnostic
 measurements separately from pass/fail specification execution.
 
-`test` runs the required fast suites. `test:all` adds broadly executable slower
-boundary and specification selections but does not pretend to verify a release
-candidate or deployment when no exact artifact or environment is supplied.
-Exact command composition remains repository-owned and may add narrower targets
-such as `test:spec:memory` when useful.
+`test:all` adds broadly executable slower boundary and specification selections
+but does not pretend to verify a release candidate or deployment when no exact
+artifact or environment is supplied. Exact command composition remains
+repository-owned.
 
 Specifications are also execution targets for agent-performed implementation.
 Selection by stable requirement identity — for example
@@ -551,7 +562,7 @@ understanding of the requirement rather than only pointing at code.
 
 The default cadence is:
 
-- every change: in-memory specifications, internal, tooling, and static
+- every change: in-memory specifications, ordinary tests, and static
   verification;
 - pull request or merge: risk-selected end-to-end scenarios;
 - platform matrix or schedule: compatibility specifications against supported
@@ -655,10 +666,11 @@ the same governed diff rather than kept because it exists. Documentation
 changes cannot create, revise, retire, or replace a requirement.
 
 The specification layer is governed asymmetrically. Implementation-scoped work
-— human- or agent-performed — treats `specifications/` as read-only; changing
-a specification is a distinct requirements task. Repository controls enforce
-the asymmetry: specification paths require human approval as a requirements
-decision, and a change that touches both specifications and implementation is
+— human- or agent-performed — treats `*.spec.ts` files as read-only wherever
+they live; changing a specification is a distinct requirements task. Repository
+controls enforce the asymmetry: CODEOWNERS routes every `*.spec.ts` to
+maintainer approval as a requirements decision regardless of which package it
+sits in, and a change that touches both specifications and implementation is
 reviewed as a requirements change, never waved through as a refactor. Review
 tooling surfaces the direction of a specification diff — deleted cases,
 loosened assertions, widened tolerances — so a weakened requirement is visible

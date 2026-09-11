@@ -34,7 +34,7 @@ export const FootprintRecorderTest: Layer.Layer<FootprintRecorder> = Layer.effec
 );
 
 /**
- * Every per-invocation service `previewOrApplyPlan` acquires that the CLI's
+ * Every per-invocation service `resolveExecutionCandidate` acquires that the CLI's
  * operation lifecycle opens around a command: the journal, the footprint
  * recorder, and a configured-agent outcome provider with no per-type
  * refinement. A test that drives a plan directly needs all of them, so this

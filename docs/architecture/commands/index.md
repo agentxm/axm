@@ -1,7 +1,7 @@
 # AXM command architecture
 
 Navigation for the durable responsibilities and boundaries of AXM commands.
-The executable specifications under `specifications/cli/`, reached through the
+The executable specifications in the `cli/*` identity space, reached through the
 [specification catalog](../../../specifications/catalog.md), own required
 command behavior; these documents own the detailed command architecture
 response.

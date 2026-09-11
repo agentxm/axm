@@ -46,7 +46,8 @@ requirements.
 
 ## Specifications
 
-Pack obligations live with the pack specification under
-`specifications/cli/packs/` — authored pack membership growth and
-pack-route reachability; the
-[specification catalog](../../../specifications/catalog.md) indexes it.
+Pack obligations live with the `cli/packs/*` specifications — authored pack
+membership growth (`cli/packs/authored-packs-expand-membership`) and pack-route
+reachability (`cli/uninstall/removes-direct-route-and-recomputes-reachability`).
+The [specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file.

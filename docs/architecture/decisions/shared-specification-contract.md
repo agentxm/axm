@@ -1,10 +1,11 @@
 ---
 type: Decision
 status: stable
-description: The executable-specification metadata contract, classification lens, controlled vocabularies, and shared product-goal identities live once in `@agentxm/extension-model` and are consumed by every AgentXM specification corpus.
+description: The executable-specification metadata contract, classification lens, controlled vocabularies, and shared product-goal identities live once in `@agentxm/specification-metadata` and are consumed by every AgentXM specification corpus.
 depends-on:
   - ./executable-specifications-authority.md
   - ./colocated-specifications.md
+  - ./package-classification-and-dependency-policy.md
   - ../system-wide/testing-strategy.md
 ---
 
@@ -15,9 +16,14 @@ depends-on:
 `@agentxm/specification-metadata` owns the executable
 specification contract for every AgentXM repository: the metadata shape, the
 classification lens, the controlled vocabularies, the shared product-goal
-registry, the decoders, and the corpus conformance check. AXM's
-`specifications/` corpus binds to that contract directly; no local copy of the
-contract remains.
+registry, the decoders, and the corpus conformance check. Every AXM
+specification binds to that contract directly, wherever in the workspace it
+lives; no local copy of the contract remains.
+
+The contract is an engineering library under `tools/`, not a runtime package.
+It ships with the fixed release cohort so other repositories can author
+specifications against it, and the role matrix bars every runtime package from
+importing it — only test-purpose files may.
 
 The contract fixes these points:
 
@@ -53,10 +59,9 @@ The contract fixes these points:
 
 ## Context
 
-Before this decision AXM carried its own metadata contract in
-`specifications/support/contract.ts` with a per-characteristic class
-vocabulary, while the AgentXM platform repository governed its obligations in
-prose. Converging both on executable specifications required one contract,
+Before this decision AXM carried its own metadata contract inside its central
+specification project, with a per-characteristic class vocabulary, while the
+AgentXM platform repository governed its obligations in prose. Converging both on executable specifications required one contract,
 one lens, one goal identity space, and one conformance rule that both
 repositories could install as a published artifact. The
 [testing strategy](../system-wide/testing-strategy.md) defines the model this
@@ -70,10 +75,18 @@ established that specifications own AXM requirements.
   vocabulary drift and duplicated goal identities would have no mechanical
   check, and the cross-repository allocation of obligations would rest on
   prose.
-- **Publish the contract from a new package.** Rejected: the shared kernel
-  already ships as one fixed release cohort that both repositories install,
-  and the contract is pure data and pure functions with no dependency the
-  kernel lacks.
+- **Publish the contract from a new package.** Rejected at the time, on the
+  grounds that the shared kernel already shipped as one fixed release cohort
+  that both repositories install and the contract is pure data and pure
+  functions with no dependency the kernel lacks. **Now accepted.** Classifying
+  every package by strategic domain and technical role made the objection
+  answer itself: a contract used to author requirements is engineering support,
+  and leaving it inside `@agentxm/extension-model` meant the Registry Worker
+  and every runtime consumer of the shared model carried specification tooling
+  they never call. `@agentxm/specification-metadata` is a separate `tools/`
+  package, still a member of the same fixed cohort, so the original force —
+  one install, one version — is preserved while the runtime model stays clean
+  ([Package classification and dependency policy](package-classification-and-dependency-policy.md)).
 - **Keep the per-characteristic classes.** Rejected: the shared lens is the
   review lens both repositories agreed to, and the characteristic field
   preserves every existing filter.

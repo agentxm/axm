@@ -20,7 +20,7 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 /** The types whose native content this route converts. */
 type NativeImportRouteType = "skill" | "subagent";

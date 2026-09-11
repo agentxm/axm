@@ -14,7 +14,7 @@ import {
   recordCommandCompletion,
   withArgvTracking,
 } from "../../cli-runtime/index.js";
-import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,

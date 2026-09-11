@@ -147,12 +147,14 @@ lockfile publishes through atomic replacement, preserving unrelated rows.
 
 ## Specifications
 
-The whole-surface workspace specifications at the root of `specifications/cli/`
-own the lockfile's boundary obligations: lock state never creates reachability,
-lockfile rejections name state and recovery, and version errors expose a
-structured machine problem. The sync and update specifications under
-`specifications/cli/sync/` and `specifications/cli/update/` own stable resolution
-and update-only advancement; the
-[specification catalog](../../../specifications/catalog.md) indexes them. Exact
+The whole-surface workspace specifications own the lockfile's boundary
+obligations: `cli/lock-state-never-creates-reachability`,
+`cli/workspace-lockfile-rejections-name-state-and-recovery`, and
+`cli/lockfile-version-errors-expose-structured-problem`.
+`cli/sync/preserves-configuration-and-resolutions` and
+`cli/update/advances-resolution-within-intent` own stable resolution and
+update-only advancement; the
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file. Exact
 fields, the strict lockfile version, and source-class fixtures remain executable
 contracts owned by schemas and the implementation's internal tests.

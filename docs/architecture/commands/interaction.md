@@ -54,8 +54,9 @@ with its parsed flags and its executable evidence
 exposes it: workspace lifecycle, authoring, publish, sync, setup, demote, and
 the executable upgrade. A preview reports the exact candidate — including one
 the command would refuse to apply — and changes no protected state. Each
-preview route carries its own `preview-is-pure` specification under
-`specifications/cli/<command>/`.
+preview route carries its own `preview-is-pure` specification, identified as
+`cli/<command>/preview-is-pure` and resolved through the
+[specification catalog](../../../specifications/catalog.md).
 
 `--yes` (`-y`) is exposed only where a command declares one documented
 confirmation it can approve in advance

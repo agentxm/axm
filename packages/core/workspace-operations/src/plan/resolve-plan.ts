@@ -13,8 +13,6 @@
  * `ResolvePlanInteraction` port; per-type outcome refinement behind the
  * `ConfiguredAgentOutcomesProvider`.
  *
- * `previewOrApplyPlan` composes the two halves and is transitional: it is
- * removed when every handler prepares its candidate through its feature.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -987,30 +985,3 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
         }),
   });
 });
-
-/**
- * TRANSITIONAL: prepare and resolve in one call. Removed when every handler
- * prepares its candidate through its feature's application API.
- */
-export const previewOrApplyPlan = <Requirements, Output>(
-  plan: Plan<Requirements, Output>,
-  options: {
-    readonly execution: PlanExecution;
-    readonly beforeApply?: (
-      candidate: ExecutionCandidate<Requirements, Output>,
-    ) => Effect.Effect<void, StepFailure, Requirements>;
-  },
-) =>
-  prepareExecutionCandidate(plan, {
-    ...(options.execution.configuredAgentOperations === undefined
-      ? {}
-      : { configuredAgentOperations: options.execution.configuredAgentOperations }),
-  }).pipe(
-    Effect.flatMap((candidate) =>
-      resolveExecutionCandidate(
-        candidate,
-        options.execution,
-        options.beforeApply === undefined ? undefined : { beforeApply: options.beforeApply },
-      ),
-    ),
-  );

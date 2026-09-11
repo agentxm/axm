@@ -2,7 +2,7 @@
  * CLI implementation of the plan-resolution interaction port.
  *
  * Owns the prompt-backed apply confirmation and the plan display gate for
- * `previewOrApplyPlan`. Progress is not an interaction: the kernel publishes
+ * `resolveExecutionCandidate`. Progress is not an interaction: the kernel publishes
  * lifecycle events that the Screen observes.
  */
 

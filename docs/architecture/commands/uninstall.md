@@ -34,7 +34,9 @@ override to make an otherwise desired extension unreachable.
 
 ## Specifications
 
-The uninstall specifications under `specifications/cli/uninstall/` own
-uninstall's binding obligations — removing the direct route while keeping state
-another desired route still reaches, and idempotent repeat runs; the
-[specification catalog](../../../specifications/catalog.md) indexes them.
+The `cli/uninstall/*` specifications own uninstall's binding obligations —
+removing the direct route while keeping state another desired route still
+reaches (`cli/uninstall/removes-direct-route-and-recomputes-reachability`) and
+idempotent repeat runs (`cli/uninstall/is-idempotent`). The
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file.

@@ -8,8 +8,8 @@ import {
   recoveryPositional,
   renderConfirmationRecoveryCommand,
 } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "../../test-support/test-stubs.js";
+import { WorkspaceLocation } from "@agentxm/workspace-state";
+import { makeWorkspaceLocationMock } from "../../test-support/test-stubs.js";
 import {
   makeConfirmationRecovery,
   makePlanExecution,
@@ -44,8 +44,9 @@ describe("confirmation recovery CLI boundary", () => {
       Effect.provide(
         Layer.mergeAll(
           TestFlagsLayer({ json: true, nonInteractive: true, verbose: true }),
-          WorkspaceMutations.layer(
-            makeBaseWorkspaceMock("/tmp/axm-confirmation-recovery/.axm", { scope: "user" }),
+          Layer.effect(
+            WorkspaceLocation,
+            makeWorkspaceLocationMock("/tmp/axm-confirmation-recovery/.axm", { scope: "user" }),
           ),
         ),
       ),
@@ -96,7 +97,10 @@ describe("confirmation recovery CLI boundary", () => {
       Effect.provide(
         Layer.mergeAll(
           TestFlagsLayer({}),
-          WorkspaceMutations.layer(makeBaseWorkspaceMock("/tmp/axm-confirmation-recovery/.axm")),
+          Layer.effect(
+            WorkspaceLocation,
+            makeWorkspaceLocationMock("/tmp/axm-confirmation-recovery/.axm"),
+          ),
         ),
       ),
     ),

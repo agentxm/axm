@@ -13,7 +13,7 @@ import {
   withCommandCapabilities,
 } from "../../shared/command-capabilities.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
-import { withLiveOperation } from "../../shared/operation-lifecycle.js";
+import { withLiveOperation } from "../../../operation-lifecycle.js";
 import { scopeConfig } from "../flags.js";
 import { knowledgeCorpusFailures } from "../knowledge-errors.js";
 import { failKnowledgeCorpusChanging, failKnowledgeCursorExpired } from "./failures.js";

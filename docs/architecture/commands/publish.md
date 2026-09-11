@@ -92,7 +92,9 @@ baseline, or manifest after a successful upload.
 
 ## Specifications
 
-The publish specifications under `specifications/cli/publish/` own publish's
-binding obligations — pure preview against the fixed publication gate and
-refusing extensions the workspace does not author; the
-[specification catalog](../../../specifications/catalog.md) indexes them.
+The `cli/publish/*` specifications own publish's binding obligations — pure
+preview against the fixed publication gate
+(`cli/publish/preview-is-pure-and-gate-is-fixed`) and refusing extensions the
+workspace does not author (`cli/publish/requires-established-authorship`). The
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file.

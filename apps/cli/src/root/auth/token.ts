@@ -10,9 +10,9 @@ import {
   currentToken,
   listTokens,
   revokeToken,
+  selectedRegistry,
   type CreateTokenRequest,
 } from "@agentxm/registry-auth";
-import { RegistryUrl } from "@agentxm/registry-client";
 import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
@@ -26,7 +26,7 @@ import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
-import { withLiveOperation } from "../shared/operation-lifecycle.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import {
   directWriteCapabilities,
   readOnlyCapabilities,
@@ -156,11 +156,11 @@ const verificationOptions = Effect.gen(function* () {
 
 export const handleToken = Effect.fn("AuthToken.handle")(
   function* () {
-    const registryUrl = yield* RegistryUrl;
+    const registry = yield* selectedRegistry;
     const screen = yield* Screen;
     const json = Option.getOrElse(yield* jsonFlag, () => false);
 
-    const token = yield* currentToken(registryUrl);
+    const token = yield* currentToken(registry.url);
 
     // Raw token to stdout, unless --json was explicitly requested
     if (json && (yield* screen.document({ data: { token } }, TokenDocumentSchema))) return;
@@ -173,7 +173,7 @@ export const handleToken = Effect.fn("AuthToken.handle")(
 
 export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
   function* (args: CreateTokenHandlerArgs) {
-    const registryUrl = yield* RegistryUrl;
+    const registry = yield* selectedRegistry;
     const screen = yield* Screen;
     const request: CreateTokenRequest = {
       name: args.name,
@@ -192,7 +192,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
         name: `Create registry token "${args.name}"`,
         mode: "apply",
       },
-      createToken(request, registryUrl),
+      createToken(request, registry.url),
     );
     const created = createResult.token;
     const suggestions = createTokenSuggestions(created.id);
@@ -241,12 +241,12 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
 
 export const handleListTokens = Effect.fn("AuthTokenList.handle")(
   function* () {
-    const registryUrl = yield* RegistryUrl;
+    const registry = yield* selectedRegistry;
     const screen = yield* Screen;
 
     const result = yield* withLiveOperation(
       { command: "auth.token.list", name: "List registry tokens", mode: "preview" },
-      listTokens(registryUrl),
+      listTokens(registry.url),
     );
 
     if (
@@ -305,11 +305,11 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
 
 export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   function* (tokenId: string) {
-    const registryUrl = yield* RegistryUrl;
+    const registry = yield* selectedRegistry;
     const screen = yield* Screen;
     const revokeResult = yield* withLiveOperation(
       { command: "auth.token.revoke", name: `Revoke registry token ${tokenId}`, mode: "apply" },
-      revokeToken(tokenId, yield* verificationOptions, registryUrl),
+      revokeToken(tokenId, yield* verificationOptions, registry.url),
     );
 
     if (

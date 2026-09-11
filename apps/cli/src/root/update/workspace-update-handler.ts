@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import {
   UpdateExtensions,
   WORKSPACE_UPDATE_ATOMICITY,
+  type ConfiguredUpdateSelector,
   type WorkspaceUpdatableType,
 } from "@agentxm/extension-lifecycle";
 import { ReleaseAgePosture } from "@agentxm/extension-resolution";
@@ -19,7 +20,7 @@ import { emitOperationResolution, operationResolutionSummary } from "../../opera
 import { extensionLifecycleFailedToAppError } from "../../feature-errors.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface WorkspaceUpdateFlags {
   readonly preview: boolean;
@@ -58,8 +59,8 @@ export interface WorkspaceUpdateHandlerArgs {
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
   readonly flags: WorkspaceUpdateFlags;
-  /** Installed names a selector resolved to; omit to update every entry. */
-  readonly names?: ReadonlyArray<string>;
+  /** A selector to narrow the sweep; omit to update every configured entry. */
+  readonly selector?: ConfiguredUpdateSelector;
 }
 
 export const handleWorkspaceUpdate = (args: WorkspaceUpdateHandlerArgs) =>
@@ -90,7 +91,7 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
     planName: args.planName,
     planDescription: args.planDescription,
     nonInteractive: false,
-    ...(args.names === undefined ? {} : { names: args.names }),
+    ...(args.selector === undefined ? {} : { selector: args.selector }),
   });
 
   if (candidate.outcome === "nothing-configured") {
@@ -118,7 +119,9 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
     makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
       recoverySwitch("--refresh", args.flags.force === true),
       recoverySwitch("--ignore-release-age", posture === "ignore"),
-      ...(args.names ?? []).map((name) => recoveryOption("--name", publicRecoveryValue(name))),
+      ...(candidate.outcome === "planned" ? (candidate.selectedNames ?? []) : []).map((name) =>
+        recoveryOption("--name", publicRecoveryValue(name)),
+      ),
     ]),
   );
   const resolution = yield* UpdateExtensions.previewOrApply(candidate, execution);

@@ -76,7 +76,10 @@ path.
 
 ## Specifications
 
-The update specifications under `specifications/cli/update/` own update's
-binding obligations — advancing the accepted resolution within durable intent,
-preserving configuration and unrelated state, and repeat-run no-ops; the
-[specification catalog](../../../specifications/catalog.md) indexes them.
+The `cli/update/*` specifications own update's binding obligations — advancing
+the accepted resolution within durable intent
+(`cli/update/advances-resolution-within-intent`), refusing extensions the
+workspace does not desire (`cli/update/refuses-undesired-extensions`), and pure
+preview (`cli/update/preview-is-pure`). The
+[specification catalog](../../../specifications/catalog.md) resolves each
+identity to its owning project and file.

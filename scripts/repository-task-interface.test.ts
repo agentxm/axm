@@ -328,6 +328,7 @@ describe("repository task interface", () => {
     const rootTargets = readTargets("project.json");
     const reportingTarget = rootTargets["build-test-reporting"];
     if (!isRecord(reportingTarget)) throw new Error("Missing build-test-reporting target.");
+    expect(reportingTarget["dependsOn"]).toContain("specification-metadata:build");
     expect(reportingTarget["outputs"]).toEqual(["{workspaceRoot}/out-tsc/reporting"]);
 
     const candidateTarget = rootTargets["release-prepare-candidate"];

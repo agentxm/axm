@@ -105,6 +105,11 @@ not sequence a dependency already owned by a target. Host workflows may order
 steps only where failure handling, credentials, platform setup, or external
 state prevents faithful graph representation.
 
+The root `build-test-reporting` target imports the published specification
+metadata contract, so it depends explicitly on
+`specification-metadata:build`. Clean-checkout verification must not rely on a
+previously populated package `dist` directory.
+
 `axm:distribute-release -- <version> <tag> [asset-directory]` owns artifact,
 fixed-cohort npm and Homebrew publication. It depends on cohort builds, checks
 mutable owners before publication, validates deterministic packs, verifies

@@ -55,6 +55,7 @@
     "build-test-reporting": {
       "executor": "nx:run-commands",
       "cache": true,
+      "dependsOn": ["specification-metadata:build"],
       "inputs": [
         "{workspaceRoot}/allurerc.ts",
         "{workspaceRoot}/vitest.execution.ts",

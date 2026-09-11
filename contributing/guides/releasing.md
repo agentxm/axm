@@ -239,11 +239,13 @@ pnpm release:publish:local -- --dry-run
 pnpm release:publish:local
 ```
 
-The script derives a unique preview version from the working tree
-(`{patch+1}-preview.{unix}.{short-sha}[.dirty]`), builds the release group,
-stamps the version into every release manifest, packs each package with
+The script derives a unique prerelease of the current cohort version from the
+working tree (`{version}-preview.{unix}.{short-sha}[.dirty]`), builds the release
+group, stamps the version into every release manifest, packs each package with
 `pnpm pack`, then publishes each tarball in dependency order under the chosen
-dist-tag. Manifests are restored in a `finally` block.
+dist-tag. Because npm also assigns `latest` on a package's first publication,
+keeping the preview below the current stable version lets the canonical release
+supersede that bootstrap state. Manifests are restored in a `finally` block.
 
 Install the published preview globally:
 

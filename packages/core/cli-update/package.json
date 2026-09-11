@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/cli-update",
-  "version": "0.29.0",
+  "version": "0.29.1",
   "description": "AXM self-update capability: install-ownership detection, release-channel and exact-version resolution, the startup update check, and the verified upgrade of the installed axm executable. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

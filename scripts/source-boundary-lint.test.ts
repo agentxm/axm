@@ -26,10 +26,17 @@ const OUTPUT_BOUNDARY = "apps/cli/src/screen/streams.ts";
 /** The guarded prompt boundary, where requireInteractive lives. */
 const PROMPT_BOUNDARY = "apps/cli/src/prompt/helpers.ts";
 
+/**
+ * How long the first lint in this file may take. ESLint resolves the flat
+ * configuration once per process, and this repository's configuration is large
+ * enough that the resolution alone exceeds the default case timeout.
+ */
+const CONFIG_RESOLUTION_TIMEOUT = 120_000;
+
 describe("production source boundary lint rules", () => {
   let violations: (code: string, filePath: string) => Promise<ReadonlyArray<string>>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     const eslint = new ESLint({ cwd: repoRoot });
     violations = async (code, filePath) => {
       const [result] = await eslint.lintText(code, { filePath });
@@ -37,7 +44,12 @@ describe("production source boundary lint rules", () => {
         .filter((message) => message.ruleId?.startsWith("axm-policy/") === true)
         .map((message) => `${message.ruleId ?? ""}: ${message.message}`);
     };
-  });
+    // Resolving the repository's flat configuration is lazy and costs seconds.
+    // Pay it here so it is attributed to setup, and so each case below times
+    // only the linting it actually asks for rather than whichever case ran
+    // first.
+    await violations("", PRODUCTION_SOURCE);
+  }, CONFIG_RESOLUTION_TIMEOUT);
 
   it("reports process stream writes and console calls whatever the spacing", async () => {
     expect(await violations("process.stdout.write('x');", PRODUCTION_SOURCE)).toEqual([

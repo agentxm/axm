@@ -4,8 +4,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { CliConfig, Command, GlobalFlag } from "effect/unstable/cli";
 import { rootCommand } from "../app.js";
-import { TEST_VERSION } from "../command-tree-test-helpers.js";
-import { makeCliTestContext } from "../test-helpers.js";
+import { TEST_VERSION } from "./command-tree-test-helpers.js";
+import { makeCliTestContext } from "./test-helpers.js";
 
 interface Control {
   readonly route: string;

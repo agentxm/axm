@@ -17,7 +17,7 @@ import {
   captureHelpDoc,
   collectCommandAliases,
   collectHelpFiles,
-} from "./command-tree-test-helpers.js";
+} from "./test-support/command-tree-test-helpers.js";
 import { makeAxmFormatter } from "./formatter.js";
 import { PlanResolutionDocumentSchema } from "./operation-output.js";
 import {

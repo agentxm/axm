@@ -369,14 +369,20 @@ describe("repository task interface", () => {
     expect(targetCache(targets, "test")).toBe(false);
     const hygiene = targets["verify-source-hygiene"];
     if (!isRecord(hygiene)) throw new Error("Missing verify-source-hygiene target.");
-    for (const family of ["apps", "packages", "tools", "specifications"]) {
+    // Specifications are colocated, so the families that hold authored source
+    // are the project trees plus the repository scripts; `specifications/`
+    // holds only the generated catalog, the disposition ledger, and the
+    // product-goal registry.
+    for (const family of ["apps", "packages", "tools", "scripts"]) {
       expect(hygiene["inputs"]).toContain(`{workspaceRoot}/${family}/**/*`);
     }
+    expect(hygiene["inputs"]).toContain("{workspaceRoot}/specifications/product-goals.ts");
     const catalog = targets["generate:specification-catalog"];
     if (!isRecord(catalog)) throw new Error("Missing generate:specification-catalog target.");
-    for (const family of ["apps", "packages", "tools", "specifications"]) {
+    for (const family of ["apps", "packages", "tools", "scripts"]) {
       expect(catalog["inputs"]).toContain(`{workspaceRoot}/${family}/**/*.spec.ts`);
     }
+    expect(catalog["inputs"]).toContain("{workspaceRoot}/specifications/product-goals.ts");
     expect(catalog["outputs"]).toEqual(["{workspaceRoot}/specifications/catalog.md"]);
   });
 

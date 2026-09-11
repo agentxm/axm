@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { collectCommandAliases } from "./command-tree-test-helpers.js";
+import { collectCommandAliases } from "./test-support/command-tree-test-helpers.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 

@@ -1,4 +1,4 @@
-import { startedUnits } from "../../screen/index.js";
+import { startedUnits } from "../../test-support/presenter-test.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -8,8 +8,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";
-import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  computeMaterializedTreeIntegritySync,
+  writeWorkspaceFiles,
+} from "../../test-support/test-stubs.js";
+import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { handleList } from "./command.js";
 
 describe("root list", () => {

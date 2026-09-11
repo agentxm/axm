@@ -17,7 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { extensionName, writeWorkspaceFiles } from "../../../test-stubs.js";
+import { extensionName, writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,
   expectAppliedPlanResult,
@@ -27,7 +27,7 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
-} from "../../../test-helpers.js";
+} from "../../../test-support/test-helpers.js";
 import { handleSubagentsNew, type SubagentsNewHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------

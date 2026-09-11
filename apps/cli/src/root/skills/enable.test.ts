@@ -15,13 +15,13 @@ import {
   computePackageContentHashSync,
   extensionName,
   writeWorkspaceFiles,
-} from "../../test-stubs.js";
+} from "../../test-support/test-stubs.js";
 import { computeSourceHash } from "@agentxm/workspace-state";
 import {
   expectNoOpPlanResult,
   getAppError,
   makeWorkspaceHandlerTestContext,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleEnable, type EnableHandlerArgs } from "./enable.js";
 
 // -----------------------------------------------------------------------------

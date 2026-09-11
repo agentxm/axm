@@ -31,3 +31,54 @@ export const ErrorEnvelope = Schema.Struct({
     ),
   ),
 });
+
+/**
+ * The `agents list --json` result document. The producer's own schema also
+ * carries `items`, `available` and `count`; only the fields these
+ * specifications read are declared, so the decode stays independent evidence.
+ */
+export const AgentsListDocument = Schema.Struct({
+  configured: Schema.Array(Schema.String),
+  detected: Schema.Array(Schema.String),
+});
+
+/** One row of the `instructions status --json` document. */
+const InstructionStatusItem = Schema.Struct({
+  agentId: Schema.String,
+  sourceFile: Schema.String,
+  targetFile: Schema.String,
+});
+
+/** The `instructions status --json` result document. */
+export const InstructionsStatusDocument = Schema.Struct({
+  enabled: Schema.Boolean,
+  sourceFileName: Schema.String,
+  roots: Schema.Array(Schema.String),
+  items: Schema.Array(InstructionStatusItem),
+});
+
+/**
+ * The plan-resolution result document every preview or apply writes. Only the
+ * fields these examples read are declared, so the decode stays independent of
+ * the producer's own schema.
+ */
+export const PlanResolutionDocument = Schema.Struct({
+  /** `false` when the resolution stopped; the outcome says why. */
+  ok: Schema.Boolean,
+  result: Schema.Struct({
+    outcome: Schema.String,
+    counts: Schema.optional(Schema.Struct({ committed: Schema.Number })),
+    blocking: Schema.optional(
+      Schema.Struct({
+        class: Schema.String,
+        subject: Schema.optional(Schema.String),
+        escape: Schema.optional(
+          Schema.Struct({
+            description: Schema.optional(Schema.String),
+            cmd: Schema.optional(Schema.String),
+          }),
+        ),
+      }),
+    ),
+  }),
+});

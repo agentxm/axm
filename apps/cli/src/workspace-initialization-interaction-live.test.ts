@@ -10,7 +10,7 @@ import * as Queue from "effect/Queue";
 import * as Terminal from "effect/Terminal";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { nonInteractiveFlag } from "./cli-flags/index.js";
-import { TestRenderer } from "./screen/index.js";
+import { TestRenderer } from "./test-support/presenter-test.js";
 import {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,

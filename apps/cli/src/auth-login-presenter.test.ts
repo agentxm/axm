@@ -10,7 +10,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { AuthLoginPresenter, type DeviceLoginPendingResult } from "@agentxm/registry-auth";
-import { TestMachineRenderer, TestRenderer, logsByTag, startedUnits } from "./screen/index.js";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+  logsByTag,
+  startedUnits,
+} from "./test-support/presenter-test.js";
 import { withLiveOperation } from "./root/shared/operation-lifecycle.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 

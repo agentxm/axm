@@ -5,9 +5,11 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 import { TELEMETRY_EVENT_TIMEOUT, TelemetryClient, TelemetryClientLive } from "./client.js";
-import { at, expectRecord, property } from "../test-helpers.js";
+import { TelemetryEventsRequest } from "./__generated__/telemetry-client.js";
+import { at, expectRecord, property } from "../test-support/test-helpers.js";
 
 interface CapturedRequest {
   readonly url: string;
@@ -483,4 +485,34 @@ describe("TelemetryClientLive", () => {
       }),
     );
   });
+});
+
+describe("telemetry ingest contract decoding", () => {
+  // The data-boundary specification decodes captured payloads with
+  // `onExcessProperty: "error"`. This is that check checking itself: a field
+  // the contract does not declare has to be rejected, or the specification's
+  // "only these fields" evidence would prove nothing.
+  it.effect("a field outside the contract is rejected by the closed decode", () =>
+    Effect.gen(function* () {
+      const widened = {
+        events: [
+          {
+            event: "command:start",
+            distinctId: "abc",
+            timestamp: "2025-01-01T00:00:00.000Z",
+            properties: {},
+          },
+        ],
+        sentAt: "2025-01-01T00:00:00.000Z",
+        context: { client: { name: "cli", version: "1.2.3" } },
+        workspacePath: "/home/operator/project",
+      };
+
+      const outcome = yield* Schema.decodeUnknownEffect(TelemetryEventsRequest)(widened, {
+        onExcessProperty: "error",
+      }).pipe(Effect.flip);
+
+      expect(String(outcome)).toContain("workspacePath");
+    }),
+  );
 });

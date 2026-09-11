@@ -41,8 +41,8 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   stringProperty,
-} from "../../../test-helpers.js";
-import { writeWorkspaceFiles } from "../../../test-stubs.js";
+} from "../../../test-support/test-helpers.js";
+import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
 
 // -----------------------------------------------------------------------------

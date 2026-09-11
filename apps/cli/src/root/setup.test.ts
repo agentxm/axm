@@ -16,7 +16,7 @@ import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { BRANDING } from "../branding/index.js";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
-import { TestMachineRenderer, TestRenderer } from "../screen/index.js";
+import { TestMachineRenderer, TestRenderer } from "../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
@@ -24,7 +24,7 @@ import { WorkspaceInitializationCancelled } from "@agentxm/workspace-configurati
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { expectDefined, expectRecord, property } from "../test-helpers.js";
+import { expectDefined, expectRecord, property } from "../test-support/test-helpers.js";
 import {
   AXM_SKILL_JSON,
   AXM_SKILL_MD,

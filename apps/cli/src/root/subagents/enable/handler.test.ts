@@ -11,12 +11,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
   getAppError,
   makeWorkspaceHandlerTestContext,
-} from "../../../test-helpers.js";
+} from "../../../test-support/test-helpers.js";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,

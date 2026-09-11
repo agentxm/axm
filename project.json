@@ -258,7 +258,7 @@
         "{workspaceRoot}/apps/**/*",
         "{workspaceRoot}/packages/**/*",
         "{workspaceRoot}/tools/**/*",
-        "{workspaceRoot}/specifications/**/*"
+        "{workspaceRoot}/specifications/product-goals.ts"
       ],
       "options": {
         "command": "bun scripts/verify-source-hygiene.ts",
@@ -314,7 +314,7 @@
         "{workspaceRoot}/apps/**/*.spec.ts",
         "{workspaceRoot}/packages/**/*.spec.ts",
         "{workspaceRoot}/tools/**/*.spec.ts",
-        "{workspaceRoot}/specifications/**/*.spec.ts",
+        "{workspaceRoot}/scripts/**/*.spec.ts",
         "{workspaceRoot}/apps/*-e2e/src/**/*.ts",
         "{workspaceRoot}/specifications/product-goals.ts",
         "{workspaceRoot}/**/project.json",

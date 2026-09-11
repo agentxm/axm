@@ -20,7 +20,6 @@ export const executionBinding = {
   requirements: [
     "cli/update/advances-resolution-within-intent",
     "cli/publish/requires-explicit-acceptance-for-non-head-source",
-    "cli/publish/outcomes-report-source-state",
     "cli/inventories-can-run-before-setup",
     "cli/type-lists-report-local-state",
     "cli/invalid-workspace-state-gates-operations",

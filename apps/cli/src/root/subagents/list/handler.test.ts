@@ -10,8 +10,11 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import { expectNoPlanEnvelope, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
+import {
+  expectNoPlanEnvelope,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-support/test-helpers.js";
 import { handleListSubagents } from "./handler.js";
 
 // -----------------------------------------------------------------------------

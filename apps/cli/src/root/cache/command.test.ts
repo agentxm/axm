@@ -1,11 +1,11 @@
-import { startedUnits } from "../../screen/index.js";
+import { startedUnits } from "../../test-support/presenter-test.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { makeCliTestContext, makeEffectProvide } from "../../test-helpers.js";
+import { makeCliTestContext, makeEffectProvide } from "../../test-support/test-helpers.js";
 import { handleCachePrune, handleCacheStatus, handleCacheVerify } from "./command.js";
 
 describe("cache commands", () => {

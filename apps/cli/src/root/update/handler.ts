@@ -49,9 +49,10 @@ const INSPECT_INSTALLED: SuggestedAction = {
 /**
  * What to type next when an update is refused. The refusal itself is the
  * feature's; the command that recovers from it is this adapter's, because
- * only the adapter knows how its own routes are spelled.
+ * only the adapter knows how its own routes are spelled. Exported so the
+ * argv each blocker recovers through is asserted beside the table itself.
  */
-const blockerSuggestions = (
+export const blockerSuggestions = (
   context: TargetedUpdatePublicContext | undefined,
 ): ReadonlyArray<SuggestedAction> => {
   // An unclassified context carries no blocker to recover from; the switch

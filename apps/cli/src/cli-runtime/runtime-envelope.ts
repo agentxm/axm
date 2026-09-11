@@ -53,13 +53,22 @@ import {
 } from "../telemetry/index.js";
 
 import { InteractiveScreen, MachineScreen, resolveCliOutputPolicy } from "../screen/index.js";
-import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
+import {
+  makeVerbosityLayer,
+  resolveVerbosityLevel,
+  Verbosity,
+  type VerbosityLevel,
+} from "../cli-flags/index.js";
 import { makeJsonErrorEnvelope } from "./json-envelope.js";
 import { Screen } from "../screen/index.js";
 
 export interface CliTelemetryConfig {
   readonly mode: TelemetryClientOptions["mode"];
   readonly client: TelemetryClientOptions["client"];
+  /** Deliver while the repository's own test run executes. Off by default. */
+  readonly deliverInTest?: TelemetryClientOptions["deliverInTest"];
+  /** Where host identity comes from. Defaults to this machine. */
+  readonly host?: TelemetryClientOptions["host"];
 }
 
 const defectMessage = (cause: Cause.Cause<unknown>): string => {
@@ -243,15 +252,9 @@ export const makeFoundationLayer = (
           const envDebug = options?.envDebug ?? false;
           const envVerbose = options?.envVerbose ?? false;
 
-          const level: VerbosityLevel = flagQuiet
-            ? "quiet"
-            : flagDebug || envDebug
-              ? "debug"
-              : flagVerbose || envVerbose
-                ? "verbose"
-                : "normal";
-
-          return makeVerbosityLayer(level);
+          return makeVerbosityLayer(
+            resolveVerbosityLevel({ flagQuiet, flagDebug, flagVerbose, envDebug, envVerbose }),
+          );
         }),
       );
 
@@ -287,6 +290,10 @@ export const withCliErrorHandling = <A, R>(
     mode: options.telemetryConfig.mode,
     command,
     client: options.telemetryConfig.client,
+    ...(options.telemetryConfig.deliverInTest === undefined
+      ? {}
+      : { deliverInTest: options.telemetryConfig.deliverInTest }),
+    ...(options.telemetryConfig.host === undefined ? {} : { host: options.telemetryConfig.host }),
   });
 
   const enrichedProgram = Effect.gen(function* () {

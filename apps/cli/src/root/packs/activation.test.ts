@@ -22,7 +22,10 @@ import { SkillManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
 
-import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";
+import {
+  computeMaterializedTreeIntegritySync,
+  writeWorkspaceFiles,
+} from "../../test-support/test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -31,7 +34,7 @@ import {
   expectRecord,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handlePackActivation } from "./activation.js";
 import { buildAggregateProjectionStep } from "@agentxm/extension-lifecycle";
 import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";

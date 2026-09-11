@@ -56,7 +56,12 @@ export const directoryFlag = GlobalFlag.setting("axm-directory")({
   ),
 });
 
-export { resolveVerbosityFromArgv } from "./resolve-verbosity.js";
+export {
+  isEnabledEnvRequest,
+  resolveVerbosityFromArgv,
+  resolveVerbosityLevel,
+  type DiagnosticRequest,
+} from "./resolve-verbosity.js";
 export { isMachineOutput, promptAvailability } from "./interactivity.js";
 
 // ---------------------------------------------------------------------------

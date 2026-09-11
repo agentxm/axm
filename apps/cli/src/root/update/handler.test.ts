@@ -33,8 +33,8 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
-} from "../../test-helpers.js";
-import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
+} from "../../test-support/test-helpers.js";
+import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { handleUpdate } from "./handler.js";
 
 describe("root update handler", () => {

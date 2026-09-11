@@ -9,7 +9,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { RegistryUrl } from "@agentxm/registry-client";
 
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { handleWhoami, WhoamiDocumentSchema } from "./whoami.js";
 
 export const specification = defineSpecification({

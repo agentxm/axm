@@ -5,14 +5,14 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
-import { TestRenderer } from "./screen/index.js";
+import { TestRenderer } from "./test-support/presenter-test.js";
 import { toJsonHelpDoc } from "./cli-runtime/index.js";
 import { rootCommand } from "./app.js";
 import {
   captureHelpDoc,
   captureHelpRequestDoc,
   collectHelpFiles,
-} from "./command-tree-test-helpers.js";
+} from "./test-support/command-tree-test-helpers.js";
 import { HELP_TOPIC_KINDS, HELP_TOPIC_NAMES, HELP_TOPICS } from "./__generated__/help-topics.js";
 import { LearnMore } from "./formatter.js";
 import { HelpTopicResultSchema, handleHelpPath } from "./root/help/command.js";

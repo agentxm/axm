@@ -78,21 +78,6 @@ describe("Settings schema", () => {
       ).toThrow();
     });
 
-    it("rejects a per-entry agent subset on MCP server entries and names the key", () => {
-      for (const entry of [
-        { command: "npx", args: ["-y", "example-mcp"], agents: ["claude-code"] },
-        { source: "@acme/mcps/context@^1.0.0", agents: ["claude-code"] },
-        { url: "https://mcp.example.dev/sse", agents: ["claude-code"] },
-      ]) {
-        expect(() =>
-          Schema.decodeUnknownSync(SettingsSchema)(
-            { agents: ["claude-code", "codex"], mcpServers: { example: entry } },
-            { onExcessProperty: "error" },
-          ),
-        ).toThrow(/agents/);
-      }
-    });
-
     it("accepts minimumReleaseAge duration strings", () => {
       const input = { minimumReleaseAge: "24h" };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);

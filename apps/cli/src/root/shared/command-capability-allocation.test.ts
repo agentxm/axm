@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
 import { rootCommand } from "../../app.js";
-import { collectHelpFiles } from "../../command-tree-test-helpers.js";
+import { collectHelpFiles } from "../../test-support/command-tree-test-helpers.js";
 import { registeredCommandCapabilities } from "./command-capabilities.js";
 
 import {

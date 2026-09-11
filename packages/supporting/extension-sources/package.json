@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/extension-sources",
   "version": "0.28.12",
-  "description": "AXM extension-source integration: source locator routing over the contract grammar, host providers for Registry, GitHub, GitLab, Bitbucket, Azure Repos, generic Git, and local paths, convention and manifest package discovery, identifier resolution, and shallow git acquisition for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "AXM extension-source integration: source locator routing over the contract grammar, host providers for Registry, GitHub, GitLab, Bitbucket, Azure Repos, generic Git, and local paths, convention and manifest package discovery, identifier resolution, and shallow git acquisition for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -25,6 +25,11 @@
       "types": "./dist/src/live.d.ts",
       "axm-source": "./src/live.ts",
       "default": "./dist/src/live.js"
+    },
+    "./testing": {
+      "types": "./dist/src/testing.d.ts",
+      "axm-source": "./src/testing.ts",
+      "default": "./dist/src/testing.js"
     }
   },
   "files": [
@@ -50,6 +55,7 @@
     "simple-git": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/specification-metadata": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/semver": "catalog:",

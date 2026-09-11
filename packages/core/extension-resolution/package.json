@@ -25,6 +25,11 @@
       "types": "./dist/src/live.d.ts",
       "axm-source": "./src/live.ts",
       "default": "./dist/src/live.js"
+    },
+    "./testing": {
+      "types": "./dist/src/testing.d.ts",
+      "axm-source": "./src/testing.ts",
+      "default": "./dist/src/testing.js"
     }
   },
   "files": [
@@ -50,6 +55,7 @@
     "semver": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/specification-metadata": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/semver": "catalog:",

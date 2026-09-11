@@ -28,11 +28,11 @@ import {
   PendingDeviceLoginStoreTest,
 } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { expectRecord, property } from "../../test-helpers.js";
+import { expectRecord, property } from "../../test-support/test-helpers.js";
 import { handleLogin } from "./login.js";
 import { deviceCodeFallbackNote } from "./view.js";
 import { paragraphDoc } from "../../screen/index.js";

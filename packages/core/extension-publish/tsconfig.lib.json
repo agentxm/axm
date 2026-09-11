@@ -18,6 +18,9 @@
   ],
   "references": [
     {
+      "path": "../../../tools/specification-metadata/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-transactions/tsconfig.lib.json"
     },
     {

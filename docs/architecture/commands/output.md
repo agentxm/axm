@@ -102,7 +102,7 @@ classifies every command path and tests compare it with the real command tree,
 so a command cannot silently acquire or lose a machine contract.
 
 Contract changes follow the executable specification
-[`system/process/pre-launch-changes-stay-coherent`](../../../specifications/system/process/pre-launch-changes-stay-coherent.spec.ts).
+[`system/process/pre-launch-changes-stay-coherent`](../../../scripts/pre-launch-changes-stay-coherent.spec.ts).
 Before public launch, a change updates the canonical schema, affected producers
 and consumers, specifications, fixtures, and generated artifacts together.
 

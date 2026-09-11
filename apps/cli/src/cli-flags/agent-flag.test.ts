@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
 import { rootCommand } from "../app.js";
-import { TEST_VERSION } from "../command-tree-test-helpers.js";
+import { TEST_VERSION } from "../test-support/command-tree-test-helpers.js";
 import { baseLayer } from "../runtime.js";
 import { agentFlag } from "./agent-flag.js";
 

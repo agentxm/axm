@@ -31,14 +31,6 @@ export const specification = defineSpecification({
     "Claude Code and Cursor keep distinct project-scope MCP configuration files, so a server present in one file and absent from the other observes adoption reaching a second agent.",
   ],
   openQuestions: [],
-  limitations: [
-    {
-      limitation:
-        "Adoption is observed as far as the recorded entry and the native targets the import plan names. Whether the next reconciliation actually writes the imported server into every configured agent is not stated here: reconciliation is the workspace-sync feature, which a feature package may not import, so that clause holds only for authored inline entries under cli/mcps/projects-to-every-configured-agent.",
-      retirementCondition:
-        "Add an imported-server row to cli/mcps/projects-to-every-configured-agent, or restate the projection clause here once a workspace-sync testing port lets this package drive a reconciliation.",
-    },
-  ],
 });
 
 const CLAUDE_CODE_CONFIG = ".mcp.json";
@@ -70,6 +62,13 @@ const targetPaths = (resolution: {
       : [];
   });
 
+/**
+ * What the next reconciliation then writes is stated over the reconciliation
+ * itself, which a feature package may not import: the row "an imported server
+ * reaches every configured agent, not only the one that declared it" in
+ * `cli/mcps/projects-to-every-configured-agent` imports a server declared in
+ * one agent's file, syncs, and finds it in both.
+ */
 describe("Importing a natively configured MCP server", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {

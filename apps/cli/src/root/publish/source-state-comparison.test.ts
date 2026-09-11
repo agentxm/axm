@@ -36,7 +36,7 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   property,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleRootPublish, type RootPublishHandlerArgs } from "./command.js";
 
 const args = (

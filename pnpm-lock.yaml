@@ -343,13 +343,13 @@ importers:
       marked:
         specifier: ^18.0.9
         version: 18.0.9
-      yaml:
-        specifier: 'catalog:'
-        version: 2.9.0
     devDependencies:
       '@agentxm/extension-type-parity':
         specifier: workspace:*
         version: link:../../tools/extension-type-parity
+      '@agentxm/test-support':
+        specifier: workspace:^
+        version: link:../../tools/test-support
       '@effect/openapi-generator':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1))(effect@4.0.0-rc.112)
@@ -380,6 +380,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.0
 
   apps/cli-e2e:
     devDependencies:
@@ -857,6 +860,9 @@ importers:
         specifier: 'catalog:'
         version: 7.8.5
     devDependencies:
+      '@agentxm/specification-metadata':
+        specifier: workspace:^
+        version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -1298,6 +1304,9 @@ importers:
         specifier: 'catalog:'
         version: 7.8.5
     devDependencies:
+      '@agentxm/registry-client':
+        specifier: workspace:^
+        version: link:../../supporting/registry-client
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -1406,6 +1415,9 @@ importers:
         specifier: 'catalog:'
         version: 3.36.0(supports-color@7.2.0)
     devDependencies:
+      '@agentxm/specification-metadata':
+        specifier: workspace:^
+        version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -1446,6 +1458,9 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2
     devDependencies:
+      '@agentxm/specification-metadata':
+        specifier: workspace:^
+        version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
@@ -1510,64 +1525,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  specifications:
-    dependencies:
-      '@agentxm/extension-content':
-        specifier: workspace:^
-        version: link:../packages/core/extension-content
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../packages/core/extension-model
-      '@agentxm/registry-auth':
-        specifier: workspace:^
-        version: link:../packages/supporting/registry-auth
-      '@agentxm/registry-protocol':
-        specifier: workspace:^
-        version: link:../packages/core/registry-protocol
-      '@agentxm/specification-metadata':
-        specifier: workspace:^
-        version: link:../tools/specification-metadata
-      '@agentxm/test-support':
-        specifier: workspace:^
-        version: link:../tools/test-support
-      '@agentxm/workspace-configuration':
-        specifier: workspace:^
-        version: link:../packages/core/workspace-configuration
-      axm.sh:
-        specifier: workspace:^
-        version: link:../apps/cli
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
-      '@types/bun':
-        specifier: 'catalog:'
-        version: 1.3.14
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      allure-js-commons:
-        specifier: 'catalog:'
-        version: 3.11.0
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112
-      fflate:
-        specifier: 'catalog:'
-        version: 0.8.3
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-      yaml:
-        specifier: 'catalog:'
-        version: 2.9.0
 
   tools/e2e-utils:
     dependencies:

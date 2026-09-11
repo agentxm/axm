@@ -1,4 +1,4 @@
-import { startedUnits } from "../../screen/index.js";
+import { startedUnits } from "../../test-support/presenter-test.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -17,8 +17,11 @@ import {
   NO_MATERIALIZATION_FACTS,
   writeKnowledgeExtension,
   writeWorkspaceFiles,
-} from "../../test-stubs.js";
-import { expectAppliedPlanResult, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+} from "../../test-support/test-stubs.js";
+import {
+  expectAppliedPlanResult,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-support/test-helpers.js";
 import { setKnowledgeEnabled } from "./activation.js";
 import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeConceptGet } from "./concepts/get.js";

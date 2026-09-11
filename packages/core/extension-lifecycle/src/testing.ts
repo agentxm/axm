@@ -75,9 +75,16 @@ export const bundledAxmSkillAsset = (
     readonly version?: string;
     readonly runningCliVersion?: string;
     readonly body?: string;
+    /**
+     * The compatibility range the asset declares. The default is the bounded,
+     * wildcard-free form the install validates against; an unbounded range is
+     * what an incompatible-asset example supplies deliberately.
+     */
+    readonly cliVersionRange?: string;
   } = {},
 ): Layer.Layer<BundledAxmSkillAsset> => {
   const version = options.version ?? "1.0.0";
+  const nextMajor = `${Number(version.split(".")[0] ?? "0") + 1}.0.0`;
   const body =
     options.body ?? "---\nname: axm\ndescription: The official AXM skill.\n---\n\n# axm\n";
   return Layer.succeed(BundledAxmSkillAsset, {
@@ -94,7 +101,7 @@ export const bundledAxmSkillAsset = (
     )}\n`,
     version,
     cliVersion: version,
-    cliVersionRange: `>=${version}`,
+    cliVersionRange: options.cliVersionRange ?? `>=${version} <${nextMajor}`,
     sourceFiles: [{ path: "SKILL.md", base64: Buffer.from(body).toString("base64") }],
     runningCliVersion: options.runningCliVersion ?? version,
   });
@@ -167,6 +174,18 @@ export interface LifecycleFixtureOptions {
    * that a choice was — or was not — asked for.
    */
   readonly select?: "all" | "none";
+  /**
+   * Whether a confirmable risk condition can be approved at a prompt, and
+   * what happens when one opens. The default has no terminal, so a
+   * confirmable condition blocks naming interactive approval instead of
+   * prompting. `onConfirm` runs while the answer is still pending, which is
+   * where a specification observes that nothing was written before it.
+   */
+  readonly confirmation?: {
+    readonly available?: boolean;
+    readonly answer?: "approved" | "declined" | "cancelled";
+    readonly onConfirm?: () => void;
+  };
 }
 
 /**
@@ -230,7 +249,15 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
     writeFile(relativePath, contents);
   }
 
-  const interaction = ResolvePlanInteractionTest();
+  const confirmation = options.confirmation;
+  const interaction = ResolvePlanInteractionTest({
+    isConfirmationAvailable: confirmation?.available ?? false,
+    confirmApplyChanges: () =>
+      Effect.sync(() => {
+        confirmation?.onConfirm?.();
+        return confirmation?.answer ?? "approved";
+      }),
+  });
   const selectionCalls: Array<{
     readonly type: "skill" | "subagent";
     readonly offered: ReadonlyArray<string>;

@@ -21,7 +21,7 @@ import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace-projection/live";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "../../screen/index.js";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { HookManagerLive } from "@agentxm/extension-materialization/live";
 import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";

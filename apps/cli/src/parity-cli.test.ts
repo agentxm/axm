@@ -29,7 +29,7 @@ import * as EffectRecord from "effect/Record";
 import { describe, expect, it } from "@effect/vitest";
 
 import { HELP_TOPIC_NAMES } from "./__generated__/help-topics.js";
-import { collectHelpFiles, type HelpFiles } from "./command-tree-test-helpers.js";
+import { collectHelpFiles, type HelpFiles } from "./test-support/command-tree-test-helpers.js";
 
 const TIER = "cli-test";
 

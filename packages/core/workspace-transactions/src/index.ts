@@ -50,14 +50,12 @@ export {
 } from "./transition-lock.js";
 
 export {
-  bindWorkspaceTransactionRunner,
   pendingClosureRestorations,
   rollbackWorkspaceClosure,
   runWorkspaceTransaction,
   settleWorkspaceClosure,
   withWorkspaceClosure,
   type WorkspaceTransactionArgs,
-  type WorkspaceTransactionRunner,
 } from "./transaction.js";
 
 export type { PendingClosureRestoration } from "./ledger.js";

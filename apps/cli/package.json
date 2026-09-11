@@ -55,12 +55,6 @@
       "experimental": "./dist/src/runtime.js",
       "default": "./dist/src/runtime.js"
     },
-    "./specification-harness": {
-      "types": "./dist/src/specification-harness.d.ts",
-      "axm-source": "./src/specification-harness.ts",
-      "experimental": "./dist/src/specification-harness.js",
-      "default": "./dist/src/specification-harness.js"
-    },
     "./unstable/site-content/schemas/*": "./site-content/__generated__/schemas/*",
     "./unstable/site-content/*": "./site-content/*"
   },
@@ -107,11 +101,11 @@
     "@agentxm/workspace-transactions": "workspace:^",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
-    "marked": "^18.0.9",
-    "yaml": "catalog:"
+    "marked": "^18.0.9"
   },
   "devDependencies": {
     "@agentxm/extension-type-parity": "workspace:*",
+    "@agentxm/test-support": "workspace:^",
     "@effect/openapi-generator": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
@@ -121,6 +115,7 @@
     "semver": "catalog:",
     "swagger2openapi": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   }
 }

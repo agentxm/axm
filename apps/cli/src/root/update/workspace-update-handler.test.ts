@@ -15,13 +15,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
 
 describe("workspace update handler output", () => {

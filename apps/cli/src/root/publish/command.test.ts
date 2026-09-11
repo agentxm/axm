@@ -1,4 +1,4 @@
-import { startedUnits } from "../../screen/index.js";
+import { startedUnits } from "../../test-support/presenter-test.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -47,8 +47,13 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   property,
-} from "../../test-helpers.js";
-import { exactVersion, extensionName, handle, versionRange } from "../../test-stubs.js";
+} from "../../test-support/test-helpers.js";
+import {
+  exactVersion,
+  extensionName,
+  handle,
+  versionRange,
+} from "../../test-support/test-stubs.js";
 import { emitPublishResult } from "./result.js";
 import {
   normalizePublishResult,

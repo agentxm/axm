@@ -14,8 +14,8 @@ import {
 } from "@agentxm/registry-client";
 import type { DiscoverPackagesResponse } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 
-import { startedUnits } from "../../screen/index.js";
-import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-helpers.js";
+import { startedUnits } from "../../test-support/presenter-test.js";
+import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-support/test-helpers.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { handleDiscover } from "./handler.js";

@@ -274,5 +274,107 @@
     "disposition": "engineering-policy",
     "basis": "Review-tooling behavior with no standing outside the author's review process, derived from the implementation it described; the colocated-specifications decision record now owns the classification policy.",
     "enforcement": "scripts/specification-verdict.test.ts (requirement change classification, verdict presentation); docs/architecture/decisions/colocated-specifications.md"
+  },
+  {
+    "requirement": "cli/hooks/publish/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/publish/preview-is-pure",
+    "basis": "Publishing means one thing for every authored type: the workspace-authored packages of that type are selected, admitted into a publication set, and \u2014 in preview \u2014 reported without any upload or state change. The successor states that rule once and demonstrates it across a seven-type example table over the extension-publish preview use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar (which routes accept --preview and refuse --yes) stays with cli/preview-uses-the-canonical-flag, which sweeps every route."
+  },
+  {
+    "requirement": "cli/hooks/update/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/update/preview-is-pure",
+    "basis": "Update means one thing for every managed extension type: within the intent the workspace recorded, the accepted resolution advances to a newer version the source offers, and a preview of that advance writes nothing. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle update use case \u2014 the previewed advance, the selection that names nothing configured, the source that cannot supply the advance, and the apply that follows a preview \u2014 so the per-type files restated a rule rather than adding one. A previewed publisher change is owned by cli/publisher-changes-require-interactive-approval, and per-type flag grammar stays with cli/preview-uses-the-canonical-flag and cli/confirmation-flags-have-a-supported-purpose."
+  },
+  {
+    "requirement": "cli/knowledge/publish/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/publish/preview-is-pure",
+    "basis": "Publishing means one thing for every authored type: the workspace-authored packages of that type are selected, admitted into a publication set, and \u2014 in preview \u2014 reported without any upload or state change. The successor states that rule once and demonstrates it across a seven-type example table over the extension-publish preview use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar (which routes accept --preview and refuse --yes) stays with cli/preview-uses-the-canonical-flag, which sweeps every route."
+  },
+  {
+    "requirement": "cli/knowledge/update/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/update/preview-is-pure",
+    "basis": "Update means one thing for every managed extension type: within the intent the workspace recorded, the accepted resolution advances to a newer version the source offers, and a preview of that advance writes nothing. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle update use case \u2014 the previewed advance, the selection that names nothing configured, the source that cannot supply the advance, and the apply that follows a preview \u2014 so the per-type files restated a rule rather than adding one. A previewed publisher change is owned by cli/publisher-changes-require-interactive-approval, and per-type flag grammar stays with cli/preview-uses-the-canonical-flag and cli/confirmation-flags-have-a-supported-purpose."
+  },
+  {
+    "requirement": "cli/login/browser-sign-in-uses-the-local-web-surface",
+    "disposition": "superseded-by",
+    "successor": "cli/login/uses-matching-hosted-authorization-origin",
+    "basis": "One rule governed both: AXM derives the authorization request origin and the expected callback issuer from the selected Registry's own origin. The successor now states that rule for every Registry and carries the three local development pairs (localhost:4300->4200, localhost:4310->4210, 127.0.0.1:4320->4220) beside the two hosted pairs in one example table, so the local surface is a row rather than a second accepted statement."
+  },
+  {
+    "requirement": "cli/mcps/publish/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/publish/preview-is-pure",
+    "basis": "Publishing means one thing for every authored type: the workspace-authored packages of that type are selected, admitted into a publication set, and \u2014 in preview \u2014 reported without any upload or state change. The successor states that rule once and demonstrates it across a seven-type example table over the extension-publish preview use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar (which routes accept --preview and refuse --yes) stays with cli/preview-uses-the-canonical-flag, which sweeps every route."
+  },
+  {
+    "requirement": "cli/mcps/update/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/update/preview-is-pure",
+    "basis": "Update means one thing for every managed extension type: within the intent the workspace recorded, the accepted resolution advances to a newer version the source offers, and a preview of that advance writes nothing. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle update use case \u2014 the previewed advance, the selection that names nothing configured, the source that cannot supply the advance, and the apply that follows a preview \u2014 so the per-type files restated a rule rather than adding one. A previewed publisher change is owned by cli/publisher-changes-require-interactive-approval, and per-type flag grammar stays with cli/preview-uses-the-canonical-flag and cli/confirmation-flags-have-a-supported-purpose."
+  },
+  {
+    "requirement": "cli/packs/publish/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/publish/preview-is-pure",
+    "basis": "Publishing means one thing for every authored type: the workspace-authored packages of that type are selected, admitted into a publication set, and \u2014 in preview \u2014 reported without any upload or state change. The successor states that rule once and demonstrates it across a seven-type example table over the extension-publish preview use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar (which routes accept --preview and refuse --yes) stays with cli/preview-uses-the-canonical-flag, which sweeps every route."
+  },
+  {
+    "requirement": "cli/packs/update/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/update/preview-is-pure",
+    "basis": "Update means one thing for every managed extension type: within the intent the workspace recorded, the accepted resolution advances to a newer version the source offers, and a preview of that advance writes nothing. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle update use case \u2014 the previewed advance, the selection that names nothing configured, the source that cannot supply the advance, and the apply that follows a preview \u2014 so the per-type files restated a rule rather than adding one. A previewed publisher change is owned by cli/publisher-changes-require-interactive-approval, and per-type flag grammar stays with cli/preview-uses-the-canonical-flag and cli/confirmation-flags-have-a-supported-purpose."
+  },
+  {
+    "requirement": "cli/publish/outcomes-report-source-state",
+    "disposition": "superseded-by",
+    "successor": "cli/publish/requires-explicit-acceptance-for-non-head-source",
+    "basis": "One rule governs the comparison with Git HEAD: what the comparison found decides whether an extension needs explicit acceptance and is the same thing every outcome reports. The successor's decision table now carries the reported source state on each row \u2014 matching HEAD, differing from HEAD with the material differences and their count, no HEAD, differences confined to excluded paths, and outside Git with no report at all \u2014 so the reporting clause is stated once beside the rule that produces it. The status enumeration over the pure assessment stays supporting coverage beside source-state.ts, and the machine serialization of the typed outcome stays an ordinary apps/cli test beside the publish result mapping."
+  },
+  {
+    "requirement": "cli/rules/publish/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/publish/preview-is-pure",
+    "basis": "Publishing means one thing for every authored type: the workspace-authored packages of that type are selected, admitted into a publication set, and \u2014 in preview \u2014 reported without any upload or state change. The successor states that rule once and demonstrates it across a seven-type example table over the extension-publish preview use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar (which routes accept --preview and refuse --yes) stays with cli/preview-uses-the-canonical-flag, which sweeps every route."
+  },
+  {
+    "requirement": "cli/rules/update/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/update/preview-is-pure",
+    "basis": "Update means one thing for every managed extension type: within the intent the workspace recorded, the accepted resolution advances to a newer version the source offers, and a preview of that advance writes nothing. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle update use case \u2014 the previewed advance, the selection that names nothing configured, the source that cannot supply the advance, and the apply that follows a preview \u2014 so the per-type files restated a rule rather than adding one. A previewed publisher change is owned by cli/publisher-changes-require-interactive-approval, and per-type flag grammar stays with cli/preview-uses-the-canonical-flag and cli/confirmation-flags-have-a-supported-purpose."
+  },
+  {
+    "requirement": "cli/skills/publish/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/publish/preview-is-pure",
+    "basis": "Publishing means one thing for every authored type: the workspace-authored packages of that type are selected, admitted into a publication set, and \u2014 in preview \u2014 reported without any upload or state change. The successor states that rule once and demonstrates it across a seven-type example table over the extension-publish preview use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar (which routes accept --preview and refuse --yes) stays with cli/preview-uses-the-canonical-flag, which sweeps every route."
+  },
+  {
+    "requirement": "cli/skills/update/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/update/preview-is-pure",
+    "basis": "Update means one thing for every managed extension type: within the intent the workspace recorded, the accepted resolution advances to a newer version the source offers, and a preview of that advance writes nothing. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle update use case \u2014 the previewed advance, the selection that names nothing configured, the source that cannot supply the advance, and the apply that follows a preview \u2014 so the per-type files restated a rule rather than adding one. A previewed publisher change is owned by cli/publisher-changes-require-interactive-approval, and per-type flag grammar stays with cli/preview-uses-the-canonical-flag and cli/confirmation-flags-have-a-supported-purpose."
+  },
+  {
+    "requirement": "cli/subagents/publish/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/publish/preview-is-pure",
+    "basis": "Publishing means one thing for every authored type: the workspace-authored packages of that type are selected, admitted into a publication set, and \u2014 in preview \u2014 reported without any upload or state change. The successor states that rule once and demonstrates it across a seven-type example table over the extension-publish preview use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar (which routes accept --preview and refuse --yes) stays with cli/preview-uses-the-canonical-flag, which sweeps every route."
+  },
+  {
+    "requirement": "cli/subagents/update/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/update/preview-is-pure",
+    "basis": "Update means one thing for every managed extension type: within the intent the workspace recorded, the accepted resolution advances to a newer version the source offers, and a preview of that advance writes nothing. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle update use case \u2014 the previewed advance, the selection that names nothing configured, the source that cannot supply the advance, and the apply that follows a preview \u2014 so the per-type files restated a rule rather than adding one. A previewed publisher change is owned by cli/publisher-changes-require-interactive-approval, and per-type flag grammar stays with cli/preview-uses-the-canonical-flag and cli/confirmation-flags-have-a-supported-purpose."
+  },
+  {
+    "requirement": "cli/token/completes-required-human-verification",
+    "disposition": "superseded-by",
+    "successor": "cli/registry-writes-complete-required-verification",
+    "basis": "Token creation and revocation restated the challenged-write protocol the successor owns: present the action, target and verification URL, wait once within the bound, retry the identical request exactly once with the verification identifier, and report no success on denial. The successor now exercises createToken and revokeToken as two of its write kinds, with the approved, denied, and challenged-again rows the token file carried, and the completed-verification fact is the typed step-up result the use cases return."
   }
 ]

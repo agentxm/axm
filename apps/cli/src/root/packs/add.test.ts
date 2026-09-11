@@ -19,7 +19,7 @@ import {
   makeLocalSkillLockEntry,
   makeRegistrySkillLockEntry,
   writeWorkspaceFiles,
-} from "../../test-stubs.js";
+} from "../../test-support/test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -29,7 +29,7 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   property,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handlePacksAdd, type PacksAddHandlerArgs } from "./add.js";
 
 // -----------------------------------------------------------------------------

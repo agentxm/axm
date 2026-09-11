@@ -1,0 +1,116 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pathToFileURL } from "node:url";
+import { describe, expect, it } from "@effect/vitest";
+import { defineSpecification } from "@agentxm/specification-metadata";
+import { makeSpecRegistry } from "./test-support/registry-fixture.js";
+import {
+  makeEnvironmentProcessFixture,
+  withEnvironmentRegistry,
+} from "./test-support/environment-process-fixture.js";
+
+export const specification = defineSpecification({
+  requirement: "cli/environment-selects-built-in-extension-source",
+  title: "The environment selects the built-in extension source",
+  statement:
+    "For extension resolution through the built-in AgentXM source, AXM shall use a non-empty AXM_REGISTRY_LOCATION before the selected Registry service URL while preserving a file source independently from HTTP services.",
+  class: "functional",
+  role: "interface",
+  goals: ["extension-adoption", "machine-automation"],
+  boundary: "process",
+  boundaryRationale:
+    "Fresh built CLI invocations resolve and acquire distinct package bytes from real file Registries and a controlled HTTP origin, so an environment value merely parsed but ignored cannot satisfy the cases.",
+  methods: ["decision-table", "example"],
+  derivedFrom: ["apps/cli/help/topics/environment.md", "apps/cli/src/runtime.test.ts"],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
+});
+
+describe("Environment-selected extension resolution", () => {
+  // The six default-URL fallback rows (AXM_REGISTRY_LOCATION unset/empty by
+  // AXM_REGISTRY_URL unset/empty/set) are composition-root mechanics an
+  // end-to-end project may not import. They run unchanged in
+  // `apps/cli/src/runtime.test.ts`, in
+  // `describe("resolveBuiltInSources default Registry service URL")`.
+  for (const sourceForm of ["absolute path", "file URL", "HTTP URL", "empty location"] as const)
+    for (const machine of [false, true])
+      it(`${sourceForm}, ${machine ? "JSON" : "human"} output`, async () => {
+        const fixture = makeEnvironmentProcessFixture();
+        const registry = makeSpecRegistry();
+        const selectedBody = `Selected source: ${sourceForm}.`;
+        registry.writeSkill("environment-review", [{ version: "1.0.0", body: selectedBody }]);
+        const registryDirectory = path.join(
+          registry.root,
+          "extensions/@acme/skills/environment-review",
+        );
+        const rawIndex: unknown = JSON.parse(
+          fs.readFileSync(path.join(registryDirectory, "index.json"), "utf8"),
+        );
+        if (typeof rawIndex !== "object" || rawIndex === null || !("versions" in rawIndex))
+          throw new Error("Invalid Registry fixture");
+        const remoteIndex = {
+          owner: "@acme",
+          type: "skill",
+          name: "environment-review",
+          description: selectedBody,
+          publisher_binding_id: "hbnd_test",
+          visibility: "public",
+          deprecation: null,
+          versions: rawIndex.versions,
+        };
+        try {
+          fs.writeFileSync(path.join(fixture.invoking, "axm.json"), JSON.stringify({ agents: [] }));
+          await withEnvironmentRegistry(
+            (request) =>
+              request.endsWith("/archive")
+                ? {
+                    body: fs.readFileSync(path.join(registryDirectory, "1.0.0.zip")),
+                    contentType: "application/zip",
+                  }
+                : { body: JSON.stringify(remoteIndex) },
+            async (origin, requests) => {
+              const fallback = sourceForm === "empty location";
+              const location =
+                sourceForm === "absolute path"
+                  ? registry.root
+                  : sourceForm === "file URL"
+                    ? pathToFileURL(registry.root).href
+                    : fallback
+                      ? ""
+                      : origin;
+              const result = await fixture.run(
+                [
+                  "install",
+                  "@acme/skills/environment-review",
+                  "--non-interactive",
+                  ...(machine ? ["--json"] : []),
+                ],
+                {
+                  AXM_REGISTRY_LOCATION: location,
+                  AXM_REGISTRY_URL:
+                    fallback || sourceForm === "HTTP URL" ? origin : "https://registry.invalid",
+                },
+              );
+              expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+              const acquired = path.join(
+                fixture.invoking,
+                "agent_extensions/agentxm/@acme/skills/environment-review/src/SKILL.md",
+              );
+              expect(fs.readFileSync(acquired, "utf8")).toContain(selectedBody);
+              if (sourceForm === "absolute path" || sourceForm === "file URL")
+                expect(requests).toEqual([]);
+              else expect(requests.some((request) => request.endsWith("/archive"))).toBe(true);
+              const settings: unknown = JSON.parse(
+                fs.readFileSync(path.join(fixture.invoking, "axm.json"), "utf8"),
+              );
+              expect(settings).not.toHaveProperty("AXM_REGISTRY_LOCATION");
+              expect(settings).not.toHaveProperty("AXM_REGISTRY_URL");
+            },
+          );
+        } finally {
+          registry.cleanup();
+          fixture.cleanup();
+        }
+      });
+});

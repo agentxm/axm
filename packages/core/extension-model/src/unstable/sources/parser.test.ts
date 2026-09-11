@@ -294,6 +294,10 @@ describe("parseInputPattern", () => {
     it("returns None for whitespace-only string", () => {
       expectNone("   ");
     });
+
+    it("returns None for input that is not a locator at all", () => {
+      expectNone("###");
+    });
   });
 });
 

@@ -1576,7 +1576,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/hooks/publish/preview-is-pure"],
+          "requirements": ["cli/publish/preview-is-pure"],
           "when": "--preview is supplied."
         }
       ]
@@ -1740,7 +1740,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/hooks/update/preview-is-pure"],
+          "requirements": ["cli/update/preview-is-pure"],
           "when": "When hooks update runs in preview mode against an installed hooks package whose source has changed."
         },
         {
@@ -3094,7 +3094,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/knowledge/publish/preview-is-pure"],
+          "requirements": ["cli/publish/preview-is-pure"],
           "when": "--preview is supplied."
         }
       ]
@@ -3258,7 +3258,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/knowledge/update/preview-is-pure"],
+          "requirements": ["cli/update/preview-is-pure"],
           "when": "When knowledge update runs in preview mode against a configured Registry bundle with a newer eligible release."
         },
         {
@@ -4308,7 +4308,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/mcps/publish/preview-is-pure"],
+          "requirements": ["cli/publish/preview-is-pure"],
           "when": "--preview is supplied."
         }
       ]
@@ -4495,7 +4495,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/mcps/update/preview-is-pure"],
+          "requirements": ["cli/update/preview-is-pure"],
           "when": "When mcps update runs in preview mode against an installed MCP server whose source publishes a newer eligible version."
         },
         {
@@ -5056,7 +5056,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/packs/publish/preview-is-pure"],
+          "requirements": ["cli/publish/preview-is-pure"],
           "when": "--preview is supplied."
         },
         {
@@ -5303,7 +5303,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/packs/update/preview-is-pure"],
+          "requirements": ["cli/update/preview-is-pure"],
           "when": "When packs update runs in preview mode against a configured pack whose closure is not yet accepted."
         },
         {
@@ -5440,11 +5440,11 @@
         "cli/publish/archives-satisfy-distribution-contract",
         "cli/publish/ignore-patterns-have-declared-path-semantics",
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/outcomes-report-source-state",
         "cli/publish/preflight-blocks-the-whole-selection",
         "cli/publish/publication-gate-is-fixed",
         "cli/publish/reports-pack-resolution-differences",
         "cli/publish/requires-existing-publish-owners",
+        "cli/publish/requires-explicit-acceptance-for-non-head-source",
         "cli/publish/respects-local-pack-constraints",
         "cli/publish/uploads-the-reviewed-publication-set"
       ],
@@ -6040,7 +6040,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/rules/publish/preview-is-pure"],
+          "requirements": ["cli/publish/preview-is-pure"],
           "when": "--preview is supplied."
         }
       ]
@@ -6204,7 +6204,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/rules/update/preview-is-pure"],
+          "requirements": ["cli/update/preview-is-pure"],
           "when": "When rules update runs in preview mode against an installed rule whose source has changed."
         },
         {
@@ -6933,7 +6933,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/skills/publish/preview-is-pure"],
+          "requirements": ["cli/publish/preview-is-pure"],
           "when": "--preview is supplied."
         }
       ]
@@ -7111,7 +7111,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/skills/update/preview-is-pure"],
+          "requirements": ["cli/update/preview-is-pure"],
           "when": "When skills update runs in preview mode while the Registry serves a newer version of an accepted skill."
         },
         {
@@ -7750,7 +7750,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/subagents/publish/preview-is-pure"],
+          "requirements": ["cli/publish/preview-is-pure"],
           "when": "--preview is supplied."
         }
       ]
@@ -7928,7 +7928,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/subagents/update/preview-is-pure"],
+          "requirements": ["cli/update/preview-is-pure"],
           "when": "When subagents update runs in preview mode while the Registry serves a newer version of an accepted subagent."
         },
         {
@@ -8171,7 +8171,7 @@
       "arguments": [],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
-        "cli/token/completes-required-human-verification",
+        "cli/registry-writes-complete-required-verification",
         "cli/unattended-verification-is-resumable"
       ],
       "conditionalLinks": [
@@ -8188,7 +8188,7 @@
         {
           "parameters": ["flag:step-up-request", "flag:wait-for-human"],
           "requirements": [
-            "cli/token/completes-required-human-verification",
+            "cli/registry-writes-complete-required-verification",
             "cli/unattended-verification-is-resumable"
           ]
         },
@@ -8261,7 +8261,7 @@
       ],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
-        "cli/token/completes-required-human-verification",
+        "cli/registry-writes-complete-required-verification",
         "cli/unattended-verification-is-resumable"
       ],
       "conditionalLinks": [
@@ -8278,7 +8278,7 @@
         {
           "parameters": ["flag:step-up-request", "flag:wait-for-human"],
           "requirements": [
-            "cli/token/completes-required-human-verification",
+            "cli/registry-writes-complete-required-verification",
             "cli/unattended-verification-is-resumable"
           ]
         },
@@ -8286,7 +8286,7 @@
           "parameters": ["argument:id"],
           "requirements": [
             "cli/token/revoke/revokes-only-selected-token",
-            "cli/token/completes-required-human-verification"
+            "cli/registry-writes-complete-required-verification"
           ],
           "details": [
             "The token identifier is neither an authentication credential nor a Registry/workspace selector."

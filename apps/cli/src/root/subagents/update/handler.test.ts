@@ -32,8 +32,13 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   stringProperty,
-} from "../../../test-helpers.js";
-import { exactVersion, extensionName, handle, writeWorkspaceFiles } from "../../../test-stubs.js";
+} from "../../../test-support/test-helpers.js";
+import {
+  exactVersion,
+  extensionName,
+  handle,
+  writeWorkspaceFiles,
+} from "../../../test-support/test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

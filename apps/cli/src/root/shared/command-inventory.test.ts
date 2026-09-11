@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
-import { collectHelpFiles } from "../../command-tree-test-helpers.js";
+import { collectHelpFiles } from "../../test-support/command-tree-test-helpers.js";
 import { COMMAND_ROUTE_ALLOCATION } from "../../test-support/command-routes.js";
 import {
   makeCanonicalRequirementValidator,

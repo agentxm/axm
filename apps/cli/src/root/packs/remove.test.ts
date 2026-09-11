@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as semver from "semver";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -22,7 +22,7 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   property,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./remove.js";
 
 // -----------------------------------------------------------------------------

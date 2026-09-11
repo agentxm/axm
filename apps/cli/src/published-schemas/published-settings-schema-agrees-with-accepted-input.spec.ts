@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "settings-contract/published-settings-schema-agrees-with-accepted-input",
   title: "The published settings schema describes what the product accepts",
   statement:
-    "The published settings schema shall agree with the product on every example document, lint rule identity, and severity value it admits, and shall not admit an unregistered rule, wildcard rule, or misspelled severity.",
+    "The published settings schema shall agree with the product on every example document, lint rule identity, and severity value it admits, shall not admit an unregistered rule, wildcard rule, or misspelled severity, and shall declare agent selection on the workspace settings document alone, admitting no per-entry agent subset.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "workspace-intent-fidelity"],
@@ -81,6 +81,45 @@ const admittedSeverities = (
 
 const decodeSettings = Schema.decodeUnknownEffect(SettingsSchema);
 const registeredRuleId = "skill/manifest-keys-recognized";
+
+/** The object forms one entry definition admits, following its alternatives. */
+const entryObjectForms = (entry: Record<string, unknown>): ReadonlyArray<Record<string, unknown>> =>
+  (entry["anyOf"] === undefined ? [entry] : decodeJsonArray(entry["anyOf"]))
+    .map((alternative) => decodeJsonRecord(alternative))
+    .filter((alternative) => alternative["type"] === "object");
+
+/**
+ * Walks one schema node and reports every path at which some object declares
+ * a property named `agents`.
+ */
+const agentsDeclarations = (node: unknown, path: ReadonlyArray<string>): ReadonlyArray<string> => {
+  if (Array.isArray(node)) {
+    return node.flatMap((child, index) => agentsDeclarations(child, [...path, String(index)]));
+  }
+  if (typeof node !== "object" || node === null) {
+    return [];
+  }
+  const record = decodeJsonRecord(node);
+  const properties = record["properties"];
+  const here =
+    typeof properties === "object" && properties !== null && "agents" in properties
+      ? [path.join("/")]
+      : [];
+  return [
+    ...here,
+    ...Object.entries(record).flatMap(([key, value]) => agentsDeclarations(value, [...path, key])),
+  ];
+};
+
+const ENTRY_DEFINITIONS = [
+  "SkillEntry",
+  "RuleEntry",
+  "HookEntry",
+  "KnowledgeEntry",
+  "SubagentEntry",
+  "PackEntry",
+  "McpServerEntry",
+] as const;
 
 describe("Published settings schema", () => {
   it.effect(
@@ -153,6 +192,39 @@ describe("Published settings schema", () => {
         ]) {
           yield* decodeSettings({ lint: { rules: rejected } }).pipe(Effect.flip);
         }
+      }),
+  );
+
+  // Agent selection is workspace membership, not a per-entry field. The
+  // published document must refuse a per-entry subset rather than merely
+  // leave it undeclared, because JSON Schema admits undeclared properties
+  // unless an object closes itself.
+  it.effect(
+    "only the workspace settings document declares an agents property, and no entry admits one",
+    () =>
+      Effect.gen(function* () {
+        const document = publishedSettingsSchema();
+        expect(agentsDeclarations(document, [])).toEqual(["definitions/AxmSettings"]);
+
+        const definitions = child(document, "definitions");
+        for (const name of ENTRY_DEFINITIONS) {
+          const forms = entryObjectForms(child(definitions, name));
+          expect(forms.length).toBeGreaterThan(0);
+          for (const form of forms) {
+            expect(Object.keys(child(form, "properties"))).not.toContain("agents");
+            expect(form["additionalProperties"]).toBe(false);
+          }
+        }
+
+        // What the published document refuses, the product refuses too: the
+        // workspace reads its settings with excess keys treated as errors.
+        yield* Schema.decodeUnknownEffect(SettingsSchema)(
+          {
+            agents: ["claude-code"],
+            mcpServers: { demo: { source: "@acme/mcps/context@^1.0.0", agents: ["claude-code"] } },
+          },
+          { onExcessProperty: "error" },
+        ).pipe(Effect.flip);
       }),
   );
 });

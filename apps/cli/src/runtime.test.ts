@@ -9,18 +9,24 @@ import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import { afterEach, beforeEach } from "vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
+import { afterEach, beforeEach, vi } from "vitest";
 
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+
+import { ExecutionDirectory } from "./execution-directory.js";
 import {
   getBuiltInSources,
   makeCliLoggerLayer,
   resolveBuiltInRegistryLocation,
+  resolveBuiltInSources,
   resolveRegistryTargetSelection,
+  runtimeBaseLayer,
   withAxmUserAgent,
   withWorkspace,
 } from "./runtime.js";
-import { makeWorkspaceHandlerTestContext } from "./test-helpers.js";
-import { makeTestScreen } from "./screen/index.js";
+import { makeWorkspaceHandlerTestContext } from "./test-support/test-helpers.js";
+import { makeTestScreen } from "./test-support/screen-test.js";
 
 describe("getBuiltInSources", () => {
   it("defines exactly the four accepted built-in source names and types", () => {
@@ -240,4 +246,52 @@ describe("withWorkspace settings gate", () => {
       }),
     );
   }
+});
+
+/**
+ * Composition-root mechanics behind `cli/environment-selects-built-in-extension-source`.
+ *
+ * The specification lives in `apps/cli-e2e/src/environment-selects-built-in-extension-source.spec.ts`
+ * and states the rule over the built CLI; an end-to-end project may not import
+ * `apps/cli`, so the six default-URL fallback rows it used to carry are kept
+ * here, beside the composition root that decides them. Every row that ran in
+ * the specification still runs.
+ */
+describe("resolveBuiltInSources default Registry service URL", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  for (const location of [undefined, ""])
+    for (const configuredUrl of [undefined, "", "https://selected-service.example.test"])
+      it.effect(
+        `location=${location === undefined ? "unset" : "empty"}, service=${configuredUrl === undefined ? "unset" : configuredUrl || "empty"}`,
+        () => {
+          vi.stubEnv("AXM_REGISTRY_LOCATION", location);
+          const env: Readonly<Record<string, string>> =
+            configuredUrl === undefined ? {} : { AXM_REGISTRY_URL: configuredUrl };
+          const expected =
+            configuredUrl === undefined || configuredUrl === ""
+              ? "https://registry.agentxm.ai"
+              : configuredUrl;
+          return Effect.gen(function* () {
+            const sources = yield* resolveBuiltInSources;
+            const selected = sources.find((source) => source.name === "agentxm");
+            expect(selected).toEqual({
+              name: "agentxm",
+              type: "registry",
+              location: new URL(expected),
+            });
+          }).pipe(
+            Effect.provideService(ExecutionDirectory, {
+              path: decodeAbsolutePathSync(process.cwd()),
+            }),
+            Effect.provide(
+              runtimeBaseLayer.pipe(
+                Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env }))),
+              ),
+            ),
+          );
+        },
+      );
 });

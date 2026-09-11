@@ -9,8 +9,11 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";
-import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  computeMaterializedTreeIntegritySync,
+  writeWorkspaceFiles,
+} from "../../test-support/test-stubs.js";
+import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { handleList } from "./command.js";
 
 export const specification = defineSpecification({

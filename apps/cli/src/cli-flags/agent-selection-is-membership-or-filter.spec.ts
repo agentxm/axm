@@ -11,8 +11,8 @@ import { afterEach } from "vitest";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
 
 import { rootCommand } from "../app.js";
-import { TEST_VERSION, collectHelpFiles } from "../command-tree-test-helpers.js";
-import { makeCliTestContext } from "../test-helpers.js";
+import { TEST_VERSION, collectHelpFiles } from "../test-support/command-tree-test-helpers.js";
+import { makeCliTestContext } from "../test-support/test-helpers.js";
 import {
   AuthLoginInteractionTest,
   DeviceLoginInteractionTest,

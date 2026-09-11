@@ -13,23 +13,18 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/inline-lifecycle-is-idempotent",
   title: "Repeating an inline MCP server addition is a successful no-op",
   statement:
-    "When an inline MCP server is added again with an identical definition, whatever transport it carries, AXM shall report a no-op outcome and shall change neither the recorded entry nor its native projection.",
+    "When an inline MCP server is added again with an identical definition, whatever transport it carries, or its removal is repeated after it is already gone, AXM shall report a no-op outcome and shall change neither the recorded entry nor its native projection.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
   methods: ["decision-table"],
-  derivedFrom: ["cli/mcps/add/records-and-realizes-inline-configuration"],
+  derivedFrom: [
+    "cli/mcps/add/records-and-realizes-inline-configuration",
+    "cli/uninstall/is-idempotent",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
-  limitations: [
-    {
-      limitation:
-        "Only the repeated-add half of the inline MCP lifecycle is observed here. Repeating the uninstall of an inline server runs through the extension-lifecycle uninstall use case, and a feature package may not import another feature package, so no example in this package can exercise it.",
-      retirementCondition:
-        "State an inline mcp-server absent case in cli/uninstall/is-idempotent's decision table, then widen this statement to cover a repeated uninstall again.",
-    },
-  ],
 });
 
 interface IdenticalAddRow {
@@ -58,6 +53,13 @@ const identicalAddRows: ReadonlyArray<IdenticalAddRow> = [
   },
 ];
 
+/**
+ * The removal half of this obligation is stated over the removal use case,
+ * which a feature package may not import: the row
+ * "repeating the uninstall of an inline MCP server reports a no-op" in
+ * `extension-lifecycle`'s `src/uninstall/is-idempotent.spec.ts` seeds an
+ * inline entry, withdraws it, and repeats the withdrawal.
+ */
 describe("Inline MCP server addition is safe to repeat", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {

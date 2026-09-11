@@ -16,7 +16,7 @@ import {
 import { UpdateCheck } from "@agentxm/cli-update";
 import { UpdateCheckTest } from "@agentxm/cli-update/testing";
 
-import { TestRenderer } from "./screen/index.js";
+import { TestRenderer } from "./test-support/presenter-test.js";
 import {
   isUpgradeCommand,
   withUpdateCheck,

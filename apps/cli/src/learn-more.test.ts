@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
-import { captureHelpDoc, collectHelpFiles } from "./command-tree-test-helpers.js";
+import { captureHelpDoc, collectHelpFiles } from "./test-support/command-tree-test-helpers.js";
 import { HELP_TOPIC_NAMES } from "./__generated__/help-topics.js";
 import { LearnMore } from "./formatter.js";
 

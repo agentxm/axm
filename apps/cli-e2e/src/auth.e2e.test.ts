@@ -8,7 +8,7 @@ export const executionBinding = {
   requirements: [
     "cli/token/returns-effective-token",
     "cli/credentials-follow-explicit-source-precedence",
-    "cli/token/completes-required-human-verification",
+    "cli/registry-writes-complete-required-verification",
   ],
   boundary: "process",
   rationale:

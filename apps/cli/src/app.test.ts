@@ -18,7 +18,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 
 import { run } from "./app.js";
-import { captureHelpDoc, collectHelpFiles } from "./command-tree-test-helpers.js";
+import { captureHelpDoc, collectHelpFiles } from "./test-support/command-tree-test-helpers.js";
 import { LearnMore } from "./formatter.js";
 import {
   INSTALLED_STATE_SCOPE_COMMANDS,

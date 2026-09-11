@@ -2,7 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { formatMarkdown, TestMachineRenderer, TestRenderer } from "../../screen/index.js";
+import { formatMarkdown } from "../../screen/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/extensions";
 import { HELP_TOPICS, HELP_TOPIC_KINDS } from "../../__generated__/help-topics.js";
 import { handleHelpPath, ORDERED_TOPIC_NAMES } from "./command.js";

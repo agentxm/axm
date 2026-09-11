@@ -9,7 +9,7 @@
 
 // @effect-diagnostics nodeBuiltinImport:off globalConsole:off — review-time gallery painter, not Effect code
 
-import { gallery } from "../src/screen/gallery/index.js";
+import { gallery } from "../src/test-support/gallery/index.js";
 import { resolveCliOutputPolicy } from "../src/screen/output-policy.js";
 import { asciiGlyphs, paintText, unicodeGlyphs } from "../src/screen/paint-text.js";
 

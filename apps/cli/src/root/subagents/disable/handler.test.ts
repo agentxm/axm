@@ -12,8 +12,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { computeSourceHash } from "@agentxm/workspace-state";
-import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import { expectNoOpPlanResult, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
+import {
+  expectNoOpPlanResult,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-support/test-helpers.js";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,

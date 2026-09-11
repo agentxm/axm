@@ -66,11 +66,8 @@ describe("composition-root import restriction", () => {
     expect(eslintConfig.slice(ignoresStart, ignoresEnd + 2)).toBe(
       `ignores: [
       "apps/cli/src/runtime.ts",
-      "apps/cli/src/test-helpers.ts",
       // Test support excluded from the library build and the published files.
       "apps/cli/src/test-support/**",
-      // Published specification adapter exposes real services to boundary tests.
-      "apps/cli/src/specification-harness.ts",
       "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
       // Composes the real workspace an authoring specification observes.
       "packages/core/extension-authoring/src/test-support/authoring-workspace.ts",
@@ -83,10 +80,14 @@ describe("composition-root import restriction", () => {
       "packages/core/workspace-inspection/src/testing.ts",
       "packages/core/workspace-configuration/src/testing.ts",
       "packages/core/extension-lifecycle/src/testing.ts",
+      "packages/core/workspace-lint/src/testing.ts",
       // Colocated test support: drives its package's use cases from tests and
       // specifications with the deterministic ports its dependencies publish.
       "packages/core/workspace-configuration/src/**/test-helpers.ts",
+      "packages/core/workspace-lint/src/**/test-helpers.ts",
       "packages/core/extension-lifecycle/src/**/test-helpers.ts",
+      "packages/core/extension-publish/src/**/test-helpers.ts",
+      "packages/core/workspace-sync/src/**/test-helpers.ts",
       // Plan-family fixtures, excluded from the library build: the plan
       // specifications observe the real transaction scope over a temporary
       // workspace with the deterministic state ports its dependency publishes.

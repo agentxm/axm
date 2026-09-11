@@ -7,7 +7,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
+import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,
   expectAppliedPlanResult,
@@ -17,7 +17,7 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   property,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleMcpServersNew } from "./new.js";
 import { afterEach, beforeEach } from "vitest";
 

@@ -12,14 +12,14 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { expectNoPlanEnvelope } from "../../test-helpers.js";
+import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
 import { handleList } from "./list.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

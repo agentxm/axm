@@ -17,7 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
+import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -28,7 +28,7 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   property,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./new.js";
 
 // -----------------------------------------------------------------------------

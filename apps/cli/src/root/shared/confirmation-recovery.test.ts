@@ -9,7 +9,7 @@ import {
   renderConfirmationRecoveryCommand,
 } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "../../test-stubs.js";
+import { makeBaseWorkspaceMock } from "../../test-support/test-stubs.js";
 import {
   makeConfirmationRecovery,
   makePlanExecution,

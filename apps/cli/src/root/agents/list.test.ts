@@ -7,14 +7,14 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestRenderer } from "../../screen/index.js";
+import { TestRenderer } from "../../test-support/presenter-test.js";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 import { lifecycleCell } from "./lifecycle-cell.js";
 import { handleAgentsList } from "./list.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 
 const initWorkspace = (axmDir: string, agents: ReadonlyArray<string>) => {
   writeWorkspaceFiles(axmDir, { agents });

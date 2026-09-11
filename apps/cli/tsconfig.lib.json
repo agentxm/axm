@@ -88,6 +88,9 @@
       "path": "../../packages/supporting/agent-integration/tsconfig.lib.json"
     },
     {
+      "path": "../../tools/test-support/tsconfig.lib.json"
+    },
+    {
       "path": "../../tools/extension-type-parity/tsconfig.lib.json"
     }
   ]

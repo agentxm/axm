@@ -20,6 +20,11 @@
       "types": "./dist/src/index.d.ts",
       "axm-source": "./src/index.ts",
       "default": "./dist/src/index.js"
+    },
+    "./testing": {
+      "types": "./dist/src/testing.d.ts",
+      "axm-source": "./src/testing.ts",
+      "default": "./dist/src/testing.js"
     }
   },
   "files": [
@@ -49,6 +54,7 @@
     "semver": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/registry-client": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",

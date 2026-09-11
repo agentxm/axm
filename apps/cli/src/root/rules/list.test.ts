@@ -5,8 +5,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 
-import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { handleListRule } from "./list.js";
 
 describe("rules list", () => {

@@ -40,7 +40,12 @@ import {
 } from "@agentxm/extension-sources";
 import { RegistryResolutionPolicyLive } from "./registry-resolution-policy-live.js";
 import { toAppError } from "../app-error/conversions.js";
-import { dependencyConstraintMap, exactVersion, extensionName, handle } from "../test-stubs.js";
+import {
+  dependencyConstraintMap,
+  exactVersion,
+  extensionName,
+  handle,
+} from "../test-support/test-stubs.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
 import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
 

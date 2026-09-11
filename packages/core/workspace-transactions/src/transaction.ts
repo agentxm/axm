@@ -3,9 +3,9 @@
  * runner and the closure settlement operations, implemented against the
  * package-private context declared in `./context.ts`.
  *
- * `runWorkspaceTransaction`, the closure API, and the runner binding are
- * the only ways in: every transition of the ledger happens here or in the
- * registration primitives, under one serialized reference.
+ * `runWorkspaceTransaction` and the closure API are the only ways in: every
+ * transition of the ledger happens here or in the registration primitives,
+ * under one serialized reference.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -64,15 +64,6 @@ export interface WorkspaceTransactionArgs<A, E = never, R = never> {
    */
   readonly claimDefaultTargets?: boolean;
 }
-
-/**
- * The shape of a transaction runner with its scope and platform already
- * bound. Kept only for the `ExtensionManager.runTransaction` contract; see
- * {@link bindWorkspaceTransactionRunner}.
- */
-export type WorkspaceTransactionRunner = <A, E = never, R = never>(
-  args: WorkspaceTransactionArgs<A, E, R>,
-) => Effect.Effect<A, WorkspaceTransactionFailure | WorkspaceRestorationIncomplete | E, R>;
 
 // ---------------------------------------------------------------------------
 // Closure API — consumed by workspace-operations only
@@ -385,27 +376,3 @@ export const runWorkspaceTransaction = <A, E, R>(
       }),
     );
   });
-
-/**
- * TRANSITIONAL: a runner with the scope and platform of the current context
- * already bound, for the `ExtensionManager.runTransaction` contract whose
- * members must be `R = never`. Removed with that contract in the manager
- * dissolution slice; new code calls {@link runWorkspaceTransaction} and keeps
- * `WorkspaceTransactionScope` in `R`.
- */
-export const bindWorkspaceTransactionRunner: Effect.Effect<
-  WorkspaceTransactionRunner,
-  never,
-  WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
-> = Effect.gen(function* () {
-  const scope = yield* WorkspaceTransactionScope;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const runner: WorkspaceTransactionRunner = (args) =>
-    runWorkspaceTransaction(args).pipe(
-      Effect.provideService(WorkspaceTransactionScope, scope),
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    );
-  return runner;
-});

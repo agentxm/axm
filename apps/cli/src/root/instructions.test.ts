@@ -7,9 +7,12 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { RuleManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../test-helpers.js";
+import {
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../test-support/test-helpers.js";
 import { handleInstructionsDisable, handleInstructionsStatus } from "./instructions.js";
-import { writeWorkspaceFiles } from "../test-stubs.js";
+import { writeWorkspaceFiles } from "../test-support/test-stubs.js";
 
 const initWorkspace = (
   baseDir: string,

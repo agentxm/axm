@@ -12,12 +12,12 @@ import * as Effect from "effect/Effect";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { computeSourceHash } from "@agentxm/workspace-state";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
   getAppError,
   makeWorkspaceHandlerTestContext,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleDisable, type DisableHandlerArgs } from "./disable.js";
 
 // -----------------------------------------------------------------------------

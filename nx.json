@@ -24,8 +24,7 @@
       "include": [
         "apps/cli/vitest.config.ts",
         "packages/**/vitest.config.ts",
-        "tools/**/vitest.config.ts",
-        "specifications/vitest.config.ts"
+        "tools/**/vitest.config.ts"
       ],
       "options": {
         "testTargetName": "test",

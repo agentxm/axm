@@ -14,7 +14,7 @@ import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { codingAgentForId } from "@agentxm/agent-integration";
 import type { CodingAgentRepositoryService } from "@agentxm/workspace-projection";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
@@ -25,7 +25,7 @@ import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
   planResultUnits,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleAgentsRemove } from "./remove.js";
 
 const writeWorkspace = (

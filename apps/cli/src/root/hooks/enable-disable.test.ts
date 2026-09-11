@@ -10,13 +10,13 @@ import { afterEach, beforeEach } from "vitest";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,
   expectNoOpPlanResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleDisableHook } from "./disable.js";
 import { handleEnableHook } from "./enable.js";
 import { handleHooksNew } from "./new.js";

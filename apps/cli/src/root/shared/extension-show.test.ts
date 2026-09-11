@@ -6,8 +6,8 @@ import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
-import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { EXTENSION_SHOW_ITEM_FIELDS } from "@agentxm/workspace-inspection";
 import { handleExtensionShow } from "./extension-show.js";
 

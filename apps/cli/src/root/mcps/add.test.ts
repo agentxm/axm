@@ -7,13 +7,13 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { afterEach, beforeEach } from "vitest";
 
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleMcpsAdd } from "./add.js";
 import { toAppError } from "../../app-error/conversions.js";
 

@@ -12,7 +12,7 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/import/preview-is-pure",
   title: "MCP import preview describes the change without changing workspace state",
   statement:
-    "When mcps import previews an eligible unmanaged native server, it shall report the inline adoption it would apply with a previewed outcome and shall not change settings, the lockfile, or any native agent MCP configuration.",
+    "When mcps import previews an eligible unmanaged native server, whether it would adopt the server inline or convert it into an authored package under --as, it shall report the change it would apply with a previewed outcome and shall not change settings, the lockfile, any authored package, or any native agent MCP configuration.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -24,25 +24,21 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [],
-  limitations: [
-    {
-      limitation:
-        "Preview purity is observed for the inline adoption route only. The --as package-conversion route plans through the authoring feature's ImportNativeExtension, and a feature package may not import another feature package, so neither the conversion preview nor its effect on authored packages is exercised anywhere today.",
-      retirementCondition:
-        "State the two --as preview-purity rows, one per --enable value, beside cli/mcps/import/creates-authored-package-from-native-server in extension-authoring, then widen this statement to name the conversion route and authored packages again.",
-    },
-    {
-      limitation:
-        "The route's flag surface — that mcps import accepts --preview and rejects the preapproval it cannot use — is not probed here, because the command parser lives in the application and no domain package may reach it.",
-      retirementCondition:
-        "Add a parse-time --yes sweep over COMMAND_ROUTE_ALLOCATION to cli/preview-uses-the-canonical-flag, whose --preview sweep already covers every route including this one.",
-    },
-  ],
 });
 
 const nativeConfig = (server: Readonly<Record<string, unknown>>): string =>
   `${JSON.stringify({ mcpServers: { demo: server } }, null, 2)}\n`;
 
+/**
+ * The --as conversion half of this obligation is stated over the authoring
+ * use case it plans through, which a feature package may not import: the two
+ * rows "previewing the enabled/disabled conversion writes nothing and asks no
+ * one" in `extension-authoring`'s
+ * `src/import/creates-authored-package-from-native-server.spec.ts` preview the
+ * conversion and show the package, the declaration, and the native file all
+ * unwritten. The route's flag surface is swept at parse time by
+ * `cli/preview-uses-the-canonical-flag`.
+ */
 describe("MCP server import preview purity", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {

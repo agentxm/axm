@@ -12,7 +12,7 @@ import {
   expectNoOpPlanResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleDisableMcpServer } from "./disable.js";
 import { handleEnableMcpServer } from "./enable.js";
 

@@ -65,7 +65,7 @@ const planFamily = {
   humanOutputKind: "mutation",
   liveness: "progress",
   livenessCoverage: [
-    "specifications/cli/machine-progress-events-follow-the-lifecycle-schema.spec.ts",
+    "apps/cli/src/screen/machine-progress-events-follow-the-lifecycle-schema.spec.ts",
     "packages/core/workspace-operations/src/plan/long-running-operations-emit-lifecycle-events.spec.ts",
     "packages/core/workspace-operations/src/plan/resolve-plan.test.ts",
     "apps/cli-e2e/src/cli-commands/structured-output.e2e.ts",
@@ -530,7 +530,7 @@ const visibilityEvaluationFamily = defineResultFamily({
   rationale:
     "Visibility status reports repository intent and authoritative Registry state without mutation.",
   commandCoverage: [
-    "specifications/cli/visibility/status/reports-repository-intent-and-registry-evaluation.spec.ts",
+    "packages/core/extension-publish/src/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts",
   ],
 });
 
@@ -543,8 +543,8 @@ const visibilityMutationFamily = defineResultFamily({
     "Visibility administration reports the conditional whole-Extension mutation and resulting revision.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "specifications/cli/visibility/set/uses-explicit-intent-and-observed-revision.spec.ts",
-    "specifications/cli/visibility/reconcile/applies-declared-repository-intent.spec.ts",
+    "packages/core/extension-publish/src/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts",
+    "packages/core/extension-publish/src/visibility/reconcile-applies-declared-repository-intent.spec.ts",
   ],
 });
 
@@ -557,8 +557,8 @@ const lifecycleTransitionFamily = defineResultFamily({
     "Deprecation administration reports the authoritative conditional Registry transition without a local workspace artifact.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "specifications/cli/deprecate/updates-guidance-at-the-observed-revision.spec.ts",
-    "specifications/cli/undeprecate/removes-guidance-at-the-observed-revision.spec.ts",
+    "packages/core/extension-publish/src/deprecation/updates-guidance-at-the-observed-revision.spec.ts",
+    "packages/core/extension-publish/src/deprecation/removes-guidance-at-the-observed-revision.spec.ts",
   ],
 });
 

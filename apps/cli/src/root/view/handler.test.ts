@@ -1,4 +1,4 @@
-import { resolvedUnits, startedUnits } from "../../screen/index.js";
+import { resolvedUnits, startedUnits } from "../../test-support/presenter-test.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -13,7 +13,7 @@ import {
   makeCliTestContext,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleView } from "./handler.js";
 
 const initWorkspace = (root: string, registryRoot: string) => {

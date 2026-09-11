@@ -35,6 +35,21 @@ export interface TelemetryClientService {
   }) => Effect.Effect<void>;
 }
 
+/**
+ * The host facts telemetry observes. It is a port because observing the host
+ * is a native boundary that can fail, and a failure there must be invisible
+ * to the command — which is only demonstrable when the failure can be stated.
+ */
+export interface TelemetryHostObservation {
+  readonly hostname: () => string;
+  readonly osRelease: () => string;
+}
+
+export const nodeTelemetryHost: TelemetryHostObservation = {
+  hostname: () => os.hostname(),
+  osRelease: () => os.release(),
+};
+
 export interface TelemetryClientOptions {
   readonly mode: TelemetryMode;
   readonly command: string;
@@ -42,6 +57,14 @@ export interface TelemetryClientOptions {
     readonly name: string;
     readonly version: string;
   };
+  /**
+   * Deliver even while the repository's own test run is executing. Delivery
+   * is suppressed under Vitest so no test reaches the telemetry service; a
+   * specification that observes delivery asks for it explicitly here.
+   */
+  readonly deliverInTest?: boolean;
+  /** Where host identity comes from. Defaults to this machine. */
+  readonly host?: TelemetryHostObservation;
 }
 
 export class TelemetryClient extends ServiceMap.Service<TelemetryClient, TelemetryClientService>()(
@@ -70,11 +93,12 @@ const fireAndForget = (effect: Effect.Effect<unknown, unknown, never>) =>
     Effect.asVoid,
   );
 
-const isTest = Effect.gen(function* () {
-  const vitest = yield* envWithDefault("VITEST", "");
-  const enableInTest = yield* envWithDefault("AXM_TELEMETRY_ENABLE_IN_TEST", "");
-  return vitest === "true" && enableInTest !== "true";
-});
+const isTest = (options: TelemetryClientOptions) =>
+  Effect.gen(function* () {
+    if (options.deliverInTest === true) return false;
+    const vitest = yield* envWithDefault("VITEST", "");
+    return vitest === "true";
+  });
 
 const readBaseUrl = envWithDefault("AXM_TELEMETRY_BASE_URL", DEFAULT_BASE_URL);
 
@@ -87,23 +111,24 @@ export const makeTelemetryClient = (
   options: TelemetryClientOptions,
 ): Effect.Effect<TelemetryClientService, never, HttpClient.HttpClient> =>
   Effect.gen(function* () {
-    const inTest = yield* isTest;
+    const inTest = yield* isTest(options);
     if (options.mode === "off" || inTest) {
       return disabledTelemetry;
     }
 
     const httpClient = yield* HttpClient.HttpClient;
     const ci = yield* isCI;
+    const host = options.host ?? nodeTelemetryHost;
 
     const context = {
       client: options.client,
-      os: { name: process.platform, version: os.release() },
+      os: { name: process.platform, version: host.osRelease() },
       runtime: readRuntime(),
       device: { arch: process.arch },
       ci,
     };
 
-    const distinctId = createHash("sha256").update(os.hostname()).digest("hex");
+    const distinctId = createHash("sha256").update(host.hostname()).digest("hex");
     const baseUrl = yield* readBaseUrl;
 
     const client = GeneratedTelemetryClient.make(

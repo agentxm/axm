@@ -7,7 +7,7 @@ import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/e
 
 import { AXM_SKILL_MD } from "./__generated__/bundled-axm-skill.js";
 import { HELP_TOPIC_KINDS, HELP_TOPIC_NAMES, HELP_TOPICS } from "./__generated__/help-topics.js";
-import { collectHelpFiles, type HelpFiles } from "./command-tree-test-helpers.js";
+import { collectHelpFiles, type HelpFiles } from "./test-support/command-tree-test-helpers.js";
 import { perTypeInstallPluralSegments } from "@agentxm/extension-lifecycle";
 
 /**

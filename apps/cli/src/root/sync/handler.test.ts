@@ -1,4 +1,4 @@
-import { startedUnits } from "../../screen/index.js";
+import { startedUnits } from "../../test-support/presenter-test.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -47,7 +47,7 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   property,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import {
   computeMaterializedTreeIntegritySync,
   computePackageContentHashSync,
@@ -57,7 +57,7 @@ import {
   handle,
   writeKnowledgeExtension,
   writeWorkspaceFiles,
-} from "../../test-stubs.js";
+} from "../../test-support/test-stubs.js";
 import { handleListMcpServers } from "../mcps/list.js";
 import { injectWriteFaults } from "@agentxm/workspace-transactions/testing";
 import { handleSync } from "./handler.js";

@@ -36,6 +36,7 @@ import {
 import {
   Verbosity,
   type VerbosityLevel,
+  isEnabledEnvRequest,
   nonInteractiveFlag,
   jsonFlag,
   verboseFlag,
@@ -418,10 +419,7 @@ const makeWorkspaceProgramLayer = (
 };
 
 const envToBool = (opt: Option.Option<string>): boolean =>
-  Option.match(opt, {
-    onNone: () => false,
-    onSome: (v) => v === "1" || v === "true",
-  });
+  isEnabledEnvRequest(Option.getOrUndefined(opt));
 
 const resolveRuntimeConfig = (executionDirectory: string) =>
   Effect.gen(function* () {

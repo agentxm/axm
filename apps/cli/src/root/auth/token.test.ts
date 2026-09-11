@@ -18,10 +18,10 @@ import { RegistryUrl } from "@agentxm/registry-client";
 import { StepUpRequired } from "@agentxm/registry-auth";
 import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { TestMachineRenderer, TestRenderer } from "../../screen/index.js";
+import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
-import { expectNoPlanEnvelope, expectRecord, property } from "../../test-helpers.js";
+import { expectNoPlanEnvelope, expectRecord, property } from "../../test-support/test-helpers.js";
 import { parseExpiresInSeconds } from "@agentxm/registry-auth";
 import { handleCreateToken, handleListTokens, handleRevokeToken, handleToken } from "./token.js";
 

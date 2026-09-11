@@ -204,6 +204,30 @@ describe("AuthClient.buildAuthorizeUrl", () => {
       );
     }).pipe(Effect.provide(layer));
   });
+
+  // Wire shape for the authorization request, demoted here from
+  // cli/login/uses-matching-hosted-authorization-origin, which states only the
+  // origin and issuer rule.
+  it.effect("binds the request with PKCE S256, the state, and the loopback redirect", () => {
+    const layer = makeTestLayer(() => new Response(null, { status: 204 }));
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const url = new URL(
+        client.buildAuthorizeUrl({
+          challenge: "fixture-challenge",
+          state: "fixture-state",
+          redirectUri: "http://127.0.0.1:49152/callback",
+        }),
+      );
+
+      expect(url.pathname).toBe("/oauth/authorize");
+      expect(url.searchParams.get("redirect_uri")).toBe("http://127.0.0.1:49152/callback");
+      expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+      expect(url.searchParams.get("code_challenge")).toBe("fixture-challenge");
+      expect(url.searchParams.get("state")).toBe("fixture-state");
+    }).pipe(Effect.provide(layer));
+  });
 });
 
 describe("AuthClient exact publish authorization", () => {

@@ -146,14 +146,11 @@ const moduleBoundaryOptions = {
     "^.*/eslint(\\.base)?\\.config\\.[cm]?js$",
     "^.*/vitest\\.execution\\.js$",
     "^.*/vitest\\.reporting\\.js$",
-    // Specifications exercise the CLI application boundary in-process
-    // through its published harness entry points.
-    "^axm\\.sh/(app|runtime|specification-harness)$",
     // Subprocess e2e fixtures (apps/cli-e2e/src/fixtures/*.mjs) observe the
     // CLI package's built shipped surface by path, and drive it through the
-    // built lifecycle contract it observes.
+    // built contracts it observes.
     "^\\.\\./\\.\\./\\.\\./cli/dist/",
-    "^\\.\\./\\.\\./\\.\\./\\.\\./packages/core/workspace-operations/dist/",
+    "^\\.\\./\\.\\./\\.\\./\\.\\./packages/core/(extension-materialization|workspace-operations|workspace-state)/dist/",
   ],
 };
 
@@ -279,6 +276,9 @@ const moduleBoundaryConstraints = ({ production }) => [
 ];
 
 const testPurposeFiles = [
+  // Test support is excluded from every library build and from the published
+  // files; what it composes is test wiring, not product code.
+  "**/src/**/test-support/**/*.ts",
   "**/*.test.ts",
   "**/*.test.tsx",
   "**/*.test.cts",
@@ -385,6 +385,7 @@ export default [
       "**/src/main.ts",
       "**/src/config.ts",
       "**/src/runtime.ts",
+      "**/src/**/test-support/**",
       "**/e2e/**",
       "**/*-e2e/**",
     ],
@@ -472,8 +473,7 @@ export default [
       "**/*.test.ts",
       "**/*.spec.ts",
       "apps/cli-e2e/**",
-      "apps/cli/src/test-helpers.ts",
-      "apps/cli/src/test-stubs.ts",
+      "apps/cli/src/test-support/**",
       // deterministic archive mtime constant, not a clock read
       "packages/core/extension-publish/src/archive.ts",
     ],
@@ -538,6 +538,7 @@ export default [
     ignores: [
       "**/*.test.ts",
       "**/*.spec.ts",
+      "**/src/**/test-support/**",
       "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
     ],
     rules: {
@@ -601,11 +602,8 @@ export default [
     // bounded non-test exceptions.
     ignores: [
       "apps/cli/src/runtime.ts",
-      "apps/cli/src/test-helpers.ts",
       // Test support excluded from the library build and the published files.
       "apps/cli/src/test-support/**",
-      // Published specification adapter exposes real services to boundary tests.
-      "apps/cli/src/specification-harness.ts",
       "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
       // Composes the real workspace an authoring specification observes.
       "packages/core/extension-authoring/src/test-support/authoring-workspace.ts",
@@ -618,10 +616,14 @@ export default [
       "packages/core/workspace-inspection/src/testing.ts",
       "packages/core/workspace-configuration/src/testing.ts",
       "packages/core/extension-lifecycle/src/testing.ts",
+      "packages/core/workspace-lint/src/testing.ts",
       // Colocated test support: drives its package's use cases from tests and
       // specifications with the deterministic ports its dependencies publish.
       "packages/core/workspace-configuration/src/**/test-helpers.ts",
+      "packages/core/workspace-lint/src/**/test-helpers.ts",
       "packages/core/extension-lifecycle/src/**/test-helpers.ts",
+      "packages/core/extension-publish/src/**/test-helpers.ts",
+      "packages/core/workspace-sync/src/**/test-helpers.ts",
       // Plan-family fixtures, excluded from the library build: the plan
       // specifications observe the real transaction scope over a temporary
       // workspace with the deterministic state ports its dependency publishes.
@@ -679,6 +681,9 @@ export default [
       "packages/core/workspace-inspection/src/testing.ts",
       "packages/core/workspace-configuration/src/testing.ts",
       "packages/core/extension-lifecycle/src/testing.ts",
+      // A lint run reads a real workspace through the state and projection
+      // services; a fixture that stubbed them would be linting itself.
+      "packages/core/workspace-lint/src/testing.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -712,7 +717,7 @@ export default [
     // one semantic closure that operations settles or rolls back at its
     // boundary. Other packages register writes through protectWorkspacePath
     // and run transactions; they never settle closures themselves.
-    files: ["{apps,packages,tools,specifications}/**/*.ts"],
+    files: ["{apps,packages,tools}/**/*.ts"],
     ignores: ["packages/core/workspace-operations/**", "packages/core/workspace-transactions/**"],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
@@ -791,32 +796,6 @@ export default [
               allowTypeImports: true,
               message:
                 "Handlers reach transactions, sources, and the Registry only through feature and capability application APIs.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // The specification corpus observes the boundary it verifies: the CLI
-    // only through its published entry points, lower packages only through
-    // contracts and package-owned ./testing ports.
-    files: ["specifications/**/*.ts"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              regex: "^axm\\.sh(/(?!app$|runtime$|specification-harness$).*)?$",
-              message:
-                "Specifications exercise the CLI only through its published entry points: axm.sh/app, axm.sh/runtime, axm.sh/specification-harness.",
-            },
-            {
-              regex:
-                "^@agentxm/(workspace-(state|operations|transactions|sync|lint|configuration|inspection)|extension-(workspace|sources|lifecycle|authoring|publish|discovery)|agent-integration|registry-(client|auth)|knowledge-query)(/(?!testing$).*)?$",
-              message:
-                "Specifications never import a kernel, integration, or feature root; compose the published CLI harness, the contract packages, or a package-owned ./testing port.",
             },
           ],
         },

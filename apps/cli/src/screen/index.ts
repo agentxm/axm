@@ -83,12 +83,6 @@ export {
   type ScreenLogRecord,
 } from "./screen.js";
 export {
-  makeTestScreen,
-  rendered,
-  startedUnitLabels,
-  type TestScreenState,
-} from "./screen-test.js";
-export {
   MachineEventSchema,
   ProgressEventSchema,
   encodeMachineEvent,
@@ -180,11 +174,3 @@ export {
   type CliOutputEnvironment,
   type CliOutputPolicy,
 } from "./output-policy.js";
-export {
-  TestRenderer,
-  TestMachineRenderer,
-  logsByTag,
-  resolvedUnits,
-  startedUnits,
-  type TestRendererState,
-} from "./presenter-test.js";

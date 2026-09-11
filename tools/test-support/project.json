@@ -4,5 +4,17 @@
   "projectType": "library",
   "root": "tools/test-support",
   "sourceRoot": "tools/test-support/src",
-  "tags": ["type:lib", "role:tooling", "scope:test"]
+  "tags": ["type:lib", "role:tooling", "scope:test"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "tools/test-support/src/index.ts",
+        "outputPath": "tools/test-support/dist",
+        "tsConfig": "tools/test-support/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    }
+  }
 }

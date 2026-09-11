@@ -9,8 +9,10 @@ import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 
 import {
   applyExecution,
+  authoringWorkspaceEnvironment,
   authoringWorkspaceLayer,
   makeAuthoringWorkspace,
+  previewExecution,
 } from "../test-support/authoring-workspace.js";
 import {
   NATIVE_MCP_FILES,
@@ -26,7 +28,7 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/import/creates-authored-package-from-native-server",
   title: "A native MCP server can become an authored package",
   statement:
-    "Given one unmanaged native server defined by an HTTP URL and optional non-secret literal headers, mcps import --as shall create a workspace-authored MCP package under the supplied fully qualified MCP name with the same URL and headers.",
+    "Given one unmanaged native server defined by an HTTP URL and optional non-secret literal headers, mcps import --as shall create a workspace-authored MCP package under the supplied fully qualified MCP name with the same URL and headers, and previewing that conversion, whether or not it would enable the package, shall describe the package, the settings declaration, and the native file it would rewrite while writing none of them.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -102,6 +104,53 @@ describe("Converting a native MCP server into an authored package", () => {
           ).toEqual(importedRemote.headers);
 
           expect(readImportedMcpDeclaration(created, targetName).source).toBe("workspace");
+        }),
+    );
+
+  // Activation is the only decision --enable changes, so purity is stated
+  // once per value rather than over the enabled conversion alone.
+  for (const enable of [true, false])
+    it.effect(
+      `previewing the ${enable ? "enabled" : "disabled"} conversion writes nothing and asks no one`,
+      () =>
+        Effect.gen(function* () {
+          const created = makeAuthoringWorkspace({
+            owner: "@acme",
+            agents: ["claude-code"],
+          });
+          cleanups.push(created.cleanup);
+          writeNativeRemoteMcp(created);
+          const environment = authoringWorkspaceEnvironment(created);
+          const before = created.snapshot();
+
+          const { candidate, resolution } = yield* Effect.gen(function* () {
+            const candidate = yield* ImportNativeExtension.prepare({
+              type: "mcp-server",
+              target: "@acme/mcps/context",
+              enable,
+              nonInteractive: true,
+              discovery: nativeMcpDiscovery(created),
+            });
+            return {
+              candidate,
+              resolution: yield* ImportNativeExtension.previewOrApply(candidate, previewExecution),
+            };
+          }).pipe(Effect.scoped, Effect.provide(environment.layer));
+
+          expect(deriveOperationOutcome(resolution)).toBe("previewed");
+          expect(candidate.enabled).toBe(enable);
+
+          // The preview names the package, the declaration, and the native
+          // file the conversion would retire the connection from.
+          expect(
+            resolution.units.flatMap((unit) =>
+              (unit.artifact?.targets ?? []).map((target) => target.path),
+            ),
+          ).toEqual(["mcps/context", "axm.json", ".mcp.json"]);
+
+          expect(created.exists("mcps/context/mcp.json")).toBe(false);
+          expect(created.snapshot()).toEqual(before);
+          expect(environment.interaction.confirmApplyChangesCalls).toEqual([]);
         }),
     );
 });

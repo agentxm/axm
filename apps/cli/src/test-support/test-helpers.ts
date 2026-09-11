@@ -1,0 +1,801 @@
+// @effect-diagnostics anyUnknownInErrorContext:off — generic test harnesses intentionally preserve arbitrary fixture channels
+/**
+ * Shared test helpers for CLI package tests.
+ *
+ * @internal Test-only.
+ */
+
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { WorkspaceMutations as WorkspaceMutationsTag } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "./test-stubs.js";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { MockWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
+import type { StepRequirements } from "../root/shared/step-requirements.js";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+
+import { ensureWorkspaceFiles } from "./test-stubs.js";
+import { AppError } from "../app-error/index.js";
+import { isKnownFailure, toAppError } from "../app-error/conversions.js";
+import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
+import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
+import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
+import { TestFlagsLayer } from "../cli-flags/index.js";
+import { type Screen } from "../screen/index.js";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "./presenter-test.js";
+import { presentPlan } from "../operation-view.js";
+import {
+  PlanInvocationTest,
+  ResolvePlanInteractionTest,
+} from "@agentxm/workspace-operations/testing";
+import type {
+  WorkspaceMutations,
+  WorkspaceMutationsError,
+  WorkspaceMutationsOptions,
+} from "@agentxm/workspace-state";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import {
+  layer as coreWorkspaceLayer,
+  type WorkspaceStateServices,
+} from "@agentxm/workspace-state/live";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+import {
+  BundledAxmSkillAssetLive,
+  ExtensionSelectionInteractionLive,
+  RegistryResolutionPolicyLive,
+} from "../cli-runtime/index.js";
+import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
+import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
+import {
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-projection/live";
+export {
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-projection/live";
+export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+export { KnowledgeIndexLive };
+export { HookConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
+import {
+  ExtensionManagersLive,
+  HookManagerLive,
+  KnowledgeManagerLive,
+  McpSecretStoreLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+} from "@agentxm/extension-materialization/live";
+export {
+  ExtensionManagersLive,
+  HookManagerLive,
+  KnowledgeManagerLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+};
+import {
+  LifecycleStepFailureConversionLive,
+  SyncStepFailureConversionLive,
+} from "../feature-errors.js";
+export { LifecycleStepFailureConversionLive };
+import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
+import { ExecutionDirectory } from "../execution-directory.js";
+import { ReleaseAgePosture } from "@agentxm/extension-resolution";
+
+const testHttpClient = HttpClient.make((request) =>
+  Effect.succeed(
+    HttpClientResponse.fromWeb(
+      request,
+      new Response("Unexpected test HTTP request", { status: 500 }),
+    ),
+  ),
+);
+
+const fs = (() => {
+  const module = process.getBuiltinModule("node:fs");
+  if (!module) {
+    throw new Error("node:fs builtin is unavailable");
+  }
+  return module;
+})();
+
+const path = (() => {
+  const module = process.getBuiltinModule("node:path");
+  if (!module) {
+    throw new Error("node:path builtin is unavailable");
+  }
+  return module;
+})();
+
+export interface TestPromptConfig {
+  readonly confirmResponses?: ReadonlyArray<boolean>;
+  /** Observe state at the real confirmation port, before consuming its canned answer. */
+  readonly onConfirmApplyChanges?: () => void;
+  readonly multiselectResponses?: ReadonlyArray<ReadonlyArray<string>>;
+}
+
+export interface TestPromptState {
+  readonly confirmCalls: Array<{ readonly kind: "resolve-plan" }>;
+  readonly multiselectCalls: Array<{
+    readonly message: string;
+    readonly options: ReadonlyArray<{
+      readonly value: string;
+      readonly label: string;
+      readonly hint?: string;
+    }>;
+    readonly initialValues: ReadonlyArray<string>;
+    readonly required: boolean;
+  }>;
+}
+
+/** One mutating call the recording file system observed. */
+export interface FileSystemWriteEvent {
+  readonly operation:
+    | "chmod"
+    | "chown"
+    | "copy"
+    | "copyFile"
+    | "link"
+    | "makeDirectory"
+    | "open"
+    | "remove"
+    | "rename"
+    | "symlink"
+    | "truncate"
+    | "utimes"
+    | "writeFile";
+  /** Every path the call could change. */
+  readonly paths: ReadonlyArray<string>;
+}
+
+/**
+ * A file system that delegates every call and reports each mutating one.
+ * Specifications pair it with observed state so an assessment that leaves
+ * protected state unchanged is also shown never to have attempted a write
+ * beneath it. Reads, temporary files, and existence checks are not reported.
+ */
+export const recordingFileSystemLayer = (
+  onWrite: (event: FileSystemWriteEvent) => void,
+): Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem> =>
+  Layer.effect(
+    FileSystem.FileSystem,
+    Effect.map(FileSystem.FileSystem, (fs) => {
+      const record = (operation: FileSystemWriteEvent["operation"], paths: ReadonlyArray<string>) =>
+        Effect.sync(() => onWrite({ operation, paths }));
+      const opensForWriting = (flag: string | undefined): boolean =>
+        flag !== undefined && /[wa+]/.test(flag);
+      return FileSystem.make({
+        ...fs,
+        chmod: (path, mode) => record("chmod", [path]).pipe(Effect.andThen(fs.chmod(path, mode))),
+        chown: (path, uid, gid) =>
+          record("chown", [path]).pipe(Effect.andThen(fs.chown(path, uid, gid))),
+        copy: (fromPath, toPath, options) =>
+          record("copy", [toPath]).pipe(Effect.andThen(fs.copy(fromPath, toPath, options))),
+        copyFile: (fromPath, toPath) =>
+          record("copyFile", [toPath]).pipe(Effect.andThen(fs.copyFile(fromPath, toPath))),
+        link: (fromPath, toPath) =>
+          record("link", [toPath]).pipe(Effect.andThen(fs.link(fromPath, toPath))),
+        makeDirectory: (path, options) =>
+          record("makeDirectory", [path]).pipe(Effect.andThen(fs.makeDirectory(path, options))),
+        open: (path, options) =>
+          (opensForWriting(options?.flag) ? record("open", [path]) : Effect.void).pipe(
+            Effect.andThen(fs.open(path, options)),
+          ),
+        remove: (path, options) =>
+          record("remove", [path]).pipe(Effect.andThen(fs.remove(path, options))),
+        rename: (oldPath, newPath) =>
+          record("rename", [oldPath, newPath]).pipe(Effect.andThen(fs.rename(oldPath, newPath))),
+        symlink: (fromPath, toPath) =>
+          record("symlink", [toPath]).pipe(Effect.andThen(fs.symlink(fromPath, toPath))),
+        truncate: (path, length) =>
+          record("truncate", [path]).pipe(Effect.andThen(fs.truncate(path, length))),
+        utimes: (path, atime, mtime) =>
+          record("utimes", [path]).pipe(Effect.andThen(fs.utimes(path, atime, mtime))),
+        writeFile: (path, data, options) =>
+          record("writeFile", [path]).pipe(Effect.andThen(fs.writeFile(path, data, options))),
+      });
+    }),
+  );
+
+export interface AppErrorResult {
+  readonly error: true;
+  readonly message: string;
+  readonly guidance: string;
+}
+
+export const expectDefined = <T>(
+  value: T | null | undefined,
+  message = "Expected value to be defined",
+): T => {
+  if (value == null) {
+    throw new Error(message);
+  }
+
+  return value;
+};
+
+export const at = <T>(values: ReadonlyArray<T>, index: number, message?: string): T =>
+  expectDefined(values[index], message ?? `Expected value at index ${index}`);
+
+export const recordEntry = <T>(
+  value: Readonly<Record<string, T>> | Partial<Record<string, T>> | undefined,
+  key: string,
+  message?: string,
+): T => expectDefined(value?.[key], message ?? `Expected record entry for ${key}`);
+
+export const firstCall = <T>(
+  calls: ReadonlyArray<ReadonlyArray<T>>,
+  message = "Expected mock to be called",
+): ReadonlyArray<T> => at(calls, 0, message);
+
+export const firstCallArg = <T>(
+  calls: ReadonlyArray<ReadonlyArray<T>>,
+  index = 0,
+  message?: string,
+): T =>
+  at(
+    firstCall(calls, message),
+    index,
+    message ?? `Expected argument ${index} from first mock call`,
+  );
+
+export const expectSome = <T>(value: Option.Option<T>, message = "Expected Option.some"): T =>
+  Option.match(value, {
+    onNone: () => {
+      throw new Error(message);
+    },
+    onSome: (item) => item,
+  });
+
+export const expectRecord = (
+  value: unknown,
+  message = "Expected object record",
+): Readonly<Record<string, unknown>> => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(message);
+  }
+
+  return Object.fromEntries(Object.entries(value));
+};
+
+export const property = (value: unknown, key: string, message?: string): unknown =>
+  expectDefined(
+    expectRecord(value, message ?? `Expected object containing ${key}`)[key],
+    message ?? `Expected property ${key}`,
+  );
+
+export const planResultUnits = (result: unknown): ReadonlyArray<unknown> => {
+  const units = property(result, "units");
+
+  if (!Array.isArray(units)) {
+    throw new Error("Expected result.units array");
+  }
+
+  return units;
+};
+
+const expectPlanCounts = (result: unknown, expected: Readonly<Record<string, number>>): void => {
+  const counts = expectRecord(property(result, "counts"));
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    const actual = property(counts, key);
+    if (actual !== expectedValue) {
+      throw new Error(
+        `Expected plan result counts.${key} to be ${String(expectedValue)}, received ${String(actual)}`,
+      );
+    }
+  }
+};
+
+const expectPlanContract = (result: unknown): void => {
+  if (property(result, "contract") !== "plan-result-v3") {
+    throw new Error("Expected plan-result-v3 contract");
+  }
+};
+
+export const expectAppliedPlanResult = (
+  value: unknown,
+  options: {
+    readonly planName: string;
+    readonly totalSteps?: number;
+    readonly appliedCount?: number;
+    readonly warningCount?: number;
+  },
+): Readonly<Record<string, unknown>> => {
+  const payload = expectRecord(value);
+  const result = expectRecord(property(payload, "result"));
+  const total = options.totalSteps ?? 1;
+  expectPlanContract(result);
+  if (property(result, "outcome") !== "applied") {
+    throw new Error(
+      `Expected plan result outcome to be applied; received ${String(property(result, "outcome"))}: ${JSON.stringify(result["failure"])}`,
+    );
+  }
+  if (property(result, "planName") !== options.planName) {
+    throw new Error(`Expected plan result planName to be ${options.planName}`);
+  }
+  expectPlanCounts(result, {
+    total,
+    ...(options.appliedCount === undefined ? {} : { committed: options.appliedCount }),
+    failed: 0,
+    blocked: 0,
+    ...(options.warningCount === undefined ? {} : { warnings: options.warningCount }),
+  });
+  planResultUnits(result);
+  return result;
+};
+
+export const expectPublishResult = (
+  value: unknown,
+  options: {
+    readonly mode: "preview" | "apply";
+    readonly count?: number;
+  },
+): Readonly<Record<string, unknown>> => {
+  const payload = expectRecord(value);
+  if (property(payload, "contract") !== "publish-result-v3") {
+    throw new Error("Expected publish-result-v3 contract");
+  }
+  const mode = property(payload, "mode");
+  if (mode !== options.mode) {
+    throw new Error(`Expected publish result mode to be ${options.mode}`);
+  }
+
+  const execution = expectRecord(property(payload, "execution"));
+  const results = property(execution, "outcomes");
+  if (!Array.isArray(results)) {
+    throw new Error("Expected publish result results array");
+  }
+
+  if (options.count !== undefined && results.length !== options.count) {
+    throw new Error(`Expected publish result to contain ${String(options.count)} results`);
+  }
+
+  return { ...payload, results };
+};
+
+export const expectNoOpPlanResult = (
+  value: unknown,
+  options: {
+    readonly planName: string;
+    readonly totalSteps?: number;
+    readonly message?: string;
+  },
+): Readonly<Record<string, unknown>> => {
+  const payload = expectRecord(value);
+  const result = expectRecord(property(payload, "result"));
+  const total = options.totalSteps ?? 0;
+  expectPlanContract(result);
+  if (property(result, "outcome") !== "no-op") {
+    throw new Error(`Expected plan result outcome to be no-op`);
+  }
+  if (property(result, "planName") !== options.planName) {
+    throw new Error(`Expected plan result planName to be ${options.planName}`);
+  }
+  expectPlanCounts(result, { total, committed: 0, failed: 0, blocked: 0 });
+
+  if (options.message !== undefined && property(result, "message") !== options.message) {
+    throw new Error(`Expected no-op plan result message to be ${options.message}`);
+  }
+
+  const units = planResultUnits(result);
+  if (units.length !== total) {
+    throw new Error(`Expected no-op plan result to contain ${String(total)} units`);
+  }
+
+  return result;
+};
+
+export const expectPreviewedPlanResult = (
+  value: unknown,
+  options: {
+    readonly planName: string;
+    readonly totalSteps: number;
+    readonly readyCount?: number;
+  },
+): Readonly<Record<string, unknown>> => {
+  const payload = expectRecord(value);
+  const result = expectRecord(property(payload, "result"));
+  const ready = options.readyCount ?? options.totalSteps;
+  expectPlanContract(result);
+  if (property(result, "outcome") !== "previewed") {
+    throw new Error(`Expected plan result outcome to be previewed`);
+  }
+  if (property(result, "planName") !== options.planName) {
+    throw new Error(`Expected plan result planName to be ${options.planName}`);
+  }
+  expectPlanCounts(result, {
+    total: options.totalSteps,
+    ready,
+    committed: 0,
+    failed: 0,
+  });
+
+  const units = planResultUnits(result);
+  if (units.length !== options.totalSteps) {
+    throw new Error(
+      `Expected previewed plan result to contain ${String(options.totalSteps)} units`,
+    );
+  }
+
+  return result;
+};
+
+export const expectNoPlanEnvelope = (value: unknown): void => {
+  const record = expectRecord(value);
+  const planFields = ["result", "outcome", "planName", "units"];
+
+  for (const field of planFields) {
+    if (field in record) {
+      throw new Error(`Expected read/query output without plan field ${field}`);
+    }
+  }
+};
+
+export const stringProperty = (value: unknown, key: string, message?: string): string => {
+  const field = property(value, key, message);
+
+  if (typeof field !== "string") {
+    throw new Error(message ?? `Expected string property ${key}`);
+  }
+
+  return field;
+};
+
+export const stringArrayProperty = (
+  value: unknown,
+  key: string,
+  message?: string,
+): ReadonlyArray<string> => {
+  const field = property(value, key, message);
+
+  if (!Array.isArray(field) || field.some((entry) => typeof entry !== "string")) {
+    throw new Error(message ?? `Expected string[] property ${key}`);
+  }
+
+  return field;
+};
+
+export const getAppError = (error: unknown): AppError => {
+  if (error instanceof AppError) {
+    return error;
+  }
+  // Typed workspace failures assert through their boundary rendering; the
+  // byte-for-byte contract for each tag is pinned by the conversion tests.
+  if (isKnownFailure(error)) {
+    return toAppError(error);
+  }
+  throw new Error("Expected AppError", { cause: error });
+};
+
+export const getErrorResult = (result: unknown): AppErrorResult => {
+  if (
+    typeof result !== "object" ||
+    result === null ||
+    !("error" in result) ||
+    result.error !== true ||
+    !("message" in result) ||
+    typeof result.message !== "string"
+  ) {
+    throw new Error("Expected caught AppError result");
+  }
+
+  return {
+    error: true,
+    message: result.message,
+    guidance: "guidance" in result && typeof result.guidance === "string" ? result.guidance : "",
+  };
+};
+
+export const makeCliTestContext = (opts?: {
+  readonly prompt?: TestPromptConfig | undefined;
+  readonly flags?:
+    | {
+        verbose?: boolean;
+        debug?: boolean;
+        quiet?: boolean;
+        nonInteractive?: boolean;
+        json?: boolean;
+      }
+    | undefined;
+  readonly machine?: boolean | undefined;
+  readonly httpClient?: HttpClient.HttpClient | undefined;
+  /**
+   * A real `Screen` layer (over recording output streams) used in place of
+   * the captured test renderer, so a specification can observe the bytes the
+   * application writes to each stream. `rendererState` stays empty.
+   */
+  readonly screenLayer?: Layer.Layer<Screen> | undefined;
+  /** Observe every mutating file-system call the application makes. */
+  readonly onFileSystemWrite?: ((event: FileSystemWriteEvent) => void) | undefined;
+  /** Override filesystem operations before workspace services capture the platform. */
+  readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
+}) => {
+  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const rendererLayer = opts?.screenLayer ?? renderer.layer;
+  const rendererState = renderer.state;
+  const promptState: TestPromptState = {
+    confirmCalls: [],
+    multiselectCalls: [],
+  };
+  const confirmQueue = Array.from(opts?.prompt?.confirmResponses ?? []);
+  const multiselectQueue = Array.from(opts?.prompt?.multiselectResponses ?? []);
+
+  const nextConfirm = () =>
+    Effect.gen(function* () {
+      promptState.confirmCalls.push({ kind: "resolve-plan" });
+      opts?.prompt?.onConfirmApplyChanges?.();
+      const response = confirmQueue.shift();
+      if (response === undefined) {
+        return yield* Effect.die(
+          new Error("Test prompt: no canned confirm response for resolve-plan."),
+        );
+      }
+      return response ? ("approved" as const) : ("declined" as const);
+    });
+
+  const flagsLayer = TestFlagsLayer(opts?.flags);
+  const resolvePlanTest = ResolvePlanInteractionTest({
+    // Mirrors TestFlagsLayer's non-interactive default: confirmation is
+    // available only when a test explicitly opts into interactivity.
+    isConfirmationAvailable: opts?.flags?.nonInteractive === false,
+    confirmApplyChanges: nextConfirm,
+    // Render plan candidates like the CLI Live so output assertions keep
+    // observing the real display wording.
+    presentPlan: (plan, options) =>
+      presentPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
+  });
+  const workspaceInitializationTest = WorkspaceInitializationInteractionTest({
+    selectAgents: ({ allAgents, detectedIds }) =>
+      Effect.gen(function* () {
+        promptState.multiselectCalls.push({
+          message: "Select agents to configure",
+          options: allAgents.map((agent) => ({
+            value: agent.id,
+            label: agent.name,
+            hint:
+              agent.skills === undefined ? "skills: unsupported" : `skills: ${agent.skills.dir}`,
+          })),
+          initialValues: detectedIds,
+          required: false,
+        });
+        const response = multiselectQueue.shift();
+        if (response === undefined) {
+          return yield* Effect.die(
+            new Error("Test prompt: no canned multiselect response for workspace initialization."),
+          );
+        }
+        return response;
+      }),
+  });
+  const authLoginPresenterTest = AuthLoginPresenterTest();
+  const fileSystemPlatformLayer =
+    opts?.fileSystemLayer === undefined
+      ? NodeServices.layer
+      : Layer.provideMerge(opts.fileSystemLayer, NodeServices.layer);
+  const platformLayer =
+    opts?.onFileSystemWrite === undefined
+      ? fileSystemPlatformLayer
+      : Layer.provideMerge(
+          recordingFileSystemLayer(opts.onFileSystemWrite),
+          fileSystemPlatformLayer,
+        );
+  const registryClientFactoryLayer = Layer.provide(
+    RegistryClientFactoryLive,
+    Layer.mergeAll(
+      platformLayer,
+      Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
+      Layer.succeed(RegistryUrl, "https://registry.example.com"),
+    ),
+  );
+  const baseLayer = Layer.mergeAll(
+    platformLayer,
+    Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
+    registryClientFactoryLayer,
+    rendererLayer,
+    resolvePlanTest.layer,
+    authLoginPresenterTest.layer,
+    workspaceInitializationTest.layer,
+    flagsLayer,
+    Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
+    Layer.succeed(RegistryUrl, "https://registry.example.com"),
+    CredentialStoreTest(),
+    // The posture a command boundary discharges when it registers no
+    // override. A test that wants the one-shot bypass provides "ignore"
+    // closer to the handler it drives.
+    Layer.succeed(ReleaseAgePosture, "enforce"),
+  );
+
+  return {
+    authLoginPresenterState: authLoginPresenterTest.state,
+    baseLayer,
+    logs: logsByTag(rendererState),
+    promptState,
+    rendererState,
+    resolvePlanState: resolvePlanTest.state,
+    workspaceInitializationState: workspaceInitializationTest.state,
+  };
+};
+
+const isRepositoryPath = (startDir: string): boolean => {
+  let current = path.resolve(startDir);
+
+  while (true) {
+    if (
+      fs.existsSync(path.join(current, ".git")) ||
+      fs.existsSync(path.join(current, "pnpm-workspace.yaml"))
+    ) {
+      return true;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return false;
+    }
+
+    current = parent;
+  }
+};
+
+export const makeWorkspaceHandlerTestContext = (opts?: {
+  readonly prompt?: TestPromptConfig | undefined;
+  readonly flags?:
+    | {
+        verbose?: boolean;
+        debug?: boolean;
+        quiet?: boolean;
+        nonInteractive?: boolean;
+        json?: boolean;
+      }
+    | undefined;
+  readonly machine?: boolean | undefined;
+  readonly httpClient?: HttpClient.HttpClient | undefined;
+  readonly screenLayer?: Layer.Layer<Screen> | undefined;
+  readonly onFileSystemWrite?: ((event: FileSystemWriteEvent) => void) | undefined;
+  /** Override filesystem operations before workspace services capture the platform. */
+  readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
+  /**
+   * An already initialized workspace — the state services with their
+   * transaction scope — composed over the selected test platform.
+   */
+  readonly workspaceLayer?: Layer.Layer<
+    WorkspaceStateServices | WorkspaceMutations | WorkspaceTransactionScope,
+    WorkspaceMutationsError,
+    FileSystem.FileSystem | Path.Path
+  >;
+  readonly wsOptions?:
+    | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
+        readonly projectRoot?: string;
+      })
+    | undefined;
+}) => {
+  const cliTestContext = makeCliTestContext(opts);
+  const projectRoot = decodeAbsolutePathSync(opts?.wsOptions?.projectRoot ?? process.cwd());
+  const wsOptions = {
+    scope: "project",
+    ...opts?.wsOptions,
+    projectRoot,
+  } satisfies WorkspaceMutationsOptions;
+
+  // Ensure workspace settings exist — loadWorkspace requires an initialized workspace
+  if (wsOptions.scope === "project" && opts?.workspaceLayer === undefined) {
+    const workspaceRoot = projectRoot;
+
+    if (opts?.wsOptions?.projectRoot === undefined && isRepositoryPath(workspaceRoot)) {
+      throw new Error(
+        "Project workspace tests must set wsOptions.projectRoot or chdir into a temp dir before calling makeWorkspaceHandlerTestContext().",
+      );
+    }
+
+    ensureWorkspaceFiles(path.join(workspaceRoot, ".axm"));
+  }
+
+  const coreWsLayer = Layer.provide(
+    opts?.workspaceLayer ?? coreWorkspaceLayer(wsOptions),
+    cliTestContext.baseLayer,
+  );
+  const wsLayer = Layer.mergeAll(
+    coreWsLayer,
+    NativeWriteAuthorityLive,
+    Layer.provide(
+      WorkspaceCatalogLive,
+      Layer.mergeAll(
+        coreWsLayer,
+        CodingAgentRepositoryLive,
+        NativeWriteAuthorityLive,
+        cliTestContext.baseLayer,
+      ),
+    ),
+    AxmSkillCandidateGateLive,
+    RegistryResolutionPolicyLive,
+    // No per-type outcome refinement: every configured-agent outcome stays
+    // generic, as it did before the provider became a boundary requirement.
+    // Tests that need the native refinement merge
+    // `HookConfiguredAgentOutcomesProviderLive` over this layer.
+    ConfiguredAgentOutcomesProviderTest,
+  );
+  const fullLayer = Layer.mergeAll(
+    cliTestContext.baseLayer,
+    wsLayer,
+    KnowledgeIndexLive,
+    LifecycleStepFailureConversionLive,
+    SyncStepFailureConversionLive,
+    // The official skill the executable carries, and the terminal selection
+    // port, exactly as the runtime composes them: a test drives the product's
+    // own layers rather than a rehearsal of them. The flags layer's
+    // non-interactive default means no prompt ever opens.
+    BundledAxmSkillAssetLive,
+    Layer.provide(ExtensionSelectionInteractionLive, cliTestContext.baseLayer),
+    McpSecretStoreLive,
+    // Every command runs inside the operation lifecycle, which opens the
+    // journal and footprint recorder once per invocation; a test that drives
+    // a handler directly gets empty ones here.
+    PlanInvocationTest,
+  );
+
+  return {
+    ...cliTestContext,
+    ...(wsOptions.scope === "project" ? { projectRoot } : {}),
+    wsLayer,
+    fullLayer,
+    provide: makeEffectProvide(fullLayer),
+  };
+};
+
+/**
+ * Every per-type manager and the registry a use case resolves them through,
+ * composed the way the runtime composes them. A handler test that drives a
+ * use case which decides its extension type at runtime provides this over its
+ * workspace layer instead of naming one manager.
+ */
+export const AllExtensionManagersLive = Layer.provideMerge(
+  ExtensionManagersLive,
+  Layer.mergeAll(
+    SkillManagerLive,
+    SubagentManagerLive,
+    RuleManagerLive,
+    HookManagerLive,
+    KnowledgeManagerLive,
+    McpServerManagerLive,
+    PackManagerLive,
+  ),
+);
+
+export const makeEffectProvide = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper hides layer variance
+  layer: Layer.Layer<any, any, any>,
+) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper hides generic layer plumbing
+  return <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(layer));
+};
+
+/**
+ * Everything a materialization plan step declares, stubbed for tests that
+ * exercise plan shape rather than workspace effects. The step's requirements
+ * travel with it from the capability; this is the boundary a test composes
+ * them at, exactly as the runtime does.
+ */
+export const StepRequirementsTest = (axmDir = "/tmp/axm"): Layer.Layer<StepRequirements> =>
+  Layer.mergeAll(
+    MockWorkspaceTransactionScope(axmDir),
+    NativeWriteAuthorityPermissive,
+    NodeServices.layer,
+    FetchHttpClient.layer,
+    LifecycleStepFailureConversionLive,
+    McpSecretStoreLive,
+    TestRenderer.make().layer,
+    CodingAgentRepositoryLive.pipe(
+      Layer.provideMerge(Layer.succeed(WorkspaceMutationsTag, makeBaseWorkspaceMock(axmDir))),
+    ),
+  );

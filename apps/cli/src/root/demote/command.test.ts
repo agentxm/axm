@@ -14,7 +14,7 @@ import {
   AllExtensionManagersLive,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-} from "../../test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import { handleDemote } from "./command.js";
 
 const writeSkill = (dir: string, content: string) => {

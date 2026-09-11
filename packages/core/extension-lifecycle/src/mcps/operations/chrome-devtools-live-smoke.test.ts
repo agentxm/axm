@@ -21,8 +21,9 @@ import {
 } from "../../test-helpers.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import { installMcpServer } from "@agentxm/extension-materialization";
+import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
 import { uninstallMcpServer } from "./uninstall.js";
-import { installMcpServer } from "./install.js";
 
 const LIVE_SMOKE_ENV = "AXM_RUN_CHROME_DEVTOOLS_MCP_LIVE_SMOKE";
 const LIVE_REGISTRY_URL_ENV = "AXM_CHROME_DEVTOOLS_MCP_REGISTRY_URL";
@@ -70,6 +71,8 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     vi.restoreAllMocks();
   });
+
+  const secretStore = makeMemoryMcpSecretStore();
 
   it.effect("installs then uninstalls with live registry fetch when gate is enabled", () =>
     Effect.gen(function* () {
@@ -135,6 +138,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
             ),
             WorkspaceMutations.layer(wsMock),
             TestStepFailureConversion,
+            secretStore.layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),
           ),
         ),
@@ -158,6 +162,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
             ),
             WorkspaceMutations.layer(wsMock),
             TestStepFailureConversion,
+            secretStore.layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),
           ),
         ),

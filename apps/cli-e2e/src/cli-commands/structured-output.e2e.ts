@@ -47,7 +47,26 @@ describe("structured output (--json)", () => {
         },
         suggestions: [{ description: "Log in to this registry", cmd: "axm login" }],
       });
-      expect(result.stderr.trim()).toBe("");
+      // `axm logout` is a progress-liveness family (see the `logout` row in
+      // apps/cli/src/machine-output-contracts.ts), so the sign-out crosses as
+      // lifecycle NDJSON on stderr while stdout carries exactly one document.
+      // The contract here is the channel split and the event shape, not an
+      // empty stderr.
+      const stderrLines = result.stderr.split("\n").filter((line) => line.trim().length > 0);
+      expect(stderrLines.map((line): unknown => JSON.parse(line))).toEqual([
+        {
+          type: "progress",
+          event: expect.objectContaining({
+            _tag: "OperationStarted",
+            name: "Sign out of registry.agentxm.ai",
+            mode: "apply",
+          }),
+        },
+        {
+          type: "progress",
+          event: expect.objectContaining({ _tag: "OperationSettled", outcome: "completed" }),
+        },
+      ]);
     } finally {
       temp.cleanup();
     }

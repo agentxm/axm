@@ -1,22 +1,11 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import type { StepRequirements } from "../shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { detectAgentsForScope } from "@agentxm/agent-integration";
-import { makeAppError } from "../../app-error/index.js";
+import { ConfigureAgents } from "@agentxm/workspace-configuration";
 import { acceptWarningsFlag, ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
-import {
-  observeUnit,
-  previewOrApplyPlan,
-  deriveOperationOutcome,
-  type JobStepArtifact,
-  type JobStepResult,
-  type Plan,
-  type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { deriveOperationOutcome, observeUnit } from "@agentxm/workspace-operations";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -28,20 +17,9 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { collectMaterializeSteps } from "../sync/handler.js";
-import {
-  dedupe,
-  makeAtomicMembershipSteps,
-  validateAgentIds,
-} from "@agentxm/workspace-configuration";
-import { isRetiredAgent, lifecycleWarning } from "./lifecycle.js";
+import { SyncWorkspace } from "@agentxm/workspace-sync";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
-import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import {
-  configurationFailureToAppError,
-  configurationFailureToStepFailure,
-} from "../../feature-errors.js";
+import { configurationFailureToAppError, syncFailureToAppError } from "../../feature-errors.js";
 
 export interface AgentsAddArgs {
   readonly ids: ReadonlyArray<string>;
@@ -50,213 +28,33 @@ export interface AgentsAddArgs {
   readonly preview: boolean;
 }
 
-const addAgentStep = (
-  ws: WorkspaceMutationsService,
-  agentId: string,
-): PlannedJobStep<StepRequirements> => ({
-  label: `Add ${agentId}`,
-  readiness: "ready",
-  artifact: {
-    path: workspaceSettingsPath(ws.scope),
-    scope: ws.scope,
-    agents: [agentId],
-    change: "updated",
-    fileCount: 1,
-    targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] }],
-  },
-  run: ws
-    .addConfiguredAgent(agentId)
-    .pipe(Effect.mapError(toAppError))
-    .pipe(
-      Effect.mapError(failureToStepFailure),
-      Effect.as({
-        result: "success",
-        message: `Configured ${agentId}`,
-        artifact: {
-          path: workspaceSettingsPath(ws.scope),
-          scope: ws.scope,
-          agents: [agentId],
-          change: "updated",
-          fileCount: 1,
-          targets: [
-            { path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] },
-          ],
-        },
-      } satisfies JobStepResult),
-    ),
-});
-
-const materializationArtifact = (
-  ws: WorkspaceMutationsService,
-  agentIds: ReadonlyArray<string>,
-): JobStepArtifact => ({
-  path: "managed agent artifacts",
-  scope: ws.scope,
-  agents: agentIds,
-  change: "updated",
-  targets: agentIds.map((agentId) => ({
-    path: `${agentId} managed agent artifacts`,
-    change: "updated",
-    agentIds: [agentId],
-  })),
-});
-
-const targetMatchesAgents = (
-  targetAgents: ReadonlyArray<string> | undefined,
-  agentIds: ReadonlyArray<string>,
-): boolean =>
-  targetAgents === undefined ||
-  targetAgents.length === 0 ||
-  targetAgents.some((agentId) => agentIds.includes(agentId));
-
-const aggregateArtifactChange = (
-  targets: ReadonlyArray<{ readonly change: JobStepArtifact["change"] }>,
-  fallback: JobStepArtifact["change"],
-): JobStepArtifact["change"] => {
-  if (targets.length === 0) return fallback;
-  if (targets.some((target) => target.change === "created")) return "created";
-  if (targets.some((target) => target.change === "updated")) return "updated";
-  if (targets.some((target) => target.change === "removed")) return "removed";
-  return "unchanged";
-};
-
-const filterMaterializationArtifact = (
-  artifact: JobStepArtifact,
-  agentIds: ReadonlyArray<string>,
-): JobStepArtifact => {
-  if (artifact.targets === undefined || artifact.targets.length === 0) {
-    return artifact;
-  }
-  const targets = artifact.targets.filter((target) =>
-    targetMatchesAgents(target.agentIds, agentIds),
-  );
-  if (targets.length === 0) {
-    return artifact;
-  }
-  const agents = artifact.agents?.filter((agentId) => agentIds.includes(agentId));
-  return {
-    ...artifact,
-    path: targets[0]?.path ?? artifact.path,
-    ...(agents === undefined || agents.length === 0 ? {} : { agents }),
-    change: aggregateArtifactChange(targets, artifact.change),
-    targets,
-  };
-};
-
-const attachMaterializationArtifact = <Requirements, Output>(
-  ws: WorkspaceMutationsService,
-  agentIds: ReadonlyArray<string>,
-  step: PlannedJobStep<Requirements, Output>,
-): PlannedJobStep<Requirements, Output> => {
-  if (step.readiness === "error") return step;
-  const artifact =
-    step.artifact === undefined
-      ? materializationArtifact(ws, agentIds)
-      : filterMaterializationArtifact(step.artifact, agentIds);
-  return {
-    ...step,
-    artifact,
-    run: Effect.gen(function* () {
-      const result = yield* step.run;
-      if (result.result === "error") return result;
-      if (result.artifact !== undefined) {
-        return {
-          ...result,
-          artifact: filterMaterializationArtifact(result.artifact, agentIds),
-        };
-      }
-      return {
-        ...result,
-        artifact: materializationArtifact(ws, agentIds),
-      };
-    }),
-  };
-};
-
-const makePlan = <Requirements, Output>(
-  agentIds: ReadonlyArray<string>,
-  steps: ReadonlyArray<PlannedJobStep<Requirements, Output>>,
-): Plan<Requirements, Output> => ({
-  _tag: "Plan",
-  name: "Add coding agents",
-  description: Option.some(`Configure ${agentIds.join(", ")} and materialize installed extensions`),
-  presentation: {
-    verb: { imperative: "configure", past: "Configured", gerund: "Configuring" },
-    subject: { singular: "agent", plural: "agents" },
-  },
-  jobs: [{ concurrency: 1, executionPolicy: "best-effort", steps }],
-});
+const PLAN_NAME = "Add coding agents";
 
 export const handleAgentsAdd = (args: AgentsAddArgs) =>
   withOperationLifecycle(
-    {
-      command: "agents.add",
-      mode: args.preview ? "preview" : "apply",
-      planName: "Add coding agents",
-    },
+    { command: "agents.add", mode: args.preview ? "preview" : "apply", planName: PLAN_NAME },
     handleAgentsAddBody(args),
   );
 
 const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddArgs) {
   const screen = yield* Screen;
-  const ws = yield* WorkspaceMutations;
+  const candidate = yield* ConfigureAgents.add
+    .prepare({ ids: args.ids, detected: args.detected, acceptWarnings: args.force })
+    .pipe(Effect.mapError(configurationFailureToAppError));
 
-  if (args.ids.length === 0 && !args.detected) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "Provide one or more agent IDs, or pass --detected.",
-      suggestions: [
-        { description: "List supported IDs.", cmd: "axm agents list --available" },
-        { description: "Configure detected agents.", cmd: "axm agents add --detected" },
-      ],
-    });
+  for (const notice of candidate.retiredDetected) {
+    yield* screen.note(headlineDoc("warn", notice.detail));
   }
 
-  const requested = yield* validateAgentIds(args.ids).pipe(
-    Effect.mapError(configurationFailureToAppError),
-  );
-  const configured = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
-  const configuredSet = new Set(configured);
-  const detected = args.detected
-    ? yield* observeUnit(
-        { id: "detect-agents", label: "coding agent detection" },
-        detectAgentsForScope(ws.baseDir, ws.scope).pipe(
-          Effect.map((agents) => agents.map((agent) => agent.id)),
-        ),
-      )
-    : [];
-  const detectedConfigurable = yield* validateAgentIds(detected).pipe(
-    Effect.mapError(configurationFailureToAppError),
-  );
-  const requestedSet = new Set(requested);
-  const retiredDetected = detectedConfigurable.filter(
-    (id) => isRetiredAgent(id) && !requestedSet.has(id),
-  );
-  const autoDetected = detectedConfigurable.filter(
-    (id) => !isRetiredAgent(id) || requestedSet.has(id),
-  );
-  for (const agentId of retiredDetected) {
-    yield* screen.note(
-      headlineDoc(
-        "warn",
-        `${lifecycleWarning(agentId) ?? `${agentId} is retired.`} It was not added automatically; run \`axm agents add ${agentId}\` to opt in.`,
-      ),
-    );
-  }
-  const agentIds = dedupe([...requested, ...autoDetected]).filter((id) => !configuredSet.has(id));
-
-  if (agentIds.length === 0) {
+  if (candidate._tag === "Unchanged") {
     yield* emitNoOpOutcome("agents.add", {
-      planName: "Add coding agents",
+      planName: PLAN_NAME,
       planDescription: "Configure coding agents and materialize installed extensions",
-      message:
-        retiredDetected.length > 0 && requested.length === 0
-          ? "No active detected agents to configure"
-          : "All requested agents are already configured",
-      ...(retiredDetected.length === 0
+      message: candidate.message,
+      ...(candidate.retiredDetected.length === 0
         ? {}
         : {
-            suggestions: retiredDetected.map((agentId) => ({
+            suggestions: candidate.retiredDetected.map(({ agentId }) => ({
               description: `Explicitly configure retired agent ${agentId}.`,
               cmd: `axm agents add ${agentId}`,
             })),
@@ -265,75 +63,36 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     return;
   }
 
-  // Warn rather than block: the workspace may still need a retired agent
-  // configured, but the user should know the vendor has stopped maintaining it.
-  const lifecycleWarnings = agentIds.flatMap((agentId) => {
-    const warning = lifecycleWarning(agentId);
-    return warning === undefined ? [] : [`${agentId}: ${warning}`];
-  });
-  for (const warning of lifecycleWarnings) yield* screen.note(headlineDoc("warn", warning));
+  for (const warning of candidate.lifecycleWarnings) {
+    yield* screen.note(headlineDoc("warn", warning));
+  }
 
+  // The reconciliation feature plans the steps that realize installed
+  // extensions for the resulting membership; the configuration feature
+  // applies them inside the membership closure.
   const materialize = yield* observeUnit(
     { id: "materialization", label: "installed extension materialization" },
-    collectMaterializeSteps({
+    SyncWorkspace.planMaterialization({
       selection: { target: Option.none(), type: Option.none() },
-      configuredAgents: [...configured, ...agentIds],
-    }),
+      configuredAgents: candidate.configuredAgents,
+    }).pipe(Effect.mapError(syncFailureToAppError)),
   );
-  const materializeSteps = materialize.steps.map((step) =>
-    attachMaterializationArtifact(ws, agentIds, step),
-  );
-  const steps = [...agentIds.map((agentId) => addAgentStep(ws, agentId)), ...materializeSteps];
-  const atomicSteps = yield* makeAtomicMembershipSteps({
-    steps,
-    toStepFailure: configurationFailureToStepFailure,
-    validate: () =>
-      ws
-        .getConfiguredAgents()
-        .pipe(Effect.mapError(toAppError))
-        .pipe(
-          Effect.flatMap((current) => {
-            const currentSet = new Set(current);
-            const missing = agentIds.filter((agentId) => !currentSet.has(agentId));
-            return missing.length === 0
-              ? Effect.void
-              : makeAppError({
-                  code: "internal",
-                  detail: `Agent membership transition did not configure: ${missing.join(", ")}`,
-                });
-          }),
-        ),
-  });
-  const basePlan = makePlan(agentIds, atomicSteps);
-  const plan =
-    lifecycleWarnings.length === 0
-      ? basePlan
-      : {
-          ...basePlan,
-          riskConditions: [
-            {
-              level: "override-required" as const,
-              id: "retired-agent-lifecycle-warnings",
-              policy: "accept-warnings" as const,
-              requiredFlag: "--accept-warnings",
-              detail: lifecycleWarnings.join("; "),
-            },
-          ],
-        };
 
   // Goes through the reconciling resolver rather than the local one: adding an
   // agent materializes installed extensions, which needs a readable lockfile.
   const execution = yield* makePublicPositionalPlanExecution(
     args,
     ["agents", "add"],
-    agentIds,
+    candidate.agentIds,
     args.force ? ["accept-warnings"] : [],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  const resolution = yield* ConfigureAgents.add
+    .previewOrApply(candidate, execution, { steps: materialize.steps })
+    .pipe(Effect.mapError(configurationFailureToAppError));
   const outcome = deriveOperationOutcome(resolution);
   const suggestions =
     outcome === "applied" || outcome === "partial"
-      ? buildPermissionSuggestions(agentIds, ws.scope)
+      ? buildPermissionSuggestions(candidate.agentIds, candidate.scope)
       : [];
   yield* emitOperationResolution("agents.add", resolution, { suggestions });
 });

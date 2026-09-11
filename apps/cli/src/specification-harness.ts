@@ -51,14 +51,10 @@ export {
   type InstallHandlerArgs as SkillsInstallHandlerArgs,
   type InstallSkillFlags as SkillsInstallFlags,
 } from "./root/skills/install/handler.js";
-export { resolveRootInstallIntent } from "./root/install/resolve-root-install-intent.js";
 export { PLAN_RESULT_CONTRACT, PlanResolutionDocumentSchema } from "./operation-output.js";
 export { handleUninstall } from "./root/uninstall/handler.js";
-export { handleAdopt } from "./root/adopt/command.js";
-export { handleFork } from "./root/fork/command.js";
 export { handleDemote } from "./root/demote/command.js";
-export { handleImport } from "./root/import/command.js";
-export { handleRootVersion, handleVersion } from "./root/shared/version-command.js";
+export { handleRootVersion } from "./root/version/command.js";
 export { handleLogin, LoginNoOpDocumentSchema } from "./root/auth/login.js";
 // The credential store port and the session shape the login specifications
 // observe; specs may not import the auth root directly.
@@ -74,13 +70,9 @@ export {
   CredentialStoreLive,
   PendingDeviceLoginStoreLive,
 } from "@agentxm/registry-auth/live";
-export { handleEnableHook } from "./root/hooks/enable.js";
-export { handleDisableHook } from "./root/hooks/disable.js";
 export { handleHooksNew } from "./root/hooks/new.js";
 export { handleInstallHook } from "./root/hooks/install/handler.js";
 export { handleUninstallHook } from "./root/hooks/uninstall/handler.js";
-export { handleEnableRule } from "./root/rules/enable.js";
-export { handleDisableRule } from "./root/rules/disable.js";
 export { handleRulesNew } from "./root/rules/new.js";
 export { handleInstallRule } from "./root/rules/install/handler.js";
 export { handleUninstallRule } from "./root/rules/uninstall/handler.js";
@@ -88,10 +80,7 @@ export { handleKnowledgeNew } from "./root/knowledge/new.js";
 export { handleKnowledgeInstall } from "./root/knowledge/install/command.js";
 export { handleKnowledgeUninstall } from "./root/knowledge/uninstall/command.js";
 export { handleKnowledgeUpdate } from "./root/knowledge/update.js";
-export { setKnowledgeEnabled } from "./root/knowledge/activation.js";
 export { handleMcpServersNew } from "./root/mcps/new.js";
-export { handleEnableSubagent } from "./root/subagents/enable/handler.js";
-export { handleDisableSubagent } from "./root/subagents/disable/handler.js";
 export { handleInstall as handleSubagentsInstall } from "./root/subagents/install/handler.js";
 export { handleUninstall as handleSubagentsUninstall } from "./root/subagents/uninstall/handler.js";
 export { handleUpdate as handleSubagentsUpdate } from "./root/subagents/update/handler.js";
@@ -148,16 +137,9 @@ export const workspaceInvariantFactsLive = Layer.provide(
   WorkspaceInvariantFactsLive,
   ProjectionParticipantsLive,
 );
-export {
-  handleInstructionsDisable,
-  handleInstructionsEnable,
-  handleInstructionsStatus,
-  InstructionsStatusOutputSchema,
-} from "./root/instructions.js";
+export { handleInstructionsEnable, InstructionsStatusOutputSchema } from "./root/instructions.js";
 export { handleAgentsAdd } from "./root/agents/add.js";
 export { handleAgentsRemove } from "./root/agents/remove.js";
-export { handleAgentsList } from "./root/agents/list.js";
-export { handleEnable as handleSkillsEnable } from "./root/skills/enable.js";
 export { handleDisable as handleSkillsDisable } from "./root/skills/disable.js";
 export { handleMcpsAdd } from "./root/mcps/add.js";
 export { handleInstallMcpServer } from "./root/mcps/install/handler.js";
@@ -165,16 +147,13 @@ export { handleUninstallMcpServer } from "./root/mcps/uninstall/handler.js";
 export { handleEnableMcpServer } from "./root/mcps/enable.js";
 export { handleDisableMcpServer } from "./root/mcps/disable.js";
 export { handleListMcpServers } from "./root/mcps/list.js";
-export { handleMcpsImport, type McpsImportArgs } from "./root/mcps/import.js";
 export { handleSkillsNew, type SkillsNewHandlerArgs } from "./root/skills/new.js";
 export { handleSubagentsNew, type SubagentsNewHandlerArgs } from "./root/subagents/new/handler.js";
 export { handleWorkspaceUpdate } from "./root/update/workspace-update-handler.js";
 export { handlePacksAdd } from "./root/packs/add.js";
-export { handlePacksRemove } from "./root/packs/remove.js";
 export { handlePacksNew } from "./root/packs/new.js";
 export { handlePacksShow } from "./root/packs/show.js";
 export { handleUninstallPack } from "./root/packs/uninstall/handler.js";
-export { handlePackActivation } from "./root/packs/activation.js";
 export { handlePacksUpdate } from "./root/packs/update.js";
 export { handleRootPublish } from "./root/publish/command.js";
 export { normalizeTypePublishSelection } from "@agentxm/extension-publish";
@@ -204,7 +183,6 @@ export {
   SETTINGS_KEY_ORDER,
   SettingsSchema,
   computePackManifestContentIdentity,
-  writeSettingsAtPath,
 } from "@agentxm/workspace-state";
 // Extension-workspace surface the install and lint harnesses compose; specs
 // may not import the kernel root or its /live module directly, so the harness
@@ -223,35 +201,12 @@ export {
 export { WorkspaceMutations } from "@agentxm/workspace-state";
 export { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "./test-helpers.js";
 export { HelpTopicResultSchema, handleHelpPath } from "./root/help/command.js";
+// The self-update capability's install-metadata record, for the environment
+// specification that has not yet moved to its owner project. Every other
+// self-update export left with the capability.
+export { InstallMeta, type InstallMetaData } from "@agentxm/cli-update";
+export { InstallMetaLive } from "@agentxm/cli-update/live";
 export { loadVersion } from "./version.js";
-export {
-  resolveExactVersion,
-  resolveLatestVersion,
-  type VersionResolutionResult,
-} from "./version-resolution/version-resolution.js";
-export {
-  UpgradeAssessmentResultSchema,
-  UpgradeDocumentSchema,
-  handleUpgrade,
-} from "./root/upgrade/handler.js";
-// Upgrade's delegation ports, so a specification can observe what the command
-// narrates while it hands work to an external installer.
-export {
-  Subprocess,
-  type CommandResult,
-  type RunCommandOptions,
-} from "./root/upgrade/subprocess.js";
-export {
-  Homebrew,
-  Npm,
-  Pnpm,
-  Yarn,
-  InstallMethod,
-  Script,
-  type InstallMethodType,
-} from "./install-method/install-method.js";
-export { InstallMeta, InstallMetaLive, type InstallMetaData } from "./install-meta/install-meta.js";
-export { UpdateCheck, UpdateCheckLive } from "./update-check/update-check.js";
 // Integration ports the setup harness composes; specs may not import the
 // integration roots directly, so the harness re-exports the needed surface.
 export { AgentExecutableResolver } from "@agentxm/agent-integration";
@@ -266,7 +221,6 @@ export {
   type GitDirectoryComparisonService,
   type GitDirectoryDifference,
 } from "@agentxm/extension-sources";
-export { mcpSecretAccount } from "@agentxm/extension-lifecycle";
 export { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/extension-resolution";
 export { SourceHostProvidersLive } from "./test-helpers.js";
 // Application-boundary vocabulary the specifications assert against: exit
@@ -276,6 +230,9 @@ export { SourceHostProvidersLive } from "./test-helpers.js";
 // entry point.
 export { AppError, ExitCodeDefinitions } from "./app-error/index.js";
 export { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
+// The official skill this executable carries; setup installs it inside the
+// initialization closure, so a setup specification composes the same layer.
+export { BundledAxmSkillAssetLive } from "./cli-runtime/index.js";
 export {
   OperationExitLive,
   ResolvePlanInteractionLive,
@@ -399,12 +356,10 @@ export {
   AgentCapabilitiesOutputSchema,
 } from "./root/agents/capabilities.js";
 export { AgentsListOutputSchema } from "./root/agents/list.js";
-export { Unknown } from "./install-method/install-method.js";
 export { mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 
 // Production environment and startup boundaries for environment specifications.
 export { runtimeBaseLayer, resolveBuiltInSources } from "./runtime.js";
-export { withUpdateCheck } from "./update-check-startup.js";
 
 export { authFailureToAppError } from "./feature-errors.js";
 

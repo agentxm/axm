@@ -6,7 +6,6 @@ import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -93,12 +92,15 @@ const replaceRegionBody = (content: string, body: string): string => {
 
 const lintWorkspace = (root: string) =>
   handleLint({
-    pathArg: Option.some(root),
-    scope: "project",
+    selection: {
+      workspaceRoot: root,
+      userHome: root,
+      scope: "project",
+      input: { view: "workspace" },
+      fix: false,
+    },
     strict: false,
     details: false,
-    fix: false,
-    input: { view: "workspace" },
   });
 
 const decodeLintDocument = Schema.decodeUnknownEffect(LintResultDocumentSchema);

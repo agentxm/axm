@@ -67,6 +67,10 @@ export interface HttpRegistry {
   readonly requests: ReadonlyArray<RequestRecord>;
   /** Resolves when the next commit-then-hang upload has been stored. */
   readonly nextHungPublish: () => Promise<string>;
+  /** Resolves when a download the server was told to hang has arrived. */
+  readonly nextHungArchive: () => Promise<string>;
+  /** Stop hanging one `plural/name` download so a later run can complete it. */
+  readonly resumeArchive: (pluralAndName: string) => void;
   readonly copyVersion: (
     owner: string,
     plural: string,
@@ -91,6 +95,12 @@ export interface HttpRegistryOptions {
    * request.
    */
   readonly commitThenHangPublishOnce?: ReadonlyArray<string>;
+  /**
+   * Accept the archive download for each `plural/name` key and never answer
+   * it — the point at which one closure has settled and the next is in flight,
+   * so an interruption lands mid-apply rather than mid-planning.
+   */
+  readonly hangArchive?: ReadonlyArray<string>;
   /** Reject a pack until every dependency named by its archive exists. */
   readonly enforcePackDependencies?: boolean;
   /** Require and complete the durable step-up flow for POST /v1/tokens. */
@@ -328,10 +338,17 @@ export const startHttpRegistry = async (
   const pendingPublishFailures = new Set(options.failPublishOnce ?? []);
   const rejectedPublishes = new Set(options.rejectPublish ?? []);
   const pendingPublishHangs = new Set(options.commitThenHangPublishOnce ?? []);
+  const hangingArchives = new Set(options.hangArchive ?? []);
   let hangWaiters: Array<(key: string) => void> = [];
   const notifyHungPublish = (hungKey: string) => {
     const waiters = hangWaiters;
     hangWaiters = [];
+    for (const resolve of waiters) resolve(hungKey);
+  };
+  let archiveHangWaiters: Array<(key: string) => void> = [];
+  const notifyHungArchive = (hungKey: string) => {
+    const waiters = archiveHangWaiters;
+    archiveHangWaiters = [];
     for (const resolve of waiters) resolve(hungKey);
   };
   const requests: Array<RequestRecord> = [];
@@ -723,6 +740,12 @@ export const startHttpRegistry = async (
           sendProblem(response, 404, `No archive for ${plural}/${name}@${version}`);
           return;
         }
+        if (hangingArchives.has(`${plural}/${name}`)) {
+          // Accepted and never answered: the download stays in flight so the
+          // caller can interrupt the invocation at a known point.
+          notifyHungArchive(`${plural}/${name}`);
+          return;
+        }
         response.writeHead(200, {
           "content-type": "application/zip",
           "content-length": String(stored.archive.byteLength),
@@ -847,6 +870,13 @@ export const startHttpRegistry = async (
       new Promise<string>((resolve) => {
         hangWaiters.push(resolve);
       }),
+    nextHungArchive: () =>
+      new Promise<string>((resolve) => {
+        archiveHangWaiters.push(resolve);
+      }),
+    resumeArchive: (pluralAndName) => {
+      hangingArchives.delete(pluralAndName);
+    },
     close: () =>
       new Promise<void>((resolve, reject) => {
         // A commit-then-hang upload leaves its socket open on purpose; close

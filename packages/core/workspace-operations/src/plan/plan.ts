@@ -330,9 +330,15 @@ export interface Plan<Requirements = never, Output = never> {
   /** Persisted inputs outside workspace state that materially determine this plan. */
   readonly materialPaths?: ReadonlyArray<string>;
   /** Local plans roll back candidate-wide; remote effects report truthful partial outcomes. */
-  readonly executionCapabilities?: {
-    readonly rollback: "local-atomic" | "non-rollbackable";
-  };
+  readonly executionCapabilities?: PlanExecutionCapabilities;
+}
+
+/**
+ * What a plan promises about undoing itself. A producer declares this so the
+ * atomicity a result reports is the one the plan's owner decided.
+ */
+export interface PlanExecutionCapabilities {
+  readonly rollback: "local-atomic" | "non-rollbackable";
 }
 
 // -----------------------------------------------------------------------------

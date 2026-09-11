@@ -18,6 +18,9 @@
   ],
   "references": [
     {
+      "path": "../../supporting/extension-sources/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-transactions/tsconfig.lib.json"
     },
     {

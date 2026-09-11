@@ -121,8 +121,22 @@ if (selectedClass !== undefined || selectedCharacteristic !== undefined) {
   selected = chosen;
 }
 
+/**
+ * The target that runs an owner's specifications. Production projects and the
+ * repository root run them in `test`; an end-to-end project runs its own
+ * suite, whose entry point is the vitest-backed `e2e-main` rather than the
+ * `e2e` fan-in.
+ */
+const specificationTarget = (targets: ReadonlyArray<string>): string => {
+  for (const candidate of ["test", "e2e-main", "e2e"]) {
+    if (targets.includes(candidate)) return candidate;
+  }
+  return "test";
+};
+
 /** Owner project name → project-relative specification files, in stable order. */
 const filesByOwner = new Map<string, string[]>();
+const targetByOwner = new Map<string, string>();
 for (const specification of selected) {
   const owner = workspace.projects.find((project) => project.name === specification.owner);
   if (owner === undefined) {
@@ -134,6 +148,7 @@ for (const specification of selected) {
   const files = filesByOwner.get(owner.name) ?? [];
   files.push(relative);
   filesByOwner.set(owner.name, files);
+  targetByOwner.set(owner.name, specificationTarget(Object.keys(owner.targets)));
 }
 
 const commonArguments = [
@@ -158,7 +173,7 @@ if (hasSelection) {
   for (const owner of owners) {
     runNx([
       "run",
-      `${owner}:test`,
+      `${owner}:${targetByOwner.get(owner) ?? "test"}`,
       `--args=${(filesByOwner.get(owner) ?? []).join(" ")}`,
       ...commonArguments,
     ]);
@@ -169,7 +184,7 @@ if (hasSelection) {
   runNx([
     "run-many",
     "-t",
-    "test",
+    [...new Set(owners.map((owner) => targetByOwner.get(owner) ?? "test"))].join(","),
     "--projects",
     owners.join(","),
     "--args=.spec.ts",

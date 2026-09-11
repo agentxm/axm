@@ -1,186 +1,29 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import type { StepRequirements } from "../shared/step-requirements.js";
-import { failureToStepFailure } from "../../app-error/conversions.js";
-import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+
 import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import { handleSetActivation } from "../activation-handler.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { buildInstallOperation } from "@agentxm/extension-materialization";
-import {
-  acquiredExtensionDisplayPathFromLockEntry,
-  WorkspaceMutations,
-} from "@agentxm/workspace-state";
-
-import type { HookLockEntry } from "@agentxm/workspace-state";
-import {
-  previewOrApplyPlan,
-  operationPresentation,
-  type JobStepArtifact,
-  type JobStepArtifactTarget,
-  type Plan,
-} from "@agentxm/workspace-operations";
-import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
-import { emitOperationResolution } from "../../operation-output.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import {
-  workspaceCanonicalRoot,
-  workspaceLockfilePath,
-  workspaceSettingsPath,
-} from "../shared/workspace-display-paths.js";
-import { HookManager } from "@agentxm/extension-materialization";
-import { lifecycleFailureToAppError } from "../../feature-errors.js";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
-} from "@agentxm/extension-resolution";
-
-const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
-
-const hookPackagePath = (
-  scope: JobStepArtifact["scope"],
-  entry: HookLockEntry,
-  name: string,
-): string =>
-  acquiredExtensionDisplayPathFromLockEntry(workspaceCanonicalRoot(scope), entry, "hooks", name);
-
-const hookEnableArtifactTargets = (args: {
-  readonly entry: HookLockEntry;
-  readonly name: string;
-  readonly scope: JobStepArtifact["scope"];
-}): ReadonlyArray<JobStepArtifactTarget> =>
-  [
-    { path: workspaceSettingsPath(args.scope), change: "updated" as const },
-    { path: workspaceLockfilePath(args.scope), change: "updated" as const },
-    { path: hookPackagePath(args.scope, args.entry, args.name), change: "created" as const },
-  ].sort((left, right) => left.path.localeCompare(right.path));
-
-const hookEnableArtifact = (args: {
-  readonly lockEntry: HookLockEntry;
-  readonly name: string;
-  readonly scope: JobStepArtifact["scope"];
-}): JobStepArtifact => {
-  const targets = hookEnableArtifactTargets({
-    entry: args.lockEntry,
-    name: args.name,
-    scope: args.scope,
-  });
-  const version = hookLockEntryVersion(args.lockEntry);
-
-  return {
-    path: workspaceSettingsPath(args.scope),
-    scope: args.scope,
-    ...(version === undefined ? {} : { version }),
-    change: "updated",
-    ...(targets.length === 0 ? {} : { targets }),
-  };
-};
 
 export const handleEnableHook = (args: { readonly name: string; readonly preview: boolean }) =>
-  withOperationLifecycle(
+  handleSetActivation(
+    { type: "hook", name: args.name, enabled: true, preview: args.preview },
     {
       command: "hooks.enable",
-      mode: args.preview ? "preview" : "apply",
+      commandPath: ["hooks", "enable"],
       planName: "Enable hooks",
+      suggestions: [
+        { description: "Inspect installed hooks packages", cmd: "axm hooks list" },
+        { description: "Undo", cmd: `axm hooks disable ${args.name}` },
+      ],
     },
-    handleEnableHookBody(args),
   );
-
-const handleEnableHookBody = Effect.fn("EnableHook.handle")(function* (args: {
-  readonly name: string;
-  readonly preview: boolean;
-}) {
-  const ws = yield* WorkspaceMutations;
-  const hookManager = yield* HookManager;
-  const scope = ws.scope;
-  const configured = yield* ws.getConfiguredHookEntries();
-  const entry = configured[args.name];
-  if (entry === undefined) {
-    yield* emitNoOpOutcome("hooks.enable", {
-      planName: "Enable hooks",
-      message: `hooks package "${args.name}" is not configured`,
-    });
-    return;
-  }
-  if (entry.enabled) {
-    yield* emitNoOpOutcome("hooks.enable", {
-      planName: "Enable hooks",
-      message: `hooks package "${args.name}" is already enabled`,
-    });
-    return;
-  }
-
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
-    Effect.mapError(lifecycleFailureToAppError),
-  );
-  const resolved = yield* resolveConfiguredHook(args.name, entry.source, releaseAgeEvaluation).pipe(
-    Effect.mapError(lifecycleFailureToAppError),
-  );
-  const { ref, versionRange } = resolved;
-  const agentOutcomes =
-    hookManager.configuredAgentOutcomesForRef === undefined
-      ? []
-      : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected");
-  const installStep = buildInstallOperation(hookManager, {
-    toStepFailure: failureToStepFailure,
-    ref,
-    versionRange,
-    message: `Enabled ${args.name}`,
-    buildArtifact: () =>
-      Effect.gen(function* () {
-        const currentLockEntry = yield* ws
-          .getLockedHookEntry(args.name)
-          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-        if (Option.isNone(currentLockEntry)) {
-          return {
-            path: workspaceSettingsPath(scope),
-            scope,
-            change: "updated",
-          } satisfies JobStepArtifact;
-        }
-        return hookEnableArtifact({
-          lockEntry: currentLockEntry.value,
-          name: args.name,
-          scope,
-        });
-      }),
-  });
-  const plan: Plan<StepRequirements> = {
-    _tag: "Plan",
-    name: "Enable hooks",
-    description: Option.some(`Enable hooks package ${args.name}`),
-    presentation: operationPresentation(
-      { imperative: "enable", past: "Enabled", gerund: "Enabling" },
-      "hook",
-    ),
-    jobs: [
-      {
-        concurrency: 1,
-        steps: [{ ...installStep, agentOutcomes }],
-      },
-    ],
-  };
-  const execution = yield* makePublicPositionalPlanExecution(
-    args,
-    ["hooks", "enable"],
-    [args.name],
-  );
-  const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitOperationResolution("hooks.enable", resolution, {
-    suggestions: [
-      { description: "Inspect installed hooks packages", cmd: "axm hooks list" },
-      { description: "Undo", cmd: `axm hooks disable ${args.name}` },
-    ],
-  });
-});
 
 const enableConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the hooks package")),

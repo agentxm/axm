@@ -42,6 +42,7 @@ export type {
   OperationPrecondition,
   OperationPresentation,
   Plan,
+  PlanExecutionCapabilities,
   PlanPolicyId,
   PlanRiskCondition,
   PlannedJobStep,
@@ -179,12 +180,18 @@ export {
   type InterruptionSignalSourceService,
 } from "./plan/interruption-signal.js";
 export {
+  resolveInterruption,
+  type InterruptedInvocation,
+  type ObservedFootprintEntry,
+} from "./plan/interruption-resolution.js";
+export {
   isExecutionCandidateFresh,
   makeExecutionCandidate,
   type ExecutionCandidate,
 } from "./plan/execution-candidate.js";
 export {
   applyPlanExecution,
+  confirmableRiskApproval,
   confirmationRecoverySuggestions,
   namedPolicyRecoverySuggestions,
   credentialFreeLocatorRecoveryValue,
@@ -195,6 +202,7 @@ export {
   recoveryPositional,
   recoverySwitch,
   renderConfirmationRecoveryCommand,
+  requestedPlanExecution,
   unclassifiedRecoveryValue,
   type ConfirmableRiskApproval,
   type ConfirmationRecovery,
@@ -204,6 +212,8 @@ export {
   type PlanExecution,
   type PlanExecutionRequest,
   type RecoveryApproval,
+  type RequestedApproval,
+  type RequestedPlanIntent,
 } from "./plan/plan-execution.js";
 
 // Job step messaging

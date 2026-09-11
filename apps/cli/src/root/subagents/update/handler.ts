@@ -1,63 +1,32 @@
-import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { StepRequirements } from "../../shared/step-requirements.js";
-import { failureToStepFailure } from "../../../app-error/conversions.js";
-import {
-  WorkspaceMutations,
-  acceptedResolutionRef,
-  configuredRowsByName,
-  type WorkspaceMutationsService,
-} from "@agentxm/workspace-state";
-import { withPublisherTrustConditions } from "@agentxm/extension-lifecycle";
-import { SourceHostProviders } from "@agentxm/extension-sources";
-import * as Array from "effect/Array";
-import * as DateTime from "effect/DateTime";
+/**
+ * `axm subagents update` — the application boundary.
+ *
+ * Parses what the route registered, hands it to the update feature, and
+ * renders what the feature settled on: a no-op envelope, or one operation
+ * outcome.
+ */
+
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "../../../app-error/index.js";
+
+import { SelectiveUpdate } from "@agentxm/extension-lifecycle";
 import {
-  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
+  operationPresentation,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
 } from "@agentxm/workspace-operations";
 
-import { decodeExtensionNameSync, type Handle } from "@agentxm/extension-model/unstable/extensions";
-import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
-import { resolveSource } from "@agentxm/extension-sources";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { buildInstallOperation } from "@agentxm/extension-materialization";
-import {
-  classifyPublisherBindingTransition,
-  makeConfiguredReleaseAgeEvaluation,
-  normalizeReleaseAgeRecords,
-  type PublisherBindingTransition,
-  publisherTransitionWarning,
-  registryBindingProposal,
-  type ReleaseAgeBypassRecord,
-  type ReleaseAgeRecord,
-} from "@agentxm/extension-resolution";
-import { type ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/extensions/release-age";
-import {
-  operationPresentation,
-  StepFailure,
-  type JobStepResult,
-  type Plan,
-  type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+import { extensionLifecycleFailedToAppError } from "../../../feature-errors.js";
 import { emitOperationResolution } from "../../../operation-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
-import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
-import {
-  UPDATE_NAME_FILTER_FLAG,
-  allUpdateTargetResolutionsFailed,
-  resolveUpdateTargets,
-} from "../../shared/update-targets.js";
-import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
-import { SubagentManager } from "@agentxm/extension-materialization";
-import { lifecycleFailureToAppError } from "../../../feature-errors.js";
+import { emitNoOpOutcome } from "../../shared/no-op-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { UPDATE_NAME_FILTER_FLAG } from "../../shared/update-targets.js";
+
+const COMMAND = "subagents.update";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
@@ -66,80 +35,10 @@ export interface UpdateHandlerArgs {
   readonly preview: boolean;
 }
 
-type ResolveResult =
-  | {
-      readonly type: "match";
-      readonly ref: SubagentExtensionRef;
-      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
-      readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
-    }
-  | {
-      readonly type: "skip";
-      readonly name: string;
-      readonly source: string;
-      readonly reason: string;
-      readonly holdback?: ReleaseAgeRecord;
-    };
-
-const appendWarning =
-  (warning: string | undefined) =>
-  (result: JobStepResult): JobStepResult =>
-    warning === undefined || result.result === "error"
-      ? result
-      : {
-          ...result,
-          message: result.message.length === 0 ? warning : `${result.message}; ${warning}`,
-        };
-
-const skippedSubagentStep = (
-  ws: WorkspaceMutationsService,
-  outcome: Extract<ResolveResult, { readonly type: "skip" }>,
-): PlannedJobStep<StepRequirements> => ({
-  readiness: "ready",
-  label: `Skip ${outcome.name}`,
-  run: Effect.succeed({
-    result: "success",
-    disposition: "skipped",
-    message: outcome.reason,
-    artifact: {
-      path: outcome.source,
-      scope: ws.scope,
-      change: "unchanged",
-      targets: [{ path: outcome.source, change: "unchanged" }],
-    },
-  } satisfies JobStepResult),
-});
-
-const toRegistrySubagentPattern = (source: string) => {
-  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
-  if (parsed === undefined) return Option.none();
-  if (parsed.type !== undefined && parsed.type !== "subagents") {
-    return Option.none();
-  }
-  return Option.some(parsed);
-};
-
-const releaseAgeRecord = (args: {
-  readonly target: string;
-  readonly requestedRange?: string;
-  readonly selectedVersion?: string;
-  readonly evidence: ReleaseAgeEvidence;
-}): ReleaseAgeRecord => ({
-  reason: "minimum-release-age",
-  target: args.target,
-  dependencyPath: [args.target],
-  ...(args.requestedRange === undefined ? {} : { requestedRange: args.requestedRange }),
-  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
-  candidateVersion: args.evidence.version,
-  publishedAt: args.evidence.publishedAt,
-  eligibleAt: args.evidence.eligibleAt,
-  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
-});
-
 export const handleUpdate = (args: UpdateHandlerArgs) =>
   withOperationLifecycle(
     {
-      command: "subagents.update",
+      command: COMMAND,
       mode: args.preview ? "preview" : "apply",
       planName: "Update subagents",
       presentation: operationPresentation(
@@ -147,314 +46,31 @@ export const handleUpdate = (args: UpdateHandlerArgs) =>
         "subagent",
       ),
     },
-    handleUpdateBody(args),
+    handleUpdateBody(args).pipe(
+      Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
+        Effect.fail(extensionLifecycleFailedToAppError(failure)),
+      ),
+    ),
   );
 
 const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: UpdateHandlerArgs) {
-  const ws = yield* WorkspaceMutations;
-  const sources = yield* SourceHostProviders;
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
-    Effect.mapError(lifecycleFailureToAppError),
-  );
-
-  // Step 1: Load configured subagents and filter to enabled
-  const allSubagents = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
-  const lockedSubagents = yield* ws.getLockedSubagents();
-
-  const subagentEntries: ReadonlyArray<readonly [string, string]> = Object.entries(
-    allSubagents,
-  ).flatMap(([name, entry]) =>
-    entry.enabled && entry.source !== undefined ? [[name, entry.source]] : [],
-  );
-
-  if (subagentEntries.length === 0) {
-    yield* emitNoOpOutcome("subagents.update", {
-      planName: "Update subagents",
-      planDescription: "Update installed subagents",
-      message: "No subagents installed.",
-    });
-    return;
-  }
-
-  const targetResolution = yield* resolveUpdateTargets({
-    command: "subagents.update",
-    planName: "Update subagents",
-    planDescription: "Update installed subagents",
-    entries: subagentEntries,
+  const candidate = yield* SelectiveUpdate.prepare({
+    kind: "selective-subagents",
     source: args.source,
     nameFilters: args.subagents,
     nameFilterFlag: UPDATE_NAME_FILTER_FLAG,
-    resourceType: "subagent",
-    resourceLabel: "subagent",
-    resourceLabelPlural: "subagents",
+    ignoreVersionConstraints: args.force,
   });
-  if (targetResolution.type === "no-op") {
+
+  if (candidate.outcome === "nothing") {
+    yield* emitNoOpOutcome(COMMAND, {
+      planName: candidate.planName,
+      planDescription: candidate.planDescription,
+      message: candidate.message,
+    });
     return;
   }
-  const filteredEntries = targetResolution.entries;
 
-  // Step 4: Re-resolve each source and discover subagents
-  const findSubagentRefs = (
-    source: SubagentExtensionRef["source"],
-    options: {
-      readonly subagentNames: ReadonlyArray<string>;
-      readonly owner: Option.Option<Handle>;
-      readonly versionRange: Option.Option<string>;
-    },
-  ) =>
-    sources
-      .find(source, {
-        names: options.subagentNames,
-        type: "subagent",
-        owner: options.owner,
-        versionRange: options.versionRange,
-      })
-      .pipe(
-        Effect.map((refs) =>
-          Array.filter(refs, (ref): ref is SubagentExtensionRef => ref.type === "subagent"),
-        ),
-      );
-
-  const results: ReadonlyArray<ResolveResult> = yield* Effect.forEach(
-    filteredEntries,
-    ([name, sourceStr]) =>
-      Effect.gen(function* () {
-        if (isWorkspaceSourceLocator(sourceStr)) {
-          return {
-            type: "skip",
-            name,
-            source: sourceStr,
-            reason: `Subagent "${name}" is workspace-sourced and unchanged`,
-          } satisfies ResolveResult;
-        }
-        const source = yield* resolveSource(sourceStr);
-        const registryPattern = toRegistrySubagentPattern(sourceStr);
-
-        if (source.type === "registry" && Option.isSome(registryPattern)) {
-          const lookupName = registryPattern.value.name ?? decodeExtensionNameSync(name);
-          const requestedRange = registryPattern.value.versionRange;
-          const registryResolution = yield* sources.resolveNamedRegistry(source, {
-            owner: registryPattern.value.owner,
-            type: "subagent",
-            name: lookupName,
-            versionRange:
-              requestedRange === undefined ? Option.none() : Option.some(requestedRange),
-            releaseAgeEvaluation,
-          });
-          if (registryResolution.kind === "selected" || registryResolution.kind === "exempted") {
-            if (registryResolution.ref.type !== "subagent") {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `Registry resolved ${registryResolution.target} as ${registryResolution.ref.type}, expected subagent`,
-              });
-            }
-            return {
-              type: "match",
-              ref: registryResolution.ref,
-              holdbacks:
-                registryResolution.kind === "exempted" || registryResolution.newerHeld === undefined
-                  ? []
-                  : [
-                      releaseAgeRecord({
-                        target: registryResolution.target,
-                        ...(requestedRange === undefined ? {} : { requestedRange }),
-                        selectedVersion: registryResolution.ref.version,
-                        evidence: registryResolution.newerHeld,
-                      }),
-                    ],
-              ...(registryResolution.kind === "selected"
-                ? {}
-                : {
-                    bypasses: [
-                      {
-                        ...releaseAgeRecord({
-                          target: registryResolution.target,
-                          ...(requestedRange === undefined ? {} : { requestedRange }),
-                          selectedVersion: registryResolution.ref.version,
-                          evidence: registryResolution.bypassed,
-                        }),
-                        ...registryResolution.exemption,
-                      },
-                    ],
-                  }),
-            } satisfies ResolveResult;
-          }
-          if (registryResolution.kind === "policy_held") {
-            const holdback = releaseAgeRecord({
-              target: registryResolution.target,
-              ...(registryResolution.requestedRange === undefined
-                ? {}
-                : { requestedRange: registryResolution.requestedRange }),
-              evidence: registryResolution.candidate,
-            });
-            return {
-              type: "skip",
-              name,
-              source: sourceStr,
-              reason: `Subagent "${name}" is held by the minimum release age until ${holdback.eligibleAt}`,
-              holdback,
-            } satisfies ResolveResult;
-          }
-          return {
-            type: "skip",
-            name,
-            source: sourceStr,
-            reason:
-              registryResolution.kind === "not_found"
-                ? `Subagent "${name}" not found in source ${sources.origin(source)}`
-                : `No version of subagent "${name}" satisfies ${registryResolution.requestedRange}`,
-          } satisfies ResolveResult;
-        }
-
-        const requestedOwner = Option.match(registryPattern, {
-          onNone: () => Option.none<Handle>(),
-          onSome: (pattern) => Option.some(pattern.owner),
-        });
-
-        const namedRefs = yield* findSubagentRefs(source, {
-          subagentNames: [name],
-          owner: requestedOwner,
-          versionRange: Option.none(),
-        });
-        const subagentRef = namedRefs.find((r) => r.subagent.name === name);
-
-        if (subagentRef) {
-          return {
-            type: "match",
-            ref: subagentRef,
-            holdbacks: [],
-          } satisfies ResolveResult;
-        }
-
-        return {
-          type: "skip",
-          name,
-          source: sourceStr,
-          reason: `Subagent "${name}" not found in source ${sources.origin(source)}`,
-        } satisfies ResolveResult;
-      }).pipe(
-        Effect.catch((error) =>
-          Effect.succeed({
-            type: "skip",
-            name,
-            source: sourceStr,
-            reason: `Failed to resolve "${name}": ${String(error)}`,
-          } satisfies ResolveResult),
-        ),
-      ),
-    { concurrency: "unbounded" },
-  );
-
-  // Step 5: Collect successful resolutions
-  const resolved = results.filter(
-    (result): result is Extract<ResolveResult, { readonly type: "match" }> =>
-      result.type === "match",
-  );
-  const skipped = results.filter(
-    (result): result is Extract<ResolveResult, { readonly type: "skip" }> => result.type === "skip",
-  );
-  if (resolved.length === 0 && skipped.length === 0) {
-    return yield* allUpdateTargetResolutionsFailed({
-      resourceLabelPlural: "subagent",
-      suggestions: [{ description: "Verify the original source paths are still accessible." }],
-    });
-  }
-
-  // Step 6: Capture services for run closures
-  const subagentMgr = yield* SubagentManager;
-
-  // Classify every proposed Registry acceptance against the accepted
-  // resolution. A replaced publisher binding is a trust decision a person
-  // makes at a prompt; the plan carries it as an interactive-only condition.
-  const warningsBySubagent = new Map<string, string>();
-  const publisherTransitions: Array<PublisherBindingTransition> = [];
-  for (const item of resolved) {
-    const proposed = registryBindingProposal(item.ref);
-    const accepted = lockedSubagents[item.ref.subagent.name];
-    if (proposed === undefined || accepted?.type !== "registry") continue;
-    const transition = classifyPublisherBindingTransition({
-      accepted: yield* acceptedResolutionRef({
-        workspace: ws,
-        type: "subagent",
-        name: proposed.target,
-      }).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "conflict",
-            detail: `The accepted resolution for subagent "${proposed.target}" could not be read, so the proposed publisher binding cannot be checked`,
-            cause,
-          }),
-        ),
-      ),
-      proposed,
-    });
-    if (Option.isSome(transition)) {
-      publisherTransitions.push(transition.value);
-      warningsBySubagent.set(item.ref.subagent.name, publisherTransitionWarning(transition.value));
-    }
-  }
-
-  const makeRunClosure: MakeRunClosure = (op) => {
-    const step = buildInstallOperation(subagentMgr, {
-      toStepFailure: failureToStepFailure,
-      ref: op.ref,
-      versionRange: Option.none(),
-    });
-    if (step.readiness === "error") {
-      return Effect.fail(
-        new StepFailure({
-          category: "conflict",
-          detail: step.errorMessage,
-        }),
-      );
-    }
-    return step.run.pipe(Effect.map(appendWarning(warningsBySubagent.get(op.ref.subagent.name))));
-  };
-
-  // Step 7: Build operations
-  const ops: ReadonlyArray<UpdateOperation> = resolved.map((item) => ({
-    ref: item.ref,
-    force: args.force,
-  }));
-
-  // Step 8: Build plan
-  const rawPlan = buildUpdatePlan(
-    ops,
-    lockedSubagents,
-    "Update subagents",
-    Option.some("Update installed subagents"),
-    makeRunClosure,
-  );
-  const basePlanWithReleaseAge: Plan<StepRequirements> = {
-    ...rawPlan,
-    presentation: operationPresentation(
-      { imperative: "update", past: "Updated", gerund: "Updating" },
-      "subagent",
-    ),
-    releaseAge: {
-      evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
-      holdbacks: normalizeReleaseAgeRecords([
-        ...resolved.flatMap((item) => item.holdbacks),
-        ...skipped.flatMap((item) => (item.holdback === undefined ? [] : [item.holdback])),
-      ]),
-      bypasses: normalizeReleaseAgeRecords(resolved.flatMap((item) => item.bypasses ?? [])),
-    },
-  };
-  const skippedSteps = skipped
-    .filter((item) => item.holdback === undefined)
-    .map((item) => skippedSubagentStep(ws, item));
-  const [firstJob, ...restJobs] = basePlanWithReleaseAge.jobs;
-  const plan: Plan<StepRequirements> =
-    skippedSteps.length === 0
-      ? basePlanWithReleaseAge
-      : firstJob === undefined
-        ? { ...basePlanWithReleaseAge, jobs: [{ concurrency: 1, steps: skippedSteps }] }
-        : {
-            ...basePlanWithReleaseAge,
-            jobs: [{ ...firstJob, steps: [...firstJob.steps, ...skippedSteps] }, ...restJobs],
-          };
-
-  // Step 9: Resolve plan
   const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
@@ -471,38 +87,9 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
       ],
     ),
     args.force ? ["ignore-version-constraints"] : [],
-    [
-      ...new Set(
-        args.subagents.length > 0
-          ? args.subagents
-          : plan.jobs.flatMap((job) =>
-              job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
-            ),
-      ),
-    ].map((name) => ({ extensionType: "subagent", name, plannedState: "enabled" as const })),
   );
-  const executionPlan: Plan<StepRequirements> = withPublisherTrustConditions(
-    {
-      ...plan,
-      riskConditions: [
-        ...(plan.riskConditions ?? []),
-        ...(args.force
-          ? ([
-              {
-                level: "override-required",
-                id: "ignore-pack-version-constraints",
-                policy: "ignore-version-constraints",
-                requiredFlag: "--ignore-version-constraints",
-                detail: "Allow updates outside version constraints declared by installed packs.",
-              },
-            ] as const)
-          : []),
-      ],
-    },
-    publisherTransitions,
-  );
-  const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
-  yield* emitOperationResolution("subagents.update", resolution, {
+  const resolution = yield* SelectiveUpdate.previewOrApply(candidate, execution);
+  yield* emitOperationResolution(COMMAND, resolution, {
     suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
   });
 });

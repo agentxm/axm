@@ -9,8 +9,10 @@
   },
   "devDependencies": {
     "@agentxm/client-e2e-utils": "workspace:*",
+    "@agentxm/specification-metadata": "workspace:^",
     "@napi-rs/keyring": "^1.3.0",
     "@typescript/native": "catalog:",
+    "effect": "catalog:",
     "fflate": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:",

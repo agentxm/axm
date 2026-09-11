@@ -10,7 +10,7 @@ export const executionBinding = {
     "cli/errors-do-not-disclose-credentials",
     "cli/mcps/inline-lifecycle-is-idempotent",
     "cli/mcps/add/records-and-realizes-inline-configuration",
-    "cli/mcps/uninstall/preserves-unowned-native-entries",
+    "cli/uninstall/preserves-unrelated-and-unowned-state",
   ],
   boundary: "process",
   rationale:

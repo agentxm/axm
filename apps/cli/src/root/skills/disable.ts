@@ -1,30 +1,16 @@
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
-import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import * as Effect from "effect/Effect";
-import { makeAppError } from "../../app-error/index.js";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
-import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
-import type { DisableSkillOperation } from "@agentxm/extension-lifecycle";
-import { disableSkill } from "@agentxm/extension-lifecycle";
+
+import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
-import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
-import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { emitOperationResolution } from "../../operation-output.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import { handleSetActivation } from "../activation-handler.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
-import { provideLifecycleStepFailureConversion } from "../../feature-errors.js";
+import { LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
 
 export interface DisableHandlerArgs {
   readonly name: string;
@@ -32,91 +18,18 @@ export interface DisableHandlerArgs {
 }
 
 export const handleDisable = (args: DisableHandlerArgs) =>
-  withOperationLifecycle(
+  handleSetActivation(
+    { type: "skill", name: args.name, enabled: false, preview: args.preview },
     {
       command: "skills.disable",
-      mode: args.preview ? "preview" : "apply",
+      commandPath: ["skills", "disable"],
       planName: "Disable skill",
+      suggestions: [
+        LIST_INSTALLED_SKILLS,
+        { description: "Undo", cmd: `axm skills enable ${args.name}` },
+      ],
     },
-    handleDisableBody(args),
   );
-
-const handleDisableBody = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
-  const ws = yield* WorkspaceMutations;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-
-  const skillName = yield* resolveInstalledIdentifierNameOrInput({
-    input: args.name,
-    resourceType: "skill",
-  });
-
-  // Load installed skills (configured + implicit) from the read-model record projection.
-  const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
-  const installedEntry = installedSkills[skillName];
-
-  // Validate: skill is installed.
-  if (installedEntry === undefined) {
-    return yield* makeAppError({
-      code: "not_found",
-      detail: `Skill '${args.name}' is not installed`,
-      suggestions: [LIST_INSTALLED_SKILLS, INSTALL_SKILL_FROM_REGISTRY],
-    });
-  }
-
-  // Configured skill: check if already disabled (implicit skills are always enabled).
-  if (installedEntry.lifecycle === "configured" && !installedEntry.enabled) {
-    yield* emitNoOpOutcome("skills.disable", {
-      planName: "Disable skill",
-      planDescription: `Disable ${skillName}`,
-      message: `Skill '${skillName}' is already disabled`,
-    });
-    return;
-  }
-
-  // Build operation — operation handles configured, settings-only, and implicit promotion
-  const op = {
-    name: "disable-skill",
-    args: { skillName },
-  } satisfies DisableSkillOperation;
-
-  // Build plan with inline run closure
-  const step: PlannedJobStep<WorkspaceTransactionScope> = {
-    readiness: "ready",
-    label: skillName,
-    run: disableSkill(op).pipe(
-      provideLifecycleStepFailureConversion,
-      Effect.map((result): JobStepResult => result),
-      Effect.provideService(WorkspaceMutations, ws),
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    ),
-  };
-
-  const plan: Plan<WorkspaceTransactionScope> = {
-    _tag: "Plan",
-    name: "Disable skill",
-    description: Option.some(`Disable ${skillName}`),
-    presentation: operationPresentation(
-      { imperative: "disable", past: "Disabled", gerund: "Disabling" },
-      "skill",
-    ),
-    jobs: [{ concurrency: 1 as const, steps: [step] }],
-  };
-
-  const execution = yield* makePublicPositionalPlanExecution(
-    args,
-    ["skills", "disable"],
-    [skillName],
-  );
-  const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitOperationResolution("skills.disable", resolution, {
-    suggestions: [
-      LIST_INSTALLED_SKILLS,
-      { description: "Undo", cmd: `axm skills enable ${skillName}` },
-    ],
-  });
-});
 
 const disableConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the skill to disable")),
@@ -124,10 +37,18 @@ const disableConfig = {
     Flag.withDescription("Disable in project (default) or user-level configuration"),
   ),
   preview: previewCapabilityFlag("Show what would change without disabling"),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
-export const disableCommand = Command.make("disable", disableConfig, ({ name, scope, preview }) =>
-  handleDisable({ name, preview }).pipe(withWorkspace(scope), withRuntime("skills disable")),
+export const disableCommand = Command.make(
+  "disable",
+  disableConfig,
+  ({ name, scope, preview, ignoreReleaseAge }) =>
+    handleDisable({ name, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("skills disable"),
+    ),
 ).pipe(
   withArgvTracking(disableConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),

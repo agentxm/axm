@@ -6,8 +6,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
+  AllExtensionManagersLive,
   expectAppliedPlanResult,
   expectDefined,
   expectRecord,
@@ -40,7 +42,14 @@ describe("mcps-new.handler", () => {
 
   const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
     const ctx = makeWorkspaceHandlerTestContext(opts);
-    const fullLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive);
+    const workspaceServiceLayer = Layer.mergeAll(
+      ctx.fullLayer,
+      Layer.provide(SourceHostProvidersLive, ctx.fullLayer),
+      CodingAgentRepositoryLive,
+    );
+    // Creating an MCP server resolves its manager through the registry,
+    // exactly as the runtime composes it.
+    const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);
     return {
       ...ctx,
       fullLayer,

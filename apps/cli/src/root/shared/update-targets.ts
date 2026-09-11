@@ -1,5 +1,3 @@
-import { makeAppError } from "../../app-error/index.js";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { enabledConfiguredEntries } from "@agentxm/workspace-state";
 import type { IdentifierResourceType } from "@agentxm/extension-sources";
 import type { ContainerType, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
@@ -34,47 +32,6 @@ export const updateNameFilterFlag = Flag.string("name").pipe(
 
 /** Flag name reported in the "nothing matched" envelope. */
 export const UPDATE_NAME_FILTER_FLAG = "--name";
-
-export interface ResolveUpdateTargetsArgs<TEntry extends UpdateTargetEntry = UpdateTargetEntry> {
-  readonly command: string;
-  readonly planName: string;
-  readonly planDescription: string;
-  readonly entries: ReadonlyArray<TEntry>;
-  readonly source: Option.Option<string>;
-  readonly nameFilters: ReadonlyArray<string>;
-  readonly nameFilterFlag: string;
-  readonly resourceType: UpdateTargetResource;
-  readonly resourceLabel: string;
-  readonly resourceLabelPlural: string;
-  readonly noSourceMatchSuggestions?: ReadonlyArray<SuggestedAction>;
-  readonly noNameMatchSuggestions?: ReadonlyArray<SuggestedAction>;
-  readonly sourceMayMatchName?: boolean;
-}
-
-export type ResolveUpdateTargetsResult<TEntry extends UpdateTargetEntry = UpdateTargetEntry> =
-  | {
-      readonly type: "targets";
-      readonly entries: ReadonlyArray<TEntry>;
-    }
-  | {
-      readonly type: "no-op";
-    };
-
-export interface AllUpdateTargetResolutionsFailedArgs {
-  readonly resourceLabelPlural: string;
-  readonly recover?: string;
-  readonly cmd?: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
-}
-
-export const allUpdateTargetResolutionsFailed = (args: AllUpdateTargetResolutionsFailedArgs) =>
-  makeAppError({
-    code: "network",
-    detail: `All matched ${args.resourceLabelPlural} source re-resolutions failed.`,
-    ...(args.recover === undefined ? {} : { recover: args.recover }),
-    ...(args.cmd === undefined ? {} : { cmd: args.cmd }),
-    ...(args.suggestions === undefined ? {} : { suggestions: args.suggestions }),
-  });
 
 const sourceMatchesEntrySource = (sourceValue: string, entrySource: string | undefined) =>
   Effect.gen(function* () {
@@ -154,52 +111,6 @@ const filterByNameFilters = <TEntry extends UpdateTargetEntry>(
     return entries.filter(([name]) => matchedSet.has(name));
   });
 
-export const resolveUpdateTargets = <TEntry extends UpdateTargetEntry>(
-  args: ResolveUpdateTargetsArgs<TEntry>,
-) =>
-  Effect.gen(function* () {
-    const sourceValue = Option.getOrUndefined(args.source);
-    const sourceFilteredEntries =
-      sourceValue === undefined
-        ? args.entries
-        : yield* filterBySource(args.entries, sourceValue, args.sourceMayMatchName ?? true);
-
-    if (sourceValue !== undefined && sourceFilteredEntries.length === 0) {
-      yield* emitNoOpOutcome(args.command, {
-        planName: args.planName,
-        planDescription: args.planDescription,
-        message: `No installed ${args.resourceLabel} matched "${sourceValue}"${args.sourceMayMatchName === false ? " as a source" : " as a name or source"}.`,
-        ...(args.noSourceMatchSuggestions === undefined
-          ? {}
-          : { suggestions: args.noSourceMatchSuggestions }),
-      });
-      return { type: "no-op" } satisfies ResolveUpdateTargetsResult<TEntry>;
-    }
-
-    const filteredEntries = yield* filterByNameFilters(
-      sourceFilteredEntries,
-      args.nameFilters,
-      args.resourceType,
-    );
-
-    if (args.nameFilters.length > 0 && filteredEntries.length === 0) {
-      yield* emitNoOpOutcome(args.command, {
-        planName: args.planName,
-        planDescription: args.planDescription,
-        message: `No installed ${args.resourceLabelPlural} match the ${args.nameFilterFlag} filter.`,
-        ...(args.noNameMatchSuggestions === undefined
-          ? {}
-          : { suggestions: args.noNameMatchSuggestions }),
-      });
-      return { type: "no-op" } satisfies ResolveUpdateTargetsResult<TEntry>;
-    }
-
-    return {
-      type: "targets",
-      entries: filteredEntries,
-    } satisfies ResolveUpdateTargetsResult<TEntry>;
-  });
-
 export type WorkspaceUpdateSelection =
   /** No selector was given: every configured entry of the type is in scope. */
   | { readonly type: "all" }
@@ -242,28 +153,40 @@ export const resolveWorkspaceUpdateSelection = (args: ResolveWorkspaceUpdateSele
       ([name, entry]) => [name, entry.source] as const,
     );
 
-    const resolution = yield* resolveUpdateTargets({
-      command: args.command,
-      planName: args.planName,
-      planDescription: args.planDescription,
-      entries,
-      source: args.source,
-      nameFilters: args.nameFilters,
-      nameFilterFlag: UPDATE_NAME_FILTER_FLAG,
-      resourceType: args.resourceType,
-      resourceLabel: args.resourceLabel,
-      resourceLabelPlural: args.resourceLabelPlural,
-      ...(args.sourceMayMatchName === undefined
-        ? {}
-        : { sourceMayMatchName: args.sourceMayMatchName }),
-    });
+    const sourceValue = Option.getOrUndefined(args.source);
+    const sourceMayMatchName = args.sourceMayMatchName ?? true;
+    const sourceFiltered =
+      sourceValue === undefined
+        ? entries
+        : yield* filterBySource(entries, sourceValue, sourceMayMatchName);
 
-    if (resolution.type === "no-op") {
+    if (sourceValue !== undefined && sourceFiltered.length === 0) {
+      yield* emitNoOpOutcome(args.command, {
+        planName: args.planName,
+        planDescription: args.planDescription,
+        message: `No installed ${args.resourceLabel} matched "${sourceValue}"${
+          sourceMayMatchName ? " as a name or source" : " as a source"
+        }.`,
+      });
+      return { type: "no-op" } satisfies WorkspaceUpdateSelection;
+    }
+
+    const nameFiltered = yield* filterByNameFilters(
+      sourceFiltered,
+      args.nameFilters,
+      args.resourceType,
+    );
+    if (args.nameFilters.length > 0 && nameFiltered.length === 0) {
+      yield* emitNoOpOutcome(args.command, {
+        planName: args.planName,
+        planDescription: args.planDescription,
+        message: `No installed ${args.resourceLabelPlural} match the ${UPDATE_NAME_FILTER_FLAG} filter.`,
+      });
       return { type: "no-op" } satisfies WorkspaceUpdateSelection;
     }
 
     return {
       type: "names",
-      names: resolution.entries.map(([name]) => name),
+      names: nameFiltered.map(([name]) => name),
     } satisfies WorkspaceUpdateSelection;
   });

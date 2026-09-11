@@ -271,14 +271,19 @@ export const discoverExecutionBindingProjects = (
 /**
  * Whether a project may own specification files. Production projects own
  * the requirements their source realizes; an end-to-end project owns the
- * boundary specifications bound beside its executions; the central catalog
- * project (tagged `type:specification`) is sanctioned while it retires.
- * Other tooling projects verify the product and do not state requirements.
+ * boundary specifications bound beside its executions; the repository root
+ * project owns the repository-wide obligations no product package realizes
+ * (privacy of public artifacts, the published-contract boundary, the release
+ * process), whose authored source is the automation under `scripts/`; the
+ * central catalog project (tagged `type:specification`) is sanctioned while
+ * it retires. Other tooling projects verify the product and do not state
+ * requirements.
  */
 export const isSanctionedSpecificationOwner = (project: WorkspaceProject): boolean =>
   hasDomain(project) ||
   hasTag(project, "role:application") ||
   hasTag(project, "role:e2e") ||
+  hasTag(project, "scope:root") ||
   hasTag(project, "type:specification");
 
 const isFixturePath = (filePath: string): boolean => filePath.split("/").includes("__fixtures__");

@@ -60,12 +60,15 @@ describe("Lint classifies agent residue by ownership", () => {
       workspace.writeSettings({ ...settings, agents: ["claude-code"] });
 
       yield* handleLint({
-        pathArg: Option.some(workspace.root),
-        scope: "project",
+        selection: {
+          workspaceRoot: workspace.root,
+          userHome: workspace.root,
+          scope: "project",
+          input: { view: "workspace" },
+          fix: false,
+        },
         strict: false,
         details: false,
-        fix: false,
-        input: { view: "workspace" },
       }).pipe(Effect.provide(workspace.layer), Effect.exit);
 
       const document = yield* decodeDocument(workspace.rendererState.results.at(-1)?.data);

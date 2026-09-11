@@ -223,9 +223,9 @@ subpaths — no `unstable/*` namespace and no other deep exports.
 ### Two TypeScript Versions
 
 The canonical decision is
-[Dual TypeScript alias toolchain](docs/architecture/decisions/typescript-dual-alias.md);
-the executable specification `system/process/dual-typescript-alias-retained`
-owns the binding constraint. The notes below are its operational projection.
+[Dual TypeScript alias toolchain](docs/architecture/decisions/typescript-dual-alias.md),
+and `scripts/typescript-aliases.test.ts` pins the workspace catalog that
+realizes it. The notes below are its operational projection.
 
 - `tsc` is TypeScript 7, the native compiler (`@typescript/native`), patched by
   `@effect/tsgo` so it enforces the `@effect/language-service` diagnostics. Every

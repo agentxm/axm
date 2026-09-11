@@ -8,7 +8,7 @@ export default defineConfig({
   root: projectRoot,
   test: {
     ...makeTestReporting({ project: "cli-e2e" }),
-    include: ["src/**/*.e2e.test.ts"],
+    include: ["src/**/*.e2e.test.ts", "src/**/*.spec.ts"],
     setupFiles: [purposeSetupFile],
     exclude: [
       "src/binary-smoke.e2e.test.ts",

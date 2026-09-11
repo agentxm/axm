@@ -91,14 +91,16 @@ agent administration tool.
 Production dependency direction points strictly inward: application toward
 features and runtime composition, features toward kernels, integrations, and
 contracts, and contracts toward the extension model. No library depends on CLI
-interaction or output rendering. The executable specifications
-`system/architecture/package-dependencies-point-inward`,
-`system/architecture/package-dependencies-stay-acyclic`,
-`system/architecture/feature-packages-stay-peers`, and
-`system/architecture/live-composition-stays-in-application` own the inward
-dependency direction, acyclicity, feature isolation, and application-only
-composition of concrete implementations; the exact dependencies present at any
-migration stage are implementation state derived by Nx, not a normative graph.
+interaction or output rendering. Inward dependency direction, acyclicity, feature isolation, and
+application-only composition of concrete implementations are engineering
+policy enforced natively by the `@nx/enforce-module-boundaries` role and
+domain matrices in `eslint.config.mjs`, with
+[`scripts/module-boundaries.test.ts`](../../scripts/module-boundaries.test.ts)
+and
+[`scripts/composition-root-lint-exceptions.test.ts`](../../scripts/composition-root-lint-exceptions.test.ts)
+keeping the declared structure honest and the constraints reachable; the exact
+dependencies present at any migration stage are implementation state derived
+by Nx, not a normative graph.
 
 AXM is the public side of the AgentXM system. It may depend on published
 service contracts and published OSS-safe code packages. The executable

@@ -4,7 +4,6 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { afterEach } from "vitest";
 
@@ -67,12 +66,15 @@ describe("Lint determined repairs", () => {
       const sourceBefore = workspace.readFile("AGENTS.md");
 
       const exit = yield* handleLint({
-        pathArg: Option.some(workspace.root),
-        scope: "project",
+        selection: {
+          workspaceRoot: workspace.root,
+          userHome: workspace.root,
+          scope: "project",
+          input: { view: "workspace" },
+          fix: true,
+        },
         strict: false,
         details: false,
-        fix: true,
-        input: { view: "workspace" },
       }).pipe(Effect.provide(workspace.layer), Effect.exit);
 
       expect(Exit.isSuccess(exit)).toBe(true);
@@ -108,12 +110,15 @@ describe("Lint determined repairs", () => {
         const resultCountBefore = workspace.rendererState.results.length;
 
         const failure = yield* handleLint({
-          pathArg: Option.some(workspace.root),
-          scope: "project",
+          selection: {
+            workspaceRoot: workspace.root,
+            userHome: workspace.root,
+            scope: "project",
+            input: { view: "workspace" },
+            fix: true,
+          },
           strict: false,
           details: false,
-          fix: true,
-          input: { view: "workspace" },
         }).pipe(Effect.provide(workspace.layer), Effect.flip);
 
         const error = getAppError(failure);

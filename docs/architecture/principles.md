@@ -4,6 +4,7 @@ status: stable
 description: Principles governing AXM command design, state recovery, ownership, and overrides.
 depends-on:
   - ./overview.md
+  - ./decisions/closure-atomicity-and-recovery.md
 ---
 
 # Architecture principles

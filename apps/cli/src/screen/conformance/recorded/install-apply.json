@@ -11,22 +11,22 @@
     "_tag": "PhaseStarted",
     "seq": 2,
     "atMs": 0,
-    "phase": "resolution"
+    "phase": "planning"
   },
   {
     "_tag": "UnitStarted",
     "seq": 3,
     "atMs": 0,
-    "unitId": "extension-sources",
-    "label": "extension sources",
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
     "index": 0
   },
   {
     "_tag": "UnitResolved",
     "seq": 4,
     "atMs": 0,
-    "unitId": "extension-sources",
-    "label": "extension sources",
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
     "state": "committed",
     "index": 0
   },
@@ -34,40 +34,17 @@
     "_tag": "PhaseStarted",
     "seq": 5,
     "atMs": 0,
-    "phase": "planning"
-  },
-  {
-    "_tag": "UnitStarted",
-    "seq": 6,
-    "atMs": 0,
-    "unitId": "lockfile-reconciliation",
-    "label": "lockfile reconciliation",
-    "index": 1
-  },
-  {
-    "_tag": "UnitResolved",
-    "seq": 7,
-    "atMs": 0,
-    "unitId": "lockfile-reconciliation",
-    "label": "lockfile reconciliation",
-    "state": "committed",
-    "index": 1
-  },
-  {
-    "_tag": "PhaseStarted",
-    "seq": 8,
-    "atMs": 0,
     "phase": "validation"
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 9,
+    "seq": 6,
     "atMs": 0,
     "phase": "apply"
   },
   {
     "_tag": "UnitStarted",
-    "seq": 10,
+    "seq": 7,
     "atMs": 0,
     "unitId": "skill:code-review",
     "label": "code-review",
@@ -76,7 +53,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 11,
+    "seq": 8,
     "atMs": 0,
     "unitId": "skill:code-review",
     "label": "code-review",
@@ -86,7 +63,7 @@
   },
   {
     "_tag": "OperationSettled",
-    "seq": 12,
+    "seq": 9,
     "atMs": 0,
     "outcome": "applied"
   },
@@ -102,22 +79,22 @@
     "_tag": "PhaseStarted",
     "seq": 2,
     "atMs": 0,
-    "phase": "resolution"
+    "phase": "planning"
   },
   {
     "_tag": "UnitStarted",
     "seq": 3,
     "atMs": 0,
-    "unitId": "extension-sources",
-    "label": "extension sources",
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
     "index": 0
   },
   {
     "_tag": "UnitResolved",
     "seq": 4,
     "atMs": 0,
-    "unitId": "extension-sources",
-    "label": "extension sources",
+    "unitId": "lockfile-reconciliation",
+    "label": "lockfile reconciliation",
     "state": "committed",
     "index": 0
   },
@@ -125,40 +102,17 @@
     "_tag": "PhaseStarted",
     "seq": 5,
     "atMs": 0,
-    "phase": "planning"
-  },
-  {
-    "_tag": "UnitStarted",
-    "seq": 6,
-    "atMs": 0,
-    "unitId": "lockfile-reconciliation",
-    "label": "lockfile reconciliation",
-    "index": 1
-  },
-  {
-    "_tag": "UnitResolved",
-    "seq": 7,
-    "atMs": 0,
-    "unitId": "lockfile-reconciliation",
-    "label": "lockfile reconciliation",
-    "state": "committed",
-    "index": 1
-  },
-  {
-    "_tag": "PhaseStarted",
-    "seq": 8,
-    "atMs": 0,
     "phase": "validation"
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 9,
+    "seq": 6,
     "atMs": 0,
     "phase": "apply"
   },
   {
     "_tag": "UnitStarted",
-    "seq": 10,
+    "seq": 7,
     "atMs": 0,
     "unitId": "skill:deploy",
     "label": "deploy",
@@ -167,7 +121,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 11,
+    "seq": 8,
     "atMs": 0,
     "unitId": "skill:deploy",
     "label": "deploy",
@@ -177,7 +131,7 @@
   },
   {
     "_tag": "OperationSettled",
-    "seq": 12,
+    "seq": 9,
     "atMs": 0,
     "outcome": "applied"
   }

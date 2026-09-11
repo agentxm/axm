@@ -1,187 +1,29 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
-import type { StepRequirements } from "../shared/step-requirements.js";
-import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
-import * as Path from "effect/Path";
+
 import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import { handleSetActivation } from "../activation-handler.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { buildInstallOperation } from "@agentxm/extension-materialization";
-import {
-  previewOrApplyPlan,
-  operationPresentation,
-  type JobStepArtifact,
-  type Plan,
-  type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-
-import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
-import { emitOperationResolution } from "../../operation-output.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import {
-  activeInstructionsConfig,
-  instructionReconciliationReadiness,
-  observeInstructions,
-  reconcileInstructionTransition,
-} from "@agentxm/workspace-configuration";
-import { toAppError, failureToStepFailure } from "../../app-error/conversions.js";
-import { RuleManager } from "@agentxm/extension-materialization";
-import {
-  configurationFailureToAppError,
-  lifecycleFailureToAppError,
-} from "../../feature-errors.js";
-import {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredRule,
-} from "@agentxm/extension-resolution";
 
 export const handleEnableRule = (args: { readonly name: string; readonly preview: boolean }) =>
-  withOperationLifecycle(
+  handleSetActivation(
+    { type: "rule", name: args.name, enabled: true, preview: args.preview },
     {
       command: "rules.enable",
-      mode: args.preview ? "preview" : "apply",
+      commandPath: ["rules", "enable"],
       planName: "Enable rules",
+      suggestions: [
+        { description: "Inspect installed rules", cmd: "axm rules list" },
+        { description: "Undo", cmd: `axm rules disable ${args.name}` },
+      ],
     },
-    handleEnableRuleBody(args),
   );
-
-const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
-  readonly name: string;
-  readonly preview: boolean;
-}) {
-  const ws = yield* WorkspaceMutations;
-  const ruleManager = yield* RuleManager;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const scope = ws.scope;
-  const configured = yield* ws.getConfiguredRuleEntries();
-  const entry = configured[args.name];
-  if (entry === undefined) {
-    yield* emitNoOpOutcome("rules.enable", {
-      planName: "Enable rules",
-      message: `rule "${args.name}" is not configured`,
-    });
-    return;
-  }
-  if (entry.enabled) {
-    yield* emitNoOpOutcome("rules.enable", {
-      planName: "Enable rules",
-      message: `rule "${args.name}" is already enabled`,
-    });
-    return;
-  }
-
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
-    Effect.mapError(lifecycleFailureToAppError),
-  );
-  const { ref, versionRange } = yield* resolveConfiguredRule(
-    args.name,
-    entry.source,
-    releaseAgeEvaluation,
-  ).pipe(Effect.mapError(lifecycleFailureToAppError));
-  const installStep = buildInstallOperation(ruleManager, {
-    toStepFailure: failureToStepFailure,
-    ref,
-    versionRange,
-    message: `Enabled ${args.name}`,
-    buildArtifact: () =>
-      Effect.succeed({
-        path: workspaceSettingsPath(scope),
-        scope,
-        change: "updated",
-      } satisfies JobStepArtifact),
-  });
-  const instructionsConfig = yield* activeInstructionsConfig(ws).pipe(
-    Effect.mapError(configurationFailureToAppError),
-  );
-  const readiness = Option.isSome(instructionsConfig)
-    ? Option.map(
-        yield* instructionReconciliationReadiness({
-          ws,
-          snapshot: yield* observeInstructions({ ws, config: instructionsConfig.value }).pipe(
-            Effect.mapError(configurationFailureToAppError),
-          ),
-        }),
-        configurationFailureToAppError,
-      )
-    : Option.none();
-  const activationStep: PlannedJobStep<StepRequirements> =
-    installStep.readiness === "error"
-      ? installStep
-      : Option.match(readiness, {
-          onSome: (error) => ({
-            label: installStep.label,
-            readiness: "error",
-            errorMessage: error.detail,
-          }),
-          onNone: () => {
-            const transition = Option.isSome(instructionsConfig)
-              ? reconcileInstructionTransition({
-                  ws,
-                  config: instructionsConfig.value,
-                  transition: installStep.run.pipe(Effect.mapError(toAppError)),
-                }).pipe(
-                  Effect.mapError(configurationFailureToAppError),
-                  Effect.provideService(FileSystem.FileSystem, fs),
-                  Effect.provideService(Path.Path, path),
-                )
-              : installStep.run.pipe(Effect.mapError(toAppError));
-            const run = runWorkspaceTransaction({ transition, validate: () => Effect.void }).pipe(
-              Effect.mapError(failureToStepFailure),
-            );
-            return installStep.readiness === "warn"
-              ? {
-                  label: installStep.label,
-                  readiness: "warn",
-                  warnMessage: installStep.warnMessage,
-                  run,
-                }
-              : {
-                  label: installStep.label,
-                  readiness: "ready",
-                  run,
-                };
-          },
-        });
-  const plan: Plan<StepRequirements> = {
-    _tag: "Plan",
-    name: "Enable rules",
-    description: Option.some(`Enable rule ${args.name}`),
-    presentation: operationPresentation(
-      { imperative: "enable", past: "Enabled", gerund: "Enabling" },
-      "rule",
-    ),
-    jobs: [
-      {
-        concurrency: 1,
-        steps: [activationStep],
-      },
-    ],
-  };
-  const execution = yield* makePublicPositionalPlanExecution(
-    args,
-    ["rules", "enable"],
-    [args.name],
-  );
-  const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitOperationResolution("rules.enable", resolution, {
-    suggestions: [
-      { description: "Inspect installed rules", cmd: "axm rules list" },
-      { description: "Undo", cmd: `axm rules disable ${args.name}` },
-    ],
-  });
-});
 
 const enableConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Name of the rule")),

@@ -71,7 +71,7 @@ export {
   type BuildAcquiredInstalledSkillInfoArgs,
   type BuildInstalledSkillInfoNativeArgs,
   type BuildLintWorkspaceArgs,
-  type LintWorkspace,
+  type LintWorkspaceBuild,
   type LintWorkspaceView,
 } from "./catalog/index.js";
 
@@ -91,3 +91,18 @@ export {
   resolveLintRoot,
   type PathRemapper,
 } from "./run/settings.js";
+
+// The lint application API: admit a request, then report the workspace's
+// facts (or repair the determined ones first).
+export {
+  LintWorkspace,
+  admitLintRequest,
+  fixLintWorkspace,
+  lintSelectionRoot,
+  queryLintWorkspace,
+  type LintSelection,
+  type LintWorkspaceFailure,
+  type LintWorkspaceRequest,
+  type LintWorkspaceRequirements,
+  type LintWorkspaceResult,
+} from "./run/lint-workspace.js";

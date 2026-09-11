@@ -1,24 +1,21 @@
+/**
+ * `axm knowledge install`.
+ */
+
 import * as Effect from "effect/Effect";
-import type { StepRequirements } from "../../shared/step-requirements.js";
 import * as Option from "effect/Option";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { withArgvTracking } from "../../../cli-runtime/index.js";
-import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
-
-import { ignoreReleaseAgeFlag } from "../../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, isNonInteractiveOptional } from "../../../cli-flags/index.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
-import { emitOperationResolution } from "../../../operation-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../../shared/command-capabilities.js";
-import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { runInstallCommand } from "../../shared/install-command.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
-import { InstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
 
 export interface KnowledgeInstallHandlerArgs {
   readonly source: Option.Option<string>;
@@ -26,50 +23,39 @@ export interface KnowledgeInstallHandlerArgs {
 }
 
 export const handleKnowledgeInstall = (args: KnowledgeInstallHandlerArgs) =>
-  withOperationLifecycle(
-    {
-      command: "knowledge.install",
-      mode: args.preview ? "preview" : "apply",
-      planName: "Install Knowledge",
-    },
-    Effect.gen(function* () {
-      return yield* Option.match(args.source, {
-        onNone: () =>
-          handleWorkspaceInstall({
-            command: "knowledge.install",
-            type: Option.some("knowledge"),
-            planName: "Install Knowledge",
-            planDescription: Option.some("Install configured Knowledge bundles"),
-            flags: { preview: args.preview },
-          }),
-        onSome: (value) =>
-          Effect.gen(function* () {
-            const actions = yield* InstallKnowledgeCommandWorkflowActions;
-            const execution = yield* makeInstallPlanExecution(
-              { preview: args.preview },
-              ["knowledge", "install"],
-              [value],
-            );
-            const resolution = yield* runInstallCommandWorkflow({ source: value }, actions, {
-              execution,
-              transformPlan: (plan) =>
-                Effect.succeed({
-                  ...plan,
-                  presentation: operationPresentation(
-                    { imperative: "install", past: "Installed", gerund: "Installing" },
-                    "knowledge",
-                  ),
-                } satisfies Plan<StepRequirements>),
-            });
-            yield* emitOperationResolution("knowledge.install", resolution, {
-              suggestions: [
-                { description: "Browse installed Knowledge", cmd: "axm knowledge list" },
-              ],
-            });
-          }),
+  Effect.gen(function* () {
+    if (Option.isNone(args.source)) {
+      return yield* handleWorkspaceInstall({
+        command: "knowledge.install",
+        type: Option.some("knowledge"),
+        planName: "Install Knowledge",
+        planDescription: Option.some("Install configured Knowledge bundles"),
+        flags: { preview: args.preview },
       });
-    }),
-  );
+    }
+
+    const nonInteractive = yield* isNonInteractiveOptional;
+    return yield* runInstallCommand({
+      command: "knowledge.install",
+      preview: args.preview,
+      force: false,
+      request: {
+        type: Option.some("knowledge"),
+        subject: { kind: "source", source: args.source.value },
+        names: [],
+        all: false,
+        reinstall: false,
+        localName: Option.none(),
+        env: [],
+        nonInteractive,
+        planName: "Install Knowledge",
+        planDescription: Option.none(),
+      },
+      recoveryCommand: ["knowledge", "install"],
+      recoveryLocators: [args.source.value],
+      suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
+    });
+  });
 
 const installConfig = {
   source: Argument.string("source").pipe(

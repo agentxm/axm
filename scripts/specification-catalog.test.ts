@@ -2,6 +2,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -595,5 +598,37 @@ export const boundEvidence = defineBoundEvidence([
     const catalog = collectCatalog({ repoRoot, specifications: [specification] });
     expect(catalog.issues.filter((issue) => issue.severity === "error")).toEqual([]);
     expect(renderCatalogMarkdown(catalog)).toContain("- Owner: `extension-lifecycle`");
+  });
+});
+
+/**
+ * Source hygiene that survives the retirement of
+ * `system/architecture/specification-folders-mirror-command-tree`
+ * (see `specifications/disposition-ledger.json`): identity is no longer tied
+ * to path and specifications colocate beside their owners, but discovery
+ * still walks the working tree, so a symbolic link must not be able to hide a
+ * specification from it or present one twice.
+ */
+describe("specification discovery hygiene", () => {
+  const workspaceRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
+
+  it("no tracked symbolic link stands in for authored source", () => {
+    const symbolicLinks = execFileSync("git", ["ls-files", "-s"], {
+      cwd: workspaceRoot,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    })
+      .split("\n")
+      .filter((line) => line.startsWith("120000 "))
+      .map((line) => line.split("\t")[1] ?? "")
+      .filter(
+        (file) =>
+          file.startsWith("apps/") ||
+          file.startsWith("packages/") ||
+          file.startsWith("tools/") ||
+          file.startsWith("scripts/") ||
+          file.startsWith("specifications/"),
+      );
+    expect(symbolicLinks).toEqual([]);
   });
 });

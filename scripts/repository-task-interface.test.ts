@@ -304,6 +304,26 @@ describe("repository task interface", () => {
     }
   });
 
+  it("reaches candidate generation only through the release-preparation entry point", () => {
+    // Supersedes part of the retired specification identity
+    // `system/process/release-preparation-isolates-candidate-state`
+    // (see `specifications/disposition-ledger.json`): the published script
+    // routes to the root release-preparation target, and candidate
+    // generation is an internal target that runs only inside the disposable
+    // checkout.
+    const scripts = readObject("package.json")["scripts"];
+    if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
+    const rootTargets = readTargets("project.json");
+    expect(scripts["release:prepare"]).toBe("pnpm exec nx run axm:release-prepare");
+    expect(Object.keys(rootTargets)).toContain("release-prepare");
+    expect(Object.keys(rootTargets)).toContain("release-prepare-candidate");
+    expect(
+      Object.values(scripts).filter(
+        (command) => typeof command === "string" && command.includes("release-prepare-candidate"),
+      ),
+    ).toEqual([]);
+  });
+
   it("builds shared test reporting before isolated release preparation", () => {
     const rootTargets = readTargets("project.json");
     const reportingTarget = rootTargets["build-test-reporting"];
@@ -322,6 +342,9 @@ describe("repository task interface", () => {
       "lint-bundled-skill",
       "parity-ledger-check",
       "release-prepare",
+      // A cached result would skip the production Registry preflight or the
+      // exact candidate preview.
+      "release-prepare-candidate",
       "release-publish",
       "release-publish-local",
       "specification-verdict",

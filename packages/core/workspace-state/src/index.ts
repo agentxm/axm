@@ -162,6 +162,12 @@ export {
   type DesiredStateProblem,
   type ProspectivePackRef,
 } from "./workspace/desired-state-graph.js";
+// The source-qualified identity a desired-graph node carries, decoded.
+export {
+  decodeDesiredExtensionIdentity,
+  type DecodedDesiredExtensionIdentity,
+  type DesiredPackageAuthority,
+} from "./workspace/desired-identity.js";
 export {
   desiredStateProblemText,
   desiredStateProblemsText,

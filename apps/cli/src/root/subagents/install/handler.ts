@@ -1,20 +1,20 @@
+/**
+ * `axm subagents install`.
+ */
+
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "../../../app-error/index.js";
-import { publicRecoveryValue, recoveryOption, recoverySwitch } from "@agentxm/workspace-operations";
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 
-import { emitOperationResolution } from "../../../operation-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { publicRecoveryValue, recoveryOption, recoverySwitch } from "@agentxm/workspace-operations";
+
+import { makeAppError } from "../../../app-error/index.js";
+import { isNonInteractiveOptional } from "../../../cli-flags/index.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
-import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../../shared/no-op-output.js";
-import { InstallSubagentCommandWorkflowActions } from "./command-actions.js";
+import { runInstallCommand } from "../../shared/install-command.js";
 
 export interface InstallSubagentHandlerArgs {
   readonly source: Option.Option<string>;
-  readonly subagents: readonly string[];
+  readonly subagents: ReadonlyArray<string>;
   readonly all: boolean;
 }
 
@@ -37,7 +37,6 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
         ],
       });
     }
-
     if (args.subagents.length > 0) {
       return yield* makeAppError({
         code: "usage",
@@ -52,36 +51,7 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
     }
   });
 
-type InstallSubagentActions = Effect.Success<typeof InstallSubagentCommandWorkflowActions>;
-
-const handleInstallWithActionEffect = <R>(
-  args: InstallSubagentHandlerArgs,
-  flags: InstallSubagentFlags,
-  actionsEffect: Effect.Effect<InstallSubagentActions, never, R>,
-) =>
-  withOperationLifecycle(
-    {
-      command: "subagents.install",
-      mode: flags.preview ? "preview" : "apply",
-      planName: "Install subagents",
-    },
-    handleInstallBody(args, flags, actionsEffect),
-  );
-
 export const handleInstall = (args: InstallSubagentHandlerArgs, flags: InstallSubagentFlags) =>
-  handleInstallWithActionEffect(args, flags, InstallSubagentCommandWorkflowActions);
-
-export const handleInstallWithActions = (
-  args: InstallSubagentHandlerArgs,
-  flags: InstallSubagentFlags,
-  actions: InstallSubagentActions,
-) => handleInstallWithActionEffect(args, flags, Effect.succeed(actions));
-
-const handleInstallBody = <R>(
-  args: InstallSubagentHandlerArgs,
-  flags: InstallSubagentFlags,
-  actionsEffect: Effect.Effect<InstallSubagentActions, never, R>,
-) =>
   Effect.gen(function* () {
     if (Option.isNone(args.source)) {
       yield* validateWorkspaceInstallArgs(args);
@@ -94,34 +64,32 @@ const handleInstallBody = <R>(
       });
     }
 
-    const actions = yield* actionsEffect;
-    const execution = yield* makeInstallPlanExecution(
-      flags,
-      ["subagents", "install"],
-      [args.source.value],
-      [
+    const nonInteractive = yield* isNonInteractiveOptional;
+    return yield* runInstallCommand({
+      command: "subagents.install",
+      preview: flags.preview,
+      force: flags.force,
+      request: {
+        type: Option.some("subagent"),
+        subject: { kind: "source", source: args.source.value },
+        names: args.subagents,
+        all: args.all,
+        reinstall: flags.force,
+        localName: Option.none(),
+        env: [],
+        nonInteractive,
+        planName: "Install subagents",
+        planDescription: Option.none(),
+      },
+      recoveryCommand: ["subagents", "install"],
+      recoveryLocators: [args.source.value],
+      recoveryArguments: [
         recoverySwitch("--all", args.all),
         ...args.subagents.map((subagent) =>
           recoveryOption("--subagent", publicRecoveryValue(subagent)),
         ),
       ],
-    );
-    const resolution = yield* runInstallCommandWorkflow(
-      { source: args.source.value, subagents: args.subagents, all: args.all },
-      actions,
-      { execution },
-    );
-    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
-      const planDescription = Option.getOrUndefined(resolution.description);
-      yield* emitNoOpOutcome("subagents.install", {
-        planName: resolution.name,
-        ...(planDescription === undefined ? {} : { planDescription }),
-        message: "No subagents installed.",
-      });
-      return;
-    }
-
-    yield* emitOperationResolution("subagents.install", resolution, {
       suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
+      noOpMessage: "No subagents installed.",
     });
   });

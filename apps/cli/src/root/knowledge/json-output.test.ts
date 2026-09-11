@@ -25,6 +25,17 @@ import { handleKnowledgeConceptGet } from "./concepts/get.js";
 import { handleKnowledgeConceptSearch } from "./concepts/search.js";
 import { handleKnowledgeConceptStatus } from "./concepts/status.js";
 import { KnowledgeManager } from "@agentxm/extension-materialization";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import {
+  ExtensionManagersLive,
+  HookManagerLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+} from "@agentxm/extension-materialization/live";
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,
   type: "knowledge",
@@ -43,6 +54,26 @@ const stubKnowledgeManager = {
 } satisfies ServiceMap.Service.Shape<typeof KnowledgeManager>;
 
 const knowledgeManagerLayer = Layer.succeed(KnowledgeManager, stubKnowledgeManager);
+
+/**
+ * Activation resolves its manager by extension type through the registry, so
+ * the stub answers for Knowledge inside the same registry the runtime builds.
+ */
+const knowledgeActivationLayer = Layer.provideMerge(
+  ExtensionManagersLive,
+  Layer.provideMerge(
+    Layer.mergeAll(
+      knowledgeManagerLayer,
+      SkillManagerLive,
+      SubagentManagerLive,
+      RuleManagerLive,
+      HookManagerLive,
+      McpServerManagerLive,
+      PackManagerLive,
+    ),
+    Layer.mergeAll(CodingAgentRepositoryLive, SourceHostProvidersLive),
+  ),
+);
 
 /**
  * Author a Knowledge package that `axm knowledge lint --path` can inspect.
@@ -349,7 +380,7 @@ describe("knowledge JSON output", () => {
     return provide(
       Effect.gen(function* () {
         yield* setKnowledgeEnabled("platform", false, false).pipe(
-          Effect.provide(knowledgeManagerLayer),
+          Effect.provide(knowledgeActivationLayer),
         );
 
         expect(rendererState.results).toHaveLength(1);
@@ -373,7 +404,7 @@ describe("knowledge JSON output", () => {
     return provide(
       Effect.gen(function* () {
         yield* setKnowledgeEnabled("platform", true, false).pipe(
-          Effect.provide(knowledgeManagerLayer),
+          Effect.provide(knowledgeActivationLayer),
         );
 
         expect(logs.success).toEqual(["Enabled 1 knowledge bundle"]);

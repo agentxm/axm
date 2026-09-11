@@ -1,32 +1,25 @@
+/**
+ * `axm install` and `axm <type> install` with no source: bring the workspace
+ * to the state its settings already describe.
+ *
+ * Every type command routes here when the person named no source, so the
+ * command words a confirmation-recovery line reproduces are derived from the
+ * type rather than repeated at each call site.
+ */
+
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import {
-  setCommandSemanticProperties,
-  summarizeCommandOutcome,
-  type SubjectType,
-} from "../../cli-runtime/index.js";
-import { previewOrApplyPlan, recoverySwitch } from "@agentxm/workspace-operations";
-import { operationPresentation } from "@agentxm/workspace-operations";
-
-import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
-import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { buildWorkspaceInstallPlan, type WorkspaceInstallableType } from "./workspace-install.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
-import {
-  makeInstallCommandActions,
-  type InstallCommandActions,
-} from "../shared/install-command-actions.js";
 import { ReleaseAgePosture } from "@agentxm/extension-resolution";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { recoverySwitch } from "@agentxm/workspace-operations";
 
-const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableType>): SubjectType =>
-  Option.match(type, {
-    onNone: () => "mixed" as const,
-    onSome: (value) => value,
-  });
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { runInstallCommand } from "../shared/install-command.js";
 
-const workspaceInstallCommand = (
+export type WorkspaceInstallableType = InstallableExtensionType;
+
+const configuredInstallCommand = (
   type: Option.Option<WorkspaceInstallableType>,
 ): ReadonlyArray<string> =>
   Option.match(type, {
@@ -64,83 +57,31 @@ export interface WorkspaceInstallHandlerArgs {
   readonly flags: WorkspaceInstallFlags;
 }
 
-const handleWorkspaceInstallWithActionEffect = <R>(
-  args: WorkspaceInstallHandlerArgs,
-  actionsEffect: Effect.Effect<InstallCommandActions, never, R>,
-) =>
-  withOperationLifecycle(
-    {
-      command: args.command,
-      mode: args.flags.preview ? "preview" : "apply",
-      planName: args.planName,
-      presentation: operationPresentation(
-        { imperative: "install", past: "Installed", gerund: "Installing" },
-        Option.getOrUndefined(args.type),
-      ),
-    },
-    Effect.flatMap(actionsEffect, (actions) => handleWorkspaceInstallBody(args, actions)),
-  );
-
+/** Install every enabled configured entry, or every one of a single type. */
 export const handleWorkspaceInstall = (args: WorkspaceInstallHandlerArgs) =>
-  handleWorkspaceInstallWithActionEffect(args, makeInstallCommandActions);
-
-export const handleWorkspaceInstallWithActions = (
-  args: WorkspaceInstallHandlerArgs,
-  actions: InstallCommandActions,
-) => handleWorkspaceInstallWithActionEffect(args, Effect.succeed(actions));
-
-const handleWorkspaceInstallBody = (
-  args: WorkspaceInstallHandlerArgs,
-  actions: InstallCommandActions,
-) =>
   Effect.gen(function* () {
-    const planResult = yield* buildWorkspaceInstallPlan(
-      {
+    const nonInteractive = yield* isNonInteractiveOptional;
+    const ignoreReleaseAge = (yield* ReleaseAgePosture) === "ignore";
+    return yield* runInstallCommand({
+      command: args.command,
+      preview: args.flags.preview,
+      force: args.flags.force === true,
+      request: {
         type: args.type,
+        subject: { kind: "configured" },
+        names: [],
+        all: false,
+        reinstall: args.flags.force === true,
+        localName: Option.none(),
+        env: [],
+        nonInteractive,
         planName: args.planName,
         planDescription: args.planDescription,
       },
-      actions,
-    );
-
-    if (planResult._tag === "NoConfiguredExtensions") {
-      yield* setCommandSemanticProperties(
-        summarizeCommandOutcome({
-          outcome: "no-op",
-          subjectType: workspaceInstallSubjectType(args.type),
-          sourceKind: "workspace",
-        }),
-      );
-      yield* emitNoOpOutcome(args.command, {
-        planName: args.planName,
-        message: planResult.message,
-        ...Option.match(args.planDescription, {
-          onNone: () => ({}),
-          onSome: (planDescription) => ({ planDescription }),
-        }),
-      });
-      return;
-    }
-
-    const execution = yield* makePlanExecution(
-      { preview: args.flags.preview },
-      makeConfirmationRecovery(workspaceInstallCommand(args.type), [
-        recoverySwitch("--reinstall", args.flags.force === true),
-        recoverySwitch("--ignore-release-age", (yield* ReleaseAgePosture) === "ignore"),
-      ]),
-      [],
-      planResult.configuredAgentOperations,
-    );
-    const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
-    yield* setCommandSemanticProperties(
-      summarizeCommandOutcome(
-        operationResolutionSummary(resolution, {
-          subjectType: workspaceInstallSubjectType(args.type),
-          sourceKind: "workspace",
-        }),
-      ),
-    );
-    yield* emitOperationResolution(args.command, resolution, {
+      recoveryCommand: configuredInstallCommand(args.type),
+      recoveryLocators: [],
+      recoveryArguments: [recoverySwitch("--ignore-release-age", ignoreReleaseAge)],
       suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+      noOpMessage: "No configured extensions.",
     });
   });

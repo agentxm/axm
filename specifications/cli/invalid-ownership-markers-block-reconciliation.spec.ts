@@ -3,7 +3,6 @@ import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -76,12 +75,15 @@ describe("Invalid ownership markers", () => {
       fs.writeFileSync(path.join(workspace.root, "AGENTS.md"), invalid);
 
       const lintExit = yield* handleLint({
-        pathArg: Option.some(workspace.root),
-        scope: "project",
+        selection: {
+          workspaceRoot: workspace.root,
+          userHome: workspace.root,
+          scope: "project",
+          input: { view: "workspace" },
+          fix: false,
+        },
         strict: false,
         details: false,
-        fix: false,
-        input: { view: "workspace" },
       }).pipe(Effect.provide(workspace.layer), Effect.exit);
       expect(Exit.isFailure(lintExit)).toBe(true);
       const lintDocument = yield* decodeLintDocument(workspace.rendererState.results.at(-1)?.data);

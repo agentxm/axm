@@ -20,6 +20,7 @@ import {
   hasAxmManagedMarker,
   safeReadDirectory,
   safeReadFileString,
+  type WorkspaceOwnershipIssue,
 } from "./managed-file-discovery.js";
 import { collectManagedAgentMcpServers } from "./mcps/inspection.js";
 import { readAmbiguousHookCommands, readManagedHookUnits } from "@agentxm/agent-integration";
@@ -281,3 +282,51 @@ export const observeAgentOutputs = (
       unownedFootprints: outputs.filter((output) => output.ownership === "unowned"),
     };
   });
+
+/**
+ * The ownership problems a workspace's agent-native outputs present, with no
+ * expectation of what should be there.
+ *
+ * Reporting ownership is a different question from reconciling it: the
+ * reporter must not need a desired graph, because the workspaces most in need
+ * of the answer are the ones whose desired state cannot be resolved. Every
+ * expected-name set is therefore empty, and the answer is only about proof —
+ * a file that sits where AXM writes but carries no ownership marker, and a
+ * hook command pointed at an AXM canonical path without one.
+ */
+export const observeWorkspaceOwnershipIssues = (args: {
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+  readonly configuredAgentIds: ReadonlySet<string>;
+  readonly skillOwnershipRoots: ReadonlyArray<string>;
+}): Effect.Effect<
+  ReadonlyArray<WorkspaceOwnershipIssue>,
+  never,
+  CodingAgentRepository | FileSystem.FileSystem | Path.Path
+> =>
+  observeAgentOutputs({
+    workspaceRoot: args.workspaceRoot,
+    scope: args.scope,
+    desiredAgentIds: args.configuredAgentIds,
+    expectedNames: {
+      skill: new Set<string>(),
+      subagent: new Set<string>(),
+      "mcp-server": new Set<string>(),
+      hook: new Set<string>(),
+    },
+    skillOwnershipRoots: args.skillOwnershipRoots,
+  }).pipe(
+    Effect.map((observed) =>
+      observed.unownedFootprints.map((output) => ({
+        kind:
+          output.extensionType === "hook"
+            ? ("hook-ownership-ambiguous" as const)
+            : ("managed-file-unowned" as const),
+        path: output.path,
+        detail:
+          output.extensionType === "hook"
+            ? `Hook command targets an AXM canonical extension path without x-axm ownership metadata: ${output.entryName}`
+            : `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
+      })),
+    ),
+  );

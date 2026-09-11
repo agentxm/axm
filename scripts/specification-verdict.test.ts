@@ -5,7 +5,9 @@ import {
   fixtureInputs,
   fixtureRun,
   fixtureSource,
+  fixtureSourceInputs,
 } from "./specification-verdict-fixtures.js";
+import type { CatalogExecutionBinding } from "./specification-catalog-lib.js";
 import {
   assessExecutionEvidence,
   computeVerdict,
@@ -94,6 +96,157 @@ describe("native execution receipt validation", () => {
     expect(
       assess(fixtureContext({ inputs: { ...fixtureInputs, runtimeDigest: "new-build" } })).status,
     ).toBe("stale");
+  });
+});
+
+/**
+ * Supersedes the retired specification identity
+ * `system/process/evidence-reports-match-executed-inputs`
+ * (see `specifications/disposition-ledger.json`): the report attributes an
+ * execution only to the requirement whose declared entrypoint actually ran,
+ * with the inputs that run observed.
+ */
+describe("execution evidence attribution", () => {
+  const report = (context = fixtureContext(), source = fixtureSource()) =>
+    computeVerdict([], [source], context).affected[0]?.evidence ?? [];
+
+  it("reports a current complete run with its actual outcome and input provenance", () => {
+    expect(report()[0]).toMatchObject({
+      status: "fresh",
+      outcome: "passed",
+      boundary: "memory",
+      selection: "per-change",
+      detail: expect.stringContaining("recorded-revision"),
+    });
+    expect(
+      report(fixtureContext({ runs: [fixtureRun({ failed: 1, passed: 2 })] }))[0],
+    ).toMatchObject({ status: "fresh", outcome: "failed" });
+  });
+
+  it("reports whether the executed runtime came from source or built artifacts", () => {
+    expect(
+      report(fixtureContext({ runs: [fixtureRun({}, { inputs: fixtureSourceInputs })] }))[0],
+    ).toMatchObject({ status: "fresh", detail: expect.stringContaining("source runtime") });
+  });
+
+  it("rejects an unchanged path whose specification contents differ", () => {
+    expect(report(fixtureContext(), fixtureSource("new assertion"))[0]?.status).toBe("stale");
+  });
+
+  it("does not transfer a passing source result to unexecuted boundaries or human assessments", () => {
+    const source = fixtureSource(undefined, {
+      methods: ["example", "review"],
+      selection: "platform-matrix",
+    });
+    const boundSource = {
+      ...source,
+      specification: {
+        ...source.specification,
+        boundEvidence: [{ gate: "axm:static-check", verifies: "Checks a repository constraint." }],
+      },
+    };
+    expect(
+      report(
+        fixtureContext({
+          executionBindings: [
+            {
+              source: "apps/cli-e2e/src/install.e2e.test.ts",
+              requirements: [source.specification.metadata.requirement],
+              boundary: "process",
+              rationale: "Observes real process output.",
+            },
+          ],
+        }),
+        boundSource,
+      ),
+    ).toEqual([
+      expect.objectContaining({ status: "fresh", outcome: "passed", selection: "platform-matrix" }),
+      expect.objectContaining({ status: "unverified", boundary: "human assessment" }),
+      expect.objectContaining({ status: "missing", boundary: "process" }),
+      expect.objectContaining({ status: "missing", boundary: "static gate" }),
+    ]);
+  });
+
+  it("joins a separately executed boundary only to its declared owning requirement", () => {
+    const source = fixtureSource();
+    const boundarySource = "apps/cli-e2e/src/install.e2e.test.ts";
+    expect(
+      report(
+        fixtureContext({
+          runs: [
+            fixtureRun(),
+            fixtureRun(
+              { source: boundarySource, contentDigest: "boundary-digest" },
+              { suite: "cli-e2e", selection: [boundarySource] },
+            ),
+          ],
+          sourceDigests: new Map([[boundarySource, "boundary-digest"]]),
+          executionBindings: [
+            {
+              source: boundarySource,
+              requirements: [source.specification.metadata.requirement],
+              boundary: "process",
+              rationale: "Observes argv and serialized output.",
+            },
+          ],
+        }),
+      )[1],
+    ).toMatchObject({
+      source: boundarySource,
+      boundary: "process",
+      status: "fresh",
+      outcome: "passed",
+    });
+  });
+
+  it("attributes imported scenarios only through their selected execution entrypoint", () => {
+    const source = fixtureSource();
+    const helper = "apps/cli-e2e/src/cli-commands/auth/token/token.e2e.ts";
+    const entrypoint = "apps/cli-e2e/src/auth.e2e.test.ts";
+    const binding = (executionSource: string): CatalogExecutionBinding => ({
+      source: executionSource,
+      requirements: [source.specification.metadata.requirement],
+      boundary: "process",
+      rationale: "Executes the imported token scenarios through the selected Vitest entrypoint.",
+    });
+    const run = (file: Record<string, unknown> = {}) =>
+      fixtureRun(
+        { source: entrypoint, contentDigest: "entrypoint-digest", ...file },
+        { suite: "cli-e2e", selection: [entrypoint] },
+      );
+    const base = {
+      runs: [fixtureRun(), run()],
+      sourceDigests: new Map([
+        [helper, "helper-digest"],
+        [entrypoint, "entrypoint-digest"],
+      ]),
+    };
+    const assessBinding = (sourcePath: string, overrides = {}) =>
+      report(
+        fixtureContext({ ...base, executionBindings: [binding(sourcePath)], ...overrides }),
+      )[1];
+
+    expect({
+      importedOnly: assessBinding(helper),
+      executedEntrypoint: assessBinding(entrypoint),
+      changedImportedInput: assessBinding(entrypoint, {
+        inputs: { ...fixtureInputs, sourceDigest: "changed-imported-source" },
+      }),
+      filteredEntrypoint: assessBinding(entrypoint, {
+        runs: [fixtureRun(), run({ filtered: true })],
+      }),
+      skippedEntrypoint: assessBinding(entrypoint, {
+        runs: [fixtureRun(), run({ passed: 2, skipped: 1 })],
+      }),
+      absentEntrypoint: assessBinding(entrypoint, { runs: [fixtureRun()] }),
+    }).toMatchObject({
+      importedOnly: { status: "missing", outcome: "not-run" },
+      executedEntrypoint: { status: "fresh", outcome: "passed" },
+      changedImportedInput: { status: "stale" },
+      filteredEntrypoint: { status: "partial" },
+      skippedEntrypoint: { status: "partial", outcome: "skipped" },
+      absentEntrypoint: { status: "missing", outcome: "not-run" },
+    });
   });
 });
 

@@ -31,6 +31,7 @@ import {
 } from "@agentxm/extension-resolution";
 import { RegistryResolutionPolicy } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -66,12 +67,24 @@ export interface AuthoringWorkspace {
   readonly root: string;
   /** Read a workspace-relative file, or `undefined` when it is absent. */
   readonly read: (relativePath: string) => string | undefined;
+  /** Write a workspace-relative file, creating parents. */
+  readonly write: (relativePath: string, contents: string) => void;
   /** Whether a workspace-relative path exists. */
   readonly exists: (relativePath: string) => boolean;
   /** The decoded settings document. */
   readonly settings: () => unknown;
+  /** Replace the settings document wholesale. */
+  readonly writeSettings: (value: unknown) => void;
+  /** The lockfile text, or an empty string when there is none. */
+  readonly lockfileText: () => string;
   /** Every workspace-relative path that exists under a directory, sorted. */
   readonly tree: () => ReadonlyArray<string>;
+  /**
+   * Byte-exact content of a subtree: workspace-relative path mapped to
+   * `"directory"` or `"file:<base64>"`. Two snapshots are equal only when
+   * every path and every byte is unchanged; a missing root snapshots empty.
+   */
+  readonly snapshot: (relativePath?: string) => Readonly<Record<string, string>>;
   readonly cleanup: () => void;
 }
 
@@ -113,15 +126,53 @@ export const makeAuthoringWorkspace = (
     )}\n`,
   );
   const absolute = (relativePath: string) => nodePath.join(root, relativePath);
+  const snapshot = (relativePath = "."): Readonly<Record<string, string>> => {
+    const target = absolute(relativePath);
+    const entries: Record<string, string> = {};
+    if (!fs.existsSync(target)) return entries;
+    if (!fs.statSync(target).isDirectory()) {
+      entries["."] = `file:${fs.readFileSync(target).toString("base64")}`;
+      return entries;
+    }
+    const visit = (directory: string): void => {
+      for (const entry of fs
+        .readdirSync(directory, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name, "en"))) {
+        const child = nodePath.join(directory, entry.name);
+        const relative = nodePath.relative(target, child);
+        if (entry.isDirectory()) {
+          entries[relative] = "directory";
+          visit(child);
+        } else {
+          entries[relative] = `file:${fs.readFileSync(child).toString("base64")}`;
+        }
+      }
+    };
+    visit(target);
+    return entries;
+  };
   return {
     root,
     read: (relativePath) =>
       fs.existsSync(absolute(relativePath))
         ? fs.readFileSync(absolute(relativePath), "utf-8")
         : undefined,
+    write: (relativePath, contents) => {
+      const target = absolute(relativePath);
+      fs.mkdirSync(nodePath.dirname(target), { recursive: true });
+      fs.writeFileSync(target, contents);
+    },
     exists: (relativePath) => fs.existsSync(absolute(relativePath)),
     settings: () => JSON.parse(fs.readFileSync(absolute("axm.json"), "utf-8")),
+    writeSettings: (value) => {
+      fs.writeFileSync(absolute("axm.json"), `${JSON.stringify(value, null, 2)}\n`);
+    },
+    lockfileText: () =>
+      fs.existsSync(absolute("axm-lock.yaml"))
+        ? fs.readFileSync(absolute("axm-lock.yaml"), "utf-8")
+        : "",
     tree: () => [...walk(root, root)].sort(),
+    snapshot,
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });
     },
@@ -132,7 +183,17 @@ export const makeAuthoringWorkspace = (
  * Every service an authoring use case keeps in `R`, composed the way the
  * application composes them.
  */
-export const authoringWorkspaceLayer = (workspace: AuthoringWorkspace) => {
+export const authoringWorkspaceLayer = (workspace: AuthoringWorkspace) =>
+  authoringWorkspaceEnvironment(workspace).layer;
+
+/**
+ * The same environment, with the plan interaction's recorded calls exposed.
+ *
+ * A preview must never ask a person to confirm, and an authoring use case
+ * never prompts at all, so the recorded calls are evidence the specifications
+ * assert on directly.
+ */
+export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => {
   // Nothing in a creation prompts, so the interaction records what it was
   // asked and answers without a person.
   const interaction = ResolvePlanInteractionTest();
@@ -171,12 +232,23 @@ export const authoringWorkspaceLayer = (workspace: AuthoringWorkspace) => {
     ),
     sources,
   );
-  return Layer.mergeAll(
-    Layer.provideMerge(ExtensionManagersLive, managers),
-    PlanInvocationTest,
-    interaction.layer,
-    identity,
-  );
+  // MCP connection secrets stay in memory: a specification must never reach
+  // the developer's real credential store, and an in-memory store answers the
+  // same typed outcomes the real one does.
+  const secrets = makeMemoryMcpSecretStore();
+  return {
+    layer: Layer.mergeAll(
+      Layer.provideMerge(ExtensionManagersLive, managers),
+      PlanInvocationTest,
+      interaction.layer,
+      identity,
+      secrets.layer,
+    ),
+    /** Every plan presentation and confirmation the run asked for. */
+    interaction: interaction.state,
+    /** MCP connection secrets the run persisted, keyed by account digest. */
+    secrets: secrets.entries,
+  };
 };
 
 /** An execution that previews without prompting. */

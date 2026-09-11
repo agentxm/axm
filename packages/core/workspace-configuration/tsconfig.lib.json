@@ -18,6 +18,9 @@
   ],
   "references": [
     {
+      "path": "../../../tools/specification-metadata/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-transactions/tsconfig.lib.json"
     },
     {
@@ -34,6 +37,9 @@
     },
     {
       "path": "../extension-model/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-materialization/tsconfig.lib.json"
     },
     {
       "path": "../../supporting/agent-integration/tsconfig.lib.json"

@@ -10,7 +10,11 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { ExtensionManagersLive } from "@agentxm/extension-materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
 import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import { PackManagerLive } from "@agentxm/extension-materialization/live";
 import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
 import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
 import { RuleManagerLive } from "@agentxm/extension-materialization/live";
@@ -29,7 +33,7 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../test-helpers.js";
 import { handlePackActivation } from "./activation.js";
-import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
+import { buildAggregateProjectionStep } from "@agentxm/extension-lifecycle";
 import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
 
 const initializePack = (root: string) => {
@@ -156,6 +160,24 @@ describe("packs activation", () => {
       ),
       managerDependencies,
     );
+    const packManagerLayer = Layer.provide(
+      PackManagerLive,
+      Layer.mergeAll(managerDependencies, managersLayer),
+    );
+    // Activation resolves a manager by extension type through the registry,
+    // exactly as the runtime composes it over the per-type managers, and
+    // renders shared units from the participant registry over them.
+    const extensionManagersLayer = Layer.provide(
+      ExtensionManagersLive,
+      Layer.mergeAll(managersLayer, packManagerLayer),
+    );
+    const projectionLayer = Layer.provide(
+      Layer.mergeAll(
+        ProjectionParticipantsLive,
+        Layer.provide(WorkspaceInvariantFactsLive, ProjectionParticipantsLive),
+      ),
+      Layer.mergeAll(managerDependencies, managersLayer, packManagerLayer),
+    );
     return {
       ...context,
       provide: makeEffectProvide(
@@ -166,6 +188,9 @@ describe("packs activation", () => {
           CodingAgentRepositoryLive,
           LifecycleStepFailureConversionLive,
           managersLayer,
+          packManagerLayer,
+          extensionManagersLayer,
+          projectionLayer,
         ),
       ),
     };

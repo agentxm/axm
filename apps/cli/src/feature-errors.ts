@@ -39,13 +39,14 @@ import {
   type RegistryAuthFailure,
   type StepUpRequired,
 } from "@agentxm/registry-auth";
-import type { LintStagingFailed } from "@agentxm/workspace-lint";
+import { LintStagingFailed } from "@agentxm/workspace-lint";
 import {
   WorkspaceConfigurationFailed,
   WorkspaceInitializationCancelled,
 } from "@agentxm/workspace-configuration";
 import { WorkspaceInspectionFailed } from "@agentxm/workspace-inspection";
 import {
+  SyncStepFailureConversion,
   WorkspaceSyncFailed,
   type SyncFailureAdapter,
   type SyncPolicyFailure,
@@ -63,6 +64,18 @@ export const lintStagingFailedToAppError = (error: LintStagingFailed): AppError 
     detail: error.detail,
     ...(error.cause === undefined ? {} : { cause: error.cause }),
   });
+
+/**
+ * Convert any failure a workspace-lint run can surface — the feature's own
+ * typed refusal, or a known kernel failure it read the workspace through —
+ * into the CLI-facing `AppError`.
+ */
+export const lintFailureToAppError = (failure: unknown): AppError => {
+  if (failure instanceof LintStagingFailed) return lintStagingFailedToAppError(failure);
+  if (failure instanceof AppError) return failure;
+  if (isKnownFailure(failure)) return toAppError(failure);
+  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+};
 
 /**
  * Translate a workspace-sync policy failure: the implementation chose the
@@ -89,6 +102,12 @@ export const syncFailureToAppError = (failure: SyncPolicyFailure | AppError): Ap
 export const syncStepFailureAdapter: SyncFailureAdapter = {
   toStepFailure: (failure) => appErrorToStepFailure(syncFailureToAppError(failure)),
 };
+
+/** Layer wiring the boundary's failure conversions into sync planning. */
+export const SyncStepFailureConversionLive = Layer.succeed(
+  SyncStepFailureConversion,
+  syncStepFailureAdapter,
+);
 
 /**
  * Translate a publish policy failure: the implementation chose the category

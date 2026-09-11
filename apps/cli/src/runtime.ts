@@ -21,7 +21,9 @@ import { RegistryResolutionPolicyLive } from "./cli-runtime/index.js";
 import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
 import {
+  BundledAxmSkillAssetLive,
   type CliTelemetryConfig,
+  ExtensionSelectionInteractionLive,
   type ExpectedCliError,
   getCommandSemanticProperties,
   InterruptionSignalSourceLive,
@@ -46,6 +48,7 @@ import { HookConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-life
 import {
   HookManagerLive,
   KnowledgeManagerLive,
+  McpSecretStoreLive,
   McpServerManagerLive,
   PackManagerLive,
   RuleManagerLive,
@@ -59,7 +62,10 @@ import {
 import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
-import { LifecycleStepFailureConversionLive } from "./feature-errors.js";
+import {
+  LifecycleStepFailureConversionLive,
+  SyncStepFailureConversionLive,
+} from "./feature-errors.js";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import {
   GitDirectoryComparisonLive,
@@ -89,6 +95,13 @@ import {
   type AbsolutePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "./execution-directory.js";
+import {
+  InstallMetaLive,
+  InstallMethodLive,
+  SubprocessLive,
+  UpdateCheckLive,
+} from "@agentxm/cli-update/live";
+
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
 import { ScreenLoggerLive } from "./screen/index.js";
@@ -244,6 +257,24 @@ export const cliConfigLayer = CliConfig.layer({ builtIns: [GlobalFlag.Help, vers
 
 export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer, cliConfigLayer);
 
+/**
+ * The self-update capability's environment-backed services. The startup
+ * update check needs the channel cache and the installation it belongs to;
+ * the `upgrade` command additionally drives an installer through a
+ * subprocess and records what it installed.
+ */
+export const startupUpdateCheckLayer = Layer.provide(
+  Layer.mergeAll(UpdateCheckLive, InstallMethodLive),
+  runtimeBaseLayer,
+);
+
+export const selfUpdateLayer = Layer.mergeAll(
+  InstallMethodLive,
+  InstallMetaLive,
+  SubprocessLive,
+  UpdateCheckLive,
+);
+
 /** Route Effect diagnostics through the Screen's serialized transcript writer. */
 export const makeCliLoggerLayer = (level: VerbosityLevel) => ScreenLoggerLive(level);
 
@@ -357,6 +388,8 @@ const makeWorkspaceProgramLayer = (
     gitDirectoryComparisonLayer,
     CodingAgentRepositoryLive,
     LifecycleStepFailureConversionLive,
+    SyncStepFailureConversionLive,
+    McpSecretStoreLive,
   );
 
   // Leaf managers are independent. Packs depend on the other managers.
@@ -504,6 +537,8 @@ export const withRuntime =
           WorkspaceInitializationInteractionLive,
           AuthLoginPresenterLive,
           InterruptionSignalSourceLive,
+          ExtensionSelectionInteractionLive,
+          BundledAxmSkillAssetLive,
         ),
         foundationLayer,
       );

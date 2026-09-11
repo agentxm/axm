@@ -99,8 +99,13 @@ import {
   SkillDefinitionInvalid,
   SkillInstallStateMissing,
   SkillMaterializationFailed,
+  McpAgentSyncRefused,
+  McpCanonicalPathUnsafe,
   McpInstallStateMissing,
+  McpLocalNameConflict,
   McpRegistryOnlyInstall,
+  McpRequiredInputsMissing,
+  McpWorkspacePackageInvalid,
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
   SubagentInstallStateMissing,
@@ -252,8 +257,13 @@ import {
   knowledgeResolutionMissingToAppError,
   knowledgeUnavailableToAppError,
   lifecyclePostconditionViolatedToAppError,
+  mcpAgentSyncRefusedToAppError,
+  mcpCanonicalPathUnsafeToAppError,
   mcpInstallStateMissingToAppError,
+  mcpLocalNameConflictToAppError,
   mcpRegistryOnlyInstallToAppError,
+  mcpRequiredInputsMissingToAppError,
+  mcpWorkspacePackageInvalidToAppError,
   packArchiveFetchFailedToAppError,
   packDefinitionInvalidToAppError,
   packInstallStateMissingToAppError,
@@ -1119,6 +1129,11 @@ export type KnownFailure =
   | McpDefinitionInvalid
   | McpRegistryOnlyInstall
   | McpInstallStateMissing
+  | McpLocalNameConflict
+  | McpCanonicalPathUnsafe
+  | McpWorkspacePackageInvalid
+  | McpRequiredInputsMissing
+  | McpAgentSyncRefused
   | McpSharedTargetConflict
   | SkillDefinitionInvalid
   | SkillMaterializationFailed
@@ -1268,6 +1283,11 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof McpDefinitionInvalid ||
   error instanceof McpRegistryOnlyInstall ||
   error instanceof McpInstallStateMissing ||
+  error instanceof McpLocalNameConflict ||
+  error instanceof McpCanonicalPathUnsafe ||
+  error instanceof McpWorkspacePackageInvalid ||
+  error instanceof McpRequiredInputsMissing ||
+  error instanceof McpAgentSyncRefused ||
   error instanceof McpSharedTargetConflict ||
   error instanceof SkillDefinitionInvalid ||
   error instanceof SkillMaterializationFailed ||
@@ -1532,6 +1552,16 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return mcpRegistryOnlyInstallToAppError(error);
     case "McpInstallStateMissing":
       return mcpInstallStateMissingToAppError(error);
+    case "McpLocalNameConflict":
+      return mcpLocalNameConflictToAppError(error);
+    case "McpCanonicalPathUnsafe":
+      return mcpCanonicalPathUnsafeToAppError(error);
+    case "McpWorkspacePackageInvalid":
+      return mcpWorkspacePackageInvalidToAppError(error);
+    case "McpRequiredInputsMissing":
+      return mcpRequiredInputsMissingToAppError(error);
+    case "McpAgentSyncRefused":
+      return mcpAgentSyncRefusedToAppError(error);
     case "McpSharedTargetConflict":
       return mcpSharedTargetConflictToAppError(error);
     case "SkillDefinitionInvalid":

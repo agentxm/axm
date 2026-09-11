@@ -4,5 +4,275 @@
     "disposition": "superseded-by",
     "successor": "cli/cache/prune/enforces-reported-retention-limits",
     "basis": "The reporting clause folded into the retention rule, which already reads the reported policy before pruning; the empty and populated usage observations are supporting coverage in that file, and the CLI machine-output shape stays an ordinary apps/cli test."
+  },
+  {
+    "requirement": "cli/hooks/disable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/disable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/hooks/enable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/enable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/hooks/install/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/install/preview-is-pure",
+    "basis": "Installing means one thing for every extension type: a source is resolved, its package is acquired into canonical content, the accepted resolution records it, and the projections it implies are rendered. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle install use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/hooks/uninstall/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/uninstall/preview-is-pure",
+    "basis": "Removing means one thing for every extension type: the declaration is withdrawn, the projections it implied are unrendered, and the acquired package is deleted unless something else still requires it. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle removal use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/knowledge/disable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/disable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/knowledge/enable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/enable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/knowledge/install/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/install/preview-is-pure",
+    "basis": "Installing means one thing for every extension type: a source is resolved, its package is acquired into canonical content, the accepted resolution records it, and the projections it implies are rendered. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle install use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/knowledge/uninstall/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/uninstall/preview-is-pure",
+    "basis": "Removing means one thing for every extension type: the declaration is withdrawn, the projections it implied are unrendered, and the acquired package is deleted unless something else still requires it. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle removal use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/mcps/disable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/disable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/mcps/enable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/enable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/mcps/install/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/install/preview-is-pure",
+    "basis": "Installing means one thing for every extension type: a source is resolved, its package is acquired into canonical content, the accepted resolution records it, and the projections it implies are rendered. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle install use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/mcps/uninstall/preserves-unowned-native-entries",
+    "disposition": "superseded-by",
+    "successor": "cli/uninstall/preserves-unrelated-and-unowned-state",
+    "basis": "Both said the same thing about the same removal: AXM withdraws only what it owns. The successor now carries the decisive MCP example \u2014 an unowned server written straight into the agent's own configuration file survives a removal that withdraws AXM's own entry \u2014 beside the surrounding-file and authored-package rows, so one file states the preservation rule for every type."
+  },
+  {
+    "requirement": "cli/mcps/uninstall/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/uninstall/preview-is-pure",
+    "basis": "Removing means one thing for every extension type: the declaration is withdrawn, the projections it implied are unrendered, and the acquired package is deleted unless something else still requires it. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle removal use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/packs/disable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/disable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/packs/enable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/enable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/packs/install/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/install/preview-is-pure",
+    "basis": "Installing means one thing for every extension type: a source is resolved, its package is acquired into canonical content, the accepted resolution records it, and the projections it implies are rendered. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle install use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/packs/uninstall/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/uninstall/preview-is-pure",
+    "basis": "Removing means one thing for every extension type: the declaration is withdrawn, the projections it implied are unrendered, and the acquired package is deleted unless something else still requires it. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle removal use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/rules/disable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/disable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/rules/enable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/enable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/rules/install/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/install/preview-is-pure",
+    "basis": "Installing means one thing for every extension type: a source is resolved, its package is acquired into canonical content, the accepted resolution records it, and the projections it implies are rendered. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle install use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/rules/uninstall/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/uninstall/preview-is-pure",
+    "basis": "Removing means one thing for every extension type: the declaration is withdrawn, the projections it implied are unrendered, and the acquired package is deleted unless something else still requires it. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle removal use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/skills/disable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/disable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/skills/enable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/enable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/skills/install/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/install/preview-is-pure",
+    "basis": "Installing means one thing for every extension type: a source is resolved, its package is acquired into canonical content, the accepted resolution records it, and the projections it implies are rendered. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle install use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/skills/uninstall/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/uninstall/preview-is-pure",
+    "basis": "Removing means one thing for every extension type: the declaration is withdrawn, the projections it implied are unrendered, and the acquired package is deleted unless something else still requires it. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle removal use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/subagents/disable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/disable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/subagents/enable/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/enable/preview-is-pure",
+    "basis": "Activation means one thing for every managed extension type: desired state records the preference and the projections it implies are created or removed. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle activation use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/subagents/install/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/install/preview-is-pure",
+    "basis": "Installing means one thing for every extension type: a source is resolved, its package is acquired into canonical content, the accepted resolution records it, and the projections it implies are rendered. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle install use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/subagents/uninstall/preview-is-pure",
+    "disposition": "superseded-by",
+    "successor": "cli/uninstall/preview-is-pure",
+    "basis": "Removing means one thing for every extension type: the declaration is withdrawn, the projections it implied are unrendered, and the acquired package is deleted unless something else still requires it. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle removal use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
+  },
+  {
+    "requirement": "cli/update/machine-result-names-bundled-source-blocker",
+    "disposition": "superseded-by",
+    "successor": "cli/update/bundled-source-routes-to-recovery",
+    "basis": "Both stated one rule at one boundary: a bundled source blocks a targeted update with the bundled-source blocker, no Registry contact, and no effect, in preview and apply alike. The successor now asserts the policy-excluded blocking class and the bundled-source reference this file added. The targeted-update context field values it also carried characterize classifyTargetedUpdate and are held by packages/core/extension-resolution/src/update/targeted-update-context.test.ts; the plan-result-schema clause is owned by cli/install/machine-result-is-schema-backed."
+  },
+  {
+    "requirement": "system/architecture/every-command-declares-interaction-capabilities",
+    "disposition": "engineering-policy",
+    "basis": "An inventory of the registered command tree compared against a table the maintainers keep; nobody outside the repository can dispute the allocation, and two of the three clauses it derived from are themselves retired.",
+    "enforcement": "apps/cli/src/root/shared/command-capability-allocation.test.ts"
+  },
+  {
+    "requirement": "system/architecture/feature-packages-stay-peers",
+    "disposition": "engineering-policy",
+    "basis": "An architecture control with no standing outside the maintainers, whose enforcement is the lint configuration itself: the role matrix in eslint.config.mjs omits role:feature from its own allow-list.",
+    "enforcement": "eslint.config.mjs (@nx/enforce-module-boundaries role matrix); scripts/module-boundaries.test.ts"
+  },
+  {
+    "requirement": "system/architecture/live-composition-stays-in-application",
+    "disposition": "engineering-policy",
+    "basis": "A structural rule with no external standing whose evidence is the lint restriction plus the tooling test that pins its exceptions; a second file asserting the configuration contains a string was duplicate authority.",
+    "enforcement": "eslint.config.mjs (no-restricted-imports on @agentxm/*/live and @agentxm/*/testing); scripts/composition-root-lint-exceptions.test.ts"
+  },
+  {
+    "requirement": "system/architecture/package-dependencies-point-inward",
+    "disposition": "engineering-policy",
+    "basis": "Dependency direction is an architecture control decided and disputable only by the maintainers, and its wording was tied to the tag vocabulary this refactor replaced.",
+    "enforcement": "eslint.config.mjs (@nx/enforce-module-boundaries role and domain matrices, @nx/dependency-checks); scripts/module-boundaries.test.ts"
+  },
+  {
+    "requirement": "system/architecture/package-dependencies-stay-acyclic",
+    "disposition": "engineering-policy",
+    "basis": "A toolchain precondition with no standing outside the maintainers; the cycle check is native to the boundary rule.",
+    "enforcement": "eslint.config.mjs (@nx/enforce-module-boundaries cycle detection); scripts/module-boundaries.test.ts"
+  },
+  {
+    "requirement": "system/architecture/specification-folders-mirror-command-tree",
+    "disposition": "engineering-policy",
+    "basis": "Two of its three clauses are reversed by the colocated-specifications decision: identity is no longer tied to path, and specifications live beside their owners, so there is no folder tree to mirror. The surviving hygiene is catalog tooling.",
+    "enforcement": "scripts/specification-catalog.test.ts (one canonical spec per identity, identity pattern validation, no tracked symbolic link under authored source)"
+  },
+  {
+    "requirement": "system/process/changes-land-through-reviewed-pull-requests",
+    "disposition": "engineering-policy",
+    "basis": "The review route is repository governance whose executable witness cannot observe the rule \u2014 branch protection is host-side. What remains checkable is CODEOWNERS routing of specification files.",
+    "enforcement": "scripts/codeowners.test.ts; .github/CODEOWNERS"
+  },
+  {
+    "requirement": "system/process/command-inventory-routes-to-obligations",
+    "disposition": "engineering-policy",
+    "basis": "Navigation metadata whose only reader is the maintainer's own review; it routes readers to specifications rather than stating a product obligation.",
+    "enforcement": "apps/cli/src/root/shared/command-inventory.test.ts"
+  },
+  {
+    "requirement": "system/process/context-inventory-routes-to-obligations",
+    "disposition": "engineering-policy",
+    "basis": "Navigation metadata whose only reader is the maintainer's own review; the finite populations it checks are owned by the contracts that declare them.",
+    "enforcement": "apps/cli/src/root/shared/context-inventory.test.ts"
+  },
+  {
+    "requirement": "system/process/dependency-installation-defers-cli-bin",
+    "disposition": "engineering-policy",
+    "basis": "The deferral is a pnpm bin-linking workaround with no outside standing; the half with standing (the published package exposes the compiled bin) is already owned by system/process/stable-promotion-follows-verified-distribution.",
+    "enforcement": "scripts/release-packages.test.ts"
+  },
+  {
+    "requirement": "system/process/dual-typescript-alias-retained",
+    "disposition": "engineering-policy",
+    "basis": "A toolchain constraint pinned by a decision record, temporary by its own retirement condition, with no external standing.",
+    "enforcement": "scripts/typescript-aliases.test.ts; docs/architecture/decisions/typescript-dual-alias.md owns the choice and exit condition"
+  },
+  {
+    "requirement": "system/process/evidence-reports-match-executed-inputs",
+    "disposition": "engineering-policy",
+    "basis": "Specifies repository tooling behavior derived from that tooling's own source, with no standing outside the maintainer's review process.",
+    "enforcement": "scripts/specification-verdict.test.ts (execution evidence attribution)"
+  },
+  {
+    "requirement": "system/process/merges-require-aggregate-verification",
+    "disposition": "engineering-policy",
+    "basis": "Names a CI mechanism that would need rewording if the aggregate gate were implemented differently, and nobody outside the author can contradict it.",
+    "enforcement": "scripts/ci-workflow.test.ts; .github/workflows/ci.yml (the always-run `required` job)"
+  },
+  {
+    "requirement": "system/process/release-preparation-isolates-candidate-state",
+    "disposition": "engineering-policy",
+    "basis": "Every clause protects the release operator's own checkout, and the only party able to run the entry point is that operator, who is the author.",
+    "enforcement": "scripts/release-prepare.test.ts (fake-host orchestration cases); scripts/repository-task-interface.test.ts (entry-point routing)"
+  },
+  {
+    "requirement": "system/process/requirement-diffs-separate-evidence-impact",
+    "disposition": "engineering-policy",
+    "basis": "Review-tooling behavior with no standing outside the author's review process, derived from the implementation it described; the colocated-specifications decision record now owns the classification policy.",
+    "enforcement": "scripts/specification-verdict.test.ts (requirement change classification, verdict presentation); docs/architecture/decisions/colocated-specifications.md"
   }
 ]

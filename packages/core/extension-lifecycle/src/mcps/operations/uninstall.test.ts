@@ -23,6 +23,7 @@ import {
   makeRegistryMcpServerLockEntry,
 } from "@agentxm/workspace-state/testing";
 import { TestStepFailureConversion, handle, makeCodingAgentStub } from "../../test-helpers.js";
+import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
 import type { UninstallMcpServerOperation } from "./uninstall.js";
 import { uninstallMcpServer } from "./uninstall.js";
 
@@ -99,6 +100,7 @@ const makeServices = (
       NodeServices.layer,
       WorkspaceMutations.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
       TestStepFailureConversion,
+      makeMemoryMcpSecretStore().layer,
       Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
     ),
   };

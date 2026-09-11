@@ -1,89 +1,33 @@
-import * as FileSystem from "effect/FileSystem";
-import type { StepRequirements } from "../../shared/step-requirements.js";
-import * as Path from "effect/Path";
-import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import {
-  WorkspaceMutations,
-  acceptedResolutionRef,
-  configuredRowsByName,
-} from "@agentxm/workspace-state";
-import { withPublisherTrustConditions } from "@agentxm/extension-lifecycle";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
-import * as Array from "effect/Array";
-import type * as Duration from "effect/Duration";
-import * as DateTime from "effect/DateTime";
+/**
+ * `axm skills update` — the application boundary.
+ *
+ * Parses what the route registered, hands it to the update feature, and
+ * renders what the feature settled on: a no-op envelope with the suggestions
+ * that fit the reason it settled, or one operation outcome.
+ */
+
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import { makeAppError } from "../../../app-error/index.js";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { Screen } from "../../../screen/index.js";
+
+import { SelectiveUpdate } from "@agentxm/extension-lifecycle";
 import {
-  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
+  operationPresentation,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
 } from "@agentxm/workspace-operations";
 
-import {
-  decodeExtensionNameSync,
-  parseSourceQualifiedRegistrySourcePatternParts,
-  type ExtensionName,
-  type Handle,
-} from "@agentxm/extension-model/unstable/extensions";
-import { createRegistryClient } from "@agentxm/registry-client";
-import {
-  classifyPublisherBindingTransition,
-  isVersionEntryEligibleAt,
-  makeConfiguredReleaseAgeEvaluation,
-  normalizeReleaseAgeRecords,
-  type PublisherBindingTransition,
-  publisherTransitionWarning,
-  registryBindingProposal,
-  type ReleaseAgeBypassRecord,
-  releaseAgeEvidence,
-  releaseAgeHoldbackWarning,
-  type ReleaseAgeRecord,
-} from "@agentxm/extension-resolution";
-import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import type { InstallSkillOperation } from "@agentxm/extension-lifecycle";
-import { buildUpdatePlan } from "./plan.js";
-import { installSkill } from "@agentxm/extension-lifecycle";
-import {
-  operationPresentation,
-  type JobStepResult,
-  type Plan,
-  type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import type { SkillsLockMap } from "@agentxm/workspace-state";
-import {
-  detectHoldbackWarnings,
-  resolveConstrainedVersion,
-  type PackConstraint,
-  type SkillConstraints,
-} from "./constraint-resolution.js";
+import { extensionLifecycleFailedToAppError } from "../../../feature-errors.js";
 import { emitOperationResolution } from "../../../operation-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
-import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
-import {
-  UPDATE_NAME_FILTER_FLAG,
-  allUpdateTargetResolutionsFailed,
-  resolveUpdateTargets,
-} from "../../shared/update-targets.js";
-import {
-  LIST_INSTALLED_SKILLS,
-  REVIEW_REGISTRY_SOURCES,
-  SKILL_NAME_RULES,
-} from "../../suggested-actions.js";
-import {
-  lifecycleFailureToAppError,
-  provideLifecycleStepFailureConversion,
-} from "../../../feature-errors.js";
+import { emitNoOpOutcome } from "../../shared/no-op-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { UPDATE_NAME_FILTER_FLAG } from "../../shared/update-targets.js";
+import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";
+
+const COMMAND = "skills.update";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
@@ -92,75 +36,20 @@ export interface UpdateHandlerArgs {
   readonly preview: boolean;
 }
 
-type ResolveResult =
-  | {
-      readonly type: "match";
-      readonly ref: SkillExtensionRef;
-      readonly versionRange: Option.Option<string>;
-      readonly warnings: ReadonlyArray<string>;
-      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
-      readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
-    }
-  | {
-      readonly type: "skip";
-      readonly name: string;
-      readonly source: string;
-      readonly reason: string;
-      readonly holdback?: ReleaseAgeRecord;
-    };
-
-type RegistrySkillConstraintResolution =
-  | {
-      readonly kind: "selected";
-      readonly ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>;
-      readonly versionRange: Option.Option<string>;
-      readonly warnings: ReadonlyArray<string>;
-      readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
-      readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
-    }
-  | { readonly kind: "policy_held"; readonly record: ReleaseAgeRecord };
-
-const skippedSkillStep = (
-  outcome: Extract<ResolveResult, { readonly type: "skip" }>,
-): PlannedJobStep<StepRequirements> => ({
-  readiness: "ready",
-  label: `Skip ${outcome.name}`,
-  run: Effect.succeed({
-    result: "success",
-    disposition: "skipped",
-    message: outcome.reason,
-  } satisfies JobStepResult),
-});
-
-const warningMessage = (warnings: ReadonlyArray<string>): string | undefined =>
-  warnings.length === 0 ? undefined : warnings.join("; ");
-
-const appendWarningsToResult =
-  (warnings: ReadonlyArray<string>) =>
-  (result: JobStepResult): JobStepResult => {
-    const message = warningMessage(warnings);
-    if (message === undefined || result.result === "error") {
-      return result;
-    }
-    return {
-      ...result,
-      message: result.message.length === 0 ? message : `${result.message}; ${message}`,
-    };
-  };
-
-const toRegistrySkillPattern = (source: string) => {
-  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
-  if (parsed === undefined) return Option.none();
-  if (parsed.type !== undefined && parsed.type !== "skills") {
-    return Option.none();
-  }
-  return Option.some(parsed);
-};
+/** What each settled no-op offers a person next. */
+const NO_OP_SUGGESTIONS = {
+  "none-installed": [LIST_INSTALLED_SKILLS],
+  "no-source-match": [LIST_INSTALLED_SKILLS],
+  "no-name-match": [
+    LIST_INSTALLED_SKILLS,
+    { description: "Relax the `--name` filter and try again" },
+  ],
+} as const;
 
 export const handleUpdate = (args: UpdateHandlerArgs) =>
   withOperationLifecycle(
     {
-      command: "skills.update",
+      command: COMMAND,
       mode: args.preview ? "preview" : "apply",
       planName: "Update skills",
       presentation: operationPresentation(
@@ -168,634 +57,32 @@ export const handleUpdate = (args: UpdateHandlerArgs) =>
         "skill",
       ),
     },
-    handleUpdateBody(args),
+    handleUpdateBody(args).pipe(
+      Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
+        Effect.fail(extensionLifecycleFailedToAppError(failure)),
+      ),
+    ),
   );
 
 const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
-  const ws = yield* WorkspaceMutations;
-  const sources = yield* SourceHostProviders;
-  const screen = yield* Screen;
-  const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
-    Effect.mapError(lifecycleFailureToAppError),
-  );
-
-  // Step 1: Load configured skills and filter to enabled
-  const allSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
-  const lockedSkills = yield* ws
-    .getLockedSkills()
-    .pipe(Effect.catch(() => Effect.succeed<SkillsLockMap>({})));
-
-  const disabledSkillEntries: ReadonlyArray<Extract<ResolveResult, { readonly type: "skip" }>> =
-    Object.entries(allSkills).flatMap(([name, entry]) =>
-      entry.enabled === false && entry.source !== undefined
-        ? [
-            {
-              type: "skip",
-              name,
-              source: entry.source,
-              reason: `Skipping ${name}: disabled`,
-            } satisfies Extract<ResolveResult, { readonly type: "skip" }>,
-          ]
-        : [],
-    );
-  const skillEntries: ReadonlyArray<readonly [string, string]> = Object.entries(allSkills).flatMap(
-    ([name, entry]) => (entry.enabled && entry.source !== undefined ? [[name, entry.source]] : []),
-  );
-
-  if (skillEntries.length === 0) {
-    yield* emitNoOpOutcome("skills.update", {
-      planName: "Update skills",
-      planDescription: "Update installed skills",
-      message: "No skills installed.",
-      suggestions: [LIST_INSTALLED_SKILLS],
-    });
-    return;
-  }
-
-  const targetResolution = yield* resolveUpdateTargets({
-    command: "skills.update",
-    planName: "Update skills",
-    planDescription: "Update installed skills",
-    entries: skillEntries,
+  const candidate = yield* SelectiveUpdate.prepare({
+    kind: "selective-skills",
     source: args.source,
     nameFilters: args.skills,
     nameFilterFlag: UPDATE_NAME_FILTER_FLAG,
-    resourceType: "skill",
-    resourceLabel: "skill",
-    resourceLabelPlural: "skills",
-    noSourceMatchSuggestions: [LIST_INSTALLED_SKILLS],
-    noNameMatchSuggestions: [
-      LIST_INSTALLED_SKILLS,
-      { description: "Relax the `--name` filter and try again" },
-    ],
+    ignoreVersionConstraints: args.force,
   });
-  if (targetResolution.type === "no-op") {
+
+  if (candidate.outcome === "nothing") {
+    yield* emitNoOpOutcome(COMMAND, {
+      planName: candidate.planName,
+      planDescription: candidate.planDescription,
+      message: candidate.message,
+      suggestions: NO_OP_SUGGESTIONS[candidate.reason],
+    });
     return;
   }
-  const filteredEntries = targetResolution.entries;
 
-  // Step 4: Collect pack constraints from installed pack manifests
-  const packConstraintMap = yield* collectPackConstraints();
-
-  // Step 5: Re-resolve each source and discover skills
-
-  const findSkillRefs = (
-    source: RegistrySource | SkillExtensionRef["source"],
-    options: {
-      readonly skillNames: ReadonlyArray<string>;
-      readonly owner: Option.Option<Handle>;
-      readonly versionRange: Option.Option<string>;
-      readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
-    },
-  ) =>
-    sources
-      .find(source, {
-        names: options.skillNames,
-        type: "skill",
-        owner: options.owner,
-        versionRange: options.versionRange,
-        ...(options.minimumReleaseAge === undefined
-          ? {}
-          : { minimumReleaseAge: options.minimumReleaseAge }),
-      })
-      .pipe(
-        Effect.map((refs) =>
-          Array.filter(refs, (ref): ref is SkillExtensionRef => ref.type === "skill"),
-        ),
-      );
-
-  const resolveRegistrySkillWithConstraints = ({
-    source,
-    owner,
-    lookupName,
-    userConstraint,
-    packConstraints,
-    evaluation,
-  }: {
-    readonly source: RegistrySource;
-    readonly owner: Handle;
-    readonly lookupName: ExtensionName;
-    readonly userConstraint: Option.Option<string>;
-    readonly packConstraints: ReadonlyArray<PackConstraint>;
-    readonly evaluation: ReleaseAgeEvaluation;
-  }) =>
-    Effect.gen(function* () {
-      const skillFqn = `${owner}/skills/${lookupName}`;
-      if (skillFqn === "@agentxm/skills/axm" && packConstraints.length === 0) {
-        const compatible = yield* sources.resolveNamedRegistry(source, {
-          owner,
-          type: "skill",
-          name: lookupName,
-          versionRange: userConstraint,
-          releaseAgeEvaluation: evaluation,
-        });
-        if (compatible.kind === "not_found") {
-          return yield* makeAppError({
-            code: "not_found",
-            detail: `No compatible Registry release of "${skillFqn}" is available`,
-            recover: "Recover with the bundled AXM skill",
-            cmd: "axm skills install @agentxm/skills/axm --bundled",
-          });
-        }
-        if (compatible.kind === "version_unsatisfied") {
-          return yield* makeAppError({
-            code: "conflict",
-            detail: `No visible release of "${skillFqn}" satisfies ${compatible.requestedRange}`,
-          });
-        }
-        if (compatible.kind === "policy_held") {
-          return Option.some<RegistrySkillConstraintResolution>({
-            kind: "policy_held",
-            record: {
-              reason: "minimum-release-age",
-              target: skillFqn,
-              dependencyPath: [skillFqn],
-              ...(Option.isSome(userConstraint) ? { requestedRange: userConstraint.value } : {}),
-              candidateVersion: compatible.candidate.version,
-              publishedAt: compatible.candidate.publishedAt,
-              eligibleAt: compatible.candidate.eligibleAt,
-              minimumReleaseAgeSeconds: compatible.candidate.minimumReleaseAgeSeconds,
-            },
-          });
-        }
-        if (compatible.ref.type !== "skill") {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Registry resolved "${skillFqn}" as a non-skill extension`,
-          });
-        }
-        const holdbacks =
-          compatible.kind === "exempted" || compatible.newerHeld === undefined
-            ? []
-            : [
-                {
-                  reason: "minimum-release-age" as const,
-                  target: skillFqn,
-                  dependencyPath: [skillFqn],
-                  ...(Option.isSome(userConstraint)
-                    ? { requestedRange: userConstraint.value }
-                    : {}),
-                  selectedVersion: compatible.ref.version,
-                  candidateVersion: compatible.newerHeld.version,
-                  publishedAt: compatible.newerHeld.publishedAt,
-                  eligibleAt: compatible.newerHeld.eligibleAt,
-                  minimumReleaseAgeSeconds: compatible.newerHeld.minimumReleaseAgeSeconds,
-                },
-              ];
-        const bypasses: ReadonlyArray<ReleaseAgeBypassRecord> =
-          compatible.kind === "selected"
-            ? []
-            : [
-                {
-                  reason: "minimum-release-age",
-                  target: skillFqn,
-                  dependencyPath: [skillFqn],
-                  ...(Option.isSome(userConstraint)
-                    ? { requestedRange: userConstraint.value }
-                    : {}),
-                  selectedVersion: compatible.ref.version,
-                  candidateVersion: compatible.bypassed.version,
-                  publishedAt: compatible.bypassed.publishedAt,
-                  eligibleAt: compatible.bypassed.eligibleAt,
-                  minimumReleaseAgeSeconds: compatible.bypassed.minimumReleaseAgeSeconds,
-                  ...compatible.exemption,
-                },
-              ];
-        return Option.some<RegistrySkillConstraintResolution>({
-          kind: "selected",
-          ref: compatible.ref,
-          versionRange: userConstraint,
-          holdbacks,
-          bypasses,
-          warnings:
-            compatible.kind === "exempted" || compatible.newerHeld === undefined
-              ? []
-              : [
-                  releaseAgeHoldbackWarning({
-                    fqn: skillFqn,
-                    selectedVersion: compatible.ref.version,
-                    heldVersion: compatible.newerHeld.version,
-                    minimumReleaseAge: minimumReleaseAgeText,
-                  }),
-                ],
-        });
-      }
-
-      const location =
-        source.location.protocol === "file:" ? source.location.pathname : source.location.href;
-      const client = yield* createRegistryClient(location);
-      const indexOption = yield* client.getExtensionIndex({
-        owner,
-        type: "skill",
-        name: lookupName,
-      });
-      if (Option.isNone(indexOption)) {
-        return Option.none<RegistrySkillConstraintResolution>();
-      }
-
-      const constraints: SkillConstraints = { userConstraint, packConstraints };
-      const [latestEntry] = indexOption.value.versions;
-      const latestVersion = latestEntry?.version;
-      if (latestVersion === undefined) {
-        return yield* makeAppError({
-          code: "conflict",
-          detail: `Registry skill "${skillFqn}" has no published versions`,
-          recover: "Publish a skill version first.",
-          cmd: "axm skills publish",
-        });
-      }
-
-      const desiredVersion = resolveConstrainedVersion(
-        indexOption.value.versions.map((entry) => entry.version),
-        constraints,
-        skillFqn,
-      );
-      if (Option.isNone(desiredVersion)) {
-        const constraintLabel = Option.match(userConstraint, {
-          onNone: () => "the configured constraints",
-          onSome: (constraint) => `"${constraint}"`,
-        });
-        return yield* makeAppError({
-          code: "internal",
-          detail: `No published version of "${skillFqn}" satisfies ${constraintLabel}`,
-          recover: "Relax the version constraint or update the dependent pack constraints",
-        });
-      }
-      const desiredEntry = indexOption.value.versions.find(
-        (entry) => entry.version === desiredVersion.value.resolvedVersion,
-      );
-      if (desiredEntry === undefined) {
-        return yield* makeAppError({
-          code: "internal",
-          detail: `Resolved version "${desiredVersion.value.resolvedVersion}" for "${skillFqn}" is missing from its Registry index`,
-        });
-      }
-      const matureVersions = indexOption.value.versions
-        .filter((entry) => isVersionEntryEligibleAt(entry, evaluation))
-        .map((entry) => entry.version);
-      const resolvedVersion = resolveConstrainedVersion(matureVersions, constraints, skillFqn);
-      if (Option.isNone(resolvedVersion)) {
-        const evidence = releaseAgeEvidence(desiredEntry, evaluation);
-        return Option.some<RegistrySkillConstraintResolution>({
-          kind: "policy_held" as const,
-          record: {
-            reason: "minimum-release-age" as const,
-            target: skillFqn,
-            dependencyPath: [skillFqn],
-            ...(Option.isSome(userConstraint) ? { requestedRange: userConstraint.value } : {}),
-            candidateVersion: evidence.version,
-            publishedAt: evidence.publishedAt,
-            eligibleAt: evidence.eligibleAt,
-            minimumReleaseAgeSeconds: evidence.minimumReleaseAgeSeconds,
-          },
-        });
-      }
-
-      const exactRefs = yield* findSkillRefs(source, {
-        skillNames: [lookupName],
-        owner: Option.some(owner),
-        versionRange: Option.some(resolvedVersion.value.resolvedVersion),
-        minimumReleaseAge: Option.some(evaluation.minimumReleaseAge),
-      });
-      const exactRef = exactRefs.find(
-        (ref): ref is Extract<SkillExtensionRef, { readonly refType: "registry" }> =>
-          ref.refType === "registry" &&
-          ref.skill.name === lookupName &&
-          ref.version === resolvedVersion.value.resolvedVersion,
-      );
-      if (exactRef === undefined) {
-        return yield* makeAppError({
-          code: "internal",
-          detail: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
-          recover: "Re-fetch the skill source.",
-          cmd: "axm skills install --reinstall <source>",
-        });
-      }
-
-      const newerHeld =
-        desiredEntry.version === resolvedVersion.value.resolvedVersion ||
-        isVersionEntryEligibleAt(desiredEntry, evaluation)
-          ? []
-          : (() => {
-              const evidence = releaseAgeEvidence(desiredEntry, evaluation);
-              return [
-                {
-                  reason: "minimum-release-age" as const,
-                  target: skillFqn,
-                  dependencyPath: [skillFqn],
-                  ...(Option.isSome(userConstraint)
-                    ? { requestedRange: userConstraint.value }
-                    : {}),
-                  selectedVersion: resolvedVersion.value.resolvedVersion,
-                  candidateVersion: evidence.version,
-                  publishedAt: evidence.publishedAt,
-                  eligibleAt: evidence.eligibleAt,
-                  minimumReleaseAgeSeconds: evidence.minimumReleaseAgeSeconds,
-                },
-              ];
-            })();
-      return Option.some<RegistrySkillConstraintResolution>({
-        kind: "selected" as const,
-        ref: exactRef,
-        versionRange: userConstraint,
-        holdbacks: newerHeld,
-        warnings: [
-          ...(newerHeld.length === 0
-            ? []
-            : [
-                releaseAgeHoldbackWarning({
-                  fqn: skillFqn,
-                  selectedVersion: resolvedVersion.value.resolvedVersion,
-                  heldVersion: desiredEntry.version,
-                  minimumReleaseAge: minimumReleaseAgeText,
-                }),
-              ]),
-          ...resolvedVersion.value.warnings,
-          ...detectHoldbackWarnings(
-            latestVersion,
-            resolvedVersion.value.resolvedVersion,
-            constraints,
-            skillFqn,
-          ),
-        ],
-      });
-    });
-
-  const decodeConfiguredSkillName = (name: string, _sourceStr: string) =>
-    Effect.try({
-      try: () => decodeExtensionNameSync(name),
-      catch: () =>
-        makeAppError({
-          code: "validation",
-          detail: `Configured skill name "${name}" is invalid`,
-          recover: SKILL_NAME_RULES,
-        }),
-    });
-
-  const results: ReadonlyArray<ResolveResult> = yield* Effect.forEach(
-    filteredEntries,
-    ([name, sourceStr]) => {
-      const configuredRegistryPattern = toRegistrySkillPattern(sourceStr);
-      const isOfficialAxmSource = Option.exists(
-        configuredRegistryPattern,
-        (pattern) => pattern.owner === "@agentxm" && pattern.name === "axm",
-      );
-      return Effect.gen(function* () {
-        if (isWorkspaceSourceLocator(sourceStr)) {
-          return {
-            type: "skip",
-            name,
-            source: sourceStr,
-            reason: `Skill "${name}" is workspace-sourced and unchanged`,
-          } satisfies ResolveResult;
-        }
-        const source = yield* resolveSource(sourceStr);
-        const registryPattern = toRegistrySkillPattern(sourceStr);
-
-        if (source.type === "registry" && Option.isSome(registryPattern)) {
-          const lookupName =
-            registryPattern.value.name ?? (yield* decodeConfiguredSkillName(name, sourceStr));
-          const registryResolved = yield* resolveRegistrySkillWithConstraints({
-            source,
-            owner: registryPattern.value.owner,
-            lookupName,
-            userConstraint:
-              registryPattern.value.versionRange === undefined
-                ? Option.none()
-                : Option.some(registryPattern.value.versionRange),
-            packConstraints:
-              packConstraintMap.get(`${registryPattern.value.owner}/skills/${lookupName}`) ?? [],
-            evaluation: releaseAgeEvaluation,
-          });
-          if (Option.isSome(registryResolved)) {
-            if (registryResolved.value.kind === "policy_held") {
-              return {
-                type: "skip",
-                name,
-                source: sourceStr,
-                reason: `Skill "${name}" is held by the minimum release age until ${registryResolved.value.record.eligibleAt}`,
-                holdback: registryResolved.value.record,
-              } satisfies ResolveResult;
-            }
-            return {
-              type: "match",
-              ref: registryResolved.value.ref,
-              versionRange: registryResolved.value.versionRange,
-              warnings: registryResolved.value.warnings,
-              holdbacks: registryResolved.value.holdbacks,
-              ...(registryResolved.value.bypasses === undefined
-                ? {}
-                : { bypasses: registryResolved.value.bypasses }),
-            } satisfies ResolveResult;
-          }
-        }
-
-        const requestedOwner = Option.match(registryPattern, {
-          onNone: () => Option.none<Handle>(),
-          onSome: (pattern) => Option.some(pattern.owner),
-        });
-
-        const namedRefs = yield* findSkillRefs(source, {
-          skillNames: [name],
-          owner: requestedOwner,
-          versionRange: Option.none(),
-          minimumReleaseAge: Option.some(releaseAgeEvaluation.minimumReleaseAge),
-        });
-        const skillRef = namedRefs.find((r) => r.skill.name === name);
-
-        if (skillRef) {
-          return {
-            type: "match",
-            ref: skillRef,
-            versionRange: Option.none(),
-            warnings: [],
-            holdbacks: [],
-          } satisfies ResolveResult;
-        }
-
-        return {
-          type: "skip",
-          name,
-          source: sourceStr,
-          reason: `Skill "${name}" not found in source ${sources.origin(source)}`,
-        } satisfies ResolveResult;
-      }).pipe(
-        Effect.catch((error) =>
-          isOfficialAxmSource
-            ? Effect.fail(error)
-            : Effect.succeed({
-                type: "skip",
-                name,
-                source: sourceStr,
-                reason: `Failed to resolve "${name}": ${String(error)}`,
-              } satisfies ResolveResult),
-        ),
-      );
-    },
-    { concurrency: "unbounded" },
-  );
-
-  // Step 6: Collect successful resolutions
-  const resolved = results.filter(
-    (result): result is Extract<ResolveResult, { readonly type: "match" }> =>
-      result.type === "match",
-  );
-  const skipped = results.filter(
-    (result): result is Extract<ResolveResult, { readonly type: "skip" }> => result.type === "skip",
-  );
-  if (
-    resolved.length === 0 &&
-    Option.isSome(args.source) &&
-    skipped.length > 0 &&
-    skipped.every((item) => !isWorkspaceSourceLocator(item.source) && item.holdback === undefined)
-  ) {
-    return yield* allUpdateTargetResolutionsFailed({
-      resourceLabelPlural: "skill",
-      recover: REVIEW_REGISTRY_SOURCES.description,
-      cmd: REVIEW_REGISTRY_SOURCES.cmd,
-    });
-  }
-  if (resolved.length === 0 && skipped.length === 0) {
-    return yield* allUpdateTargetResolutionsFailed({
-      resourceLabelPlural: "skill",
-      recover: REVIEW_REGISTRY_SOURCES.description,
-      cmd: REVIEW_REGISTRY_SOURCES.cmd,
-    });
-  }
-
-  // Step 7: Classify every proposed Registry acceptance against the accepted
-  // resolution. A replaced publisher binding is a trust decision a person
-  // makes at a prompt; the plan carries it as an interactive-only condition.
-  const warningsBySkill = new Map<string, ReadonlyArray<string>>();
-  const publisherTransitions: Array<PublisherBindingTransition> = [];
-  for (const item of resolved) {
-    const proposed = registryBindingProposal(item.ref);
-    const accepted = lockedSkills[item.ref.skill.name];
-    const transition =
-      proposed === undefined || accepted?.type !== "registry"
-        ? Option.none<PublisherBindingTransition>()
-        : classifyPublisherBindingTransition({
-            accepted: yield* acceptedResolutionRef({
-              workspace: ws,
-              type: "skill",
-              name: proposed.target,
-            }).pipe(
-              Effect.mapError((cause) =>
-                makeAppError({
-                  code: "conflict",
-                  detail: `The accepted resolution for skill "${proposed.target}" could not be read, so the proposed publisher binding cannot be checked`,
-                  cause,
-                }),
-              ),
-            ),
-            proposed,
-          });
-    if (Option.isSome(transition)) {
-      publisherTransitions.push(transition.value);
-    }
-    const warnings = Option.isSome(transition)
-      ? [publisherTransitionWarning(transition.value), ...item.warnings]
-      : item.warnings;
-    if (warnings.length > 0) {
-      warningsBySkill.set(item.ref.skill.name, warnings);
-    }
-  }
-
-  // Step 8: Build operations
-  const ops = resolved.map(
-    (item) =>
-      ({
-        name: "install-skill",
-        args: {
-          ref: item.ref,
-          force: args.force || item.ref.refType !== "registry",
-          versionRange: item.versionRange,
-          skipSettings: Option.none(),
-          strictUnknownAgents: Option.none(),
-          sourceName: Option.none(),
-        },
-      }) satisfies InstallSkillOperation,
-  );
-
-  // Step 9: Capture services for run closures
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const agentRepo = yield* CodingAgentRepository;
-  const httpClient = yield* HttpClient.HttpClient;
-
-  const toJobStepResult = (result: {
-    readonly result: string;
-    readonly message: string;
-    readonly error?: import("@agentxm/workspace-operations").StepFailure;
-  }): import("@agentxm/workspace-operations").JobStepResult =>
-    result.result === "error" && result.error != null
-      ? { result: "error", message: result.message, error: result.error }
-      : { result: "success", message: result.message };
-
-  const makeRunClosure: import("./plan.js").MakeRunClosure = (op) =>
-    installSkill(op).pipe(
-      provideLifecycleStepFailureConversion,
-      Effect.map(toJobStepResult),
-      Effect.map(appendWarningsToResult(warningsBySkill.get(op.args.ref.skill.name) ?? [])),
-      Effect.provideService(WorkspaceMutations, ws),
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-      Effect.provideService(Screen, screen),
-      Effect.provideService(SourceHostProviders, sources),
-      Effect.provideService(CodingAgentRepository, agentRepo),
-      Effect.provideService(HttpClient.HttpClient, httpClient),
-    );
-
-  // Step 10: Build plan
-  const rawPlan = buildUpdatePlan(
-    ops,
-    lockedSkills,
-    "Update skills",
-    Option.some("Update installed skills"),
-    makeRunClosure,
-  );
-  const basePlanWithWarnings: Plan<StepRequirements> = {
-    ...rawPlan,
-    presentation: operationPresentation(
-      { imperative: "update", past: "Updated", gerund: "Updating" },
-      "skill",
-    ),
-    releaseAge: {
-      evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
-      holdbacks: normalizeReleaseAgeRecords([
-        ...resolved.flatMap((item) => item.holdbacks),
-        ...skipped.flatMap((item) => (item.holdback === undefined ? [] : [item.holdback])),
-      ]),
-      bypasses: normalizeReleaseAgeRecords(resolved.flatMap((item) => item.bypasses ?? [])),
-    },
-    jobs: rawPlan.jobs.map((job) => ({
-      ...job,
-      steps: job.steps.map((step) => {
-        if (step.readiness !== "ready") {
-          return step;
-        }
-        const message = warningMessage(warningsBySkill.get(step.label) ?? []);
-        return message === undefined ? step : { ...step, message };
-      }),
-    })),
-  };
-  const skippedSteps = [
-    ...skipped.filter((item) => item.holdback === undefined),
-    ...disabledSkillEntries,
-  ].map((item) => skippedSkillStep(item));
-  const [firstJob, ...restJobs] = basePlanWithWarnings.jobs;
-  const plan: Plan<StepRequirements> =
-    skippedSteps.length === 0
-      ? basePlanWithWarnings
-      : firstJob === undefined
-        ? { ...basePlanWithWarnings, jobs: [{ concurrency: 1, steps: skippedSteps }] }
-        : {
-            ...basePlanWithWarnings,
-            jobs: [{ ...firstJob, steps: [...firstJob.steps, ...skippedSteps] }, ...restJobs],
-          };
-
-  // Step 11: Resolve plan
   const execution = yield* makePlanExecution(
     args,
     makeConfirmationRecovery(
@@ -810,66 +97,9 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
       ],
     ),
     args.force ? ["ignore-version-constraints"] : [],
-    [
-      ...new Set(
-        args.skills.length > 0
-          ? args.skills
-          : plan.jobs.flatMap((job) =>
-              job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
-            ),
-      ),
-    ].map((name) => ({ extensionType: "skill", name, plannedState: "enabled" as const })),
   );
-  const executionPlan: Plan<StepRequirements> = withPublisherTrustConditions(
-    {
-      ...plan,
-      riskConditions: [
-        ...(plan.riskConditions ?? []),
-        ...(args.force
-          ? ([
-              {
-                level: "override-required",
-                id: "ignore-pack-version-constraints",
-                policy: "ignore-version-constraints",
-                requiredFlag: "--ignore-version-constraints",
-                detail: "Allow updates outside version constraints declared by installed packs.",
-              },
-            ] as const)
-          : []),
-      ],
-    },
-    publisherTransitions,
-  );
-  const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
-  yield* emitOperationResolution("skills.update", resolution, {
+  const resolution = yield* SelectiveUpdate.previewOrApply(candidate, execution);
+  yield* emitOperationResolution(COMMAND, resolution, {
     suggestions: [LIST_INSTALLED_SKILLS],
   });
 });
-
-/** Collect per-skill constraints from the authoritative desired pack graph. */
-const collectPackConstraints = () =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph();
-    if (!graph.complete) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: "Cannot update skills while the desired pack graph is incomplete",
-      });
-    }
-    const constraintMap = new Map<string, Array<PackConstraint>>();
-
-    for (const node of graph.nodes) {
-      if (node.type !== "skill") continue;
-      for (const origin of node.origins) {
-        if (origin.type !== "pack" || origin.constraint === "*" || origin.constraint === "") {
-          continue;
-        }
-        const existing = constraintMap.get(node.identity) ?? [];
-        existing.push({ packName: origin.pack, constraint: origin.constraint });
-        constraintMap.set(node.identity, existing);
-      }
-    }
-
-    return constraintMap;
-  });

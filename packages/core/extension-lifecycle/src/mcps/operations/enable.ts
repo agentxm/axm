@@ -31,7 +31,11 @@ import {
   runWorkspaceTransaction,
 } from "@agentxm/workspace-transactions";
 import type { McpServerLockEntry } from "@agentxm/workspace-state";
-import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
+import {
+  agentConfigTargets,
+  mcpServerArtifact,
+  mcpSettingsTarget,
+} from "@agentxm/extension-materialization";
 import { usableAcceptedCanonicalObservation } from "@agentxm/workspace-state";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";

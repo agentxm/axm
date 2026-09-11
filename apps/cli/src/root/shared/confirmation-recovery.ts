@@ -9,17 +9,16 @@ import {
   verboseFlag,
 } from "../../cli-flags/index.js";
 import {
-  applyPlanExecution,
   credentialFreeLocatorRecoveryValue,
-  previewPlanExecution,
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
-  type ConfirmableRiskApproval,
+  requestedPlanExecution,
   type ConfirmationRecovery,
   type ConfirmationRecoveryArgument,
   type ConfiguredAgentOperation,
   type PlanExecution,
+  type RequestedPlanIntent,
 } from "@agentxm/workspace-operations";
 import type { PlanPolicyId } from "@agentxm/workspace-operations";
 import {
@@ -28,19 +27,6 @@ import {
   toExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-
-/**
- * The parsed intent a command converts into a plan execution.
- *
- * `yes` is present only on the routes whose capabilities declare a
- * preapprovable confirmation and therefore register `--yes`. Every other
- * route omits it, so the conversion below cannot manufacture preapproval a
- * command never offered, and a downstream planner never sees the raw flag.
- */
-export interface CommandExecutionIntent {
-  readonly preview: boolean;
-  readonly yes?: boolean;
-}
 
 export const makeConfirmationRecovery = (
   command: ReadonlyArray<string>,
@@ -76,37 +62,30 @@ const explicitGlobalArguments = Effect.gen(function* () {
   ];
 });
 
-/** The one conversion from a command's parsed intent to a kernel approval decision. */
-export const confirmableRiskApproval = (intent: CommandExecutionIntent): ConfirmableRiskApproval =>
-  intent.yes === true
-    ? "preapproved"
-    : intent.yes === false
-      ? "prompt-if-interactive"
-      : "interactive-only";
-
+/**
+ * The parsed intent a route registered, handed to the one derivation that
+ * owns it. `yes` reaches this function only from the routes whose
+ * capabilities declare a preapprovable confirmation and therefore register
+ * `--yes`; the derivation in `workspace-operations` decides what a preview
+ * and an apply each do with it, so no downstream planner sees the raw flag.
+ */
 export const makePlanExecution = (
-  intent: CommandExecutionIntent,
+  intent: RequestedPlanIntent,
   recovery: ConfirmationRecovery,
   acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
   configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>,
-): Effect.Effect<PlanExecution> => {
-  if (intent.preview)
-    return Effect.succeed({
-      ...previewPlanExecution,
-      ...(configuredAgentOperations === undefined ? {} : { configuredAgentOperations }),
-    });
-  return Effect.map(explicitGlobalArguments, (globalArguments) =>
-    applyPlanExecution({
-      approval: confirmableRiskApproval(intent),
-      acceptedPolicies: new Set(acceptedPolicies),
+): Effect.Effect<PlanExecution> =>
+  Effect.map(explicitGlobalArguments, (globalArguments) =>
+    requestedPlanExecution({
+      intent,
       recovery: {
         ...recovery,
         arguments: [...recovery.arguments, ...globalArguments],
       },
+      acceptedPolicies: new Set(acceptedPolicies),
       ...(configuredAgentOperations === undefined ? {} : { configuredAgentOperations }),
     }),
   );
-};
 
 const configuredAgentOperation = (
   command: ReadonlyArray<string>,
@@ -132,7 +111,7 @@ const configuredAgentOperation = (
 };
 
 export const makePublicPositionalPlanExecution = (
-  intent: CommandExecutionIntent,
+  intent: RequestedPlanIntent,
   command: ReadonlyArray<string>,
   positionals: ReadonlyArray<string>,
   acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
@@ -150,7 +129,7 @@ export const makePublicPositionalPlanExecution = (
   );
 
 export const makeInstallPlanExecution = (
-  intent: CommandExecutionIntent & { readonly force?: boolean },
+  intent: RequestedPlanIntent & { readonly force?: boolean },
   command: ReadonlyArray<string>,
   locators: ReadonlyArray<string>,
   arguments_: ReadonlyArray<ConfirmationRecoveryArgument> = [],
@@ -165,7 +144,7 @@ export const makeInstallPlanExecution = (
   );
 
 export const makeUninstallPlanExecution = (
-  intent: CommandExecutionIntent,
+  intent: RequestedPlanIntent,
   command: ReadonlyArray<string>,
   positionals: ReadonlyArray<string>,
 ): Effect.Effect<PlanExecution> =>

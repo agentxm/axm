@@ -1,39 +1,25 @@
-import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { makeAppError } from "../../../app-error/index.js";
-import {
-  previewOrApplyPlan,
-  publicRecoveryValue,
-  recoveryOption,
-  recoverySwitch,
-} from "@agentxm/workspace-operations";
-import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
-import {
-  deriveOperationOutcome,
-  operationPresentation,
-  type JobStepResult,
-  type Plan,
-  type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+/**
+ * `axm skills install`.
+ *
+ * Three routes with one shape: reinstall what the workspace declares, install
+ * from a source, or recover the official skill the executable carries. The
+ * flag combinations that make no sense are refused here, before a workspace
+ * is even opened, because they are a grammar mistake rather than a decision.
+ */
 
-import { emitOperationResolution } from "../../../operation-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+
+import { publicRecoveryValue, recoveryOption, recoverySwitch } from "@agentxm/workspace-operations";
+
+import { makeAppError } from "../../../app-error/index.js";
+import { isNonInteractiveOptional } from "../../../cli-flags/index.js";
+import { runInstallCommand } from "../../shared/install-command.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
-import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../../shared/no-op-output.js";
-import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
-import { failureToStepFailure } from "../../../app-error/conversions.js";
-import { inspectBundledAxmSkillReadiness, installBundledAxmSkill } from "./bundled-axm-skill.js";
 
 export interface InstallHandlerArgs {
   readonly source: Option.Option<string>;
-  readonly skills: readonly string[];
+  readonly skills: ReadonlyArray<string>;
   readonly all: boolean;
   readonly bundled?: boolean;
 }
@@ -53,7 +39,6 @@ const validateWorkspaceInstallArgs = (args: InstallHandlerArgs) =>
         cmd: "axm skills install <source> --all",
       });
     }
-
     if (args.skills.length > 0) {
       return yield* makeAppError({
         code: "usage",
@@ -83,128 +68,37 @@ const validateBundledInstallArgs = (args: InstallHandlerArgs) =>
     }
   });
 
+/** The `--bundled` grammar is checked before a workspace is opened. */
 export const validateInstallArgsBeforeWorkspace = (args: InstallHandlerArgs) =>
   args.bundled === true ? validateBundledInstallArgs(args) : Effect.void;
 
-const handleBundledInstall = (flags: InstallSkillFlags) =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const agentRepo = yield* CodingAgentRepository;
-    const bundledInstaller = installBundledAxmSkill.pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          Layer.succeed(WorkspaceMutations, ws),
-          Layer.succeed(FileSystem.FileSystem, fs),
-          Layer.succeed(Path.Path, path),
-          Layer.succeed(CodingAgentRepository, agentRepo),
-        ),
-      ),
-    );
-    const readiness = yield* inspectBundledAxmSkillReadiness.pipe(
-      Effect.provideService(WorkspaceMutations, ws),
-      Effect.provideService(Path.Path, path),
-    );
-    const artifact = {
-      path: readiness.canonicalPath,
-      scope: ws.scope,
-      change: "updated" as const,
-    };
-    const step: PlannedJobStep<WorkspaceTransactionScope> =
-      readiness.readiness === "error"
-        ? {
-            key: "bundled-axm-skill-authored",
-            readiness: "error",
-            errorMessage: readiness.errorMessage,
-            label: "@agentxm/skills/axm",
-            artifact,
-          }
-        : {
-            key: "bundled-axm-skill",
-            readiness: "ready",
-            label: "@agentxm/skills/axm",
-            artifact,
-            run: bundledInstaller.pipe(
-              Effect.mapError(failureToStepFailure),
-              Effect.as({
-                result: "success",
-                message: "Installed the bundled AXM skill",
-                artifact,
-              } satisfies JobStepResult),
-            ),
-          };
-    const plan: Plan<WorkspaceTransactionScope> = {
-      _tag: "Plan",
-      name: "Install bundled AXM skill",
-      description: Option.some("Install the embedded compatible official AXM skill"),
-      presentation: operationPresentation(
-        { imperative: "install", past: "Installed", gerund: "Installing" },
-        "skill",
-      ),
-      failureSuggestions: [
-        {
-          description: "Preserve the authored skill and inspect executable compatibility guidance",
-          cmd: "axm help upgrade",
-        },
-      ],
-      jobs: [
-        {
-          concurrency: 1,
-          steps: [step],
-        },
-      ],
-    };
-    const execution = yield* makeInstallPlanExecution(
-      flags,
-      ["skills", "install"],
-      ["@agentxm/skills/axm"],
-      [recoverySwitch("--bundled", true)],
-    );
-    const resolution = yield* previewOrApplyPlan(plan, { execution });
-    yield* emitOperationResolution("skills.install", resolution, {
-      suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
-    });
-  });
-
-type InstallSkillActions = Effect.Success<typeof InstallSkillCommandWorkflowActions>;
-
-const handleInstallWithActionEffect = <R>(
-  args: InstallHandlerArgs,
-  flags: InstallSkillFlags,
-  actionsEffect: Effect.Effect<InstallSkillActions, never, R>,
-) =>
-  withOperationLifecycle(
-    {
-      command: "skills.install",
-      mode: flags.preview ? "preview" : "apply",
-      planName: "Install skills",
-      presentation: operationPresentation(
-        { imperative: "install", past: "Installed", gerund: "Installing" },
-        "skill",
-      ),
-    },
-    handleInstallBody(args, flags, actionsEffect),
-  );
-
 export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags) =>
-  handleInstallWithActionEffect(args, flags, InstallSkillCommandWorkflowActions);
-
-export const handleInstallWithActions = (
-  args: InstallHandlerArgs,
-  flags: InstallSkillFlags,
-  actions: InstallSkillActions,
-) => handleInstallWithActionEffect(args, flags, Effect.succeed(actions));
-
-const handleInstallBody = <R>(
-  args: InstallHandlerArgs,
-  flags: InstallSkillFlags,
-  actionsEffect: Effect.Effect<InstallSkillActions, never, R>,
-) =>
   Effect.gen(function* () {
     if (args.bundled === true) {
       yield* validateBundledInstallArgs(args);
-      return yield* handleBundledInstall(flags);
+      const nonInteractive = yield* isNonInteractiveOptional;
+      return yield* runInstallCommand({
+        command: "skills.install",
+        preview: flags.preview,
+        force: flags.force,
+        request: {
+          type: Option.some("skill"),
+          subject: { kind: "bundled" },
+          names: [],
+          all: false,
+          reinstall: flags.force,
+          localName: Option.none(),
+          env: [],
+          nonInteractive,
+          planName: "Install bundled AXM skill",
+          planDescription: Option.some("Install the embedded compatible official AXM skill"),
+        },
+        recoveryCommand: ["skills", "install"],
+        recoveryLocators: ["@agentxm/skills/axm"],
+        recoveryArguments: [recoverySwitch("--bundled", true)],
+        suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+        noOpMessage: "No skills installed.",
+      });
     }
 
     if (Option.isNone(args.source)) {
@@ -218,32 +112,30 @@ const handleInstallBody = <R>(
       });
     }
 
-    const actions = yield* actionsEffect;
-    const execution = yield* makeInstallPlanExecution(
-      flags,
-      ["skills", "install"],
-      [args.source.value],
-      [
+    const nonInteractive = yield* isNonInteractiveOptional;
+    return yield* runInstallCommand({
+      command: "skills.install",
+      preview: flags.preview,
+      force: flags.force,
+      request: {
+        type: Option.some("skill"),
+        subject: { kind: "source", source: args.source.value },
+        names: args.skills,
+        all: args.all,
+        reinstall: flags.force,
+        localName: Option.none(),
+        env: [],
+        nonInteractive,
+        planName: "Install skills",
+        planDescription: Option.none(),
+      },
+      recoveryCommand: ["skills", "install"],
+      recoveryLocators: [args.source.value],
+      recoveryArguments: [
         recoverySwitch("--all", args.all),
         ...args.skills.map((skill) => recoveryOption("--skill", publicRecoveryValue(skill))),
       ],
-    );
-    const resolution = yield* runInstallCommandWorkflow(
-      { source: args.source.value, skills: args.skills, all: args.all, force: flags.force },
-      actions,
-      { execution },
-    );
-    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
-      const planDescription = Option.getOrUndefined(resolution.description);
-      yield* emitNoOpOutcome("skills.install", {
-        planName: resolution.name,
-        ...(planDescription === undefined ? {} : { planDescription }),
-        message: "No skills installed.",
-      });
-      return;
-    }
-
-    yield* emitOperationResolution("skills.install", resolution, {
       suggestions: [{ description: "Inspect installed skills", cmd: "axm skills list" }],
+      noOpMessage: "No skills installed.",
     });
   });

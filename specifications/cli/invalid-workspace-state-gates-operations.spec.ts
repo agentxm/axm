@@ -219,12 +219,15 @@ const invokeOperation = (
       return workspace
         .provide(
           handleLint({
-            pathArg: Option.some(workspace.root),
-            scope,
+            selection: {
+              workspaceRoot: workspace.root,
+              userHome: workspace.root,
+              scope,
+              input: { view: "workspace" },
+              fix: false,
+            },
             strict: false,
             details: false,
-            fix: false,
-            input: { view: "workspace" },
           }),
         )
         .pipe(

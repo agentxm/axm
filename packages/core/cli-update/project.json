@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "cli-update",
+  "projectType": "library",
+  "root": "packages/core/cli-update",
+  "sourceRoot": "packages/core/cli-update/src",
+  "tags": ["type:lib", "role:capability", "scope:cli-update", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/cli-update/src/index.ts",
+        "outputPath": "packages/core/cli-update/dist",
+        "tsConfig": "packages/core/cli-update/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

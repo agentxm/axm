@@ -1,14 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import {
-  NativeWriteAuthority,
-  syncInlineMcpServerToAgents,
-  type McpServerSyncTarget,
-} from "@agentxm/agent-integration";
-import { makeAppError } from "../../app-error/index.js";
+import { AddInlineMcpServer } from "@agentxm/workspace-configuration";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -16,30 +9,12 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { count } from "../../screen/index.js";
-import {
-  operationPresentation,
-  type JobStepArtifact,
-  type JobStepResult,
-  type Plan,
-  type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import {
-  makeInlineMcpDefinition,
-  matchesInlineMcpEntry,
-  parseInlineMcpEnv,
-  parseInlineMcpHeaders,
-  validateInlineMcpRemoteUrl,
-} from "@agentxm/workspace-configuration";
-import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { configurationFailureToAppError } from "../../feature-errors.js";
 
 export interface McpsAddArgs {
@@ -52,218 +27,40 @@ export interface McpsAddArgs {
   readonly preview: boolean;
 }
 
-const syncStep = (
-  ws: WorkspaceMutationsService,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  name: string,
-): PlannedJobStep<NativeWriteAuthority> => ({
-  label: `Sync ${name} to configured agents`,
-  readiness: "ready",
-  run: Effect.gen(function* () {
-    const entries = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
-    const entry = entries[name];
-    if (entry === undefined) {
-      return { result: "success", message: `${name} is not configured` } satisfies JobStepResult;
-    }
-    const agentIds = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
-    const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
-      workspaceRoot: ws.baseDir,
-      serverName: name,
-      entry,
-      scope: ws.scope,
-    }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    );
-    const warningDetails = outcomes.flatMap((outcome, index) => {
-      const agentId = agentIds[index] ?? "unknown";
-      if (outcome._tag === "success") {
-        return (outcome.warnings ?? []).map((warning) => `${agentId}: ${warning}`);
-      }
-      return [`${agentId}: ${outcome.reason}`];
-    });
-    const successfulAgentIds = outcomes.flatMap((outcome, index) => {
-      const agentId = agentIds[index];
-      return outcome._tag === "success" && agentId !== undefined ? [agentId] : [];
-    });
-    const groupedTargets = new Map<
-      string,
-      {
-        readonly path: string;
-        change: McpServerSyncTarget["change"];
-        agentIds: Array<string>;
-      }
-    >();
-    outcomes.forEach((outcome, index) => {
-      const agentId = agentIds[index];
-      if (outcome._tag !== "success" || agentId === undefined) return;
-
-      (outcome.targets ?? []).forEach((target) => {
-        const grouped = groupedTargets.get(target.path);
-        if (grouped === undefined) {
-          groupedTargets.set(target.path, {
-            path: target.path,
-            change: target.change,
-            agentIds: [agentId],
-          });
-          return;
-        }
-        grouped.agentIds.push(agentId);
-        if (grouped.change !== "created" && target.change === "created") {
-          grouped.change = "created";
-        }
-      });
-    });
-    const syncTargets = Array.from(groupedTargets.values()).map((target) => ({
-      path: target.path,
-      change: target.change,
-      agentIds: target.agentIds,
-    }));
-    const syncChange = syncTargets.some((target) => target.change === "created")
-      ? "created"
-      : "updated";
-    const artifactPath =
-      syncTargets.length === 1 ? (syncTargets[0]?.path ?? ".mcp.json") : "agent MCP configs";
-    const artifact =
-      successfulAgentIds.length === 0
-        ? undefined
-        : ({
-            path: artifactPath,
-            scope: ws.scope,
-            agents: successfulAgentIds,
-            change: syncChange,
-            fileCount: syncTargets.length,
-            targets: syncTargets,
-          } satisfies JobStepArtifact);
-    return {
-      result: "success",
-      message:
-        warningDetails.length === 0
-          ? `Synced ${name} to ${count(successfulAgentIds.length, "agent")}`
-          : `Synced ${name} to ${count(successfulAgentIds.length, "agent")} with ${count(warningDetails.length, "warning")}`,
-      ...(warningDetails.length > 0 ? { warnings: warningDetails } : {}),
-      ...(artifact === undefined ? {} : { artifact }),
-    } satisfies JobStepResult;
-  }).pipe(Effect.mapError(failureToStepFailure)),
-});
-
-const configArtifact = (
-  scope: "project" | "user",
-  change: JobStepArtifact["change"],
-): JobStepArtifact => ({
-  path: workspaceSettingsPath(scope),
-  scope,
-  change,
-  targets: [{ path: workspaceSettingsPath(scope), change }],
-});
-
-const makePlan = (
-  name: string,
-  steps: ReadonlyArray<PlannedJobStep<NativeWriteAuthority>>,
-): Plan<NativeWriteAuthority> => ({
-  _tag: "Plan",
-  name: "Add MCP server",
-  description: Option.some(`Configure ${name} and sync agent MCP configs`),
-  presentation: operationPresentation(
-    { imperative: "configure", past: "Configured", gerund: "Configuring" },
-    "mcp-server",
-  ),
-  jobs: [{ concurrency: 1, steps }],
-});
+const PLAN_NAME = "Add MCP server";
 
 export const handleMcpsAdd = (args: McpsAddArgs) =>
   withOperationLifecycle(
-    {
-      command: "mcps.add",
-      mode: args.preview ? "preview" : "apply",
-      planName: "Add MCP server",
-    },
+    { command: "mcps.add", mode: args.preview ? "preview" : "apply", planName: PLAN_NAME },
     handleMcpsAddBody(args),
   );
 
 const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
-  if (Option.isNone(args.command) && Option.isNone(args.url)) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: `mcps add only configures inline MCP servers. Use axm mcps install ${args.name} for package or source locators.`,
-      suggestions: [
-        { description: "Install the MCP server package", cmd: `axm mcps install ${args.name}` },
-      ],
-    });
-  }
-  if (Option.isSome(args.command) && Option.isSome(args.url)) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "Use exactly one of --command or --url.",
-    });
-  }
+  const candidate = yield* AddInlineMcpServer.prepare({
+    name: args.name,
+    ...(Option.isSome(args.command) ? { command: args.command.value } : {}),
+    ...(Option.isSome(args.url) ? { url: args.url.value } : {}),
+    env: args.env,
+    headers: args.header,
+  }).pipe(Effect.mapError(configurationFailureToAppError));
 
-  const ws = yield* WorkspaceMutations;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const env = yield* parseInlineMcpEnv(args.env).pipe(
-    Effect.mapError(configurationFailureToAppError),
-  );
-  const headers = yield* parseInlineMcpHeaders(args.header).pipe(
-    Effect.mapError(configurationFailureToAppError),
-  );
-  if (Option.isSome(args.url)) {
-    yield* validateInlineMcpRemoteUrl(args.url.value).pipe(
-      Effect.mapError(configurationFailureToAppError),
-    );
-  }
-  const definition = yield* makeInlineMcpDefinition(
-    { command: Option.getOrUndefined(args.command), url: Option.getOrUndefined(args.url) },
-    headers,
-  ).pipe(Effect.mapError(configurationFailureToAppError));
-  const configured = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
-  const existingEntry = configured[args.name];
-  if (
-    matchesInlineMcpEntry({
-      existing: configured[args.name],
-      definition,
-      env,
-    })
-  ) {
+  if (candidate._tag === "Unchanged") {
     yield* emitNoOpOutcome("mcps.add", {
-      planName: "Add MCP server",
+      planName: PLAN_NAME,
       planDescription: `Configure ${args.name} and sync agent MCP configs`,
-      message: `MCP server ${args.name} is already configured`,
+      message: candidate.message,
     });
     return;
   }
 
-  const plan = makePlan(args.name, [
-    {
-      label: `Configure ${args.name}`,
-      readiness: "ready",
-      run: ws
-        .setMcpServerEntry(args.name, {
-          kind: "inline",
-          ...(definition.type === "stdio"
-            ? { command: definition.command, args: definition.args }
-            : { url: definition.url, headers: definition.headers }),
-          env,
-          enabled: true,
-        })
-        .pipe(Effect.mapError(toAppError))
-        .pipe(
-          Effect.mapError(failureToStepFailure),
-          Effect.as({
-            result: "success",
-            message: `Configured ${args.name}`,
-            artifact: configArtifact(ws.scope, existingEntry === undefined ? "created" : "updated"),
-          } satisfies JobStepResult),
-        ),
-    },
-    syncStep(ws, fs, path, args.name),
-  ]);
-
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
-    preview: args.preview,
-    acceptedPolicies: args.force ? ["accept-warnings"] : [],
-  });
+  const execution = yield* makePlanExecution(
+    { preview: args.preview },
+    { command: [], arguments: [] },
+    args.force ? ["accept-warnings"] : [],
+  );
+  const resolution = yield* AddInlineMcpServer.previewOrApply(candidate, execution).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   yield* emitOperationResolution("mcps.add", resolution);
 });
 

@@ -36,6 +36,7 @@ import {
   expectPreviewedPlanResult,
   expectRecord,
   getAppError,
+  LifecycleStepFailureConversionLive,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
@@ -264,6 +265,9 @@ describe("update.handler — error recovery", () => {
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
+      // The update feature leaves its step requirements open; the runtime
+      // composes the boundary's failure conversion, so a handler test does too.
+      LifecycleStepFailureConversionLive,
       makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
     );
     const baseProvide = makeEffectProvide(FullLayer);
@@ -865,6 +869,9 @@ describe("update.handler — preview flag", () => {
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
+      // The update feature leaves its step requirements open; the runtime
+      // composes the boundary's failure conversion, so a handler test does too.
+      LifecycleStepFailureConversionLive,
       makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
     );
     const baseProvide = makeEffectProvide(FullLayer);

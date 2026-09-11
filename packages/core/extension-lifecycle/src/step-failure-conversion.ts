@@ -16,14 +16,17 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import type { ExtensionManagerFailure } from "@agentxm/extension-materialization";
+import type { ExtensionResolutionFailed } from "@agentxm/extension-resolution";
 import type { ExtensionLifecycleFailed } from "./errors.js";
 
 /**
  * Every failure a lifecycle operation can surface: the materialization
- * families and the integration families they carry, plus the feature's own
- * typed failure.
+ * families and the integration families they carry, the resolution refusal a
+ * configured entry's source can produce before any plan exists, plus the
+ * feature's own typed failure.
  */
-export type LifecycleFailure = ExtensionManagerFailure | ExtensionLifecycleFailed | StepFailure;
+export type LifecycleFailure =
+  ExtensionManagerFailure | ExtensionResolutionFailed | ExtensionLifecycleFailed | StepFailure;
 
 export interface StepFailureConversionService {
   /** Serialize one lifecycle failure into the plan-step vocabulary. */

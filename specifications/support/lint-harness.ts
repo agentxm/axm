@@ -279,12 +279,15 @@ const decodeLintResult = Schema.decodeUnknownEffect(LintResultDocumentSchema);
 export const runProjectLint = (workspace: LintSpecWorkspace, strict: boolean) =>
   Effect.gen(function* () {
     const exit = yield* handleLint({
-      pathArg: Option.some(workspace.root),
-      scope: "project",
+      selection: {
+        workspaceRoot: workspace.root,
+        userHome: workspace.root,
+        scope: "project",
+        input: { view: "workspace" },
+        fix: false,
+      },
       strict,
       details: false,
-      fix: false,
-      input: { view: "workspace" },
     }).pipe(Effect.provide(workspace.layer), Effect.exit);
     const entry = workspace.rendererState.results.at(-1);
     const document = yield* decodeLintResult(entry?.data);

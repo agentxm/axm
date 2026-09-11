@@ -3,7 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "../../app-error/index.js";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
@@ -300,17 +299,11 @@ describe("mcps import output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleMcpsImport(
-          { preview: false },
-          {
-            beforeAdoptionWrite: (adoption) =>
-              adoption.name === "zebra"
-                ? Effect.fail(
-                    makeAppError({ code: "internal", detail: "Injected adoption failure" }),
-                  )
-                : Effect.void,
-          },
-        );
+        // The Cursor MCP configuration is read-only, so the adoption write it
+        // must make cannot land: a real failure of the import transaction.
+        fs.chmodSync(path.join(tempDir, ".cursor", "mcp.json"), 0o444);
+
+        yield* handleMcpsImport({ preview: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           result: { outcome: "failed", imports: { imported: 0, conflicting: 0 } },
@@ -352,6 +345,26 @@ describe("mcps import output", () => {
             source: "inline",
           },
         });
+      }),
+    );
+  });
+  it.effect("refuses --enable without --as before discovering anything", () => {
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    writeMcpConfig();
+    const { provide } = makeLayers({ machine: true });
+    const originalConfig = fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8");
+
+    return provide(
+      Effect.gen(function* () {
+        // `--enable` decides the activation of a package only `--as` creates,
+        // so the combination is grammar this route refuses rather than a
+        // request either feature can represent.
+        const failure = yield* Effect.flip(handleMcpsImport({ preview: false, enable: true }));
+
+        expect(failure).toMatchObject({ code: "usage" });
+        expect(String(failure.detail)).toContain("--enable");
+        expect(String(failure.detail)).toContain("--as");
+        expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(originalConfig);
       }),
     );
   });

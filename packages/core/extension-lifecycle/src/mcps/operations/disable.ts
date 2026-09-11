@@ -22,7 +22,11 @@ import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
 } from "@agentxm/workspace-transactions";
-import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
+import {
+  agentConfigTargets,
+  mcpServerArtifact,
+  mcpSettingsTarget,
+} from "@agentxm/extension-materialization";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";

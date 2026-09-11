@@ -43,6 +43,11 @@ specifications, never in these records.
   agent selection chooses the workspace's configured agents or filters a
   listing; an extension applies to every configured agent that can represent
   it, never to a per-entry subset
+- [Closure atomicity and recovery](closure-atomicity-and-recovery.md) — a
+  workspace change is atomic per semantic closure: a failed closure is restored,
+  independently settled closures stay committed, an interruption leaves
+  authoritative files whole and names a recovery route, and remote Registry
+  effects are never rolled back
 - [Pack retirement when the package cannot be read](pack-retirement-when-the-package-cannot-be-read.md) —
   uninstall distinguishes the removal target from the desired-state graph, so a
   pack whose own package cannot be read is retired by registration while its

@@ -1,5 +1,5 @@
-import type { SetupAgentScan, SetupPlanRow } from "@agentxm/workspace-configuration";
-import type { AgentSubagentSummary, SetupScopeSupportCategory } from "@agentxm/workspace-state";
+import type { SetupAgentScan, SetupOutcome, SetupPlanRow } from "@agentxm/workspace-configuration";
+import type { AgentSubagentSummary } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import type { Doc } from "../../screen/index.js";
@@ -44,7 +44,7 @@ export const setupPlanDoc = (rows: ReadonlyArray<SetupPlanRow>): Doc => [
 
 export const setupScopeSupportDoc = (
   scope: WorkspaceScope,
-  categories: ReadonlyArray<SetupScopeSupportCategory>,
+  categories: SetupOutcome["scopeSupport"],
 ): Doc => [
   { _tag: "headline", tone: "info", text: `Scope support (${scope})` },
   {

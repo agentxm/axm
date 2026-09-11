@@ -62,10 +62,10 @@ describe("aggregate ownership unit conformance", () => {
   });
 
   it("routes every ownership-unit cardinality through shared plans", () => {
-    // The extension-type managers live in the extension-materialization
-    // capability and the MCP operations in the extension-lifecycle feature;
-    // this structural gate reads their sources across the package boundary on
-    // purpose.
+    // The extension-type managers and the MCP install operation live in the
+    // extension-materialization capability, and the remaining MCP operations
+    // in the extension-lifecycle feature; this structural gate reads their
+    // sources across the package boundary on purpose.
     const materializationSrc = nodePath.join(
       packagesRoot,
       "core",
@@ -84,7 +84,7 @@ describe("aggregate ownership unit conformance", () => {
       [materializationSrc, "skills/manager.ts"],
       [materializationSrc, "subagents/manager.ts"],
       [materializationSrc, "mcps/manager.ts"],
-      [lifecycleSrc, "mcps/operations/install.ts"],
+      [materializationSrc, "mcps/install-operation.ts"],
       [lifecycleSrc, "mcps/operations/enable.ts"],
     ] as const;
     for (const [root, relativePath] of singletonParticipants) {

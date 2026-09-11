@@ -1,149 +1,41 @@
-import { Command, Flag } from "effect/unstable/cli";
-import type { StepRequirements } from "../shared/step-requirements.js";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import * as Result from "effect/Result";
-import { McpServerManager } from "@agentxm/extension-materialization";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { Command, Flag } from "effect/unstable/cli";
+
+import {
+  ImportNativeExtension,
+  importNativeExtensionPlanName,
+  type NativeMcpCandidate,
+} from "@agentxm/extension-authoring";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { ImportMcpServers, type McpImportPreflight } from "@agentxm/workspace-configuration";
+import type { OperationResolution } from "@agentxm/workspace-operations";
+
+import { makeAppError } from "../../app-error/index.js";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  authoringFailureToAppError,
+  configurationFailureToAppError,
+} from "../../feature-errors.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { count } from "../../screen/index.js";
-import { materializeAuthoredMcpServer } from "@agentxm/extension-lifecycle";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
-import {
-  MCP_SERVER_MANIFEST_FILENAME,
-  MCP_SERVER_MANIFEST_SCHEMA_URL,
-  MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
-  type McpServerManifest,
-} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import {
-  buildAuthoredExtensionStep,
-  createCanonicalDirectory,
-  recoverCanonicalDirectory,
-} from "@agentxm/extension-materialization";
-import { preflightCreateOnly, requireAuthoredOwner } from "@agentxm/extension-authoring";
-import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extensions";
-import {
-  fqnInvalidErrorToAppError,
-  toAppError,
-  failureToStepFailure,
-} from "../../app-error/conversions.js";
-import type {
-  JobStepArtifact,
-  JobStepResult,
-  Plan,
-  PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { operationPresentation, type OperationResolution } from "@agentxm/workspace-operations";
-import { emitOperationResolution } from "../../operation-output.js";
-import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
-import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
-import {
-  applyMcpImport,
-  collectMcpImportSources,
-  preflightMcpImports,
-  removeConvertedMcpConfig,
-  type McpImportAdoption,
-  type McpImportPreflight,
-} from "@agentxm/workspace-configuration";
-import {
-  configurationFailureToAppError,
-  configurationFailureToStepFailure,
-} from "../../feature-errors.js";
 
 export interface McpsImportArgs {
   readonly preview: boolean;
   readonly as?: Option.Option<string>;
   readonly enable?: boolean;
+  /** The scope selector this invocation carried, for the package route's boundary. */
+  readonly scope?: WorkspaceScope;
 }
-
-export interface McpsImportTestHooks {
-  readonly beforeAdoptionWrite?: (
-    adoption: McpImportAdoption,
-  ) => Effect.Effect<void, AppError, StepRequirements>;
-}
-
-const importArtifact = (
-  preflight: McpImportPreflight,
-  ws: WorkspaceMutationsService,
-  path: Path.Path,
-): JobStepArtifact => {
-  const adoptions = preflight.candidates.flatMap((candidate) => candidate.adoptions);
-  return {
-    path: workspaceSettingsPath(ws.scope),
-    scope: ws.scope,
-    change: "updated",
-    fileCount: 1 + new Set(adoptions.map((adoption) => adoption.filePath)).size,
-    targets: [
-      { path: workspaceSettingsPath(ws.scope), change: "updated" },
-      ...Array.from(new Set(adoptions.map((adoption) => adoption.filePath)))
-        .sort()
-        .map((filePath) => ({
-          path: path.relative(ws.baseDir, filePath),
-          change: "updated" as const,
-        })),
-    ],
-  };
-};
-
-const makePlan = (
-  preflight: McpImportPreflight,
-  ws: WorkspaceMutationsService,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  hooks: McpsImportTestHooks,
-): Plan<StepRequirements> => {
-  const conflictSteps = preflight.conflicts.map<
-    PlannedJobStep<FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope>
-  >((conflict) => ({
-    label: conflict.name,
-    readiness: "error",
-    errorMessage: conflict.reason,
-  }));
-  const importSteps =
-    preflight.candidates.length === 0
-      ? []
-      : [
-          {
-            label: `Import ${count(preflight.candidates.length, "MCP server")}`,
-            readiness: "ready" as const,
-            message: `Candidates: ${preflight.candidates.map((candidate) => candidate.name).join(", ")}`,
-            artifact: importArtifact(preflight, ws, path),
-            run: applyMcpImport(preflight.candidates, ws, fs, hooks).pipe(
-              Effect.mapError(configurationFailureToStepFailure),
-              Effect.as({
-                result: "success",
-                message: `Imported ${count(preflight.candidates.length, "MCP server")}`,
-                artifact: importArtifact(preflight, ws, path),
-              } satisfies JobStepResult),
-            ),
-          },
-        ];
-  return {
-    _tag: "Plan",
-    name: "Import MCP servers",
-    description: Option.some(`Adopt ${count(preflight.candidates.length, "unmanaged MCP server")}`),
-    presentation: operationPresentation(
-      { imperative: "import", past: "Imported", gerund: "Importing" },
-      "mcp-server",
-    ),
-    jobs: [{ concurrency: 1, steps: [...conflictSteps, ...importSteps] }],
-  };
-};
 
 const importedCount = (
   resolution: OperationResolution<unknown>,
@@ -153,271 +45,95 @@ const importedCount = (
   return importUnit?.state === "committed" ? candidateCount : 0;
 };
 
-const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (args: {
-  readonly targetInput: string;
-  readonly enable: boolean;
-  readonly preflight: McpImportPreflight;
-  readonly ws: WorkspaceMutationsService;
-  readonly fs: FileSystem.FileSystem;
-  readonly path: Path.Path;
-}) {
-  const nonInteractive = yield* isNonInteractiveOptional;
-  if (args.ws.scope !== "project") {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "MCP package import is project-workspace only; omit --scope user",
-    });
-  }
-  const target = yield* Effect.fromResult(
-    Result.mapError(parseFqn(args.targetInput), fqnInvalidErrorToAppError),
-  );
-  if (target.type !== "mcp-server") {
-    return yield* makeAppError({
-      code: "validation",
-      detail: `MCP package import target must use the mcps type: ${args.targetInput}`,
-    });
-  }
-  yield* requireAuthoredOwner(target.owner, { subject: "MCP server", command: "mcps import" }).pipe(
-    Effect.mapError(toAppError),
-  );
-  if (args.preflight.conflicts.length > 0) {
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `MCP package import has ${args.preflight.conflicts.length} conflicted native candidate(s)`,
-    });
-  }
-  const candidate = args.preflight.candidates[0];
-  if (candidate === undefined || args.preflight.candidates.length !== 1) {
-    return yield* makeAppError({
-      code: "validation",
-      detail:
-        args.preflight.candidates.length === 0
-          ? "No losslessly importable unmanaged MCP server was found"
-          : "MCP package import requires exactly one unmanaged server candidate",
-    });
-  }
-  if (candidate.definition.type !== "http") {
-    return yield* makeAppError({
-      code: "usage",
-      detail:
-        "This MCP command cannot be represented losslessly as a managed package; import it inline without --as",
-    });
-  }
-  const fqn = formatFqn(target);
-  const version = decodeVersionSync("0.1.0");
-  const targetDir = args.path.join(
-    workspaceAuthoredRoot(args.path, args.ws, "mcp-server", target.owner),
-    target.name,
-  );
-  yield* preflightCreateOnly({
-    subject: "MCP package",
-    name: target.name,
-    configured: false,
-    destinations: [],
-  }).pipe(Effect.provideService(FileSystem.FileSystem, args.fs));
-  const manifest: McpServerManifest = {
-    $schema: MCP_SERVER_MANIFEST_SCHEMA_URL,
-    owner: target.owner,
-    type: "mcp-server",
-    name: target.name,
-    version,
-    description: `Imported MCP server ${candidate.name}`,
-    server: {
-      $schema: MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
-      name: `local.axm/${target.name}`,
-      description: `Imported MCP server ${candidate.name}`,
-      version,
-      remotes: [
-        {
-          type: "streamable-http",
-          url: candidate.definition.url,
-          ...(Object.keys(candidate.definition.headers).length === 0
-            ? {}
-            : {
-                headers: Object.entries(candidate.definition.headers).map(([name, value]) => ({
-                  name,
-                  value,
-                })),
-              }),
-        },
-      ],
-    },
-  };
-  const manager = yield* McpServerManager;
-  const source = "workspace";
-  const adoptionPaths = Array.from(
-    new Set(candidate.adoptions.map((adoption) => adoption.filePath)),
-  ).sort();
-  const artifact: JobStepArtifact = {
-    path: args.path.relative(args.ws.baseDir, targetDir),
-    scope: args.ws.scope,
-    version,
-    change: "created",
-    targets: [
-      { path: args.path.relative(args.ws.baseDir, targetDir), change: "created" },
-      { path: workspaceSettingsPath(args.ws.scope), change: "created" },
-      ...adoptionPaths.map((filePath) => ({
-        path: args.path.relative(args.ws.baseDir, filePath),
-        change: "updated" as const,
-      })),
-    ],
-  };
-  const step = buildAuthoredExtensionStep(manager, {
-    toStepFailure: failureToStepFailure,
-    target: { type: "mcp-server", name: target.name },
-    location: targetDir,
-    transactionTargets: adoptionPaths,
-    versionRange: Option.none(),
-    enabled: args.enable,
-    materializeWhenDisabled: true,
-    allowConfiguredSourceTransition: true,
-    label: `Import ${candidate.name} -> ${fqn}`,
-    message: `Imported ${fqn}`,
-    plannedArtifact: artifact,
-    buildArtifact: () => Effect.succeed(artifact),
-    preflight: Effect.gen(function* () {
-      yield* recoverCanonicalDirectory({
-        baseDir: args.ws.baseDir,
-        canonicalPath: targetDir,
-      });
-      yield* preflightCreateOnly({
-        subject: "MCP package",
-        name: target.name,
-        configured: false,
-        destinations: [targetDir],
-      });
-    }).pipe(
-      Effect.provideService(FileSystem.FileSystem, args.fs),
-      Effect.provideService(Path.Path, args.path),
-    ),
-    scaffold: createCanonicalDirectory({
-      baseDir: args.ws.baseDir,
-      canonicalPath: targetDir,
-      subject: "MCP package",
-      requiredFiles: [MCP_SERVER_MANIFEST_FILENAME],
-      populate: (stagingPath) =>
-        args.fs
-          .writeFileString(
-            args.path.join(stagingPath, MCP_SERVER_MANIFEST_FILENAME),
-            `${JSON.stringify(manifest, null, 2)}\n`,
-          )
-          .pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "internal",
-                detail: "MCP package manifest could not be staged",
-                cause,
-              }),
-            ),
-          ),
-    }).pipe(
-      Effect.asVoid,
-      Effect.provideService(FileSystem.FileSystem, args.fs),
-      Effect.provideService(Path.Path, args.path),
-    ),
-    markAuthored: args.ws
-      .setMcpServerEntry(target.name, {
-        source,
-        enabled: true,
-        env: candidate.env,
-      })
-      .pipe(Effect.mapError(toAppError)),
-    finalizeAuthored: args.ws
-      .setMcpServerEntry(target.name, {
-        source,
-        enabled: args.enable,
-        env: candidate.env,
-      })
-      .pipe(Effect.mapError(toAppError))
-      .pipe(
-        Effect.andThen(
-          Effect.forEach(candidate.adoptions, (adoption) =>
-            removeConvertedMcpConfig(args.fs, adoption).pipe(
-              Effect.mapError(configurationFailureToAppError),
-            ),
-          ),
-        ),
-        Effect.asVoid,
-      ),
-    materializeInstall: (ref) => materializeAuthoredMcpServer({ ref, nonInteractive }),
-  });
-  return {
-    _tag: "Plan",
-    name: "Import MCP server package",
-    description: Option.some(
-      `Losslessly convert ${candidate.name} into ${fqn}; native MCP config is replaced only after managed validation`,
-    ),
-    presentation: operationPresentation(
-      { imperative: "import", past: "Imported", gerund: "Importing" },
-      "mcp-server",
-    ),
-    jobs: [{ concurrency: 1, steps: [step] }],
-  } satisfies Plan<StepRequirements>;
+/**
+ * What the configuration feature discovered, in the terms the authoring
+ * feature decides over. The adapter answers what shape each native connection
+ * has; whether that shape can become a package is the authoring feature's
+ * refusal to make.
+ */
+const discoveryFrom = (preflight: McpImportPreflight) => ({
+  candidates: preflight.candidates.map((candidate): NativeMcpCandidate => ({
+    name: candidate.name,
+    remote:
+      candidate.definition.type === "http"
+        ? Option.some({
+            url: candidate.definition.url,
+            headers: candidate.definition.headers,
+          })
+        : Option.none(),
+    env: candidate.env,
+    entries: candidate.adoptions,
+  })),
+  conflicts: preflight.conflicts.map((finding) => finding.name),
 });
 
-export const handleMcpsImport = (args: McpsImportArgs, hooks: McpsImportTestHooks = {}) =>
+export const handleMcpsImport = (args: McpsImportArgs) =>
   withOperationLifecycle(
     {
       command: "mcps.import",
       mode: args.preview ? "preview" : "apply",
-      planName: "Import MCP servers",
+      planName: Option.isSome(args.as ?? Option.none())
+        ? importNativeExtensionPlanName("mcp-server")
+        : "Import MCP servers",
     },
-    handleMcpsImportBody(args, hooks),
+    handleMcpsImportBody(args),
   );
 
-const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (
-  args: McpsImportArgs,
-  hooks: McpsImportTestHooks = {},
-) {
+const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImportArgs) {
   const packageTarget = args.as ?? Option.none<string>();
   const enablePackage = args.enable ?? false;
+  // `--enable` decides the activation of a package only `--as` creates, so the
+  // combination is a grammar refusal rather than a request either feature can
+  // represent.
   if (enablePackage && Option.isNone(packageTarget)) {
     return yield* makeAppError({
       code: "usage",
       detail: "--enable requires --as <extension>",
     });
   }
-  const ws = yield* WorkspaceMutations;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const now = yield* DateTime.now;
-  const configured = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
-  const discovery = yield* collectMcpImportSources(ws, fs, path).pipe(
+  const candidate = yield* ImportMcpServers.prepare().pipe(
     Effect.mapError(configurationFailureToAppError),
   );
-  const normalized = preflightMcpImports({
-    configuredNames: new Set(Object.keys(configured)),
-    now,
-    sources: discovery.sources,
-  });
-  const preflight = {
-    ...normalized,
-    skipped: [...normalized.skipped, ...discovery.skipped].sort(
-      (left, right) =>
-        left.name.localeCompare(right.name) || left.reason.localeCompare(right.reason),
-    ),
-  } satisfies McpImportPreflight;
+  const preflight = candidate.preflight;
+
   if (Option.isSome(packageTarget)) {
-    const packagePlan = yield* makePackageImportPlan({
-      targetInput: packageTarget.value,
+    // Authoring a package is project-workspace work, and `--scope` is this
+    // command's grammar, so the refusal names the selector the operator wrote
+    // rather than the scaffolding vocabulary the feature refuses in.
+    if ((args.scope ?? "project") !== "project") {
+      return yield* makeAppError({
+        code: "usage",
+        detail: "MCP package import is project-workspace only; omit --scope user",
+      });
+    }
+    const nonInteractive = yield* isNonInteractiveOptional;
+    const conversion = yield* ImportNativeExtension.prepare({
+      type: "mcp-server",
+      target: packageTarget.value,
       enable: enablePackage,
-      preflight,
-      ws,
-      fs,
-      path,
-    });
-    const packageResolution = yield* previewOrApplyLocalPlan(packagePlan, {
-      preview: args.preview,
-      recovery: makeConfirmationRecovery(["mcps", "import"], []),
-    });
+      nonInteractive,
+      discovery: discoveryFrom(preflight),
+    }).pipe(Effect.mapError(authoringFailureToAppError));
+    const packageExecution = yield* makePlanExecution(
+      { preview: args.preview },
+      makeConfirmationRecovery(["mcps", "import"], []),
+    );
+    const packageResolution = yield* ImportNativeExtension.previewOrApply(
+      conversion,
+      packageExecution,
+    ).pipe(Effect.mapError(authoringFailureToAppError));
     yield* emitOperationResolution("mcps.import", packageResolution);
     return;
   }
-  const plan = makePlan(preflight, ws, fs, path, hooks);
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
-    preview: args.preview,
-    recovery: makeConfirmationRecovery(["mcps", "import"], []),
-  });
+
+  const execution = yield* makePlanExecution(
+    { preview: args.preview },
+    makeConfirmationRecovery(["mcps", "import"], []),
+    [],
+  );
+  const resolution = yield* ImportMcpServers.previewOrApply(candidate, execution).pipe(
+    Effect.mapError(configurationFailureToAppError),
+  );
   const appliedCount = importedCount(resolution, preflight.candidates.length);
   const suggestions = [
     { description: "Inspect MCP servers", cmd: "axm mcps list" },
@@ -457,7 +173,8 @@ export const importCommand = Command.make(
   "import",
   importConfig,
   ({ scope, preview, as, enable }) =>
-    handleMcpsImport({ preview, as, enable }).pipe(
+    handleMcpsImport({ preview, as, enable, scope }).pipe(
+      Effect.scoped,
       withWorkspace(scope),
       withRuntime("mcps import"),
     ),

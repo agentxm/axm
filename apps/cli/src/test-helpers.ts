@@ -45,7 +45,11 @@ import {
 } from "@agentxm/workspace-state/live";
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
-import { RegistryResolutionPolicyLive } from "./cli-runtime/index.js";
+import {
+  BundledAxmSkillAssetLive,
+  ExtensionSelectionInteractionLive,
+  RegistryResolutionPolicyLive,
+} from "./cli-runtime/index.js";
 import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
 import {
@@ -63,6 +67,7 @@ import {
   ExtensionManagersLive,
   HookManagerLive,
   KnowledgeManagerLive,
+  McpSecretStoreLive,
   McpServerManagerLive,
   PackManagerLive,
   RuleManagerLive,
@@ -79,7 +84,10 @@ export {
   SkillManagerLive,
   SubagentManagerLive,
 };
-import { LifecycleStepFailureConversionLive } from "./feature-errors.js";
+import {
+  LifecycleStepFailureConversionLive,
+  SyncStepFailureConversionLive,
+} from "./feature-errors.js";
 export { LifecycleStepFailureConversionLive };
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { ExecutionDirectory } from "./execution-directory.js";
@@ -721,6 +729,14 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     wsLayer,
     KnowledgeIndexLive,
     LifecycleStepFailureConversionLive,
+    SyncStepFailureConversionLive,
+    // The official skill the executable carries, and the terminal selection
+    // port, exactly as the runtime composes them: a test drives the product's
+    // own layers rather than a rehearsal of them. The flags layer's
+    // non-interactive default means no prompt ever opens.
+    BundledAxmSkillAssetLive,
+    Layer.provide(ExtensionSelectionInteractionLive, cliTestContext.baseLayer),
+    McpSecretStoreLive,
     // Every command runs inside the operation lifecycle, which opens the
     // journal and footprint recorder once per invocation; a test that drives
     // a handler directly gets empty ones here.
@@ -776,6 +792,7 @@ export const StepRequirementsTest = (axmDir = "/tmp/axm"): Layer.Layer<StepRequi
     NodeServices.layer,
     FetchHttpClient.layer,
     LifecycleStepFailureConversionLive,
+    McpSecretStoreLive,
     TestRenderer.make().layer,
     CodingAgentRepositoryLive.pipe(
       Layer.provideMerge(Layer.succeed(WorkspaceMutationsTag, makeBaseWorkspaceMock(axmDir))),

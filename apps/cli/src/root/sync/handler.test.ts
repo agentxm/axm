@@ -1,5 +1,4 @@
 import { startedUnits } from "../../screen/index.js";
-import { StepFailure } from "@agentxm/workspace-operations";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -7,13 +6,19 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
 import { isEffectCliExit } from "../../cli-runtime/index.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { HookManagerLive } from "@agentxm/extension-materialization/live";
+import {
+  ExtensionManagersLive,
+  HookManagerLive,
+  McpSecretStoreLive,
+} from "@agentxm/extension-materialization/live";
 import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
 import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
 import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
@@ -54,8 +59,12 @@ import {
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
 import { handleListMcpServers } from "../mcps/list.js";
+import { injectWriteFaults } from "@agentxm/workspace-transactions/testing";
 import { handleSync } from "./handler.js";
-import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
+import {
+  LifecycleStepFailureConversionLive,
+  SyncStepFailureConversionLive,
+} from "../../feature-errors.js";
 
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -624,6 +633,7 @@ describe("root sync handler", () => {
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
       LifecycleStepFailureConversionLive,
+      SyncStepFailureConversionLive,
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
@@ -640,6 +650,10 @@ describe("root sync handler", () => {
       PackManagerLive,
       Layer.mergeAll(managerDependencies, managersLayer),
     );
+    const extensionManagersLayer = Layer.provide(
+      ExtensionManagersLive,
+      Layer.mergeAll(managerDependencies, managersLayer, packManagerLayer),
+    );
     const invariantFactsLayer = Layer.provide(
       Layer.provide(WorkspaceInvariantFactsLive, ProjectionParticipantsLive),
       Layer.mergeAll(managerDependencies, managersLayer),
@@ -652,8 +666,11 @@ describe("root sync handler", () => {
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
           LifecycleStepFailureConversionLive,
+          SyncStepFailureConversionLive,
+          McpSecretStoreLive,
           managersLayer,
           packManagerLayer,
+          extensionManagersLayer,
           invariantFactsLayer,
         ),
       ),
@@ -1054,11 +1071,24 @@ describe("root sync handler", () => {
       Effect.gen(function* () {
         const fixture = makePackRollbackFixture(tempDir, { withMemberDependency: false });
         const before = capturePackRollbackPreimages(fixture.paths);
-        const { provide } = makeLayers(undefined, fixture.sources);
 
-        const exit = yield* Effect.exit(
-          provide(handleSync({ preview: false }, { afterMaterialization: () => Effect.interrupt })),
-        );
+        // The materialization write is observed through the transaction
+        // capability's fault hook, which reports each durable write; the
+        // invocation is then interrupted from outside, the way a signal does.
+        // The hook has to be in place before the workspace services capture
+        // the platform, so it is the file system this world is built on.
+        const materialized = yield* Deferred.make<void>();
+        const observeFirstWrite = injectWriteFaults((operation) => {
+          if (operation.path.includes(`${path.sep}agent_extensions${path.sep}`)) {
+            Deferred.doneUnsafe(materialized, Effect.void);
+          }
+          return false;
+        });
+        const { provide } = makeLayers({ fileSystemLayer: observeFirstWrite }, fixture.sources);
+        const running = yield* Effect.forkChild(provide(handleSync({ preview: false })));
+        yield* Deferred.await(materialized);
+        yield* Fiber.interrupt(running);
+        const exit = yield* Fiber.await(running);
 
         // The interruption resolves through the operation lifecycle: the
         // invocation terminates with the signal's exit code instead of an
@@ -1199,25 +1229,33 @@ describe("root sync handler", () => {
       const lockBefore = fs.readFileSync(fixture.paths.lockfile, "utf8");
       const settingsBefore = fs.readFileSync(fixture.paths.settings, "utf8");
       const canonicalBefore = fs.readFileSync(fixture.paths.canonicalSkill, "utf8");
-      const { provide, rendererState } = makeLayers({ machine: true }, fixture.sources);
-
-      yield* provide(
-        handleSync(
-          { preview: false },
-          {
-            afterMaterialization: () =>
-              Effect.fail(
-                new StepFailure({ category: "internal", detail: "Injected repair failure" }),
-              ),
-          },
-        ),
+      // The repair fails after it has materialized canonical content, by
+      // refusing the lockfile write that records the new resolution.
+      const { provide, rendererState } = makeLayers(
+        {
+          machine: true,
+          fileSystemLayer: injectWriteFaults(
+            (operation) => operation.path.endsWith("axm-lock.yaml"),
+            "Injected repair failure",
+          ),
+        },
+        fixture.sources,
       );
 
+      yield* provide(handleSync({ preview: false }));
+
+      // A refused lockfile rename is a `LockfileWriteError` at step `rename`,
+      // which the application-error boundary renders as `validation` with this
+      // sentence — pinned by app-error/conversions.test.ts. The plan pipeline
+      // must reproduce it byte for byte rather than invent its own category.
       expect(
         expectRecord(property(expectRecord(rendererState.results[0]?.data), "result")),
       ).toMatchObject({
         outcome: "failed",
-        failure: { code: "internal" },
+        failure: {
+          code: "validation",
+          message: expect.stringContaining("Failed to atomically replace lockfile at"),
+        },
       });
       expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(lockBefore);
       expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(settingsBefore);
@@ -1461,7 +1499,16 @@ describe("root sync handler", () => {
 
   it.effect("blocks every phase when instruction preflight finds an unowned target", () =>
     Effect.gen(function* () {
-      const { provide, rendererState } = makeLayers({ machine: true });
+      // The first materialization write is refused, so the closure fails
+      // before any projection lands and the remaining units are aborted.
+      const { provide, rendererState } = makeLayers({
+        machine: true,
+        fileSystemLayer: injectWriteFaults(
+          (operation) =>
+            operation.path.endsWith(`${path.sep}.claude${path.sep}skills${path.sep}release`),
+          "Injected materialization failure",
+        ),
+      });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         skills: { release: "workspace" },
@@ -1544,7 +1591,16 @@ describe("root sync handler", () => {
 
   it.effect("blocks cleanup and instructions after an earlier runtime failure", () =>
     Effect.gen(function* () {
-      const { provide, rendererState } = makeLayers({ machine: true });
+      // Materialization fails on its first durable write, so the units the
+      // sweep had not reached are aborted rather than run.
+      const { provide, rendererState } = makeLayers({
+        machine: true,
+        fileSystemLayer: injectWriteFaults(
+          (operation) =>
+            operation.path.endsWith(`${path.sep}.claude${path.sep}skills${path.sep}release`),
+          "Injected materialization failure",
+        ),
+      });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         skills: { release: "workspace" },
@@ -1558,20 +1614,7 @@ describe("root sync handler", () => {
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
       writeRenderedSubagent(tempDir, ".claude", "stale", true);
 
-      yield* provide(
-        handleSync(
-          { preview: false },
-          {
-            beforeMaterialization: () =>
-              Effect.fail(
-                new StepFailure({
-                  category: "internal",
-                  detail: "Injected materialization failure",
-                }),
-              ),
-          },
-        ),
-      );
+      yield* provide(handleSync({ preview: false }));
 
       const payload = expectRecord(rendererState.results[0]?.data);
       const result = expectRecord(property(payload, "result"));

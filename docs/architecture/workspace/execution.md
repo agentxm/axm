@@ -6,6 +6,7 @@ depends-on:
   - ../principles.md
   - ./overview.md
   - ./invariants.md
+  - ../decisions/closure-atomicity-and-recovery.md
 ---
 
 # Workspace execution

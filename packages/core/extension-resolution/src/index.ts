@@ -165,3 +165,31 @@ export {
   readAxmSkillWorkspaceCompatibility,
   type ReadAxmSkillWorkspaceCompatibilityArgs,
 } from "./axm-skill-workspace-compatibility.js";
+
+// Targeted update classification: who owns the declaration a named update
+// would move, whether it may move, and the freshness witness apply rechecks.
+export {
+  classifyTargetedUpdate,
+  resolveTargetedUpdateContext,
+  type ClassifyTargetedUpdateArgs,
+  type TargetedUpdateAuthority,
+  type TargetedUpdateBlocker,
+  type TargetedUpdateContext,
+  type TargetedUpdateContextFailure,
+  type TargetedUpdateEffect,
+  type TargetedUpdateOwnership,
+  type TargetedUpdatePublicContext,
+  type TargetedUpdateTarget,
+  type TargetedUpdateTargetType,
+} from "./update/targeted-update-context.js";
+
+// Which constraint governs an update when a workspace and its Packs each
+// declare one, and which newer releases that precedence holds back.
+export {
+  detectHoldbackWarnings,
+  resolveConstrainedVersion,
+  type ConstraintResolutionResult,
+  type PackConstraint,
+  type UpdateConstraints,
+} from "./update/constraint-precedence.js";
+export { hydrateAcceptedPackRef } from "./accepted-pack-hydration.js";

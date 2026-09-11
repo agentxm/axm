@@ -1,59 +1,42 @@
+/**
+ * `axm hooks install`.
+ */
+
 import * as Effect from "effect/Effect";
-import type { StepRequirements } from "../../shared/step-requirements.js";
-import {
-  deriveOperationOutcome,
-  operationPresentation,
-  type Plan,
-} from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
-import { emitOperationResolution } from "../../../operation-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
-import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../../shared/no-op-output.js";
-import {
-  InstallHookCommandWorkflowActions,
-  type InstallHookHandlerArgs,
-} from "./command-actions.js";
+import * as Option from "effect/Option";
+
+import { isNonInteractiveOptional } from "../../../cli-flags/index.js";
+import { runInstallCommand } from "../../shared/install-command.js";
+
+export interface InstallHookHandlerArgs {
+  readonly source: string;
+}
 
 export const handleInstallHook = (
   args: InstallHookHandlerArgs,
   flags: { readonly force: boolean; readonly preview: boolean },
 ) =>
-  withOperationLifecycle(
-    {
-      command: "hooks.install",
-      mode: flags.preview ? "preview" : "apply",
-      planName: "Install hooks",
-    },
-    handleInstallHookBody(args, flags),
-  );
-
-const handleInstallHookBody = (
-  args: InstallHookHandlerArgs,
-  flags: { readonly force: boolean; readonly preview: boolean },
-) =>
   Effect.gen(function* () {
-    const actions = yield* InstallHookCommandWorkflowActions;
-    const execution = yield* makeInstallPlanExecution(flags, ["hooks", "install"], [args.source]);
-    const resolution = yield* runInstallCommandWorkflow(args, actions, {
-      execution,
-      transformPlan: (plan) =>
-        Effect.succeed({
-          ...plan,
-          presentation: operationPresentation(
-            { imperative: "install", past: "Installed", gerund: "Installing" },
-            "hook",
-          ),
-        } satisfies Plan<StepRequirements>),
-    });
-    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
-      yield* emitNoOpOutcome("hooks.install", {
-        planName: resolution.name,
-        message: "No hooks packages installed.",
-      });
-      return;
-    }
-    yield* emitOperationResolution("hooks.install", resolution, {
+    const nonInteractive = yield* isNonInteractiveOptional;
+    return yield* runInstallCommand({
+      command: "hooks.install",
+      preview: flags.preview,
+      force: flags.force,
+      request: {
+        type: Option.some("hook"),
+        subject: { kind: "source", source: args.source },
+        names: [],
+        all: false,
+        reinstall: flags.force,
+        localName: Option.none(),
+        env: [],
+        nonInteractive,
+        planName: "Install hooks",
+        planDescription: Option.none(),
+      },
+      recoveryCommand: ["hooks", "install"],
+      recoveryLocators: [args.source],
       suggestions: [{ description: "Inspect installed hooks packages", cmd: "axm hooks list" }],
+      noOpMessage: "No hooks packages installed.",
     });
   });

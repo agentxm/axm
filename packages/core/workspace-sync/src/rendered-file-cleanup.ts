@@ -14,7 +14,6 @@ import {
   safeReadFileString,
   type AgentOutputInventory,
   type AgentOutputObservation,
-  type WorkspaceOwnershipIssue,
 } from "@agentxm/workspace-projection";
 import {
   NativeWriteAuthority,
@@ -220,40 +219,4 @@ export const reconcileAgentOutputs = (
       )
       .map(({ path: outputPath }) => outputPath);
     return { removedPaths: [...new Set(removedPaths)].sort(), preservedPaths };
-  });
-
-/** Inspect ownership proofs without mutating any agent-native artifact. */
-export const inspectWorkspaceOwnership = (): Effect.Effect<
-  ReadonlyArray<WorkspaceOwnershipIssue>,
-  WorkspaceSyncCleanupFailure,
-  | CodingAgentRepository
-  | FileSystem.FileSystem
-  | Path.Path
-  | WorkspaceMutations
-  | NativeWriteAuthority
-> =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const configured = new Set(yield* ws.getConfiguredAgents());
-    const empty = new Set<string>();
-    const observed = yield* inventory({
-      desiredAgentIds: configured,
-      expectedNames: {
-        skill: empty,
-        subagent: empty,
-        "mcp-server": empty,
-        hook: empty,
-      },
-    });
-    return observed.unownedFootprints.map((output) => ({
-      kind:
-        output.extensionType === "hook"
-          ? ("hook-ownership-ambiguous" as const)
-          : ("managed-file-unowned" as const),
-      path: output.path,
-      detail:
-        output.extensionType === "hook"
-          ? `Hook command targets an AXM canonical extension path without x-axm ownership metadata: ${output.entryName}`
-          : `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
-    }));
   });

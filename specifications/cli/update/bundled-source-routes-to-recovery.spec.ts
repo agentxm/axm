@@ -12,13 +12,13 @@ export const specification = defineSpecification({
   requirement: "cli/update/bundled-source-routes-to-recovery",
   title: "Targeted update routes bundled source to its converging recovery",
   statement:
-    "When a targeted update names an extension whose source is bundled with the AXM executable, the update shall be blocked in preview and apply without contacting any Registry or changing workspace state, and shall suggest reinstalling the bundled skill as the recovery path.",
+    "When a targeted update names an extension whose source is bundled with the AXM executable, the update shall be blocked in preview and apply as a policy exclusion naming the bundled source, without contacting any Registry or changing workspace state, and shall name reinstalling the bundled skill as the recovery path.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [],
-  supersedes: [],
+  supersedes: ["cli/update/machine-result-names-bundled-source-blocker"],
   assumptions: [],
   openQuestions: [],
 });
@@ -64,7 +64,14 @@ describe("Targeted update of a bundled official skill", () => {
         }).pipe(Effect.provide(workspace.layer));
         const result = workspace.rendererState.results.at(-1);
         expect(result?.ok).toBe(false);
-        expect(result?.data).toMatchObject({ result: { outcome: "blocked" } });
+        // The refusal is a policy exclusion that names the bundled source, so
+        // automation can branch on why rather than only on that it stopped.
+        expect(result?.data).toMatchObject({
+          result: {
+            outcome: "blocked",
+            blocking: { class: "policy-excluded", reference: "bundled-source" },
+          },
+        });
       }
 
       expect(workspace.rendererState.suggestions).toContainEqual({

@@ -60,6 +60,8 @@ export {
   requestedInterruptionSignal,
 } from "./interruption.js";
 export { ResolvePlanInteractionLive } from "./resolve-plan-interaction-live.js";
+export { ExtensionSelectionInteractionLive } from "./extension-selection-interaction-live.js";
+export { BundledAxmSkillAssetLive } from "./bundled-axm-skill-asset-live.js";
 export { runCliMain, resolveCliContext, type CliMainContext } from "./run-cli-main.js";
 export {
   type CliTelemetryConfig,

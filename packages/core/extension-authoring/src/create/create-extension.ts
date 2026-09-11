@@ -24,12 +24,14 @@ import * as Path from "effect/Path";
 
 import {
   ExtensionManagers,
+  buildAuthoredExtensionStep,
   buildNewExtensionStep,
   createCanonicalDirectory,
   groupInstallTargetsByDirectory,
   recoverCanonicalDirectory,
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
+  type AuthoredExtensionOperationArgs,
   type ExtensionManager,
   type InstallableSkillTarget,
   type ManagerRequirements,
@@ -37,6 +39,8 @@ import {
   type NewExtensionOperationArgs,
   type RecipeRequirements,
 } from "@agentxm/extension-materialization";
+import { McpSecretStore, materializeAuthoredMcpServer } from "@agentxm/extension-materialization";
+import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   toExtensionTypePlural,
@@ -73,6 +77,7 @@ import {
   type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
 
+import { authoredDeclaration } from "../authored-declaration.js";
 import { preflightCreateOnly } from "../create-preflight.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
 import { resolveAuthoringOwner, settingsRelativePath } from "./authoring-owner.js";
@@ -84,6 +89,7 @@ import {
 } from "./errors.js";
 import { hookScaffold } from "./scaffolds/hook.js";
 import { knowledgeScaffold } from "./scaffolds/knowledge.js";
+import { mcpServerScaffold } from "./scaffolds/mcp-server.js";
 import { packScaffold } from "./scaffolds/pack.js";
 import { ruleScaffold } from "./scaffolds/rule.js";
 import { skillScaffold } from "./scaffolds/skill.js";
@@ -129,6 +135,17 @@ export interface CreateKnowledgeRequest extends CreateRequestBase {
 export interface CreatePackRequest extends CreateRequestBase {
   readonly type: "pack";
 }
+export interface CreateMcpServerRequest extends CreateRequestBase {
+  readonly type: "mcp-server";
+  readonly description: Option.Option<string>;
+  /**
+   * Whether the invoking surface can prompt for a connection input the
+   * manifest requires. A new server scaffolds a placeholder package with no
+   * required inputs, so this only decides how a hand-edited manifest behaves
+   * on a second run.
+   */
+  readonly nonInteractive: boolean;
+}
 
 /** What an author asked to create. */
 export type CreateExtensionRequest =
@@ -137,7 +154,8 @@ export type CreateExtensionRequest =
   | CreateRuleRequest
   | CreateHookRequest
   | CreateKnowledgeRequest
-  | CreatePackRequest;
+  | CreatePackRequest
+  | CreateMcpServerRequest;
 
 /** The extension types `CreateExtension` scaffolds. */
 export type CreatableExtensionType = CreateExtensionRequest["type"];
@@ -148,7 +166,11 @@ export type CreatableExtensionType = CreateExtensionRequest["type"];
 
 /** What every step in this creation may require when it runs. */
 export type CreateExtensionRequirements =
-  ManagerRequirements | RecipeRequirements | WorkspaceMutations | CodingAgentRepository;
+  | ManagerRequirements
+  | RecipeRequirements
+  | WorkspaceMutations
+  | CodingAgentRepository
+  | McpSecretStore;
 
 /**
  * A settled creation: every decision is made and nothing is written. The
@@ -204,51 +226,11 @@ const declaration = (
   readonly isConfigured: Effect.Effect<boolean, AuthoringStepFailure>;
   readonly declare: Effect.Effect<void, AuthoringStepFailure>;
 } => {
-  const entry = { source: "workspace", enabled: true } as const;
-  switch (type) {
-    case "skill":
-      return {
-        isConfigured: ws
-          .getConfiguredSkillEntries()
-          .pipe(Effect.map((entries) => Object.hasOwn(entries, name))),
-        declare: ws.setSkillEntry(name, entry),
-      };
-    case "subagent":
-      return {
-        isConfigured: ws
-          .getConfiguredSubagentEntries()
-          .pipe(Effect.map((entries) => Object.hasOwn(entries, name))),
-        declare: ws.setSubagentEntry(name, entry),
-      };
-    case "rule":
-      return {
-        isConfigured: ws
-          .getConfiguredRuleEntries()
-          .pipe(Effect.map((entries) => Object.hasOwn(entries, name))),
-        declare: ws.setRuleEntry(name, entry),
-      };
-    case "hook":
-      return {
-        isConfigured: ws
-          .getConfiguredHookEntries()
-          .pipe(Effect.map((entries) => Object.hasOwn(entries, name))),
-        declare: ws.setHookEntry(name, entry),
-      };
-    case "knowledge":
-      return {
-        isConfigured: ws
-          .getConfiguredKnowledgeEntries()
-          .pipe(Effect.map((entries) => Object.hasOwn(entries, name))),
-        declare: ws.setKnowledgeEntry(name, entry),
-      };
-    case "pack":
-      return {
-        isConfigured: ws
-          .getConfiguredPackEntries()
-          .pipe(Effect.map((entries) => Object.hasOwn(entries, name))),
-        declare: ws.setPackEntry(name, entry),
-      };
-  }
+  const target = authoredDeclaration(ws, type, name);
+  return {
+    isConfigured: target.read.pipe(Effect.map((current) => current.configured)),
+    declare: target.declare({ enabled: true }),
+  };
 };
 
 const scaffoldFor = (request: CreateExtensionRequest, owner: Handle): AuthoredScaffold => {
@@ -271,6 +253,12 @@ const scaffoldFor = (request: CreateExtensionRequest, owner: Handle): AuthoredSc
       return knowledgeScaffold({ name: request.name, owner, description: request.description });
     case "pack":
       return packScaffold({ name: request.name, owner });
+    case "mcp-server":
+      return mcpServerScaffold({
+        name: request.name,
+        owner,
+        description: Option.getOrElse(request.description, () => ""),
+      });
   }
 };
 
@@ -291,6 +279,8 @@ const route = (
       return { subject: "knowledge bundle", command: "knowledge new" };
     case "pack":
       return { subject: "pack", command: "packs new" };
+    case "mcp-server":
+      return { subject: "MCP server", command: "mcps new" };
   }
 };
 
@@ -345,6 +335,59 @@ const skillTargetLocations = Effect.fn("CreateExtension.skillTargetLocations")(f
   }
   return { installable, locations: yield* groupInstallTargetsByDirectory(installable, ws.baseDir) };
 });
+
+/**
+ * Where a newly declared MCP connection becomes observable: the MCP config
+ * every configured agent reads for the selected scope. Preview and apply read
+ * the same forecast, so a preview lists exactly the files an apply writes.
+ */
+const mcpAgentConfigTargets = Effect.fn("CreateExtension.mcpAgentConfigTargets")(function* () {
+  const ws = yield* WorkspaceMutations;
+  const path = yield* Path.Path;
+  const configuredAgentIds = yield* ws.getConfiguredAgents();
+  const catalogAgents = Object.values(CONFIGURABLE_AGENTS_BY_ID);
+  const agentsByConfigPath = new Map<string, Set<string>>();
+  for (const agentId of configuredAgentIds) {
+    const agent = catalogAgents.find((candidate) => candidate.id === agentId);
+    const capability = agent?.capabilities["mcp-server"];
+    if (capability === undefined || capability.axm.writer === null) continue;
+    for (const target of capability.axm.writer.config.targets) {
+      if (target.scope !== ws.scope) continue;
+      const configPath = path.relative(ws.baseDir, path.resolve(ws.baseDir, target.path));
+      const agentIds = agentsByConfigPath.get(configPath) ?? new Set<string>();
+      agentIds.add(agentId);
+      agentsByConfigPath.set(configPath, agentIds);
+    }
+  }
+  return Array.from(agentsByConfigPath.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(
+      ([configPath, agentIds]) =>
+        ({
+          path: configPath,
+          change: "created",
+          agentIds: Array.from(agentIds).sort(),
+        }) satisfies JobStepArtifactTarget,
+    );
+});
+
+/**
+ * Build the authored-creation step for a type whose canonical content is
+ * realized by an installer rather than by its own manager.
+ */
+const authoredPackageStep = <TRef extends ExtensionRef, TFacts extends MaterializationFacts>(
+  manager: ExtensionManager<TRef, TFacts, ManagerRequirements>,
+  args: AuthoredExtensionOperationArgs<
+    TRef,
+    TFacts,
+    AuthoringStepFailure,
+    CreateExtensionRequirements
+  >,
+): PlannedJobStep<CreateExtensionRequirements | RecipeRequirements> =>
+  buildAuthoredExtensionStep<TRef, TFacts, AuthoringStepFailure, CreateExtensionRequirements>(
+    manager,
+    args,
+  );
 
 /**
  * Build the authored-creation step with the requirements this use case keeps
@@ -443,13 +486,15 @@ export const prepareCreateExtension: (
       };
     },
   );
+  const agentConfigTargets: ReadonlyArray<JobStepArtifactTarget> =
+    request.type === "mcp-server" ? yield* mcpAgentConfigTargets() : [];
   const plannedArtifact: JobStepArtifact = {
     path: authoredPath,
     scope: ws.scope,
     version: scaffold.version,
     change: "created",
     fileCount: scaffold.contentFiles.length,
-    targets: [...contentTargets, settingsTarget, ...projectionTargets],
+    targets: [...contentTargets, settingsTarget, ...projectionTargets, ...agentConfigTargets],
   };
 
   const common = {
@@ -598,13 +643,39 @@ export const prepareCreateExtension: (
           target: { type: "pack", owner, name },
           buildArtifact: () => Effect.succeed(plannedArtifact),
         });
+      case "mcp-server": {
+        // An MCP server's canonical content is realized by the install
+        // operation rather than by its manager, so the authored closure names
+        // that realization instead of the manager's default.
+        const nonInteractive = request.nonInteractive;
+        return authoredPackageStep(managers["mcp-server"], {
+          ...common,
+          target: { type: "mcp-server", name },
+          location,
+          enabled: true,
+          materializeInstall: (ref) => materializeAuthoredMcpServer({ ref, nonInteractive }),
+          buildArtifact: () => Effect.succeed(plannedArtifact),
+        });
+      }
     }
   })();
 
+  // A description is the one piece of package content a creation flag
+  // controls, so the operation says what it will record rather than leaving
+  // the author to read it back out of the written manifest.
+  const authoredSummary =
+    request.type === "knowledge" || request.type === "mcp-server"
+      ? request.description
+      : Option.none<string>();
   const plan: Plan<CreateExtensionRequirements> = {
     _tag: "Plan",
     name: createExtensionPlanName(request.type),
-    description: Option.some(`Create ${fqn}`),
+    description: Option.some(
+      Option.match(authoredSummary, {
+        onNone: () => `Create ${fqn}`,
+        onSome: (summary) => `Create ${fqn}: ${summary}`,
+      }),
+    ),
     presentation: operationPresentation(
       { imperative: "create", past: "Created", gerund: "Creating" },
       request.type,

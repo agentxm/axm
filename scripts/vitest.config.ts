@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     ...testExecution,
     ...makeTestReporting({ project: "axm", suite: "scripts" }),
-    include: ["**/*.test.ts"],
+    include: ["**/*.test.ts", "**/*.spec.ts"],
     setupFiles: [purposeSetupFile],
     testTimeout: 20000,
   },

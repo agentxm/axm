@@ -27,10 +27,17 @@ import {
   acceptedLockedCanonicalPath,
   removableAcceptedCanonicalPath,
 } from "@agentxm/workspace-state";
-import { agentConfigTarget, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
+import {
+  agentConfigTarget,
+  collectSecretInputNames,
+  deleteMcpSecrets,
+  mcpServerArtifact,
+  mcpSettingsTarget,
+  readMcpServerManifest,
+  McpSecretStore,
+} from "@agentxm/extension-materialization";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";
-import { collectSecretInputNames, deleteMcpSecrets, readMcpServerManifest } from "./install.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -222,6 +229,7 @@ export const uninstallMcpServer: (
   | WorkspaceMutations
   | CodingAgentRepository
   | NativeWriteAuthority
+  | McpSecretStore
   | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {

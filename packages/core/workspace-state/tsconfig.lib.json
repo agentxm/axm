@@ -30,6 +30,9 @@
     },
     {
       "path": "../../supporting/agent-integration/tsconfig.lib.json"
+    },
+    {
+      "path": "../../../tools/specification-metadata/tsconfig.lib.json"
     }
   ]
 }

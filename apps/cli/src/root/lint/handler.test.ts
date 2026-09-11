@@ -182,12 +182,15 @@ describe("axm lint handler", () => {
     readonly fix?: boolean;
   }) =>
     handleLint({
-      pathArg: Option.none(),
-      scope: args.scope ?? "project",
+      selection: {
+        workspaceRoot: tempDir,
+        userHome: tempDir,
+        scope: args.scope ?? "project",
+        input: { view: "workspace" },
+        fix: args.fix ?? false,
+      },
       strict: args.strict ?? false,
       details: args.details ?? false,
-      fix: args.fix ?? false,
-      input: { view: "workspace" },
     });
 
   it.effect("resolveLintRoot returns cwd by default", () => {

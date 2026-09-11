@@ -1,7 +1,12 @@
+/**
+ * The human view of an upgrade assessment. Every fact it shows is read from
+ * the typed `axm.upgrade-assessment/v1` result; the wording is the CLI's.
+ */
+
 import type { VerbosityLevel } from "../../cli-flags/index.js";
 import type { Doc } from "../../screen/index.js";
 import { headlineDoc, successDoc } from "../../screen/index.js";
-import { methodLabel, type UpgradeCoreResult } from "./handler.js";
+import { methodLabel, type UpgradeAssessmentResult } from "@agentxm/cli-update";
 import { formatAxmSkillCompatibilityTarget } from "@agentxm/extension-resolution";
 
 export interface UpgradeViewEntry {
@@ -9,30 +14,36 @@ export interface UpgradeViewEntry {
   readonly doc: Doc;
 }
 
+type Disposition = UpgradeAssessmentResult["disposition"];
+
 const note = (doc: Doc): UpgradeViewEntry => ({ channel: "note", doc });
 const result = (doc: Doc): UpgradeViewEntry => ({ channel: "result", doc });
 
-const outcomeEntry = (upgrade: UpgradeCoreResult, message: string): UpgradeViewEntry => {
-  switch (upgrade.resultStatus) {
+const outcomeEntry = (upgrade: UpgradeAssessmentResult, message: string): UpgradeViewEntry => {
+  switch (upgrade.disposition) {
     case "upgraded":
     case "reinstalled":
-    case "already-up-to-date":
+    case "already-current":
       return result(successDoc(message));
-    case "preview":
+    case "previewed":
     case "local-newer":
       return note(headlineDoc("info", message));
     case "downgrade-refused":
-    case "upgrade-incomplete":
-    case "upgrade-unverified":
-    case "manual-action-required":
+    case "installer-lagging":
+    case "installer-leading":
+    case "installer-unavailable":
+    case "installer-indeterminate":
+    case "mutation-failed":
+    case "verification-failed":
+    case "recovery-required":
     case "rolled-back":
       return note(headlineDoc("warn", message));
   }
 };
 
-const TERMINAL_FAILURES: ReadonlySet<UpgradeCoreResult["resultStatus"]> = new Set([
-  "upgrade-incomplete",
-  "upgrade-unverified",
+const TERMINAL_FAILURES: ReadonlySet<Disposition> = new Set<Disposition>([
+  "mutation-failed",
+  "verification-failed",
   "rolled-back",
 ]);
 
@@ -53,9 +64,9 @@ const outputTail = (output: string): string | null => {
  * where the instruction is — not behind a flag that would make acting on the
  * message require rerunning a mutating command.
  */
-const failureEvidence = (upgrade: UpgradeCoreResult): ReadonlyArray<UpgradeViewEntry> => {
-  if (!TERMINAL_FAILURES.has(upgrade.resultStatus)) return [];
-  const failing = [...upgrade.executedCommands]
+const failureEvidence = (upgrade: UpgradeAssessmentResult): ReadonlyArray<UpgradeViewEntry> => {
+  if (!TERMINAL_FAILURES.has(upgrade.disposition)) return [];
+  const failing = [...upgrade.commands]
     .reverse()
     .find((command) => command.executionState !== "exited" || command.exitCode !== 0);
   if (failing === undefined) return [];
@@ -74,12 +85,12 @@ const failureEvidence = (upgrade: UpgradeCoreResult): ReadonlyArray<UpgradeViewE
  * default verbosity; `--verbose` keeps the full command-by-command audit
  * trail below.
  */
-const resolvedFacts = (upgrade: UpgradeCoreResult): ReadonlyArray<UpgradeViewEntry> => [
-  note(headlineDoc("info", `Install method: ${methodLabel(upgrade.installMethod)}`)),
-  ...upgrade.executedCommands
+const resolvedFacts = (upgrade: UpgradeAssessmentResult): ReadonlyArray<UpgradeViewEntry> => [
+  note(headlineDoc("info", `Install method: ${methodLabel(upgrade.ownership.method)}`)),
+  ...upgrade.commands
     .filter((command) => command.purpose === "delegation")
     .map((command) => note(headlineDoc("info", `Ran: ${command.display}`))),
-  ...upgrade.verificationExecutables
+  ...upgrade.verification.executables
     .filter((verification) => verification.reportedVersion !== null)
     .slice(-1)
     .map((verification) =>
@@ -92,14 +103,14 @@ const resolvedFacts = (upgrade: UpgradeCoreResult): ReadonlyArray<UpgradeViewEnt
     ),
 ];
 
-const verboseEntries = (upgrade: UpgradeCoreResult): ReadonlyArray<UpgradeViewEntry> => [
+const verboseEntries = (upgrade: UpgradeAssessmentResult): ReadonlyArray<UpgradeViewEntry> => [
   note(
-    headlineDoc("info", `Detection: ${upgrade.detectionSource} (${upgrade.detectionConfidence})`),
+    headlineDoc("info", `Detection: ${upgrade.ownership.source} (${upgrade.ownership.confidence})`),
   ),
-  ...upgrade.detectionEvidence.map((evidence) =>
+  ...upgrade.ownership.evidence.map((evidence) =>
     note(headlineDoc("info", `Evidence: ${evidence}`)),
   ),
-  ...upgrade.executedCommands.flatMap((command) => [
+  ...upgrade.commands.flatMap((command) => [
     note(
       headlineDoc(
         "info",
@@ -113,7 +124,7 @@ const verboseEntries = (upgrade: UpgradeCoreResult): ReadonlyArray<UpgradeViewEn
       ? []
       : [note(headlineDoc("info", `stderr: ${command.stderr}`))]),
   ]),
-  ...upgrade.verificationExecutables.map((verification) =>
+  ...upgrade.verification.executables.map((verification) =>
     note(
       headlineDoc(
         "info",
@@ -121,61 +132,48 @@ const verboseEntries = (upgrade: UpgradeCoreResult): ReadonlyArray<UpgradeViewEn
       ),
     ),
   ),
-  ...(upgrade.backupPath === null
+  ...(upgrade.recovery.backupPath === null
     ? []
-    : [note(headlineDoc("info", `Recoverable backup: ${upgrade.backupPath}`))]),
-  ...(upgrade.observedFormulaVersion === undefined
+    : [note(headlineDoc("info", `Recoverable backup: ${upgrade.recovery.backupPath}`))]),
+  ...(upgrade.details.observedFormulaVersion === null
     ? []
-    : [
-        note(
-          headlineDoc(
-            "info",
-            `Homebrew formula: ${upgrade.observedFormulaVersion ?? "unavailable"}`,
-          ),
-        ),
-      ]),
-  ...(upgrade.homebrewFailure === undefined
+    : [note(headlineDoc("info", `Homebrew formula: ${upgrade.details.observedFormulaVersion}`))]),
+  ...(upgrade.details.homebrewFailure === null
     ? []
-    : [note(headlineDoc("info", `Homebrew terminal reason: ${upgrade.homebrewFailure}`))]),
-  ...(upgrade.resultStatus === "upgraded" || upgrade.resultStatus === "reinstalled"
+    : [note(headlineDoc("info", `Homebrew terminal reason: ${upgrade.details.homebrewFailure}`))]),
+  ...(upgrade.disposition === "upgraded" || upgrade.disposition === "reinstalled"
     ? [note(headlineDoc("info", "Install metadata: persisted"))]
     : []),
 ];
 
 export const upgradeView = (
-  upgrade: UpgradeCoreResult,
-  message: string,
+  upgrade: UpgradeAssessmentResult,
   verbosity: VerbosityLevel,
 ): ReadonlyArray<UpgradeViewEntry> => {
+  const recommended = upgrade.recovery.recommendedCommand;
   if (verbosity === "quiet") {
     const quietMessage =
-      upgrade.recommendedCommand === null
-        ? message
-        : `${message} · Next: ${upgrade.recommendedCommand.display}`;
+      recommended === null ? upgrade.message : `${upgrade.message} · Next: ${recommended.display}`;
     return [outcomeEntry(upgrade, quietMessage)];
   }
 
   return [
-    outcomeEntry(upgrade, message),
+    outcomeEntry(upgrade, upgrade.message),
     ...resolvedFacts(upgrade),
-    ...upgrade.details.map((detail) => note(headlineDoc("info", detail))),
+    ...upgrade.details.messages.map((detail) => note(headlineDoc("info", detail))),
     ...failureEvidence(upgrade),
-    ...(upgrade.targetVersion === null
-      ? []
-      : [
-          note(
-            headlineDoc(
-              "info",
-              `Compatibility target: ${formatAxmSkillCompatibilityTarget({
-                targetCliVersion: upgrade.targetVersion,
-                targetSkillVersion: upgrade.targetVersion,
-              })}`,
-            ),
-          ),
-        ]),
-    ...(upgrade.recommendedCommand === null
-      ? []
-      : [note(headlineDoc("info", `Next: ${upgrade.recommendedCommand.display}`))]),
+    ...[
+      note(
+        headlineDoc(
+          "info",
+          `Compatibility target: ${formatAxmSkillCompatibilityTarget({
+            targetCliVersion: upgrade.target.version,
+            targetSkillVersion: upgrade.target.version,
+          })}`,
+        ),
+      ),
+    ],
+    ...(recommended === null ? [] : [note(headlineDoc("info", `Next: ${recommended.display}`))]),
     ...(verbosity === "verbose" || verbosity === "debug" ? verboseEntries(upgrade) : []),
   ];
 };

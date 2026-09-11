@@ -14,11 +14,11 @@ import * as YAML from "yaml";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { makeAppError } from "../app-error/index.js";
 import { BRANDING } from "../branding/index.js";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { TestMachineRenderer, TestRenderer } from "../screen/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
+import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceInitializationCancelled } from "@agentxm/workspace-configuration";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
@@ -65,15 +65,9 @@ const makeSetupTestContext = (opts?: {
   readonly confirmSetup?: boolean | "interrupt";
   readonly syncInstructions?: boolean;
   readonly scope?: "project" | "user";
-  readonly installer?: "stub" | "live" | "fail";
   readonly renderer?: "text" | "machine";
 }) => {
   const renderer = opts?.renderer === "machine" ? TestMachineRenderer.make() : TestRenderer.make();
-  const installCalls: Array<{
-    readonly scope: "project" | "user";
-    readonly yes: boolean;
-    readonly preview: boolean;
-  }> = [];
   const selectAgentsOverride = opts?.selectAgents;
   const syncInstructionsOverride = opts?.syncInstructions;
   const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
@@ -100,6 +94,9 @@ const makeSetupTestContext = (opts?: {
     NodeServices.layer,
     FetchHttpClient.layer,
     CodingAgentRepositoryLive,
+    // Setup applies the bundled official skill inside the initialization
+    // closure, through the same asset layer the executable composes.
+    BundledAxmSkillAssetLive,
     renderer.layer,
     workspaceInitInteraction.layer,
     TestFlagsLayer(opts?.flags),
@@ -110,20 +107,20 @@ const makeSetupTestContext = (opts?: {
     }),
   );
   const layer = baseLayer;
-  const handleSetup = (args: Parameters<typeof handleSetupLive>[0]) =>
-    opts?.installer === "live"
-      ? handleSetupLive(args)
-      : handleSetupLive(args, (installArgs) =>
-          opts?.installer === "fail"
-            ? makeAppError({
-                code: "internal",
-                detail: "Injected bundled skill installation failure",
-              })
-            : Effect.sync(() => {
-                installCalls.push(installArgs);
-                return undefined;
-              }),
-        );
+  const handleSetup = handleSetupLive;
+  /** Whether the bundled AXM skill's canonical package is present. */
+  const bundledSkillInstalled = (): boolean =>
+    fs.existsSync(
+      path.join(
+        process.cwd(),
+        "agent_extensions",
+        "agentxm",
+        "@agentxm",
+        "skills",
+        "axm",
+        "skill.json",
+      ),
+    );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(layer));
@@ -131,7 +128,7 @@ const makeSetupTestContext = (opts?: {
   return {
     handleSetup,
     provide,
-    installCalls,
+    bundledSkillInstalled,
     promptState: workspaceInitInteraction.state,
     rendererState: renderer.state,
   };
@@ -165,7 +162,7 @@ describe("setup.handler", () => {
 
   describe("workspace initialization", () => {
     it.effect("creates the project workspace config and lockfile", () => {
-      const { handleSetup, provide, installCalls } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
 
@@ -183,7 +180,7 @@ describe("setup.handler", () => {
             source: "workspace",
             origin: "bundled",
           });
-          expect(installCalls).toEqual([{ scope: "project", yes: false, preview: false }]);
+          expect(bundledSkillInstalled()).toBe(true);
         }),
       );
     });
@@ -191,9 +188,11 @@ describe("setup.handler", () => {
     it.effect(
       "reports already initialized on re-run without reinstalling the bundled skill",
       () => {
-        const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
-          flags: { nonInteractive: true },
-        });
+        const { handleSetup, provide, bundledSkillInstalled, rendererState } = makeSetupTestContext(
+          {
+            flags: { nonInteractive: true },
+          },
+        );
 
         return provide(
           Effect.gen(function* () {
@@ -207,14 +206,14 @@ describe("setup.handler", () => {
               "Initialized with agents: Claude Code",
               "Workspace already initialized; use `axm agents add` or `axm agents remove` to change coding agents",
             ]);
-            expect(installCalls).toEqual([{ scope: "project", yes: false, preview: false }]);
+            expect(bundledSkillInstalled()).toBe(true);
           }),
         );
       },
     );
 
     it.effect("ignores explicit agent changes on rerun without rewriting workspace state", () => {
-      const { handleSetup, provide, installCalls, promptState } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled, promptState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
 
@@ -236,7 +235,7 @@ describe("setup.handler", () => {
           expect(fs.statSync(lockfilePath).mtimeMs).toBe(lockfileMtimeBefore);
           expect(readJson(settingsPath).agents).toEqual(["claude-code"]);
           expect(promptState.selectAgentsCalls).toHaveLength(0);
-          expect(installCalls).toEqual([{ scope: "project", yes: false, preview: false }]);
+          expect(bundledSkillInstalled()).toBe(true);
         }),
       );
     });
@@ -286,7 +285,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("emits initialized status in machine output", () => {
-      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: false },
         renderer: "machine",
       });
@@ -295,7 +294,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          expect(installCalls).toEqual([{ scope: "project", yes: false, preview: false }]);
+          expect(bundledSkillInstalled()).toBe(true);
           // Setup keeps its own operation-plan document shape.
           const result = expectRecord(
             property(expectRecord(rendererState.results[0]?.data), "result"),
@@ -400,7 +399,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("fails on unrecognized requested agents before setup output", () => {
-      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -425,7 +424,7 @@ describe("setup.handler", () => {
               { description: "Show available setup agents.", cmd: "axm setup --help" },
             ]);
           }
-          expect(installCalls).toEqual([]);
+          expect(bundledSkillInstalled()).toBe(false);
           expect(rendererState.logs).toEqual([]);
           expect(rendererState.results).toEqual([]);
           expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
@@ -434,7 +433,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("emits already-initialized status in machine output on re-run", () => {
-      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -444,7 +443,7 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          expect(installCalls).toEqual([{ scope: "project", yes: false, preview: false }]);
+          expect(bundledSkillInstalled()).toBe(true);
           const result = expectRecord(
             property(expectRecord(rendererState.results[1]?.data), "result"),
           );
@@ -479,7 +478,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("pseudo-installs the bundled AXM skill without registry services", () => {
-      const { handleSetup, provide } = makeSetupTestContext({ installer: "live" });
+      const { handleSetup, provide } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -527,7 +526,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("preserves existing settings", () => {
-      const { handleSetup, provide, installCalls } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
 
@@ -549,7 +548,7 @@ describe("setup.handler", () => {
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
           expect(settings.skills?.["commit"]).toBe("^1.0.0");
           expect(settings.owner).toBe("@myorg");
-          expect(installCalls).toEqual([]);
+          expect(bundledSkillInstalled()).toBe(false);
         }),
       );
     });
@@ -649,7 +648,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("preview renders the setup plan without writing workspace files", () => {
-      const { handleSetup, provide, installCalls } = makeSetupTestContext();
+      const { handleSetup, provide, bundledSkillInstalled } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -663,7 +662,7 @@ describe("setup.handler", () => {
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
-          expect(installCalls).toEqual([]);
+          expect(bundledSkillInstalled()).toBe(false);
         }),
       );
     });
@@ -691,7 +690,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("emits preview status in machine output without writing workspace files", () => {
-      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -706,7 +705,7 @@ describe("setup.handler", () => {
           });
 
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
-          expect(installCalls).toEqual([]);
+          expect(bundledSkillInstalled()).toBe(false);
           const result = expectRecord(
             property(expectRecord(rendererState.results[0]?.data), "result"),
           );
@@ -867,7 +866,7 @@ describe("setup.handler", () => {
           expect(context.promptState.confirmInstructionSyncCalls).toEqual([]);
           expect(context.promptState.selectInstructionSourceCalls).toEqual([]);
           expect(context.promptState.confirmSetupPlanCalls).toEqual([]);
-          expect(context.installCalls).toEqual([]);
+          expect(context.bundledSkillInstalled()).toBe(false);
         }
         expect(unapproved.promptState.presentSetupPlanCalls).toEqual(
           approved.promptState.presentSetupPlanCalls,
@@ -1134,7 +1133,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("requires complete explicit intent for unattended setup", () => {
-      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: false },
         renderer: "machine",
       });
@@ -1154,7 +1153,7 @@ describe("setup.handler", () => {
               changed: false,
             },
           });
-          expect(installCalls).toEqual([]);
+          expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
         }),
@@ -1162,7 +1161,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("does not let --yes apply an inferred candidate", () => {
-      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
 
@@ -1178,14 +1177,14 @@ describe("setup.handler", () => {
             _tag: "error",
             message: "Approval required — no changes applied",
           });
-          expect(installCalls).toEqual([]);
+          expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
         }),
       );
     });
 
     it.effect("applies unattended setup with approval, explicit scope, and agents", () => {
-      const { handleSetup, provide, installCalls } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
 
@@ -1199,7 +1198,7 @@ describe("setup.handler", () => {
           });
 
           expect(readJson(path.join(tempDir, "axm.json")).agents).toEqual(["claude-code"]);
-          expect(installCalls).toEqual([{ scope: "project", yes: true, preview: false }]);
+          expect(bundledSkillInstalled()).toBe(true);
         }),
       );
     });
@@ -1269,7 +1268,7 @@ describe("setup.handler", () => {
     );
 
     it.effect("leaves project setup untouched when interactive confirmation is declined", () => {
-      const { handleSetup, provide, installCalls, promptState, rendererState } =
+      const { handleSetup, provide, bundledSkillInstalled, promptState, rendererState } =
         makeSetupTestContext({
           flags: { nonInteractive: false },
           confirmSetup: false,
@@ -1284,7 +1283,7 @@ describe("setup.handler", () => {
             _tag: "info",
             message: "Setup cancelled — no changes applied",
           });
-          expect(installCalls).toEqual([]);
+          expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
         }),
@@ -1292,7 +1291,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("leaves user setup untouched when interactive confirmation is declined", () => {
-      const { handleSetup, provide, installCalls, promptState } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled, promptState } = makeSetupTestContext({
         flags: { nonInteractive: false },
         confirmSetup: false,
       });
@@ -1302,7 +1301,7 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "user" });
 
           expect(promptState.confirmSetupPlanCalls).toHaveLength(1);
-          expect(installCalls).toEqual([]);
+          expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(homeDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
         }),
@@ -1310,7 +1309,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("leaves setup untouched when interactive confirmation is interrupted", () => {
-      const { handleSetup, provide, installCalls } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled } = makeSetupTestContext({
         flags: { nonInteractive: false },
         confirmSetup: "interrupt",
       });
@@ -1321,7 +1320,7 @@ describe("setup.handler", () => {
             Effect.catchTag("WorkspaceInitializationCancelled", () => Effect.void),
           );
 
-          expect(installCalls).toEqual([]);
+          expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
         }),
@@ -1385,7 +1384,9 @@ describe("setup.handler", () => {
     it.effect(
       "creates settings in the user workspace without touching the project workspace",
       () => {
-        const { handleSetup, provide, installCalls } = makeSetupTestContext({ scope: "user" });
+        const { handleSetup, provide, bundledSkillInstalled } = makeSetupTestContext({
+          scope: "user",
+        });
 
         return provide(
           Effect.gen(function* () {
@@ -1401,7 +1402,7 @@ describe("setup.handler", () => {
               source: "workspace",
               origin: "bundled",
             });
-            expect(installCalls).toEqual([{ scope: "user", yes: false, preview: false }]);
+            expect(bundledSkillInstalled()).toBe(false);
           }),
         );
       },
@@ -1410,7 +1411,9 @@ describe("setup.handler", () => {
     it.effect(
       "records initial user-scope agents and ignores later setup membership changes",
       () => {
-        const { handleSetup, provide, installCalls } = makeSetupTestContext({ scope: "user" });
+        const { handleSetup, provide, bundledSkillInstalled } = makeSetupTestContext({
+          scope: "user",
+        });
 
         return provide(
           Effect.gen(function* () {
@@ -1422,7 +1425,7 @@ describe("setup.handler", () => {
 
             expect(readJson(settingsPath).agents).toEqual(["claude-code"]);
             expect(fs.readFileSync(settingsPath)).toEqual(before);
-            expect(installCalls).toEqual([{ scope: "user", yes: false, preview: false }]);
+            expect(bundledSkillInstalled()).toBe(false);
           }),
         );
       },
@@ -1655,21 +1658,31 @@ describe("setup.handler", () => {
 
     it.effect("rolls back first-time setup when bundled skill installation fails", () => {
       const { handleSetup, provide } = makeSetupTestContext({
-        installer: "fail",
         flags: { nonInteractive: true },
       });
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleSetup({
+          // The canonical package's parent directory cannot be written, so
+          // the bundled skill cannot be materialized: a real failure of the
+          // step setup applies inside its initialization closure.
+          const canonicalParent = path.join(
+            tempDir,
+            "agent_extensions",
+            "agentxm",
+            "@agentxm",
+            "skills",
+          );
+          fs.mkdirSync(canonicalParent, { recursive: true });
+          fs.chmodSync(canonicalParent, 0o555);
+
+          const settled = yield* handleSetup({
             scope: "project",
             agents: ["claude-code"],
-          }).pipe(Effect.flip);
+          }).pipe(Effect.exit);
+          fs.chmodSync(canonicalParent, 0o755);
 
-          expect(error._tag).toBe("AppError");
-          if (error._tag === "AppError") {
-            expect(error.detail).toBe("Injected bundled skill installation failure");
-          }
+          expect(settled._tag).toBe("Failure");
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "axm-lock.yaml"))).toBe(false);

@@ -1,10 +1,10 @@
 /**
  * Desired-state materialization planning: select desired nodes, judge
  * observed-materialization currency, and assemble the per-extension
- * materialize steps of a sync plan. Lifecycle-owned decisions — configured
- * entry resolution and the MCP server install operation — enter as
- * application-supplied capabilities, so this feature never executes another
- * feature's policy.
+ * materialize steps of a sync plan. Configured-entry resolution comes from
+ * the resolution capability and the MCP server install operation from the
+ * materialization capability, so this feature reaches for a capability rather
+ * than asking the application to hand it another feature's policy.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  */
@@ -15,6 +15,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
+import type * as Scope from "effect/Scope";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import * as semver from "semver";
 import {
   HookManager,
@@ -23,9 +26,11 @@ import {
   SkillManager,
   SubagentManager,
   buildMaterializeOperation,
+  installMcpServer,
   skillArtifactFromTargets,
   targetFromRef,
   toStepKey,
+  type McpServerInstallRequirements,
 } from "@agentxm/extension-materialization";
 import { enabledConfiguredEntries, isConfiguredEntryEnabled } from "@agentxm/workspace-state";
 import {
@@ -39,7 +44,15 @@ import {
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace-projection";
 import {
+  makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
+  ReleaseAgePosture,
+  resolveConfiguredHook,
+  resolveConfiguredKnowledge,
+  resolveConfiguredMcpServer,
+  resolveConfiguredRule,
+  resolveConfiguredSkill,
+  resolveConfiguredSubagent,
   type ReleaseAgeOperationEvidence,
   type ResolvedConfiguredEntry,
 } from "@agentxm/extension-resolution";
@@ -70,9 +83,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
-  StepFailure,
   type JobStepArtifact,
-  type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
@@ -171,7 +182,7 @@ export const recoverableExternalPackName = (
   return node.name;
 };
 
-export interface ConfiguredPackRecovery<R = SyncStepRequirements> {
+export interface ConfiguredPackRecovery<R = SyncStepRequirements | McpServerInstallRequirements> {
   readonly packNames: ReadonlySet<string>;
   readonly releaseAge: Plan["releaseAge"];
   readonly steps: ReadonlyArray<PlannedJobStep<R>>;
@@ -253,53 +264,174 @@ const subagentSyncArtifact = (args: {
     };
   });
 
-const buildMcpServerSyncOperation = <R>({
+/**
+ * Reconciling an MCP server means re-running its install operation: a server
+ * is realized into each agent's native configuration rather than into a
+ * canonical tree, so there is nothing to copy into place. Settings are
+ * skipped because a sweep never changes what the workspace declared, and the
+ * run is non-interactive because reconciliation must not stop to prompt.
+ */
+const buildMcpServerSyncOperation = ({
   ref,
   force,
   transitionLabel,
-  runMcpServerInstall,
+  adapter,
 }: {
   readonly ref: McpServerExtensionRef;
   readonly force: boolean;
   readonly transitionLabel: string;
-  readonly runMcpServerInstall: RunMcpServerInstall<R>;
-}): PlannedJobStep<R | SyncStepRequirements> => {
+  readonly adapter: SyncFailureAdapter;
+}): PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements> => {
   const target = targetFromRef(ref);
   return {
     key: toStepKey(target),
     label: transitionLabel,
     readiness: "ready",
-    run: runMcpServerInstall({ ref, force }),
+    run: installMcpServer({
+      name: "install-mcp-server",
+      args: {
+        ref,
+        nonInteractive: true,
+        force,
+        allowWorkspaceSourceTransition: false,
+        versionRange: Option.none(),
+        skipSettings: Option.some(true),
+      },
+    }).pipe(Effect.mapError(adapter.toStepFailure)),
   };
 };
 
-/** Application-supplied MCP server install operation for one sync transition. */
-export type RunMcpServerInstall<R> = (args: {
-  readonly ref: McpServerExtensionRef;
-  readonly force: boolean;
-}) => Effect.Effect<JobStepResult, StepFailure, R>;
-
-/** The resolved configured entry the desired-ref capability yields per node. */
-export type ResolvedDesiredRef =
+/** The resolved configured entry this feature derives for one desired node. */
+type ResolvedDesiredRef =
   | ResolvedConfiguredEntry<ExtensionRef>
   | {
       readonly ref: ExtensionRef;
       readonly versionRange: Option.Option<never>;
     };
 
+/** Everything resolving one configured entry can fail with. */
+type ConfiguredEntryResolutionFailure = Effect.Error<ReturnType<typeof resolveConfiguredSkill>>;
+
+/** Everything resolving one configured entry reads. */
+export type ConfiguredEntryResolutionRequirements =
+  | FileSystem.FileSystem
+  | HttpClient.HttpClient
+  | Path.Path
+  | ReleaseAgePosture
+  | Scope.Scope
+  | SourceHostProviders
+  | WorkspaceCatalog
+  | WorkspaceMutations;
+
+const SYNC_CATEGORIES = ["conflict", "internal", "not_found", "validation"] as const;
+
+const syncCategory = (
+  cause: ConfiguredEntryResolutionFailure,
+): (typeof SYNC_CATEGORIES)[number] => {
+  if (!("category" in cause)) return "conflict";
+  const found = SYNC_CATEGORIES.find((category) => category === cause.category);
+  return found ?? "conflict";
+};
+
+const resolutionDetail = (cause: ConfiguredEntryResolutionFailure): string =>
+  "detail" in cause && typeof cause.detail === "string" ? cause.detail : cause._tag;
+
+/** The suggestion shape this feature's refusal carries to the boundary. */
+type CarriedSuggestedActions = NonNullable<WorkspaceSyncFailed["suggestions"]>;
+
+/**
+ * The recovery routes the resolution refusal already named. Annotating the
+ * refusal with the node that needed it must not cost the operator the escape
+ * the producer described, so `recover`/`cmd` fold into a leading action the
+ * way the application boundary folds them.
+ */
+const resolutionGuidance = (cause: ConfiguredEntryResolutionFailure): CarriedSuggestedActions => {
+  const recover =
+    "recover" in cause && typeof cause.recover === "string" ? cause.recover : undefined;
+  const cmd = "cmd" in cause && typeof cause.cmd === "string" ? cause.cmd : undefined;
+  const carried: CarriedSuggestedActions =
+    "suggestions" in cause && cause.suggestions !== undefined ? cause.suggestions : [];
+  const leading: CarriedSuggestedActions =
+    recover === undefined ? [] : [{ description: recover, ...(cmd === undefined ? {} : { cmd }) }];
+  return [...leading, ...carried];
+};
+
+/**
+ * Resolve one desired node's configured entry, annotating the failure with
+ * the node and the canonical status that made resolution necessary. A
+ * constraint mismatch is reported as a blocked decision rather than as a bare
+ * resolution failure, because the operator's next move is different.
+ */
+const resolveDesiredNodeRef = (
+  node: DesiredExtensionNode & { readonly source: string },
+  canonicalStatus: CanonicalObservationStatus,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  constraintDetail: string | undefined,
+): Effect.Effect<
+  ResolvedDesiredRef,
+  WorkspaceSyncFailed,
+  ConfiguredEntryResolutionRequirements
+> => {
+  const annotate = <A>(
+    effect: Effect.Effect<
+      A,
+      ConfiguredEntryResolutionFailure,
+      ConfiguredEntryResolutionRequirements
+    >,
+  ) =>
+    effect.pipe(
+      Effect.mapError(
+        (cause) =>
+          new WorkspaceSyncFailed({
+            category: constraintDetail === undefined ? syncCategory(cause) : "conflict",
+            detail:
+              constraintDetail === undefined
+                ? `${node.type} ${node.name}: ${resolutionDetail(cause)} (canonical status: ${canonicalStatus})`
+                : `${constraintDetail}; decision=blocked; reason=no-satisfying-version; ${resolutionDetail(cause)}`,
+            ...(resolutionGuidance(cause).length === 0
+              ? {}
+              : { suggestions: resolutionGuidance(cause) }),
+            cause,
+          }),
+      ),
+    );
+  switch (node.type) {
+    case "skill":
+      return annotate(resolveConfiguredSkill(node.name, node.source, releaseAgeEvaluation));
+    case "mcp-server":
+      return annotate(resolveConfiguredMcpServer(node.name, node.source, releaseAgeEvaluation));
+    case "subagent":
+      return annotate(resolveConfiguredSubagent(node.name, node.source, releaseAgeEvaluation));
+    case "rule":
+      return annotate(resolveConfiguredRule(node.name, node.source, releaseAgeEvaluation));
+    case "hook":
+      return annotate(resolveConfiguredHook(node.name, node.source, releaseAgeEvaluation));
+    case "knowledge":
+      return annotate(resolveConfiguredKnowledge(node.name, node.source, releaseAgeEvaluation));
+    case "pack":
+      return Effect.fail(
+        new WorkspaceSyncFailed({
+          category: "internal",
+          detail: `Pack ${node.identity} is not a projection target`,
+        }),
+      );
+  }
+};
+
 /**
  * Everything a collected materialize step may require at execution time: the
  * feature's own step requirements plus what a projection participant declares
  * when currency is judged by reading a unit back.
  */
-type MaterializeStepRequirements = SyncStepRequirements | ProjectionParticipantRequirements;
+type MaterializeStepRequirements =
+  SyncStepRequirements | ProjectionParticipantRequirements | McpServerInstallRequirements;
 
 /**
  * What one materialize collection reports to the plan assembler: the steps it
  * built, the names the cleanup sweep must treat as expected, and the
  * release-age evidence the plan carries.
  */
-export interface CollectedMaterializeSteps<R> {
+export interface CollectedMaterializeSteps {
   /** Whether the desired graph was complete enough for cleanup to run. */
   readonly cleanupSafe: boolean;
   readonly knowledgeMayChange: boolean;
@@ -309,7 +441,7 @@ export interface CollectedMaterializeSteps<R> {
   readonly expectedMcpServerNames: ReadonlySet<string>;
   readonly expectedHookNames: ReadonlySet<string>;
   readonly releaseAge: ReleaseAgeOperationEvidence;
-  readonly steps: ReadonlyArray<PlannedJobStep<R | SyncStepRequirements>>;
+  readonly steps: ReadonlyArray<PlannedJobStep<MaterializeStepRequirements>>;
 }
 
 /**
@@ -321,40 +453,27 @@ export interface CollectedMaterializeSteps<R> {
  * packages this one does not declare, whose `.d.ts` references then resolve to
  * `any` under `skipLibCheck` and collapse the whole channel.
  */
-export const collectMaterializeSteps = <
-  E = never,
-  R = MaterializeStepRequirements,
-  RResolve = never,
->(args: {
+export const collectMaterializeSteps = (args: {
   readonly selection?: SyncSelection;
-  readonly retainedOnly?: boolean;
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
-  readonly packRecovery?: ConfiguredPackRecovery<R>;
-  /** Release-age policy evaluated by the application from lifecycle policy. */
-  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
-  /** Application-supplied configured-entry resolution for one desired node. */
-  readonly resolveDesiredRef: (
-    node: DesiredExtensionNode & { readonly source: string },
-    canonicalStatus: CanonicalObservationStatus,
-    constraintDetail: string | undefined,
-  ) => Effect.Effect<ResolvedDesiredRef, E, RResolve>;
-  readonly runMcpServerInstall: RunMcpServerInstall<R>;
+  readonly packRecovery?: ConfiguredPackRecovery;
   readonly adapter: SyncFailureAdapter;
 }): Effect.Effect<
-  CollectedMaterializeSteps<R>,
-  SyncPolicyFailure | E,
+  CollectedMaterializeSteps,
+  SyncPolicyFailure,
   | CodingAgentRepository
-  | WorkspaceMutations
+  | ConfiguredEntryResolutionRequirements
   | FileSystem.FileSystem
-  | Path.Path
   | HookManager
   | KnowledgeManager
+  | McpServerInstallRequirements
+  | Path.Path
+  | ProjectionParticipantRequirements
   | RuleManager
   | SkillManager
   | SubagentManager
-  | ProjectionParticipantRequirements
-  | RResolve
+  | WorkspaceMutations
 > =>
   Effect.gen(function* () {
     const skillManager = yield* SkillManager;
@@ -366,7 +485,7 @@ export const collectMaterializeSteps = <
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const releaseAgeEvaluation = args.releaseAgeEvaluation;
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
     const configuredMcpServerEntries = yield* ws.getConfiguredMcpServerEntries();
     const configuredAgents = args.configuredAgents ?? (yield* ws.getConfiguredAgents());
     const desiredState = yield* ws.getDesiredStateGraph();
@@ -418,8 +537,7 @@ export const collectMaterializeSteps = <
             observation.status === "constraint-mismatch"
               ? makeExtensionConstraintInvariantFact(node, observation)
               : undefined;
-          const forceCanonical =
-            args.retainedOnly === true ? false : observation.status !== "usable";
+          const forceCanonical = observation.status !== "usable";
           const resolved = yield* Effect.gen(function* () {
             if (observation.status === "usable") {
               const usable = yield* usableAcceptedCanonical({
@@ -441,21 +559,10 @@ export const collectMaterializeSteps = <
                 return { ref: immutable.value, versionRange: Option.none() };
               }
             }
-            if (args.retainedOnly === true) {
-              return yield* new WorkspaceSyncFailed({
-                category: "conflict",
-                detail: `Cannot rematerialize retained ${node.type} ${node.name}: canonical content is ${observation.status}`,
-                suggestions: [
-                  {
-                    description: "Refresh the pack and its retained members",
-                    cmd: "axm packs update --yes",
-                  },
-                ],
-              });
-            }
-            return yield* args.resolveDesiredRef(
+            return yield* resolveDesiredNodeRef(
               node,
               observation.status,
+              releaseAgeEvaluation,
               constraintFact === undefined
                 ? undefined
                 : extensionConstraintFactText(constraintFact),
@@ -631,10 +738,10 @@ export const collectMaterializeSteps = <
           const current = inspections.every(
             (inspection) => inspection.status === "match" || inspection.status === "unsupported",
           );
-          if (current) return Option.none<PlannedJobStep<R | SyncStepRequirements>>();
+          if (current) return Option.none<PlannedJobStep<MaterializeStepRequirements>>();
           const conflicts = inspections.filter((inspection) => inspection.status === "unmanaged");
           if (conflicts.length > 0) {
-            return Option.some<PlannedJobStep<R | SyncStepRequirements>>({
+            return Option.some<PlannedJobStep<MaterializeStepRequirements>>({
               key: `${SYNC_RECOVERY_IDS.inlineMcpCollision}:${name}`,
               label: `mcp-server ${name}`,
               readiness: "error",
@@ -723,7 +830,7 @@ export const collectMaterializeSteps = <
             buildArtifact,
           }),
           artifact,
-        } satisfies PlannedJobStep<R | SyncStepRequirements>;
+        } satisfies PlannedJobStep<MaterializeStepRequirements>;
       });
     const subagentMaterializeStep = ({
       ref,
@@ -785,12 +892,7 @@ export const collectMaterializeSteps = <
         ...mcpServerRefs
           .filter(({ materialize }) => materialize)
           .map(({ ref, force, transitionLabel }) =>
-            buildMcpServerSyncOperation({
-              ref,
-              force,
-              transitionLabel,
-              runMcpServerInstall: args.runMcpServerInstall,
-            }),
+            buildMcpServerSyncOperation({ ref, force, transitionLabel, adapter: args.adapter }),
           ),
         ...inlineMcpServerSteps,
         ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
@@ -817,6 +919,6 @@ export const collectMaterializeSteps = <
             }),
           ),
         ...knowledgeRefs.filter(({ materialize }) => materialize).map(knowledgeMaterializeStep),
-      ] satisfies ReadonlyArray<PlannedJobStep<R | SyncStepRequirements>>,
+      ] satisfies ReadonlyArray<PlannedJobStep<MaterializeStepRequirements>>,
     };
   });

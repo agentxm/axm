@@ -1,6 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { ignoreReleaseAgeFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
-import { withRuntime, withWorkspace } from "../../../runtime.js";
+import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import {
   previewCapabilityFlag,
@@ -15,13 +16,18 @@ const enableConfig = {
     Flag.withDescription("Enable in project (default) or user-level configuration"),
   ),
   preview: previewCapabilityFlag("Show what would change without enabling"),
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
-export const enableCommand = Command.make("enable", enableConfig, ({ name, scope, preview }) =>
-  handleEnableSubagent({ name, preview }).pipe(
-    withWorkspace(scope),
-    withRuntime("subagents enable"),
-  ),
+export const enableCommand = Command.make(
+  "enable",
+  enableConfig,
+  ({ name, scope, preview, ignoreReleaseAge }) =>
+    handleEnableSubagent({ name, preview }).pipe(
+      withReleaseAgePosture(ignoreReleaseAge),
+      withWorkspace(scope),
+      withRuntime("subagents enable"),
+    ),
 ).pipe(
   withArgvTracking(enableConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),

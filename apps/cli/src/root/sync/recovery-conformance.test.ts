@@ -16,7 +16,7 @@ import {
   type AggregateOwnershipUnitId,
 } from "@agentxm/workspace-projection";
 import { syncRecoveryIdentifiers } from "@agentxm/workspace-sync";
-import { packUninstallRecoveryIdentifiers } from "../packs/uninstall/readiness.js";
+import { packUninstallRecoveryIdentifiers } from "@agentxm/extension-lifecycle";
 
 type RecoveryOwner = "sync" | "intent-command" | "direct-correction" | "manual-preservation";
 type StateField =
@@ -330,9 +330,12 @@ const packUninstallEntries: ReadonlyArray<RecoveryConformanceEntry> =
     makeEntry(id, {
       owner: "direct-correction",
       field: "canonicalContent",
+      // The blocker and its recovery now live with the uninstall use case:
+      // that specification blocks on an incomplete graph, retires the
+      // unreadable pack when every other pack is intact, and reaches the same
+      // decision in preview and apply.
       evidence: [
-        "apps/cli/src/root/packs/uninstall/command-actions.test.ts",
-        "apps/cli/src/root/packs/uninstall/handler.test.ts",
+        "packages/core/extension-lifecycle/src/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts",
       ],
     }),
   );
@@ -369,7 +372,13 @@ const adversarialContracts = [
     "formatter-drift-remains-projectable",
     "packages/core/extension-materialization/src/knowledge/manager.test.ts",
   ],
-  ["divergent-external-replacement-is-disclosed", "apps/cli/src/root/update/handler.test.ts"],
+  // A Registry that rebinds an accepted extension to a different publisher is
+  // the divergent external replacement; the acceptance path both install and
+  // update take reports it as an interactive-only risk before writing.
+  [
+    "divergent-external-replacement-is-disclosed",
+    "packages/core/extension-lifecycle/src/install/preview-is-pure.spec.ts",
+  ],
   ["global-sync-reports-local-outcomes", "apps/cli/src/root/sync/handler.test.ts"],
   [
     "lock-only-pack-members-do-not-create-reachability",
@@ -387,11 +396,17 @@ const adversarialContracts = [
     "newer-lockfile-gate-names-upgrade",
     "specifications/cli/invalid-workspace-state-gates-operations.spec.ts",
   ],
-  ["mutable-source-identity-is-stable", "apps/cli/src/root/update/handler.test.ts"],
+  // A local source is mutable: that specification installs one, changes its
+  // content, restores it, and shows the recorded identity return to its
+  // original value rather than drifting.
+  [
+    "mutable-source-identity-is-stable",
+    "packages/core/extension-lifecycle/src/install/records-accepted-resolution.spec.ts",
+  ],
   ["unsupported-state-is-rejected", "packages/core/workspace-state/src/settings/schema.test.ts"],
   [
     "pack-uninstall-readiness-agrees-with-apply",
-    "apps/cli/src/root/packs/uninstall/handler.test.ts",
+    "packages/core/extension-lifecycle/src/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts",
   ],
 ] as const;
 

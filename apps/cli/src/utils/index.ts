@@ -1,9 +1,3 @@
-export {
-  atomicWriteTempPrefix,
-  sweepStaleAtomicWriteTemps,
-  writeFileAtomic,
-  type AtomicWriteFailure,
-} from "./atomic-write.js";
 export { stripFileProtocol } from "./fs-helpers.js";
 export { computeIntegrity } from "./integrity.js";
 export {

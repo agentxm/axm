@@ -1,13 +1,17 @@
 /**
- * Workspace-configuration feature: workspace initialization and setup flows,
- * configured-agent membership policy, instruction-management policy over the
- * kernel's instruction semantics, and inline workspace MCP capability policy.
+ * Workspace-configuration feature: setting up a workspace, deciding which
+ * coding agents it configures, managing instruction-file propagation, and
+ * defining MCP servers inline in the workspace's own settings.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-export { WorkspaceConfigurationFailed } from "./errors.js";
+export { WorkspaceConfigurationFailed, configurationFailedToStepFailure } from "./errors.js";
+
+// -----------------------------------------------------------------------------
+// Setup
+// -----------------------------------------------------------------------------
 
 export {
   bootstrapWorkspace,
@@ -15,31 +19,92 @@ export {
   ensureUserWorkspaceInitialized,
   ensureProjectWorkspaceInitialized,
   type SetupAgentCandidate,
-} from "./initialization.js";
+} from "./setup/initialization.js";
 
 export type {
   InstructionSourceChoice,
   SetupAgentScan,
   SetupPlanRow,
   WorkspaceInitializationInteractionService,
-} from "./initialization-interaction.js";
+} from "./setup/initialization-interaction.js";
 export {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,
-} from "./initialization-interaction.js";
+} from "./setup/initialization-interaction.js";
 
 export {
-  activeInstructionsConfig,
-  disableInstructionManagement,
-  instructionReconciliationReadiness,
-  instructionStateIsCurrent,
-  observeInstructions,
-  reconcileInstructionTransition,
-  removeInstructionTargetsFor,
-  type InstructionReadinessFailure,
-} from "./instruction-reconciliation.js";
+  SetupOutcomeSchema,
+  SetupWorkspace,
+  prepareSetupWorkspace,
+  previewOrApplySetupWorkspace,
+  previewAgentDefault,
+  reportSetupWorkspace,
+  type BundledSkillReport,
+  type SetupApprovalRequired,
+  type SetupArtifactTarget,
+  type SetupOutcome,
+  type SetupPlanStep,
+  type SetupReportFailure,
+  type SetupReportRequest,
+  type SetupTransition,
+  type SetupWorkspaceCandidate,
+  type SetupWorkspaceFailure,
+  type SetupWorkspaceRequest,
+} from "./setup/setup-workspace.js";
 
-export { dedupe, makeAtomicMembershipSteps, validateAgentIds } from "./membership.js";
+// -----------------------------------------------------------------------------
+// Configured-agent membership
+// -----------------------------------------------------------------------------
+
+export {
+  agentLifecycle,
+  isCatalogAgentId,
+  isRetiredAgent,
+  lifecycleWarning,
+} from "./membership/agent-lifecycle.js";
+export { dedupe, validateAgentIds } from "./membership/validate-agent-ids.js";
+export {
+  ConfigureAgents,
+  ConfiguredAgentInventorySchema,
+  listConfiguredAgents,
+  prepareAddConfiguredAgents,
+  prepareRemoveConfiguredAgents,
+  previewOrApplyAddConfiguredAgents,
+  previewOrApplyRemoveConfiguredAgents,
+  type AddConfiguredAgentsCandidate,
+  type AddConfiguredAgentsRequest,
+  type ConfigureAgentsFailure,
+  type ConfiguredAgentInventory,
+  type ConfiguredAgentRow,
+  type ConfiguredAgentsUnchanged,
+  type DepartingAgentReconciliation,
+  type ListConfiguredAgentsRequest,
+  type MembershipExecutionRequirements,
+  type MembershipReconciliation,
+  type RemoveConfiguredAgentsCandidate,
+  type RemoveConfiguredAgentsRequest,
+} from "./membership/configure-agents.js";
+
+// -----------------------------------------------------------------------------
+// Instruction-file management
+// -----------------------------------------------------------------------------
+
+export {
+  InstructionsStatusSchema,
+  ManageInstructions,
+  instructionsStatus,
+  prepareManageInstructions,
+  previewOrApplyManageInstructions,
+  type InstructionsStatus,
+  type InstructionsUnchanged,
+  type ManageInstructionsCandidate,
+  type ManageInstructionsRequest,
+  type ManageInstructionsRequirements,
+} from "./instructions/manage-instructions.js";
+
+// -----------------------------------------------------------------------------
+// Inline MCP servers
+// -----------------------------------------------------------------------------
 
 export {
   makeInlineMcpDefinition,
@@ -48,7 +113,16 @@ export {
   parseInlineMcpHeaders,
   splitCommand,
   validateInlineMcpRemoteUrl,
-} from "./inline-mcp.js";
+} from "./inline-mcp/definition.js";
+export {
+  AddInlineMcpServer,
+  prepareAddInlineMcpServer,
+  previewOrApplyAddInlineMcpServer,
+  type AddInlineMcpServerCandidate,
+  type AddInlineMcpServerRequest,
+  type AddInlineMcpServerRequirements,
+  type InlineMcpServerUnchanged,
+} from "./inline-mcp/add-inline-mcp-server.js";
 
 export {
   preflightMcpImports,
@@ -58,6 +132,12 @@ export {
   type McpImportFinding,
   type McpImportPreflight,
   type McpImportSource,
-} from "./mcp-import-preflight.js";
-
-export { applyMcpImport, collectMcpImportSources, removeConvertedMcpConfig } from "./mcp-import.js";
+} from "./mcp-import/preflight.js";
+export { applyMcpImport, collectMcpImportSources } from "./mcp-import/apply.js";
+export {
+  ImportMcpServers,
+  prepareImportMcpServers,
+  previewOrApplyImportMcpServers,
+  type ImportMcpServersCandidate,
+  type ImportMcpServersRequirements,
+} from "./mcp-import/import-mcp-servers.js";

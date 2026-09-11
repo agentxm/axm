@@ -28,6 +28,7 @@ import {
   CanonicalPackageProbeFailed,
   CreateDestinationExists,
   LifecyclePostconditionViolated,
+  NativeMcpEntryRetirementFailed,
   PackageCopyFailed,
   PackageMaterializationFailed,
   ScaffoldedExtensionUnresolved,
@@ -55,7 +56,11 @@ import {
 
 /** Every failure an authoring closure can settle a plan step with. */
 export type AuthoringStepFailure =
-  ExtensionManagerFailure | AuthoredPackageError | AuthoringFailed | StepFailure;
+  | ExtensionManagerFailure
+  | AuthoredPackageError
+  | AuthoringFailed
+  | NativeMcpEntryRetirementFailed
+  | StepFailure;
 
 const CATEGORIES: ReadonlySet<string> = new Set<string>(OPERATION_ERROR_CATEGORIES);
 
@@ -241,6 +246,13 @@ export const authoringStepFailure = (failure: AuthoringStepFailure): StepFailure
       category: failure.severity,
       detail: failure.detail,
       cause: failure.cause,
+    });
+  }
+  if (failure instanceof NativeMcpEntryRetirementFailed) {
+    return new StepFailure({
+      category: failure.category,
+      detail: failure.detail,
+      ...(failure.cause === undefined ? {} : { cause: failure.cause }),
     });
   }
   if (failure instanceof ArchiveIntegrityMismatch) {

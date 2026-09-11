@@ -73,9 +73,16 @@ export {
   type RuleManagerError,
 } from "./rules/errors.js";
 export {
+  McpAgentSyncRefused,
+  McpCanonicalPathUnsafe,
   McpInstallStateMissing,
+  McpLocalNameConflict,
   McpRegistryOnlyInstall,
+  McpRequiredInputsMissing,
+  McpWorkspacePackageInvalid,
+  type McpAgentSyncFault,
   type McpManagerError,
+  type McpWorkspacePackageFault,
 } from "./mcps/errors.js";
 export {
   SubagentContentUnreadable,
@@ -106,6 +113,46 @@ export {
   KnowledgeUnavailable,
   type KnowledgeManagerError,
 } from "./knowledge/errors.js";
+
+// MCP server installation: the operation four surfaces share, its credential
+// port, and the artifact/target vocabulary the plan step reports.
+export {
+  collectSecretInputNames,
+  deleteMcpSecrets,
+  installMcpServer,
+  readMcpServerManifest,
+  type InstallMcpServerOperation,
+  type InstallMcpServerOperationArgs,
+  type McpSecretDeletionOutcome,
+  type McpServerInstallRequirements,
+} from "./mcps/install-operation.js";
+export { materializeAuthoredMcpServer } from "./mcps/authored-materialization.js";
+export {
+  NativeMcpEntryRetirementFailed,
+  retireNativeMcpEntry,
+  type NativeMcpEntryRef,
+} from "./mcps/native-entry.js";
+export {
+  MCP_SECRET_SERVICE,
+  McpSecretStore,
+  mcpSecretAccount,
+  type McpSecretEraseOutcome,
+  type McpSecretIdentity,
+  type McpSecretStoreService,
+  type McpSecretWriteOutcome,
+} from "./mcps/secret-store.js";
+export {
+  MCP_AGENT_CONFIG_SURFACE,
+  agentConfigTarget,
+  agentConfigTargets,
+  mcpConfigSurface,
+  mcpServerArtifact,
+  mcpServerSourcePath,
+  mcpServerVersion,
+  mcpSettingsTarget,
+  mcpSourceTarget,
+  type AgentMcpConfigOutcome,
+} from "./mcps/artifact.js";
 
 // Per-type materialization vocabulary
 export { buildSubagentLockEntry } from "./subagents/lock-entry-builder.js";
@@ -190,3 +237,16 @@ export {
   type UninstallSettlement,
   type UnreadablePackageRetirement,
 } from "./extensions/operations.js";
+
+// Re-materializing content the workspace already accepted. Both the sync
+// sweep and Pack activation restore retained members, and neither feature may
+// import the other.
+export { RetainedContentUnusable } from "./desired-state/errors.js";
+export {
+  collectRetainedMaterializeSteps,
+  type RetainedMaterializeFailure,
+  type RetainedMaterializeRequirements,
+  type RetainedMaterializeSteps,
+  type RunRetainedMcpServerInstall,
+} from "./desired-state/retained-materialization.js";
+export { projectionErrorToStepFailure } from "./projection-step-failure.js";

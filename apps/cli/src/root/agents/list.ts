@@ -1,55 +1,32 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import { detectAgentsForScope } from "@agentxm/agent-integration";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import {
+  ConfigureAgents,
+  ConfiguredAgentInventorySchema,
+  type ConfiguredAgentInventory,
+} from "@agentxm/workspace-configuration";
 import { Screen, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
-import { agentLifecycle, lifecycleCell } from "./lifecycle.js";
+import { lifecycleCell } from "./lifecycle-cell.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
-import {
-  observeInstructionProjection,
-  resolveInstructionsConfig,
-} from "@agentxm/workspace-projection";
+import { configurationFailureToAppError } from "../../feature-errors.js";
 
 export interface AgentsListArgs {
   readonly detected: boolean;
   readonly available: boolean;
 }
 
-interface AgentListItem {
-  readonly id: string;
-  readonly name: string;
-  readonly configured: boolean;
-  readonly detected: boolean;
-  readonly instructions: string;
-  /** Whether the vendor still maintains the agent: active, deprecated, retired. */
-  readonly lifecycle: string;
-}
+/**
+ * The name this command's machine document is registered under in
+ * `machine-output-contracts.ts`. The document itself is the configuration
+ * feature's typed inventory; the registry names it, so the name stays.
+ */
+export const AgentsListOutputSchema = ConfiguredAgentInventorySchema;
 
-const AgentListItemSchema = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  configured: Schema.Boolean,
-  detected: Schema.Boolean,
-  instructions: Schema.String,
-  lifecycle: Schema.String,
-});
-
-export const AgentsListOutputSchema = Schema.Struct({
-  items: Schema.Array(AgentListItemSchema),
-  configured: Schema.Array(Schema.String),
-  detected: Schema.Array(Schema.String),
-  available: Schema.Array(Schema.String),
-  count: Schema.Number,
-});
-export type AgentsListOutput = typeof AgentsListOutputSchema.Type;
+type AgentListItem = ConfiguredAgentInventory["items"][number];
 
 const AgentListColumns = [
   { header: "ID", priority: "required", value: (row: AgentListItem) => row.id },
@@ -66,62 +43,21 @@ const AgentListColumns = [
 
 export const handleAgentsList = Effect.fn("Agents.list")(function* (args: AgentsListArgs) {
   const screen = yield* Screen;
-  const ws = yield* WorkspaceMutations;
-  const configured = yield* ws.getConfiguredAgents();
-  const detected = yield* detectAgentsForScope(ws.baseDir, ws.scope).pipe(
-    Effect.map((agents) => agents.map((agent) => agent.id)),
-  );
-  const configuredSet = new Set(configured);
-  const detectedSet = new Set(detected);
-  const instructionsConfig = yield* ws.getInstructionsConfig();
-  const instructionStatuses =
-    Option.isSome(instructionsConfig) && instructionsConfig.value !== false
-      ? yield* observeInstructionProjection({
-          workspaceRoot: ws.baseDir,
-          scope: ws.scope,
-          configuredAgents: configured,
-          config: resolveInstructionsConfig(instructionsConfig.value),
-        }).pipe(
-          Effect.map(
-            ({ status }) => new Map(status.items.map((item) => [item.agentId, item.health])),
-          ),
-        )
-      : new Map<string, string>();
+  const inventory = yield* ConfigureAgents.list({
+    detected: args.detected,
+    available: args.available,
+  }).pipe(Effect.mapError(configurationFailureToAppError));
 
-  const baseIds =
-    args.available || args.detected
-      ? CONFIGURABLE_AGENT_IDS
-      : CONFIGURABLE_AGENT_IDS.filter((id) => configuredSet.has(id) || detectedSet.has(id));
+  const suggestions = inventory.items.length === 0 ? [SET_UP_AXM_WORKSPACE] : [];
 
-  const items = baseIds
-    .filter((id) => !args.detected || detectedSet.has(id))
-    .map((id) => ({
-      id,
-      name: AGENTS[id].name,
-      configured: configuredSet.has(id),
-      detected: detectedSet.has(id),
-      instructions: configuredSet.has(id) ? (instructionStatuses.get(id) ?? "manual") : "-",
-      lifecycle: agentLifecycle(id).state,
-    }));
-
-  const output = {
-    items,
-    configured: configured.filter((id) => id !== "universal"),
-    detected,
-    available: [...CONFIGURABLE_AGENT_IDS],
-    count: items.length,
-  };
-
-  const suggestions = items.length === 0 ? [SET_UP_AXM_WORKSPACE] : [];
-
-  if (yield* screen.document(output, AgentsListOutputSchema, { suggestions })) {
+  if (yield* screen.document(inventory, ConfiguredAgentInventorySchema, { suggestions })) {
     return;
   }
   yield* screen.result([
     ...inventoryDoc({
-      rows: items,
+      rows: inventory.items,
       columns: AgentListColumns,
-      summary: count(items.length, "coding agent"),
+      summary: count(inventory.items.length, "coding agent"),
       empty: "No coding agents configured or detected.",
     }),
     ...(suggestions.length === 0 ? [] : [{ _tag: "next", actions: suggestions } as const]),

@@ -14,8 +14,12 @@ import { Screen, count, tableDoc, type ViewColumn } from "../../screen/index.js"
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
-import { agentLifecycle, isCatalogAgentId, lifecycleCell } from "./lifecycle.js";
-import { validateAgentIds } from "@agentxm/workspace-configuration";
+import { lifecycleCell } from "./lifecycle-cell.js";
+import {
+  agentLifecycle,
+  isCatalogAgentId,
+  validateAgentIds,
+} from "@agentxm/workspace-configuration";
 import { configurationFailureToAppError } from "../../feature-errors.js";
 
 const NONE = "-";

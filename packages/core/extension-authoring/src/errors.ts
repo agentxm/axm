@@ -21,7 +21,7 @@ const CarriedSuggestedActionSchema = Schema.Struct({
  * `suggestions`, and `cause` carry over verbatim.
  */
 export class AuthoringFailed extends Schema.TaggedError<AuthoringFailed>()("AuthoringFailed", {
-  category: Schema.Literals(["conflict", "internal", "not_found", "validation"]),
+  category: Schema.Literals(["conflict", "internal", "not_found", "usage", "validation"]),
   detail: Schema.String,
   recover: Schema.optional(Schema.String),
   suggestions: Schema.optional(Schema.Array(CarriedSuggestedActionSchema)),

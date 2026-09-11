@@ -83,6 +83,7 @@
   },
   "dependencies": {
     "@agentxm/agent-integration": "workspace:^",
+    "@agentxm/cli-update": "workspace:^",
     "@agentxm/extension-authoring": "workspace:^",
     "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-discovery": "workspace:^",
@@ -107,7 +108,6 @@
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
     "marked": "^18.0.9",
-    "semver": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {
@@ -118,6 +118,7 @@
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "fflate": "catalog:",
+    "semver": "catalog:",
     "swagger2openapi": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

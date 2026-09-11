@@ -1,6 +1,7 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { RELEASE_PACKAGES } from "./release-shared.js";
 import {
@@ -67,5 +68,24 @@ describe("release cohort artifact manifest", () => {
     expect(() => validateReleaseCohort(directory, version, commit)).toThrow(
       `Release cohort integrity mismatch: ${first.name}@${version}`,
     );
+  });
+});
+
+/**
+ * Supersedes the retired specification identity
+ * `system/process/dependency-installation-defers-cli-bin`
+ * (see `specifications/disposition-ledger.json`): workspace installation must
+ * not advertise the unbuilt executable for bin linking, and the published
+ * package must expose `axm` at its compiled entry point.
+ */
+describe("CLI package bin ownership", () => {
+  it("defers the compiled executable mapping to publication", () => {
+    const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
+    const manifestJson: unknown = JSON.parse(
+      readFileSync(join(repoRoot, "apps/cli/package.json"), "utf8"),
+    );
+    expect(manifestJson).not.toHaveProperty("bin");
+    expect(manifestJson).toHaveProperty("publishConfig.bin.axm", "./dist/src/main.js");
+    expect(manifestJson).toHaveProperty("files", expect.arrayContaining(["dist/src/"]));
   });
 });

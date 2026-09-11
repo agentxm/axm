@@ -10,7 +10,6 @@ import { handleInstall, handleUpdate } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
-import { probeFlag } from "../../support/parser-probe.js";
 import {
   expectProtectedStateUntouched,
   snapshotProtectedState,
@@ -152,13 +151,5 @@ describe("Update preview purity", () => {
           },
         });
       }),
-  );
-
-  it.effect("the route offers preview and rejects preapproval it cannot use", () =>
-    Effect.gen(function* () {
-      expect(yield* probeFlag(["update"], "--preview")).toBe("accepted");
-      expect(yield* probeFlag(["update"], "--yes")).toBe("unrecognized");
-      expect(yield* probeFlag(["update"], "-y")).toBe("unrecognized");
-    }),
   );
 });

@@ -1,59 +1,30 @@
-import * as Effect from "effect/Effect";
-import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace-operations";
-import { runUninstallCommandWorkflow } from "@agentxm/extension-lifecycle";
+/**
+ * `axm subagents uninstall`.
+ */
 
-import { emitOperationResolution } from "../../../operation-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
-import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../../shared/no-op-output.js";
-import {
-  UninstallSubagentCommandWorkflowActions,
-  type UninstallSubagentHandlerArgs,
-} from "./command-actions.js";
+import * as Option from "effect/Option";
 
-const uninstallPresentation = operationPresentation(
-  { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
-  "subagent",
-);
+import { runUninstallCommand } from "../../shared/uninstall-command.js";
 
-export const handleUninstall = (args: UninstallSubagentHandlerArgs, flags: { preview: boolean }) =>
-  withOperationLifecycle(
-    {
-      command: "subagents.uninstall",
-      mode: flags.preview ? "preview" : "apply",
-      planName: "Uninstall subagent",
-      presentation: uninstallPresentation,
+export interface UninstallSubagentHandlerArgs {
+  /** Name, identifier, or glob of the subagent to uninstall. */
+  readonly subagent: string;
+}
+
+export const handleUninstall = (
+  args: UninstallSubagentHandlerArgs,
+  flags: { readonly preview: boolean },
+) =>
+  runUninstallCommand({
+    command: "subagents.uninstall",
+    preview: flags.preview,
+    liveName: "Uninstall subagent",
+    request: {
+      type: Option.some("subagent"),
+      selector: args.subagent,
     },
-    handleUninstallBody(args, flags),
-  );
-
-const handleUninstallBody = (args: UninstallSubagentHandlerArgs, flags: { preview: boolean }) =>
-  Effect.gen(function* () {
-    const actions = yield* UninstallSubagentCommandWorkflowActions;
-    const presentedActions: typeof actions = {
-      ...actions,
-      buildUninstallPlan: (intent, workflowFlags) =>
-        actions
-          .buildUninstallPlan(intent, workflowFlags)
-          .pipe(Effect.map((plan) => ({ ...plan, presentation: uninstallPresentation }))),
-    };
-    const execution = yield* makeUninstallPlanExecution(
-      flags,
-      ["subagents", "uninstall"],
-      [args.subagent],
-    );
-    const resolution = yield* runUninstallCommandWorkflow(args, presentedActions, {
-      execution,
-    });
-    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
-      yield* emitNoOpOutcome("subagents.uninstall", {
-        planName: resolution.name,
-        message: "No subagents uninstalled.",
-      });
-      return;
-    }
-
-    yield* emitOperationResolution("subagents.uninstall", resolution, {
-      suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
-    });
+    recoveryCommand: ["subagents", "uninstall"],
+    recoveryPositionals: [args.subagent],
+    suggestions: () => [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
+    noOpMessage: () => "No subagents uninstalled.",
   });

@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +11,7 @@ import {
   parseGitHubRuns,
   releaseTagFromVersion,
   releaseVersionFromTag,
+  productionRegistryPreviewArgs,
   readGeneratedSkillCompatibilityFromContent,
   readSkillCompatibility,
   releaseCommitSubjectPattern,
@@ -392,4 +393,36 @@ describe("bundled skill release stamps", () => {
       ),
     ).toThrow("Generated AXM skill mismatch");
   });
+});
+
+/**
+ * Supporting coverage for
+ * `system/process/release-preparation-validates-production-gates`: an
+ * argv-drift guard between `productionRegistryPreviewArgs` and the registered
+ * CLI grammar. An unregistered sentinel stops parsing before any handler,
+ * credential, or Registry request, so what this observes is the parser alone.
+ */
+describe("production Registry preview argv", () => {
+  const SENTINEL = "--axm-argv-drift-sentinel";
+
+  const parseFailure = (argv: ReadonlyArray<string>): string => {
+    const result = spawnSync("bun", ["--conditions=axm-source", "apps/cli/src/main.ts", ...argv], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: { ...process.env, AXM_NON_INTERACTIVE: "1", NO_COLOR: "1" },
+    });
+    return `${result.stdout}${result.stderr}`;
+  };
+
+  for (const released of [undefined, "/tmp/axm-released"])
+    it(`is accepted by the registered CLI${released === undefined ? "" : " from a released workspace"}`, () => {
+      // `productionRegistryPreviewArgs` starts with the `axm:local` script
+      // name; the CLI itself is invoked with the remaining tokens.
+      const argv = productionRegistryPreviewArgs(released).slice(1);
+      const output = parseFailure([...argv, SENTINEL]);
+      expect(output).toContain(SENTINEL);
+      for (const option of argv.filter((token) => token.startsWith("--"))) {
+        expect(output, option).not.toContain(`Unrecognized option: ${option}`);
+      }
+    }, 120_000);
 });

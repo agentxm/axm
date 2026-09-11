@@ -38,6 +38,34 @@ export interface ConfirmationRecovery {
  */
 export type ConfirmableRiskApproval = "preapproved" | "prompt-if-interactive" | "interactive-only";
 
+/**
+ * What an invoking surface parsed about the approval a request carries.
+ *
+ * `preapproved` is present only on the routes whose capabilities declare a
+ * preapprovable confirmation; every other route omits it. The absence of the
+ * field is therefore a fact about the route, not a missing answer, and it is
+ * what separates "the person declined to preapprove" from "this request could
+ * never have been preapproved".
+ */
+export interface RequestedApproval {
+  readonly preapproved?: boolean;
+}
+
+/**
+ * The one derivation of an approval mode from what a request carries.
+ *
+ * It lives with plan execution rather than in a transport adapter because the
+ * distinction it draws — between a route that offers preapproval and one that
+ * does not — is what `resolveExecutionCandidate` uses to decide whether an
+ * unattended apply blocks naming interactive approval or names a flag.
+ */
+export const confirmableRiskApproval = (requested: RequestedApproval): ConfirmableRiskApproval =>
+  requested.preapproved === true
+    ? "preapproved"
+    : requested.preapproved === false
+      ? "prompt-if-interactive"
+      : "interactive-only";
+
 export type PlanExecutionRequest =
   | { readonly mode: "preview" }
   | {
@@ -59,6 +87,54 @@ export type PlanExecution =
     };
 
 export const previewPlanExecution: PlanExecution = { request: { mode: "preview" } };
+
+/**
+ * What a command parsed about its own invocation before any plan exists.
+ *
+ * `yes` is present only on the routes whose capabilities declare a
+ * preapprovable confirmation; every other route omits it, exactly as
+ * `RequestedApproval` describes.
+ */
+export interface RequestedPlanIntent {
+  readonly preview: boolean;
+  readonly yes?: boolean;
+}
+
+/**
+ * The one derivation of a plan execution from what a request carries.
+ *
+ * It lives here for the same reason `confirmableRiskApproval` does: the
+ * preview arm of `PlanExecution` has no field an approval could occupy, so
+ * advance approval accompanying a preview is dropped by this derivation
+ * rather than by a transport adapter's own convention. A preview therefore
+ * cannot spend an approval it never receives, and two requests that differ
+ * only in approval reach `resolveExecutionCandidate` as the same execution.
+ */
+export const requestedPlanExecution = (options: {
+  readonly intent: RequestedPlanIntent;
+  readonly recovery: ConfirmationRecovery;
+  readonly acceptedPolicies?: ReadonlySet<PlanPolicyId>;
+  readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
+}): PlanExecution =>
+  options.intent.preview
+    ? {
+        ...previewPlanExecution,
+        ...(options.configuredAgentOperations === undefined
+          ? {}
+          : { configuredAgentOperations: options.configuredAgentOperations }),
+      }
+    : applyPlanExecution({
+        approval: confirmableRiskApproval(
+          options.intent.yes === undefined ? {} : { preapproved: options.intent.yes },
+        ),
+        ...(options.acceptedPolicies === undefined
+          ? {}
+          : { acceptedPolicies: options.acceptedPolicies }),
+        recovery: options.recovery,
+        ...(options.configuredAgentOperations === undefined
+          ? {}
+          : { configuredAgentOperations: options.configuredAgentOperations }),
+      });
 
 export const applyPlanExecution = (options: {
   readonly approval: ConfirmableRiskApproval;

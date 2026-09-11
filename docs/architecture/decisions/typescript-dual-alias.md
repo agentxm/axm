@@ -99,11 +99,10 @@ Negative:
 - One-off TypeScript 6 CLI checks go through `tsc6` instead of `tsc`.
 
 Binding limitation: the dual alias must not be collapsed to a single
-`typescript` dependency before the exit condition. That obligation is owned by
-the executable specification `system/process/dual-typescript-alias-retained`
-in the [specification catalog](../../../specifications/catalog.md); this
-record owns the choice, rationale, and exit condition, not the obligation
-itself.
+`typescript` dependency before the exit condition. This record owns the
+choice, rationale, and exit condition;
+[`scripts/typescript-aliases.test.ts`](../../../scripts/typescript-aliases.test.ts)
+pins the workspace catalog that realizes it.
 
 ## Supersession and reconsideration
 

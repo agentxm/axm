@@ -66,13 +66,12 @@ responsibilities, workspace invariants, and design rationale; the executable
 specifications in the [specification catalog](specifications/catalog.md) own
 required behavior, and code and tests show how the design is implemented.
 
-The binding obligations to land changes through reviewed pull requests with
-maintainer approval and to pass aggregate verification before merge are the
-executable specifications
-`system/process/changes-land-through-reviewed-pull-requests` and
-`system/process/merges-require-aggregate-verification` in the
-[specification catalog](specifications/catalog.md).
-The steps below implement those obligations for contributors.
+Landing changes through reviewed pull requests with maintainer approval and
+passing aggregate verification before merge is repository policy. Branch
+protection enforces it host-side; the repository-side declarations are
+`.github/CODEOWNERS` and the `required` job in `.github/workflows/ci.yml`,
+pinned by `scripts/codeowners.test.ts` and `scripts/ci-workflow.test.ts`.
+The steps below implement that policy for contributors.
 
 1. External contributors fork the repo; maintainers work from the main
    repository. In both cases, create a branch from current `main` before the

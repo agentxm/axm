@@ -21,8 +21,13 @@ import type {
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
   LifecyclePostconditionViolated,
+  McpAgentSyncRefused,
+  McpCanonicalPathUnsafe,
   McpInstallStateMissing,
+  McpLocalNameConflict,
   McpRegistryOnlyInstall,
+  McpRequiredInputsMissing,
+  McpWorkspacePackageInvalid,
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
   PackInstallStateMissing,
@@ -218,6 +223,60 @@ export const mcpInstallStateMissingToAppError = (error: McpInstallStateMissing):
   makeAppError({
     code: "internal",
     detail: `MCP server ${error.name} has no materialized tree integrity`,
+  });
+
+/** Translate a local MCP connection name that already stands for another source. */
+export const mcpLocalNameConflictToAppError = (error: McpLocalNameConflict): AppError =>
+  makeAppError({
+    code: "conflict",
+    detail: `Local MCP name "${error.localName}" is already owned by a different source`,
+  });
+
+/** Translate a canonical MCP path that would escape the workspace. */
+export const mcpCanonicalPathUnsafeToAppError = (error: McpCanonicalPathUnsafe): AppError =>
+  makeAppError({
+    code: "internal",
+    detail: `Path traversal detected: ${error.canonicalPath}`,
+  });
+
+/** Translate a workspace-authored MCP package that is not where it says it is. */
+export const mcpWorkspacePackageInvalidToAppError = (error: McpWorkspacePackageInvalid): AppError =>
+  makeAppError({
+    code: error.fault === "unreadable" ? "internal" : "validation",
+    detail:
+      error.fault === "outside-workspace"
+        ? `Invalid workspace MCP server source location: ${error.location}`
+        : error.fault === "missing"
+          ? `Workspace MCP server package is missing: ${error.location}`
+          : `Failed to inspect workspace MCP server package: ${error.location}`,
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
+/** Translate required MCP inputs nothing supplied on an unattended install. */
+export const mcpRequiredInputsMissingToAppError = (error: McpRequiredInputsMissing): AppError =>
+  makeAppError({
+    code: "usage",
+    detail: `${error.localName} needs ${error.inputNames.join(", ")}, and --non-interactive cannot prompt for them`,
+    suggestions: [
+      {
+        description: "Supply each required input on the command line",
+        cmd: error.inputNames.map((name) => `--env ${name}=<value>`).join(" "),
+      },
+    ],
+  });
+
+/** Translate a refused projection of an MCP connection into the configured agents. */
+export const mcpAgentSyncRefusedToAppError = (error: McpAgentSyncRefused): AppError =>
+  makeAppError({
+    code: error.fault === "unknown-agents" ? "not_found" : "internal",
+    detail:
+      error.fault === "unknown-agents"
+        ? `Unknown configured agents in strict mode: ${error.agentIds.join(", ")}`
+        : error.fault === "misconfigured"
+          ? `MCP server ${error.serverName} could not be synced to configured agents`
+          : error.fault === "failed"
+            ? `MCP server ${error.serverName} sync failed in strict mode`
+            : `MCP server ${error.serverName} sync disabled for required configured agents`,
   });
 
 /** Translate a shared-target resolution conflict; members own the reason. */

@@ -20,13 +20,11 @@ import {
 } from "./screen/index.js";
 import { resolveVerbosityFromArgv } from "./cli-flags/index.js";
 import { runCliMain } from "./cli-runtime/index.js";
-import { InstallMethodLive } from "./install-method/install-method.js";
-import { UpdateCheckLive } from "./update-check/update-check.js";
 
 import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";
 
-import { axmGlobalFlags, baseLayer, runtimeBaseLayer } from "./runtime.js";
+import { axmGlobalFlags, baseLayer, startupUpdateCheckLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 import { groupCapabilities, withCommandCapabilities } from "./root/shared/command-capabilities.js";
 
@@ -51,7 +49,7 @@ import { syncCommand } from "./root/sync/command.js";
 import { updateCommand } from "./root/update/command.js";
 import { makeHelpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
-import { versionCommand } from "./root/shared/version-command.js";
+import { versionCommand } from "./root/version/command.js";
 import { publishCommand } from "./root/publish/command.js";
 import { adoptCommand } from "./root/adopt/command.js";
 import { demoteCommand } from "./root/demote/command.js";
@@ -204,12 +202,6 @@ const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
     if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
   });
 
-/** Layer providing UpdateCheck and InstallMethod for the startup update check. */
-const updateCheckServicesLayer = Layer.provide(
-  Layer.mergeAll(UpdateCheckLive, InstallMethodLive),
-  runtimeBaseLayer,
-);
-
 /**
  * Run AXM as a process entry point.
  *
@@ -261,7 +253,7 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
         Effect.provide(
           Layer.mergeAll(
             baseLayer,
-            updateCheckServicesLayer,
+            startupUpdateCheckLayer,
             rendererLayer,
             CliOutput.layer(makeAxmFormatter({ json: isJson, colors: outputPolicy.colors })),
           ),

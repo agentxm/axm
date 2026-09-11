@@ -1,61 +1,32 @@
 import * as Effect from "effect/Effect";
-import type { StepRequirements } from "../shared/step-requirements.js";
-import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "../../app-error/index.js";
-import { withArgvTracking } from "../../cli-runtime/index.js";
+import { ImportNativeExtension, importNativeExtensionPlanName } from "@agentxm/extension-authoring";
+import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
-  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
 } from "@agentxm/workspace-operations";
-import {
-  buildAuthoredExtensionStep,
-  copyExtensionDirectory,
-  createCanonicalDirectory,
-  recoverCanonicalDirectory,
-} from "@agentxm/extension-materialization";
-import {
-  importNativeExtensionPackage,
-  preflightCreateOnly,
-  requireAuthoredOwner,
-} from "@agentxm/extension-authoring";
-import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  extensionTypeToPlural,
-  formatFqn,
-  parseFqn,
-} from "@agentxm/extension-model/unstable/extensions";
-import {
-  failureToStepFailure,
-  fqnInvalidErrorToAppError,
-  toAppError,
-} from "../../app-error/conversions.js";
-import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { operationPresentation } from "@agentxm/workspace-operations";
-import { acquireExternalSource, resolveSource } from "@agentxm/extension-sources";
 
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { authoringFailureToAppError } from "../../feature-errors.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { SkillManager, SubagentManager } from "@agentxm/extension-materialization";
-type NativeImportType = "skill" | "subagent";
+
+/** The types whose native content this route converts. */
+type NativeImportRouteType = "skill" | "subagent";
 
 interface ImportHandlerArgs {
-  readonly type: NativeImportType;
+  readonly type: NativeImportRouteType;
   readonly source: string;
   readonly target: string;
   readonly enable: boolean;
@@ -67,191 +38,22 @@ export const handleImport = (args: ImportHandlerArgs) =>
     {
       command: `${extensionTypeToPlural[args.type]} import`,
       mode: args.preview ? "preview" : "apply",
-      planName: "Import native extension",
+      planName: importNativeExtensionPlanName(args.type),
     },
     handleImportBody(args),
   );
 
 const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandlerArgs) {
-  const target = yield* Effect.fromResult(
-    Result.mapError(parseFqn(args.target), fqnInvalidErrorToAppError),
-  );
-  if (target.type !== "skill" && target.type !== "subagent") {
-    return yield* makeAppError({
-      code: "validation",
-      detail: `Expected a ${extensionTypeToPlural[args.type]} target FQN, got ${args.target}`,
-    });
-  }
-  if (target.type !== args.type) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: `Expected a ${extensionTypeToPlural[args.type]} target FQN, got ${args.target}`,
-    });
-  }
-  yield* requireAuthoredOwner(target.owner, { subject: "package", command: "import" }).pipe(
-    Effect.mapError(toAppError),
-  );
   const group = extensionTypeToPlural[args.type];
-  const ws = yield* WorkspaceMutations;
-  if (ws.layout.scope !== "project") {
-    return yield* makeAppError({ code: "usage", detail: "Import requires project scope" });
-  }
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const source = yield* resolveSource(args.source);
-  const acquired = yield* acquireExternalSource(source);
-  const targetDir = path.join(ws.layout.authoredRoot(target.type), target.name);
-  yield* preflightCreateOnly({
-    subject: "Import target",
-    name: target.name,
-    configured: false,
-    destinations: [targetDir],
-  });
+  const candidate = yield* ImportNativeExtension.prepare({
+    type: args.type,
+    source: args.source,
+    target: args.target,
+    enable: args.enable,
+  }).pipe(Effect.mapError(authoringFailureToAppError));
 
-  const stagingRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-import-" }).pipe(
-    Effect.mapError((cause) =>
-      makeAppError({
-        code: "internal",
-        detail: "Import staging directory could not be created",
-        cause,
-      }),
-    ),
-  );
-  const stagedPackage = path.join(stagingRoot, "package");
-  yield* importNativeExtensionPackage({
-    sourcePath: acquired.directory,
-    targetDir: stagedPackage,
-    target,
-  });
-  const stagedHash = yield* computePackageContentHash(stagedPackage);
-  const fqn = formatFqn(target);
-  const sourceLocator = "workspace";
-
-  let enabled: boolean;
-  let markAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
-  let finalizeAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
-  switch (target.type) {
-    case "skill": {
-      const current = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws
-        .setSkillEntry(target.name, { source: sourceLocator, enabled: true })
-        .pipe(Effect.mapError(toAppError));
-      finalizeAuthored = ws
-        .setSkillEntry(target.name, { source: sourceLocator, enabled })
-        .pipe(Effect.mapError(toAppError));
-      break;
-    }
-    case "subagent": {
-      const current = yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError));
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws
-        .setSubagentEntry(target.name, { source: sourceLocator, enabled: true })
-        .pipe(Effect.mapError(toAppError));
-      finalizeAuthored = ws
-        .setSubagentEntry(target.name, { source: sourceLocator, enabled })
-        .pipe(Effect.mapError(toAppError));
-      break;
-    }
-  }
-
-  const artifact: JobStepArtifact = {
-    path: path.relative(ws.baseDir, targetDir),
-    scope: ws.scope,
-    version: "0.1.0",
-    change: "created",
-    targets: [
-      { path: path.relative(ws.baseDir, targetDir), change: "created" },
-      { path: workspaceSettingsPath(ws.scope), change: "created" },
-    ],
-  };
-  const common = {
-    location: targetDir,
-    versionRange: Option.none<string>(),
-    label: `Import ${acquired.origin} -> ${fqn}`,
-    message: `Imported ${fqn}`,
-    enabled,
-    allowConfiguredSourceTransition: true,
-    markAuthored,
-    finalizeAuthored,
-    plannedArtifact: artifact,
-    buildArtifact: () => Effect.succeed(artifact),
-    preflight: Effect.gen(function* () {
-      yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir });
-      yield* preflightCreateOnly({
-        subject: "Import target",
-        name: target.name,
-        configured: false,
-        destinations: [targetDir],
-      });
-    }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    ),
-    scaffold: createCanonicalDirectory({
-      baseDir: ws.baseDir,
-      canonicalPath: targetDir,
-      subject: "Import target",
-      populate: (publicationPath) =>
-        copyExtensionDirectory(stagedPackage, publicationPath).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: `Prepared import could not be staged for ${targetDir}`,
-              cause,
-            }),
-          ),
-        ),
-      validate: (publicationPath) =>
-        computePackageContentHash(publicationPath).pipe(
-          Effect.flatMap((currentHash) =>
-            currentHash === stagedHash
-              ? Effect.void
-              : makeAppError({
-                  code: "conflict",
-                  detail: "Prepared import content changed before it could be applied",
-                }),
-          ),
-        ),
-    }).pipe(
-      Effect.asVoid,
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    ),
-  };
-
-  let step: PlannedJobStep<StepRequirements>;
-  switch (target.type) {
-    case "skill":
-      step = buildAuthoredExtensionStep(yield* SkillManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "skill", name: target.name },
-      });
-      break;
-    case "subagent":
-      step = buildAuthoredExtensionStep(yield* SubagentManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "subagent", name: target.name },
-      });
-      break;
-  }
-
-  const plan: Plan<StepRequirements> = {
-    _tag: "Plan",
-    name: "Import native extension",
-    description: Option.some(
-      `Losslessly convert ${acquired.origin} into ${fqn}; the native source remains unchanged and the import starts ${enabled ? "enabled" : "disabled"}`,
-    ),
-    presentation: operationPresentation(
-      { imperative: "import", past: "Imported", gerund: "Importing" },
-      target.type,
-    ),
-    jobs: [{ concurrency: 1, steps: [step] }],
-  };
   const execution = yield* makePlanExecution(
-    args,
+    { preview: args.preview },
     makeConfirmationRecovery(
       [group, "import"],
       [
@@ -261,7 +63,9 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
       ],
     ),
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  const resolution = yield* ImportNativeExtension.previewOrApply(candidate, execution).pipe(
+    Effect.mapError(authoringFailureToAppError),
+  );
   yield* emitOperationResolution(`${group} import`, resolution);
 });
 
@@ -277,7 +81,7 @@ const config = {
   preview: previewCapabilityFlag(),
 } as const;
 
-const makeNativeImportCommand = (type: NativeImportType) => {
+const makeNativeImportCommand = (type: NativeImportRouteType) => {
   const group = extensionTypeToPlural[type];
   const noun = type === "skill" ? "skill" : "subagent";
   return Command.make("import", config, (parsed) =>

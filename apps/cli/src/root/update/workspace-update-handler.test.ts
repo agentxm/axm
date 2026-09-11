@@ -1,3 +1,12 @@
+/**
+ * What the configured-extension sweep reports when there is nothing to
+ * resolve, and how it treats configuration the Registry does not own.
+ *
+ * These behaviours are the update surface's own; they belong beside the
+ * feature's configured-update planner and should move there once
+ * `@agentxm/extension-lifecycle/testing` can compose a workspace fixture.
+ */
+
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -13,29 +22,7 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
 } from "../../test-helpers.js";
-import { handleWorkspaceUpdateWithActions } from "./workspace-update-handler.js";
-import type { InstallCommandActions } from "../shared/install-command-actions.js";
-
-const unusedInstallActions = {
-  parseArgs: () => Effect.die("unused"),
-  resolveSourceRequests: () => Effect.die("unused"),
-  discoverRefs: () => Effect.die("unused"),
-  finalizeIntent: () => Effect.die("unused"),
-  buildPlan: () => Effect.die("unused"),
-};
-
-const workspaceUpdateActions = {
-  skill: unusedInstallActions,
-  rule: unusedInstallActions,
-  hook: unusedInstallActions,
-  knowledge: unusedInstallActions,
-  subagent: unusedInstallActions,
-  mcpServer: unusedInstallActions,
-  pack: unusedInstallActions,
-} satisfies InstallCommandActions;
-
-const handleWorkspaceUpdate = (args: Parameters<typeof handleWorkspaceUpdateWithActions>[0]) =>
-  handleWorkspaceUpdateWithActions(args, workspaceUpdateActions);
+import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
 
 describe("workspace update handler output", () => {
   let tempDir: string;
@@ -54,8 +41,7 @@ describe("workspace update handler output", () => {
 
   it.effect("emits hooks update JSON no-op for an empty hooks configuration", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = ctx.fullLayer;
-    const provide = makeEffectProvide(fullLayer);
+    const provide = makeEffectProvide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
     return provide(
@@ -81,8 +67,7 @@ describe("workspace update handler output", () => {
 
   it.effect("emits knowledge update JSON no-op for an empty knowledge configuration", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = ctx.fullLayer;
-    const provide = makeEffectProvide(fullLayer);
+    const provide = makeEffectProvide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
     return provide(
@@ -108,8 +93,7 @@ describe("workspace update handler output", () => {
 
   it.effect("emits MCP update JSON no-op for an empty MCP server configuration", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = ctx.fullLayer;
-    const provide = makeEffectProvide(fullLayer);
+    const provide = makeEffectProvide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
     return provide(
@@ -135,8 +119,7 @@ describe("workspace update handler output", () => {
 
   it.effect("reports inline MCP servers as sync-owned without source resolution", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = ctx.fullLayer;
-    const provide = makeEffectProvide(fullLayer);
+    const provide = makeEffectProvide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       mcps: {
         linear: { command: "npx", args: ["-y", "linear-mcp-server"] },
@@ -176,8 +159,7 @@ describe("workspace update handler output", () => {
 
   it.effect("keeps independent MCP planning results when one source is invalid", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = ctx.fullLayer;
-    const provide = makeEffectProvide(fullLayer);
+    const provide = makeEffectProvide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       mcps: {
         linear: { command: "npx", args: ["-y", "linear-mcp-server"] },

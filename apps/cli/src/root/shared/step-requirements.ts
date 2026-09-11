@@ -13,7 +13,11 @@
  */
 
 import type { StepFailureConversion } from "@agentxm/extension-lifecycle";
-import type { ManagerRequirements, RecipeRequirements } from "@agentxm/extension-materialization";
+import type {
+  ManagerRequirements,
+  McpSecretStore,
+  RecipeRequirements,
+} from "@agentxm/extension-materialization";
 import type { CodingAgentRepository } from "@agentxm/workspace-projection";
 import type { WorkspaceMutations } from "@agentxm/workspace-state";
 import type { Screen } from "../../screen/index.js";
@@ -21,6 +25,7 @@ import type { Screen } from "../../screen/index.js";
 export type StepRequirements =
   | ManagerRequirements
   | RecipeRequirements
+  | McpSecretStore
   | CodingAgentRepository
   | WorkspaceMutations
   | StepFailureConversion

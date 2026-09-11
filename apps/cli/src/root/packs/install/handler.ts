@@ -1,17 +1,13 @@
+/**
+ * `axm packs install`.
+ */
+
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 
-import { emitOperationResolution } from "../../../operation-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
+import { isNonInteractiveOptional } from "../../../cli-flags/index.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
-import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../../shared/no-op-output.js";
-import {
-  InstallPackCommandWorkflowActions,
-  type InstallPackHandlerArgs,
-} from "./command-actions.js";
+import { runInstallCommand } from "../../shared/install-command.js";
 
 export interface InstallPackFlags {
   readonly force: boolean;
@@ -23,16 +19,6 @@ export interface PackInstallHandlerArgs {
 }
 
 export const handleInstallPack = (args: PackInstallHandlerArgs, flags: InstallPackFlags) =>
-  withOperationLifecycle(
-    {
-      command: "packs.install",
-      mode: flags.preview ? "preview" : "apply",
-      planName: "Install packs",
-    },
-    handleInstallPackBody(args, flags),
-  );
-
-const handleInstallPackBody = (args: PackInstallHandlerArgs, flags: InstallPackFlags) =>
   Effect.gen(function* () {
     if (Option.isNone(args.source)) {
       return yield* handleWorkspaceInstall({
@@ -44,24 +30,26 @@ const handleInstallPackBody = (args: PackInstallHandlerArgs, flags: InstallPackF
       });
     }
 
-    const actions = yield* InstallPackCommandWorkflowActions;
-    const sourceArgs: InstallPackHandlerArgs = { source: args.source.value };
-    const execution = yield* makeInstallPlanExecution(
-      flags,
-      ["packs", "install"],
-      [args.source.value],
-    );
-    const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, {
-      execution,
-    });
-    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
-      yield* emitNoOpOutcome("packs.install", {
-        planName: resolution.name,
-        message: "No packs installed.",
-      });
-      return;
-    }
-    yield* emitOperationResolution("packs.install", resolution, {
+    const nonInteractive = yield* isNonInteractiveOptional;
+    return yield* runInstallCommand({
+      command: "packs.install",
+      preview: flags.preview,
+      force: flags.force,
+      request: {
+        type: Option.some("pack"),
+        subject: { kind: "source", source: args.source.value },
+        names: [],
+        all: false,
+        reinstall: flags.force,
+        localName: Option.none(),
+        env: [],
+        nonInteractive,
+        planName: "Install packs",
+        planDescription: Option.none(),
+      },
+      recoveryCommand: ["packs", "install"],
+      recoveryLocators: [args.source.value],
       suggestions: [{ description: "Inspect installed packs", cmd: "axm packs list" }],
+      noOpMessage: "No packs installed.",
     });
   });

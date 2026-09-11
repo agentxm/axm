@@ -1,6 +1,6 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — lint converts opaque read-model failures into fact-only findings at this boundary
 /**
- * `LintWorkspace` — single helper that produces both the per-rule
+ * `LintWorkspaceBuild` — single helper that produces both the per-rule
  * `WorkspaceRuleContext` and the flat `LintWorkspaceView` projection a lint
  * run needs, sharing one `WorkspaceReadModelLive` setup.
  *
@@ -182,7 +182,7 @@ export interface BuildLintWorkspaceArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface LintWorkspace {
+export interface LintWorkspaceBuild {
   readonly rule: WorkspaceRuleContext;
   readonly view: LintWorkspaceView;
 }
@@ -198,7 +198,10 @@ export interface LintWorkspace {
  */
 export const buildLintWorkspace = (
   args: BuildLintWorkspaceArgs,
-): Effect.Effect<LintWorkspace, WorkspaceRootEscape | SettingsReadError | LockfileReadError> => {
+): Effect.Effect<
+  LintWorkspaceBuild,
+  WorkspaceRootEscape | SettingsReadError | LockfileReadError
+> => {
   const platformLayer = Layer.mergeAll(
     Layer.succeed(FileSystem.FileSystem, args.platform.fs),
     Layer.succeed(Path.Path, args.platform.path),

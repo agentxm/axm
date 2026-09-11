@@ -367,7 +367,10 @@ export default [
           ignoredDependencies: ["@napi-rs/keyring"],
           // Test-support modules are excluded from every package's build; what
           // they import is a devDependency, not a published one.
-          ignoredFiles: ["{projectRoot}/src/**/test-support/**/*.ts"],
+          ignoredFiles: [
+            "{projectRoot}/src/**/test-support/**/*.ts",
+            "{projectRoot}/src/**/test-helpers.ts",
+          ],
         },
       ],
     },
@@ -599,6 +602,8 @@ export default [
     ignores: [
       "apps/cli/src/runtime.ts",
       "apps/cli/src/test-helpers.ts",
+      // Test support excluded from the library build and the published files.
+      "apps/cli/src/test-support/**",
       // Published specification adapter exposes real services to boundary tests.
       "apps/cli/src/specification-harness.ts",
       "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
@@ -611,6 +616,16 @@ export default [
       // package's specifications observe.
       "packages/core/knowledge-query/src/testing.ts",
       "packages/core/workspace-inspection/src/testing.ts",
+      "packages/core/workspace-configuration/src/testing.ts",
+      "packages/core/extension-lifecycle/src/testing.ts",
+      // Colocated test support: drives its package's use cases from tests and
+      // specifications with the deterministic ports its dependencies publish.
+      "packages/core/workspace-configuration/src/**/test-helpers.ts",
+      "packages/core/extension-lifecycle/src/**/test-helpers.ts",
+      // Plan-family fixtures, excluded from the library build: the plan
+      // specifications observe the real transaction scope over a temporary
+      // workspace with the deterministic state ports its dependency publishes.
+      "packages/core/workspace-operations/src/plan/__tests__/plan-spec-support.ts",
       "**/*.test.ts",
       "**/*.spec.ts",
     ],
@@ -662,6 +677,8 @@ export default [
     ignores: [
       "packages/core/knowledge-query/src/testing.ts",
       "packages/core/workspace-inspection/src/testing.ts",
+      "packages/core/workspace-configuration/src/testing.ts",
+      "packages/core/extension-lifecycle/src/testing.ts",
     ],
     rules: {
       "no-restricted-imports": [

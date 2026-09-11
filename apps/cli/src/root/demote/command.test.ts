@@ -8,10 +8,13 @@ import * as Schema from "effect/Schema";
 
 import { SettingsSchema } from "@agentxm/workspace-state";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { SkillManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  AllExtensionManagersLive,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { handleDemote } from "./command.js";
 
 const writeSkill = (dir: string, content: string) => {
@@ -58,7 +61,7 @@ describe("demote command", () => {
     });
     const sourceLayer = Layer.provide(SourceHostProvidersLive, context.fullLayer);
     const foundation = Layer.mergeAll(context.fullLayer, sourceLayer, CodingAgentRepositoryLive);
-    const provide = makeEffectProvide(Layer.provideMerge(SkillManagerLive, foundation));
+    const provide = makeEffectProvide(Layer.provideMerge(AllExtensionManagersLive, foundation));
     const { promptState } = context;
     return provide(
       Effect.gen(function* () {

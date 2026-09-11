@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@agentxm/agent-integration": "workspace:^",
+    "@agentxm/extension-materialization": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",

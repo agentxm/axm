@@ -13,6 +13,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { StepFailure } from "@agentxm/workspace-operations";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -25,6 +26,7 @@ import type {
 import { NO_MATERIALIZATION_OBSERVATION } from "./manager-contract.js";
 import type { CallerStepFailure, UninstallRetentionPolicy } from "./extensions/operations.js";
 import { targetFromRef } from "./extensions/operations.js";
+import { McpSecretStore, type McpSecretStoreService } from "./mcps/secret-store.js";
 
 /** The manager surfaces one recipe touched, in the order it touched them. */
 export type RecordedManagerSurface =
@@ -157,3 +159,39 @@ export const structuralStepFailure = <F>(failure: CallerStepFailure<F>): StepFai
 
 /** A retention target's plan-step identity, for assertions on recorded steps. */
 export const recordedTargetName = (target: ExtensionTarget): string => target.name;
+
+/** What an in-memory credential store recorded, and the layer that backs it. */
+export interface MemoryMcpSecretStore {
+  readonly layer: Layer.Layer<McpSecretStore>;
+  /** Every account currently holding a value, keyed by account digest. */
+  readonly entries: ReadonlyMap<string, string>;
+}
+
+/**
+ * An in-memory credential store for MCP install tests.
+ *
+ * `failWrites` stands for a keychain that is present but refuses to persist —
+ * locked, full, or denied — which is the condition the install reports as a
+ * credential action rather than a failed closure.
+ */
+export const makeMemoryMcpSecretStore = (options?: {
+  readonly failWrites?: boolean;
+  /** Values already held, keyed by account digest. */
+  readonly initial?: Readonly<Record<string, string>>;
+}): MemoryMcpSecretStore => {
+  const entries = new Map<string, string>(Object.entries(options?.initial ?? {}));
+  const failWrites = options?.failWrites ?? false;
+
+  const service: McpSecretStoreService = {
+    read: (account) => Effect.sync(() => Option.fromNullOr(entries.get(account) ?? null)),
+    write: (account, value) =>
+      Effect.sync(() => {
+        if (failWrites) return "failed";
+        entries.set(account, value);
+        return "saved";
+      }),
+    erase: (account) => Effect.sync(() => (entries.delete(account) ? "deleted" : "absent")),
+  };
+
+  return { layer: Layer.succeed(McpSecretStore, service), entries };
+};

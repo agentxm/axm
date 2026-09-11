@@ -1,54 +1,30 @@
-import * as Effect from "effect/Effect";
-import { operationPresentation } from "@agentxm/workspace-operations";
-import { runUninstallCommandWorkflow } from "@agentxm/extension-lifecycle";
+/**
+ * `axm mcps uninstall`.
+ */
 
-import { emitOperationResolution } from "../../../operation-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
-import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
-import {
-  UninstallMcpServerCommandWorkflowActions,
-  type UninstallMcpServerHandlerArgs,
-} from "./command-actions.js";
+import * as Option from "effect/Option";
 
-const uninstallPresentation = operationPresentation(
-  { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
-  "mcp-server",
-);
+import { runUninstallCommand } from "../../shared/uninstall-command.js";
+
+export interface UninstallMcpServerHandlerArgs {
+  /** The local connection name to remove. */
+  readonly serverName: string;
+}
 
 export const handleUninstallMcpServer = (
   args: UninstallMcpServerHandlerArgs,
-  flags: { preview: boolean },
+  flags: { readonly preview: boolean },
 ) =>
-  withOperationLifecycle(
-    {
-      command: "mcps.uninstall",
-      mode: flags.preview ? "preview" : "apply",
-      planName: "Uninstall MCP server",
-      presentation: uninstallPresentation,
+  runUninstallCommand({
+    command: "mcps.uninstall",
+    preview: flags.preview,
+    liveName: "Uninstall MCP server",
+    request: {
+      type: Option.some("mcp-server"),
+      selector: args.serverName,
     },
-    handleUninstallMcpServerBody(args, flags),
-  );
-
-const handleUninstallMcpServerBody = (
-  args: UninstallMcpServerHandlerArgs,
-  flags: { preview: boolean },
-) =>
-  Effect.gen(function* () {
-    const actions = yield* UninstallMcpServerCommandWorkflowActions;
-    const presentedActions: typeof actions = {
-      ...actions,
-      buildUninstallPlan: (intent, workflowFlags) =>
-        actions
-          .buildUninstallPlan(intent, workflowFlags)
-          .pipe(Effect.map((plan) => ({ ...plan, presentation: uninstallPresentation }))),
-    };
-    const execution = yield* makeUninstallPlanExecution(
-      flags,
-      ["mcps", "uninstall"],
-      [args.serverName],
-    );
-    const resolution = yield* runUninstallCommandWorkflow(args, presentedActions, { execution });
-    yield* emitOperationResolution("mcps.uninstall", resolution, {
-      suggestions: [{ description: "Inspect MCP servers", cmd: "axm mcps list" }],
-    });
+    recoveryCommand: ["mcps", "uninstall"],
+    recoveryPositionals: [args.serverName],
+    suggestions: () => [{ description: "Inspect MCP servers", cmd: "axm mcps list" }],
+    noOpMessage: () => "No MCP servers uninstalled.",
   });

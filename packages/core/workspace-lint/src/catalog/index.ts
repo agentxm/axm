@@ -34,7 +34,7 @@ export {
   type BuildInstalledPackInfoArgs,
   type BuildAcquiredInstalledSkillInfoArgs,
   type BuildInstalledSkillInfoNativeArgs,
-  type LintWorkspace,
+  type LintWorkspaceBuild,
   type LintWorkspaceView,
 } from "./workspace-read-model/lint-workspace.js";
 const repositoryViews = Object.freeze(["workspace", "git-index"] as const);

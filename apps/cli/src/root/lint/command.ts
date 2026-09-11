@@ -3,11 +3,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "../../app-error/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { materializeGitIndexWorkspace, type LintView } from "@agentxm/workspace-lint";
-import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { LintWorkspace, lintSelectionRoot, type LintView } from "@agentxm/workspace-lint";
+import { resolveUserHome } from "@agentxm/workspace-state";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import {
@@ -17,7 +16,7 @@ import {
 import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleLint } from "./handler.js";
-import { lintStagingFailedToAppError } from "../../feature-errors.js";
+import { lintFailureToAppError } from "../../feature-errors.js";
 
 const lintConfig = {
   path: Argument.string("path").pipe(
@@ -63,51 +62,25 @@ export interface RunLintCommandArgs {
 export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
   const executionDirectory = yield* ExecutionDirectory;
   const path = yield* Path.Path;
-  const projectRoot = Option.match(args.path, {
-    onNone: () => executionDirectory.path,
-    onSome: (value) => resolveExecutionPath(path, executionDirectory, value),
-  });
+  const userHome = yield* resolveUserHome();
+  const requestedPath = Option.map(args.path, (value) =>
+    resolveExecutionPath(path, executionDirectory, value),
+  );
 
-  if (args.fix && args.view === "git-index") {
-    return yield* makeAppError({
-      code: "validation",
-      detail:
-        "--fix cannot be combined with --view git-index because the index snapshot is not the working tree",
-    });
-  }
-
-  if (args.view === "git-index" && args.scope === "user") {
-    return yield* makeAppError({
-      code: "validation",
-      detail:
-        "--view git-index cannot be combined with --scope user because Git indexes are project-scoped",
-    });
-  }
-
-  if (args.view === "git-index") {
-    const snapshot = yield* materializeGitIndexWorkspace(projectRoot, {
-      selectRepositoryRoot: Option.isNone(args.path),
-    }).pipe(Effect.mapError(lintStagingFailedToAppError));
-    const snapshotRoot = decodeAbsolutePathSync(snapshot.workspaceRoot);
-    return yield* handleLint({
-      pathArg: Option.some(snapshotRoot),
-      scope: "project",
-      strict: args.strict,
-      details: args.details,
-      fix: false,
-      displayWorkspaceRoot: snapshot.displayWorkspaceRoot,
-      input: { view: "git-index", fingerprint: snapshot.fingerprint },
-    }).pipe(withWorkspace({ scope: "project", projectRoot: snapshotRoot }));
-  }
+  const selection = yield* LintWorkspace.admit({
+    ...(Option.isSome(requestedPath) ? { path: requestedPath.value } : {}),
+    scope: args.scope,
+    view: args.view,
+    fix: args.fix,
+    cwd: executionDirectory.path,
+    userHome,
+  }).pipe(Effect.mapError(lintFailureToAppError));
 
   return yield* handleLint({
-    pathArg: args.scope === "project" ? Option.some(projectRoot) : args.path,
-    scope: args.scope,
+    selection,
     strict: args.strict,
     details: args.details,
-    fix: args.fix,
-    input: { view: "workspace" },
-  }).pipe(withWorkspace({ scope: args.scope, projectRoot }));
+  }).pipe(withWorkspace({ scope: selection.scope, projectRoot: lintSelectionRoot(selection) }));
 });
 
 /** Lint reports facts by default; `--fix` switches it into repairing determined workspace state. */

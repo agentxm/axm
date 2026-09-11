@@ -61,6 +61,11 @@ describe("confirmation recovery CLI boundary", () => {
       expect((yield* makePlanExecution({ preview: true }, recovery)).request).toEqual({
         mode: "preview",
       });
+      // Advance approval accompanying a preview is dropped, not carried: a
+      // preview cannot spend what it never receives.
+      expect((yield* makePlanExecution({ yes: true, preview: true }, recovery)).request).toEqual({
+        mode: "preview",
+      });
       expect(
         (yield* makePlanExecution({ yes: true, preview: false }, recovery)).request,
       ).toMatchObject({

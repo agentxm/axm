@@ -40,6 +40,7 @@
     "@agentxm/extension-materialization": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-resolution": "workspace:^",
+    "@agentxm/extension-sources": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-projection": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",

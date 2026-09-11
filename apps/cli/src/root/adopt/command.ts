@@ -1,247 +1,20 @@
 import * as Effect from "effect/Effect";
-import type { StepRequirements } from "../shared/step-requirements.js";
-import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { makeAppError } from "../../app-error/index.js";
+import { AdoptExtension, adoptExtensionPlanName } from "@agentxm/extension-authoring";
+
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { materializeAuthoredMcpServer } from "@agentxm/extension-lifecycle";
-import { buildAuthoredExtensionStep } from "@agentxm/extension-materialization";
-import {
-  extensionTypeToPlural,
-  formatFqn,
-  parseFqn,
-} from "@agentxm/extension-model/unstable/extensions";
-import { requireAuthoredOwner } from "@agentxm/extension-authoring";
-import {
-  failureToStepFailure,
-  fqnInvalidErrorToAppError,
-  toAppError,
-} from "../../app-error/conversions.js";
-import type { JobStepArtifact, Plan } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
-import { WorkspaceMutations, resolveWorkspaceExtensionRef } from "@agentxm/workspace-state";
-import { protectCreatedAncestors } from "@agentxm/workspace-transactions";
-
+import { authoringFailureToAppError } from "../../feature-errors.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
+import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import {
-  HookManager,
-  KnowledgeManager,
-  McpServerManager,
-  PackManager,
-  RuleManager,
-  SkillManager,
-  SubagentManager,
-} from "@agentxm/extension-materialization";
-
-const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
-  const ws = yield* WorkspaceMutations;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const parsed = yield* Effect.fromResult(
-    Result.mapError(parseFqn(fqnInput), fqnInvalidErrorToAppError),
-  );
-  if (ws.layout.scope !== "project") {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "Adopt is project-workspace only",
-    });
-  }
-  yield* requireAuthoredOwner(parsed.owner, { subject: "package", command: "adopt" }).pipe(
-    Effect.mapError(toAppError),
-  );
-  const fqn = formatFqn(parsed);
-  const sourceDir = path.join(
-    ws.layout.acquiredRoot,
-    "agentxm",
-    parsed.owner,
-    extensionTypeToPlural[parsed.type],
-    parsed.name,
-  );
-  const targetDir = path.join(ws.layout.authoredRoot(parsed.type), parsed.name);
-  const enabled = yield* Effect.gen(function* () {
-    switch (parsed.type) {
-      case "skill":
-        return (yield* ws.getConfiguredSkillEntries())[parsed.name]?.enabled ?? true;
-      case "mcp-server":
-        return (yield* ws.getConfiguredMcpServerEntries())[parsed.name]?.enabled ?? true;
-      case "subagent":
-        return (yield* ws.getConfiguredSubagentEntries())[parsed.name]?.enabled ?? true;
-      case "rule":
-        return (yield* ws.getConfiguredRuleEntries())[parsed.name]?.enabled ?? true;
-      case "hook":
-        return (yield* ws.getConfiguredHookEntries())[parsed.name]?.enabled ?? true;
-      case "knowledge":
-        return (yield* ws.getConfiguredKnowledgeEntries())[parsed.name]?.enabled ?? true;
-      case "pack":
-        return (yield* ws.getConfiguredPackEntries())[parsed.name]?.enabled ?? true;
-    }
-  }).pipe(Effect.mapError(toAppError));
-  const setAuthoredActivation = (active: boolean) => {
-    const entry = { source: "workspace" as const, enabled: active };
-    switch (parsed.type) {
-      case "skill":
-        return ws.setSkillEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
-      case "mcp-server":
-        return ws
-          .setMcpServerEntry(parsed.name, { ...entry, env: {} })
-          .pipe(Effect.mapError(toAppError));
-      case "subagent":
-        return ws.setSubagentEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
-      case "rule":
-        return ws.setRuleEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
-      case "hook":
-        return ws.setHookEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
-      case "knowledge":
-        return ws.setKnowledgeEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
-      case "pack":
-        return ws.setPackEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
-    }
-  };
-  const retireExternalResolution = Effect.gen(function* () {
-    switch (parsed.type) {
-      case "skill":
-        return yield* ws.removeSkillLock(parsed.name);
-      case "mcp-server":
-        // Resolve the old connection before its workspace declaration replaces
-        // it, preserving any resolution still shared by another connection.
-        return yield* ws.removeMcpServer(parsed.name);
-      case "subagent":
-        return yield* ws.removeSubagentLock(parsed.name);
-      case "rule":
-        return yield* ws.removeRuleLock(parsed.name);
-      case "hook":
-        return yield* ws.removeHookLock(parsed.name);
-      case "knowledge":
-        return yield* ws.removeKnowledgeLock(parsed.name);
-      case "pack":
-        return yield* ws.removePackLock(parsed.name);
-    }
-  }).pipe(Effect.mapError(toAppError));
-  const preflight = Effect.gen(function* () {
-    const targetExists = yield* fs
-      .exists(targetDir)
-      .pipe(
-        Effect.mapError((cause) =>
-          makeAppError({ code: "internal", detail: `Could not inspect ${targetDir}`, cause }),
-        ),
-      );
-    if (targetExists) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Authored target already exists at ${targetDir}`,
-      });
-    }
-    yield* resolveWorkspaceExtensionRef({
-      settingsName: parsed.name,
-      source: "workspace",
-      expectedType: parsed.type,
-      layout: ws.layout,
-      scope: ws.scope,
-      staticPackage: { owner: parsed.owner, name: parsed.name, root: sourceDir },
-    }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    );
-  }).pipe(Effect.asVoid);
-  const artifact: JobStepArtifact = {
-    path: path.relative(ws.baseDir, targetDir),
-    scope: ws.scope,
-    change: "created",
-    targets: [
-      { path: path.relative(ws.baseDir, sourceDir), change: "removed" },
-      { path: path.relative(ws.baseDir, targetDir), change: "created" },
-      { path: workspaceSettingsPath(ws.scope), change: "updated" },
-    ],
-  };
-  const common = {
-    location: targetDir,
-    transactionTargets: [sourceDir],
-    versionRange: Option.none<string>(),
-    label: `Adopt ${fqn}`,
-    message: `Adopted ${fqn}`,
-    enabled,
-    allowConfiguredSourceTransition: true,
-    markAuthored: Effect.andThen(retireExternalResolution, setAuthoredActivation(true)),
-    finalizeAuthored: setAuthoredActivation(enabled),
-    plannedArtifact: artifact,
-    buildArtifact: () => Effect.succeed(artifact),
-    preflight,
-    scaffold: Effect.gen(function* () {
-      yield* protectCreatedAncestors(fs, path, path.dirname(targetDir));
-      yield* fs.makeDirectory(path.dirname(targetDir), { recursive: true });
-      yield* fs.rename(sourceDir, targetDir);
-    }).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Could not move ${fqn} into authored package storage`,
-          cause,
-        }),
-      ),
-    ),
-  };
-  switch (parsed.type) {
-    case "skill":
-      return buildAuthoredExtensionStep(yield* SkillManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "skill", name: parsed.name },
-      });
-    case "mcp-server": {
-      const nonInteractive = yield* isNonInteractiveOptional;
-      return buildAuthoredExtensionStep(yield* McpServerManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "mcp-server", name: parsed.name },
-        materializeInstall: (ref) => materializeAuthoredMcpServer({ ref, nonInteractive }),
-      });
-    }
-    case "subagent":
-      return buildAuthoredExtensionStep(yield* SubagentManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "subagent", name: parsed.name },
-      });
-    case "rule":
-      return buildAuthoredExtensionStep(yield* RuleManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "rule", name: parsed.name },
-      });
-    case "hook":
-      return buildAuthoredExtensionStep(yield* HookManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "hook", name: parsed.name },
-      });
-    case "knowledge":
-      return buildAuthoredExtensionStep(yield* KnowledgeManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "knowledge", name: parsed.name },
-      });
-    case "pack":
-      return buildAuthoredExtensionStep(yield* PackManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "pack", name: parsed.name, owner: parsed.owner },
-      });
-  }
-});
 
 export interface AdoptHandlerArgs {
   readonly fqn: string;
@@ -253,32 +26,24 @@ export const handleAdopt = (args: AdoptHandlerArgs) =>
     {
       command: "adopt",
       mode: args.preview ? "preview" : "apply",
-      planName: "Adopt workspace extension",
+      planName: adoptExtensionPlanName,
     },
     handleAdoptBody(args),
   );
 
 const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerArgs) {
-  const step = yield* adoptStep(args.fqn);
-  const plan: Plan<StepRequirements> = {
-    _tag: "Plan",
-    name: "Adopt workspace extension",
-    description: Option.some(
-      "Adopt the canonical package as authoritative workspace source content",
-    ),
-    presentation: operationPresentation({
-      imperative: "adopt",
-      past: "Adopted",
-      gerund: "Adopting",
-    }),
-    jobs: [{ concurrency: 1, steps: [step] }],
-  };
+  const nonInteractive = yield* isNonInteractiveOptional;
+  const candidate = yield* AdoptExtension.prepare({ fqn: args.fqn, nonInteractive }).pipe(
+    Effect.mapError(authoringFailureToAppError),
+  );
   const execution = yield* makePublicPositionalPlanExecution(
     { preview: args.preview },
     ["adopt"],
     [args.fqn],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  const resolution = yield* AdoptExtension.previewOrApply(candidate, execution).pipe(
+    Effect.mapError(authoringFailureToAppError),
+  );
   yield* emitOperationResolution("adopt", resolution);
 });
 

@@ -27,6 +27,7 @@ import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
   expectRecord,
+  LifecycleStepFailureConversionLive,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
@@ -185,7 +186,16 @@ describe("subagents-update.handler", () => {
       SubagentManagerLive,
       Layer.mergeAll(WsLayer, AgentRepoLayer, BaseLayer),
     );
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, AgentRepoLayer, SubagentMgrLayer);
+    const FullLayer = Layer.mergeAll(
+      BaseLayer,
+      WsLayer,
+      SPLayer,
+      AgentRepoLayer,
+      SubagentMgrLayer,
+      // The update feature leaves its step requirements open; the runtime
+      // composes the boundary's failure conversion, so a handler test does too.
+      LifecycleStepFailureConversionLive,
+    );
     const provide = makeEffectProvide(FullLayer);
 
     return {
@@ -327,6 +337,7 @@ describe("subagents-update.handler", () => {
           sourcesLayer,
           AgentRepoLayer,
           SubagentMgrLayer,
+          LifecycleStepFailureConversionLive,
         );
         const provide = makeEffectProvide(FullLayer);
 
@@ -451,6 +462,7 @@ describe("subagents-update.handler", () => {
           sourcesLayer,
           agentRepoLayer,
           subagentManagerLayer,
+          LifecycleStepFailureConversionLive,
         ),
       );
       initWorkspace(path.join(tempDir, ".axm"), {
@@ -523,6 +535,7 @@ describe("subagents-update.handler", () => {
         sourcesLayer,
         AgentRepoLayer,
         SubagentMgrLayer,
+        LifecycleStepFailureConversionLive,
       );
       const provide = makeEffectProvide(FullLayer);
 

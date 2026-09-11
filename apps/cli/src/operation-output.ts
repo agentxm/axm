@@ -61,7 +61,7 @@ import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/ex
 import { operationDoc, resolutionAgentCoverage } from "./operation-view.js";
 import { Screen, count, type Doc } from "./screen/index.js";
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
-import type { TargetedUpdatePublicContext } from "./root/update/targeted-update-context.js";
+import type { TargetedUpdatePublicContext } from "@agentxm/extension-resolution";
 
 export const PLAN_RESULT_CONTRACT = "plan-result-v3";
 

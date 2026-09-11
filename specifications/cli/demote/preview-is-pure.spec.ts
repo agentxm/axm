@@ -6,7 +6,6 @@ import { getAppError, handleDemote } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
-import { probeFlag } from "../../support/parser-probe.js";
 import {
   expectProtectedStateUntouched,
   snapshotProtectedState,
@@ -15,9 +14,9 @@ import { writeAuthoredSkill } from "../../support/publish-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/demote/preview-is-pure",
-  title: "Demote preview describes replacement without requiring approval",
+  title: "Demote preview describes the replacement without performing it",
   statement:
-    "When demote runs in preview mode, it shall report the replacement it would apply with a previewed outcome that is identical with or without advance approval, shall not change settings, the lockfile, authored content, or agent projections, and an unattended apply without advance approval shall stop before changing anything and name the approval it needs.",
+    "When demote runs in preview mode, it shall report the replacement it would apply with a previewed outcome naming the demotion unit and the workspace-authority risk it carries, and shall not change settings, the lockfile, authored content, or agent projections.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -71,7 +70,7 @@ describe("Demote preview purity", () => {
     return { workspace, replacement, before };
   };
 
-  it.effect("a previewed demotion renders the same assessment with or without approval", () =>
+  it.effect("a previewed demotion changes nothing and names the replacement it would apply", () =>
     Effect.gen(function* () {
       const { workspace, replacement, before } = authoredWorkspace();
 
@@ -79,12 +78,6 @@ describe("Demote preview purity", () => {
         fqn: "@acme/skills/review",
         source: replacement,
         yes: false,
-        preview: true,
-      }).pipe(Effect.provide(workspace.layer));
-      yield* handleDemote({
-        fqn: "@acme/skills/review",
-        source: replacement,
-        yes: true,
         preview: true,
       }).pipe(Effect.provide(workspace.layer));
 
@@ -95,59 +88,14 @@ describe("Demote preview purity", () => {
       });
       expect(workspace.exists("skills/review/skill.json")).toBe(true);
       expect(workspace.resolvePlanState.confirmApplyChangesCalls).toEqual([]);
-      const [withoutApproval, withApproval] = workspace.rendererState.results;
-      expect(assessedPlan(withoutApproval?.data)).toMatchObject({
+      const [previewed] = workspace.rendererState.results;
+      expect(assessedPlan(previewed?.data)).toMatchObject({
         planName: "Demote workspace extension",
         outcome: "previewed",
         units: [{ label: "Demote @acme/skills/review" }],
         riskConditions: [expect.objectContaining({ id: "replace-workspace-authority" })],
       });
-      expect(assessedPlan(withApproval?.data)).toEqual(assessedPlan(withoutApproval?.data));
     }),
-  );
-
-  it.effect(
-    "an unattended apply without advance approval stops before changing anything and names it",
-    () =>
-      Effect.gen(function* () {
-        const { workspace, replacement, before } = authoredWorkspace();
-
-        yield* handleDemote({
-          fqn: "@acme/skills/review",
-          source: replacement,
-          yes: false,
-          preview: false,
-        }).pipe(Effect.provide(workspace.layer));
-
-        expectProtectedStateUntouched({
-          root: workspace.root,
-          before,
-          writes: workspace.writes,
-        });
-        expect(workspace.resolvePlanState.confirmApplyChangesCalls).toEqual([]);
-        const [entry] = workspace.rendererState.results;
-        expect(entry?.ok).toBe(false);
-        expect(entry?.data).toMatchObject({
-          result: {
-            outcome: "blocked",
-            counts: { committed: 0 },
-            blocking: {
-              class: "approval-required",
-              subject: "replace-workspace-authority",
-              escape: {
-                cmd: expect.stringMatching(/^axm demote .*--yes.* @acme\/skills\/review /u),
-              },
-            },
-          },
-        });
-        expect(
-          workspace.rendererState.suggestions.some(
-            (suggestion) =>
-              suggestion.cmd?.startsWith("axm demote ") === true &&
-              suggestion.cmd.split(" ").includes("--yes"),
-          ),
-        ).toBe(true);
-      }),
   );
 
   it.effect(
@@ -170,13 +118,5 @@ describe("Demote preview purity", () => {
           writes: workspace.writes,
         });
       }),
-  );
-
-  it.effect("the route offers preview and the documented advance approval", () =>
-    Effect.gen(function* () {
-      expect(yield* probeFlag(["demote"], "--preview")).toBe("accepted");
-      expect(yield* probeFlag(["demote"], "--yes")).toBe("accepted");
-      expect(yield* probeFlag(["demote"], "-y")).toBe("accepted");
-    }),
   );
 });

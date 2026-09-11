@@ -54,6 +54,25 @@ describe("operationExitCode", () => {
     expect(operationExitCode(resolution({ units: [unit("a", "unchanged")] }))).toBe(0);
   });
 
+  it("C-15: an interrupted resolution exits with the signal's code", () => {
+    expect(
+      operationExitCode(
+        resolution({
+          units: [unit("a", "committed", { disposition: "retained" })],
+          interruption: { signal: "SIGINT", disposition: "retained" },
+        }),
+      ),
+    ).toBe(130);
+    expect(
+      operationExitCode(
+        resolution({
+          units: [unit("a", "committed", { disposition: "retained" })],
+          interruption: { signal: "SIGTERM", disposition: "retained" },
+        }),
+      ),
+    ).toBe(143);
+  });
+
   it("C-12: an applied resolution exits 0", () => {
     expect(
       operationExitCode(resolution({ units: [unit("a", "committed"), unit("b", "unchanged")] })),

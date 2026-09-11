@@ -129,6 +129,8 @@ demonstrably misses meaningful example changes, or when the project graph
 stops being the authority for project membership and file ownership.
 
 Accepting authority: maintainer approval through the pull-request workflow.
-Binding obligation: the executable specification
-`system/process/requirement-diffs-separate-evidence-impact` owns the verdict
-classification.
+Binding obligation: this record owns the verdict classification — added,
+removed, revised, and possibly revised requirement contracts separated from
+moved files, changed verification coverage, and changed implementation inputs,
+each requirement keyed by its stable identity rather than its path.
+`scripts/specification-verdict.test.ts` is its enforcement.

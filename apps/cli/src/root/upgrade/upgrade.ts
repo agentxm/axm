@@ -1,11 +1,7 @@
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { InstallMethodLive } from "../../install-method/install-method.js";
-import { InstallMetaLive } from "../../install-meta/install-meta.js";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { withRuntime } from "../../runtime.js";
-import { UpdateCheckLive } from "../../update-check/update-check.js";
+import { selfUpdateLayer, withRuntime } from "../../runtime.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -13,14 +9,6 @@ import {
 } from "../shared/command-capabilities.js";
 
 import { handleUpgrade } from "./handler.js";
-import { SubprocessLive } from "./subprocess.js";
-
-const upgradeLayer = Layer.mergeAll(
-  InstallMethodLive,
-  InstallMetaLive,
-  SubprocessLive,
-  UpdateCheckLive,
-);
 
 const upgradeConfig = {
   version: Argument.string("version").pipe(
@@ -46,7 +34,7 @@ export const upgradeCommand = Command.make(
         preview,
         ...(version._tag === "None" ? {} : { requestedVersion: version.value }),
       }),
-      upgradeLayer,
+      selfUpdateLayer,
     ).pipe(withRuntime("upgrade")),
 ).pipe(
   withArgvTracking(upgradeConfig),

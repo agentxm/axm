@@ -34,12 +34,15 @@ const decodeDocument = Schema.decodeUnknownEffect(LintResultDocumentSchema);
 
 const lint = (root: string) =>
   handleLint({
-    pathArg: Option.some(root),
-    scope: "project",
+    selection: {
+      workspaceRoot: root,
+      userHome: root,
+      scope: "project",
+      input: { view: "workspace" },
+      fix: false,
+    },
     strict: false,
     details: false,
-    fix: false,
-    input: { view: "workspace" },
   });
 
 describe("Lint reports facts without mutation", () => {

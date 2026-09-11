@@ -12,7 +12,7 @@ import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
-import { lifecycleCell } from "./lifecycle.js";
+import { lifecycleCell } from "./lifecycle-cell.js";
 import { handleAgentsList } from "./list.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 

@@ -1,124 +1,28 @@
 import * as Effect from "effect/Effect";
-import type { StepRequirements } from "../shared/step-requirements.js";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
+import { ForkExtension, forkExtensionPlanName } from "@agentxm/extension-authoring";
 import {
-  HookManager,
-  KnowledgeManager,
-  McpServerManager,
-  PackManager,
-  RuleManager,
-  SkillManager,
-  SubagentManager,
-} from "@agentxm/extension-materialization";
-import { materializeAuthoredMcpServer } from "@agentxm/extension-lifecycle";
-import { makeAppError } from "../../app-error/index.js";
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import {
-  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
 } from "@agentxm/workspace-operations";
-import {
-  buildAuthoredExtensionStep,
-  copyExtensionDirectory,
-  createCanonicalDirectory,
-  recoverCanonicalDirectory,
-} from "@agentxm/extension-materialization";
-import {
-  forkExtensionPackage,
-  preflightCreateOnly,
-  requireAuthoredOwner,
-} from "@agentxm/extension-authoring";
-import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  extensionTypeFromPlural,
-  extensionTypeToPlural,
-  formatFqn,
-  parseFqn,
-  parseSourceQualifiedRegistrySourcePatternParts,
-  type ExtensionFqnParts,
-} from "@agentxm/extension-model/unstable/extensions";
-import {
-  failureToStepFailure,
-  fqnInvalidErrorToAppError,
-  toAppError,
-} from "../../app-error/conversions.js";
-import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { operationPresentation } from "@agentxm/workspace-operations";
-import {
-  SourceHostProviders,
-  findExtensionPackagesFromSource,
-  inspectExtensionPackage,
-  resolveSource,
-  type ExtensionPackageFilter,
-  type ResolvedExtensionPackage,
-} from "@agentxm/extension-sources";
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { authoringFailureToAppError } from "../../feature-errors.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
+import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-
-const exactFilter = (fqn: ExtensionFqnParts): ExtensionPackageFilter => ({
-  names: [fqn.name],
-  owner: Option.some(fqn.owner),
-  type: fqn.type,
-});
-
-const filterForSource = (
-  sourceInput: string,
-  from: Option.Option<string>,
-): Effect.Effect<ExtensionPackageFilter, ReturnType<typeof fqnInvalidErrorToAppError>> => {
-  if (Option.isSome(from)) {
-    return Effect.fromResult(Result.mapError(parseFqn(from.value), fqnInvalidErrorToAppError)).pipe(
-      Effect.map(exactFilter),
-    );
-  }
-  const registry = parseSourceQualifiedRegistrySourcePatternParts(sourceInput);
-  if (registry?.type !== undefined && registry.name !== undefined) {
-    return Effect.succeed({
-      names: [registry.name],
-      owner: Option.some(registry.owner),
-      type: extensionTypeFromPlural[registry.type],
-    });
-  }
-  return Effect.succeed({ names: [], owner: Option.none(), type: "*" });
-};
-
-const selectPackage = (
-  packages: ReadonlyArray<ResolvedExtensionPackage>,
-): Effect.Effect<ResolvedExtensionPackage, ReturnType<typeof makeAppError>> => {
-  const candidate = packages[0];
-  if (candidate === undefined) {
-    return makeAppError({
-      code: "not_found",
-      detail:
-        "No managed AXM extension package was found; use skills import or subagents import for supported unmanaged/native content",
-    });
-  }
-  if (packages.length > 1) {
-    return makeAppError({
-      code: "validation",
-      detail: "The source contains multiple AXM packages; select one with --from <FQN>",
-    });
-  }
-  return Effect.succeed(candidate);
-};
 
 export interface ForkHandlerArgs {
   readonly source: string;
@@ -133,299 +37,21 @@ export const handleFork = (args: ForkHandlerArgs) =>
     {
       command: "fork",
       mode: args.preview ? "preview" : "apply",
-      planName: "Fork AXM extension package",
+      planName: forkExtensionPlanName,
     },
     handleForkBody(args),
   );
 
 const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
   const nonInteractive = yield* isNonInteractiveOptional;
-  const target = yield* Effect.fromResult(
-    Result.mapError(parseFqn(args.target), fqnInvalidErrorToAppError),
-  );
-  yield* requireAuthoredOwner(target.owner, { subject: "package", command: "fork" }).pipe(
-    Effect.mapError(toAppError),
-  );
-  const ws = yield* WorkspaceMutations;
-  if (ws.layout.scope !== "project") {
-    return yield* makeAppError({ code: "usage", detail: "Fork requires project scope" });
-  }
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const providers = yield* SourceHostProviders;
-  const source = yield* resolveSource(args.source);
-  const filter = yield* filterForSource(args.source, args.from);
-  const packages =
-    source.type === "workspace"
-      ? [
-          {
-            ...(yield* inspectExtensionPackage(
-              path.join(ws.layout.authoredRoot(source.extensionType), source.name),
-            )),
-            origin: providers.origin(source),
-          },
-        ].filter((candidate) =>
-          filter.type !== "*" && filter.type !== candidate.identity.type
-            ? false
-            : filter.names.length > 0 && !filter.names.includes(candidate.identity.name)
-              ? false
-              : Option.isNone(filter.owner) || filter.owner.value === candidate.identity.owner,
-        )
-      : yield* findExtensionPackagesFromSource(source, filter);
-  const selected = yield* selectPackage(packages);
+  const candidate = yield* ForkExtension.prepare({
+    source: args.source,
+    target: args.target,
+    from: args.from,
+    enable: args.enable,
+    nonInteractive,
+  }).pipe(Effect.mapError(authoringFailureToAppError));
 
-  const targetDir = path.join(ws.layout.authoredRoot(target.type), target.name);
-  yield* preflightCreateOnly({
-    subject: "Fork target",
-    name: target.name,
-    configured: false,
-    destinations: [],
-  });
-
-  const stagingRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-fork-" }).pipe(
-    Effect.mapError((cause) =>
-      makeAppError({
-        code: "internal",
-        detail: "Fork staging directory could not be created",
-        cause,
-      }),
-    ),
-  );
-  const stagedPackage = path.join(stagingRoot, "package");
-  yield* forkExtensionPackage({
-    sourceDir: selected.directory,
-    targetDir: stagedPackage,
-    sourceIdentity: selected.identity,
-    target,
-  });
-  const stagedHash = yield* computePackageContentHash(stagedPackage);
-  const fqn = formatFqn(target);
-  const sourceLocator = "workspace";
-
-  let enabled: boolean;
-  let markAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
-  let finalizeAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
-  switch (target.type) {
-    case "skill": {
-      const current = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws
-        .setSkillEntry(target.name, { source: sourceLocator, enabled: true })
-        .pipe(Effect.mapError(toAppError));
-      finalizeAuthored = ws
-        .setSkillEntry(target.name, { source: sourceLocator, enabled })
-        .pipe(Effect.mapError(toAppError));
-      break;
-    }
-    case "mcp-server": {
-      const current = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
-      const existing = current[target.name];
-      enabled = args.enable || (existing?.enabled ?? false);
-      markAuthored = ws
-        .setMcpServerEntry(target.name, {
-          source: sourceLocator,
-          enabled: true,
-          env: existing?.env ?? {},
-        })
-        .pipe(Effect.mapError(toAppError));
-      finalizeAuthored = ws
-        .setMcpServerEntry(target.name, {
-          source: sourceLocator,
-          enabled,
-          env: existing?.env ?? {},
-        })
-        .pipe(Effect.mapError(toAppError));
-      break;
-    }
-    case "subagent": {
-      const current = yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError));
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws
-        .setSubagentEntry(target.name, { source: sourceLocator, enabled: true })
-        .pipe(Effect.mapError(toAppError));
-      finalizeAuthored = ws
-        .setSubagentEntry(target.name, { source: sourceLocator, enabled })
-        .pipe(Effect.mapError(toAppError));
-      break;
-    }
-    case "rule": {
-      const current = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError));
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws
-        .setRuleEntry(target.name, { source: sourceLocator, enabled: true })
-        .pipe(Effect.mapError(toAppError));
-      finalizeAuthored = ws
-        .setRuleEntry(target.name, { source: sourceLocator, enabled })
-        .pipe(Effect.mapError(toAppError));
-      break;
-    }
-    case "hook": {
-      const current = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws
-        .setHookEntry(target.name, { source: sourceLocator, enabled: true })
-        .pipe(Effect.mapError(toAppError));
-      finalizeAuthored = ws
-        .setHookEntry(target.name, { source: sourceLocator, enabled })
-        .pipe(Effect.mapError(toAppError));
-      break;
-    }
-    case "knowledge": {
-      const current = yield* ws.getConfiguredKnowledgeEntries().pipe(Effect.mapError(toAppError));
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws
-        .setKnowledgeEntry(target.name, { source: sourceLocator, enabled: true })
-        .pipe(Effect.mapError(toAppError));
-      finalizeAuthored = ws
-        .setKnowledgeEntry(target.name, { source: sourceLocator, enabled })
-        .pipe(Effect.mapError(toAppError));
-      break;
-    }
-    case "pack": {
-      const current = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
-      enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws
-        .setPackEntry(target.name, { source: sourceLocator, enabled: true })
-        .pipe(Effect.mapError(toAppError));
-      finalizeAuthored = ws
-        .setPackEntry(target.name, { source: sourceLocator, enabled })
-        .pipe(Effect.mapError(toAppError));
-      break;
-    }
-  }
-
-  const artifact: JobStepArtifact = {
-    path: path.relative(ws.baseDir, targetDir),
-    scope: ws.scope,
-    version: "0.1.0",
-    change: "created",
-    targets: [
-      { path: path.relative(ws.baseDir, targetDir), change: "created" },
-      { path: workspaceSettingsPath(ws.scope), change: "created" },
-    ],
-  };
-  const common = {
-    location: targetDir,
-    versionRange: Option.none<string>(),
-    label: `Fork ${selected.identity.owner}/${extensionTypeToPlural[selected.identity.type]}/${selected.identity.name} -> ${fqn}`,
-    message: `Forked ${fqn}`,
-    enabled,
-    allowConfiguredSourceTransition: true,
-    markAuthored,
-    finalizeAuthored,
-    plannedArtifact: artifact,
-    buildArtifact: () => Effect.succeed(artifact),
-    preflight: Effect.gen(function* () {
-      yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir });
-      yield* preflightCreateOnly({
-        subject: "Fork target",
-        name: target.name,
-        configured: false,
-        destinations: [targetDir],
-      });
-    }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    ),
-    scaffold: createCanonicalDirectory({
-      baseDir: ws.baseDir,
-      canonicalPath: targetDir,
-      subject: "Fork target",
-      populate: (publicationPath) =>
-        copyExtensionDirectory(stagedPackage, publicationPath).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: `Prepared fork could not be staged for ${targetDir}`,
-              cause,
-            }),
-          ),
-        ),
-      validate: (publicationPath) =>
-        computePackageContentHash(publicationPath).pipe(
-          Effect.flatMap((currentHash) =>
-            currentHash === stagedHash
-              ? Effect.void
-              : makeAppError({
-                  code: "conflict",
-                  detail: "Prepared fork content changed before it could be applied",
-                }),
-          ),
-        ),
-    }).pipe(
-      Effect.asVoid,
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    ),
-  };
-
-  let step: PlannedJobStep<StepRequirements>;
-  switch (target.type) {
-    case "skill":
-      step = buildAuthoredExtensionStep(yield* SkillManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "skill", name: target.name },
-      });
-      break;
-    case "mcp-server": {
-      step = buildAuthoredExtensionStep(yield* McpServerManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "mcp-server", name: target.name },
-        materializeInstall: (ref) => materializeAuthoredMcpServer({ ref, nonInteractive }),
-      });
-      break;
-    }
-    case "subagent":
-      step = buildAuthoredExtensionStep(yield* SubagentManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "subagent", name: target.name },
-      });
-      break;
-    case "rule":
-      step = buildAuthoredExtensionStep(yield* RuleManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "rule", name: target.name },
-      });
-      break;
-    case "hook":
-      step = buildAuthoredExtensionStep(yield* HookManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "hook", name: target.name },
-      });
-      break;
-    case "knowledge":
-      step = buildAuthoredExtensionStep(yield* KnowledgeManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "knowledge", name: target.name },
-      });
-      break;
-    case "pack":
-      step = buildAuthoredExtensionStep(yield* PackManager, {
-        toStepFailure: failureToStepFailure,
-        ...common,
-        target: { type: "pack", owner: target.owner, name: target.name },
-      });
-      break;
-  }
-
-  const plan: Plan<StepRequirements> = {
-    _tag: "Plan",
-    name: "Fork AXM extension package",
-    description: Option.some(
-      `Create ${fqn} from ${selected.origin}; the source remains unchanged and the fork starts ${enabled ? "enabled" : "disabled"}`,
-    ),
-    presentation: operationPresentation(
-      { imperative: "fork", past: "Forked", gerund: "Forking" },
-      target.type,
-    ),
-    jobs: [{ concurrency: 1, steps: [step] }],
-  };
   const execution = yield* makePlanExecution(
     { preview: args.preview },
     makeConfirmationRecovery(
@@ -441,7 +67,9 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
       ],
     ),
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  const resolution = yield* ForkExtension.previewOrApply(candidate, execution).pipe(
+    Effect.mapError(authoringFailureToAppError),
+  );
   yield* emitOperationResolution("fork", resolution);
 });
 

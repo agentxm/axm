@@ -170,6 +170,7 @@ export {
 } from "./managed-file-discovery.js";
 export {
   observeAgentOutputs,
+  observeWorkspaceOwnershipIssues,
   type AgentOutputInventory,
   type AgentOutputObservation,
   type AgentOutputOwnershipProof,
@@ -230,6 +231,20 @@ export {
   type ResolvedInstructionsConfig,
   type SyncInstructionsArgs,
 } from "./instructions/instructions.js";
+// Instruction reconciliation shared by instruction management and rule
+// activation: both reconcile the same alias set, and neither may import the
+// other's feature.
+export {
+  activeInstructionsConfig,
+  disableInstructionManagement,
+  instructionReconciliationReadiness,
+  instructionStateIsCurrent,
+  observeInstructions,
+  reconcileInstructionTransition,
+  removeInstructionTargetsFor,
+  type DisabledInstructionManagement,
+  type InstructionReadinessFailure,
+} from "./instructions/reconciliation.js";
 
 // Knowledge discovery region and instruction entry
 export {

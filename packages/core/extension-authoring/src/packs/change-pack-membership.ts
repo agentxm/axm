@@ -232,7 +232,8 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
     : removals({ manifest, request, pattern });
 
   if (members.length === 0) {
-    return { _tag: "NoChange", change: request.change, pack } satisfies PackMembershipUnchanged;
+    const unchanged: PackMembershipUnchanged = { _tag: "NoChange", change: request.change, pack };
+    return unchanged;
   }
 
   const step: PlannedJobStep<PackMembershipRequirements> = {
@@ -278,13 +279,14 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
     jobs: [{ concurrency: 1, steps: [step] }],
   };
 
-  return {
+  const change: PackMembershipChange = {
     _tag: "Change",
     change: request.change,
     pack,
     members: members.map((member) => member.fqn),
     execution: yield* prepareExecutionCandidate(plan),
-  } satisfies PackMembershipChange;
+  };
+  return change;
 });
 
 interface ResolvedMember {

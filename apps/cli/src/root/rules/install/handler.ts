@@ -1,59 +1,42 @@
+/**
+ * `axm rules install`.
+ */
+
 import * as Effect from "effect/Effect";
-import type { StepRequirements } from "../../shared/step-requirements.js";
-import {
-  deriveOperationOutcome,
-  operationPresentation,
-  type Plan,
-} from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
-import { emitOperationResolution } from "../../../operation-output.js";
-import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
-import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../../shared/no-op-output.js";
-import {
-  InstallRuleCommandWorkflowActions,
-  type InstallRuleHandlerArgs,
-} from "./command-actions.js";
+import * as Option from "effect/Option";
+
+import { isNonInteractiveOptional } from "../../../cli-flags/index.js";
+import { runInstallCommand } from "../../shared/install-command.js";
+
+export interface InstallRuleHandlerArgs {
+  readonly source: string;
+}
 
 export const handleInstallRule = (
   args: InstallRuleHandlerArgs,
   flags: { readonly force: boolean; readonly preview: boolean },
 ) =>
-  withOperationLifecycle(
-    {
-      command: "rules.install",
-      mode: flags.preview ? "preview" : "apply",
-      planName: "Install rules",
-    },
-    handleInstallRuleBody(args, flags),
-  );
-
-const handleInstallRuleBody = (
-  args: InstallRuleHandlerArgs,
-  flags: { readonly force: boolean; readonly preview: boolean },
-) =>
   Effect.gen(function* () {
-    const actions = yield* InstallRuleCommandWorkflowActions;
-    const execution = yield* makeInstallPlanExecution(flags, ["rules", "install"], [args.source]);
-    const resolution = yield* runInstallCommandWorkflow(args, actions, {
-      execution,
-      transformPlan: (plan) =>
-        Effect.succeed({
-          ...plan,
-          presentation: operationPresentation(
-            { imperative: "install", past: "Installed", gerund: "Installing" },
-            "rule",
-          ),
-        } satisfies Plan<StepRequirements>),
-    });
-    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
-      yield* emitNoOpOutcome("rules.install", {
-        planName: resolution.name,
-        message: "No rules installed.",
-      });
-      return;
-    }
-    yield* emitOperationResolution("rules.install", resolution, {
+    const nonInteractive = yield* isNonInteractiveOptional;
+    return yield* runInstallCommand({
+      command: "rules.install",
+      preview: flags.preview,
+      force: flags.force,
+      request: {
+        type: Option.some("rule"),
+        subject: { kind: "source", source: args.source },
+        names: [],
+        all: false,
+        reinstall: flags.force,
+        localName: Option.none(),
+        env: [],
+        nonInteractive,
+        planName: "Install rules",
+        planDescription: Option.none(),
+      },
+      recoveryCommand: ["rules", "install"],
+      recoveryLocators: [args.source],
       suggestions: [{ description: "Inspect installed rules", cmd: "axm rules list" }],
+      noOpMessage: "No rules installed.",
     });
   });

@@ -18,6 +18,9 @@
   ],
   "references": [
     {
+      "path": "../../../tools/specification-metadata/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-transactions/tsconfig.lib.json"
     },
     {
@@ -30,7 +33,13 @@
       "path": "../workspace-operations/tsconfig.lib.json"
     },
     {
+      "path": "../registry-protocol/tsconfig.lib.json"
+    },
+    {
       "path": "../../supporting/registry-client/tsconfig.lib.json"
+    },
+    {
+      "path": "../../supporting/registry-auth/tsconfig.lib.json"
     },
     {
       "path": "../../supporting/extension-sources/tsconfig.lib.json"

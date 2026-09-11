@@ -36,6 +36,7 @@ import {
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import {
+  BundledAxmSkillAssetLive,
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
   ExecutionDirectory,
@@ -104,6 +105,9 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
     FetchHttpClient.layer,
     CodingAgentRepositoryLive,
     NativeWriteAuthorityLive,
+    // Setup applies the bundled official skill inside the initialization
+    // closure, through the same asset layer the executable composes.
+    BundledAxmSkillAssetLive,
     renderer.layer,
     interaction.layer,
     TestFlagsLayer({

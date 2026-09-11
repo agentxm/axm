@@ -150,12 +150,15 @@ describe("An unreadable Knowledge bundle", () => {
       // Lint exits non-zero when it reports anything; the report is what
       // this obligation is about.
       yield* handleLint({
-        pathArg: Option.some(workspace.root),
-        scope: "project",
+        selection: {
+          workspaceRoot: workspace.root,
+          userHome: workspace.root,
+          scope: "project",
+          input: { view: "workspace" },
+          fix: false,
+        },
         strict: false,
         details: false,
-        fix: false,
-        input: { view: "workspace" },
       }).pipe(
         Effect.provide(workspace.layer),
         Effect.catchCause(() => Effect.void),

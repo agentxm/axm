@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace-state",
   "version": "0.28.12",
-  "description": "AXM workspace state kernel: settings, lockfile, read model, and desired-state vocabulary for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "description": "AXM workspace state kernel: settings, lockfile, read model, and desired-state vocabulary for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -57,6 +57,7 @@
     "yaml": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/specification-metadata": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/semver": "catalog:",

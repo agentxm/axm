@@ -24,12 +24,6 @@ export {
 } from "./authored-package-errors.js";
 export { authoringStepFailure, type AuthoringStepFailure } from "./step-failure.js";
 
-export {
-  decodeDesiredExtensionIdentity,
-  type DecodedDesiredExtensionIdentity,
-  type DesiredPackageAuthority,
-} from "./desired-identity.js";
-
 export { forkExtensionPackage, type ForkExtensionPackageArgs } from "./fork-package.js";
 export {
   importNativeExtensionPackage,
@@ -38,6 +32,12 @@ export {
 } from "./import-native-package.js";
 
 export { preflightCreateOnly, type CreateOnlyPreflightArgs } from "./create-preflight.js";
+
+export {
+  authoredDeclaration,
+  type AuthoredDeclaration,
+  type AuthoredDeclarationState,
+} from "./authored-declaration.js";
 
 export { markerFqnForRef, type MarkerFqnRef } from "./marker-fqn.js";
 
@@ -54,6 +54,7 @@ export {
   type CreateExtensionRequirements,
   type CreateHookRequest,
   type CreateKnowledgeRequest,
+  type CreateMcpServerRequest,
   type CreatePackRequest,
   type CreateRuleRequest,
   type CreateSkillRequest,
@@ -108,3 +109,70 @@ export {
   PackSourceMissing,
   type PackMembershipError,
 } from "./packs/membership-errors.js";
+
+// Forking a managed package into workspace authorship
+export {
+  ForkExtension,
+  forkExtensionPlanName,
+  prepareForkExtension,
+  previewOrApplyForkExtension,
+  type ForkExtensionCandidate,
+  type ForkExtensionFailure,
+  type ForkExtensionRequest,
+  type ForkExtensionRequirements,
+  type PrepareForkExtensionRequirements,
+} from "./fork/fork-extension.js";
+
+// Adopting an acquired package into workspace authorship
+export {
+  AdoptExtension,
+  adoptExtensionPlanName,
+  prepareAdoptExtension,
+  previewOrApplyAdoptExtension,
+  type AdoptExtensionCandidate,
+  type AdoptExtensionFailure,
+  type AdoptExtensionRequest,
+  type AdoptExtensionRequirements,
+  type PrepareAdoptExtensionRequirements,
+} from "./adopt/adopt-extension.js";
+
+// Importing native content as an authored package
+export {
+  ImportNativeExtension,
+  importNativeExtensionPlanName,
+  prepareImportNativeExtension,
+  previewOrApplyImportNativeExtension,
+  type ImportNativeExtensionCandidate,
+  type ImportNativeExtensionFailure,
+  type ImportNativeExtensionRequest,
+  type ImportNativeExtensionRequirements,
+  type ImportNativeMcpServerRequest,
+  type ImportNativeSkillRequest,
+  type ImportNativeSubagentRequest,
+  type NativeImportType,
+  type NativeMcpCandidate,
+  type NativeMcpDiscovery,
+  type PrepareImportNativeExtensionRequirements,
+} from "./import/import-native-extension.js";
+
+// Changing an authored manifest's version
+export {
+  ChangeAuthoredVersion,
+  changeAuthoredVersionPlanName,
+  prepareChangeAuthoredVersion,
+  previewOrApplyChangeAuthoredVersion,
+  type AuthoredVersionChange,
+  type ChangeAuthoredVersionCandidate,
+  type ChangeAuthoredVersionFailure,
+  type ChangeAuthoredVersionRequest,
+  type ChangeAuthoredVersionRequirements,
+  type PrepareChangeAuthoredVersionRequirements,
+  type VersionBumpRule,
+} from "./version/change-authored-version.js";
+export {
+  AuthoredManifestUnavailable,
+  VersionTargetIdentityMismatch,
+  VersionTargetInvalid,
+  VersionTargetNotAuthored,
+  type AuthoredVersionError,
+} from "./version/errors.js";

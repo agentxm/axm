@@ -1,3 +1,13 @@
+## 0.29.2 (2026-09-11)
+
+### 🚀 Features
+
+- Fix clean installs by aligning the Effect runtime cohort. ([a6930cb93](https://github.com/agentxm/axm/commit/a6930cb93))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.29.1 (2026-09-11)
 
 ### 🚀 Features

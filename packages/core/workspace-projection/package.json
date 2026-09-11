@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/workspace-projection",
-  "version": "0.29.1",
+  "version": "0.29.2",
   "description": "AXM workspace projection: ownership units, projection planning and participants, managed-file ownership grammar, invariant facts, and the read-side reconciliation facts for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

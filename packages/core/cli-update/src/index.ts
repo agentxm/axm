@@ -1,5 +1,5 @@
 /**
- * Native installation inspection, startup checking, and verified replacement
+ * Native installation inspection, update-cache storage, and verified replacement
  * of the installed `axm` executable. CLI maintenance owns upgrade preparation
  * and the application contracts these adapters implement.
  *
@@ -47,25 +47,3 @@ export {
   type RunCommandOptions,
   type SubprocessService,
 } from "./subprocess/subprocess.js";
-
-export {
-  UPDATE_CHECK_CACHE_SCHEMA,
-  UpdateCheck,
-  UpdateCheckCacheSchema,
-  notificationMessage,
-  shouldSkip,
-  type NotificationAudience,
-  type SkipCheckContext,
-  type UpdateCheckCache,
-  type UpdateCheckCacheState,
-  type UpdateCheckService,
-} from "./update-check/update-check.js";
-
-export {
-  StartupUpdateCheck,
-  noUpdateCheckEnvironment,
-  refreshCache,
-  type StartupUpdateCheckOptions,
-  type StartupUpdateCheckOutcome,
-  type UpdateNotification,
-} from "./startup-check/startup-check.js";

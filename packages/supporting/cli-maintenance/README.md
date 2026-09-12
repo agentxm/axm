@@ -19,8 +19,19 @@ and derives immutable GitHub coordinates; `./self-update/composition` connects
 it to the caller's HTTP client. Substitute catalogs exercise selection policy
 without HTTP, installation state, or a CLI. Host inspection and CLI progress
 implement these contracts in `@agentxm/cli-update`'s adapters and composition.
-Its installer mutation, startup-check policy, and assessment rendering remain
-to be separated and consolidated under CLI maintenance.
+Its installer mutation and assessment rendering remain to be separated and
+consolidated under CLI maintenance.
+
+The same capability owns informational startup checks: suppression, cache
+freshness, version eligibility, conditional refresh, and the decision that an
+unavailable check cannot fail an explicit command. `UpdateCheckCache` and
+`StableChannelCheck` are application contracts. The cache reports a validated
+snapshot; the application evaluates it once and returns version facts. Its
+optional refresh belongs to the invocation scope, with a three-second bound.
+The HTTP adapter validates the release authority's response; filesystem storage
+is supplied by `@agentxm/cli-update`. The CLI reads environment and invocation
+signals and formats human or agent notifications. These decisions can be
+exercised without either adapter or a delivery interface.
 
 The `official-skill` backstage capability has four published entry points:
 

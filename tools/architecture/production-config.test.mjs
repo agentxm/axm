@@ -162,3 +162,23 @@ for (const [name, code] of [
     assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
   });
 }
+
+test("startup update policy cannot read its cache through a filesystem service", async () => {
+  const [result] = await eslint.lintText(
+    'import * as FileSystem from "effect/FileSystem"; export { FileSystem };',
+    { filePath: "packages/supporting/cli-maintenance/src/self-update/domain/startup-check.ts" },
+  );
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});
+
+test("startup orchestration cannot select the release HTTP adapter", async () => {
+  const [result] = await eslint.lintText(
+    'export { makeStableChannelCheck } from "../adapters/channel-check/index.js";',
+    {
+      filePath: "packages/supporting/cli-maintenance/src/self-update/application/startup-check.ts",
+    },
+  );
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});

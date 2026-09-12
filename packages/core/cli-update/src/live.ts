@@ -9,6 +9,6 @@
 export { InstallMethodLive } from "./install-method/install-method.js";
 export { InstallMetaLive } from "./install-meta/install-meta.js";
 export { SubprocessLive } from "./subprocess/subprocess.js";
-export { UpdateCheckLive } from "./update-check/update-check.js";
+export { UpdateCheckCacheLive } from "./composition/update-cache.js";
 
 export { UpgradePreparationLive } from "./composition/preparation.js";

@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { capture, captureIn, run, runIn } from "./release-command.js";
+import { selectReleasedSkillTag } from "./release-preflight.js";
 import {
   type CandidateWorkspace,
   type ReleasePreparationHost,
@@ -87,12 +88,17 @@ const configureReleasedSkillPreflightWorkspace = (checkout: string) => {
 
 const preflightRegistryFromReleasedSkill = () => {
   const version = requireMatchingReleasePackageVersions();
-  const tag = releaseTagFromVersion(version);
+  const currentTag = releaseTagFromVersion(version);
+  const reachableTags = capture("git", ["tag", "--merged", "HEAD", "--list", "cli-v*"]).split("\n");
+  const tag = selectReleasedSkillTag(version, reachableTags);
   const root = mkdtempSync(join(tmpdir(), "axm-release-preflight-"));
   const checkout = join(root, "released");
   let primaryFailure: unknown;
 
   try {
+    if (tag !== currentTag) {
+      console.log(`  Current version ${version} is unreleased; use prior release ${tag}`);
+    }
     console.log(`  Verify released skill archive from ${tag}`);
     run("git", ["worktree", "add", "--detach", checkout, tag]);
     configureReleasedSkillPreflightWorkspace(checkout);

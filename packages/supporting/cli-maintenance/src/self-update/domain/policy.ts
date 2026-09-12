@@ -5,6 +5,17 @@ import type { InstallMethodType } from "./installation.js";
 
 export type VersionRelation = "upgrade-available" | "current" | "local-newer" | "unknown-local";
 
+/** Exact requests admit only already-normalized stable semantic versions. */
+export const normalizeExactVersion = (requestedVersion: string): string | null => {
+  if (requestedVersion.startsWith("v")) return null;
+  const normalized = semver.valid(requestedVersion);
+  return normalized !== null &&
+    normalized === requestedVersion &&
+    semver.prerelease(normalized) === null
+    ? normalized
+    : null;
+};
+
 export const classifyVersionRelation = (
   localVersion: string | null,
   targetVersion: string,

@@ -10,6 +10,8 @@
  * @packageDocumentation
  */
 
+import { stableChannelDocument } from "@agentxm/cli-maintenance/self-update/testing";
+import { CliReleaseCatalogLive } from "@agentxm/cli-maintenance/self-update/composition";
 import { Homebrew, type InstallMethodType } from "@agentxm/cli-maintenance/self-update/domain";
 
 import * as fs from "node:fs";
@@ -40,7 +42,7 @@ import { Subprocess, type CommandResult, type RunCommandOptions } from "./subpro
 import { UpdateCheck } from "./update-check/update-check.js";
 import { UpgradeWorkingDirectory } from "./upgrade/working-directory.js";
 import { PerformUpgrade, type UpgradeRequest } from "./upgrade/use-case.js";
-import type { UpgradeFailed } from "./errors.js";
+import type { UpgradeFailed } from "@agentxm/cli-maintenance/self-update/application";
 import type { UpgradeAssessmentResult } from "./upgrade/mechanism.js";
 
 export { InstallMethodTest } from "./install-method/install-method.js";
@@ -51,44 +53,6 @@ export const LOCAL_VERSION = "1.0.0";
 /** A target the local version is always behind, so the upgrade path is taken. */
 export const TARGET_VERSION = "999.0.0";
 export const HOMEBREW_EXECUTABLE = "/opt/homebrew/bin/axm";
-
-/**
- * The promoted stable-channel document, in the shape the published channel
- * serves it.
- */
-export const stableChannelDocument = (version = "2.0.0", revision = 3) => {
-  const tag = `cli-v${version}`;
-  const assetUrl = (name: string) =>
-    `https://github.com/agentxm/axm/releases/download/${tag}/${name}`;
-  const digest = "a".repeat(64);
-  return {
-    schema: "axm.release-channel/v1",
-    channel: "stable",
-    revision,
-    version,
-    release: {
-      repository: "agentxm/axm",
-      tag,
-      commit: "b".repeat(40),
-      publishedAt: "2026-09-03T17:00:00Z",
-    },
-    artifacts: {
-      checksumManifest: {
-        name: "SHA256SUMS",
-        url: assetUrl("SHA256SUMS"),
-        sha256: digest,
-      },
-      binaries: [
-        ["darwin-arm64", "axm-darwin-arm64"],
-        ["darwin-x64", "axm-darwin-x64"],
-        ["linux-arm64", "axm-linux-arm64"],
-        ["linux-x64", "axm-linux-x64"],
-        ["windows-x64", "axm-windows-x64.exe"],
-      ].map(([target, name]) => ({ target, name, url: assetUrl(name ?? ""), sha256: digest })),
-    },
-    promotedAt: "2026-09-03T17:01:00Z",
-  };
-};
 
 /** One external command the capability asked the installer to run. */
 export interface SubprocessInvocation {
@@ -404,7 +368,7 @@ export const makeUpgradeTrial = (
 
     const layer = Layer.mergeAll(
       subprocess.layer,
-      releaseOrigin.layer,
+      Layer.provideMerge(CliReleaseCatalogLive, releaseOrigin.layer),
       Layer.succeed(UpgradeWorkingDirectory, {
         path: options?.workingDirectory ?? process.cwd(),
       }),

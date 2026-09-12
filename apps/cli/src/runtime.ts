@@ -1,3 +1,4 @@
+import { CliReleaseCatalogLive } from "@agentxm/cli-maintenance/self-update/composition";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -268,6 +269,7 @@ export const startupUpdateCheckLayer = Layer.provide(
 );
 
 export const selfUpdateLayer = Layer.mergeAll(
+  CliReleaseCatalogLive,
   InstallMethodLive,
   InstallMetaLive,
   SubprocessLive,

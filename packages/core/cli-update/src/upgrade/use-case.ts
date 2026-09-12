@@ -35,16 +35,16 @@ import * as semver from "semver";
 
 import { observeUnit } from "@agentxm/workspace-operations";
 
-import { UpgradeFailed } from "../errors.js";
 import { InstallMeta } from "../install-meta/install-meta.js";
 import { InstallMethod } from "../install-method/install-method.js";
 import { Subprocess } from "../subprocess/subprocess.js";
 import { UpdateCheck } from "../update-check/update-check.js";
-import type { VersionResolutionResult } from "../version-resolution/version-resolution.js";
 import {
-  resolveExactVersion,
-  resolveLatestVersion,
-} from "../version-resolution/version-resolution.js";
+  CliReleaseCatalog,
+  selectUpgradeRelease,
+  UpgradeFailed,
+  type VersionResolutionResult,
+} from "@agentxm/cli-maintenance/self-update/application";
 import { UpgradeWorkingDirectory } from "./working-directory.js";
 import {
   methodName,
@@ -93,8 +93,10 @@ export interface UpgradeCandidate {
   readonly detectionCommands: ReadonlyArray<CommandRecord>;
 }
 
+type UpgradePreparationRequirements =
+  InstallMethod | CliReleaseCatalog | Subprocess | UpgradeWorkingDirectory;
+
 type UpgradeRequirements =
-  | InstallMethod
   | InstallMeta
   | Subprocess
   | UpdateCheck
@@ -124,7 +126,7 @@ const baseInput = (candidate: UpgradeCandidate): BaseResultInput => ({
  */
 export const prepare: (
   request: UpgradeRequest,
-) => Effect.Effect<UpgradeCandidate, UpgradeFailed, UpgradeRequirements> = Effect.fn(
+) => Effect.Effect<UpgradeCandidate, UpgradeFailed, UpgradePreparationRequirements> = Effect.fn(
   "PerformUpgrade.prepare",
 )(function* (request: UpgradeRequest) {
   const platform = resolvePlatformBinary(process.platform, process.arch);
@@ -183,24 +185,16 @@ export const prepare: (
             resolvedLabel: (selected: VersionResolutionResult) =>
               `AXM stable channel — ${selected.targetVersion}`,
           },
-          Effect.gen(function* () {
-            const httpClient = yield* HttpClient.HttpClient;
-            return yield* resolveLatestVersion(httpClient, localVersion, platform.value.binaryName);
-          }),
+          selectUpgradeRelease({ localVersion, binaryName: platform.value.binaryName }),
         )
       : yield* observeUnit(
           { id: "resolve-version", label: `AXM ${request.requestedVersion}` },
-          resolveExactVersion(request.requestedVersion, localVersion, platform.value.binaryName),
+          selectUpgradeRelease({
+            requestedVersion: request.requestedVersion,
+            localVersion,
+            binaryName: platform.value.binaryName,
+          }),
         );
-
-  if (semver.valid(resolution.targetVersion) === null) {
-    return yield* Effect.fail(
-      new UpgradeFailed({
-        category: "validation",
-        detail: "The selected upgrade target is not valid semantic version",
-      }),
-    );
-  }
 
   return {
     request,
@@ -338,9 +332,11 @@ export const previewOrApply: (
 /** The read-only assessment: the prepared candidate, presented, never applied. */
 export const query: (
   request: UpgradeRequest,
-) => Effect.Effect<UpgradeAssessmentResult, UpgradeFailed, UpgradeRequirements> = Effect.fn(
-  "AssessUpgrade.query",
-)(function* (request: UpgradeRequest) {
+) => Effect.Effect<
+  UpgradeAssessmentResult,
+  UpgradeFailed,
+  UpgradeRequirements | UpgradePreparationRequirements
+> = Effect.fn("AssessUpgrade.query")(function* (request: UpgradeRequest) {
   const candidate = yield* prepare(request);
   return yield* previewOrApply(candidate, { mode: "preview" });
 });

@@ -6,51 +6,24 @@
  */
 
 import {
-  classifyVersionRelation,
-  type VersionRelation,
-} from "@agentxm/cli-maintenance/self-update/domain";
-
-import {
   STABLE_CHANNEL_REPOSITORY,
   STABLE_CHANNEL_URL,
   decodeStableChannelDocument,
-  type StableChannelDocumentV1,
 } from "@agentxm/extension-model/unstable/release-channel";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as semver from "semver";
 
-import { UpgradeFailed } from "../errors.js";
+import {
+  UpgradeFailed,
+  type CliReleaseCatalogService,
+  type SelectedRelease,
+} from "../../application/index.js";
 
 const CLI_TAG_PREFIX = "cli-v";
 const CHECKSUM_ASSET_NAME = "SHA256SUMS";
 const CHANNEL_REQUEST_TIMEOUT = "10 seconds";
-
-/** Default GitHub repository used for immutable exact-version artifacts. */
-export const DEFAULT_GITHUB_REPO = STABLE_CHANNEL_REPOSITORY;
-
-export interface ResolvedRelease {
-  readonly tagName: string;
-  readonly binaryAssetUrl: string | null;
-  readonly checksumAssetUrl: string | null;
-}
-
-export interface VersionResolutionResult {
-  /** Selected target version without the `cli-v` prefix. */
-  readonly targetVersion: string;
-  /** Valid observed local version, or null when it cannot be determined. */
-  readonly localVersion: string | null;
-  readonly versionRelation: VersionRelation;
-  readonly release: ResolvedRelease;
-  /** Validated channel document for latest-mode resolution. */
-  readonly channel: StableChannelDocumentV1 | null;
-  /** Time at which the channel response was validated. */
-  readonly validatedAt: string;
-  /** Validator supplied by the channel origin, when present. */
-  readonly etag: string | null;
-}
 
 const channelErrorForStatus = (status: number, retryAfter: string | undefined) => {
   if (status === 403 || status === 429) {
@@ -92,24 +65,14 @@ const mapChannelDecodeError = (cause: Schema.SchemaError) =>
     cause,
   });
 
-const releaseAsset = (document: StableChannelDocumentV1, requiredAsset: string | undefined) => {
-  if (requiredAsset === undefined) return null;
-  return document.artifacts.binaries.find((candidate) => candidate.name === requiredAsset) ?? null;
-};
-
 /**
  * Resolve the promoted stable CLI release with exactly one bounded channel
  * request. GitHub release enumeration is deliberately not part of discovery.
  */
-export const resolveLatestVersion = (
-  httpClient: HttpClient.HttpClient,
-  localVersion: string | null,
-  requiredAsset?: string,
-  channelUrl = STABLE_CHANNEL_URL,
-) =>
+const resolveLatestVersion = (httpClient: HttpClient.HttpClient, requiredAsset: string) =>
   Effect.gen(function* () {
     const response = yield* httpClient
-      .get(channelUrl, {
+      .get(STABLE_CHANNEL_URL, {
         headers: {
           Accept: "application/json",
           "User-Agent": "axm-cli",
@@ -159,9 +122,9 @@ export const resolveLatestVersion = (
     const channel = yield* decodeStableChannelDocument(json).pipe(
       Effect.mapError(mapChannelDecodeError),
     );
-    const binary = releaseAsset(channel, requiredAsset);
+    const binary = channel.artifacts.binaries.find((candidate) => candidate.name === requiredAsset);
 
-    if (requiredAsset !== undefined && binary === null) {
+    if (binary === undefined) {
       return yield* new UpgradeFailed({
         category: "unavailable",
         detail: `CLI ${channel.version} is promoted, but ${requiredAsset} is unavailable`,
@@ -169,70 +132,43 @@ export const resolveLatestVersion = (
       });
     }
 
-    const relation = classifyVersionRelation(localVersion, channel.version);
     return {
       targetVersion: channel.version,
-      localVersion: relation.localVersion,
-      versionRelation: relation.versionRelation,
       release: {
         tagName: channel.release.tag,
-        binaryAssetUrl: binary?.url ?? null,
+        binaryAssetUrl: binary.url,
         checksumAssetUrl: channel.artifacts.checksumManifest.url,
       },
       channel,
       validatedAt: DateTime.formatIso(yield* DateTime.now),
       etag: response.headers["etag"] ?? response.headers["ETag"] ?? null,
-    } satisfies VersionResolutionResult;
+    } satisfies SelectedRelease;
   });
 
-const normalizeExactVersion = (requestedVersion: string) => {
-  if (requestedVersion.startsWith("v")) {
-    return null;
-  }
-  const normalized = semver.valid(requestedVersion);
-  if (
-    normalized === null ||
-    normalized !== requestedVersion ||
-    semver.prerelease(normalized) !== null
-  ) {
-    return null;
-  }
-  return normalized;
-};
-
 /** Resolve immutable GitHub coordinates without network discovery. */
-export const resolveExactVersion = (
-  requestedVersion: string,
-  localVersion: string | null,
-  requiredAsset?: string,
-  repository = DEFAULT_GITHUB_REPO,
-) =>
+const resolveExactVersion = (targetVersion: string, requiredAsset: string) =>
   Effect.gen(function* () {
-    const targetVersion = normalizeExactVersion(requestedVersion);
-    if (targetVersion === null) {
-      return yield* new UpgradeFailed({
-        category: "validation",
-        detail: `Invalid exact CLI version: ${requestedVersion}`,
-        suggestions: [{ description: "Use a stable semantic version without a leading v." }],
-      });
-    }
-
     const tagName = `${CLI_TAG_PREFIX}${targetVersion}`;
     const assetUrl = (name: string) =>
-      `https://github.com/${repository}/releases/download/${tagName}/${name}`;
-    const relation = classifyVersionRelation(localVersion, targetVersion);
+      `https://github.com/${STABLE_CHANNEL_REPOSITORY}/releases/download/${tagName}/${name}`;
 
     return {
       targetVersion,
-      localVersion: relation.localVersion,
-      versionRelation: relation.versionRelation,
       release: {
         tagName,
-        binaryAssetUrl: requiredAsset === undefined ? null : assetUrl(requiredAsset),
+        binaryAssetUrl: assetUrl(requiredAsset),
         checksumAssetUrl: assetUrl(CHECKSUM_ASSET_NAME),
       },
       channel: null,
       validatedAt: DateTime.formatIso(yield* DateTime.now),
       etag: null,
-    } satisfies VersionResolutionResult;
+    } satisfies SelectedRelease;
   });
+
+/** Provider integration implements release facts; selection policy stays with the application. */
+export const makeCliReleaseCatalog = (
+  httpClient: HttpClient.HttpClient,
+): CliReleaseCatalogService => ({
+  stable: (binaryName) => resolveLatestVersion(httpClient, binaryName),
+  exact: (version, binaryName) => resolveExactVersion(version, binaryName),
+});

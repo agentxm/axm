@@ -41,10 +41,12 @@ import * as semver from "semver";
 
 import { makeThrottledUnitProgress, observeChildUnit } from "@agentxm/workspace-operations";
 
-import { UpgradeFailed } from "../errors.js";
+import {
+  UpgradeFailed,
+  type VersionResolutionResult,
+} from "@agentxm/cli-maintenance/self-update/application";
 import { InstallMeta } from "../install-meta/install-meta.js";
 
-import type { VersionResolutionResult } from "../version-resolution/version-resolution.js";
 import {
   Subprocess,
   type CommandResult,

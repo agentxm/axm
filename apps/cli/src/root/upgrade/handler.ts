@@ -1,3 +1,4 @@
+import { UpgradeFailed } from "@agentxm/cli-maintenance/self-update/application";
 /**
  * The `upgrade` command adapter: read the running version, ask
  * `@agentxm/cli-update` what the request selects, settle it as a preview or an
@@ -13,7 +14,6 @@ import {
   HOMEBREW_FORMULA,
   PerformUpgrade,
   UpgradeAssessmentResultSchema,
-  UpgradeFailed,
   UpgradeWorkingDirectory,
   type UpgradeAssessmentResult,
 } from "@agentxm/cli-update";

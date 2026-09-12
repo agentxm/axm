@@ -3,9 +3,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { resolveLatestVersion } from "./version-resolution.js";
+import { CliReleaseCatalog, selectUpgradeRelease } from "../../application/index.js";
+import { makeCliReleaseCatalog } from "./index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { stableChannelDocument } from "../testing.js";
+import { stableChannelDocument } from "../../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/upgrade/latest-uses-promoted-stable-channel",
@@ -39,7 +40,10 @@ describe("Latest upgrade selection", () => {
         }),
       );
 
-      const result = yield* resolveLatestVersion(client, "1.0.0", "axm-linux-x64");
+      const result = yield* selectUpgradeRelease({
+        localVersion: "1.0.0",
+        binaryName: "axm-linux-x64",
+      }).pipe(Effect.provideService(CliReleaseCatalog, makeCliReleaseCatalog(client)));
       expect(requests).toEqual(["https://releases.axm.sh/v1/channels/stable.json"]);
       expect(result).toMatchObject({
         targetVersion: "2.0.0",

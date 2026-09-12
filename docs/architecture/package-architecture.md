@@ -177,8 +177,10 @@ support, version comparison, reinstall policy, downgrade refusal, and automatic
 upgrade eligibility belong to `cli-maintenance/self-update/domain`. The
 frontstage self-update capability and backstage official-skill compatibility
 capability share one package with separate enforced module boundaries.
-`cli-update` retains its current placement while release acquisition, installer
-I/O, progress reporting, and application orchestration are separated. Depending
+Release selection belongs to its application, with a release-catalog port and
+separately composed stable-channel/GitHub adapter. `cli-update` retains its
+current placement while installer I/O, progress reporting, and the remaining
+application orchestration are separated. Depending
 on the operation vocabulary explains that remaining source dependency; it does
 not make self-update strategically core.
 

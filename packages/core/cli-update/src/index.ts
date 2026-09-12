@@ -11,8 +11,6 @@
  * @packageDocumentation
  */
 
-export { UpgradeFailed } from "./errors.js";
-
 export {
   AssessUpgrade,
   PerformUpgrade,
@@ -61,14 +59,6 @@ export {
   type RunCommandOptions,
   type SubprocessService,
 } from "./subprocess/subprocess.js";
-
-export {
-  DEFAULT_GITHUB_REPO,
-  resolveExactVersion,
-  resolveLatestVersion,
-  type ResolvedRelease,
-  type VersionResolutionResult,
-} from "./version-resolution/version-resolution.js";
 
 export {
   UPDATE_CHECK_CACHE_SCHEMA,

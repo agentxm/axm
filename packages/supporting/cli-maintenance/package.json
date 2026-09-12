@@ -40,6 +40,26 @@
       "types": "./dist/src/self-update/domain/index.d.ts",
       "axm-source": "./src/self-update/domain/index.ts",
       "default": "./dist/src/self-update/domain/index.js"
+    },
+    "./self-update/application": {
+      "types": "./dist/src/self-update/application/index.d.ts",
+      "axm-source": "./src/self-update/application/index.ts",
+      "default": "./dist/src/self-update/application/index.js"
+    },
+    "./self-update/adapters/releases": {
+      "types": "./dist/src/self-update/adapters/releases/index.d.ts",
+      "axm-source": "./src/self-update/adapters/releases/index.ts",
+      "default": "./dist/src/self-update/adapters/releases/index.js"
+    },
+    "./self-update/composition": {
+      "types": "./dist/src/self-update/composition/index.d.ts",
+      "axm-source": "./src/self-update/composition/index.ts",
+      "default": "./dist/src/self-update/composition/index.js"
+    },
+    "./self-update/testing": {
+      "types": "./dist/src/self-update/testing.d.ts",
+      "axm-source": "./src/self-update/testing.ts",
+      "default": "./dist/src/self-update/testing.js"
     }
   },
   "files": [
@@ -57,7 +77,8 @@
   },
   "dependencies": {
     "effect": "catalog:",
-    "semver": "catalog:"
+    "semver": "catalog:",
+    "@agentxm/extension-model": "workspace:^"
   },
   "devDependencies": {
     "@effect/platform-node": "catalog:",
@@ -66,6 +87,7 @@
     "@typescript/native": "catalog:",
     "@fast-check/vitest": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@agentxm/specification-metadata": "workspace:^"
   }
 }

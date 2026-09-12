@@ -7,6 +7,7 @@
  * assessment document.
  */
 
+import { CliReleaseCatalogLive } from "@agentxm/cli-maintenance/self-update/composition";
 import { type InstallMethodType, Homebrew } from "@agentxm/cli-maintenance/self-update/domain";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -109,7 +110,7 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
       }),
       Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
       subprocess.layer,
-      releaseOrigin.layer,
+      Layer.provideMerge(CliReleaseCatalogLive, releaseOrigin.layer),
       Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
       Layer.succeed(InstallMeta, {
         read: () => Effect.succeed(Option.none()),

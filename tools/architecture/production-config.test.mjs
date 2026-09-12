@@ -141,3 +141,22 @@ test("backstage compatibility policy cannot depend on the frontstage upgrade dec
   assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
   assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
 });
+
+for (const [name, code] of [
+  [
+    "HTTP access",
+    'import * as HttpClient from "effect/unstable/http/HttpClient"; export { HttpClient };',
+  ],
+  [
+    "the concrete release adapter",
+    'export { makeCliReleaseCatalog } from "../adapters/releases/index.js";',
+  ],
+]) {
+  test(`self-update application cannot select ${name}`, async () => {
+    const [result] = await eslint.lintText(code, {
+      filePath: "packages/supporting/cli-maintenance/src/self-update/application/index.ts",
+    });
+    assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+    assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+  });
+}

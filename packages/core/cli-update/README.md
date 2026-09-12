@@ -7,9 +7,11 @@ request selects, and what happens when that release is installed.
 Installation facts, platform support, version relationships, and upgrade
 eligibility are owned by
 [`@agentxm/cli-maintenance`](../../supporting/cli-maintenance/README.md)'s
-`self-update/domain` entry. This package acquires the facts and applies those
-decisions. Its remaining orchestration and technology mechanisms have not yet
-been separated into application ports and adapters.
+`self-update/domain` entry. Release selection uses that capability's application
+API and its caller-provided `CliReleaseCatalog`. This package still acquires
+installation facts and applies the upgrade decisions. Its remaining installer
+orchestration and technology mechanisms have not yet been separated into
+application ports and adapters.
 
 - **Install ownership.** Detection across the script installer, Homebrew, npm,
   pnpm, and Yarn, from executable paths, the module URL, the package-manager

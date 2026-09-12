@@ -207,7 +207,9 @@ describe("release CI producer provenance", () => {
     status: "completed",
     conclusion: "success",
     url: "https://github.com/agentxm/axm/actions/runs/42",
-    workflowName: "CI",
+    // `gh run list` exposes the configured run name here, not the immutable
+    // workflow identity. The REST details' workflow path is authoritative.
+    workflowName: "CI - main",
   };
 
   it("accepts an exact successful workflow_dispatch attempt", () => {
@@ -242,7 +244,7 @@ describe("release CI producer provenance", () => {
           status: "completed",
           conclusion: "success",
           html_url: "https://github.com/agentxm/axm/actions/runs/42",
-          name: "CI",
+          name: "CI - main",
         },
         { databaseId: 42, headSha: sha, event: "push" },
       ),
@@ -260,7 +262,7 @@ describe("release CI producer provenance", () => {
           status: "completed",
           conclusion: "success",
           html_url: "https://github.com/agentxm/axm/actions/runs/42",
-          name: "CI",
+          name: "CI - main",
         },
         { databaseId: 42, headSha: sha, event: "push" },
       ),

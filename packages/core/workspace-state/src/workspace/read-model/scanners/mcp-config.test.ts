@@ -96,4 +96,42 @@ describe("makeMcpConfigScanner", () => {
       }),
     ),
   );
+
+  it.effect.each([
+    { structure: "array", content: "a=[1 #" },
+    { structure: "inline table", content: "a={b=1 #" },
+  ])("reports an unterminated TOML $structure and continues scanning other agents", ({ content }) =>
+    withNode(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const workspaceRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-mcp-malformed-" });
+          const configPath = path.join(workspaceRoot, ".codex/config.toml");
+          yield* fs.makeDirectory(path.dirname(configPath), { recursive: true });
+          yield* fs.writeFileString(configPath, content);
+          yield* fs.writeFileString(
+            path.join(workspaceRoot, ".mcp.json"),
+            JSON.stringify({ mcpServers: { "valid-server": { command: "npx" } } }),
+          );
+
+          const warnings = yield* Ref.make<ReadonlyArray<Warning>>([]);
+          const occurrences = yield* makeMcpConfigScanner({
+            fs,
+            path,
+            workspaceRoot,
+            scope: "project",
+            diagnostics: makeDiagnostics(warnings),
+            agentRegistry: { codex: AGENTS.codex, "claude-code": AGENTS["claude-code"] },
+          });
+
+          expect(occurrences.map((occurrence) => occurrence.name)).toEqual(["valid-server"]);
+          expect(yield* Ref.get(warnings)).toMatchObject([
+            { code: "scanner-parse", path: configPath },
+          ]);
+          expect(yield* fs.readFileString(configPath)).toBe(content);
+        }),
+      ),
+    ),
+  );
 });

@@ -54,7 +54,7 @@
     "effect": "catalog:",
     "jsonc-parser": "catalog:",
     "semver": "catalog:",
-    "smol-toml": "1.6.1",
+    "smol-toml": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {

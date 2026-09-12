@@ -84,12 +84,12 @@ It lists added, removed, and revised requirement identities, or renders
 removed identity needs an entry in `specifications/disposition-ledger.json`;
 an unexplained removal renders as one.
 
-Landing changes through reviewed pull requests with maintainer approval and
-passing aggregate verification before merge is repository policy. Branch
-protection enforces it host-side; the repository-side declarations are
-`.github/CODEOWNERS` and the `required` job in `.github/workflows/ci.yml`,
-pinned by `scripts/codeowners.test.ts` and `scripts/ci-workflow.test.ts`.
-The steps below implement that policy for contributors.
+Landing changes through short-lived pull requests with passing aggregate
+verification is repository policy. Maintainer-authored changes need an explicit
+acceptance decision but not a second human reviewer; external contributions
+require maintainer acceptance. Host-side enforcement is still being rolled out,
+so maintainers currently confirm required checks, merge-base freshness, and
+squash merge manually. The steps below implement the policy for contributors.
 
 1. External contributors fork the repo; maintainers work from the main
    repository. In both cases, create a branch from current `main` before the
@@ -99,9 +99,17 @@ The steps below implement that policy for contributors.
 4. Ensure CI passes locally: `pnpm run ci`.
 5. Open a pull request against `main`.
 
-Never edit, commit, or push directly on `main`. All changes land through pull
-requests. Use a separate worktree for concurrent tasks or coding-agent sessions
-so the primary checkout can remain clean on `main`.
+Do not edit, commit, or push directly on `main`. Use a separate worktree for
+concurrent tasks or coding-agent sessions so the primary checkout can remain
+clean on `main`. Remove the disposable worktree and local branch after the pull
+request merges and its commits are preserved.
+
+For a coding agent, a request to deliver or complete a change authorizes the
+routine branch, worktree, commit, push, pull-request, approved auto-merge, and
+post-merge cleanup operations needed for that delivery. Requests limited to
+analysis or implementation do not. Publishing a release, deploying to
+production, rewriting shared history, or acting outside the named delivery
+requires explicit authorization.
 
 ### Public repository privacy
 

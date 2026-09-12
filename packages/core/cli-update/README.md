@@ -4,6 +4,13 @@ The AXM self-update capability. It answers three questions about the copy of
 `axm` running on this machine: which installer owns it, which release the
 request selects, and what happens when that release is installed.
 
+Installation facts, platform support, version relationships, and upgrade
+eligibility are owned by
+[`@agentxm/cli-maintenance`](../../supporting/cli-maintenance/README.md)'s
+`self-update/domain` entry. This package acquires the facts and applies those
+decisions. Its remaining orchestration and technology mechanisms have not yet
+been separated into application ports and adapters.
+
 - **Install ownership.** Detection across the script installer, Homebrew, npm,
   pnpm, and Yarn, from executable paths, the module URL, the package-manager
   user agent, and the recorded install metadata — including the ambiguous case

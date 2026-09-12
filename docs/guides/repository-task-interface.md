@@ -144,11 +144,18 @@ concurrent push is not retried.
 published package in temporary global state and runs its installed executable
 outside the repository, without source export conditions or workspace module
 resolution. Release automation owns the platform matrix and credentials.
-`axm:verify-release-packs` builds and checks the complete candidate cohort,
-including two deterministic native pnpm packs, compiled executables and
-dependency closure. Manifest normalization runs through pnpm's `beforePacking`
-hook after workspace and catalog references have been resolved; no second npm
-repack is involved.
+`axm:verify-release-packs` builds and checks the complete candidate cohort in
+`verify:pr` and `verify:workspace`. [Publint](https://publint.dev/docs/javascript-api)
+validates the exact tarballs with warnings treated as errors, covering package
+entries, declaration and module format, conditional exports, and executables.
+AXM retains its own fixed-cohort coordinates, dependency closure, compiled CLI
+entry, and two-pack determinism checks. The source-only `verify:affected` loop
+does not pack artifacts.
+
+Manifest normalization runs through pnpm's `beforePacking` hook after workspace
+and catalog references have been resolved. It preserves condition precedence in
+exports and imports and removes the workspace-only `axm-source` condition from
+the published manifest; no second npm repack is involved.
 These targets are uncached because they mutate or observe external state.
 
 The release promotion target consumes the exact validated asset directory and

@@ -18,7 +18,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
-import { UpgradeFailed } from "../errors.js";
+import { UpgradeFailed } from "@agentxm/cli-maintenance/self-update/application";
 import { writeFileAtomic } from "../internal/atomic-write.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 

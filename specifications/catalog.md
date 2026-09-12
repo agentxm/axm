@@ -2642,14 +2642,14 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### Exact upgrade bypasses release discovery
 
 - Requirement: `cli/upgrade/exact-version-bypasses-discovery`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: An upgrade naming a normalized stable semantic version shall derive its immutable GitHub Release coordinate without discovery, and shall reject leading-v, prerelease, or non-normalized versions before mutation.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: decision-table
-- Source: [`packages/core/cli-update/src/version-resolution/exact-version-bypasses-discovery.spec.ts`](../packages/core/cli-update/src/version-resolution/exact-version-bypasses-discovery.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/releases/exact-version-bypasses-discovery.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/releases/exact-version-bypasses-discovery.spec.ts)
 
 ##### Homebrew checks selected-version availability once
 
@@ -2667,14 +2667,14 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### Latest upgrade uses the promoted stable channel
 
 - Requirement: `cli/upgrade/latest-uses-promoted-stable-channel`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: An upgrade without an exact version shall select only the validated release coordinate in the fixed public stable-channel document using one bounded request, and shall not enumerate GitHub releases or infer stability from package-manager publication state.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/cli-update/src/version-resolution/latest-uses-promoted-stable-channel.spec.ts`](../packages/core/cli-update/src/version-resolution/latest-uses-promoted-stable-channel.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-promoted-stable-channel.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-promoted-stable-channel.spec.ts)
 
 ##### Unsupported upgrade routes require explicit recovery
 

@@ -10,6 +10,8 @@
  * @packageDocumentation
  */
 
+import { stableChannelDocument } from "@agentxm/cli-maintenance/self-update/testing";
+import { UpgradePreparationLive } from "./live.js";
 import { Homebrew, type InstallMethodType } from "@agentxm/cli-maintenance/self-update/domain";
 
 import * as fs from "node:fs";
@@ -38,9 +40,13 @@ import { InstallMeta, type InstallMetaData } from "./install-meta/install-meta.j
 import { InstallMethod } from "./install-method/install-method.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess/subprocess.js";
 import { UpdateCheck } from "./update-check/update-check.js";
-import { UpgradeWorkingDirectory } from "./upgrade/working-directory.js";
-import { PerformUpgrade, type UpgradeRequest } from "./upgrade/use-case.js";
-import type { UpgradeFailed } from "./errors.js";
+import {
+  UpgradeWorkingDirectory,
+  prepareUpgrade,
+  type UpgradeRequest,
+  type UpgradeFailed,
+} from "@agentxm/cli-maintenance/self-update/application";
+import { previewOrApply } from "./upgrade/use-case.js";
 import type { UpgradeAssessmentResult } from "./upgrade/mechanism.js";
 
 export { InstallMethodTest } from "./install-method/install-method.js";
@@ -51,44 +57,6 @@ export const LOCAL_VERSION = "1.0.0";
 /** A target the local version is always behind, so the upgrade path is taken. */
 export const TARGET_VERSION = "999.0.0";
 export const HOMEBREW_EXECUTABLE = "/opt/homebrew/bin/axm";
-
-/**
- * The promoted stable-channel document, in the shape the published channel
- * serves it.
- */
-export const stableChannelDocument = (version = "2.0.0", revision = 3) => {
-  const tag = `cli-v${version}`;
-  const assetUrl = (name: string) =>
-    `https://github.com/agentxm/axm/releases/download/${tag}/${name}`;
-  const digest = "a".repeat(64);
-  return {
-    schema: "axm.release-channel/v1",
-    channel: "stable",
-    revision,
-    version,
-    release: {
-      repository: "agentxm/axm",
-      tag,
-      commit: "b".repeat(40),
-      publishedAt: "2026-09-03T17:00:00Z",
-    },
-    artifacts: {
-      checksumManifest: {
-        name: "SHA256SUMS",
-        url: assetUrl("SHA256SUMS"),
-        sha256: digest,
-      },
-      binaries: [
-        ["darwin-arm64", "axm-darwin-arm64"],
-        ["darwin-x64", "axm-darwin-x64"],
-        ["linux-arm64", "axm-linux-arm64"],
-        ["linux-x64", "axm-linux-x64"],
-        ["windows-x64", "axm-windows-x64.exe"],
-      ].map(([target, name]) => ({ target, name, url: assetUrl(name ?? ""), sha256: digest })),
-    },
-    promotedAt: "2026-09-03T17:01:00Z",
-  };
-};
 
 /** One external command the capability asked the installer to run. */
 export interface SubprocessInvocation {
@@ -402,32 +370,37 @@ export const makeUpgradeTrial = (
           };
     const installedMeta = options?.installedMeta;
 
-    const layer = Layer.mergeAll(
-      subprocess.layer,
-      releaseOrigin.layer,
-      Layer.succeed(UpgradeWorkingDirectory, {
-        path: options?.workingDirectory ?? process.cwd(),
-      }),
-      Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
-      Layer.succeed(InstallMeta, {
-        read: () =>
-          Effect.succeed(installedMeta === undefined ? Option.none() : Option.some(installedMeta)),
-        write: (metadata: InstallMetaData) =>
-          Effect.sync(() => {
-            installMetaWrites.push(metadata);
-          }),
-      }),
-      Layer.succeed(UpdateCheck, {
-        readCacheState: () => Effect.succeed({ state: "missing" as const }),
-        readCache: () => Effect.succeed(Option.none()),
-        writeCache: (channel) =>
-          Effect.sync(() => {
-            updateCheckWrites.push({ version: channel.version });
-          }),
-        isUpdateAvailable: () => Effect.succeed(Option.none()),
-        shouldSkip: () => false,
-        notificationMessage: () => "",
-      } satisfies typeof UpdateCheck.Service),
+    const layer = Layer.provideMerge(
+      UpgradePreparationLive,
+      Layer.mergeAll(
+        subprocess.layer,
+        releaseOrigin.layer,
+        Layer.succeed(UpgradeWorkingDirectory, {
+          path: options?.workingDirectory ?? process.cwd(),
+        }),
+        Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
+        Layer.succeed(InstallMeta, {
+          read: () =>
+            Effect.succeed(
+              installedMeta === undefined ? Option.none() : Option.some(installedMeta),
+            ),
+          write: (metadata: InstallMetaData) =>
+            Effect.sync(() => {
+              installMetaWrites.push(metadata);
+            }),
+        }),
+        Layer.succeed(UpdateCheck, {
+          readCacheState: () => Effect.succeed({ state: "missing" as const }),
+          readCache: () => Effect.succeed(Option.none()),
+          writeCache: (channel) =>
+            Effect.sync(() => {
+              updateCheckWrites.push({ version: channel.version });
+            }),
+          isUpdateAvailable: () => Effect.succeed(Option.none()),
+          shouldSkip: () => false,
+          notificationMessage: () => "",
+        } satisfies typeof UpdateCheck.Service),
+      ),
     );
 
     const request: UpgradeRequest = {
@@ -440,9 +413,9 @@ export const makeUpgradeTrial = (
 
     const run = () =>
       Effect.gen(function* () {
-        const fiber = yield* PerformUpgrade.prepare(request).pipe(
+        const fiber = yield* prepareUpgrade(request).pipe(
           Effect.flatMap((candidate) =>
-            PerformUpgrade.previewOrApply(candidate, {
+            previewOrApply(candidate, {
               mode: options?.preview === true ? "preview" : "apply",
             }),
           ),

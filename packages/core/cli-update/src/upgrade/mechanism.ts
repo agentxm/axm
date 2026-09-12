@@ -41,16 +41,20 @@ import * as semver from "semver";
 
 import { makeThrottledUnitProgress, observeChildUnit } from "@agentxm/workspace-operations";
 
-import { UpgradeFailed } from "../errors.js";
+import {
+  UpgradeFailed,
+  CommandRecordSchema,
+  UpgradeWorkingDirectory,
+  type CommandRecord,
+  type VersionResolutionResult,
+} from "@agentxm/cli-maintenance/self-update/application";
 import { InstallMeta } from "../install-meta/install-meta.js";
 
-import type { VersionResolutionResult } from "../version-resolution/version-resolution.js";
 import {
   Subprocess,
   type CommandResult,
   type RunCommandOptions,
 } from "../subprocess/subprocess.js";
-import { UpgradeWorkingDirectory } from "./working-directory.js";
 
 export interface UpgradeHandlerArgs {
   readonly reinstall: boolean;
@@ -85,25 +89,6 @@ const InstallMethodSchema = Schema.Literals([
   "unknown",
 ] as const);
 type ResultInstallMethod = typeof InstallMethodSchema.Type;
-
-const CommandRecordSchema = Schema.Struct({
-  purpose: Schema.Literals([
-    "detection",
-    "preparation",
-    "delegation",
-    "verification",
-    "rollback",
-  ] as const),
-  executable: Schema.String,
-  args: Schema.Array(Schema.String),
-  display: Schema.String,
-  executionState: Schema.Literals(["not-started", "exited", "timed-out"] as const),
-  exitCode: Schema.NullOr(Schema.Number),
-  stdout: Schema.String,
-  stderr: Schema.String,
-  outputTruncated: Schema.Boolean,
-});
-export type CommandRecord = typeof CommandRecordSchema.Type;
 
 const RecommendedCommandSchema = Schema.Struct({
   executable: Schema.String,

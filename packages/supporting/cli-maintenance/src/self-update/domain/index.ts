@@ -14,6 +14,7 @@ export {
 } from "./installation.js";
 export {
   classifyVersionRelation,
+  normalizeExactVersion,
   decideUpgrade,
   resolvePlatformBinary,
   supportedMethod,

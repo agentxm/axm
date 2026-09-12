@@ -7,6 +7,7 @@
  * assessment document.
  */
 
+import { UpgradePreparationLive } from "@agentxm/cli-update/live";
 import { type InstallMethodType, Homebrew } from "@agentxm/cli-maintenance/self-update/domain";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -98,34 +99,37 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
     const releaseOrigin = makeReleaseOrigin(options);
     const installMetaWrites: Array<InstallMetaData> = [];
 
-    const layer = Layer.mergeAll(
-      NodeServices.layer,
-      options?.human === true
-        ? humanScreenLayer(streams)
-        : machineScreenLayer(streams, { quiet: options?.quiet === true }),
-      TestFlagsLayer({
-        ...(options?.quiet === undefined ? {} : { quiet: options.quiet }),
-        ...(options?.verbose === undefined ? {} : { verbose: options.verbose }),
-      }),
-      Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
-      subprocess.layer,
-      releaseOrigin.layer,
-      Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
-      Layer.succeed(InstallMeta, {
-        read: () => Effect.succeed(Option.none()),
-        write: (metadata: InstallMetaData) =>
-          Effect.sync(() => {
-            installMetaWrites.push(metadata);
-          }),
-      }),
-      Layer.succeed(UpdateCheck, {
-        readCacheState: () => Effect.succeed({ state: "missing" as const }),
-        readCache: () => Effect.succeed(Option.none()),
-        writeCache: () => Effect.void,
-        isUpdateAvailable: () => Effect.succeed(Option.none()),
-        shouldSkip: () => false,
-        notificationMessage: () => "",
-      } satisfies typeof UpdateCheck.Service),
+    const layer = Layer.provideMerge(
+      UpgradePreparationLive,
+      Layer.mergeAll(
+        NodeServices.layer,
+        options?.human === true
+          ? humanScreenLayer(streams)
+          : machineScreenLayer(streams, { quiet: options?.quiet === true }),
+        TestFlagsLayer({
+          ...(options?.quiet === undefined ? {} : { quiet: options.quiet }),
+          ...(options?.verbose === undefined ? {} : { verbose: options.verbose }),
+        }),
+        Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
+        subprocess.layer,
+        releaseOrigin.layer,
+        Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
+        Layer.succeed(InstallMeta, {
+          read: () => Effect.succeed(Option.none()),
+          write: (metadata: InstallMetaData) =>
+            Effect.sync(() => {
+              installMetaWrites.push(metadata);
+            }),
+        }),
+        Layer.succeed(UpdateCheck, {
+          readCacheState: () => Effect.succeed({ state: "missing" as const }),
+          readCache: () => Effect.succeed(Option.none()),
+          writeCache: () => Effect.void,
+          isUpdateAvailable: () => Effect.succeed(Option.none()),
+          shouldSkip: () => false,
+          notificationMessage: () => "",
+        } satisfies typeof UpdateCheck.Service),
+      ),
     );
 
     const fiber = yield* handleUpgrade({

@@ -1,18 +1,25 @@
-const orderedManifest = (value) => {
-  if (Array.isArray(value)) return value.map(orderedManifest);
-  if (value !== null && typeof value === "object")
+const orderedManifest = (value, conditions = false) => {
+  if (Array.isArray(value)) return value.map((child) => orderedManifest(child, conditions));
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value);
+    if (!conditions) entries.sort(([left], [right]) => left.localeCompare(right, "en"));
     return Object.fromEntries(
-      Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right, "en"))
-        .map(([key, child]) => [key, orderedManifest(child)]),
+      entries
+        .filter(([key]) => !conditions || key !== "axm-source")
+        .map(([key, child]) => [
+          key,
+          orderedManifest(child, conditions || key === "exports" || key === "imports"),
+        ]),
     );
+  }
   return value;
 };
 
 module.exports = {
   hooks: {
-    // pnpm has already resolved workspace and catalog references here. Sorting
-    // the final manifest makes the first pack publishable and reproducible.
-    beforePacking: orderedManifest,
+    // pnpm has resolved dependency references here. Normalize unordered metadata
+    // while preserving conditional-export precedence and omitting workspace-only
+    // source conditions whose targets do not ship in the compiled package.
+    beforePacking: (manifest) => orderedManifest(manifest),
   },
 };

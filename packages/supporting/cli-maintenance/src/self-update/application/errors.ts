@@ -8,7 +8,14 @@
 
 import * as Schema from "effect/Schema";
 
-import { OperationErrorCategorySchema } from "@agentxm/workspace-operations";
+const UpgradeFailureCategory = Schema.Literals([
+  "validation",
+  "rate_limit",
+  "not_found",
+  "unavailable",
+  "internal",
+  "network",
+]);
 
 const CarriedSuggestedActionSchema = Schema.Struct({
   description: Schema.String,
@@ -22,7 +29,7 @@ const CarriedSuggestedActionSchema = Schema.Struct({
  * `detail`, `suggestions`, and `cause` carry over verbatim.
  */
 export class UpgradeFailed extends Schema.TaggedError<UpgradeFailed>()("UpgradeFailed", {
-  category: OperationErrorCategorySchema,
+  category: UpgradeFailureCategory,
   detail: Schema.String,
   suggestions: Schema.optional(Schema.Array(CarriedSuggestedActionSchema)),
   cause: Schema.optional(Schema.Unknown),

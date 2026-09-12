@@ -18,7 +18,8 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { UpdateCheck } from "../update-check/update-check.js";
 import { UpdateCheckLive } from "../live.js";
 import { StartupUpdateCheck } from "./startup-check.js";
-import { snapshotDirectory, stableChannelDocument } from "../testing.js";
+import { snapshotDirectory } from "../testing.js";
+import { stableChannelDocument } from "@agentxm/cli-maintenance/self-update/testing";
 
 export const specification = defineSpecification({
   requirement: "cli/environment-disables-startup-update-check",

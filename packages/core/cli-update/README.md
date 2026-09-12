@@ -7,9 +7,12 @@ request selects, and what happens when that release is installed.
 Installation facts, platform support, version relationships, and upgrade
 eligibility are owned by
 [`@agentxm/cli-maintenance`](../../supporting/cli-maintenance/README.md)'s
-`self-update/domain` entry. This package acquires the facts and applies those
-decisions. Its remaining orchestration and technology mechanisms have not yet
-been separated into application ports and adapters.
+`self-update/domain` entry. Its `self-update/application` entry prepares the
+upgrade candidate through owned installation-inspection and release-catalog
+contracts. This package supplies native probes and CLI progress in `adapters/`
+and connects them in `composition/`. Its remaining installer orchestration and
+technology mechanisms have not yet been separated into application ports and
+adapters.
 
 - **Install ownership.** Detection across the script installer, Homebrew, npm,
   pnpm, and Yarn, from executable paths, the module URL, the package-manager
@@ -43,6 +46,6 @@ Unstable and unsupported — use the [axm.sh](https://axm.sh) CLI.
 
 | Export                        | Contents                                                                                                                                         |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@agentxm/cli-update`         | `AssessUpgrade`, `PerformUpgrade`, `StartupUpdateCheck`, the assessment contract, and the service declarations                                   |
+| `@agentxm/cli-update`         | `AssessUpgrade`, `previewOrApply`, `StartupUpdateCheck`, the assessment contract, and native service declarations                                |
 | `@agentxm/cli-update/live`    | Environment-backed Layers the application composes once                                                                                          |
 | `@agentxm/cli-update/testing` | A recording subprocess, a chosen install method, an in-memory metadata record and channel cache, a fixture release origin, and `runUpgradeTrial` |

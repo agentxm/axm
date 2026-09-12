@@ -1,10 +1,8 @@
 /**
- * `AssessUpgrade` and `PerformUpgrade`: the application API for updating the
+ * Assessment and installer application for updating the
  * installed `axm` executable.
  *
- * `prepare` resolves the platform, the installation's owning installer, and
- * the release the request selects, and decides what the upgrade would do. It
- * reads installation and release facts without applying the upgrade.
+ * CLI maintenance prepares the immutable candidate through its owned application ports.
  * `previewOrApply` presents that immutable
  * candidate and, on apply, establishes publication availability through the
  * owning installer, performs the mutation, verifies it, and records the
@@ -17,35 +15,25 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import {
-  type InstallMethodType,
-  decideUpgrade,
-  resolvePlatformBinary,
-  supportedMethod,
-  type PlatformBinaryInfo,
-  type UpgradeAction,
-} from "@agentxm/cli-maintenance/self-update/domain";
-
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as semver from "semver";
 
 import { observeUnit } from "@agentxm/workspace-operations";
 
-import { UpgradeFailed } from "../errors.js";
 import { InstallMeta } from "../install-meta/install-meta.js";
-import { InstallMethod } from "../install-method/install-method.js";
 import { Subprocess } from "../subprocess/subprocess.js";
 import { UpdateCheck } from "../update-check/update-check.js";
-import type { VersionResolutionResult } from "../version-resolution/version-resolution.js";
 import {
-  resolveExactVersion,
-  resolveLatestVersion,
-} from "../version-resolution/version-resolution.js";
-import { UpgradeWorkingDirectory } from "./working-directory.js";
+  CliReleaseCatalog,
+  prepareUpgrade,
+  InstallationInspection,
+  UpgradeWorkingDirectory,
+  type UpgradeRequest,
+  type UpgradeCandidate,
+  UpgradeFailed,
+} from "@agentxm/cli-maintenance/self-update/application";
 import {
   methodName,
   handleDelegated,
@@ -55,46 +43,19 @@ import {
   previewResult,
   queryPackageAvailability,
   recoveryInstaller,
-  resolveAmbiguousPackageManager,
   toUpgradeAssessment,
   type BaseResultInput,
-  type CommandRecord,
   type InstallerAvailability,
   type UpgradeAssessmentResult,
   type UpgradeCoreResult,
 } from "./mechanism.js";
-
-/** What the caller asked the self-update capability to do. */
-export interface UpgradeRequest {
-  /** Reinstall an equal version; never permits a downgrade. */
-  readonly reinstall: boolean;
-  /** An exact stable version. Omit to use the promoted stable channel. */
-  readonly requestedVersion?: string | undefined;
-  /** The version the running executable reports, or `null` when unreadable. */
-  readonly localVersion: string | null;
-}
 
 /** How the prepared candidate is settled. */
 export interface UpgradeExecution {
   readonly mode: "preview" | "apply";
 }
 
-/**
- * The resolved, immutable upgrade the request selects. Presenting it and
- * applying it read the same ownership, the same release, and the same
- * decision.
- */
-export interface UpgradeCandidate {
-  readonly request: UpgradeRequest;
-  readonly platform: PlatformBinaryInfo;
-  readonly method: InstallMethodType;
-  readonly resolution: VersionResolutionResult;
-  readonly selectedAction: UpgradeAction;
-  readonly detectionCommands: ReadonlyArray<CommandRecord>;
-}
-
 type UpgradeRequirements =
-  | InstallMethod
   | InstallMeta
   | Subprocess
   | UpdateCheck
@@ -116,104 +77,6 @@ const baseInput = (candidate: UpgradeCandidate): BaseResultInput => ({
   localVersion: candidate.resolution.localVersion,
   targetVersion: candidate.resolution.targetVersion,
   reinstall: candidate.request.reinstall,
-});
-
-/**
- * Resolve ownership before release selection: an installation whose owner
- * cannot be determined is refused without a release-authority request.
- */
-export const prepare: (
-  request: UpgradeRequest,
-) => Effect.Effect<UpgradeCandidate, UpgradeFailed, UpgradeRequirements> = Effect.fn(
-  "PerformUpgrade.prepare",
-)(function* (request: UpgradeRequest) {
-  const platform = resolvePlatformBinary(process.platform, process.arch);
-  if (Option.isNone(platform)) {
-    return yield* Effect.fail(
-      new UpgradeFailed({
-        category: "validation",
-        detail: `Unsupported platform: ${process.platform}-${process.arch}`,
-        suggestions: [{ description: "Use a supported AXM platform." }],
-      }),
-    );
-  }
-
-  const localVersion = request.localVersion === null ? null : semver.valid(request.localVersion);
-  const installMethod = yield* InstallMethod;
-  const detectionCommands: Array<CommandRecord> = [];
-
-  // Detection and its ownership disambiguation are one unit: the probes the
-  // ambiguous case runs are that unit's work, and the label it settles with
-  // names the owner it actually resolved, not the first guess.
-  const method = yield* observeUnit(
-    {
-      id: "detect-install-method",
-      label: "AXM installation method",
-      resolvedLabel: (resolved: InstallMethodType) =>
-        resolved._tag === "Unknown"
-          ? "AXM installation method — undetermined"
-          : `AXM installed with ${methodLabel(methodName(resolved))}`,
-    },
-    Effect.gen(function* () {
-      const detected = yield* installMethod.detect();
-      return yield* resolveAmbiguousPackageManager(detected, detectionCommands);
-    }),
-  );
-  if (method._tag === "Unknown") {
-    return yield* Effect.fail(
-      new UpgradeFailed({
-        category: "validation",
-        detail: "Could not determine how AXM was installed",
-        suggestions: [
-          {
-            description:
-              "Reinstall AXM with the script installer, Homebrew, npm, pnpm, or Yarn Classic, then retry.",
-          },
-        ],
-      }),
-    );
-  }
-
-  const resolution =
-    request.requestedVersion === undefined
-      ? yield* observeUnit(
-          {
-            id: "resolve-channel",
-            label: "AXM stable channel",
-            resolvedLabel: (selected: VersionResolutionResult) =>
-              `AXM stable channel — ${selected.targetVersion}`,
-          },
-          Effect.gen(function* () {
-            const httpClient = yield* HttpClient.HttpClient;
-            return yield* resolveLatestVersion(httpClient, localVersion, platform.value.binaryName);
-          }),
-        )
-      : yield* observeUnit(
-          { id: "resolve-version", label: `AXM ${request.requestedVersion}` },
-          resolveExactVersion(request.requestedVersion, localVersion, platform.value.binaryName),
-        );
-
-  if (semver.valid(resolution.targetVersion) === null) {
-    return yield* Effect.fail(
-      new UpgradeFailed({
-        category: "validation",
-        detail: "The selected upgrade target is not valid semantic version",
-      }),
-    );
-  }
-
-  return {
-    request,
-    platform: platform.value,
-    method,
-    resolution,
-    selectedAction: decideUpgrade(
-      resolution.versionRelation,
-      request.reinstall,
-      supportedMethod(method),
-    ),
-    detectionCommands,
-  };
 });
 
 /**
@@ -338,15 +201,14 @@ export const previewOrApply: (
 /** The read-only assessment: the prepared candidate, presented, never applied. */
 export const query: (
   request: UpgradeRequest,
-) => Effect.Effect<UpgradeAssessmentResult, UpgradeFailed, UpgradeRequirements> = Effect.fn(
-  "AssessUpgrade.query",
-)(function* (request: UpgradeRequest) {
-  const candidate = yield* prepare(request);
+) => Effect.Effect<
+  UpgradeAssessmentResult,
+  UpgradeFailed,
+  UpgradeRequirements | InstallationInspection | CliReleaseCatalog
+> = Effect.fn("AssessUpgrade.query")(function* (request: UpgradeRequest) {
+  const candidate = yield* prepareUpgrade(request);
   return yield* previewOrApply(candidate, { mode: "preview" });
 });
-
-/** The application API for updating the installed `axm` executable. */
-export const PerformUpgrade = { prepare, previewOrApply } as const;
 
 /** The read-only application API for reporting what an upgrade would do. */
 export const AssessUpgrade = { query } as const;

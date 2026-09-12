@@ -24,7 +24,7 @@
         "{workspaceRoot}/scripts/placement-tags-plugin.ts"
       ],
       "options": {
-        "command": "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts scripts --max-warnings=0",
+        "command": "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts scripts --max-warnings=0",
         "cwd": "."
       }
     },

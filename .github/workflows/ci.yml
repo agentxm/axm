@@ -709,18 +709,6 @@ jobs:
     if: always()
     needs:
       - classify
-      - specification-verdict
-      - extension-lint
-      - documentation
-      - workflow-validation
-      - image
-      - verify-pr
-      - verify-main-trusted
-      - verify-e2e-main-trusted
-      - verify-main-hosted
-      - windows-workspace
-      - binary-smoke
-      - npm-cohort
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

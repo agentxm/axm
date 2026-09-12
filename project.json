@@ -139,12 +139,12 @@
         "cwd": "."
       }
     },
-    "release-prepare": {
+    "resolve-release-preparation-source": {
       "executor": "nx:run-commands",
       "cache": false,
       "dependsOn": ["^build"],
       "options": {
-        "command": "bun scripts/release-prepare.ts",
+        "command": "bun scripts/resolve-release-preparation-source.ts",
         "cwd": "."
       }
     },

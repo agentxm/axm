@@ -1,0 +1,174 @@
+name: Prepare release candidate
+
+run-name: Prepare release candidate from ${{ inputs.source_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact 40-character commit on main to prepare
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-candidate-preparation
+  cancel-in-progress: false
+
+env:
+  NX_TUI: "false"
+  NX_DEFAULT_OUTPUT_STYLE: static
+  NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
+
+jobs:
+  prepare:
+    name: Prepare reviewable candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout declared source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.source_sha }}
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
+      - name: Resolve and validate preparation source
+        id: source
+        env:
+          AXM_RELEASE_SOURCE_SHA: ${{ inputs.source_sha }}
+        run: >-
+          pnpm exec nx run axm:resolve-release-preparation-source
+          --outputStyle=static
+
+      - name: Checkout released skill source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          path: .release-preflight/released
+          persist-credentials: false
+          ref: ${{ steps.source.outputs.released_skill_tag }}
+
+      - name: Configure released skill preflight
+        run: |
+          rm -f .release-preflight/released/axm-lock.yaml
+          printf '%s\n' \
+            '{' \
+            '  "$schema": "https://axm.sh/schemas/settings.schema.json",' \
+            '  "owner": "@agentxm",' \
+            '  "skills": { "axm": "workspace" }' \
+            '}' > .release-preflight/released/axm.json
+
+      - name: Preflight production Registry from released skill
+        env:
+          AXM_TOKEN: ${{ secrets.AXM_REGISTRY_TOKEN }}
+        run: >-
+          pnpm axm:local -C .release-preflight/released skills publish
+          @agentxm/skills/axm --registry-url https://registry.agentxm.ai
+          --on-existing verify --preview --json --non-interactive
+
+      - name: Remove released skill preflight checkout
+        if: always()
+        run: rm -rf .release-preflight
+
+      - name: Generate and validate exact candidate
+        env:
+          AXM_TOKEN: ${{ secrets.AXM_REGISTRY_TOKEN }}
+        run: >-
+          pnpm exec nx run axm:release-prepare-candidate
+          --outputStyle=static
+
+      - name: Refresh installed workspace after versioning
+        run: pnpm install --frozen-lockfile
+
+      - name: Commit candidate
+        id: candidate
+        run: |
+          version="$(jq -r '.version' apps/cli/package.json)"
+          tag="cli-v${version}"
+          branch="release/${tag}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          if git diff --cached --quiet; then
+            echo "Candidate generation produced no release changes."
+            exit 1
+          fi
+          git commit -m "release: ${tag}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Revalidate source and push candidate
+        env:
+          BRANCH: ${{ steps.candidate.outputs.branch }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+        run: |
+          git fetch origin main --no-tags
+          current_main="$(git rev-parse origin/main)"
+          if [[ "$current_main" != "$SOURCE_SHA" ]]; then
+            echo "main advanced from ${SOURCE_SHA} to ${current_main}; prepare a new candidate."
+            exit 1
+          fi
+          if git ls-remote --exit-code --heads origin "refs/heads/${BRANCH}" >/dev/null; then
+            echo "Remote candidate branch ${BRANCH} already exists; inspect it before retrying."
+            exit 1
+          fi
+          git push origin "HEAD:refs/heads/${BRANCH}"
+
+      - name: Open release pull request
+        id: pull_request
+        env:
+          BRANCH: ${{ steps.candidate.outputs.branch }}
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          TAG: ${{ steps.candidate.outputs.tag }}
+        run: |
+          body_file="$(mktemp)"
+          trap 'rm -f "$body_file"' EXIT
+          {
+            echo "Prepare ${TAG} from pending version plans."
+            echo
+            echo "Source commit: \`${SOURCE_SHA}\`"
+            echo "Preparation run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } > "$body_file"
+          url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "release: ${TAG}" --body-file "$body_file")"
+          echo "url=${url}" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch Required CI for candidate commit
+        env:
+          BRANCH: ${{ steps.candidate.outputs.branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY"
+          --ref "$BRANCH" --field runner=github-hosted
+
+      - name: Report preparation result
+        if: always()
+        env:
+          BRANCH: ${{ steps.candidate.outputs.branch }}
+          CANDIDATE_SHA: ${{ steps.candidate.outputs.sha }}
+          PULL_REQUEST_URL: ${{ steps.pull_request.outputs.url }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          TAG: ${{ steps.candidate.outputs.tag }}
+        run: |
+          {
+            echo "## Release candidate preparation"
+            echo
+            echo "| Signal | Value |"
+            echo "| --- | --- |"
+            echo "| Source | ${SOURCE_SHA:-unresolved} |"
+            echo "| Candidate | ${CANDIDATE_SHA:-not committed} |"
+            echo "| Tag | ${TAG:-unresolved} |"
+            echo "| Branch | ${BRANCH:-not pushed} |"
+            echo "| Pull request | ${PULL_REQUEST_URL:-not opened} |"
+            echo
+            echo "A pushed branch is a recoverable outcome; inspect it before retrying a failed run."
+          } >> "$GITHUB_STEP_SUMMARY"

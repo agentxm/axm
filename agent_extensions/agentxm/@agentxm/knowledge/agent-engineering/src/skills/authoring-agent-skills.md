@@ -86,7 +86,8 @@ whose observable behavior has been checked in proportion to its risk.
    it the sole source of behavior.
 8. **Author canonically.** Use the repository's extension manager or host
    scaffold, preserve unrelated supported metadata and invocation policy, and
-   reference only portable package paths or declared pack siblings.
+   reference paths only within the package itself; name a declared pack sibling
+   by its extension identity rather than pointing at its files.
 9. **Validate proportionately.** Validate package structure, changed helpers,
    applicable consumer-worktree protections, and release contents. Exercise
    clear and paraphrased positives plus a likely adjacent negative for routing

@@ -51,7 +51,8 @@ two with the least written, since Where to play holds no concepts at all and
 What to solve holds two. [Foundations](foundations/) groups the shared
 explanations by reader question: value and strategic choice, assumptions and
 renewal, customer progress and behavior, design and architectural responsibility,
-project commitment, measures and service levels, and maintenance triggers.
+service delivery and visibility, project commitment, measures and service levels,
+and maintenance triggers.
 A section with no concepts still carries its question,
 its scope, and the boundaries that keep its neighbors
 honest, so it is worth reading to find out where something belongs, not to find

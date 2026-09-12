@@ -58,9 +58,11 @@ file as canonical.
 
 Keep an extension self-contained unless required coupling is declared through
 one pack. Every required sibling must be a direct member of that pack; the
-referencing extension must be non-standalone, recommend the pack, and use the
-canonical same-pack path. Pack install, update, enable, disable, uninstall, and
-unpack apply to the complete member graph atomically.[^axm-packs-help]
+referencing extension must be non-standalone, recommend the pack, and reach the
+sibling by extension identity or name through the host's or manager's own
+discovery rather than by any path into another extension's files. Pack install,
+update, enable, disable, uninstall, and unpack apply to the complete member
+graph atomically.[^axm-packs-help]
 
 An active catalog or observed cohort records what happened to coexist during a
 run; it is not relationship authority. A co-installed extension can be a useful

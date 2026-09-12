@@ -26,6 +26,21 @@ axm install @agentxm/packs/agent-engineering
 > Audit our AGENTS.md system from the repository root and package directories,
 > remediate supported findings, and verify the resulting effective context.
 
+## Revision 0.2.1
+
+- Previous version: `0.2.0`
+- Change: apply outcome-oriented instruction guidance and distinguish incidental
+  procedure from required ownership, verification, safety ordering, and
+  discovery
+- Authority and routing: unchanged
+- Evaluation source: suite `0.3.1` adds an execution regression covering both
+  unnecessary process and justified constraints
+- Evidence: structural validation passed. Behavioral smoke was inconclusive:
+  the Codex adapter's requested models were rejected by the signed-in account.
+  No behavioral improvement, independent audit, or release approval is claimed
+- Adoption: pack `0.11.1` selects the revised skills and knowledge `0.10.1`
+- Rollback: select the previous exact package versions and matching suite source
+
 ## Revision 0.1.6
 
 - Previous version: `0.1.5`

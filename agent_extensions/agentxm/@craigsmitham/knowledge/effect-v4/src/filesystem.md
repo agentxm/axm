@@ -6,15 +6,18 @@ tags: [effect, effect-v4, filesystem, path, platform, resource, testing]
 status: stable
 sources:
   - id: effect-filesystem
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/FileSystem.ts
-    title: Effect 4.0.0-rc.112 FileSystem source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/FileSystem.ts
+    title: Effect 4.0.0-rc.115 FileSystem source
   - id: effect-path
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Path.ts
-    title: Effect 4.0.0-rc.112 Path source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Path.ts
+    title: Effect 4.0.0-rc.115 Path source
   - id: applied-alchemy
     resource: https://github.com/alchemy-run/alchemy/blob/ba579a98ea24b41cbf77a89ec8602fe071d5e43a/examples/fly-service/src/worker.ts
     title: Alchemy FileSystem service use at ba579a9
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+  - id: effect-bytesize
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/ByteSize.ts
+    title: Effect 4.0.0-rc.115 ByteSize source
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Filesystem
@@ -38,6 +41,7 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [FileSystem source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/FileSystem.ts)
-- [Path source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Path.ts)
+- [FileSystem source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/FileSystem.ts)
+- [Path source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Path.ts)
 - [Applied FileSystem service in Alchemy](https://github.com/alchemy-run/alchemy/blob/ba579a98ea24b41cbf77a89ec8602fe071d5e43a/examples/fly-service/src/worker.ts)
+- [Byte sizes and filesystem offsets](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/ByteSize.ts)

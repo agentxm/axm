@@ -6,12 +6,12 @@ tags: [effect, effect-v4, array, chunk, hashmap, record, collections]
 status: stable
 sources:
   - id: effect-array
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Array.ts
-    title: Effect 4.0.0-rc.112 Array source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Array.ts
+    title: Effect 4.0.0-rc.115 Array source
   - id: effect-hashmap
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/HashMap.ts
-    title: Effect 4.0.0-rc.112 HashMap source
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/HashMap.ts
+    title: Effect 4.0.0-rc.115 HashMap source
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Collections
@@ -35,6 +35,6 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [Array source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Array.ts)
-- [Chunk source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Chunk.ts)
-- [HashMap source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/HashMap.ts)
+- [Array source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Array.ts)
+- [Chunk source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Chunk.ts)
+- [HashMap source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/HashMap.ts)

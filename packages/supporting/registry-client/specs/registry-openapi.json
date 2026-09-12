@@ -773,14 +773,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -872,14 +865,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -1808,14 +1794,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -2060,14 +2039,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -2373,14 +2345,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -2644,14 +2609,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -2738,14 +2696,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -2904,14 +2855,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -3016,14 +2960,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -3210,14 +3147,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -3317,14 +3247,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -3437,14 +3360,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -3587,14 +3503,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -3810,14 +3719,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -4018,14 +3920,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -4191,14 +4086,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -4393,14 +4281,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
                 }
               }
             }
@@ -4502,14 +4383,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -5021,14 +4895,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }

@@ -63,7 +63,10 @@ deterministic, meaning-preserving source or configuration normalization.
 
 ### Releasing
 
-For a new version release, follow `devops/runbooks/release-cli.md` exactly. Do not invent or restate a separate release flow here.
+For a new version release, follow `devops/runbooks/release-cli.md` exactly.
+Release-candidate preparation runs only through its explicit GitHub Actions
+dispatch; do not cut a candidate from a local checkout or invent a separate
+release flow here.
 
 ## Requirements and executable specifications
 

@@ -5,8 +5,8 @@ description: "Source, contribution, verification, and delivery authorities for t
 status: draft
 hosted-by: ../providers/github.md
 generated:
-  by: codex/gpt-6
-  at: 2026-09-11T16:07:00Z
+  by: codex/gpt-5
+  at: 2026-09-12T16:23:31Z
 ---
 
 # AXM repository
@@ -34,9 +34,11 @@ separately operated AgentXM systems.
   [authoring guide](../../contributing/guides/executable-specifications.md)
   owns placement and admission.
 - [Release the CLI](../runbooks/release-cli.md) owns canonical delivery of the
-  fixed `release:cli` cohort, native binaries, Homebrew formula, and official
-  skill. [Local preview publication](../runbooks/publish-local-preview.md) has a
-  separate purpose and verification boundary.
+  fixed `release:cli` cohort. Its explicit preparation workflow creates the
+  reviewable release candidate without depending on a developer checkout; the
+  canonical publication workflow owns native binaries, npm packages, Homebrew
+  formula, and the official skill. [Local preview publication](../runbooks/publish-local-preview.md)
+  has a separate purpose and verification boundary.
 - Install/uninstall regression evidence lives in the owning specifications and
   [root install](../../apps/cli-e2e/src/root-install.e2e.test.ts) and
   [root uninstall](../../apps/cli-e2e/src/root-uninstall.e2e.test.ts) E2E files;

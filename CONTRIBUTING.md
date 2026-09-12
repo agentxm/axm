@@ -154,7 +154,9 @@ private coordination and private PR links in the internal system.
 
 See the [Releasing Guide](devops/runbooks/release-cli.md) for versioning, the release flow, and how to inspect release and CI state.
 
-Releases are published from GitHub Actions. `pnpm release:prepare` is the only supported way to cut a release commit locally.
+Release candidates are prepared and releases are published from GitHub Actions.
+The release runbook owns the explicit preparation dispatch and exact-source
+requirements; local checkouts do not cut release commits.
 
 ## License
 

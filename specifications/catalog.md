@@ -4601,16 +4601,16 @@ Changes and releases land through the governed repository process with required 
 
 - Requirement: `system/process/release-preparation-validates-production-gates`
 - Owner: `axm`
-- Statement: Release preparation shall preflight the production Registry from the latest reachable released CLI at or before the current version before allocating candidate state and shall validate the exact generated candidate against the production Registry in preview-only mode, never applying a publication.
+- Statement: An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, preflight the production Registry from the latest reachable released CLI at or before the current version before generating candidate state, validate the exact generated candidate in preview-only mode, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.
 - Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`, `trustworthy-distribution`
 - Boundary: repository; selection: per-change
-- Boundary rationale: The orchestrations accept an injected host, so the ordering of the production Registry preflight against candidate allocation, and the preview-only shape of the exact-candidate validation, are observable in the repository without contacting the production Registry.
+- Boundary rationale: The committed preparation workflow, source resolver, candidate orchestration, and CI dispatch declare the ordering, provenance, credentials, and verification path without requiring a developer checkout.
 - Methods: example, contract
-- Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.; Release tags are created only by the canonical GitHub Release workflow.
-- Bound evidence: `test: axm:test (scripts/release-prepare.test.ts)` — Drives the release-preparation entry point against a fake host and checks that it allocates a disposable detached worktree installed with a frozen lockfile, and cleans it up on every failure.
-- Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Checks that the release-preparation and candidate targets never replay a cached result, so neither the production preflight nor the exact preview can be skipped.
+- Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.; Repository Actions policy permits the preparation job's declared contents, pull-request, and workflow-dispatch permissions.; Release tags are created only by the canonical GitHub Release workflow.
+- Bound evidence: `test: axm:test (scripts/release-preparation-validates-production-gates.spec.ts)` — Checks explicit dispatch, exact-source and stale-main guards, released-skill and exact-candidate Registry previews, reviewable pull-request creation, and explicit Required CI dispatch for the candidate commit.
+- Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Checks that local release-preparation orchestration has no root alias and that source resolution and candidate generation are fresh internal targets owned by the Actions workflow.
 - Source: [`scripts/release-preparation-validates-production-gates.spec.ts`](../scripts/release-preparation-validates-production-gates.spec.ts)
 
 ##### One automated workflow publishes releases

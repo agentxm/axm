@@ -12,6 +12,7 @@ import {
   type ReleasePreparationHost,
   runReleasePreparation,
 } from "./release-prepare-orchestration.js";
+import { selectReleasedSkillTag } from "./release-preflight.js";
 import {
   AXM_SKILL_HANDLE,
   PRODUCTION_REGISTRY_URL,
@@ -22,7 +23,7 @@ export const specification = defineSpecification({
   requirement: "system/process/release-preparation-validates-production-gates",
   title: "Release preparation validates production Registry gates without distribution",
   statement:
-    "Release preparation shall preflight the production Registry before allocating candidate state and shall validate the exact generated candidate against the production Registry in preview-only mode, never applying a publication.",
+    "Release preparation shall preflight the production Registry from the latest reachable released CLI at or before the current version before allocating candidate state and shall validate the exact generated candidate against the production Registry in preview-only mode, never applying a publication.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "trustworthy-distribution"],
@@ -34,6 +35,7 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [
     "A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.",
+    "Release tags are created only by the canonical GitHub Release workflow.",
   ],
   openQuestions: [],
 });
@@ -131,6 +133,12 @@ describe("Release preparation Registry gates", () => {
       await runReleasePreparation(true, host);
       expect(events.indexOf("registry-preflight")).toBeGreaterThan(-1);
       expect(events.indexOf("allocate")).toBeGreaterThan(events.indexOf("registry-preflight"));
+    }),
+  );
+
+  it.effect("falls back to the prior release when the current candidate was not published", () =>
+    Effect.sync(() => {
+      expect(selectReleasedSkillTag("0.29.3", ["cli-v0.29.1", "cli-v0.29.2"])).toBe("cli-v0.29.2");
     }),
   );
 

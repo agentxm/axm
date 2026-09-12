@@ -107,11 +107,13 @@ state in the [specification catalog](../../specifications/catalog.md).
    ```
 
    Both modes first use the committed source CLI and the skill package from the
-   current version's matching release tag to verify production Registry
+   latest reachable release tag at or before the current version to verify production Registry
    authentication, immutable archive integrity, and the authoritative
    publish-preview contract. This disposable preflight worktree prevents
    next-version edits on `main` from being compared with the current immutable
-   release. The preflight workspace exposes only that released skill as
+   release. If a failed candidate was merged but never published, preparation
+   uses the preceding released tag instead of inventing a tag for the failed
+   candidate. The preflight workspace exposes only that released skill as
    workspace-authored content; it does not consume the historic accepted
    resolution lockfile. No candidate state exists yet, so an expired token,
    incompatible Registry, or inability to reproduce the current release fails

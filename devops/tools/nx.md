@@ -28,16 +28,17 @@ is described in [CONTRIBUTING](../../CONTRIBUTING.md); dependencies are installe
 explicitly. No global Nx installation is required.
 
 Task inputs, dependency artifacts, declared outputs, and supported host adapters
-are governed by the binding. [Task-cache outcomes](../measures/nx-task-cache-outcomes.md)
-explains the report; a restored dependency archive is not a task verdict.
-Upgrade configuration and its conformance evidence together. For diagnosed
-freshness needs, use the binding's cache-bypass semantics; do not disable
-unknown-cache safeguards. Recovery from a failed task follows its owning
-target and source diagnostics, not an automatic dependency installation.
+are governed by the binding. Use Nx's native opt-in profile for diagnosed task
+timing questions; routine workflows do not maintain a repository-specific cache
+report. A restored dependency archive is not a task verdict. Upgrade
+configuration and its conformance evidence together. For diagnosed freshness
+needs, use the binding's cache-bypass semantics; do not disable unknown-cache
+safeguards. Recovery from a failed task follows its owning target and source
+diagnostics, not an automatic dependency installation.
 
 ## Accountability, gaps, and maintenance
 
 Documentation maintainer: [@craigsmitham](https://github.com/craigsmitham), under
 the [adoption declaration](../README.md). Repository tooling maintainers are the support role via CONTRIBUTING; an individually assigned tooling owner is not documented.
 
-Review this record when Nx versions, plugins, target contracts, cache inputs, host adapters, or report semantics change.
+Review this record when Nx versions, plugins, target contracts, cache inputs, or host adapters change.

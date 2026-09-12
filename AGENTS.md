@@ -48,10 +48,11 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 ```
 
 During implementation, run the narrowest relevant target, then
-`pnpm run verify:affected`. Use `pnpm run ci` for the full workspace and
-`pnpm run format` before committing. Render every change's requirement impact
-with `pnpm exec nx run axm:specification-verdict`. Use the in-flight CLI against
-another workspace only through the
+`pnpm run verify:affected`. Before merge, run `pnpm run verify:pr`; use
+`pnpm run ci` for full-workspace automation diagnostics. Run
+`pnpm run format` before committing. Pull-request CI renders the requirement
+impact against its affected base. Use the in-flight CLI against another
+workspace only through the
 [source CLI runbook](devops/runbooks/run-source-cli.md).
 
 For testing install, lint, and other default-source behavior, set
@@ -100,9 +101,9 @@ A removed identity is explained in `specifications/disposition-ledger.json`
 (`superseded-by`, `engineering-policy`, `converted-to-test`, `retired`); an
 unexplained removal still renders, visibly, in the verdict.
 
-Every change report and pull request ends with the specification impact
-rendered by `pnpm exec nx run axm:specification-verdict`: added, removed, or
-revised requirement identities, or its `No requirement contract changes.` line.
+Pull-request CI renders the specification impact against its affected base:
+added, removed, or revised requirement identities, or its
+`No requirement contract changes.` line.
 
 For requirement elicitation, review, impact analysis, or revision, use the
 requirements-engineering guidance linked below with the repository policy in

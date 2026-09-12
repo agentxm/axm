@@ -316,10 +316,11 @@ for (const text of [
   "hashFiles('containers/ci/CI_IMAGE')",
   'AXM_CONTAINER_NX_PARALLEL: "3"',
   'AXM_CONTAINER_VITEST_MAX_WORKERS: "2"',
-  "NX_BASE: ${{ github.event.pull_request.base.sha }}",
-  "NX_HEAD: ${{ github.event.pull_request.head.sha }}",
-  "pnpm run verify:clean",
-  "pnpm run verify:affected",
+  "NX_BASE: ${{ needs.classify.outputs.base }}",
+  "NX_HEAD: ${{ needs.classify.outputs.head }}",
+  "nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1",
+  "fallback-sha: ${{ steps.affected-fallback.outputs.sha }}",
+  "pnpm run verify:pr:report",
   "pnpm run ci:workspace:report",
   "bun scripts/profile-nx.ts e2e-main-1",
   "bun scripts/profile-nx.ts e2e-main-2",
@@ -345,11 +346,6 @@ if (
   )
 ) {
   errors.push("the Nx cache must use a commit-specific primary key");
-}
-
-const workflowFormatChecks = ciWorkflow.match(/pnpm run format:check/gu) ?? [];
-if (workflowFormatChecks.length !== 1) {
-  errors.push("the PR workflow must have exactly one formatting owner");
 }
 
 if (packageManifest.scripts?.["generate:check"]?.includes("format:check")) {
@@ -405,13 +401,25 @@ const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
 for (const text of [
   "bun scripts/profile-nx.ts verify-affected affected",
   "-t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill",
-  "bun scripts/profile-nx.ts verify-affected-e2e affected -t e2e",
 ]) {
   requireText(
     affectedVerification,
     text,
     `verify:affected must use the native Nx affected path for ${text}`,
   );
+}
+if (affectedVerification.includes("-t e2e")) {
+  errors.push("verify:affected must remain the fast source-only confidence gate");
+}
+
+const prVerification = packageManifest.scripts?.["verify:pr"] ?? "";
+for (const text of [
+  "pnpm run verify:clean",
+  "pnpm run format:check",
+  "pnpm run verify:affected",
+  "pnpm run test:e2e:affected",
+]) {
+  requireText(prVerification, text, `verify:pr must own the change boundary through ${text}`);
 }
 // The bundled-skill lint is the only gate over `skills/axm/**`. It reaches the
 // developer through the source-verification names, not only the CI job, so a

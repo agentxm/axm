@@ -16,20 +16,22 @@ See [devops/index.md](devops/index.md) for engineering and operations documentat
 
 ## Commands
 
-Nx targets are the units of work; `pnpm` scripts name workflows. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm install` is the explicit dependency-preparation step; commands fail instead of installing implicitly. `pnpm axm` runs the Bun entrypoint and its internal workspace packages from source through the `axm-source` export condition; it does not build first.
+Nx targets are units of work; `pnpm` scripts name workflows. Run `pnpm install`
+explicitly before repository commands. `pnpm axm` runs the Bun entrypoint and
+workspace packages from source through the `axm-source` export condition.
 
 The portable
 [Repository task interface](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md)
 is authoritative for execution-surface semantics and conformance. AXM binds it
 locally in [Repository task interface](docs/guides/repository-task-interface.md) —
 read that binding before adding a script, target, wrapper, cache, or automation
-entrypoint. The table below is human
-convenience; the canonical forms are targets for units of work and published
-workflow names for workflows.
+entrypoint. `package.json` and the Nx project graph own the current command
+inventory.
 
 Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists. This is a hard rule. Do not use direct tool invocations like `pnpm exec vitest`, `vitest`, `tsc`, `eslint`, `prettier`, or bare `nx` for repo verification when a repo-backed script or target exists. They can bypass repo conventions, dependency ordering, caching, and build steps and can pick up stale `dist` output.
 
-For focused verification, keep the repo-backed target and pass filters through it. Test file filters are relative to the selected Nx project's root:
+For focused verification, keep the repo-backed target and pass filters through
+it. Test file filters are relative to the selected Nx project's root:
 
 - focused CLI test: `pnpm exec nx run cli:test --args="src/help-command-references.test.ts"`
 - focused test by name: `pnpm exec nx run cli:test --args='src/help-command-references.test.ts -t "names only help topics that exist"'`
@@ -45,66 +47,18 @@ export NX_DEFAULT_OUTPUT_STYLE=static
 export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 ```
 
-| Command                                               | Purpose                                                                                                                        |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm axm`                                            | Run the main CLI from source                                                                                                   |
-| `pnpm axm:local -C <workspace>`                       | Run the in-flight CLI against a selected workspace                                                                             |
-| `pnpm exec nx run cli:watch`                          | Rebuild `cli` on changes                                                                                                       |
-| `pnpm build`                                          | Build all packages                                                                                                             |
-| `pnpm build:affected`                                 | Build only packages changed since `main`                                                                                       |
-| `pnpm test`                                           | Run every project's `test` target (executable specifications and ordinary tests)                                               |
-| `pnpm test:affected`                                  | Run tests only for packages changed since `main`                                                                               |
-| `pnpm test:spec`                                      | Run executable specifications; `--requirement <id>`, `--class <lens>`, or `--characteristic <c>`                               |
-| `pnpm exec nx run axm:test`                           | Run repository tooling verification                                                                                            |
-| `pnpm exec nx run axm:generate:specification-catalog` | Rediscover specifications, check conformance, and regenerate `specifications/catalog.md`                                       |
-| `pnpm exec nx run axm:verify-source-hygiene`          | Check specification and test file rules across every authored root                                                             |
-| `pnpm exec nx run axm:lint-bundled-skill`             | Lint the bundled AXM skill (reproduces the CI `extension-lint` job)                                                            |
-| `pnpm exec nx run axm:specification-verdict`          | Render the per-change specification verdict against the merge base with `main` (reproduces the CI `specification-verdict` job) |
-| `pnpm test:e2e`                                       | Run E2E targets only                                                                                                           |
-| `pnpm test:compatibility`                             | Run quality specifications with the compatibility characteristic                                                               |
-| `pnpm test:performance`                               | Run quality specifications with the performance characteristic                                                                 |
-| `pnpm test:all`                                       | Fast suite plus broadly executable slower boundaries                                                                           |
-| `pnpm verify:artifact`                                | Verify one identified binary artifact                                                                                          |
-| `pnpm verify:release`                                 | Compose evidence for one exact release candidate                                                                               |
-| `pnpm verify:deployment`                              | Verify an identified install endpoint                                                                                          |
-| `pnpm bench`                                          | Run diagnostic benchmarks (never a behavioral pass)                                                                            |
-| `pnpm typecheck`                                      | Type check all projects, including repo `scripts/`                                                                             |
-| `pnpm typecheck:affected`                             | Type check only packages changed since `main`                                                                                  |
-| `pnpm format`                                         | Format the whole repo with Prettier                                                                                            |
-| `pnpm format:check`                                   | Check whole-repo formatting with Prettier                                                                                      |
-| `pnpm format:affected`                                | Format only Nx-selected changed files                                                                                          |
-| `pnpm format:check:affected`                          | Check only Nx-selected changed files                                                                                           |
-| `pnpm lint`                                           | Lint all projects, including repo `scripts/`                                                                                   |
-| `pnpm lint:affected`                                  | Lint only packages changed since `main`                                                                                        |
-| `pnpm lint:fix`                                       | Lint and auto-fix                                                                                                              |
-| `pnpm run ci`                                         | Run full CI pipeline (lint, typecheck, build, test, e2e)                                                                       |
-| `pnpm run verify:affected`                            | Verify only projects changed from Nx's selected base                                                                           |
-| `pnpm run container:ci`                               | Run full CI in the shared Linux image                                                                                          |
-| `pnpm generate`                                       | Run every `generate` target (schemas, clients, generated sources)                                                              |
-
-`axm:local` runs the source CLI and holds no opinion about which registry it
-targets: with `AXM_REGISTRY_LOCATION` unset the CLI's own default applies, and
-selecting an HTTP(S) location also derives `AXM_REGISTRY_URL` for auth/API flows
-when that is unset. It sets `AXM_TELEMETRY=0` when unset, because a source run
-reports the plain package version and is otherwise indistinguishable from a
-release in telemetry. `pnpm` runs it from the repository root, so always select
-the workspace with `-C <dir>`. To run this checkout's CLI from outside the
-checkout, use the absolute-path forms in
-[Source CLI runbook](devops/runbooks/run-source-cli.md#run-the-source-cli-against-another-workspace).
+During implementation, run the narrowest relevant target, then
+`pnpm run verify:affected`. Use `pnpm run ci` for the full workspace and
+`pnpm run format` before committing. Render every change's requirement impact
+with `pnpm exec nx run axm:specification-verdict`. Use the in-flight CLI against
+another workspace only through the
+[source CLI runbook](devops/runbooks/run-source-cli.md).
 
 For testing install, lint, and other default-source behavior, set
 `AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
 of checking custom registry sources into `axm.json`. `axm lint`
 reports workspace findings read-only; `axm lint --fix` performs only
 deterministic, meaning-preserving source or configuration normalization.
-
-`pnpm test:spec` consumes only `--requirement`, `--class`, and
-`--characteristic`; it resolves each selected specification to its owner
-project and runs `nx run <owner>:test` with the project-relative file, one
-invocation per owner. Every other flag is forwarded verbatim to those Nx
-invocations, so runner flags such as `--skip-nx-cache` reach Nx. A forwarded
-flag that takes a value must use the `--flag=value` form, because a bare value
-is read as a requirement identity.
 
 ### Releasing
 
@@ -360,7 +314,18 @@ Use the installed `manage-work-items` skill when creating or revising GitHub
 issues. Work items may reference specifications but do not own accepted AXM
 requirements.
 
-**NEVER commit without explicit user request.** This is a hard rule with no exceptions.
+- Follow [CONTRIBUTING.md](CONTRIBUTING.md): land changes through short-lived
+  pull requests, use isolated worktrees for concurrent work, and remove their
+  worktrees and local branches after merge
+- A request to deliver or complete a change authorizes its routine branch,
+  worktree, commit, push, pull-request, approved auto-merge, and cleanup
+  operations. Requests limited to analysis or implementation do not. Release
+  publication, production deployment, shared-history rewrites, and work outside
+  the named delivery require explicit authorization
+- Maintainer-authored changes require passing evidence and an acceptance
+  decision, not a second human reviewer. External contributions require
+  maintainer acceptance. Until host enforcement is verified, treat required
+  checks, freshness, and squash merge as policy enforced manually
 
 - This repo is public; the executable specification
   `system/process/public-artifacts-protect-private-context` owns the
@@ -370,14 +335,7 @@ requirements.
 - Cross-repo work uses a separate AXM PR with self-contained public context;
   keep private coordination and private PR links out of this repo
 
-- Do NOT commit after completing work
-- Do NOT commit when tests pass
-- Do NOT commit as part of a task workflow
-- ONLY commit when the user explicitly asks (e.g., "commit", "/commit", "make a commit")
-
-Wait for the user to review changes and decide when to commit.
-
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=2b1446d853c15bd22e0ca3bdf68ea71d93caf1a4affa31aa78a00d9aa1d32695 -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=087979ea5056669e3bea1b1af541da9f64ca6a6a9706b9579009ea9e7bd27814 -->
 
 ## Knowledge Bundles
 
@@ -408,7 +366,7 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | [product-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
-<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=13f9a5c8cebfaf12084b2a3c55940648fc5518aca247451fdda6c4639e6b3c3e -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=32bead97ea1d124115737f9c69369b7df65a72b83cd4ed2b985f814b5ec6d768 -->
 <!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.1 kind=rule -->
 
 ## Use Effect v4
@@ -416,56 +374,4 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 When working with Effect, use Effect v4 APIs and conventions. Do not use Effect
 v3 APIs or carry v3 patterns forward; verify ambiguous guidance against current
 v4 sources.
-
-<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.3 kind=rule -->
-
-## Field notes
-
-Record how work actually goes, so recurring obstacles become durable
-improvements instead of repeated friction.
-
-Subjects under observation are declared in the `## Field note subjects` table in
-this file. **If that section is missing or has no rows, this rule is inactive —
-do nothing.**
-
-### When to record
-
-While doing ordinary work within a declared subject, record one note when:
-
-- reality differs from instructions, documentation, or command output;
-- you retry, guess, search, or improvise an undocumented workaround; or
-- a `target`-mode subject is blocked from its target condition.
-
-Do not record your own typo, the same incident twice in one session, or
-speculation without an observed incident.
-
-### Preserve diagnostic evidence
-
-While working within a declared subject, do not discard safe structured failure
-details before deciding whether an interaction qualifies for capture. Inspect
-the complete result, preserve the process exit status, and keep result output
-separate from diagnostic output. If output must be reduced, retain materially
-useful error, request, response, retry, recovery, and affected-artifact fields.
-Never retain credentials, authorization material, opaque response bodies, or
-other sensitive values. Do not rerun a mutation merely to recover evidence.
-
-### How to record
-
-On the first qualifying incident in a session, read `capture.md` alongside the
-installed field-notes rule source.
-Append one note for each qualifying incident. Recording it is expected behavior,
-not an admission of failure.
-
-### Stay in the work
-
-Log and continue. Do not investigate the note, fix what it describes, open an
-issue, or discuss it beyond one short line at the end of your response.
-
-Raise a live correctness, data-loss, or security problem immediately instead of
-filing it. Stop to ask only when genuinely blocked on ambiguous architecture,
-data model, or destructive scope; name the ambiguity in one sentence with two or
-three options.
-
-To declare subjects, triage notes, or promote them into findings, use the
-`field-notes` skill. Never do that work inline.
 <!-- axm:end v=1 region=rules -->

@@ -133,12 +133,21 @@ describe("Release preparation workflow", () => {
       const names = readWorkflow().steps.map((step) => Reflect.get(step, "name"));
       const releasedPreview = names.indexOf("Preflight production Registry from released skill");
       const candidate = names.indexOf("Generate and validate exact candidate");
+      const refresh = names.indexOf("Refresh installed workspace after versioning");
+      const commit = names.indexOf("Commit candidate");
       expect(releasedPreview).toBeGreaterThan(-1);
       expect(candidate).toBeGreaterThan(releasedPreview);
       expect(names.indexOf("Remove released skill preflight checkout")).toBeGreaterThan(
         releasedPreview,
       );
       expect(names.indexOf("Remove released skill preflight checkout")).toBeLessThan(candidate);
+      expect(refresh).toBeGreaterThan(candidate);
+      expect(commit).toBeGreaterThan(refresh);
+      expect(
+        JSON.stringify(
+          namedStep(readWorkflow().steps, "Refresh installed workspace after versioning"),
+        ),
+      ).toContain("pnpm install --frozen-lockfile");
     }),
   );
 

@@ -127,7 +127,8 @@ describe("repository task interface", () => {
       const phases = script.split("&&");
       expect(phases[0]?.trim(), name).toBe("pnpm exec nx run architecture:check");
       expect(phases[1], name).toContain("-t lint typecheck build test");
-      expect(phases[1], name).toContain("scripts/profile-nx.ts");
+      expect(phases[1], name).toContain("pnpm exec nx");
+      expect(phases[1], name).not.toContain("scripts/profile-nx.ts");
       expect(script, name).not.toContain("--skip-nx-cache");
       expect(script, name).not.toContain("--excludeTaskDependencies");
       expect(script, name).not.toContain("--batch");
@@ -148,7 +149,7 @@ describe("repository task interface", () => {
     if (typeof affectedE2e !== "string") {
       throw new Error("Missing test:e2e:affected script.");
     }
-    expect(affectedE2e).toContain("verify-pr-e2e affected -t e2e");
+    expect(affectedE2e).toContain("pnpm exec nx affected -t e2e");
   });
 
   it("gives every cached resolved target a non-empty input contract", () => {

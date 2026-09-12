@@ -19,8 +19,8 @@
     "build:affected": "nx affected -t build --batch",
     "test": "nx run-many -t test",
     "test:affected": "nx affected -t test",
-    "test:e2e": "bun scripts/profile-nx.ts e2e run-many -t e2e --nxBail",
-    "test:e2e:affected": "bun scripts/profile-nx.ts verify-pr-e2e affected -t e2e --nxBail --parallel=1",
+    "test:e2e": "pnpm exec nx run-many -t e2e --nxBail",
+    "test:e2e:affected": "pnpm exec nx affected -t e2e --nxBail --parallel=1",
     "typecheck": "nx run-many -t typecheck",
     "typecheck:affected": "nx affected -t typecheck",
     "format": "prettier --write . --ignore-unknown",
@@ -33,9 +33,9 @@
     "ci": "pnpm run ci:workspace && pnpm run test:e2e",
     "ci:workspace": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:workspace",
     "verify:clean": "pnpm exec nx run axm:source-cli-smoke && pnpm run check:ci-image && pnpm run generate:check && pnpm run sync:check",
-    "verify:affected": "pnpm exec nx run architecture:check && bun scripts/profile-nx.ts verify-affected affected -t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill --nxBail",
+    "verify:affected": "pnpm exec nx run architecture:check && pnpm exec nx affected -t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill --nxBail",
     "verify:pr": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:affected && pnpm exec nx run axm:verify-release-packs && pnpm run test:e2e:affected",
-    "verify:workspace": "pnpm exec nx run architecture:check && bun scripts/profile-nx.ts verify-workspace run-many -t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill verify-release-packs --nxBail",
+    "verify:workspace": "pnpm exec nx run architecture:check && pnpm exec nx run-many -t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill verify-release-packs --nxBail",
     "verify:full": "pnpm run verify:workspace && pnpm run test:e2e",
     "container:ci": "bash scripts/container-environment.sh ci",
     "container:smoke": "bash scripts/container-environment.sh smoke",
@@ -61,10 +61,8 @@
     "verify:deployment": "bun scripts/verify-deployment.ts",
     "bench": "pnpm exec nx run axm:bench",
     "test:all": "pnpm test && pnpm test:e2e",
-    "ci:report": "scripts/with-allure-report.sh pnpm run ci",
     "ci:workspace:report": "scripts/with-allure-report.sh pnpm run ci:workspace",
-    "verify:pr:report": "scripts/with-allure-report.sh pnpm run verify:pr",
-    "test:e2e:report": "scripts/with-allure-report.sh pnpm run test:e2e"
+    "verify:pr:report": "scripts/with-allure-report.sh pnpm run verify:pr"
   },
   "nx": {
     "includedScripts": []

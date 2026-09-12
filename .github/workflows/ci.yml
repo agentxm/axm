@@ -398,13 +398,13 @@ jobs:
         include:
           - id: main-1
             name: main shard 1/2
-            command: bun scripts/profile-nx.ts e2e-main-1 run cli-e2e:e2e-main --outputStyle=static -- --shard=1/2
+            command: pnpm exec nx run cli-e2e:e2e-main --outputStyle=static -- --shard=1/2
           - id: main-2
             name: main shard 2/2
-            command: bun scripts/profile-nx.ts e2e-main-2 run cli-e2e:e2e-main --outputStyle=static -- --shard=2/2
+            command: pnpm exec nx run cli-e2e:e2e-main --outputStyle=static -- --shard=2/2
           - id: distribution
             name: binary and install distribution
-            command: bun scripts/profile-nx.ts e2e-distribution run-many --projects cli-e2e -t binary-smoke install-suite --nxBail --outputStyle=static
+            command: pnpm exec nx run-many --projects cli-e2e -t binary-smoke install-suite --nxBail --outputStyle=static
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:

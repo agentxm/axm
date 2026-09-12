@@ -15,4 +15,3 @@ Find AXM's development, delivery, and operating records by subject or task.
 - [Environments](environments/index.md) — Native development, Linux CI, and native platform execution boundaries.
 - [Playbooks](playbooks/index.md) — Assessment and response selection for advisory pull-request review.
 - [Runbooks](runbooks/index.md) — Bounded procedures for releases, previews, source execution, and CI images.
-- [Measures](measures/index.md) — Definitions and interpretation limits for engineering execution reports.

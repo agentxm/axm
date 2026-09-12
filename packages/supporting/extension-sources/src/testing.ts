@@ -19,7 +19,7 @@ import * as Option from "effect/Option";
 import * as semver from "semver";
 
 import type { RegistrySourceHost } from "@agentxm/extension-model/unstable/sources/types";
-import { resolveVersionEntry } from "@agentxm/registry-protocol/unstable/registry/version-selection";
+import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 
 import { AxmSkillCandidateGate, type AxmSkillCandidateGateService } from "./axm-skill-gate.js";
 import { SourceNotResolvable } from "./errors.js";

@@ -46,10 +46,12 @@ It therefore declares ports whose vocabulary lives in
 - `WorkspaceCatalog` — implemented by `@agentxm/workspace-projection`, which
   owns the agent-selection facts the catalog reports.
 
-Selection semantics that the Registry itself defines (`selectVersion`,
-`resolveVersionEntry`: yanked handling and range maxima) stay in
-`@agentxm/registry-protocol/unstable/registry/version-selection`, which both
-the client integration and this package consume.
+Shared release selection (`selectVersion`, `resolveVersionEntry`: exact
+requests, yank handling, and range maxima) belongs to
+`@agentxm/extension-model/unstable/version-constraints/version-selection`.
+It consumes domain release facts and preserves the selected candidate. Registry
+clients and this package use it without making wire schemas own the algorithm;
+release-age and other client admission policies remain here.
 
 Unstable and unsupported — use the [axm.sh](https://axm.sh) CLI.
 

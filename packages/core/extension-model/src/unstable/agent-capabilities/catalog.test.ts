@@ -2,14 +2,8 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
-import {
-  AgentIdSchema,
-  AGENTS,
-  AGENT_IDS,
-  CONFIGURABLE_AGENTS_BY_ID,
-  HOSTED_AGENTS_BY_ID,
-  HOSTED_AGENT_IDS,
-} from "./catalog.js";
+import { AGENTS, CONFIGURABLE_AGENTS_BY_ID, HOSTED_AGENTS_BY_ID } from "./catalog.js";
+import { AgentIdSchema, AGENT_IDS, HOSTED_AGENT_IDS } from "./identity.js";
 import {
   deriveAgentDescriptor,
   deriveSkillConvention,

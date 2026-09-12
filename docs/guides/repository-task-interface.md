@@ -100,6 +100,16 @@ only the cross-project views over that corpus — `generate:specification-catalo
 `specification-verdict`, and `verify-source-hygiene` — plus the `test:spec`
 selection wrapper, which resolves identities to owners and delegates.
 
+`architecture:check` analyzes the complete source graph of capabilities in
+[the native boundary configuration](../../tools/architecture/config.mjs), with
+no prerequisite builds. Dependency-cruiser extracts dependencies, JS Boundaries
+assigns capability owners, and Graphlib identifies capability cycles that cross
+architectural-role folders. Both `verify:affected` and `verify:workspace` run this
+global check before their other checks. `architecture:test` uses Node's native
+test runner to exercise allowed and forbidden dependencies and the composed root
+ESLint configuration, with no build prerequisite; the
+existing Nx constraints remain active for unconverted scopes.
+
 Dependencies express prerequisite artifacts or lifecycle ordering. Callers do
 not sequence a dependency already owned by a target. Host workflows may order
 steps only where failure handling, credentials, platform setup, or external

@@ -210,17 +210,14 @@ export {
   type NativeAgent,
   type NativeAgentCapabilities,
 } from "./derive.js";
+export { AGENTS, AGENTS_BY_ID, CONFIGURABLE_AGENTS_BY_ID, HOSTED_AGENTS_BY_ID } from "./catalog.js";
 export {
-  AGENTS,
-  AGENTS_BY_ID,
   AGENT_IDS,
   AgentIdSchema,
-  CONFIGURABLE_AGENTS_BY_ID,
   CONFIGURABLE_AGENT_IDS,
-  HOSTED_AGENTS_BY_ID,
   HOSTED_AGENT_IDS,
   type AgentId,
   type ConfigurableAgentId,
   type HostedAgentId,
-} from "./catalog.js";
+} from "./identity.js";
 export { agentById } from "./lookup.js";

@@ -80,6 +80,29 @@ package acquires no filesystem, terminal, workspace, or transport behaviour,
 and the model's external dependency budget is fixed at `effect`,
 `packageurl-js`, `semver`, and `spdx-expression-parse`.
 
+The extension model also owns shared exact/range/yank release selection in
+`unstable/version-constraints/version-selection`. Its candidate contract contains
+only the version and yank facts the algorithm needs; the selected candidate
+retains consumer metadata. Registry serialization remains in the protocol, and
+CLI release-age admission remains in extension resolution.
+
+Agent identity lives in `unstable/agent-capabilities/identity`, independently of
+catalog data. Agent schemas and extension types can use identities without
+importing the catalog whose entries those schemas describe. Catalog records are
+checked for complete identity membership by TypeScript.
+
+The model is the first scope of the intra-package policy gate in
+[`tools/architecture/config.mjs`](../../tools/architecture/config.mjs). Its
+native JS Boundaries descriptors classify the model as a core backstage domain
+capability, and its export map declares public entry points. Domain files cannot
+import filesystem, provider, or Node mechanisms. The source graph also rejects
+file cycles across all production roles, including type-only edges, and
+capability cycles between domain/application code. Adapter and composition
+imports follow dependency inversion outside the frontstage/backstage constraint. The current Nx
+rules remain in force elsewhere while capability ownership is separated; this
+initial scope does not imply that the workspace packages already satisfy the
+new policy/application/adapter separation.
+
 ### Capabilities
 
 | Package                              | Role              | Owns                                                                                                                                                                                                                                                                                             |

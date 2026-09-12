@@ -11,7 +11,8 @@ import type {
   AgentSubagentsDescriptor,
 } from "../agents/types.js";
 import { PER_AGENT_EXTENSION_TYPES, type ExtensionType } from "../extensions/common.js";
-import { AGENTS, CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId } from "./catalog.js";
+import { AGENTS } from "./catalog.js";
+import { CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId } from "./identity.js";
 import { LEAF_EXTENSION_TYPES, type LeafExtensionType } from "../extension-types/schema.js";
 import {
   SUPPORTED_AXM_SUPPORT,

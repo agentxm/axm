@@ -12,7 +12,7 @@ import * as semver from "semver";
 
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import { resolveVersionInRange } from "@agentxm/extension-model/unstable/version-constraints";
-import { selectVersion } from "@agentxm/registry-protocol/unstable/registry/version-selection";
+import { selectVersion } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 
 // ---------------------------------------------------------------------------

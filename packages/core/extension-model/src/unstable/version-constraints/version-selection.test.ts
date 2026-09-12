@@ -2,13 +2,15 @@ import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import type { VersionEntry } from "./schema.js";
-import { resolveVersionEntry, selectVersion } from "./version-selection.js";
+import { decodeVersionSync } from "./version-constraints.js";
+import { resolveVersionEntry, selectVersion, type ReleasedVersion } from "./version-selection.js";
 
-const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
+interface Candidate extends ReleasedVersion {
+  readonly integrity: string;
+}
+
+const makeVersionEntry = (overrides?: Partial<Candidate>): Candidate => ({
   version: decodeVersionSync("1.0.0"),
-  published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
   integrity: "sha512-AAAA==",
   ...overrides,
 });
@@ -43,6 +45,16 @@ describe("selectVersion", () => {
 });
 
 describe("resolveVersionEntry", () => {
+  it("preserves the selected candidate and its consumer-owned metadata", () => {
+    const candidate = makeVersionEntry({
+      integrity: "sha512-consumer-metadata",
+      yankedAt: undefined,
+    });
+    expect(Option.getOrThrow(resolveVersionEntry([candidate], Option.some("^1.0.0")))).toBe(
+      candidate,
+    );
+  });
+
   const versions = [
     makeVersionEntry({
       version: decodeVersionSync("1.2.0"),

@@ -66,7 +66,7 @@ import { extensionDir, extensionLifecycleWarnings, pluralizeType } from "./utils
 import {
   resolveVersionEntry,
   selectVersion,
-} from "@agentxm/registry-protocol/unstable/registry/version-selection";
+} from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import type {
   PublishVisibility,
   VisibilityEvaluation,

@@ -55,8 +55,15 @@ catalog:
   vite: ^8.2.0
   vitest: ^5.0.0
   yaml: ^2.9.0
+  eslint-plugin-boundaries: 7.1.0
+  dependency-cruiser: 18.2.0
+  eslint-import-resolver-typescript: 4.4.5
+  "@dagrejs/graphlib": 4.0.5
+  "@boundaries/elements": 3.1.0
 
 allowBuilds:
+  # Platform bindings are supplied by optional packages; no fallback download.
+  unrs-resolver: false
   "@swc/core": true
   esbuild: true
   msgpackr-extract: false

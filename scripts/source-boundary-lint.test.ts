@@ -225,35 +225,34 @@ describe("module boundary constraints", () => {
   });
 
   it("confines the generic domain to itself", async () => {
-    // No generic package exists yet, so the row cannot be exercised with a real
-    // import; pin the constraint until one does.
-    const config: { readonly default: ReadonlyArray<unknown> } = await import(
-      path.join(repoRoot, "eslint.config.mjs")
-    );
-    const genericRows = config.default.flatMap((block) => {
-      if (typeof block !== "object" || block === null || !("rules" in block)) return [];
-      const rules: unknown = block.rules;
-      if (typeof rules !== "object" || rules === null) return [];
+    // No generic package exists yet. Inspect the effective configuration for
+    // production and test files, not every partial block in the flat config.
+    const eslint = new ESLint({ cwd: repoRoot });
+    for (const [file, allowed] of [
+      ["packages/generic/example/src/index.ts", ["domain:generic"]],
+      ["packages/generic/example/src/index.test.ts", ["domain:generic", "role:tooling"]],
+    ] as const) {
+      const config: unknown = await eslint.calculateConfigForFile(file);
+      if (typeof config !== "object" || config === null || !("rules" in config)) {
+        throw new Error(`No resolved ESLint rules for ${file}`);
+      }
+      const rules: unknown = config.rules;
+      if (typeof rules !== "object" || rules === null) throw new Error("Invalid resolved rules");
       const rule: unknown = Reflect.get(rules, "@nx/enforce-module-boundaries");
-      if (!Array.isArray(rule) || typeof rule[1] !== "object" || rule[1] === null) return [];
-      const production = Reflect.get(rule[1], "enforceBuildableLibDependency") === true;
-      const depConstraints: unknown = Reflect.get(rule[1], "depConstraints");
-      return (Array.isArray(depConstraints) ? depConstraints : [])
+      if (!Array.isArray(rule) || typeof rule[1] !== "object" || rule[1] === null) {
+        throw new Error(`No resolved module-boundary options for ${file}`);
+      }
+      const constraints: unknown = Reflect.get(rule[1], "depConstraints");
+      const genericRows = (Array.isArray(constraints) ? constraints : [])
         .filter(
           (constraint) =>
             typeof constraint === "object" &&
             constraint !== null &&
             Reflect.get(constraint, "sourceTag") === "domain:generic",
         )
-        .map((constraint) => ({
-          production,
-          allowed: Reflect.get(constraint, "onlyDependOnLibsWithTags"),
-        }));
-    });
-    expect(genericRows).toEqual([
-      { production: true, allowed: ["domain:generic"] },
-      { production: false, allowed: ["domain:generic", "role:tooling"] },
-    ]);
+        .map((constraint) => Reflect.get(constraint, "onlyDependOnLibsWithTags"));
+      expect(genericRows, file).toEqual([allowed]);
+    }
   });
 
   it("keeps handlers away from writers, plan constructors, and integrations", async () => {

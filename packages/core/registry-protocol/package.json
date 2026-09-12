@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/registry-protocol",
   "version": "0.29.4",
-  "description": "AgentXM Registry wire contracts: index, discovery, publication-set, visibility, authorization, and suggested-action schemas. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "AgentXM Registry wire contracts: index, discovery, publication-set, visibility, authorization, and suggested-action schemas. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -39,11 +39,6 @@
       "types": "./dist/src/unstable/registry/schema.d.ts",
       "axm-source": "./src/unstable/registry/schema.ts",
       "default": "./dist/src/unstable/registry/schema.js"
-    },
-    "./unstable/registry/version-selection": {
-      "types": "./dist/src/unstable/registry/version-selection.d.ts",
-      "axm-source": "./src/unstable/registry/version-selection.ts",
-      "default": "./dist/src/unstable/registry/version-selection.js"
     },
     "./unstable/suggested-action": {
       "types": "./dist/src/unstable/suggested-action.d.ts",

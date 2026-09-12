@@ -21,7 +21,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { resolveVersionEntry } from "@agentxm/registry-protocol/unstable/registry/version-selection";
+import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import type { RegistrySourceHost } from "@agentxm/extension-model/unstable/sources/types";
 import {
   decodeVersionRangeSync,

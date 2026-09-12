@@ -62,4 +62,3 @@ export {
   VersionEntrySchema,
   packagesToPackageUrlParts,
 } from "./schema.js";
-export { resolveVersionEntry, selectVersion } from "./version-selection.js";

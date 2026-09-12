@@ -8,8 +8,7 @@ import * as EffectRecord from "effect/Record";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { AgentIdSchema } from "../agent-capabilities/catalog.js";
-import { CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
+import { AgentIdSchema, CONFIGURABLE_AGENT_IDS } from "../agent-capabilities/identity.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { parseLicenseExpression } from "./license.js";
 import { CompanionPackageSchema } from "../package-urls/index.js";
@@ -1017,7 +1016,7 @@ export const NonPackManifestFields = {
 
 /**
  * Agent identifier enumeration for supported coding agents: the single
- * definition lives in the capability catalog.
+ * definition lives in the agent identity module.
  *
  * @experimental This API is unstable and may change without notice.
  */

@@ -16,7 +16,7 @@ import type {
   ReleaseAgeExemption,
 } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
-import { resolveVersionEntry } from "@agentxm/registry-protocol/unstable/registry/version-selection";
+import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import {
   filterMatureVersions,
   isVersionEntryEligibleAt,

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "architecture",
+  "projectType": "library",
+  "sourceRoot": "tools/architecture",
+  "tags": ["type:tooling", "role:tooling", "scope:architecture"],
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": [],
+      "inputs": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/tsconfig*.json",
+        {
+          "runtime": "node -p \"[process.version, process.platform, process.arch].join('/')\""
+        },
+        "{workspaceRoot}/pnpm-lock.yaml",
+        "{workspaceRoot}/packages/**/package.json",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/packages/core/extension-model/tsconfig*.json"
+      ],
+      "options": {
+        "command": "node --test tools/architecture/*.test.mjs",
+        "cwd": "."
+      }
+    },
+    "check": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": [],
+      "inputs": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/packages/**/src/**/*",
+        "{workspaceRoot}/packages/**/package.json",
+        "{workspaceRoot}/tools/specification-metadata/src/**/*",
+        "{workspaceRoot}/tsconfig*.json",
+        {
+          "runtime": "node -p \"[process.version, process.platform, process.arch].join('/')\""
+        },
+        "{workspaceRoot}/pnpm-lock.yaml"
+      ],
+      "options": {
+        "command": "node tools/architecture/check.mjs",
+        "cwd": "."
+      }
+    }
+  }
+}

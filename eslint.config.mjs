@@ -1,6 +1,12 @@
 import effectEslint from "@effect/eslint-plugin";
 import nxPlugin from "@nx/eslint-plugin";
 import jsoncParser from "jsonc-eslint-parser";
+import { capabilityBoundaries } from "./tools/architecture/boundaries.mjs";
+import {
+  capabilityElements,
+  capabilityFileDescriptors,
+  capabilitySourceFiles,
+} from "./tools/architecture/config.mjs";
 
 const axmPolicyPlugin = {
   rules: {
@@ -340,6 +346,25 @@ export default [
         {
           ...moduleBoundaryOptions,
           enforceBuildableLibDependency: true,
+          depConstraints: moduleBoundaryConstraints({ production: true }),
+        },
+      ],
+    },
+  },
+  {
+    // Configuration composes source-only tooling projects. A rule module needs
+    // no npm package or compiler alias merely because Nx gives its tests a task.
+    files: ["eslint.config.mjs"],
+    rules: {
+      "@nx/enforce-module-boundaries": [
+        "error",
+        {
+          ...moduleBoundaryOptions,
+          allow: [
+            ...moduleBoundaryOptions.allow,
+            "./tools/architecture/boundaries.mjs",
+            "./tools/architecture/config.mjs",
+          ],
           depConstraints: moduleBoundaryConstraints({ production: true }),
         },
       ],
@@ -872,4 +897,10 @@ export default [
     files: ["**/*.js", "**/*.jsx", "**/*.cjs", "**/*.mjs"],
     rules: {},
   },
+  ...capabilityBoundaries(
+    import.meta.dirname,
+    capabilityElements,
+    capabilitySourceFiles,
+    capabilityFileDescriptors,
+  ),
 ];

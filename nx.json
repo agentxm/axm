@@ -51,6 +51,7 @@
       "{workspaceRoot}/vitest.execution.ts",
       "{workspaceRoot}/vitest.reporting.ts",
       "{workspaceRoot}/vitest.purpose.setup.ts",
+      "{workspaceRoot}/scripts/allure-reporter.ts",
       "{workspaceRoot}/scripts/specification-evidence*.ts",
       "{workspaceRoot}/scripts/test-purpose.ts",
       "{workspaceRoot}/scripts/workspace-discovery.ts",

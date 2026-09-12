@@ -322,9 +322,8 @@ for (const text of [
   "fallback-sha: ${{ steps.affected-fallback.outputs.sha }}",
   "pnpm run verify:pr:report",
   "pnpm run ci:workspace:report",
-  "bun scripts/profile-nx.ts e2e-main-1",
-  "bun scripts/profile-nx.ts e2e-main-2",
-  "bun scripts/profile-nx.ts e2e-distribution",
+  "pnpm exec nx run cli-e2e:e2e-main",
+  "pnpm exec nx run-many --projects cli-e2e -t binary-smoke install-suite",
   "verify-e2e-main-trusted",
   'AXM_CONTAINER_VITEST_MAX_WORKERS: "4"',
   "if: always()",
@@ -387,7 +386,7 @@ requireText(
 
 const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "";
 for (const text of [
-  "bun scripts/profile-nx.ts verify-workspace run-many",
+  "pnpm exec nx run-many",
   "-t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill",
 ]) {
   requireText(
@@ -399,7 +398,7 @@ for (const text of [
 
 const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
 for (const text of [
-  "bun scripts/profile-nx.ts verify-affected affected",
+  "pnpm exec nx affected",
   "-t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill",
 ]) {
   requireText(

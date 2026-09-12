@@ -213,14 +213,12 @@ cache. A restored entry is trusted only as a deterministic result for its Nx
 hash. Package-store and container-layer caches supply dependencies, not task
 verdicts.
 
-Profiled root workflows set Nx's supported `NX_PROFILE` trace and emit a
-machine-readable report under `test-results/nx-cache`. Each task is classified
-as local hit, remote hit, miss, bypassed, non-cacheable, skipped, or unknown,
-with task duration, cache-restore duration when exposed, revision and execution
-identity, and collection overhead. Nx 23 does not expose cache lookup time in
-this profile, so the report records it as unavailable rather than inventing a
-zero. A GitHub Actions cache archive hit remains a separate setup/transport
-signal and is never counted as a task-cache hit.
+When task-level timing is needed for a diagnosed question, set Nx's native
+`NX_PROFILE=<file>` trace for that invocation. Routine workflows do not collect
+or post-process a profile. Nx 23 does not expose cache lookup time through the
+trace, so do not infer it from task duration. A GitHub Actions cache archive hit
+remains a separate setup/transport signal and is never counted as a task-cache
+hit.
 
 ## Entrypoints and host adapters
 

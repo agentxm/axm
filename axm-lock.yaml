@@ -235,11 +235,11 @@ rules:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: use-effect-v4
-    resolvedVersion: 0.1.1
-    integrity: sha512-08QSlDdzdAnnIBN/bqn3uXba/N06kGly2dHcirRWQRSylxRxfoKpUZZ1BI/JMIGOlt8TdM6VxqFOG842oVCQLA==
+    resolvedVersion: 0.2.0
+    integrity: sha512-EX1W8Ow8ODQb+PFiBoPfScg4FpRImUpwUaQYiWwwBsaEbSf02F55imD1pupPgYjWXyYEfeyvJWDrMOUw5nkwEA==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:a8a74c95bf639400ac804bc96cf58d0f7a53748772b82b85dc6629aa03cea57f
+    treeIntegrity: sha256-tree-v1:a989f970f37ee2108c24bcd5a3cc5e01cb933535c5ef72a7726784aa63bc620d
 knowledge:
   agentxm:
     type: registry
@@ -278,11 +278,11 @@ knowledge:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: effect-v4
-    resolvedVersion: 1.0.3
-    integrity: sha512-zFUYc9bRlU6rwiWuqeJkgz9TFs69MPAaxXhCoiVlqe5einVCUDguGNOGinh2o9lxYhz0m59dSqLEOfRm/6H6Hw==
+    resolvedVersion: 1.0.4
+    integrity: sha512-R1xrT7IUeeQOFCGrh6YdLC+hOHmNbFDTZ0s6lmNYouNpePRYpdFsIiiOEFcQrhCKF/S+SYaDHUzRtasqQeCxZg==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:21446dc69c566b4d8abf4f6c6e5e305c018e0c0f62232aef0dc59b9dae86c086
+    treeIntegrity: sha256-tree-v1:f364c2ba467c3caa9456f19e5dd3b2ff4e4bf8e3f4be93544b760ba96ac37d91
   agent-engineering:
     type: registry
     sourceType: registry
@@ -320,11 +320,11 @@ knowledge:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: product-engineering
-    resolvedVersion: 2.1.0
-    integrity: sha512-8+sC0awEpMqREfh9Ryh033ABLoL3cagqsyiRhWYkXaVLEeHFRA7RjLajL1mr/BZzqlpIHhRwSVqm2S1nl3bngg==
+    resolvedVersion: 2.2.0
+    integrity: sha512-es0q8qzRNVbYV5GBLwN299tz51IMhqXIxvyizUNbwn1U6Ticm2DEHmbPiS6XxtReP+DYgt0GPFlsr42EujxSaA==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:11a57badac0ee7699fa36cc0bbde80989c2ae89cc7a413453346cc9ca51ba612
+    treeIntegrity: sha256-tree-v1:8d7790bdf2fb82139cccc72b8f0a6559707dd0835b0efb3508b359d54eefe1e7
 packs:
   field-notes:
     type: registry

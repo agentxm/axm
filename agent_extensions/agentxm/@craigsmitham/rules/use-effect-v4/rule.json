@@ -2,11 +2,11 @@
   "$schema": "https://axm.sh/schemas/rule.schema.json",
   "owner": "@craigsmitham",
   "name": "use-effect-v4",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "rule",
   "title": "Use Effect v4",
   "priority": 90,
-  "description": "Directs agents working with Effect to use current Effect v4 APIs and conventions instead of carrying forward Effect v3 guidance",
+  "description": "Directs agents to use Effect v4 as the foundation for all TypeScript code and incrementally migrate relevant existing code with each change",
   "keywords": [
     "effect",
     "effect-v4",

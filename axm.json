@@ -1,7 +1,7 @@
 {
   "$schema": "https://axm.sh/schemas/settings.schema.json",
   "owner": "@agentxm",
-  "agents": ["claude-code"],
+  "agents": ["claude-code", "codex", "grok-cli", "opencode"],
   "minimumReleaseAgeExclude": ["@agentxm/*", "@craigsmitham/*"],
   "instructionFiles": {
     "fileName": "AGENTS.md",
@@ -27,9 +27,6 @@
     "work-management": "agentxm:@craigsmitham/packs/work-management"
   },
   "rules": {
-    "field-notes": {
-      "source": "@craigsmitham/rules/field-notes@^0.2.0",
-      "enabled": false
-    }
+    "field-notes": "agentxm:@craigsmitham/rules/field-notes@^0.2.0"
   }
 }

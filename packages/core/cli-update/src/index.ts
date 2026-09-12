@@ -13,18 +13,7 @@
 
 export { AssessUpgrade, previewOrApply, type UpgradeExecution } from "./upgrade/use-case.js";
 
-export {
-  HOMEBREW_FORMULA,
-  HOMEBREW_TAP,
-  UpgradeAssessmentResultSchema,
-  methodLabel,
-  parseChecksum,
-  resultMessage,
-  upgradePlanSteps,
-  type ResultStatus,
-  type UpgradeAssessmentResult,
-  type UpgradeCoreResult,
-} from "./upgrade/mechanism.js";
+export { HOMEBREW_FORMULA, HOMEBREW_TAP, parseChecksum } from "./upgrade/mechanism.js";
 
 export {
   InstallMethod,

@@ -1,3 +1,4 @@
+import { methodLabel } from "@agentxm/cli-maintenance/self-update/adapters/cli";
 import * as Effect from "effect/Effect";
 import {
   UpgradeWorkingDirectory,
@@ -10,11 +11,7 @@ import {
 import { observeUnit } from "@agentxm/workspace-operations";
 import type { InstallMethodService } from "../../install-method/install-method.js";
 import { Subprocess, type SubprocessService } from "../../subprocess/subprocess.js";
-import {
-  methodLabel,
-  methodName,
-  resolveAmbiguousPackageManager,
-} from "../../upgrade/mechanism.js";
+import { methodName, resolveAmbiguousPackageManager } from "../../upgrade/mechanism.js";
 
 /** Adapt host probes to immutable installation facts and the CLI operation stream. */
 export const makeInstallationInspection = (

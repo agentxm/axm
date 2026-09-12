@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/cli-maintenance",
   "version": "0.30.0",
-  "description": "CLI maintenance policies and application contracts for self-update and compatibility between the running AXM CLI and its official skill. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "CLI maintenance policies and application contracts for self-update and compatibility between the running AXM CLI and its official skill. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -60,6 +60,11 @@
       "types": "./dist/src/self-update/testing.d.ts",
       "axm-source": "./src/self-update/testing.ts",
       "default": "./dist/src/self-update/testing.js"
+    },
+    "./self-update/adapters/cli": {
+      "types": "./dist/src/self-update/adapters/cli/index.d.ts",
+      "axm-source": "./src/self-update/adapters/cli/index.ts",
+      "default": "./dist/src/self-update/adapters/cli/index.js"
     }
   },
   "files": [

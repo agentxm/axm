@@ -13,13 +13,12 @@ import {
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
+import { AssessUpgrade, HOMEBREW_FORMULA, previewOrApply } from "@agentxm/cli-update";
 import {
-  AssessUpgrade,
-  HOMEBREW_FORMULA,
-  previewOrApply,
+  toUpgradeAssessment,
   UpgradeAssessmentResultSchema,
   type UpgradeAssessmentResult,
-} from "@agentxm/cli-update";
+} from "@agentxm/cli-maintenance/self-update/adapters/cli";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
@@ -151,6 +150,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
         )
     ).pipe(
       Effect.provideService(UpgradeWorkingDirectory, { path: executionDirectory.path }),
+      Effect.map(toUpgradeAssessment),
       Effect.mapError(upgradeFailedToAppError),
     ),
   );

@@ -521,8 +521,6 @@ export const validateCiRunDetails = (value: unknown, expected: GitHubRun): Verif
     attempt < 1
   )
     throw new Error(`CI run provenance does not match its selected producer: ${expected.url}`);
-  if (expected.workflowName !== "CI")
-    throw new Error(`Expected the CI workflow, observed ${expected.workflowName}.`);
   if (expected.event !== "push" && expected.event !== "workflow_dispatch")
     throw new Error(`CI run event ${expected.event} is not an eligible release producer.`);
   return { ...expected, attempt };

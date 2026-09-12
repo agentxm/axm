@@ -2242,8 +2242,8 @@ export type TokensList400 = DecodeErrorResponseEncoded;
 export const TokensList400 = DecodeErrorResponseEncoded;
 export type TokensList401 = ProblemDetails;
 export const TokensList401 = ProblemDetails;
-export type TokensList403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const TokensList403 = Schema.Union([ForbiddenErrorEncoded, ForbiddenErrorEncoded]);
+export type TokensList403 = ForbiddenErrorEncoded;
+export const TokensList403 = ForbiddenErrorEncoded;
 export type TokensList500 = ProblemDetails;
 export const TokensList500 = ProblemDetails;
 export type TokensCreateParams = { readonly "x-axm-step-up-request"?: StepUpRequestId | null };
@@ -2258,8 +2258,8 @@ export type TokensCreate400 = DecodeErrorResponseEncoded;
 export const TokensCreate400 = DecodeErrorResponseEncoded;
 export type TokensCreate401 = StepUpRequiredErrorEncoded | ProblemDetails;
 export const TokensCreate401 = Schema.Union([StepUpRequiredErrorEncoded, ProblemDetails]);
-export type TokensCreate403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const TokensCreate403 = Schema.Union([ForbiddenErrorEncoded, ForbiddenErrorEncoded]);
+export type TokensCreate403 = ForbiddenErrorEncoded;
+export const TokensCreate403 = ForbiddenErrorEncoded;
 export type TokensCreate404 = ProblemDetails;
 export const TokensCreate404 = ProblemDetails;
 export type TokensCreate409 = ProblemDetails;
@@ -2482,11 +2482,8 @@ export const ExtensionsDeleteExtension401 = Schema.Union([
   StepUpRequiredErrorEncoded,
   ProblemDetails,
 ]);
-export type ExtensionsDeleteExtension403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsDeleteExtension403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsDeleteExtension403 = ForbiddenErrorEncoded;
+export const ExtensionsDeleteExtension403 = ForbiddenErrorEncoded;
 export type ExtensionsDeleteExtension404 = ProblemDetails;
 export const ExtensionsDeleteExtension404 = ProblemDetails;
 export type ExtensionsDeleteExtension409 = ProblemDetails;
@@ -2517,11 +2514,8 @@ export const ExtensionsUpdateVisibility401 = Schema.Union([
   StepUpRequiredErrorEncoded,
   ProblemDetails,
 ]);
-export type ExtensionsUpdateVisibility403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsUpdateVisibility403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsUpdateVisibility403 = ForbiddenErrorEncoded;
+export const ExtensionsUpdateVisibility403 = ForbiddenErrorEncoded;
 export type ExtensionsUpdateVisibility404 = ProblemDetails;
 export const ExtensionsUpdateVisibility404 = ProblemDetails;
 export type ExtensionsUpdateVisibility409 = ProblemDetails;
@@ -2591,8 +2585,8 @@ export type ExtensionsGetVersion404 = ProblemDetails;
 export const ExtensionsGetVersion404 = ProblemDetails;
 export type ExtensionsGetVersion410 = ProblemDetails;
 export const ExtensionsGetVersion410 = ProblemDetails;
-export type ExtensionsGetVersion500 = ProblemDetails | ProblemDetails;
-export const ExtensionsGetVersion500 = Schema.Union([ProblemDetails, ProblemDetails]);
+export type ExtensionsGetVersion500 = ProblemDetails;
+export const ExtensionsGetVersion500 = ProblemDetails;
 export type ExtensionsPublishVersionParams = {
   readonly "if-match": string;
   readonly "x-axm-publication-set-digest": Sha256Hex;
@@ -2666,11 +2660,8 @@ export const ExtensionsPublishVersion400 = Schema.Union([
 ]);
 export type ExtensionsPublishVersion401 = ProblemDetails;
 export const ExtensionsPublishVersion401 = ProblemDetails;
-export type ExtensionsPublishVersion403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsPublishVersion403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsPublishVersion403 = ForbiddenErrorEncoded;
+export const ExtensionsPublishVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsPublishVersion404 = ProblemDetails;
 export const ExtensionsPublishVersion404 = ProblemDetails;
 export type ExtensionsPublishVersion409 = ProblemDetails;
@@ -2688,8 +2679,8 @@ export const ExtensionsPublishVersion422 = Schema.Union([
   ExtensionLintFailedErrorEncoded,
   ExtensionIdentityMismatchErrorEncoded,
 ]);
-export type ExtensionsPublishVersion500 = ProblemDetails | ProblemDetails;
-export const ExtensionsPublishVersion500 = Schema.Union([ProblemDetails, ProblemDetails]);
+export type ExtensionsPublishVersion500 = ProblemDetails;
+export const ExtensionsPublishVersion500 = ProblemDetails;
 export type ExtensionsPublishVersion503 = ProblemDetails;
 export const ExtensionsPublishVersion503 = ProblemDetails;
 export type ExtensionsGetDeletionOperation200 = {
@@ -2720,11 +2711,8 @@ export type ExtensionsGetDeletionOperation400 = DecodeErrorResponseEncoded;
 export const ExtensionsGetDeletionOperation400 = DecodeErrorResponseEncoded;
 export type ExtensionsGetDeletionOperation401 = ProblemDetails;
 export const ExtensionsGetDeletionOperation401 = ProblemDetails;
-export type ExtensionsGetDeletionOperation403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsGetDeletionOperation403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsGetDeletionOperation403 = ForbiddenErrorEncoded;
+export const ExtensionsGetDeletionOperation403 = ForbiddenErrorEncoded;
 export type ExtensionsGetDeletionOperation404 = ProblemDetails;
 export const ExtensionsGetDeletionOperation404 = ProblemDetails;
 export type ExtensionsGetDeletionOperation500 = ProblemDetails;
@@ -2733,8 +2721,8 @@ export type ExtensionsDownloadArchive400 = DecodeErrorResponseEncoded;
 export const ExtensionsDownloadArchive400 = DecodeErrorResponseEncoded;
 export type ExtensionsDownloadArchive404 = ProblemDetails;
 export const ExtensionsDownloadArchive404 = ProblemDetails;
-export type ExtensionsDownloadArchive500 = ProblemDetails | ProblemDetails;
-export const ExtensionsDownloadArchive500 = Schema.Union([ProblemDetails, ProblemDetails]);
+export type ExtensionsDownloadArchive500 = ProblemDetails;
+export const ExtensionsDownloadArchive500 = ProblemDetails;
 export type ExtensionsGetVisibilityParams = {
   readonly intent_visibility?: Visibility | null;
   readonly intent_source?: "manifest" | "workspace" | null;
@@ -2756,11 +2744,8 @@ export const ExtensionsGetVisibility400 = Schema.Union([
 ]);
 export type ExtensionsGetVisibility401 = ProblemDetails;
 export const ExtensionsGetVisibility401 = ProblemDetails;
-export type ExtensionsGetVisibility403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsGetVisibility403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsGetVisibility403 = ForbiddenErrorEncoded;
+export const ExtensionsGetVisibility403 = ForbiddenErrorEncoded;
 export type ExtensionsGetVisibility404 = ProblemDetails;
 export const ExtensionsGetVisibility404 = ProblemDetails;
 export type ExtensionsGetVisibility500 = ProblemDetails;
@@ -2771,11 +2756,8 @@ export type ExtensionsGetDeprecation400 = DecodeErrorResponseEncoded;
 export const ExtensionsGetDeprecation400 = DecodeErrorResponseEncoded;
 export type ExtensionsGetDeprecation401 = ProblemDetails;
 export const ExtensionsGetDeprecation401 = ProblemDetails;
-export type ExtensionsGetDeprecation403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsGetDeprecation403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsGetDeprecation403 = ForbiddenErrorEncoded;
+export const ExtensionsGetDeprecation403 = ForbiddenErrorEncoded;
 export type ExtensionsGetDeprecation404 = ProblemDetails;
 export const ExtensionsGetDeprecation404 = ProblemDetails;
 export type ExtensionsGetDeprecation500 = ProblemDetails;
@@ -2793,11 +2775,8 @@ export const ExtensionsPutDeprecation400 = Schema.Union([
 ]);
 export type ExtensionsPutDeprecation401 = ProblemDetails;
 export const ExtensionsPutDeprecation401 = ProblemDetails;
-export type ExtensionsPutDeprecation403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsPutDeprecation403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsPutDeprecation403 = ForbiddenErrorEncoded;
+export const ExtensionsPutDeprecation403 = ForbiddenErrorEncoded;
 export type ExtensionsPutDeprecation404 = ProblemDetails;
 export const ExtensionsPutDeprecation404 = ProblemDetails;
 export type ExtensionsPutDeprecation409 = ProblemDetails;
@@ -2817,11 +2796,8 @@ export const ExtensionsDeleteDeprecation400 = Schema.Union([
 ]);
 export type ExtensionsDeleteDeprecation401 = ProblemDetails;
 export const ExtensionsDeleteDeprecation401 = ProblemDetails;
-export type ExtensionsDeleteDeprecation403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsDeleteDeprecation403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsDeleteDeprecation403 = ForbiddenErrorEncoded;
+export const ExtensionsDeleteDeprecation403 = ForbiddenErrorEncoded;
 export type ExtensionsDeleteDeprecation404 = ProblemDetails;
 export const ExtensionsDeleteDeprecation404 = ProblemDetails;
 export type ExtensionsDeleteDeprecation409 = ProblemDetails;
@@ -2870,11 +2846,8 @@ export type ExtensionsYankVersion400 = DecodeErrorResponseEncoded;
 export const ExtensionsYankVersion400 = DecodeErrorResponseEncoded;
 export type ExtensionsYankVersion401 = StepUpRequiredErrorEncoded | ProblemDetails;
 export const ExtensionsYankVersion401 = Schema.Union([StepUpRequiredErrorEncoded, ProblemDetails]);
-export type ExtensionsYankVersion403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsYankVersion403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsYankVersion403 = ForbiddenErrorEncoded;
+export const ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsYankVersion404 = ProblemDetails;
 export const ExtensionsYankVersion404 = ProblemDetails;
 export type ExtensionsYankVersion409 = ProblemDetails;
@@ -2916,11 +2889,8 @@ export const ExtensionsUnyankVersion401 = Schema.Union([
   StepUpRequiredErrorEncoded,
   ProblemDetails,
 ]);
-export type ExtensionsUnyankVersion403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsUnyankVersion403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
+export const ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsUnyankVersion404 = ProblemDetails;
 export const ExtensionsUnyankVersion404 = ProblemDetails;
 export type ExtensionsUnyankVersion409 = ProblemDetails;
@@ -2954,11 +2924,8 @@ export const ExtensionsYankAvailableVersions401 = Schema.Union([
   StepUpRequiredErrorEncoded,
   ProblemDetails,
 ]);
-export type ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsYankAvailableVersions403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
+export const ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export type ExtensionsYankAvailableVersions404 = ProblemDetails;
 export const ExtensionsYankAvailableVersions404 = ProblemDetails;
 export type ExtensionsYankAvailableVersions409 = ProblemDetails;
@@ -3001,11 +2968,8 @@ export type ExtensionsGetDeletionPreview400 = DecodeErrorResponseEncoded;
 export const ExtensionsGetDeletionPreview400 = DecodeErrorResponseEncoded;
 export type ExtensionsGetDeletionPreview401 = ProblemDetails;
 export const ExtensionsGetDeletionPreview401 = ProblemDetails;
-export type ExtensionsGetDeletionPreview403 = ForbiddenErrorEncoded | ForbiddenErrorEncoded;
-export const ExtensionsGetDeletionPreview403 = Schema.Union([
-  ForbiddenErrorEncoded,
-  ForbiddenErrorEncoded,
-]);
+export type ExtensionsGetDeletionPreview403 = ForbiddenErrorEncoded;
+export const ExtensionsGetDeletionPreview403 = ForbiddenErrorEncoded;
 export type ExtensionsGetDeletionPreview404 = ProblemDetails;
 export const ExtensionsGetDeletionPreview404 = ProblemDetails;
 export type ExtensionsGetDeletionPreview500 = ProblemDetails;
@@ -3028,11 +2992,8 @@ export type PublishPreviewsPreviewExtensionPublishes413 =
   PublishPreviewBatchTooLargeHttpErrorEncoded;
 export const PublishPreviewsPreviewExtensionPublishes413 =
   PublishPreviewBatchTooLargeHttpErrorEncoded;
-export type PublishPreviewsPreviewExtensionPublishes500 = ProblemDetails | ProblemDetails;
-export const PublishPreviewsPreviewExtensionPublishes500 = Schema.Union([
-  ProblemDetails,
-  ProblemDetails,
-]);
+export type PublishPreviewsPreviewExtensionPublishes500 = ProblemDetails;
+export const PublishPreviewsPreviewExtensionPublishes500 = ProblemDetails;
 export type PublishPreviewsPreviewExtensionPublishes503 = ProblemDetails;
 export const PublishPreviewsPreviewExtensionPublishes503 = ProblemDetails;
 export type LibrariesListLibrariesParams = {
@@ -3176,8 +3137,8 @@ export const DiscoveryPostDiscovery200 = Schema.Struct({
 });
 export type DiscoveryPostDiscovery400 = ProblemDetails | DecodeErrorResponseEncoded;
 export const DiscoveryPostDiscovery400 = Schema.Union([ProblemDetails, DecodeErrorResponseEncoded]);
-export type DiscoveryPostDiscovery500 = ProblemDetails | ProblemDetails;
-export const DiscoveryPostDiscovery500 = Schema.Union([ProblemDetails, ProblemDetails]);
+export type DiscoveryPostDiscovery500 = ProblemDetails;
+export const DiscoveryPostDiscovery500 = ProblemDetails;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
